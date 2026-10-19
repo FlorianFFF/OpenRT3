@@ -1,0 +1,22 @@
+# Build output
+out/
+*.pdb
+*.ilk
+*.obj
+*.exe
+*.dll
+*.lib
+*.exp
+
+# Ghidra decompile of RT3_mp.exe (regenerable, see README)
+decomp/
+
+# Extracted from the original game; regenerate with tools/gen_builtin_strings.py
+src/game/builtin_strings.inc
+
+# Python
+__pycache__/
+*.pyc
+
+# Local config
+rt3re.ini
