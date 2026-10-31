@@ -20,7 +20,7 @@ template <typename Fn> static inline Fn Import(uint32_t iat) { return (Fn)hook::
 uint32_t __fastcall Table_AddNamedRecord(Collection* t, int, const char* name, uint32_t key) {
     uint8_t* tmp = (uint8_t*)((void*(__cdecl*)(size_t))0x53b070)(0x88f);
     if (tmp) tmp = (uint8_t*)Record42d5a0_Init(tmp);
-    uint32_t id = Collection_Allocate(t, 0, tmp, 0x88f, key, 0);
+    uint32_t id = hook::CallTarget<uint32_t(__fastcall*)(Collection*, int, const void*, uint32_t, uint32_t, uint32_t)>(0x432ed2)(t, 0, tmp, 0x88f, key, 0);
     Record42d5a0_SetName((uint8_t*)Collection_Get(t, 0, id), 0, (int32_t)id, name);
     if (tmp) {
         Obj_FreeAllLists2(tmp);
@@ -44,7 +44,7 @@ void PopOptionHistory() {
 RT3_REPLACE(0x442330, PopOptionHistory);
 
 // 0x4553d0. Record with the lowest serial +4 (skipping flagged +0xc ones unless `all`); 0 if none.
-void* __fastcall Table_Oldest(Collection* t, int, uint8_t all) {
+RT3_NOINLINE void* __fastcall Table_Oldest(Collection* t, int, uint8_t all) {
     uint32_t sel = 0;
     int32_t best = 0x7fffffff;
     for (int32_t i = 0; i < Collection_Count(t); ++i) {

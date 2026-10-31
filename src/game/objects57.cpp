@@ -74,7 +74,7 @@ void __fastcall Buildings_RefreshHighlight(Collection* t, int, int32_t key) {
 }
 RT3_REPLACE(0x413750, Buildings_RefreshHighlight);
 
-int32_t Global6d07b4Set2() { return Global6d07b4Set() ? 1 : 0; }
+RT3_NOINLINE int32_t Global6d07b4Set2() { return Global6d07b4Set() ? 1 : 0; }
 RT3_REPLACE(0x4338c0, Global6d07b4Set2);
 
 // 0x44a830. Value +0x23a of the untyped region nearest to cell (x, y) (u16, AX only).

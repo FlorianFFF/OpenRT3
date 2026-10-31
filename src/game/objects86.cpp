@@ -100,7 +100,7 @@ void __fastcall Camera_KeepAboveGround(uint8_t* c) {
 RT3_REPLACE(0x52d640, Camera_KeepAboveGround);
 
 // 0x535f20. Frees the +0x167d block lists (items, lists and the grid).
-void __fastcall Terrain_DestroyCell167d(uint8_t* r) {
+RT3_NOINLINE void __fastcall Terrain_DestroyCell167d(uint8_t* r) {
     if (!F<void*>(r, 0x167d)) return;
     if ((F<int32_t>(r, 0x15d9) & ~0xf) > 0) {
         for (int32_t i = 0; i < (F<int32_t>(r, 0x15d9) >> 4); ++i) {
@@ -131,7 +131,7 @@ RT3_REPLACE(0x535f20, Terrain_DestroyCell167d);
 
 // 0x537170. Detail factor for the tile (x, z) from its distance to the camera
 // (engine +0x28; distance at least 0x5c85b4): (c / d + sqrt(c / d)) * 0x5dd2f0.
-void __stdcall Camera_DetailFactor(int32_t x, int32_t z, float* out) {
+RT3_NOINLINE void __stdcall Camera_DetailFactor(int32_t x, int32_t z, float* out) {
     float cx, cy, cz;
     Obj_GetXYZ1c(F<uint8_t*>(hook::Global<uint8_t*>(0x6d4024), 0x28), 0, (uint32_t*)&cx, (uint32_t*)&cy,
                  (uint32_t*)&cz);
@@ -179,7 +179,7 @@ void __fastcall HandleTable_ReleaseId(uint8_t* t, int, int32_t id) {
 RT3_REPLACE(0x538840, HandleTable_ReleaseId);
 void __fastcall HandleTable_Release(uint8_t* t, int, int32_t h) { t[h - 0xea40] = 0; }
 RT3_REPLACE(0x538880, HandleTable_Release);
-int32_t __fastcall HandleTable_Acquire(uint8_t* t, int, uint16_t id) {
+RT3_NOINLINE int32_t __fastcall HandleTable_Acquire(uint8_t* t, int, uint16_t id) {
     for (int32_t i = 0; i < 1000; ++i)
         if (!t[0x20 + i]) {
             t[0x20 + i] = 1;

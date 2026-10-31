@@ -48,7 +48,7 @@ uint32_t __fastcall Stations_Add(Collection* t, int, const char* name) {
     static uint8_t local[0xdd4];  // original: stack (initialised by 0x487620)
     for (auto& b : local) b = 0;
     Station_Construct(local);
-    uint32_t id = Collection_Allocate(t, 0, local, 0xdd1, 0, 0);
+    uint32_t id = hook::CallTarget<uint32_t(__fastcall*)(Collection*, int, const void*, uint32_t, uint32_t, uint32_t)>(0x487d63)(t, 0, local, 0xdd1, 0, 0);
     uint8_t* r = (uint8_t*)Collection_Get(t, 0, id);
     Station_InitWithId(r, 0, (int32_t)id);
     if (name) StrCopyN((char*)r + 4, name, 0x28);

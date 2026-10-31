@@ -114,7 +114,7 @@ RT3_REPLACE(0x407780, Obj_AllocEntries);
 void* __fastcall Table_At(Collection* t, int, int32_t i) { return Collection_Get(t, 0, Collection_IdAt(t, 0, i, 0)); }
 RT3_REPLACE(0x409e60, Table_At);
 
-double __fastcall Obj_Float338(void* o, int, int32_t i) { return F<float>(o, 0x338 + i * 4); }
+RT3_NOINLINE double __fastcall Obj_Float338(void* o, int, int32_t i) { return F<float>(o, 0x338 + i * 4); }
 RT3_REPLACE(0x40caa0, Obj_Float338);
 
 void __fastcall Obj_Set2a2(void* o, int, uint16_t v) { F<uint16_t>(o, 0x2a2) = v; }

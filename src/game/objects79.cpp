@@ -131,4 +131,13 @@ int32_t __fastcall Render_GridCell(uint8_t* r, int, int32_t x, int32_t y) {
 }
 RT3_REPLACE(0x5329e0, Render_GridCell);
 
+void __fastcall SceneObj_Destructor(uint8_t* o);
+
+// 0x455650. Named scene object destructor.
+RT3_NOINLINE void __fastcall NamedObj_Destructor(uint8_t* o) {
+    F<uint32_t>(o, 0) = 0x5cb1c0;
+    SceneObj_Destructor(o);
+}
+RT3_REPLACE(0x455650, NamedObj_Destructor);
+
 } // namespace rt3

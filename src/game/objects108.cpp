@@ -72,7 +72,7 @@ RT3_REPLACE(0x532260, Sound_StartFadeTimer);
 
 // 0x53f9c0. Adds a child widget: ordered by layer (+8), or right after the child
 // with id `afterId`; doubly linked through +0x8a / +0x8e (head +0x70, tail +0x74).
-void __fastcall Window_AddChild(uint8_t* win, int, uint8_t* w, int32_t afterId) {
+RT3_NOINLINE void __fastcall Window_AddChild(uint8_t* win, int, uint8_t* w, int32_t afterId) {
     Widget_Attach(w, 0, win);
     F<uint8_t*>(w, 0x8a) = nullptr;
     uint8_t* c = F<uint8_t*>(win, 0x70);
@@ -128,7 +128,7 @@ int32_t __fastcall Music_Play(uint8_t* m, int, const char* file, void* digital, 
 RT3_REPLACE(0x557e50, Music_Play);
 
 // 0x558530. Sends a 48-byte message {a, b, c, d, e, 0...} to the widget (vtbl +4).
-int32_t __fastcall Widget_Send(uint8_t* w, int, uint32_t a, uint32_t b, uint32_t c, uint32_t d, uint32_t e) {
+RT3_NOINLINE int32_t __fastcall Widget_Send(uint8_t* w, int, uint32_t a, uint32_t b, uint32_t c, uint32_t d, uint32_t e) {
     uint32_t msg[12] = { a, b, c, d, e };
     return ((int32_t(__thiscall*)(void*, void*))(*(void***)w)[1])(w, msg);
 }

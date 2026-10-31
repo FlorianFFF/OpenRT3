@@ -132,13 +132,13 @@ static int32_t CameraFlag(uint8_t* o, uint32_t active, uint32_t flag) {
     if (!(Obj_Float18(hook::Global<void*>(0x62be68)) == F<float>(o, 0xb8))) Camera_UpdateZoomFlags(o);
     return F<int32_t>(o, flag);
 }
-int32_t __fastcall Camera_FlagA0(uint8_t* o, int, int32_t) { return CameraFlag(o, 0xa0, 0xb0); }
+RT3_NOINLINE int32_t __fastcall Camera_FlagA0(uint8_t* o, int, int32_t) { return CameraFlag(o, 0xa0, 0xb0); }
 RT3_REPLACE(0x4934a0, Camera_FlagA0);
-int32_t __fastcall Camera_FlagA4(uint8_t* o, int, int32_t) { return CameraFlag(o, 0xa4, 0xb0); }
+RT3_NOINLINE int32_t __fastcall Camera_FlagA4(uint8_t* o, int, int32_t) { return CameraFlag(o, 0xa4, 0xb0); }
 RT3_REPLACE(0x4934e0, Camera_FlagA4);
-int32_t __fastcall Camera_FlagA8(uint8_t* o, int, int32_t) { return CameraFlag(o, 0xa8, 0xb4); }
+RT3_NOINLINE int32_t __fastcall Camera_FlagA8(uint8_t* o, int, int32_t) { return CameraFlag(o, 0xa8, 0xb4); }
 RT3_REPLACE(0x493520, Camera_FlagA8);
-int32_t __fastcall Camera_FlagAc(uint8_t* o, int, int32_t) { return CameraFlag(o, 0xac, 0xb4); }
+RT3_NOINLINE int32_t __fastcall Camera_FlagAc(uint8_t* o, int, int32_t) { return CameraFlag(o, 0xac, 0xb4); }
 RT3_REPLACE(0x493560, Camera_FlagAc);
 
 // 0x495020. Upgrades a route record from older save versions (world
@@ -194,7 +194,7 @@ int32_t __fastcall Obj_NameTableIndex(uint8_t* o) {
 }
 RT3_REPLACE(0x4b34e0, Obj_NameTableIndex);
 
-double __fastcall Building_Total2c0(uint8_t* b) { return Obj_Float2c0(b, 0, 0) + F<float>(b, 0x2ac); }
+RT3_NOINLINE double __fastcall Building_Total2c0(uint8_t* b) { return Obj_Float2c0(b, 0, 0) + F<float>(b, 0x2ac); }
 RT3_REPLACE(0x4b35b0, Building_Total2c0);
 
 } // namespace rt3

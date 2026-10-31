@@ -10,7 +10,7 @@ template <typename T> static inline T& F(void* o, uint32_t off) { return *(T*)((
 void __fastcall SceneObj_SetUvTransform(uint8_t* o, int, float u, float v, float su, float sv);
 void __fastcall Car_RearPoint(uint8_t* c, int, float* x, float* y);
 void* __fastcall Engine_Renderer(void* e);
-void __fastcall Scene_SetWaterLevel(uint8_t* s, int, float v);
+void __fastcall Scene_SetBrushRadius(uint8_t* s, int, float v);
 uint16_t __stdcall Regions_NearestValue(int32_t x, int32_t y);
 int32_t __fastcall Rand(int32_t lo, int32_t hi);
 const char* __fastcall GetString(int32_t id);
@@ -77,7 +77,7 @@ RT3_REPLACE(0x4a77d0, Train_RearPoint);
 void __fastcall Obj_SetWaterPreset(uint8_t* o, int, int32_t idx) {
     F<int32_t>(o, 0x78) = idx;
     float v = (float)((double)((const int32_t*)0x621e24)[idx] + *(const double*)0x5c8628);
-    Scene_SetWaterLevel((uint8_t*)Engine_Renderer(hook::Global<void*>(0x6d4024)), 0, v);
+    Scene_SetBrushRadius((uint8_t*)Engine_Renderer(hook::Global<void*>(0x6d4024)), 0, v);
 }
 RT3_REPLACE(0x4bc210, Obj_SetWaterPreset);
 

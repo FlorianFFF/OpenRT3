@@ -80,8 +80,9 @@ const char* Net_SocketErrorText() {
 RT3_REPLACE(0x521990, Net_SocketErrorText);
 
 // 0x521aa0. Copies the session GUID 0x6257e8.
-void __stdcall Net_GetGuid(uint32_t* out) {
+uint32_t* __stdcall Net_GetGuid(uint32_t* out) {
     for (int k = 0; k < 4; ++k) out[k] = ((const uint32_t*)0x6257e8)[k];
+    return out;
 }
 RT3_REPLACE(0x521aa0, Net_GetGuid);
 

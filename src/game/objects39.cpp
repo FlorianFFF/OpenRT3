@@ -72,7 +72,7 @@ void __stdcall Table9_Prune(uint8_t* o, uint32_t limit) {
 RT3_REPLACE(0x468b70, Table9_Prune);
 
 // 0x473f80. Adds a news entry, first dropping the oldest while more than 25.
-uint32_t __fastcall News_Add(Collection* t, int, const char* title, const char* text, int32_t a, int32_t b) {
+RT3_NOINLINE uint32_t __fastcall News_Add(Collection* t, int, const char* title, const char* text, int32_t a, int32_t b) {
     while (Collection_Count(t) > 0x19) {
         uint32_t id = F<uint32_t>(Table_Oldest14(t, 0, 1), 0);
         void** vt = *(void***)t;
@@ -80,7 +80,7 @@ uint32_t __fastcall News_Add(Collection* t, int, const char* title, const char* 
     }
     uint8_t local[0x188] = {};  // original: uninitialised stack (overwritten by News_Init)
     ReturnThis473cc0(local);
-    uint32_t id = Collection_Allocate(t, 0, local, 0, 0, 0);
+    uint32_t id = hook::CallTarget<uint32_t(__fastcall*)(Collection*, int, const void*, uint32_t, uint32_t, uint32_t)>(0x473fd5)(t, 0, local, 0, 0, 0);
     News_Init((uint8_t*)Collection_Get(t, 0, id), 0, (int32_t)id, title, text, a, b);
     Nop473cd0(local);
     return id;

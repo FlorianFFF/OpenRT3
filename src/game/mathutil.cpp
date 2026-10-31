@@ -17,7 +17,7 @@ void StartClock() {
 RT3_REPLACE(0x51d870, StartClock);
 
 // 0x51d890. Milliseconds since StartClock.
-int32_t ClockMs() { return (int32_t)(Ticks() - g_clockStart); }
+RT3_NOINLINE int32_t ClockMs() { return (int32_t)(Ticks() - g_clockStart); }
 RT3_REPLACE(0x51d890, ClockMs);
 
 // 0x51db40

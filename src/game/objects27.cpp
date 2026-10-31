@@ -94,7 +94,7 @@ RT3_REPLACE(0x455370, Table_Newest);
 
 // 0x4555b0. Stamps unstamped entries (+8) with the clock; flags (+0xc)
 // those stamped more than 10 s ago.
-void __fastcall Table_MarkStale(Collection* t) {
+RT3_NOINLINE void __fastcall Table_MarkStale(Collection* t) {
     for (int32_t i = 0; i < Collection_Count(t); ++i) {
         uint8_t* r = (uint8_t*)Collection_Get(t, 0, Collection_IdAt(t, 0, i, 0));
         int32_t stamp = F<int32_t>(r, 8);

@@ -40,7 +40,7 @@ static inline int32_t VersionInt(float v) {
 }
 
 // 0x46d2b0. Whether every session player (0x6cd8d8) has at least version v.
-int32_t __stdcall Net_AllHaveVersion(float v) {
+RT3_NOINLINE int32_t __stdcall Net_AllHaveVersion(float v) {
     if (!hook::Global<void*>(0x6cd8d8)) return 1;
     float cv = Net_CommonVersion();
     float need = (float)VersionInt(v);
@@ -68,7 +68,7 @@ RT3_REPLACE(0x46eec0, Trains_AnyActive);
 
 // 0x482e00. The effective game version integer: the session's common version
 // online or with several human players, else our own.
-int32_t __fastcall Game_EffectiveVersion() {
+RT3_NOINLINE int32_t __fastcall Game_EffectiveVersion() {
     if (!hook::Global<void*>(0x6cd8d8) && !(hook::Global<void*>(0x6cec78) && CountHumanPlayers() > 1))
         return VersionInt(Game_VersionNumber());
     float v = Net_CommonVersion();
@@ -181,12 +181,14 @@ void __fastcall Emitter_Start(uint8_t* e, int, int32_t count, const uint32_t* fr
 RT3_REPLACE(0x565e80, Emitter_Start);
 
 // 0x5661b0. Rotates four points by `angle` about the axis 0xd97b98 (D3DX).
+// D3DXVec3TransformCoord (0x56cd3c) stores a fourth float past its output, so the
+// output buffer has a spare slot (as on the original's stack).
 void __stdcall Points_RotateAxis(float angle, float* pts) {
     float m[16] = {};
     m[0] = m[5] = m[10] = m[15] = 1.0f;
     ((void*(__stdcall*)(float*, const void*, float))0x56df7d)(m, (const void*)0xd97b98, angle);
     for (int k = 0; k < 4; ++k) {
-        float in[3] = { pts[k * 3], pts[k * 3 + 1], pts[k * 3 + 2] }, out[3];
+        float in[3] = { pts[k * 3], pts[k * 3 + 1], pts[k * 3 + 2] }, out[4];
         ((void*(__stdcall*)(float*, const float*, const float*))0x56cd3c)(out, in, m);
         pts[k * 3] = out[0];
         pts[k * 3 + 1] = out[1];

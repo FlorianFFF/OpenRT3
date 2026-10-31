@@ -169,7 +169,7 @@ void __fastcall PtrList_Prepend(PtrList* l, int, void* value) {
 }
 RT3_REPLACE(0x557150, PtrList_Prepend);
 
-void __fastcall PtrList_Destroy(PtrList* l) {
+RT3_NOINLINE void __fastcall PtrList_Destroy(PtrList* l) {
     PtrList_Clear(l);
     if (PtrList* p = l->pool) {
         PtrList_Destroy(p);

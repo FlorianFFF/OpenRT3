@@ -129,13 +129,14 @@ uint32_t __fastcall Get_d9399c() { return hook::Global<uint32_t>(0xd9399c); }
 RT3_REPLACE(0x5549a0, Get_d9399c);
 
 // 0x5549d0. out = v rotated by the 3x3 part of m (row vector).
-void __fastcall Vec3_Rotate(const float* v, int, float* out, const float* m) {
+float* __fastcall Vec3_Rotate(const float* v, int, float* out, const float* m) {
     double z = ((double)m[10] * v[2] + (double)m[2] * v[0]) + (double)m[6] * v[1];
     double y = ((double)m[9] * v[2] + (double)m[1] * v[0]) + (double)m[5] * v[1];
     double x = ((double)m[8] * v[2] + (double)m[4] * v[1]) + (double)m[0] * v[0];
     out[0] = (float)x;
     out[1] = (float)y;
     out[2] = (float)z;
+    return out;
 }
 RT3_REPLACE(0x5549d0, Vec3_Rotate);
 

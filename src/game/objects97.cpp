@@ -33,15 +33,15 @@ int32_t __stdcall Map_TileToScreen(float tx, float ty, float h, float* ox, float
 RT3_REPLACE(0x439b20, Map_TileToScreen);
 
 static inline int32_t ClampLight(int32_t i) { return i >= 0x90 ? 0x8f : i < 0 ? 0 : i; }
-void __fastcall Scene_SetLightPair0(uint8_t* s, int, int32_t i, float a, float b) {
+RT3_NOINLINE void __fastcall Scene_SetLightPair0(uint8_t* s, int, int32_t i, float a, float b) {
     Render_SetLightPair(F<uint8_t*>(s, 0x2d), 0, ClampLight(i), 0, a, b);
 }
 RT3_REPLACE(0x5274e0, Scene_SetLightPair0);
-void __fastcall Scene_SetLightPair1(uint8_t* s, int, int32_t i, float a, float b) {
+RT3_NOINLINE void __fastcall Scene_SetLightPair1(uint8_t* s, int, int32_t i, float a, float b) {
     Render_SetLightPair(F<uint8_t*>(s, 0x2d), 0, ClampLight(i), 1, a, b);
 }
 RT3_REPLACE(0x527510, Scene_SetLightPair1);
-void __fastcall Scene_SetLightRange(uint8_t* s, int, int32_t i, float v) { Render_SetLightRange(F<uint8_t*>(s, 0x2d), 0, i, v); }
+RT3_NOINLINE void __fastcall Scene_SetLightRange(uint8_t* s, int, int32_t i, float v) { Render_SetLightRange(F<uint8_t*>(s, 0x2d), 0, i, v); }
 RT3_REPLACE(0x527560, Scene_SetLightRange);
 void __fastcall Scene_SetPair0(uint8_t* s, int, float a, float b) { Render_SetPair25f7(F<uint8_t*>(s, 0x2d), 0, 0, a, b); }
 RT3_REPLACE(0x527570, Scene_SetPair0);

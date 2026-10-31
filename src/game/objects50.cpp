@@ -40,7 +40,7 @@ RT3_REPLACE(0x40fbe0, Obj_SharesRegionKey);
 
 // 0x457fb0. Bending offset: (+0x2ad, +0x2b1, +0x2b5) scaled by -(+0x27d)
 // and by (2 cos((a.b) pi/2))^2 + (+0x289) for unit a, b.
-void __fastcall Obj_BendOffset(uint8_t* o, int, float* out, float ax, float ay, float az, float bx, float by, float bz) {
+float* __fastcall Obj_BendOffset(uint8_t* o, int, float* out, float ax, float ay, float az, float bx, float by, float bz) {
     float a[3] = { ax, ay, az }, b[3] = { bx, by, bz };
     Vec3_Normalize(a);
     Vec3_Normalize(b);
@@ -57,6 +57,7 @@ void __fastcall Obj_BendOffset(uint8_t* o, int, float* out, float ax, float ay, 
     out[2] = (float)((double)l0 * m);
     out[1] = (float)((double)l1 * m);
     out[0] = (float)((double)l2 * m);
+    return out;
 }
 RT3_REPLACE(0x457fb0, Obj_BendOffset);
 

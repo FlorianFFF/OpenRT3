@@ -51,7 +51,7 @@ void __fastcall Vehicles_PushState(Collection* c, int, uint32_t id, uint8_t mode
 RT3_REPLACE(0x491cf0, Vehicles_PushState);
 
 // 0x535a10. Releases every effect in the +0x1675 block lists, then the lists and the grid.
-void __fastcall Terrain_DestroyCell1675(uint8_t* r) {
+RT3_NOINLINE void __fastcall Terrain_DestroyCell1675(uint8_t* r) {
     if (!F<void*>(r, 0x1675)) return;
     if ((F<int32_t>(r, 0x15d9) & ~0xf) > 0) {
         for (int32_t i = 0; i < (F<int32_t>(r, 0x15d9) >> 4); ++i) {
@@ -143,7 +143,7 @@ RT3_REPLACE(0x53ddf0, Font_ScaleY);
 
 // 0x53de00. Entry idx of the table +0x24 (count +0x28); out of range formats a
 // (discarded) diagnostic with the table name (+0x20) and returns entry 0.
-uint32_t __fastcall Table_Entry(uint8_t* t, int, int32_t idx) {
+RT3_NOINLINE uint32_t __fastcall Table_Entry(uint8_t* t, int, int32_t idx) {
     int32_t n = F<uint16_t>(t, 0x28);
     if (idx < n) return F<uint32_t*>(t, 0x24)[idx];
     char buf[0x190];

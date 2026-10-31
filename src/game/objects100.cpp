@@ -133,7 +133,7 @@ void __fastcall Render_ScreenSpaceWorld(uint8_t* r) {
 RT3_REPLACE(0x5473c0, Render_ScreenSpaceWorld);
 
 // 0x547610 / 0x547640. Restores the back buffer render target once (+0x254c).
-void __fastcall Render_RestoreTarget(uint8_t* r) {
+RT3_NOINLINE void __fastcall Render_RestoreTarget(uint8_t* r) {
     if (!r[0x254c]) {
         void* d = Dev(r);
         ((int32_t(__stdcall*)(void*, void*, void*))Vt(d)[0x7c / 4])(d, F<void*>(r, 0x2607), F<void*>(r, 0x260b));

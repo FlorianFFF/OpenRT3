@@ -15,30 +15,30 @@ static const float kCellUnits = 92.0f;   // 0x5c8700
 static const float kTwoCells = 184.0f;   // 0x5cfcfc
 
 // 0x434050. True in a multiplayer game (the lobby object exists).
-int32_t IsMultiplayer() { return hook::Global<void*>(0x6cd8d8) != nullptr ? 1 : 0; }
+RT3_NOINLINE int32_t IsMultiplayer() { return hook::Global<void*>(0x6cd8d8) != nullptr ? 1 : 0; }
 RT3_REPLACE(0x434050, IsMultiplayer);
 
 // 0x455800 / 0x455810. Object position in cells.
 // x87: FLD float / FDIV float, kept in the FPU, so computed in double here.
-double __fastcall Obj_CellX(void* o) { return (double)F<float>(o, 0x1e2) / kCellUnits; }
+RT3_NOINLINE double __fastcall Obj_CellX(void* o) { return (double)F<float>(o, 0x1e2) / kCellUnits; }
 RT3_REPLACE(0x455800, Obj_CellX);
-double __fastcall Obj_CellY(void* o) { return (double)F<float>(o, 0x1ea) / kCellUnits; }
+RT3_NOINLINE double __fastcall Obj_CellY(void* o) { return (double)F<float>(o, 0x1ea) / kCellUnits; }
 RT3_REPLACE(0x455810, Obj_CellY);
 
-int32_t __fastcall Obj_Get21(void* o) { return F<int32_t>(o, 0x21); }
+RT3_NOINLINE int32_t __fastcall Obj_Get21(void* o) { return F<int32_t>(o, 0x21); }
 RT3_REPLACE(0x4337a0, Obj_Get21);
-int32_t __fastcall Obj_Get25(void* o) { return F<int32_t>(o, 0x25); }
+RT3_NOINLINE int32_t __fastcall Obj_Get25(void* o) { return F<int32_t>(o, 0x25); }
 RT3_REPLACE(0x4337b0, Obj_Get25);
 
 uint8_t __fastcall Obj_Flag3d4(void* o) { return F<uint8_t>(o, 0x3d4); }
 RT3_REPLACE(0x40c990, Obj_Flag3d4);
 
 // 0x41adb0. The table-0x62ba88 record referenced at +0x388.
-void* __fastcall Obj_Ref388(void* o) { return Collection_Get(g_table62ba88, 0, F<uint32_t>(o, 0x388)); }
+RT3_NOINLINE void* __fastcall Obj_Ref388(void* o) { return Collection_Get(g_table62ba88, 0, F<uint32_t>(o, 0x388)); }
 RT3_REPLACE(0x41adb0, Obj_Ref388);
 
 // 0x47de00. The building referenced at +4 (NULL if none).
-void* __fastcall Obj_Building(void* o) {
+RT3_NOINLINE void* __fastcall Obj_Building(void* o) {
     uint32_t id = F<uint32_t>(o, 4);
     return id ? Collection_Get(g_buildings, 0, id) : nullptr;
 }
@@ -55,7 +55,7 @@ RT3_REPLACE(0x47efe0, Obj_BuildingValue);
 
 // 0x47fd50. True if the referenced building's state object (vtable slot 32)
 // has state byte +0x8c in 0..2.
-int32_t __fastcall Obj_BuildingStateActive(void* o) {
+RT3_NOINLINE int32_t __fastcall Obj_BuildingStateActive(void* o) {
     uint32_t id = F<uint32_t>(o, 4);
     void* b = id ? Collection_Get(g_buildings, 0, id) : nullptr;
     void* st = ((void*(__thiscall*)(void*))(*(void***)b)[0x80 / 4])(b);
@@ -65,7 +65,7 @@ int32_t __fastcall Obj_BuildingStateActive(void* o) {
 RT3_REPLACE(0x47fd50, Obj_BuildingStateActive);
 
 // 0x429a50. Count of records with a nonzero dword at +0x3f (e.g. live companies).
-int32_t __fastcall Table_CountField3f(Collection* t) {
+RT3_NOINLINE int32_t __fastcall Table_CountField3f(Collection* t) {
     int32_t n = 0;
     for (int32_t i = 0; i < Collection_Count(t); ++i)
         if (F<int32_t>(Collection_Get(t, 0, Collection_IdAt(t, 0, i, 0)), 0x3f) != 0) ++n;
@@ -74,7 +74,7 @@ int32_t __fastcall Table_CountField3f(Collection* t) {
 RT3_REPLACE(0x429a50, Table_CountField3f);
 
 // 0x477820. Count of records with a nonzero dword at +4.
-int32_t __fastcall Table_CountField4(Collection* t) {
+RT3_NOINLINE int32_t __fastcall Table_CountField4(Collection* t) {
     int32_t total = Collection_Count(t), n = 0;
     for (int32_t i = 0; i < total; ++i)
         if (F<int32_t>(Collection_Get(t, 0, Collection_IdAt(t, 0, i, 0)), 4) != 0) ++n;
@@ -83,7 +83,7 @@ int32_t __fastcall Table_CountField4(Collection* t) {
 RT3_REPLACE(0x477820, Table_CountField4);
 
 // 0x477860. The n-th (0-based) record with a nonzero dword at +4, or NULL.
-void* __fastcall Table_NthField4(Collection* t, int, int32_t n) {
+RT3_NOINLINE void* __fastcall Table_NthField4(Collection* t, int, int32_t n) {
     int32_t total = Collection_Count(t);
     for (int32_t i = 0; i < total; ++i) {
         if (F<int32_t>(Collection_Get(t, 0, Collection_IdAt(t, 0, i, 0)), 4) == 0) continue;
@@ -96,7 +96,7 @@ RT3_REPLACE(0x477860, Table_NthField4);
 
 // 0x42a040. Adds to a company statistic: this period's slot (+0xd7f, 0x58
 // bytes per stat) and the running total (+0x1c47, 8 per stat), both double.
-void __fastcall Company_AddStat(void* c, int, int32_t stat, float amount) {
+RT3_NOINLINE void __fastcall Company_AddStat(void* c, int, int32_t stat, float amount) {
     double& period = F<double>(c, 0xd7f + stat * 0x58);
     period = (double)amount + period;
     double& total = F<double>(c, 0x1c47 + stat * 8);
@@ -125,15 +125,15 @@ static Collection*& g_table62b2fc = hook::Global<Collection*>(0x62b2fc);
 static inline void* RefPositive(Collection* t, int32_t id) { return id > 0 ? Collection_Get(t, 0, id) : nullptr; }
 static inline void* RefNotMinus1(Collection* t, int32_t id) { return id != -1 ? Collection_Get(t, 0, id) : nullptr; }
 
-void* __fastcall Obj_Company21(void* o) { return RefPositive(g_companies, F<int32_t>(o, 0x21)); }
+RT3_NOINLINE void* __fastcall Obj_Company21(void* o) { return RefPositive(g_companies, F<int32_t>(o, 0x21)); }
 RT3_REPLACE(0x434870, Obj_Company21);
 void* __fastcall Obj_Ref25(void* o) { return RefPositive(g_table6ceb9c, F<int32_t>(o, 0x25)); }
 RT3_REPLACE(0x4348c0, Obj_Ref25);
-void* __fastcall Obj_Ref3cc(void* o) { return Collection_Get(g_table62b2fc, 0, F<uint32_t>(o, 0x3cc)); }
+RT3_NOINLINE void* __fastcall Obj_Ref3cc(void* o) { return Collection_Get(g_table62b2fc, 0, F<uint32_t>(o, 0x3cc)); }
 RT3_REPLACE(0x40cec0, Obj_Ref3cc);
-void* __fastcall Obj_City41(void* o) { return RefNotMinus1(g_cities, F<int32_t>(o, 0x41)); }
+RT3_NOINLINE void* __fastcall Obj_City41(void* o) { return RefNotMinus1(g_cities, F<int32_t>(o, 0x41)); }
 RT3_REPLACE(0x4a77b0, Obj_City41);
-void* __fastcall Obj_City352(void* o) { return RefNotMinus1(g_cities, F<int32_t>(o, 0x352)); }
+RT3_NOINLINE void* __fastcall Obj_City352(void* o) { return RefNotMinus1(g_cities, F<int32_t>(o, 0x352)); }
 RT3_REPLACE(0x41ad90, Obj_City352);
 void* __fastcall Obj_Node206(void* o) { return RefNotMinus1(g_trackNodes, F<int32_t>(o, 0x206)); }
 RT3_REPLACE(0x48e140, Obj_Node206);
@@ -198,7 +198,7 @@ double __fastcall Obj_Float18(void* o) { return F<float>(o, 0x18); }
 RT3_REPLACE(0x439bd0, Obj_Float18);
 
 // 0x4337c0. Appends {next, name, a..f} (0x20 bytes) to the world's list at +0x66a6.
-void __fastcall World_AddNamedEntry(void* w, int, const char* name, int32_t a, int32_t b, int32_t c,
+RT3_NOINLINE void __fastcall World_AddNamedEntry(void* w, int, const char* name, int32_t a, int32_t b, int32_t c,
                                     int32_t d, int32_t e, int32_t f) {
     int32_t* n = (int32_t*)((void*(__cdecl*)(size_t))0x5a125d)(0x20);
     for (int i = 0; i < 8; ++i) n[i] = 0;
@@ -229,7 +229,7 @@ double __fastcall Obj_CellY(void* o);
 // 0x455f60. Region record (0x1d7 bytes, 4x4 cells each) under an object, in
 // the region grid 0x62c120. QUIRK kept: computed with negative coordinates
 // and subtracted from the base, as in the original.
-uint8_t* __fastcall Obj_Region(void* o) {
+RT3_NOINLINE uint8_t* __fastcall Obj_Region(void* o) {
     const float neg92 = -92.0f, four = 4.0f; // 0x5cb24c, 0x5c8568
     int32_t row = (int32_t)((double)F<float>(o, 0x1ea) / neg92 / four);
     int32_t col = (int32_t)((double)F<float>(o, 0x1e2) / neg92 / four);
@@ -241,7 +241,7 @@ RT3_REPLACE(0x455f60, Obj_Region);
 void* __fastcall Obj_Ref388(void* o);
 
 // 0x4a8840. The 0x6ada84 record of this object's city (via the city's +0x388 ref).
-void* __fastcall Obj_CityRef(void* o) {
+RT3_NOINLINE void* __fastcall Obj_CityRef(void* o) {
     int32_t id = F<int32_t>(o, 0x41);
     void* city = id != -1 ? Collection_Get(g_cities, 0, id) : nullptr;
     if (!city) return nullptr;
@@ -267,7 +267,7 @@ int32_t __fastcall Company_OwnerFlag1e1(void* c) {
 RT3_REPLACE(0x425b90, Company_OwnerFlag1e1);
 
 // 0x426ef0. Company: owning player record, if valid.
-void* __fastcall Company_Owner(void* c) {
+RT3_NOINLINE void* __fastcall Company_Owner(void* c) {
     if (!Collection_IsValid(g_players, 0, F<uint32_t>(c, 0x3b))) return nullptr;
     return Collection_Get(g_players, 0, F<uint32_t>(c, 0x3b));
 }
@@ -287,14 +287,14 @@ int32_t __fastcall Company_FreeShares(void* c) {
 RT3_REPLACE(0x4261b0, Company_FreeShares);
 
 // 0x476050. +0x154 (double) += whole amount.
-void __fastcall Obj_AddDouble154(void* o, int, int32_t amount) {
+RT3_NOINLINE void __fastcall Obj_AddDouble154(void* o, int, int32_t amount) {
     double& d = F<double>(o, 0x154);
     d = (double)amount + d;
 }
 RT3_REPLACE(0x476050, Obj_AddDouble154);
 
 // 0x40d360. The state object (vtable slot 32) has kind byte +0x32 == 4.
-int32_t __fastcall Obj_StateKindIs4(void* o) {
+RT3_NOINLINE int32_t __fastcall Obj_StateKindIs4(void* o) {
     void* st = ((void*(__thiscall*)(void*))(*(void***)o)[0x80 / 4])(o);
     return F<uint8_t>(st, 0x32) == 4 ? 1 : 0;
 }
@@ -302,7 +302,7 @@ RT3_REPLACE(0x40d360, Obj_StateKindIs4);
 
 // 0x41e220. Enabled (+0x56) and its year (+0x21) reached: compared with world
 // +0x05 when world +0x46c38 is set, else with the current year (+0x0d).
-int32_t __fastcall Obj_YearReached(void* o) {
+RT3_NOINLINE int32_t __fastcall Obj_YearReached(void* o) {
     if (F<int32_t>(o, 0x56) == 0) return 0;
     int32_t year = F<int32_t>(g_world, 0x46c38) ? F<uint16_t>(g_world, 0x5) : F<uint16_t>(g_world, 0xd);
     return year >= F<int32_t>(o, 0x21) ? 1 : 0;
@@ -368,7 +368,7 @@ void* __fastcall Train_Company(void* t) { return Collection_Get(g_companies, 0, 
 RT3_REPLACE(0x4a8bd0, Train_Company);
 
 // 0x4c16f0. Company selected in the game window (0x6d0818 +0x90), if valid.
-void* SelectedCompany() {
+RT3_NOINLINE void* SelectedCompany() {
     uint8_t* w = hook::Global<uint8_t*>(0x6d0818);
     if (!w || F<int32_t>(w, 0x90) <= 0) return nullptr;
     if (!Collection_IsValid(g_companies, 0, F<uint32_t>(w, 0x90))) return nullptr;
@@ -377,7 +377,7 @@ void* SelectedCompany() {
 RT3_REPLACE(0x4c16f0, SelectedCompany);
 
 // 0x40cac0. a[i] - b[i] - c[i] over three float arrays (+0x310/+0x338/+0x360).
-double __fastcall Obj_Remaining(void* o, int, int32_t i) {
+RT3_NOINLINE double __fastcall Obj_Remaining(void* o, int, int32_t i) {
     return (double)F<float>(o, 0x310 + i * 4) - F<float>(o, 0x338 + i * 4) - F<float>(o, 0x360 + i * 4);
 }
 RT3_REPLACE(0x40cac0, Obj_Remaining);
@@ -413,14 +413,14 @@ uint32_t __fastcall Obj_GridByte(void* o) {
 RT3_REPLACE(0x40cb70, Obj_GridByte);
 
 // 0x4e39e0. +0x9c if set, else the current year.
-int32_t __fastcall Obj_YearOrNow(void* o) {
+RT3_NOINLINE int32_t __fastcall Obj_YearOrNow(void* o) {
     int32_t v = F<int32_t>(o, 0x9c);
     return v ? v : F<uint16_t>(g_world, 0xd);
 }
 RT3_REPLACE(0x4e39e0, Obj_YearOrNow);
 
 // 0x448f00. Low 3 bits of the cell's 3-byte record (+0x165d, stride +0x15dd) set.
-int32_t __fastcall Map_CellLow3(void* m, int, int32_t x, int32_t y) {
+RT3_NOINLINE int32_t __fastcall Map_CellLow3(void* m, int, int32_t x, int32_t y) {
     int32_t i = F<int32_t>(m, 0x15dd) * y + x;
     return (F<uint8_t*>(m, 0x165d)[i * 3] & 7) ? 1 : 0;
 }

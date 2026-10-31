@@ -82,7 +82,7 @@ RT3_REPLACE(0x47dc50, Obj_ListEntry);
 // counts +0x590, total +0x5b8).
 int32_t __fastcall Pairs_Total(uint8_t* o) { return F<int32_t>(o, 0x5b8); }
 RT3_REPLACE(0x47dca0, Pairs_Total);
-uint8_t* __fastcall Pairs_At(uint8_t* o, int, int32_t list, int32_t i) { return F<uint8_t*>(o, 0x5a4 + list * 4) + i * 8 - 8; }
+RT3_NOINLINE uint8_t* __fastcall Pairs_At(uint8_t* o, int, int32_t list, int32_t i) { return F<uint8_t*>(o, 0x5a4 + list * 4) + i * 8 - 8; }
 RT3_REPLACE(0x47dcb0, Pairs_At);
 void __fastcall Pairs_Clear(uint8_t* o) {
     for (int k = 0; k < 5; ++k) {

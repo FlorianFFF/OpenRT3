@@ -37,7 +37,7 @@ RT3_REPLACE(0x51e740, DebugLog_WriteHeader);
 
 // 0x51eea0. Saves the engine configuration (version 0x41b, 0x1e4 bytes from
 // +0x11468a, 0x1ec bytes of padding) to data\configuration\engine.cfg.
-void __fastcall Engine_SaveConfig(uint8_t* e) {
+RT3_NOINLINE void __fastcall Engine_SaveConfig(uint8_t* e) {
     Stream s = StreamOpen((const char*)0x5dcec8, 0, 0x30d40, 1);
     if (s == (Stream)-1) return;
     uint32_t version = 0x41b;

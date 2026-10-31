@@ -53,13 +53,13 @@ void __fastcall SceneObj_SetPos(uint8_t* o, int, uint32_t x, uint32_t y, uint32_
 }
 RT3_REPLACE(0x52e850, SceneObj_SetPos);
 
-void __fastcall SceneObj_GetAngles(uint8_t* o, int, uint32_t* a, uint32_t* b, uint32_t* c) {
+RT3_NOINLINE void __fastcall SceneObj_GetAngles(uint8_t* o, int, uint32_t* a, uint32_t* b, uint32_t* c) {
     if (a) *a = F<uint32_t>(o, 0x4b);
     if (b) *b = F<uint32_t>(o, 0x4f);
     if (c) *c = F<uint32_t>(o, 0x53);
 }
 RT3_REPLACE(0x52e880, SceneObj_GetAngles);
-void __fastcall SceneObj_SetAngles(uint8_t* o, int, uint32_t a, uint32_t b, uint32_t c) {
+RT3_NOINLINE void __fastcall SceneObj_SetAngles(uint8_t* o, int, uint32_t a, uint32_t b, uint32_t c) {
     o[0x20] = (uint8_t)((o[0x20] & 0x7d) | 2);
     F<uint32_t>(o, 0x4b) = a;
     F<uint32_t>(o, 0x4f) = b;

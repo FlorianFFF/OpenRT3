@@ -58,7 +58,7 @@ RT3_REPLACE(0x526590, Scene_FogDensity);
 
 // 0x542c90. Texture teardown: frees its lists, unlinks it from the global texture
 // list, restores the back buffer if it was a render target and frees everything.
-void __fastcall Texture_Destroy(uint8_t* t) {
+RT3_NOINLINE void __fastcall Texture_Destroy(uint8_t* t) {
     uint8_t* head = hook::Global<uint8_t*>(0xccbb2c);
     static const uint32_t lists[] = { 0xdc, 0xe4 };
     for (uint32_t off : lists) {

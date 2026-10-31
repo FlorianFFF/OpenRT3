@@ -62,15 +62,15 @@ int32_t __fastcall Train_CurrentOrderNode(uint8_t* t) {
 RT3_REPLACE(0x4a8470, Train_CurrentOrderNode);
 
 // 0x4b35d0..0x4b3650. Building stats: this year's slot 0 plus the totals.
-double __fastcall Building_Total2e8(uint8_t* b) { return Obj_Float2e8(b, 0, 0) + F<float>(b, 0x2b0); }
+RT3_NOINLINE double __fastcall Building_Total2e8(uint8_t* b) { return Obj_Float2e8(b, 0, 0) + F<float>(b, 0x2b0); }
 RT3_REPLACE(0x4b35d0, Building_Total2e8);
-double __fastcall Building_Total310(uint8_t* b) { return Obj_Float310(b, 0, 0) + F<float>(b, 0x2b4); }
+RT3_NOINLINE double __fastcall Building_Total310(uint8_t* b) { return Obj_Float310(b, 0, 0) + F<float>(b, 0x2b4); }
 RT3_REPLACE(0x4b35f0, Building_Total310);
-double __fastcall Building_Total338(uint8_t* b) { return Obj_Float338(b, 0, 0) + F<float>(b, 0x2b8); }
+RT3_NOINLINE double __fastcall Building_Total338(uint8_t* b) { return Obj_Float338(b, 0, 0) + F<float>(b, 0x2b8); }
 RT3_REPLACE(0x4b3610, Building_Total338);
-double __fastcall Building_Total360(uint8_t* b) { return Obj_Float360(b, 0, 0) + F<float>(b, 0x2bc); }
+RT3_NOINLINE double __fastcall Building_Total360(uint8_t* b) { return Obj_Float360(b, 0, 0) + F<float>(b, 0x2bc); }
 RT3_REPLACE(0x4b3630, Building_Total360);
-double __fastcall Building_TotalRemaining(uint8_t* b) {
+RT3_NOINLINE double __fastcall Building_TotalRemaining(uint8_t* b) {
     double r = Obj_Remaining(b, 0, 0);
     double t = (double)F<float>(b, 0x2b4) - F<float>(b, 0x2b8);
     t = t - F<float>(b, 0x2bc);

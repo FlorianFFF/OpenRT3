@@ -27,9 +27,13 @@ def names():
     return out
 
 
-def run(tag, enabled, save, days, timeout=240):
+def run(tag, enabled, save, days, timeout=None):
+    if timeout is None:  # --timeout=<seconds> for long runs
+        timeout = next((int(a[10:]) for a in sys.argv if a.startswith("--timeout=")), 240)
     ini = GAME / "rt3re.ini"
-    ini.write_text("[replace]\n" + "".join(f"{n}={1 if enabled else 0}\n" for n in names()))
+    off = {n for a in sys.argv if a.startswith("--off=") for n in a[6:].split(",")}  # bisecting: keep these original
+    off |= {n for a in sys.argv if a.startswith("--offfile=") for n in Path(a[10:]).read_text().split(",") if n}  # long lists
+    ini.write_text("[replace]\n" + "".join(f"{n}={1 if enabled and n not in off else 0}\n" for n in names()))
     ext = Path(save).suffix
     out = f"simcheck_{tag}{ext}"
     target = SAVES / out

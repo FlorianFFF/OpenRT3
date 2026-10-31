@@ -67,7 +67,7 @@ RT3_REPLACE(0x4215e0, Collection_SaveWithRecords5209);
 
 // 0x4220b0. Name (+0x356) of the nearest record to (x, y); otherwise string
 // 0xd0 copied into the static buffer 0x62ba90.
-const char* __fastcall Table_NearestName(Collection* t, int, float x, float y) {
+RT3_NOINLINE const char* __fastcall Table_NearestName(Collection* t, int, float x, float y) {
     int32_t id = Table_NearestValue23a(t, 0, x, y);
     if (id) return (const char*)Collection_Get(t, 0, id) + 0x356;
     const char* s = GetString(0xd0);

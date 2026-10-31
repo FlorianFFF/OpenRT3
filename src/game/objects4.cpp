@@ -38,7 +38,7 @@ RT3_REPLACE(0x414bd0, Map_Contains);
 
 // 0x476bb0. Index (not ID) of this object's name (+0xc47) in the name table
 // of object 0x6d4020 (+0x429b4), or -1.
-int32_t __fastcall Obj_NameIndex(void* o) {
+RT3_NOINLINE int32_t __fastcall Obj_NameIndex(void* o) {
     auto table = [] { return F<Collection*>(hook::Global<uint8_t*>(0x6d4020), 0x429b4); };
     for (int32_t i = 0; i < Collection_Count(table()); ++i) {
         Collection* t = table();

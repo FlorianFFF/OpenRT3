@@ -81,7 +81,7 @@ RT3_REPLACE(0x434130, World_UpdateEraFactor);
 
 // 0x4554e0. Adds a chat/log entry (0x4552b0), first dropping the oldest while
 // more than 50; entries more than 6 serials old are flagged (+0xc).
-uint32_t __fastcall Log_Add(Collection* t, int, const char* name, int32_t b, int32_t c, int32_t d) {
+RT3_NOINLINE uint32_t __fastcall Log_Add(Collection* t, int, const char* name, int32_t b, int32_t c, int32_t d) {
     while (Collection_Count(t) > 0x32) {
         uint32_t id = F<uint32_t>(Table_Oldest(t, 0, 1), 0);
         void** vt = *(void***)t;
@@ -89,7 +89,7 @@ uint32_t __fastcall Log_Add(Collection* t, int, const char* name, int32_t b, int
     }
     uint8_t local[0x21c] = {};  // original: uninitialised stack (mostly overwritten by 0x4552b0)
     ReturnThis455290(local);
-    uint32_t id = Collection_Allocate(t, 0, local, 0, 0, 0);
+    uint32_t id = hook::CallTarget<uint32_t(__fastcall*)(Collection*, int, const void*, uint32_t, uint32_t, uint32_t)>(0x45552a)(t, 0, local, 0, 0, 0);
     uint8_t* e = (uint8_t*)Collection_Get(t, 0, id);
     Entry21a_Init(e, 0, (int32_t)id, name, b, c, d);
     for (uint8_t* o = (uint8_t*)Table_Oldest(t, 0, 0); F<int32_t>(e, 4) - F<int32_t>(o, 4) > 6;

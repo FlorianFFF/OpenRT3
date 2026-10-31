@@ -55,7 +55,7 @@ void __fastcall Sound_ListenerDir(uint8_t* s, int, float fx, float fy, float fz,
     if (Is3D(s)) Sound_SetListenerDir(Sound3D(), 0, fx, fy, fz, ux, uy, uz);
 }
 RT3_REPLACE(0x531730, Sound_ListenerDir);
-void __fastcall Sound_Speakers(uint8_t* s, int, int32_t type, int32_t noApply) {
+RT3_NOINLINE void __fastcall Sound_Speakers(uint8_t* s, int, int32_t type, int32_t noApply) {
     if (Is3D(s)) Sound_SetSpeakerType(Sound3D(), 0, type, noApply);
 }
 RT3_REPLACE(0x531750, Sound_Speakers);
@@ -63,7 +63,7 @@ int32_t __fastcall Sound_GetSpeakers(uint8_t* s) { return Is3D(s) ? Sound_Speake
 RT3_REPLACE(0x531770, Sound_GetSpeakers);
 
 // 0x535c70. Destroys the per-block sound lists (+0x1681) and the grid.
-void __fastcall Terrain_DestroyCell1681(uint8_t* r) {
+RT3_NOINLINE void __fastcall Terrain_DestroyCell1681(uint8_t* r) {
     if (!F<void*>(r, 0x1681)) return;
     if ((F<int32_t>(r, 0x15d9) & ~0xf) > 0) {
         for (int32_t i = 0; i < (F<int32_t>(r, 0x15d9) >> 4); ++i) {

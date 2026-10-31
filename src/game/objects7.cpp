@@ -24,7 +24,7 @@ void __fastcall Obj_ForCityChain(void* o, int, int32_t a, int32_t b, int32_t c);
 
 // 0x426590. Cargo objects (0x6cec20) on buildings owned by this company with
 // flag +0x3d4 == 1; with `activeOnly`, only those whose building is active.
-int32_t __fastcall Company_CountCargoSites(void* c, int, int32_t activeOnly) {
+RT3_NOINLINE int32_t __fastcall Company_CountCargoSites(void* c, int, int32_t activeOnly) {
     int32_t total = Collection_Count(g_table6cec20), n = 0;
     for (int32_t i = 0; i < total; ++i) {
         void* o = Collection_Get(g_table6cec20, 0, Collection_IdAt(g_table6cec20, 0, i, 0));
@@ -167,7 +167,7 @@ int32_t __fastcall Table_LiveRankOf(Collection* t, int, uint32_t id) {
 RT3_REPLACE(0x4299f0, Table_LiveRankOf);
 
 // 0x42a0e0. Index of the largest float in the 12-byte entries at +0x67 (count +0x5b), -1 if none.
-int32_t __fastcall Obj_ArgMax67(void* o) {
+RT3_NOINLINE int32_t __fastcall Obj_ArgMax67(void* o) {
     int32_t best = -1, n = F<int32_t>(o, 0x5b);
     for (int32_t i = 0; i < n; ++i) {
         if (best == -1 || F<float>(o, 0x67 + i * 0xc) > F<float>(o, 0x67 + best * 0xc)) best = i;

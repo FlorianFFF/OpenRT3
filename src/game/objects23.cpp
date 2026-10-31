@@ -86,7 +86,7 @@ int32_t __fastcall Obj_Byte21c5(void* o) { return F<uint8_t>(o, 0x21c5); }
 RT3_REPLACE(0x450150, Obj_Byte21c5);
 
 // 0x453890. Frees the four buffers 0x6acd20..0x6acd2c.
-void FreeBuffers6acd20() {
+RT3_NOINLINE void FreeBuffers6acd20() {
     for (void** p = (void**)0x6acd20; p < (void**)0x6acd30; ++p) {
         if (*p) Free(*p);
         *p = nullptr;
@@ -149,5 +149,17 @@ Collection* __fastcall Collection5ce044_Construct(Collection* c) {
     return c;
 }
 RT3_REPLACE(0x461530, Collection5ce044_Construct);
+
+void __fastcall Terrain_DeleteMarkers(uint8_t* r);
+
+// 0x4539c0. Drops the map's markers once (flag +0x2169): frees the buffers
+// 0x6acd20 and deletes the marker objects.
+void __fastcall Map_DropMarkers(uint8_t* m) {
+    if (!F<int32_t>(m, 0x2169)) return;
+    F<int32_t>(m, 0x2169) = 0;
+    FreeBuffers6acd20();
+    Terrain_DeleteMarkers(m);
+}
+RT3_REPLACE(0x4539c0, Map_DropMarkers);
 
 } // namespace rt3

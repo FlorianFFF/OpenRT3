@@ -21,7 +21,7 @@ int32_t __fastcall Obj_StateB9(void* o);
 int32_t __fastcall Obj_BuildingStateActive(void* o);
 int32_t __fastcall Rand(int32_t lo, int32_t hi);
 void* __fastcall Engine_Renderer(void* e);
-void __fastcall Scene_SetWaterLevel(uint8_t* s, int, float v);
+void __fastcall Scene_SetBrushRadius(uint8_t* s, int, float v);
 void __fastcall SceneObj_RotateAxis(uint8_t* o, int, float ax, float ay, float az, float angle);
 
 static inline Collection* Coll(uint32_t a) { return hook::Global<Collection*>(a); }
@@ -191,7 +191,7 @@ void __fastcall Map_SetWaterPreset(uint8_t* o, int, int32_t idx) {
         else table = 0x6227ac;
         v = (float)((double)((const float*)table)[idx] + half);
     }
-    Scene_SetWaterLevel((uint8_t*)Engine_Renderer(hook::Global<void*>(0x6d4024)), 0, v);
+    Scene_SetBrushRadius((uint8_t*)Engine_Renderer(hook::Global<void*>(0x6d4024)), 0, v);
 }
 RT3_REPLACE(0x4f5cf0, Map_SetWaterPreset);
 

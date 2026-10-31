@@ -57,7 +57,7 @@ void* __fastcall Table_FindField4Prev(Collection* t, int, int32_t v) {
     return nullptr;
 }
 RT3_REPLACE(0x455440, Table_FindField4Prev);
-void* __fastcall Table_FindField4Next(Collection* t, int, int32_t v) {
+RT3_NOINLINE void* __fastcall Table_FindField4Next(Collection* t, int, int32_t v) {
     for (int32_t i = 0; i < Collection_Count(t); ++i) {
         void* r = Collection_Get(t, 0, Collection_IdAt(t, 0, i, 0));
         if (F<int32_t>(r, 4) == v + 1) return r;

@@ -3,7 +3,7 @@
 
 namespace rt3 {
 
-void __fastcall FreeAndNull(void** p) {
+RT3_NOINLINE void __fastcall FreeAndNull(void** p) {
     if (*p) {
         Free(*p);
         *p = nullptr;

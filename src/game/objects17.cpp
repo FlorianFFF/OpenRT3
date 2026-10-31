@@ -111,7 +111,7 @@ int32_t __fastcall Chain_Contains(void* o, int, uint16_t k) {
     return 0;
 }
 RT3_REPLACE(0x42c7d0, Chain_Contains);
-int32_t __fastcall Chain_HasValue(void* o, int, int32_t v) {
+RT3_NOINLINE int32_t __fastcall Chain_HasValue(void* o, int, int32_t v) {
     for (uint16_t id = F<uint16_t>(o, 0xd4); id; id = F<uint16_t>(Collection_Get(g_table6cec20, 0, id), 0x3c))
         if (Obj_BuildingValue(Collection_Get(g_table6cec20, 0, id)) == v) return 1;
     return 0;

@@ -80,7 +80,7 @@ double __fastcall Scroll_Total(uint8_t* s) {
     return (double)F<float>(s, 0x14) * F<float>(s, 8);
 }
 RT3_REPLACE(0x550090, Scroll_Total);
-double __fastcall Scroll_Visible(uint8_t* s) {
+RT3_NOINLINE double __fastcall Scroll_Visible(uint8_t* s) {
     if (F<int32_t>(s, 0x10)) return (double)F<float>(s, 0x1c) * F<float>(s, 0x14);
     return (double)F<float>(s, 0x14) * F<float>(s, 8);
 }
@@ -116,7 +116,7 @@ double __fastcall Slider_HeightScaled(uint8_t* s) {
 RT3_REPLACE(0x552140, Slider_HeightScaled);
 
 // 0x552160 / 0x5521a0. Absolute slider step along / across the track.
-double __fastcall Slider_StepA(uint8_t* s) {
+RT3_NOINLINE double __fastcall Slider_StepA(uint8_t* s) {
     uint8_t* f = F<uint8_t*>(s, 0);
     double v = s[0x24] ? ((double)F<float>(s, 8) - F<float>(s, 0x10)) * F<float>(f, 0x32) * *(const double*)0x5c8750
                        : ((double)F<float>(s, 4) - F<float>(s, 0xc)) * F<float>(f, 0x2e);
@@ -125,7 +125,7 @@ double __fastcall Slider_StepA(uint8_t* s) {
     return v;
 }
 RT3_REPLACE(0x552160, Slider_StepA);
-double __fastcall Slider_StepB(uint8_t* s) {
+RT3_NOINLINE double __fastcall Slider_StepB(uint8_t* s) {
     uint8_t* f = F<uint8_t*>(s, 0);
     double v = s[0x24] ? ((double)F<float>(s, 4) - F<float>(s, 0xc)) * F<float>(f, 0x2e) * *(const double*)0x5ddc78
                        : ((double)F<float>(s, 8) - F<float>(s, 0x10)) * F<float>(f, 0x32);

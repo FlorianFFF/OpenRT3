@@ -25,7 +25,7 @@ static inline uint8_t* World() { return hook::Global<uint8_t*>(0x6cec78); }
 
 // 0x426b10. The company's logo entry: its stored index (+0x37), the logo whose
 // name matches +0xd65, or a random free slot (stored).
-uint32_t __fastcall Company_Logo(uint8_t* c) {
+RT3_NOINLINE uint32_t __fastcall Company_Logo(uint8_t* c) {
     if (F<int32_t>(c, 0x37) > -1) return Table_Entry(F<uint8_t*>(World(), 0x46a80), 0, F<int32_t>(c, 0x37));
     for (int32_t i = 0; i < Collection_Count(F<Collection*>(hook::Global<uint8_t*>(0x6d4020), 0x429b0)); ++i) {
         Collection* names = F<Collection*>(hook::Global<uint8_t*>(0x6d4020), 0x429b0);
@@ -76,7 +76,7 @@ void __fastcall NameTable_Add(uint8_t* t, int, const char* dir, const char* name
 RT3_REPLACE(0x53c710, NameTable_Add);
 
 // 0x53ca20. Pushes {file position, current entry, previous} onto the stack +0x20428.
-void __fastcall NameTable_PushPos(uint8_t* t) {
+RT3_NOINLINE void __fastcall NameTable_PushPos(uint8_t* t) {
     uint32_t* rec = (uint32_t*)Malloc(0xc);
     int32_t cur = F<int32_t>(t, 0x427bc);
     int32_t fd = cur < 0 ? F<int32_t>(NameTable_Nth(t, 0, -cur), 4) : F<int32_t>(t, 0x204ac + cur * 4);
@@ -110,14 +110,14 @@ RT3_REPLACE(0x53ef90, Obj_SetText1c);
 
 void __fastcall Widget_SetVtbl(uint8_t* w) { F<uint32_t>(w, 0) = 0x5dd860; }
 RT3_REPLACE(0x53f7d0, Widget_SetVtbl);
-uint8_t* __fastcall Widget_SetVtblRet(uint8_t* w) {
+RT3_NOINLINE uint8_t* __fastcall Widget_SetVtblRet(uint8_t* w) {
     F<uint32_t>(w, 0) = 0x5dd860;
     return w;
 }
 RT3_REPLACE(0x53f7e0, Widget_SetVtblRet);
 
 // 0x53f830. Child widget (+0x70, next +0x8e) with id +4.
-uint8_t* __fastcall Widget_FindChild(uint8_t* w, int, int32_t id) {
+RT3_NOINLINE uint8_t* __fastcall Widget_FindChild(uint8_t* w, int, int32_t id) {
     for (uint8_t* c = F<uint8_t*>(w, 0x70); c; c = F<uint8_t*>(c, 0x8e))
         if ((int32_t)F<uint16_t>(c, 4) == id) return c;
     return nullptr;

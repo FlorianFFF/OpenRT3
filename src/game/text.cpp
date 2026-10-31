@@ -100,7 +100,7 @@ void FreeLanguageStrings() {
 RT3_REPLACE(0x5193d0, FreeLanguageStrings);
 
 // 0x51d800
-void __fastcall String_Free(char** s) {
+RT3_NOINLINE void __fastcall String_Free(char** s) {
     if (*s) {
         Free(*s);
         *s = nullptr;
@@ -109,7 +109,7 @@ void __fastcall String_Free(char** s) {
 RT3_REPLACE(0x51d800, String_Free);
 
 // 0x51d820. Replaces *s with a heap copy of src (or NULL).
-void __fastcall String_Assign(char** s, const char* src) {
+RT3_NOINLINE void __fastcall String_Assign(char** s, const char* src) {
     if (*s) {
         Free(*s);
         *s = nullptr;
@@ -123,7 +123,7 @@ void __fastcall String_Assign(char** s, const char* src) {
 RT3_REPLACE(0x51d820, String_Assign);
 
 // 0x51d8a0. strncpy that always terminates (dst needs n+1 bytes).
-void __fastcall StrCopyN(char* dst, const char* src, size_t n) {
+RT3_NOINLINE void __fastcall StrCopyN(char* dst, const char* src, size_t n) {
     strncpy(dst, src, n);
     dst[n] = '\0';
 }
@@ -179,7 +179,7 @@ RT3_REPLACE(0x51c900, HasString);
 // 0x51c920. Localizes an internal name ("Coal", ...) through the name table at
 // 0x6243c8 ({name, string id} x 235, sorted by first letter; per-letter index
 // ranges at 0x6d3b99 built by 0x51b660). Unknown names come back unchanged.
-const char* __fastcall LocalizeName(const char* name) {
+RT3_NOINLINE const char* __fastcall LocalizeName(const char* name) {
     struct Entry { const char* name; int32_t stringId; };
     const Entry* table = (const Entry*)0x6243c8;
     char c = (char)ToUpper(name[0]);

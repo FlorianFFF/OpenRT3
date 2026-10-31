@@ -21,7 +21,7 @@ static inline uint8_t* Engine() { return hook::Global<uint8_t*>(0x6d4024); }
 
 // 0x4c7ad0. Picks the next two ticker entries (+0x78 values, +0x7c cool-downs of
 // 31 slots) avoiding recent ones; the second is dropped when it would not fit.
-void __fastcall Ticker_PickNext(uint8_t* t) {
+RT3_NOINLINE void __fastcall Ticker_PickNext(uint8_t* t) {
     for (int k = 0; k < 0x1f; ++k)
         if (F<int32_t>(t, 0x7c + k * 8) > 0) F<int32_t>(t, 0x7c + k * 8)--;
     int32_t prev = -1;
@@ -41,6 +41,55 @@ void __fastcall Ticker_PickNext(uint8_t* t) {
     if (++F<int32_t>(t, 0x178) == 3) F<int32_t>(t, 0x178) = 0;
 }
 RT3_REPLACE(0x4c7ad0, Ticker_PickNext);
+
+int32_t ClockMs();
+void __fastcall Glyph_Queue(uint8_t* g, int, float x, float y, uint32_t tint, float sx, float sy, uint32_t color, int32_t, int32_t, int32_t,
+                            float, float, float, float);
+
+static inline float Kf(uint32_t a) { return *(const float*)a; }
+
+// 0x4c7c80. Draws the ticker at (x, y): picks new entries every 8 s (10 s with
+// two), the first fading in over 2 s, holding to 6 s and out by 8 s; a second
+// entry (+0x180) fades in at 2..4 s and out after 8 s, sitting below the first.
+// Phase 2 (+0x178) swaps the two fades. Entries are centred on 0.375 and drawn
+// from 0.95 up.
+void __fastcall Ticker_Draw(uint8_t* t, int, float x, float y, float, float) {
+    int32_t el = ClockMs() - F<int32_t>(t, 0x170);
+    if (el > 8000 && (!F<int32_t>(t, 0x180) || el > 10000)) {
+        Ticker_PickNext(t);
+        F<int32_t>(t, 0x170) = ClockMs();
+    }
+    el = ClockMs() - F<int32_t>(t, 0x170);
+    float fel = (float)el;
+    float a1 = fel;
+    if (!F<int32_t>(t, 0x180)) a1 = (float)(el < 8000 ? el : 8000);
+    if (a1 < Kf(0x5c88e0)) a1 = (float)((double)a1 / Kf(0x5c88e0));
+    else if (a1 < Kf(0x5c9b0c)) a1 = 1.0f;
+    else if (a1 <= Kf(0x5ca1c4)) a1 = (float)(*(const double*)0x5c8770 - ((double)a1 - Kf(0x5c9b0c)) / Kf(0x5c88e0));
+    else a1 = 0.0f;
+    float a2 = fel;
+    if (F<int32_t>(t, 0x180)) {
+        if (a2 < Kf(0x5c88e0)) a2 = 0.0f;
+        else if (!(a2 < Kf(0x5ca1c8)) && a2 < Kf(0x5ca1c4)) a2 = 1.0f;
+        else if (a2 < Kf(0x5ca1c8)) a2 = (float)(((double)a2 - Kf(0x5c88e0)) / Kf(0x5c88e0));
+        else a2 = (float)(*(const double*)0x5c8770 - ((double)a2 - Kf(0x5ca1c4)) / Kf(0x5c88e0));
+    }
+    float alpha = F<int32_t>(t, 0x178) == 2 && F<int32_t>(t, 0x180) ? a2 : a1;
+    float x1 = (float)(((double)Kf(0x5d09b4) - Slider_StepA((uint8_t*)Table_Entry(F<uint8_t*>(t, 0x17c), 0, 0))) / Kf(0x5c878c) + x);
+    float top = (float)((double)Kf(0x5d09b0) - Slider_StepB((uint8_t*)Table_Entry(F<uint8_t*>(t, 0x17c), 0, 0)));
+    if (F<int32_t>(t, 0x180))
+        top = (float)((double)top - (Slider_StepB((uint8_t*)Table_Entry(F<uint8_t*>(t, 0x180), 0, 0)) - Kf(0x5d09ac)));
+    y = (float)((double)top / Kf(0x5c878c) + y);
+    Glyph_Queue((uint8_t*)Table_Entry(F<uint8_t*>(t, 0x17c), 0, 0), 0, x1, y, *(uint32_t*)&alpha, 1.0f, 1.0f, 0xffffffff, 0, 1, 0, 0.0f, 0.0f, 1.0f, 1.0f);
+    if (!F<int32_t>(t, 0x180)) return;
+    float alpha2 = F<int32_t>(t, 0x178) == 2 ? a1 : a2;
+    float x2 = (float)(((double)Kf(0x5d09b4) - Slider_StepA((uint8_t*)Table_Entry(F<uint8_t*>(t, 0x180), 0, 0))) / Kf(0x5c878c) + x);
+    double h1 = Slider_StepB((uint8_t*)Table_Entry(F<uint8_t*>(t, 0x17c), 0, 0));
+    float y2 = (float)(h1 + ((double)top - Kf(0x5d09a8)) / Kf(0x5c878c) + y);
+    Glyph_Queue((uint8_t*)Table_Entry(F<uint8_t*>(t, 0x180), 0, 0), 0, x2, y2, *(uint32_t*)&alpha2, 1.0f, 1.0f, 0xffffffff, 0, 1, 0, 0.0f, 0.0f, 1.0f,
+                1.0f);
+}
+RT3_REPLACE(0x4c7c80, Ticker_Draw);
 
 // 0x534fc0. (Re)creates the current overview render target of size x size.
 void __fastcall Render_CreateOverviewTarget(uint8_t* r, int, int32_t size) {

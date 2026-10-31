@@ -29,7 +29,7 @@ RT3_REPLACE(0x43aef0, Obj_ScaledSpanOffset);
 int32_t __stdcall Scene_FocusFlagIs1(float* x, float* y) { return Scene_FocusCell(Renderer(), 0, x, y) == 1 ? 1 : 0; }
 RT3_REPLACE(0x448ac0, Scene_FocusFlagIs1);
 
-void __fastcall Clock_SplitD(uint8_t* o, int, int32_t* h, int32_t* m, int32_t* s) { TimeOfDay_Split(F<int32_t>(o, 0xd), h, m, s); }
+RT3_NOINLINE void __fastcall Clock_SplitD(uint8_t* o, int, int32_t* h, int32_t* m, int32_t* s) { TimeOfDay_Split(F<int32_t>(o, 0xd), h, m, s); }
 RT3_REPLACE(0x527cc0, Clock_SplitD);
 
 static inline void Get3(uint8_t* o, uint32_t off, uint32_t* a, uint32_t* b, uint32_t* c) {
@@ -92,7 +92,7 @@ void __fastcall Obj_GetXY10(uint8_t* o, int, uint32_t* a, uint32_t* b) {
 RT3_REPLACE(0x52cea0, Obj_GetXY10);
 
 // 0x52d0f0. Point (x, y) inside the bounds +0x50..+0x5c (inclusive).
-int32_t __fastcall Camera_InBounds(uint8_t* c, int, float x, float y) {
+RT3_NOINLINE int32_t __fastcall Camera_InBounds(uint8_t* c, int, float x, float y) {
     if (!(x >= F<float>(c, 0x50)) || !(y >= F<float>(c, 0x54))) return 0;
     if (!(x <= F<float>(c, 0x58)) || !(y <= F<float>(c, 0x5c))) return 0;
     return 1;

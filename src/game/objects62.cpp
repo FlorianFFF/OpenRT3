@@ -107,7 +107,7 @@ int32_t SelectedTrainIsOwn() {
 }
 RT3_REPLACE(0x5131a0, SelectedTrainIsOwn);
 
-int32_t Global6d3b30() { return hook::Global<int32_t>(0x6d3b30); }
+RT3_NOINLINE int32_t Global6d3b30() { return hook::Global<int32_t>(0x6d3b30); }
 RT3_REPLACE(0x5157e0, Global6d3b30);
 
 // 0x5163b0. Index of the tutorial step (0x622b48, 0x40 bytes each) with id v; 0 if none.

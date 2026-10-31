@@ -8,6 +8,7 @@
 #include <windows.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 #include "difftest.h"
 #include "hook/hook.h"
 
@@ -38,14 +39,32 @@ static LONG WINAPI OnCrash(EXCEPTION_POINTERS* ep) {
     ExitProcess(1000);
 }
 
+// A CRT invalid-parameter error would otherwise end the process with a silent
+// fast fail (0xc0000409); name the test instead.
+static void OnInvalidParameter(const wchar_t*, const wchar_t*, const wchar_t*, unsigned, uintptr_t) {
+    fprintf(g_out, "%-40s CRT INVALID PARAMETER\n", g_current);
+    fclose(g_out);
+    ExitProcess(1001);
+}
+
+// The filter is a comma-separated list of name substrings.
+static bool Wanted(const char* name, const char* want) {
+    char buf[2048];
+    strcpy(buf, want);
+    for (char* tok = strtok(buf, ","); tok; tok = strtok(nullptr, ","))
+        if (strstr(name, tok)) return true;
+    return false;
+}
+
 static int __stdcall RunTests(HINSTANCE, HINSTANCE, char* cmdLine, int) {
     g_out = fopen("difftest.log", "w");
     SetUnhandledExceptionFilter(OnCrash);
+    _set_invalid_parameter_handler(OnInvalidParameter);
     const char* filter = strstr(cmdLine, "--filter=");
-    char want[128] = "";
-    if (filter) sscanf(filter + 9, "%127s", want);
+    char want[2048] = "";
+    if (filter) sscanf(filter + 9, "%2047s", want);
     for (TestCase* t = g_tests; t; t = t->next) {
-        if (want[0] && !strstr(t->name, want)) continue;
+        if (want[0] && !Wanted(t->name, want)) continue;
         if (!want[0] && strncmp(t->name, "dump_", 5) == 0) continue; // extraction runs only on request
         int before = g_fail;
         g_current = t->name;

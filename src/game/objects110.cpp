@@ -97,7 +97,7 @@ void __fastcall Picture_Init(uint8_t* w) {
 RT3_REPLACE(0x55e9f0, Picture_Init);
 
 // 0x55ed40. Releases the picture's texture (+0xe6) and re-enables the engine flag.
-void __fastcall Picture_FreeTexture(uint8_t* w) {
+RT3_NOINLINE void __fastcall Picture_FreeTexture(uint8_t* w) {
     uint8_t* t = F<uint8_t*>(w, 0xe6);
     if (!t) return;
     Texture_Destroy(t);
@@ -110,7 +110,7 @@ void __fastcall Picture_FreeTexture(uint8_t* w) {
 RT3_REPLACE(0x55ed40, Picture_FreeTexture);
 
 // 0x55f9f0. Tree view defaults (type 8).
-void __fastcall TreeView_Init(uint8_t* w) {
+RT3_NOINLINE void __fastcall TreeView_Init(uint8_t* w) {
     static const uint16_t zero[] = { 0x182, 0x186, 0x18a, 0x18e, 0x1da, 0x1d2, 0x176, 0x17a, 0x1e2, 0x1e6, 0x1de,
                                      0x17e, 0x1be, 0x1ce, 0x1ba, 0x1ca, 0x1c6, 0x1c2, 0xde,  0xe2,  0xe6,  0xee,
                                      0xf2,  0xa2,  0x19a, 0xea,  0x1a8, 0x1ac, 0x1b2, 0x1b6, 0x19e, 0x1a2, 0xfe,
@@ -168,7 +168,7 @@ double __fastcall List_RowHeight(uint8_t* w) {
 RT3_REPLACE(0x55ffb0, List_RowHeight);
 
 // 0x560350. Screen position of row `row` (x into *x, y into *y).
-void __fastcall List_RowPos(uint8_t* w, int, int32_t row, float* x, float* y) {
+RT3_NOINLINE void __fastcall List_RowPos(uint8_t* w, int, int32_t row, float* x, float* y) {
     int32_t h = DisplayMode()[1];
     float rh = F<float>(w, 0xb6);
     uint8_t* p = F<uint8_t*>(w, 0x86);

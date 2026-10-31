@@ -95,7 +95,7 @@ void __fastcall Nop52e670(void*, int, int32_t) {}
 RT3_REPLACE(0x52e670, Nop52e670);
 uint32_t __fastcall Obj_Get1c(uint8_t* o) { return F<uint32_t>(o, 0x1c); }
 RT3_REPLACE(0x52e710, Obj_Get1c);
-void __fastcall SceneObj_GetPos(uint8_t* o, int, uint32_t* x, uint32_t* y, uint32_t* z) {
+RT3_NOINLINE void __fastcall SceneObj_GetPos(uint8_t* o, int, uint32_t* x, uint32_t* y, uint32_t* z) {
     *x = F<uint32_t>(o, 0x1e2);
     *y = F<uint32_t>(o, 0x1e6);
     *z = F<uint32_t>(o, 0x1ea);

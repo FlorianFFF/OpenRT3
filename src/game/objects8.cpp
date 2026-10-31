@@ -152,7 +152,7 @@ RT3_REPLACE(0x416590, ResetGlobals62b308);
 // 0x41e650. Cargo demand weight: +0x5a, or for cargoes flagged +0x46 the number
 // of open demand entries for its type (0x6ada90: type byte +0x10, flag +0x12
 // bit 1, u16 +8 == 0) divided by 5.
-double __fastcall Cargo_DemandWeight(void* c) {
+RT3_NOINLINE double __fastcall Cargo_DemandWeight(void* c) {
     if (!F<uint8_t>(c, 0x46)) return F<float>(c, 0x5a);
     int32_t type = F<int32_t>(g_cargoTypes, 0x9a + F<int32_t>(c, 0x3e) * 4);
     int32_t total = Collection_Count(g_demand), n = 0;

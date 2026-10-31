@@ -19,7 +19,7 @@ void* __fastcall Obj_City352(void* o);
 double __fastcall Obj_Ref388Float10d(void* o);
 
 // 0x4483d0. Frees the map's buffers and the track collection (once, flag +0x2165).
-void __fastcall Map_Free(uint8_t* m) {
+RT3_NOINLINE void __fastcall Map_Free(uint8_t* m) {
     if (!F<int32_t>(m, 0x2165)) return;
     F<int32_t>(m, 0x2165) = 0;
     Map_FreeCellKeyLists(m);

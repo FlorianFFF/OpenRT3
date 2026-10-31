@@ -85,7 +85,7 @@ int32_t __fastcall Company_PlayerDebt(int32_t* o) {
 RT3_REPLACE(0x426150, Company_PlayerDebt);
 
 // 0x426200. Sum of the positive entries +0x15d[*o] of active human players.
-int32_t __fastcall Company_HumanHoldings(int32_t* o) {
+RT3_NOINLINE int32_t __fastcall Company_HumanHoldings(int32_t* o) {
     int32_t n = Table_CountField4(g_players);
     int32_t sum = 0;
     for (int32_t i = 0; i < n; ++i) {
@@ -158,7 +158,7 @@ void __fastcall Company_CacheBuildings(int32_t* o) {
 RT3_REPLACE(0x4267f0, Company_CacheBuildings);
 
 // 0x427380. Company has anything: flag +0x3f, the counters +0x7664..+0x766c, or cargo sites.
-int32_t __fastcall Company_HasAssets(void* c) {
+RT3_NOINLINE int32_t __fastcall Company_HasAssets(void* c) {
     if (F<int32_t>(c, 0x3f)) return 1;
     if (F<int32_t>(c, 0x766c) + F<int32_t>(c, 0x7668) + F<int32_t>(c, 0x7664) > 0) return 1;
     return Company_CountCargoSites(c, 0, 0) > 0 ? 1 : 0;

@@ -75,7 +75,7 @@ void __fastcall Obj_CameraByOptions(uint8_t* o) {
 }
 RT3_REPLACE(0x495620, Obj_CameraByOptions);
 
-int32_t __fastcall Obj_Has98(uint8_t* o) { return F<int32_t>(o, 0x98) ? 1 : 0; }
+RT3_NOINLINE int32_t __fastcall Obj_Has98(uint8_t* o) { return F<int32_t>(o, 0x98) ? 1 : 0; }
 RT3_REPLACE(0x4a3cf0, Obj_Has98);
 
 // 0x4a3d70. Frees the list +0x98 (next +0xc); +0x88 = -1.
@@ -122,7 +122,7 @@ uint32_t __fastcall Routes_Add(Collection* t) {
     uint8_t local[0x4c] = {};
     Route_Init(local);
     F<int32_t>(t, 0x8c) = 1;
-    uint32_t id = Collection_Allocate(t, 0, local, 0, 0, 0);
+    uint32_t id = hook::CallTarget<uint32_t(__fastcall*)(Collection*, int, const void*, uint32_t, uint32_t, uint32_t)>(0x4a42d7)(t, 0, local, 0, 0, 0);
     Route_SetOwner((uint8_t*)Collection_Get(t, 0, id), 0, (int32_t)id);
     Nop494e80(local);
     return id;

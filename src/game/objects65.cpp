@@ -81,7 +81,7 @@ RT3_REPLACE(0x46a440, Net_HasPlayer);
 
 // 0x484910. Saves the options (version 0x429, 0x48d bytes from +0x70) and,
 // on request, the engine configuration.
-void __fastcall Options_Save(uint8_t* o, int, int32_t withEngine) {
+RT3_NOINLINE void __fastcall Options_Save(uint8_t* o, int, int32_t withEngine) {
     if (withEngine && hook::Global<void*>(0x6d4024)) Engine_SaveConfig(hook::Global<uint8_t*>(0x6d4024));
     Stream s = StreamOpen((const char*)0x5ceda0, 0, 0x30d40, 1);
     if (s == (Stream)-1) return;

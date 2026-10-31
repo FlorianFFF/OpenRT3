@@ -24,6 +24,7 @@ namespace harness {
 static char g_load[MAX_PATH], g_out[MAX_PATH];
 static int g_frames = 600;
 static volatile LONG g_frame;
+static volatile DWORD g_mainTid; // thread running the frames (for the stall dump)
 static int g_state, g_loadFrame;
 static volatile LONG g_fakeMs = 1000000;
 static volatile LONG g_modalPasses; // modal loop passes since the last main-loop frame
@@ -85,6 +86,7 @@ static int __fastcall FrameHook(void* ctx) {
     if (g_frame == 0) UseFakeClocks();
     InterlockedExchangeAdd(&g_fakeMs, 33); // ~30 fps of game time per frame
     int r = ((int(__fastcall*)(void*))0x483f70)(ctx);
+    g_mainTid = GetCurrentThreadId();
     InterlockedIncrement(&g_frame);
     { // per-frame fingerprint, to find where two runs part
         uint8_t* g = (uint8_t*)Game();
@@ -166,6 +168,52 @@ static DWORD WINAPI Watchdog(void*) {
             uint8_t* engine = hook::Global<uint8_t*>(0x6d4024);
             HWND w = engine ? *(HWND*)engine : nullptr;
             rt3::Log("harness: STALLED at frame %ld (non-deterministic Enter)", f);
+            // Where is the frame thread? EIP and the code addresses on its stack.
+            if (HANDLE t = OpenThread(THREAD_SUSPEND_RESUME | THREAD_GET_CONTEXT, FALSE, g_mainTid)) {
+                // Copy everything while suspended (no CRT calls: the thread may hold its locks).
+                static uint32_t copy[4096];
+                CONTEXT c = {};
+                c.ContextFlags = CONTEXT_CONTROL | CONTEXT_INTEGER;
+                SuspendThread(t);
+                BOOL ok = GetThreadContext(t, &c);
+                int words = 0;
+                if (ok) {
+                    const uint32_t* sp = (const uint32_t*)c.Esp;
+                    MEMORY_BASIC_INFORMATION mi;
+                    if (VirtualQuery(sp, &mi, sizeof mi)) {
+                        uintptr_t end = (uintptr_t)mi.BaseAddress + mi.RegionSize;
+                        words = (int)((end - (uintptr_t)sp) / 4);
+                        if (words > 4096) words = 4096;
+                        for (int k = 0; k < words; ++k) copy[k] = sp[k];
+                    }
+                }
+                ResumeThread(t);
+                CloseHandle(t);
+                if (ok) {
+                    // Win32 only from here: the stalled thread may hold CRT locks.
+                    HMODULE self = nullptr;
+                    GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, (LPCSTR)&Watchdog, &self);
+                    uintptr_t lo = (uintptr_t)self, hi = lo + 0x400000;
+                    char line[2048];
+                    int n = wsprintfA(line, "eip %08lx esp %08lx ecx %08lx base %08lx stack:", c.Eip, c.Esp, c.Ecx, (DWORD)lo);
+                    int found = 0;
+                    for (int k = 0; k < words && found < 60 && n < 1900; ++k) {
+                        uint32_t v = copy[k];
+                        if ((v >= 0x401000 && v < 0x5c8000) || (v >= lo && v < hi)) {
+                            n += wsprintfA(line + n, " %08lx", v);
+                            ++found;
+                        }
+                    }
+                    line[n++] = 13;
+                    line[n++] = 10;
+                    HANDLE fh = CreateFileA("stall.txt", FILE_APPEND_DATA, FILE_SHARE_READ, nullptr, OPEN_ALWAYS, 0, nullptr);
+                    if (fh != INVALID_HANDLE_VALUE) {
+                        DWORD wr;
+                        WriteFile(fh, line, (DWORD)n, &wr, nullptr);
+                        CloseHandle(fh);
+                    }
+                }
+            }
             if (w) {
                 PostMessageA(w, WM_KEYDOWN, VK_RETURN, 0x001c0001);
                 PostMessageA(w, WM_KEYUP, VK_RETURN, 0xc01c0001);

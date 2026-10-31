@@ -69,7 +69,7 @@ uint8_t __fastcall Terrain_GetFlag(uint8_t* t, int, int32_t x, int32_t y) {
 RT3_REPLACE(0x534040, Terrain_GetFlag);
 
 // 0x535d30. Destroys the flag grids (+0x1685).
-void __fastcall Terrain_DestroyCell1685(uint8_t* r) {
+RT3_NOINLINE void __fastcall Terrain_DestroyCell1685(uint8_t* r) {
     if (!F<void*>(r, 0x1685)) return;
     if ((F<int32_t>(r, 0x15d9) & ~0xf) > 0) {
         for (int32_t i = 0; i < (F<int32_t>(r, 0x15d9) >> 4); ++i) {

@@ -48,7 +48,7 @@ RT3_REPLACE(0x420280, Obj_FindRegionSite);
 
 // 0x4234e0. Production rate of slot i, from the type tables 0x5ee1b0 /
 // 0x5ee138, the era tables 0x5f33e0 / 0x5f33cc and size +0x25e.
-float __fastcall Obj_ProductionRate(void* o, int, int32_t i) {
+RT3_NOINLINE float __fastcall Obj_ProductionRate(void* o, int, int32_t i) {
     const float* typeTbl = (const float*)0x5ee1b0;
     int32_t era = F<int32_t>(g_world, 0x2d);
     int32_t type = F<int32_t>(o, 0x23e);
@@ -70,7 +70,7 @@ RT3_REPLACE(0x4234e0, Obj_ProductionRate);
 
 // 0x423d70. Removes entry idx of the 12-byte array +0x5f (count +0x5b),
 // booking its amount (stats 0x12 / 0xd, and 0xc with cash when `post`).
-void __fastcall Company_RemoveEntry(void* c, int, int32_t idx, int32_t post) {
+RT3_NOINLINE void __fastcall Company_RemoveEntry(void* c, int, int32_t idx, int32_t post) {
     if (idx < 0 || idx >= F<int32_t>(c, 0x5b)) return;
     uint8_t* e = (uint8_t*)c + 0x5f + idx * 12;
     Company_AddStat(c, 0, 0x12, (float)F<int32_t>(e, 0));

@@ -65,7 +65,7 @@ void __fastcall Vehicle_PointAlong(uint8_t* o, int, float t, float* x, float* z)
 RT3_REPLACE(0x48a440, Vehicle_PointAlong);
 
 // 0x48a790. Height difference front-left minus rear-left, scaled (absolute when asked).
-float __fastcall Vehicle_Tilt(uint8_t* o, int, int32_t absolute) {
+RT3_NOINLINE float __fastcall Vehicle_Tilt(uint8_t* o, int, int32_t absolute) {
     Corners k;
     GetCorners(o, k);
     float v = (float)((double)k.a[1] - k.c[1]);

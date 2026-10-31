@@ -17,6 +17,11 @@ print("\n".join(r.stdout.splitlines()[-8:]))
 if r.returncode:
     print("callers rely on ECX/EDX of a replaced function: wrap it (hook/keepregs.h) or review; simcheck skipped")
     sys.exit(1)
+m = subprocess.run([sys.executable, str(root / "tools" / "modsites.py")], cwd=root, capture_output=True, text=True)
+print("\n".join(m.stdout.splitlines()[-6:]))
+if m.returncode:
+    print("call the hooked callee via hook::CallTarget(site); simcheck skipped")
+    sys.exit(1)
 s = subprocess.run([sys.executable, str(root / "tools" / "simcheck.py"), *sys.argv[1:]], cwd=root,
                    capture_output=True, text=True, encoding="utf-8", errors="replace")
 print("\n".join((s.stdout + s.stderr).splitlines()[-3:]))

@@ -53,11 +53,12 @@ void __fastcall Sites_Save(Collection* t, int, Stream s, int32_t recordSize) {
 RT3_REPLACE(0x481310, Sites_Save);
 
 // 0x4c16b0. Copies entry i of the 12-byte array +0x5f.
-void __fastcall Obj_GetEntry5f(uint8_t* o, int, uint32_t* out, int32_t i) {
+uint32_t* __fastcall Obj_GetEntry5f(uint8_t* o, int, uint32_t* out, int32_t i) {
     const uint32_t* e = (const uint32_t*)(o + 0x5f + i * 12);
     out[0] = e[0];
     out[1] = e[1];
     out[2] = e[2];
+    return out;
 }
 RT3_REPLACE(0x4c16b0, Obj_GetEntry5f);
 
@@ -100,7 +101,7 @@ void __fastcall Nop4cf900(void*) {}
 RT3_REPLACE(0x4cf900, Nop4cf900);
 
 // 0x4d03d0. Ratio +0x76 / +0x7a, with the divisor floored at 0.001.
-float __fastcall Obj_Ratio76(uint8_t* o) {
+RT3_NOINLINE float __fastcall Obj_Ratio76(uint8_t* o) {
     if ((double)F<float>(o, 0x7a) < *(const double*)0x5c8678) return (float)((double)F<float>(o, 0x76) / 0.001);
     return (float)((double)F<float>(o, 0x76) / (double)F<float>(o, 0x7a));
 }

@@ -144,7 +144,7 @@ void __fastcall Obj_Set65(void* o) { F<uint8_t>(o, 0x65) = 1; }
 RT3_REPLACE(0x439a80, Obj_Set65);
 
 // 0x439a90. Position (+4, +0xc) in cells (92 units).
-void __fastcall Obj_CellPos(void* o, int, float* x, float* y) {
+RT3_NOINLINE void __fastcall Obj_CellPos(void* o, int, float* x, float* y) {
     const float cell = *(const float*)0x5c8700;
     *x = (float)((double)F<float>(o, 4) / cell);
     *y = (float)((double)F<float>(o, 0xc) / cell);

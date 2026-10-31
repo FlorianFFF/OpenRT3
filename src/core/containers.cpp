@@ -341,7 +341,7 @@ void __fastcall Hash_Destroy(HashMap* m) {
 }
 RT3_REPLACE(0x53d8a0, Hash_Destroy);
 
-void __fastcall Hash_Insert(HashMap* m, int, uint32_t key, int32_t value) {
+RT3_NOINLINE void __fastcall Hash_Insert(HashMap* m, int, uint32_t key, int32_t value) {
     HashNode* n = (HashNode*)PoolAlloc(m->pool);
     if (!n) return; // QUIRK: silently dropped when the pool is exhausted
     uint32_t b = Bucket(m, key);
@@ -387,7 +387,7 @@ int32_t __fastcall Hash_Contains(HashMap* m, int, uint32_t key) {
 }
 RT3_REPLACE(0x53daa0, Hash_Contains);
 
-int32_t __fastcall Hash_Get(HashMap* m, int, uint32_t key) {
+RT3_NOINLINE int32_t __fastcall Hash_Get(HashMap* m, int, uint32_t key) {
     if (key == 0) return 0;
     for (HashNode* n = m->buckets[Bucket(m, key)]; n; n = n->next)
         if (n->key == key) return n->value;

@@ -164,6 +164,8 @@ def main():
 # partial writes, stack reservation pushes, 8-byte struct returns in EDX:EAX,
 # callbacks/imports that ignore ECX).
 REVIEWED = {(r, a) for r, a in [
+    ("ECX", "00458afa"),  # PUSH ECX at 0x458b20 only reserves a slot (FSTP [ESP] overwrites it)
+    ("EDX", "0056189c"),  # OR EDX,ECX with ECX == -1: result does not depend on EDX
     ("ECX", "004803b8"), ("ECX", "0050de1a"), ("ECX", "004e38c5"), ("ECX", "0041b6a5"), ("ECX", "0041b6dc"),
     ("ECX", "0046f2b9"), ("ECX", "0041b82c"), ("ECX", "0042797b"), ("ECX", "00427815"), ("ECX", "00427893"),
     ("ECX", "00426a6a"), ("ECX", "00426ae9"), ("ECX", "0046ea38"), ("ECX", "00427413"), ("ECX", "004e71ea"),

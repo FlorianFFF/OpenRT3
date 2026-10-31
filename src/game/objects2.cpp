@@ -23,7 +23,7 @@ int32_t __fastcall Table_CountField4(Collection* t);
 void* __fastcall Table_NthField4(Collection* t, int, int32_t n);
 
 // 0x42a080. Company statistic, and (withCash) the cash accumulators +0x11f7/+0x1caf.
-void __fastcall Company_PostStat(void* c, int, int32_t stat, float amount, int32_t withCash) {
+RT3_NOINLINE void __fastcall Company_PostStat(void* c, int, int32_t stat, float amount, int32_t withCash) {
     Company_AddStat(c, 0, stat, amount);
     if (withCash) {
         double& cash = F<double>(c, 0x11f7);
@@ -35,7 +35,7 @@ void __fastcall Company_PostStat(void* c, int, int32_t stat, float amount, int32
 RT3_REPLACE(0x42a080, Company_PostStat);
 
 // 0x429a90. The n-th (0-based) record with a nonzero dword at +0x3f, or NULL.
-void* __fastcall Table_NthField3f(Collection* t, int, int32_t n) {
+RT3_NOINLINE void* __fastcall Table_NthField3f(Collection* t, int, int32_t n) {
     for (int32_t i = 0; i < Collection_Count(t); ++i) {
         if (F<int32_t>(Collection_Get(t, 0, Collection_IdAt(t, 0, i, 0)), 0x3f) == 0) continue;
         if (n == 0) return Collection_Get(t, 0, Collection_IdAt(t, 0, i, 0));
@@ -72,7 +72,7 @@ uint8_t* __fastcall Obj_RegionAt(void* o) {
 RT3_REPLACE(0x40fa50, Obj_RegionAt);
 
 // 0x4349a0. Number of active players with the +0x1e1 flag (humans); 1 without a player table.
-int32_t CountHumanPlayers() {
+RT3_NOINLINE int32_t CountHumanPlayers() {
     if (!g_players) return 1;
     int32_t n = 0;
     for (int32_t i = 0; i < Table_CountField4(g_players); ++i)
@@ -139,11 +139,11 @@ int32_t __fastcall Obj_CityRef10(void* o) {
 }
 RT3_REPLACE(0x4a9020, Obj_CityRef10);
 
-double __fastcall Obj_Float2c0(void* o, int, int32_t i) { return F<float>(o, 0x2c0 + i * 4); }
+RT3_NOINLINE double __fastcall Obj_Float2c0(void* o, int, int32_t i) { return F<float>(o, 0x2c0 + i * 4); }
 RT3_REPLACE(0x40ca70, Obj_Float2c0);
-double __fastcall Obj_Float2e8(void* o, int, int32_t i) { return F<float>(o, 0x2e8 + i * 4); }
+RT3_NOINLINE double __fastcall Obj_Float2e8(void* o, int, int32_t i) { return F<float>(o, 0x2e8 + i * 4); }
 RT3_REPLACE(0x40ca80, Obj_Float2e8);
-double __fastcall Obj_Float310(void* o, int, int32_t i) { return F<float>(o, 0x310 + i * 4); }
+RT3_NOINLINE double __fastcall Obj_Float310(void* o, int, int32_t i) { return F<float>(o, 0x310 + i * 4); }
 RT3_REPLACE(0x40ca90, Obj_Float310);
 
 void* __fastcall Obj_Train390(void* o) {
@@ -152,7 +152,7 @@ void* __fastcall Obj_Train390(void* o) {
 }
 RT3_REPLACE(0x41b8f0, Obj_Train390);
 
-double One() { return *(const float*)0x5c85b4; } // 1.0f
+RT3_NOINLINE double One() { return *(const float*)0x5c85b4; } // 1.0f
 RT3_REPLACE(0x41d540, One);
 
 // 0x41e9f0. ID of the record whose name (+4) equals `name` (exe stricmp), or 0.

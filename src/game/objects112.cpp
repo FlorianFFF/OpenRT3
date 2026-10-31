@@ -118,7 +118,7 @@ uint8_t* __fastcall VisitGrid_Init(uint8_t* g, int, int32_t n) {
 }
 RT3_REPLACE(0x565370, VisitGrid_Init);
 
-void __fastcall VisitGrid_Free(uint8_t* g) {
+RT3_NOINLINE void __fastcall VisitGrid_Free(uint8_t* g) {
     if (!g[0x3e832]) return;
     Free(F<void*>(g, 0x1f414));
     Free(F<void*>(g, 0x1f40c));

@@ -125,7 +125,7 @@ void GameSpy_Pump() {
 }
 RT3_REPLACE(0x469500, GameSpy_Pump);
 
-int32_t __fastcall Obj_Array590(void* o, int, int32_t i) { return F<int32_t>(o, 0x590 + i * 4); }
+RT3_NOINLINE int32_t __fastcall Obj_Array590(void* o, int, int32_t i) { return F<int32_t>(o, 0x590 + i * 4); }
 RT3_REPLACE(0x47dc90, Obj_Array590);
 int32_t __fastcall Obj_ArrayAc2(void* o, int, int32_t i) { return F<int32_t>(o, 0xac + i * 4); }
 RT3_REPLACE(0x484af0, Obj_ArrayAc2);
@@ -169,7 +169,7 @@ void __fastcall Obj_SizeClass(void* o, int, int32_t* a, int32_t* b) {
 }
 RT3_REPLACE(0x401000, Obj_SizeClass);
 
-double __fastcall Obj_Float360(void* o, int, int32_t i) { return F<float>(o, 0x360 + i * 4); }
+RT3_NOINLINE double __fastcall Obj_Float360(void* o, int, int32_t i) { return F<float>(o, 0x360 + i * 4); }
 RT3_REPLACE(0x40cab0, Obj_Float360);
 
 // 0x40d230. Virtual check (slot 28) and the 0x6cec20 record at +0x2a8 is active.
@@ -182,7 +182,7 @@ int32_t __fastcall Obj_CheckActive(void* o) {
 RT3_REPLACE(0x40d230, Obj_CheckActive);
 
 // 0x40d350. Signed byte +0xb9 of the state object (vtable slot 32).
-int32_t __fastcall Obj_StateB9(void* o) {
+RT3_NOINLINE int32_t __fastcall Obj_StateB9(void* o) {
     void* st = ((void*(__thiscall*)(void*))(*(void***)o)[0x80 / 4])(o);
     return (int32_t)F<int8_t>(st, 0xb9);
 }
@@ -236,7 +236,7 @@ RT3_REPLACE(0x423eb0, Company_FloatD7b);
 
 // 0x424100. Difficulty-scaled quality factor: lo*(1-q) + hi*q with q = +0xd31
 // and lo/hi from the tables 0x5f3cd8/0x5f3ce8 by difficulty (config +0x7d).
-float __fastcall Company_QualityFactor(void* c) {
+RT3_NOINLINE float __fastcall Company_QualityFactor(void* c) {
     uint32_t d = hook::Global<uint8_t*>(0x6cec7c)[0x7d];
     double lo = ((const float*)0x5f3cd8)[d], hi = ((const float*)0x5f3ce8)[d];
     double q = F<float>(c, 0xd31);
@@ -247,7 +247,7 @@ RT3_REPLACE(0x424100, Company_QualityFactor);
 
 // 0x4269b0. Gives a building to this company (+0x276 = company id); outside
 // scenario-editor mode also records the price (+0x27a) and books it (stats 17, 13).
-void __fastcall Company_TakeBuilding(void* c, int, uint32_t building, float price) {
+RT3_NOINLINE void __fastcall Company_TakeBuilding(void* c, int, uint32_t building, float price) {
     uint8_t* b = (uint8_t*)Collection_Get(g_buildings, 0, building);
     if (!b) return;
     F<int32_t>(b, 0x276) = F<int32_t>(c, 0);

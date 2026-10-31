@@ -205,14 +205,14 @@ void __fastcall Nop558460(void*, int, int32_t, int32_t, int32_t) {}
 RT3_REPLACE(0x558460, Nop558460);
 
 // 0x558470 / 0x5584a0. Set / clear state bits (+0x68), notifying (vtbl +0x1c) on change.
-void __fastcall Widget_SetState(uint8_t* w, int, uint32_t mask) {
+RT3_NOINLINE void __fastcall Widget_SetState(uint8_t* w, int, uint32_t mask) {
     uint32_t v = F<uint16_t>(w, 0x68);
     if ((v & mask) == mask) return;
     F<uint16_t>(w, 0x68) = (uint16_t)(v | mask);
     ((void(__thiscall*)(void*))(*(void***)w)[0x1c / 4])(w);
 }
 RT3_REPLACE(0x558470, Widget_SetState);
-void __fastcall Widget_ClearState(uint8_t* w, int, uint32_t mask) {
+RT3_NOINLINE void __fastcall Widget_ClearState(uint8_t* w, int, uint32_t mask) {
     uint32_t v = F<uint16_t>(w, 0x68);
     if (!(mask & v)) return;
     F<uint16_t>(w, 0x68) = (uint16_t)(~mask & v);

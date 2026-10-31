@@ -53,7 +53,7 @@ RT3_REPLACE(0x41f6e0, Obj_RegionHasKey);
 
 // 0x4228b0. Buildings in the chain from u16 +0x383 (next u16 +0x270) whose
 // state kind (+0x32) equals `kind`.
-int32_t __fastcall Obj_CountBuildingsOfKind(void* o, int, int32_t kind) {
+RT3_NOINLINE int32_t __fastcall Obj_CountBuildingsOfKind(void* o, int, int32_t kind) {
     int32_t n = 0;
     for (uint16_t id = F<uint16_t>(o, 0x383); id; ) {
         uint8_t* b = (uint8_t*)Collection_Get(g_buildings, 0, id);
@@ -67,7 +67,7 @@ RT3_REPLACE(0x4228b0, Obj_CountBuildingsOfKind);
 
 // 0x423e40. Weighted average over {int count, ?, float value} entries
 // (+0x5f, count +0x5b), accumulated in float; 0 if inactive (+0x3f) or empty.
-double __fastcall Obj_WeightedAverage(void* o) {
+RT3_NOINLINE double __fastcall Obj_WeightedAverage(void* o) {
     int32_t n = F<int32_t>(o, 0x5b);
     if (F<int32_t>(o, 0x3f) == 0 || n == 0) return *(const float*)0x5c8598;
     float sum = 0.0f;
@@ -91,7 +91,7 @@ RT3_REPLACE(0x4240f0, Company_QualityRaw);
 
 // 0x424230. Index of this name (+0xd65) in the table of object 0x6d4020
 // (+0x429b0); the table count if absent.
-int32_t __fastcall Company_NameIndex(void* c) {
+RT3_NOINLINE int32_t __fastcall Company_NameIndex(void* c) {
     auto table = [] { return F<Collection*>(hook::Global<uint8_t*>(0x6d4020), 0x429b0); };
     int32_t i = 0;
     for (; i < Collection_Count(table()); ++i) {
@@ -117,7 +117,7 @@ int32_t __fastcall Company_CountIdleBuildings(void* c) {
 RT3_REPLACE(0x4266c0, Company_CountIdleBuildings);
 
 // 0x426890. Position of this company among the live companies, or -1.
-int32_t __fastcall Company_LiveIndex(void* c) {
+RT3_NOINLINE int32_t __fastcall Company_LiveIndex(void* c) {
     int32_t n = Table_CountField3f(g_companies);
     for (int32_t i = 0; i < n; ++i)
         if (F<int32_t>(Table_NthField3f(g_companies, 0, i), 0) == F<int32_t>(c, 0)) return i;

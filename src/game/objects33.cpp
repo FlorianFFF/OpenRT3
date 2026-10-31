@@ -75,13 +75,13 @@ static uint8_t* FindNamedEntry(uint8_t* o) {
     }
     return e;
 }
-uint8_t* __fastcall Obj_NamedEntry40(uint8_t* o) { return FindNamedEntry(o) + 0x40; }
+RT3_NOINLINE uint8_t* __fastcall Obj_NamedEntry40(uint8_t* o) { return FindNamedEntry(o) + 0x40; }
 RT3_REPLACE(0x476ab0, Obj_NamedEntry40);
-uint8_t* __fastcall Obj_NamedEntry20(uint8_t* o) { return FindNamedEntry(o) + 0x20; }
+RT3_NOINLINE uint8_t* __fastcall Obj_NamedEntry20(uint8_t* o) { return FindNamedEntry(o) + 0x20; }
 RT3_REPLACE(0x476b30, Obj_NamedEntry20);
 
 // 0x4778c0 / 0x477920. Active (+4) players: ID of the n-th (0-based) / index of `id` among them.
-uint32_t __fastcall Table_NthActive(Collection* t, int, int32_t n) {
+RT3_NOINLINE uint32_t __fastcall Table_NthActive(Collection* t, int, int32_t n) {
     for (int32_t i = 0; i < Collection_Count(t); ++i) {
         if (!F<int32_t>(Collection_Get(t, 0, Collection_IdAt(t, 0, i, 0)), 4)) continue;
         if (n == 0) return Collection_IdAt(t, 0, i, 0);

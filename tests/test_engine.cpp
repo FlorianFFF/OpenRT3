@@ -251,3 +251,70 @@ DIFFTEST(engine_render_queue) {
     EXPECT_EQ(Dump(a) == Dump(b), true, "queue state");
     asian = savedAsian;
 }
+
+namespace rt3 {
+void __fastcall Ui_FillRect(uint32_t color, int32_t snap, float x, float y, float w, float h, uint32_t flags);
+void __fastcall Ui_FrameRect(uint32_t color, int32_t snap, float x, float y, float w, float h, float thick, uint32_t flags);
+void __fastcall Ui_Line(uint32_t color, int32_t glow, float x1, float y1, float x2, float y2, float width);
+}
+
+DIFFTEST(engine_UiPrimitives) {
+    uint8_t modes[0x15] = {};
+    Side a, b;
+    Setup(a, modes);
+    Setup(b, modes);
+    void*& engine = hook::Global<void*>(0x6d4024);
+    void* savedEngine = engine;
+    float& depth = hook::Global<float>(0xd93850);
+    float savedDepth = depth;
+    srand(77);
+    const int32_t sizes[5][2] = { { 640, 480 }, { 800, 600 }, { 1024, 768 }, { 1280, 1024 }, { 1600, 1200 } };
+    auto rf = [](float lo, float hi) { return lo + (hi - lo) * (float)rand() / RAND_MAX; };
+    for (int it = 0; it < 6000 && g_fail < 30; ++it) {
+        int s = rand() % 5;
+        *(int32_t*)modes = sizes[s][0];
+        *(int32_t*)(modes + 4) = sizes[s][1];
+        uint32_t color = (uint32_t)rand() << 16 ^ rand();
+        int32_t snap = rand() % 3 != 0;
+        float x = rf(-0.1f, 1.0f), y = rf(-0.1f, 1.0f), w = rf(0.0f, 0.5f), h = rf(0.0f, 0.5f), t = rf(0.0f, 4.0f);
+        if (rand() % 6 == 0) w = 0.0f;
+        if (rand() % 6 == 0) h = 0.0f;
+        uint32_t flags = rand() % 4;
+        int op = rand() % 3;
+        float d0 = rf(0.0f, 0.05f);
+        float x2 = rand() % 4 == 0 ? x : x + w, y2 = rand() % 4 == 0 ? y : y + h;
+        for (int side = 0; side < 2; ++side) {
+            Side& sd = side ? b : a;
+            engine = sd.e;
+            depth = d0;
+            if (op == 0) {
+                side ? Ui_FillRect(color, snap, x, y, w, h, flags)
+                     : ((void(__fastcall*)(uint32_t, int32_t, float, float, float, float, uint32_t))0x54f710)(color, snap, x, y, w, h, flags);
+            } else if (op == 1) {
+                side ? Ui_FrameRect(color, snap, x, y, w, h, t, flags)
+                     : ((void(__fastcall*)(uint32_t, int32_t, float, float, float, float, float, uint32_t))0x54f9f0)(color, snap, x, y, w, h, t, flags);
+            } else {
+                side ? Ui_Line(color, snap, x, y, x2, y2, t)
+                     : ((void(__fastcall*)(uint32_t, int32_t, float, float, float, float, float))0x54fb10)(color, snap, x, y, x2, y2, t);
+            }
+        }
+        int32_t na = F<int32_t>(a.e, 0x58), nb = F<int32_t>(b.e, 0x58);
+        EXPECT_EQ(na, nb, "op %d item count iteration %d: %d vs %d (snap %d flags %d w %g h %g t %g)", op, it, na, nb, snap, flags, w, h, t);
+        if (na == nb && memcmp(a.e + 0x5c, b.e + 0x5c, (size_t)na * 0x5e)) {
+            int k = 0;
+            while (a.e[0x5c + k] == b.e[0x5c + k]) ++k;
+            EXPECT_EQ(0, 1, "op %d items iteration %d: byte %#x (item %d +%#x) %08x vs %08x (snap %d flags %d x %g w %g h %g t %g c %08x)", op, it, k, k / 0x5e, k % 0x5e,
+                      *(uint32_t*)(a.e + 0x5c + k / 4 * 4), *(uint32_t*)(b.e + 0x5c + k / 4 * 4), snap, flags, x, w, h, t, color);
+        }
+        EXPECT_EQ(Dump(a) == Dump(b), true, "op %d queue iteration %d", op, it);
+        if (na > 11000) {
+            F<int32_t>(a.e, 0x58) = F<int32_t>(b.e, 0x58) = 0;
+            for (Side* sd : { &a, &b }) {
+                for (auto& l : sd->lists) PtrList_Clear(&l), l.count = 0;
+                for (uint8_t* tx : sd->textures) { PtrList_Clear(*(PtrList**)(tx + 0xe4)); (*(PtrList**)(tx + 0xe4))->count = 0; *(void**)(tx + 0xe8) = nullptr; }
+            }
+        }
+    }
+    engine = savedEngine;
+    depth = savedDepth;
+}

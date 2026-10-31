@@ -37,12 +37,12 @@ void __fastcall Car_RearPoint(uint8_t* c, int, float* x, float* y) {
 }
 RT3_REPLACE(0x41add0, Car_RearPoint);
 
-// 0x527de0. Sets the water level: scene object scale (x 5.5) and +0x3728 (x 4).
-void __fastcall Scene_SetWaterLevel(uint8_t* s, int, float v) {
+// 0x527de0. Sets the map-tool brush radius: the brush marker's scale (x 5.5) and +0x3728 (x 4).
+RT3_NOINLINE void __fastcall Scene_SetBrushRadius(uint8_t* s, int, float v) {
     SceneObj_SetScale36(F<uint8_t*>(s, 0x364d), 0, (float)((double)v * *(const double*)0x5dd158));
     F<float>(s, 0x3728) = (float)((double)v * *(const float*)0x5c8568);
 }
-RT3_REPLACE(0x527de0, Scene_SetWaterLevel);
+RT3_REPLACE(0x527de0, Scene_SetBrushRadius);
 
 // 0x52eab0 / 0x52eb20. Texture transform {u, v, su, sv} (+0x26..); +0x25
 // tells whether it differs from the identity.

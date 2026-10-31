@@ -22,7 +22,7 @@ static inline uint8_t* Cfg(uint8_t* r) { return F<uint8_t*>(r, 0x83c); }
 
 // 0x527450. Projects a world point to normalised screen coordinates
 // (x: 0..1 left to right, y: 1..0 bottom-up); 0 when culled.
-int32_t __fastcall Scene_ProjectNormalised(uint8_t* s, int, float x, float y, float z, float* ox, float* oy, float* oz) {
+RT3_NOINLINE int32_t __fastcall Scene_ProjectNormalised(uint8_t* s, int, float x, float y, float z, float* ox, float* oy, float* oz) {
     if (Render_Project(F<uint8_t*>(s, 0x2d), 0, x, y, z, ox, oy, oz)) return 0;
     float sx, sy;
     Render_GetViewport(F<uint8_t*>(s, 0x2d), 0, (uint32_t*)&sx, (uint32_t*)&sy, nullptr, nullptr);

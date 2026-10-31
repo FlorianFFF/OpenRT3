@@ -112,7 +112,7 @@ void __fastcall Texture_SaveTga(uint8_t* t, int, const char* path, int32_t topDo
 RT3_REPLACE(0x542b30, Texture_SaveTga);
 
 // 0x542c10. Releases every texture's render target (device lost).
-void __fastcall Textures_ReleaseTargets() {
+RT3_NOINLINE void __fastcall Textures_ReleaseTargets() {
     for (uint8_t* t = hook::Global<uint8_t*>(0xccbb2c); t; t = F<uint8_t*>(t, 0)) {
         if (!F<int32_t>(t, 7)) continue;
         if (void* p = F<void*>(t, 0xc0)) {

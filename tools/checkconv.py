@@ -14,23 +14,35 @@ ROOT = Path(__file__).resolve().parents[1]
 EIGHT = ("double", "uint64_t", "int64_t", "GameDate", "LONGLONG", "ULONGLONG")
 
 
+STRUCTS = {"Mat16": 64}  # structs passed by value
+
+
 def size_of(param):
     p = param.strip()
     if not p or p == "void":
         return None
     if "*" in p or "&" in p:
         return 4
+    for name, size in STRUCTS.items():
+        if p.split()[0] == name:
+            return size
     return 8 if any(p.startswith(t) or (" " + t) in " " + p for t in EIGHT) else 4
 
 
+def is_float(param):
+    p = param.strip()
+    return "*" not in p and "&" not in p and p.split()[0] in ("float", "double") if p else False
+
+
 def implied_purge(conv, params):
-    sizes = [s for s in (size_of(p) for p in params) if s is not None]
+    sized = [(s, is_float(p)) for p in params for s in [size_of(p)] if s is not None]
+    sizes = [s for s, _ in sized]
     if conv == "__stdcall":
         return sum(sizes)
     if conv == "__fastcall":
         regs, stack = 0, 0
-        for s in sizes:
-            if regs < 2 and s <= 4:
+        for s, flt in sized:  # floats and structs never go in ECX/EDX
+            if regs < 2 and s <= 4 and not flt:
                 regs += 1
             else:
                 stack += s

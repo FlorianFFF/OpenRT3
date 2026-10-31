@@ -58,7 +58,7 @@ uint32_t __fastcall Input_Flag800() {
 RT3_REPLACE(0x543e40, Input_Flag800);
 
 // 0x543e60. Releases the mouse device (+4) and DirectInput (+0).
-void __fastcall Mouse_Destroy(uint8_t* m) {
+RT3_NOINLINE void __fastcall Mouse_Destroy(uint8_t* m) {
     Mouse_Unacquire(m);
     Release(F<void*>(m, 4));
     Release(F<void*>(m, 0));
