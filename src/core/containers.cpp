@@ -51,7 +51,7 @@ void __fastcall Pool_Free(NodePool* p) {
 }
 RT3_REPLACE(0x53dcb0, Pool_Free);
 
-void __fastcall Pool_Init(NodePool* p, int, void* storage, int32_t elemSize, int32_t count, int32_t flag) {
+RT3_NOINLINE void __fastcall Pool_Init(NodePool* p, int, void* storage, int32_t elemSize, int32_t count, int32_t flag) {
     p->flag = flag;
     if (p->freeList) {
         Free(p->freeList);
@@ -152,10 +152,10 @@ void __fastcall Heap_Destroy(MaxHeap* h) {
 }
 RT3_REPLACE(0x53d470, Heap_Destroy);
 
-void __fastcall Heap_Destroy2(MaxHeap* h) { Heap_Destroy(h); } // identical copy in the exe
+RT3_NOINLINE void __fastcall Heap_Destroy2(MaxHeap* h) { Heap_Destroy(h); } // identical copy in the exe
 RT3_REPLACE(0x53d6f0, Heap_Destroy2);
 
-HeapNode* __fastcall Heap_Push(MaxHeap* h, int, int32_t key, int32_t value) {
+RT3_NOINLINE HeapNode* __fastcall Heap_Push(MaxHeap* h, int, int32_t key, int32_t value) {
     HeapNode* n = (HeapNode*)PoolAlloc(h->pool);
     if (!n) return nullptr;
     int32_t i = ++h->count;
@@ -168,7 +168,7 @@ HeapNode* __fastcall Heap_Push(MaxHeap* h, int, int32_t key, int32_t value) {
 }
 RT3_REPLACE(0x53d4c0, Heap_Push);
 
-int32_t __fastcall Heap_PopMax(MaxHeap* h) {
+RT3_NOINLINE int32_t __fastcall Heap_PopMax(MaxHeap* h) {
     if (h->count <= 0) return 0;
     HeapNode* top = h->array[1];
     int32_t value = top->value;
@@ -185,7 +185,7 @@ int32_t __fastcall Heap_PopMax(MaxHeap* h) {
 }
 RT3_REPLACE(0x53d540, Heap_PopMax);
 
-void __fastcall Heap_Init(MaxHeap* h, int, int32_t capacity) {
+RT3_NOINLINE void __fastcall Heap_Init(MaxHeap* h, int, int32_t capacity) {
     if (h->pool) Heap_Destroy(h);
     h->storage = Malloc(capacity * sizeof(HeapNode));
     memset(h->storage, 0, capacity * sizeof(HeapNode));
@@ -357,7 +357,7 @@ RT3_NOINLINE void __fastcall Hash_Insert(HashMap* m, int, uint32_t key, int32_t 
 }
 RT3_REPLACE(0x53d960, Hash_Insert);
 
-int32_t __fastcall Hash_Remove(HashMap* m, int, uint32_t key) {
+RT3_NOINLINE int32_t __fastcall Hash_Remove(HashMap* m, int, uint32_t key) {
     if (key == 0) return 0;
     HashNode** bucket = &m->buckets[Bucket(m, key)];
     HashNode* n = *bucket;
@@ -419,7 +419,7 @@ int32_t __fastcall Hash_ForEach(HashMap* m, int, uint32_t key, HashVisit fn, voi
 }
 RT3_REPLACE(0x53db20, Hash_ForEach);
 
-int32_t __fastcall Hash_Init(HashMap* m, int, uint32_t buckets, int32_t poolSize) {
+RT3_NOINLINE int32_t __fastcall Hash_Init(HashMap* m, int, uint32_t buckets, int32_t poolSize) {
     Hash_Destroy(m);
     if (poolSize) {
         m->storage = Malloc(poolSize * sizeof(HashNode));

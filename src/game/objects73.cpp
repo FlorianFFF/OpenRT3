@@ -14,7 +14,7 @@ static inline double Fcos(double v) { double r; __asm { fld v } __asm { fcos } _
 static inline uint32_t Bits(float f) { return *(uint32_t*)&f; }
 
 // 0x455730 / 0x455790 / 0x455750. Second / first angle; set the second angle.
-float __fastcall SceneObj_Angle2(uint8_t* o) {
+RT3_NOINLINE float __fastcall SceneObj_Angle2(uint8_t* o) {
     float a, b, c;
     SceneObj_GetAngles(o, 0, (uint32_t*)&a, (uint32_t*)&b, (uint32_t*)&c);
     return b;
@@ -53,7 +53,7 @@ void __fastcall Vehicle_SpinWheels(uint8_t* v, int, float speed) {
 RT3_REPLACE(0x456500, Vehicle_SpinWheels);
 
 // 0x45c470 / 0x45c480 / 0x45c4d0. Angles of the model part list +0x316 (0xc0-byte parts, object +0xc).
-void __fastcall Model_SetAngles(uint8_t* o, int, uint32_t a, uint32_t b, uint32_t c) {
+RT3_NOINLINE void __fastcall Model_SetAngles(uint8_t* o, int, uint32_t a, uint32_t b, uint32_t c) {
     SceneObj_SetAngles(F<uint8_t*>(F<uint8_t*>(o, 0x316), 0xc), 0, a, b, c);
 }
 RT3_REPLACE(0x45c470, Model_SetAngles);
@@ -65,7 +65,7 @@ void __fastcall Model_GetAngles(uint8_t* o, int, uint32_t* a, uint32_t* b, uint3
     if (c) *c = z;
 }
 RT3_REPLACE(0x45c480, Model_GetAngles);
-void __fastcall Model_SetPartAngle2(uint8_t* o, int, int32_t part, uint32_t v) {
+RT3_NOINLINE void __fastcall Model_SetPartAngle2(uint8_t* o, int, int32_t part, uint32_t v) {
     if (!part) return;
     SceneObj_SetAngles(F<uint8_t*>(F<uint8_t*>(o, 0x316), part * 0xc0 + 0xc), 0, 0, v, 0);
 }

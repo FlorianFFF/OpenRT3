@@ -22,7 +22,7 @@ static uint32_t& g_lcg       = hook::Global<uint32_t>(0x624324);
 
 // 0x518be0. Value in [lo, hi] from the simulation generator. Ranges wider than
 // 15 bits combine two draws (first << 15 | second).
-int32_t __fastcall SimRand(int32_t lo, int32_t hi) {
+RT3_NOINLINE int32_t __fastcall SimRand(int32_t lo, int32_t hi) {
     int32_t range = hi - lo;
     if (range > 0x7fff) {
         uint32_t first = (uint32_t)SimRand(0, 0x7fff);
@@ -61,7 +61,7 @@ RT3_REPLACE(0x518ca0, PopSeed);
 
 // 0x518cc0. Value in [lo, hi] derived from `seed` alone. Ranges wider than
 // 15 bits combine two draws (seed+7 for the low half, seed for the high half).
-int32_t __fastcall HashRand(int32_t seed, int32_t lo, int32_t hi) {
+RT3_NOINLINE int32_t __fastcall HashRand(int32_t seed, int32_t lo, int32_t hi) {
     if (hi < lo) return lo;
     int32_t range = hi - lo;
     if (range > 0x7fff) {
@@ -85,7 +85,7 @@ RT3_REPLACE(0x518d50, ResetRand);
 static inline uint32_t LcgNext(uint32_t s) { return s * 0x19660d + 0x3c6ef35f; }
 
 // 0x518d70. Value in [lo, hi] from the global LCG.
-int32_t __fastcall Rand(int32_t lo, int32_t hi) {
+RT3_NOINLINE int32_t __fastcall Rand(int32_t lo, int32_t hi) {
     if (hi == lo) return hi;
     if (hi < lo) return lo;
     int32_t range = hi - lo;

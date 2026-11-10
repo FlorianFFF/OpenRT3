@@ -24,7 +24,7 @@ int32_t __fastcall Obj_Get21(void* o);
 void* __fastcall Obj_Ref25(void* o);
 
 // 0x414bd0. (x, y) lies inside the map grid [0, w-1] x [0, h-1].
-int32_t __fastcall Map_Contains(void* m, int, float x, float y) {
+RT3_NOINLINE int32_t __fastcall Map_Contains(void* m, int, float x, float y) {
     const float zero = *(const float*)0x5c8598;
     if (x < zero) return 0;
     float maxX = (float)(F<int32_t>(m, 0x15d9) - 1);
@@ -87,7 +87,7 @@ void __fastcall Obj_AddFloat103(void* o, int, int32_t i, float d) {
 RT3_REPLACE(0x42b310, Obj_AddFloat103);
 
 // 0x42c880. First active record in the 0x6cec20 chain starting at u16 +0xd4 (next u16 +0x3c).
-void* __fastcall Obj_FirstActiveInChain(void* o) {
+RT3_NOINLINE void* __fastcall Obj_FirstActiveInChain(void* o) {
     for (uint16_t id = F<uint16_t>(o, 0xd4); id; ) {
         void* r = Collection_Get(g_table6cec20, 0, id);
         if (Obj_BuildingStateActive(r)) return r;
@@ -124,7 +124,7 @@ double __fastcall Obj_Rounded29(void* o) {
 }
 RT3_REPLACE(0x433740, Obj_Rounded29);
 
-int32_t Options_Get10c() { return F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x10c); }
+RT3_NOINLINE int32_t Options_Get10c() { return F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x10c); }
 RT3_REPLACE(0x439ba0, Options_Get10c);
 
 void ResetPair5ee4fc() {
@@ -148,7 +148,7 @@ void* __fastcall Map_RegionRecordAt(void* m, int, float x, float y) {
 RT3_REPLACE(0x44ade0, Map_RegionRecordAt);
 
 // 0x469690. Singly linked list {head, tail, count}: insert after `after` (NULL = at head).
-void __fastcall SList_InsertAfter(void** l, int, void** after, void** node) {
+RT3_NOINLINE void __fastcall SList_InsertAfter(void** l, int, void** after, void** node) {
     if (after) {
         *node = *after;
         *after = node;
@@ -183,7 +183,7 @@ RT3_REPLACE(0x474fe0, Obj_SetAllBc);
 
 // 0x476a60. World condition flags: +0x4acb with +0x21, +0x4ad7 with its player's
 // +0x2a7 >= 1, or +0x4ad3.
-int32_t World_AnyCondition() {
+RT3_NOINLINE int32_t World_AnyCondition() {
     if (F<int32_t>(g_world, 0x4acb) && Obj_Get21(g_world)) return 1;
     if (F<int32_t>(g_world, 0x4ad7) && F<int32_t>(Obj_Ref25(g_world), 0x2a7) >= 1) return 1;
     return F<int32_t>(g_world, 0x4ad3) ? 1 : 0;

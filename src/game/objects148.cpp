@@ -119,7 +119,7 @@ RT3_REPLACE(0x412650, Industry_CargoStats);
 // industries from the world's templates (+0x1024.., 0x4e1 bytes each: recipe count,
 // recipes, size +0x13d4): reuses the one for template k (+0x794) or creates one,
 // cloning the last industry of its kind, and names it Port%02d / Warehouse%02d.
-void __fastcall Industries_RebuildPortsWarehouses(Collection* c) {
+RT3_NOINLINE void __fastcall Industries_RebuildPortsWarehouses(Collection* c) {
     if (!World()) return;
     for (int32_t pass = 0; pass < 2; ++pass) {
         int32_t k = 0;

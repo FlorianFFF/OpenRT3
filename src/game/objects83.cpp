@@ -37,9 +37,9 @@ void __fastcall Terrain_SaveLayers(uint8_t* r, int, Stream s) {
 }
 RT3_REPLACE(0x448fe0, Terrain_SaveLayers);
 
-uint32_t __fastcall Terrain_Get15e5(uint8_t* r) { return F<uint32_t>(r, 0x15e5); }
+RT3_NOINLINE uint32_t __fastcall Terrain_Get15e5(uint8_t* r) { return F<uint32_t>(r, 0x15e5); }
 RT3_REPLACE(0x533b70, Terrain_Get15e5);
-uint32_t __fastcall Terrain_Get1619(uint8_t* r, int, int8_t i) { return F<uint32_t>(r, 0x1619 + i * 4); }
+RT3_NOINLINE uint32_t __fastcall Terrain_Get1619(uint8_t* r, int, int8_t i) { return F<uint32_t>(r, 0x1619 + i * 4); }
 RT3_REPLACE(0x533b80, Terrain_Get1619);
 void* __fastcall Terrain_Slot15f1(uint8_t* r) { return r + 0x15f1; }
 RT3_REPLACE(0x533b90, Terrain_Slot15f1);

@@ -90,7 +90,7 @@ RT3_REPLACE(0x423d70, Company_RemoveEntry);
 
 // 0x4245e0. Index of the player with the n-th largest positive holding
 // +0x15d[*o]; -1 if none. QUIRK: with `flag` set it always returns -1.
-int32_t __fastcall Company_NthHolder(int32_t* o, int, int32_t n, int32_t flag) {
+RT3_NOINLINE int32_t __fastcall Company_NthHolder(int32_t* o, int, int32_t n, int32_t flag) {
     if (!F<int32_t>(o, 0x3f)) return -1;
     int32_t count = Table_CountField4(g_players);
     int32_t used[16] = {};
@@ -198,7 +198,7 @@ RT3_REPLACE(0x42ae20, Obj_FreeKeyList);
 
 // 0x42b140. Adds f (scaled by 0x5c9c40, rounded via +0x5c8628) to the u16
 // level +0x6a[i], capped at 65000.
-void __fastcall Obj_AddLevel(void* o, int, int32_t i, float f) {
+RT3_NOINLINE void __fastcall Obj_AddLevel(void* o, int, int32_t i, float f) {
     double v = (double)f * D(0x5c9c40) + D(0x5c8628);
     v = v + (double)F<uint16_t>(o, 0x6a + i * 2);
     int32_t n = (int32_t)v;
@@ -250,7 +250,7 @@ int32_t __fastcall Obj_Bit(void* o, int, int32_t i) {
 }
 RT3_REPLACE(0x42b350, Obj_Bit);
 
-float __fastcall Obj_Level(void* o, int, int32_t i) {
+RT3_NOINLINE float __fastcall Obj_Level(void* o, int, int32_t i) {
     return (float)((double)F<uint16_t>(o, 0x6a + i * 2) / D(0x5c9c40));
 }
 RT3_REPLACE(0x42b380, Obj_Level);

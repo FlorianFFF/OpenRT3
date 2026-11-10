@@ -56,7 +56,7 @@ int32_t __fastcall Train_IsStopped(uint8_t* t) {
 RT3_REPLACE(0x4a7360, Train_IsStopped);
 
 // 0x4a7390. Replaces the 63-byte buffer +0x1c6 with a copy of src.
-void __fastcall Train_SetBuffer1c6(uint8_t* t, int, const uint8_t* src) {
+RT3_NOINLINE void __fastcall Train_SetBuffer1c6(uint8_t* t, int, const uint8_t* src) {
     if (F<void*>(t, 0x1c6)) {
         Free(F<void*>(t, 0x1c6));
         F<void*>(t, 0x1c6) = nullptr;
@@ -67,7 +67,7 @@ void __fastcall Train_SetBuffer1c6(uint8_t* t, int, const uint8_t* src) {
 }
 RT3_REPLACE(0x4a7390, Train_SetBuffer1c6);
 
-void __fastcall Obj_Dec58c(uint8_t* o) {
+RT3_NOINLINE void __fastcall Obj_Dec58c(uint8_t* o) {
     if (F<int32_t>(o, 0x58c) > 0) F<int32_t>(o, 0x58c)--;
 }
 RT3_REPLACE(0x4a73e0, Obj_Dec58c);

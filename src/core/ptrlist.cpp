@@ -77,10 +77,10 @@ void __fastcall PtrList_RemoveNode(PtrList* l, int, PtrListNode* n) {
 }
 RT3_REPLACE(0x556e80, PtrList_RemoveNode);
 
-void __fastcall PtrList_Rewind(PtrList* l) { l->cursor = l->head; }
+RT3_NOINLINE void __fastcall PtrList_Rewind(PtrList* l) { l->cursor = l->head; }
 RT3_REPLACE(0x556ef0, PtrList_Rewind);
 
-void* __fastcall PtrList_Next(PtrList* l) {
+RT3_NOINLINE void* __fastcall PtrList_Next(PtrList* l) {
     PtrListNode* n = l->cursor;
     if (!n) return nullptr;
     l->cursor = n->next;

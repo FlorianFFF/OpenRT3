@@ -163,7 +163,7 @@ RT3_REPLACE(0x55b750, TextBox_MoveCursor);
 // 0x560e50. Refreshes the list's visible rows: releases the old ones (callback
 // +0x1c6 per row item), takes +0x1de rows from +0x1e2 (first node +0x18a) and lays
 // each out (callback +0x1ca with its rect, row height +0xb6 of the screen + +0xb2).
-void __fastcall ListView_RefreshVisible(uint8_t* tv) {
+RT3_NOINLINE void __fastcall ListView_RefreshVisible(uint8_t* tv) {
     if (F<int32_t>(tv, 0x182)) return;
     if (!F<void*>(tv, 0x1ca) && !F<void*>(tv, 0x1c6)) return;
     for (int32_t i = 0; i < F<int32_t>(tv, 0x186); ++i)

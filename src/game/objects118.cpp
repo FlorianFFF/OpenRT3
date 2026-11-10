@@ -18,7 +18,7 @@ void __fastcall BlockGrid_Free(uint8_t* g);
 static inline bool Is3D(uint8_t* s) { return F<int32_t>(s, 4) == 1 && !hook::Global<int32_t>(0xccb9f4); }
 
 // 0x5317b0. Stops sample `key`: kind 0 = 2D, kind 1 = 3D.
-void __fastcall Sound_Stop(uint8_t* s, int, uint32_t key, int32_t kind) {
+RT3_NOINLINE void __fastcall Sound_Stop(uint8_t* s, int, uint32_t key, int32_t kind) {
     if (!Is3D(s)) return;
     if (kind == 0) Sound2D_Stop(hook::Global<uint8_t*>(0xccb9f8), 0, key);
     else if (kind == 1) Sound3D_Stop(hook::Global<uint8_t*>(0xccb9fc), 0, key, nullptr);
@@ -39,7 +39,7 @@ uint32_t __fastcall Terrain_CellByte(uint8_t* t, int, int32_t x, int32_t y) {
     return g ? BlockGrid_Byte(g, 0, x % 16, y % 16) : 0;
 }
 RT3_REPLACE(0x533f80, Terrain_CellByte);
-uint32_t __fastcall Terrain_CellCount(uint8_t* t, int, int32_t x, int32_t y) {
+RT3_NOINLINE uint32_t __fastcall Terrain_CellCount(uint8_t* t, int, int32_t x, int32_t y) {
     uint8_t* g = *GridSlot(t, x, y);
     return g ? BlockGrid_Count(g, 0, x % 16, y % 16) : 0;
 }

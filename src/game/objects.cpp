@@ -30,7 +30,7 @@ RT3_REPLACE(0x4337a0, Obj_Get21);
 RT3_NOINLINE int32_t __fastcall Obj_Get25(void* o) { return F<int32_t>(o, 0x25); }
 RT3_REPLACE(0x4337b0, Obj_Get25);
 
-uint8_t __fastcall Obj_Flag3d4(void* o) { return F<uint8_t>(o, 0x3d4); }
+RT3_NOINLINE uint8_t __fastcall Obj_Flag3d4(void* o) { return F<uint8_t>(o, 0x3d4); }
 RT3_REPLACE(0x40c990, Obj_Flag3d4);
 
 // 0x41adb0. The table-0x62ba88 record referenced at +0x388.
@@ -46,7 +46,7 @@ RT3_REPLACE(0x47de00, Obj_Building);
 
 // 0x47efe0. Cargo value (+0x276) of the building referenced at +4.
 // QUIRK: with no building it reads address 0x276 (crashes), as the original.
-int32_t __fastcall Obj_BuildingValue(void* o) {
+RT3_NOINLINE int32_t __fastcall Obj_BuildingValue(void* o) {
     uint32_t id = F<uint32_t>(o, 4);
     volatile uint8_t* b = id ? (uint8_t*)Collection_Get(g_buildings, 0, id) : nullptr;
     return *(volatile int32_t*)(b + 0x276);
@@ -105,7 +105,7 @@ RT3_NOINLINE void __fastcall Company_AddStat(void* c, int, int32_t stat, float a
 RT3_REPLACE(0x42a040, Company_AddStat);
 
 // 0x48a170. Centre of a two-corner object, in cells.
-void __fastcall Obj_CenterCell(void* o, int, float* x, float* y) {
+RT3_NOINLINE void __fastcall Obj_CenterCell(void* o, int, float* x, float* y) {
     *x = (float)(((double)F<float>(o, 0x2c) + F<float>(o, 0x14)) / kTwoCells);
     *y = (float)(((double)F<float>(o, 0x34) + F<float>(o, 0x1c)) / kTwoCells);
 }
@@ -127,7 +127,7 @@ static inline void* RefNotMinus1(Collection* t, int32_t id) { return id != -1 ? 
 
 RT3_NOINLINE void* __fastcall Obj_Company21(void* o) { return RefPositive(g_companies, F<int32_t>(o, 0x21)); }
 RT3_REPLACE(0x434870, Obj_Company21);
-void* __fastcall Obj_Ref25(void* o) { return RefPositive(g_table6ceb9c, F<int32_t>(o, 0x25)); }
+RT3_NOINLINE void* __fastcall Obj_Ref25(void* o) { return RefPositive(g_table6ceb9c, F<int32_t>(o, 0x25)); }
 RT3_REPLACE(0x4348c0, Obj_Ref25);
 RT3_NOINLINE void* __fastcall Obj_Ref3cc(void* o) { return Collection_Get(g_table62b2fc, 0, F<uint32_t>(o, 0x3cc)); }
 RT3_REPLACE(0x40cec0, Obj_Ref3cc);
@@ -135,9 +135,9 @@ RT3_NOINLINE void* __fastcall Obj_City41(void* o) { return RefNotMinus1(g_cities
 RT3_REPLACE(0x4a77b0, Obj_City41);
 RT3_NOINLINE void* __fastcall Obj_City352(void* o) { return RefNotMinus1(g_cities, F<int32_t>(o, 0x352)); }
 RT3_REPLACE(0x41ad90, Obj_City352);
-void* __fastcall Obj_Node206(void* o) { return RefNotMinus1(g_trackNodes, F<int32_t>(o, 0x206)); }
+RT3_NOINLINE void* __fastcall Obj_Node206(void* o) { return RefNotMinus1(g_trackNodes, F<int32_t>(o, 0x206)); }
 RT3_REPLACE(0x48e140, Obj_Node206);
-void* __fastcall Obj_Node20a(void* o) { return RefNotMinus1(g_trackNodes, F<int32_t>(o, 0x20a)); }
+RT3_NOINLINE void* __fastcall Obj_Node20a(void* o) { return RefNotMinus1(g_trackNodes, F<int32_t>(o, 0x20a)); }
 RT3_REPLACE(0x48e160, Obj_Node20a);
 
 // 0x45ea60. MSVC "vector constructor iterator": calls fn(elem) for count elements.
@@ -176,22 +176,22 @@ double __fastcall Map_GridFloat(void* m, int, int32_t x, int32_t y) {
 RT3_REPLACE(0x448aa0, Map_GridFloat);
 
 // 0x4b2bd0 / 0x4b2b60. Elements of a 0x33-byte record array {base, ?, current}.
-void* __fastcall Array33_Current(void* a) {
+RT3_NOINLINE void* __fastcall Array33_Current(void* a) {
     int32_t i = F<int32_t>(a, 8);
     return i >= 0 ? F<uint8_t*>(a, 0) + i * 0x33 : nullptr;
 }
 RT3_REPLACE(0x4b2bd0, Array33_Current);
-void* __fastcall Array33_At(void* a, int, int32_t i) { return F<uint8_t*>(a, 0) + i * 0x33; }
+RT3_NOINLINE void* __fastcall Array33_At(void* a, int, int32_t i) { return F<uint8_t*>(a, 0) + i * 0x33; }
 RT3_REPLACE(0x4b2b60, Array33_At);
 
 // 0x424010. Per-entry flag of a company (0x38d-byte entries from +0x1d9f).
-int32_t __fastcall Company_EntryFlag(void* c, int, int32_t i) { return F<uint8_t>(c, 0x1d9f + i * 0x38d) != 0 ? 1 : 0; }
+RT3_NOINLINE int32_t __fastcall Company_EntryFlag(void* c, int, int32_t i) { return F<uint8_t>(c, 0x1d9f + i * 0x38d) != 0 ? 1 : 0; }
 RT3_REPLACE(0x424010, Company_EntryFlag);
 
 // 0x48a1a0 / 0x48a1c0. Centre x / y in cells, rounded to float.
-float __fastcall Obj_CenterCellX(void* o) { float r = (float)(((double)F<float>(o, 0x2c) + F<float>(o, 0x14)) / kTwoCells); return r; }
+RT3_NOINLINE float __fastcall Obj_CenterCellX(void* o) { float r = (float)(((double)F<float>(o, 0x2c) + F<float>(o, 0x14)) / kTwoCells); return r; }
 RT3_REPLACE(0x48a1a0, Obj_CenterCellX);
-float __fastcall Obj_CenterCellY(void* o) { float r = (float)(((double)F<float>(o, 0x34) + F<float>(o, 0x1c)) / kTwoCells); return r; }
+RT3_NOINLINE float __fastcall Obj_CenterCellY(void* o) { float r = (float)(((double)F<float>(o, 0x34) + F<float>(o, 0x1c)) / kTwoCells); return r; }
 RT3_REPLACE(0x48a1c0, Obj_CenterCellY);
 
 double __fastcall Obj_Float18(void* o) { return F<float>(o, 0x18); }
@@ -259,7 +259,7 @@ const char* __fastcall Options_SaveFolder(void* opt) {
 RT3_REPLACE(0x4839e0, Options_SaveFolder);
 
 // 0x425b90. Company: owning player (+0x3b) has the +0x1e1 flag set.
-int32_t __fastcall Company_OwnerFlag1e1(void* c) {
+RT3_NOINLINE int32_t __fastcall Company_OwnerFlag1e1(void* c) {
     int32_t id = F<int32_t>(c, 0x3b);
     if (id <= 0) return 0;
     return F<int32_t>(Collection_Get(g_players, 0, id), 0x1e1) != 0 ? 1 : 0;
@@ -275,7 +275,7 @@ RT3_REPLACE(0x426ef0, Company_Owner);
 
 // 0x4261b0. Shares not held by any active player: outstanding (+0x47) minus
 // each player's holding of this company (player +0x15d + company*4, if > 0).
-int32_t __fastcall Company_FreeShares(void* c) {
+RT3_NOINLINE int32_t __fastcall Company_FreeShares(void* c) {
     int32_t players = Table_CountField4(g_players);
     int32_t held = 0;
     for (int32_t i = 0; i < players; ++i) {
@@ -310,12 +310,12 @@ RT3_NOINLINE int32_t __fastcall Obj_YearReached(void* o) {
 RT3_REPLACE(0x41e220, Obj_YearReached);
 
 // 0x47ded0 / 0x47df00. Cell position of the building referenced at +4.
-double __fastcall Obj_BuildingCellX(void* o) {
+RT3_NOINLINE double __fastcall Obj_BuildingCellX(void* o) {
     uint32_t id = F<uint32_t>(o, 4);
     return Obj_CellX(id ? Collection_Get(g_buildings, 0, id) : nullptr);
 }
 RT3_REPLACE(0x47ded0, Obj_BuildingCellX);
-double __fastcall Obj_BuildingCellY(void* o) {
+RT3_NOINLINE double __fastcall Obj_BuildingCellY(void* o) {
     uint32_t id = F<uint32_t>(o, 4);
     return Obj_CellY(id ? Collection_Get(g_buildings, 0, id) : nullptr);
 }
@@ -334,7 +334,7 @@ void __fastcall Company_Add7680(void* c, int, int32_t d) {
 RT3_REPLACE(0x423ec0, Company_Add7680);
 
 // 0x4240a0. +0x7680, or 0x752f when the world flag +0x4aaf is off.
-int32_t __fastcall Company_Get7680(void* c) {
+RT3_NOINLINE int32_t __fastcall Company_Get7680(void* c) {
     return F<int32_t>(g_world, 0x4aaf) ? F<int32_t>(c, 0x7680) : 0x752f;
 }
 RT3_REPLACE(0x4240a0, Company_Get7680);
@@ -357,14 +357,14 @@ uint32_t __fastcall Map_GridByte(void* m, int, float x, float y);
 static inline void Free53(void* p) { ((void(__cdecl*)(void*))0x53b080)(p); }
 
 // 0x47de20. Region record under the building referenced at +4.
-uint8_t* __fastcall Obj_BuildingRegion(void* o) {
+RT3_NOINLINE uint8_t* __fastcall Obj_BuildingRegion(void* o) {
     uint32_t id = F<uint32_t>(o, 4);
     return Obj_Region(id ? Collection_Get(g_buildings, 0, id) : nullptr);
 }
 RT3_REPLACE(0x47de20, Obj_BuildingRegion);
 
 // 0x4a8bd0. Owning company (+0x51) of a train.
-void* __fastcall Train_Company(void* t) { return Collection_Get(g_companies, 0, F<uint32_t>(t, 0x51)); }
+RT3_NOINLINE void* __fastcall Train_Company(void* t) { return Collection_Get(g_companies, 0, F<uint32_t>(t, 0x51)); }
 RT3_REPLACE(0x4a8bd0, Train_Company);
 
 // 0x4c16f0. Company selected in the game window (0x6d0818 +0x90), if valid.
@@ -405,7 +405,7 @@ uint32_t __fastcall Obj_CityGridByte(void* o) {
 RT3_REPLACE(0x4a92a0, Obj_CityGridByte);
 
 // 0x40cb70. Region-grid byte at this object's own position.
-uint32_t __fastcall Obj_GridByte(void* o) {
+RT3_NOINLINE uint32_t __fastcall Obj_GridByte(void* o) {
     float y = (float)Obj_CellY(o);
     float x = (float)Obj_CellX(o);
     return Map_GridByte(hook::Global<void*>(0x62c120), 0, x, y);
@@ -457,10 +457,10 @@ void __fastcall Obj_FreeList1c9(void* o) {
 }
 RT3_REPLACE(0x495540, Obj_FreeList1c9);
 
-void* __fastcall Identity(void* o) { return o; }
+RT3_NOINLINE void* __fastcall Identity(void* o) { return o; }
 RT3_REPLACE(0x4b2b70, Identity);
 
-void __fastcall Company_SetEntryFlag(void* c, int, int32_t i, uint8_t v) { F<uint8_t>(c, 0x1d9f + i * 0x38d) = v; }
+RT3_NOINLINE void __fastcall Company_SetEntryFlag(void* c, int, int32_t i, uint8_t v) { F<uint8_t>(c, 0x1d9f + i * 0x38d) = v; }
 RT3_REPLACE(0x424030, Company_SetEntryFlag);
 
 // 0x42b2d0. True if the 6-byte record list (+0xef, count +0xeb) has key `k`.

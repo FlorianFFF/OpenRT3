@@ -36,7 +36,7 @@ int32_t __fastcall Map_TrackOwnerAt(void* o, int, int32_t x, int32_t y, int32_t*
 }
 RT3_REPLACE(0x4935a0, Map_TrackOwnerAt);
 
-int32_t __fastcall Table_CountFlag201_40(Collection* t) {
+RT3_NOINLINE int32_t __fastcall Table_CountFlag201_40(Collection* t) {
     int32_t n = 0;
     for (int32_t i = 0; i < Collection_Count(t); ++i)
         if (F<uint8_t>(Collection_Get(t, 0, Collection_IdAt(t, 0, i, 0)), 0x201) & 0x40) ++n;

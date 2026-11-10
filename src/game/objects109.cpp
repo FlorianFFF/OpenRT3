@@ -70,7 +70,7 @@ uint64_t __fastcall SysInfo_CpuMhz() {
 }
 RT3_REPLACE(0x55d2f0, SysInfo_CpuMhz);
 
-int32_t __fastcall SysInfo_Zero() { return 0; }
+RT3_NOINLINE int32_t __fastcall SysInfo_Zero() { return 0; }
 RT3_REPLACE(0x55d390, SysInfo_Zero);
 void __fastcall SysInfo_Nop() {}
 RT3_REPLACE(0x55d3a0, SysInfo_Nop);
@@ -78,7 +78,7 @@ const char* __fastcall SysInfo_CpuVendor() { return (const char*)0xd973f8; }
 RT3_REPLACE(0x55d3b0, SysInfo_CpuVendor);
 const char* __fastcall SysInfo_CpuName() { return (const char*)0xd97405; }
 RT3_REPLACE(0x55d3c0, SysInfo_CpuName);
-uint32_t __fastcall SysInfo_CpuSignature() { return hook::Global<uint32_t>(0xd9743b); }
+RT3_NOINLINE uint32_t __fastcall SysInfo_CpuSignature() { return hook::Global<uint32_t>(0xd9743b); }
 RT3_REPLACE(0x55d3d0, SysInfo_CpuSignature);
 uint32_t __fastcall SysInfo_HasFeature0() { return hook::Global<uint32_t>(0xd97433) & 1; }
 RT3_REPLACE(0x55d3e0, SysInfo_HasFeature0);

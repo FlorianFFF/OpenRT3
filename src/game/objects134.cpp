@@ -125,7 +125,7 @@ RT3_REPLACE(0x41ac60, Car_ResolveType);
 // the ground, then eases the remembered height (+0x2ee) toward the eye height (+8)
 // by at most 0.2 (up) / 0.4 (down) of cos(pitch) x zoom per call, and below zoom
 // 1250 blends the eye height between them (fully the eye's below zoom 1000).
-void __fastcall Camera_SmoothHeight(uint8_t* c) {
+RT3_NOINLINE void __fastcall Camera_SmoothHeight(uint8_t* c) {
     if (F<int32_t>(c, 0x60)) return;
     if (!((const uint8_t*)0x5ee4d0)[F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x10c)]) return;
     Camera_TargetGround(c);

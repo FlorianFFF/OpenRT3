@@ -39,7 +39,7 @@ static inline uint8_t* EngineType(uint8_t* e) {
 }
 
 // 0x48e3c0. Whether track node id is in the same block component as this node.
-int32_t __fastcall Node_SameComponent(uint8_t* n, int, uint32_t id) {
+RT3_NOINLINE int32_t __fastcall Node_SameComponent(uint8_t* n, int, uint32_t id) {
     int32_t b = F<int32_t>(Collection_Get(hook::Global<Collection*>(0x6cfca8), 0, id), 0x212);
     return Routes_SameComponent(hook::Global<Collection*>(0x6cfcb4), 0, F<int32_t>(n, 0x212), b);
 }

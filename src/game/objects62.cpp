@@ -19,7 +19,7 @@ int32_t ClockMs();
 
 // 0x45b490. Marks (mode 1: unflagged, remembering idx in +0x262) or clears /
 // marks slot idx in the object's blocks (+0x256), when +0x75 is set.
-void __fastcall Obj_MarkBlockSlot(uint8_t* o, int, int32_t on, int32_t idx, int32_t mode) {
+RT3_NOINLINE void __fastcall Obj_MarkBlockSlot(uint8_t* o, int, int32_t on, int32_t idx, int32_t mode) {
     uint8_t* blocks = F<uint8_t*>(o, 0x256);
     if (!blocks || !F<int32_t>(o, 0x75)) return;
     if (mode == 1) {
@@ -90,7 +90,7 @@ static bool SelectedTrainValid() {
     uint8_t* s = hook::Global<uint8_t*>(0x6d0818);
     return s && F<int32_t>(s, 0x90) > 0 && Collection_IsValid(g_trains, 0, F<uint32_t>(s, 0x90));
 }
-void* SelectedTrain() {
+RT3_NOINLINE void* SelectedTrain() {
     if (!SelectedTrainValid()) return nullptr;
     return Collection_Get(g_trains, 0, F<uint32_t>(hook::Global<uint8_t*>(0x6d0818), 0x90));
 }
@@ -126,9 +126,9 @@ static int32_t TutorialBlink(bool match) {
     return (ClockMs() / 350) & 1 ? 1 : 0;
 }
 static inline int32_t TutorialStep() { return ((const int32_t*)0x622b48)[hook::Global<int32_t>(0x6d3b50) * 0x10]; }
-int32_t Tutorial_Blink348() { return TutorialBlink(hook::Global<int32_t>(0x6d3b4c) && TutorialStep() == 0x348); }
+RT3_NOINLINE int32_t Tutorial_Blink348() { return TutorialBlink(hook::Global<int32_t>(0x6d3b4c) && TutorialStep() == 0x348); }
 RT3_REPLACE(0x5164f0, Tutorial_Blink348);
-int32_t Tutorial_Blink352() {
+RT3_NOINLINE int32_t Tutorial_Blink352() {
     if (!hook::Global<int32_t>(0x6d3b4c)) return 0;
     int32_t s = TutorialStep();
     return TutorialBlink(s == 0x352 || s == 0x357);

@@ -54,17 +54,17 @@ ATOM __fastcall Engine_RegisterWindowClass(HINSTANCE inst) {
 }
 RT3_REPLACE(0x51f000, Engine_RegisterWindowClass);
 
-void* __fastcall Engine_Renderer(void* e) { return F<void*>(e, 0x18); }
+RT3_NOINLINE void* __fastcall Engine_Renderer(void* e) { return F<void*>(e, 0x18); }
 RT3_REPLACE(0x51f070, Engine_Renderer);
 void __fastcall Engine_SetRenderer(void* e, int, void* v) { F<void*>(e, 0x18) = v; }
 RT3_REPLACE(0x51f080, Engine_SetRenderer);
-void* __fastcall Engine_Get1C(void* e) { return F<void*>(e, 0x1c); }
+RT3_NOINLINE void* __fastcall Engine_Get1C(void* e) { return F<void*>(e, 0x1c); }
 RT3_REPLACE(0x51f090, Engine_Get1C);
 void __fastcall Engine_Set1C(void* e, int, void* v) { F<void*>(e, 0x1c) = v; }
 RT3_REPLACE(0x51f0a0, Engine_Set1C);
 void* __fastcall Engine_Input(void* e) { return F<void*>(e, 0x20); }
 RT3_REPLACE(0x51f0b0, Engine_Input);
-HWND __fastcall Engine_Window(void* e) { return F<HWND>(e, 0); }
+RT3_NOINLINE HWND __fastcall Engine_Window(void* e) { return F<HWND>(e, 0); }
 RT3_REPLACE(0x51f0f0, Engine_Window);
 
 // Current display mode. Bpp is reported as 0 in windowed-with-desktop mode.
@@ -78,7 +78,7 @@ void __fastcall Engine_CurrentMode(void* e, int, int32_t* w, int32_t* h, int32_t
 }
 RT3_REPLACE(0x51f100, Engine_CurrentMode);
 
-uint8_t __fastcall Engine_IsFullscreen(void* e) { return F<uint8_t>(e, 0x114226); }
+RT3_NOINLINE uint32_t __fastcall Engine_IsFullscreen(void* e) { return F<uint8_t>(e, 0x114226); }
 RT3_REPLACE(0x51f1a0, Engine_IsFullscreen);
 int32_t __fastcall Engine_Get1146f6(void* e) { return F<int32_t>(e, 0x1146f6); }
 RT3_REPLACE(0x51f1b0, Engine_Get1146f6);
@@ -86,7 +86,7 @@ void __fastcall Engine_Set1146f6(void* e, int, int32_t v) { F<int32_t>(e, 0x1146
 RT3_REPLACE(0x51f1c0, Engine_Set1146f6);
 
 // Unlinks every texture that has queued items from the texture queue.
-void __fastcall Engine_ResetTextureQueue(void* e) {
+RT3_NOINLINE void __fastcall Engine_ResetTextureQueue(void* e) {
     PtrList* textures = F<PtrList*>(e, 0x1136a5);
     PtrList_Rewind(textures);
     for (uint8_t* tex = (uint8_t*)PtrList_Next(textures); tex; tex = (uint8_t*)PtrList_Next(textures)) {
@@ -153,7 +153,7 @@ void __fastcall Engine_QueueType6(void* e) {
 RT3_REPLACE(0x51f320, Engine_QueueType6);
 
 // Item type 4: textured quad (20 dwords; p11 = texture).
-void __fastcall Engine_QueueQuad(void* e, int, uint32_t p1, uint32_t p2, uint32_t p3, uint32_t p4, uint32_t p5,
+RT3_NOINLINE void __fastcall Engine_QueueQuad(void* e, int, uint32_t p1, uint32_t p2, uint32_t p3, uint32_t p4, uint32_t p5,
                                  uint32_t p6, uint32_t p7, uint32_t p8, uint32_t p9, uint32_t p10, uint32_t tex,
                                  uint32_t p12, uint32_t p13, uint32_t p14, uint32_t p15, uint32_t p16,
                                  uint32_t p17, uint32_t p18, uint32_t p19, uint32_t p20) {
@@ -261,7 +261,7 @@ void __fastcall Engine_SetTexMemOverride3(void* e, int, int32_t v) {
 RT3_REPLACE(0x51f9e0, Engine_SetTexMemOverride3);
 
 // Free texture memory, honouring the settings overrides (table 0x624c34).
-int32_t __fastcall Engine_FreeTextureMem(void* e) {
+RT3_NOINLINE int32_t __fastcall Engine_FreeTextureMem(void* e) {
     if (F<int32_t>(e, 0x1146ca)) return kTexMemOverride[F<int32_t>(e, 0x1146ca)];
     int32_t v = F<int32_t>(e, 0x1136ad);
     if (F<int32_t>(e, 0x1146c6)) v += kTexMemOverride[F<int32_t>(e, 0x1146c6)] - F<int32_t>(e, 0x1136a9);
@@ -269,7 +269,7 @@ int32_t __fastcall Engine_FreeTextureMem(void* e) {
 }
 RT3_REPLACE(0x51fa00, Engine_FreeTextureMem);
 
-int32_t __fastcall Engine_TotalTextureMem(void* e) {
+RT3_NOINLINE int32_t __fastcall Engine_TotalTextureMem(void* e) {
     if (F<int32_t>(e, 0x1146c6)) return kTexMemOverride[F<int32_t>(e, 0x1146c6)];
     return F<int32_t>(e, 0x1136a9);
 }

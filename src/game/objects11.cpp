@@ -21,7 +21,7 @@ void __fastcall Node_ClearLinks(void* n, int, int32_t a, int32_t b);
 void __stdcall RotateNegated(float x, float y, float angle, float* outX, float* outY);
 
 // 0x412ab0. Obj_SetPriority on every record.
-void __fastcall Table_SetPriorities(Collection* t) {
+RT3_NOINLINE void __fastcall Table_SetPriorities(Collection* t) {
     for (int32_t i = 0; i < Collection_Count(t); ++i)
         Obj_SetPriority(Collection_Get(t, 0, Collection_IdAt(t, 0, i, 0)));
 }
@@ -118,7 +118,7 @@ RT3_REPLACE(0x41ab30, Obj_Toggle35a);
 
 // 0x41afc0. Removes this vehicle's link (+0x390, +0x34a) from its track node
 // (+0x356) and that node's three neighbours.
-void __fastcall Obj_UnlinkFromNode(void* o) {
+RT3_NOINLINE void __fastcall Obj_UnlinkFromNode(void* o) {
     if (F<int32_t>(o, 0x356) == -1) return;
     uint8_t* n = (uint8_t*)Collection_Get(g_trackNodes, 0, F<uint32_t>(o, 0x356));
     Node_ClearLinks(n, 0, F<int32_t>(o, 0x390), F<int32_t>(o, 0x34a));

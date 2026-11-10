@@ -16,7 +16,7 @@ double __fastcall Train_Float109(uint8_t* t, int, int32_t i);
 
 // 0x41aea0. Links this vehicle (+0x390, +0x34a) into track node `id` and,
 // where still free, into its two neighbours (on the matching side).
-void __fastcall Car_LinkToNode(uint8_t* car, int, int32_t id, int32_t side) {
+RT3_NOINLINE void __fastcall Car_LinkToNode(uint8_t* car, int, int32_t id, int32_t side) {
     if (id == -1) return;
     uint8_t* n = (uint8_t*)Collection_Get(g_trackNodes, 0, id);
     Node_SetLinkPair(n, 0, F<int32_t>(car, 0x390), F<int32_t>(car, 0x34a), side);
@@ -86,9 +86,9 @@ int32_t __fastcall Obj_Flag7dOrTracks118(uint8_t* o) {
 }
 RT3_REPLACE(0x50d9b0, Obj_Flag7dOrTracks118);
 
-void* Get6d3ae8() { return (void*)0x6d3ae8; }
+RT3_NOINLINE void* Get6d3ae8() { return (void*)0x6d3ae8; }
 RT3_REPLACE(0x50f5f0, Get6d3ae8);
-void* Get6d3ae8b() { return (void*)0x6d3ae8; }
+RT3_NOINLINE void* Get6d3ae8b() { return (void*)0x6d3ae8; }
 RT3_REPLACE(0x50f600, Get6d3ae8b);
 void __stdcall SetGlobal6d1aa4(int32_t v) { hook::Global<int32_t>(0x6d1aa4) = v; }
 RT3_REPLACE(0x50f730, SetGlobal6d1aa4);

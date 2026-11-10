@@ -124,7 +124,7 @@ void __fastcall Render_SnapToGrid(uint8_t* r, int, int32_t* a, int32_t* b) {
 RT3_REPLACE(0x532960, Render_SnapToGrid);
 
 // 0x5329e0. 1-based grid cell index of (x, y) in a 4-wide grid.
-int32_t __fastcall Render_GridCell(uint8_t* r, int, int32_t x, int32_t y) {
+RT3_NOINLINE int32_t __fastcall Render_GridCell(uint8_t* r, int, int32_t x, int32_t y) {
     int32_t row = (int32_t)((uint32_t)y << 2) / (F<int32_t>(r, 0x15d5) / 16);
     int32_t col = (int32_t)((uint32_t)x << 2) / (F<int32_t>(r, 0x15d9) / 16);
     return col + row * 4 + 1;

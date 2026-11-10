@@ -161,7 +161,7 @@ void __fastcall Scrollbar_Init(uint8_t* w) {
 }
 RT3_REPLACE(0x559340, Scrollbar_Init);
 
-void __fastcall Widget_SetClip(uint8_t* w, int, uint32_t a, uint32_t b, uint32_t c, uint32_t d) {
+RT3_NOINLINE void __fastcall Widget_SetClip(uint8_t* w, int, uint32_t a, uint32_t b, uint32_t c, uint32_t d) {
     F<uint32_t>(w, 0x33) |= 0x40000;
     F<uint32_t>(w, 0xd8) = a;
     F<uint32_t>(w, 0xdc) = b;

@@ -366,3 +366,35 @@ the original exe's; the rewrite's name is in parentheses.
   from the engine type's name. When the engine has no type (id 0), it skips the
   lookup and formats from address 0 + 0x82, which crashes. Normal games never
   have such a train, but an edited or damaged save could.
+
+- **Cars past the end of the track are placed on stack garbage.** A rail car's
+  pose (0x41b080) comes from walking half its length forwards and backwards
+  along the track (0x48edf0). When one walk runs off a dead end, it returns -1
+  without writing its x / z outputs, and the pose code uses the two bogie
+  positions anyway: the car lands wherever the caller's uninitialised stack
+  slots point, if that is still on the map. The rebuild keeps 0x41b080 original
+  so the game state stays identical.
+
+- **Reverse-sorting the company station list by a number empties it.** The
+  company window's station list (0x4e8bb0) sorts by name either way, but for
+  the numeric columns the reversed order (+0x760) keeps a "best so far" value
+  that starts at -1,000,000 and is never updated. Only a station whose figure is
+  below -1,000,000 qualifies, so the list normally stays empty. The industry and
+  cargo lists keep a separate lower bound and sort correctly.
+
+- **The track-laying hint checks the wrong spot.** The status line shown while
+  building track (0x49b180) asks the scene for the map cell under the mouse,
+  which fills in x and y. The "can't build on water" check (0x449980), the
+  early-era terrain check (0x534e10) and the cell-flag check (0x448af0) then
+  read y correctly but take x from a stack slot next to it that nothing ever
+  writes. So the result depends on whatever an earlier call left there. The
+  rebuild keeps 0x49b180 original.
+- **Map cell labels can print stack garbage (0x452100).** The label drawn
+  over a map cell only fills its text buffer in overlay modes 1 to 6. In any
+  other mode, and in the station-name case when the station id is stale, it
+  draws whatever was left on the stack. The rewrite starts from an empty
+  string instead.
+- **Language file errors give odd line numbers (0x51c020).** The loader reads
+  the file twice. Errors found in the first pass always report line 0 (or -1).
+  The second pass starts counting where the first stopped, so for a file that
+  ends in CRLF every reported line number is one too low.

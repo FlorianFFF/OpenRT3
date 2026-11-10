@@ -1726,7 +1726,7 @@ RT3_REPLACE(0x567500, CollisionFile_Construct);
 // 0x558670 / 0x5586c0. Whether widget w and all its parents (+0x4b) are visible
 // (flag 1) / enabled (flag 2) in both their state (+0x6a) and mask (+0x68), have a
 // handler for it (+0x86 -> +0x5c / +0x60), and the engine isn't busy (+0x57).
-int32_t __fastcall Widget_IsVisible(uint8_t* w) {
+RT3_NOINLINE int32_t __fastcall Widget_IsVisible(uint8_t* w) {
     if (!(w[0x6a] & 1) || !(w[0x68] & 1) || !F<uint8_t*>(w, 0x86) || !F<void*>(F<uint8_t*>(w, 0x86), 0x5c)) return 0;
     if (F<uint8_t*>(w, 0x4b) && !Widget_IsVisible(F<uint8_t*>(w, 0x4b))) return 0;
     return hook::Global<uint8_t*>(0x6d4024)[0x57] ? 0 : 1;
@@ -2141,7 +2141,7 @@ RT3_REPLACE(0x48abf0, Track_BuildCost);
 // table 0x6d9098 -> 0xc33d38 offset by 0xaf3528), the cell is refined: above level
 // 1 by recursing at twice the resolution, at level 1 by marking the 3x3 finest-grid
 // block. Coordinates are 16-bit as in the original.
-void __fastcall TerrainLod_Mark(uint8_t* self, int, int32_t levelArg, uint8_t* t, int32_t u0, int32_t v0, int32_t uEndArg,
+RT3_NOINLINE void __fastcall TerrainLod_Mark(uint8_t* self, int, int32_t levelArg, uint8_t* t, int32_t u0, int32_t v0, int32_t uEndArg,
                                 int32_t vEndArg) {
     int32_t level = (int8_t)levelArg;
     int16_t uEnd = (int16_t)uEndArg, vEnd = (int16_t)vEndArg;
@@ -2826,7 +2826,7 @@ char* __fastcall FormatText(char* dst, const char* fmt, const char* a1, const ch
 char* __fastcall Num_Format(char* buf, int32_t style, double v, int32_t width, int32_t unused, int32_t inK, int32_t inM);
 
 // 0x51bfe0 / 0x51c000 (two identical copies). Num_Format with the unused flag set.
-char* __fastcall Num_FormatSimple(char* buf, int32_t style, double v, int32_t width) { return Num_Format(buf, style, v, width, 1, 0, 0); }
+RT3_NOINLINE char* __fastcall Num_FormatSimple(char* buf, int32_t style, double v, int32_t width) { return Num_Format(buf, style, v, width, 1, 0, 0); }
 RT3_REPLACE(0x51bfe0, Num_FormatSimple);
 char* __fastcall Num_FormatSimple2(char* buf, int32_t style, double v, int32_t width) { return Num_Format(buf, style, v, width, 1, 0, 0); }
 RT3_REPLACE(0x51c000, Num_FormatSimple2);
@@ -2989,7 +2989,7 @@ static inline int32_t Abs32(int32_t v) { return (int32_t)(v < 0 ? 0u - (uint32_t
 // truncated integer part and then |fraction|, so values between -1 and 0 lose
 // their minus sign (-0.5 shows as "0.4") and negative fractions round the wrong
 // way (-1.27 shows as "-1.2").
-char* __fastcall Num_Format(char* buf, int32_t style, double v, int32_t width, int32_t unused, int32_t inK, int32_t inM) {
+RT3_NOINLINE char* __fastcall Num_Format(char* buf, int32_t style, double v, int32_t width, int32_t unused, int32_t inK, int32_t inM) {
     int32_t& depth = hook::Global<int32_t>(0x6d3c98);
     ++depth;
     int32_t iv = Ftol(v);
@@ -3293,7 +3293,7 @@ RT3_REPLACE(0x53a450, Track_DebugTooltip);
 // 0x538e50. Inserts widget w into list L ({last, first}, links +0x54 next / +0x58
 // previous) after every widget whose depth (+0x21) is not greater; `select` first
 // sets its value to 1.
-void __fastcall WidgetList_Insert(uint8_t** L, int, uint8_t* w, int32_t select) {
+RT3_NOINLINE void __fastcall WidgetList_Insert(uint8_t** L, int, uint8_t* w, int32_t select) {
     if (select) Widget_SetValue(w, 0, 1);
     uint8_t* at = L[1];
     F<uint8_t*>(w, 0x58) = nullptr;
@@ -3708,7 +3708,7 @@ const char* __fastcall LocalizeName(const char* name);
 // engine picked in its list (child 0x2afe), "No trains currently selected to
 // upgrade." (string 0x53a), or "Total Cost to Upgrade the N Selected Trains to
 // <engine> is <cost>" (0x53b; 0x53c for one train), cost in money-K style.
-void UpgradeDialog_UpdateCostText() {
+RT3_NOINLINE void UpgradeDialog_UpdateCostText() {
     uint8_t* dlg = hook::Global<uint8_t*>(0x6d3ac8);
     if (!dlg) return;
     uint8_t* tree = Widget_FindChild(dlg, 0, 0x2afe);
@@ -4485,7 +4485,7 @@ void __fastcall Collection_Destruct(Collection* c);
 // that fails the original prints whatever the variable last held, so this keeps
 // the value across items too), frees every pack's 32 bucket arrays and closes its
 // file, frees the item table and reports "Pack System Leak Count : N".
-void __fastcall Pack_Shutdown(uint8_t* t) {
+RT3_NOINLINE void __fastcall Pack_Shutdown(uint8_t* t) {
     auto out = (void(__stdcall*)(const char*))hook::Global<void*>(0x5c8078);
     const int32_t none = -1234;
     NameTable_Clear(t);
@@ -4555,7 +4555,7 @@ void __fastcall Widget_Move(uint8_t* w, int, float x, float y);
 // until the button is released (type 7), calling the idle callback (0x6d4004) at
 // least every 20 ms; returns 0. Everything else goes to the window's own handler
 // (vtbl +4).
-int32_t __fastcall Window_HandleEvent(uint8_t* w, int, uint32_t* ev) {
+RT3_NOINLINE int32_t __fastcall Window_HandleEvent(uint8_t* w, int, uint32_t* ev) {
     uint32_t type = ev[0];
     for (uint8_t* c = F<uint8_t*>(w, 0x74); c; c = F<uint8_t*>(c, 0x8a))
         if (!((int32_t(__fastcall*)(uint8_t*, int, uint32_t*))(*(void***)c)[1])(c, 0, ev)) return 0;
@@ -5057,7 +5057,7 @@ RT3_REPLACE(0x4b84b0, Window_HighlightTab7);
 
 // 0x4ca910. Sets two of window w's text fields (event 0x74, ids 0x5c3a / 0x5c44 +
 // the world's +0x4c78 / +0x4c7c selections).
-void __fastcall Window_ShowWorldPicks(uint8_t* w) {
+RT3_NOINLINE void __fastcall Window_ShowWorldPicks(uint8_t* w) {
     Window_SendEvent5(w, 0, 0x74, F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4c78) + 0x5c3a, 1, 0, 0);
     Window_SendEvent5(w, 0, 0x74, F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4c7c) + 0x5c44, 1, 0, 0);
 }
@@ -5075,32 +5075,32 @@ void CityDialog_UpdateButtons() {
 RT3_REPLACE(0x4cbdd0, CityDialog_UpdateButtons);
 
 // Dialog setup helpers: install a callback (event 0x7a) on one control.
-int32_t __fastcall Dialog_SetCallback4a3e(uint8_t* w) { return Window_SendEvent5(w, 0, 0x7a, 0x4a3e, 0x4d2a60, 0, 0); }
+RT3_NOINLINE int32_t __fastcall Dialog_SetCallback4a3e(uint8_t* w) { return Window_SendEvent5(w, 0, 0x7a, 0x4a3e, 0x4d2a60, 0, 0); }
 RT3_REPLACE(0x4d2fe0, Dialog_SetCallback4a3e);
-int32_t __fastcall Dialog_SetCallback4a3b(uint8_t* w) { return Window_SendEvent5(w, 0, 0x7a, 0x4a3b, 0x4d2430, 0, 0); }
+RT3_NOINLINE int32_t __fastcall Dialog_SetCallback4a3b(uint8_t* w) { return Window_SendEvent5(w, 0, 0x7a, 0x4a3b, 0x4d2430, 0, 0); }
 RT3_REPLACE(0x4d3000, Dialog_SetCallback4a3b);
-int32_t __fastcall Dialog_SetCallback4a43(uint8_t* w) { return Window_SendEvent5(w, 0, 0x7a, 0x4a43, 0x4d38c0, 0, 0); }
+RT3_NOINLINE int32_t __fastcall Dialog_SetCallback4a43(uint8_t* w) { return Window_SendEvent5(w, 0, 0x7a, 0x4a43, 0x4d38c0, 0, 0); }
 RT3_REPLACE(0x4d4110, Dialog_SetCallback4a43);
-int32_t __fastcall Dialog_SetCallback4a42(uint8_t* w) { return Window_SendEvent5(w, 0, 0x7a, 0x4a42, 0x4d3d90, 0, 0); }
+RT3_NOINLINE int32_t __fastcall Dialog_SetCallback4a42(uint8_t* w) { return Window_SendEvent5(w, 0, 0x7a, 0x4a42, 0x4d3d90, 0, 0); }
 RT3_REPLACE(0x4d4130, Dialog_SetCallback4a42);
 // (These three also reset a dialog global first.)
-int32_t __fastcall Dialog_SetCallback4a3f(uint8_t* w) {
+RT3_NOINLINE int32_t __fastcall Dialog_SetCallback4a3f(uint8_t* w) {
     hook::Global<int32_t>(0x6cffc4) = 0;
     return Window_SendEvent5(w, 0, 0x7a, 0x4a3f, 0x4d1b80, 0, 0);
 }
 RT3_REPLACE(0x4d3060, Dialog_SetCallback4a3f);
-int32_t __fastcall Dialog_SetCallback4a41(uint8_t* w) {
+RT3_NOINLINE int32_t __fastcall Dialog_SetCallback4a41(uint8_t* w) {
     hook::Global<int32_t>(0x6d07ac) = 0;
     return Window_SendEvent5(w, 0, 0x7a, 0x4a41, 0x4d0a90, 0, 0);
 }
 RT3_REPLACE(0x4d3080, Dialog_SetCallback4a41);
-int32_t __fastcall Dialog_SetCallback4a40(uint8_t* w) {
+RT3_NOINLINE int32_t __fastcall Dialog_SetCallback4a40(uint8_t* w) {
     hook::Global<int32_t>(0x6cffb0) = 0;
     return Window_SendEvent5(w, 0, 0x7a, 0x4a40, 0x4d0420, 0, 0);
 }
 RT3_REPLACE(0x4d30a0, Dialog_SetCallback4a40);
 // 0x4d3020. Callback for control 0x5141 and its caption (string 0x45a, event 0x6e).
-int32_t __fastcall Dialog_SetupControl5141(uint8_t* w) {
+RT3_NOINLINE int32_t __fastcall Dialog_SetupControl5141(uint8_t* w) {
     Window_SendEvent5(w, 0, 0x7a, 0x5141, 0x4d1d60, 0, 0);
     return Window_SendEvent5(w, 0, 0x6e, 0x5141, (uint32_t)(uintptr_t)GetString(0x45a), 0, 0);
 }
@@ -5348,7 +5348,7 @@ RT3_REPLACE(0x4fe1b0, SoundDialog_PickProvider);
 // 0x512f80. Switches window w's large layout (0x6d3b28) on or off: resizes panel
 // 0x659d (event 0x9e) to 508 or 292 pixels (of 1600 x 1200) and swaps which of the
 // buttons 0x6594 / 0x6593 is enabled.
-void __fastcall Window_SetLargeLayout(uint8_t* w, int, int32_t large) {
+RT3_NOINLINE void __fastcall Window_SetLargeLayout(uint8_t* w, int, int32_t large) {
     hook::Global<int32_t>(0x6d3b28) = large;
     double px = (double)(large ? 0x1fc : 0x124);
     uint32_t ev[12] = {};
@@ -5365,7 +5365,7 @@ RT3_REPLACE(0x512f80, Window_SetLargeLayout);
 // 0x513720. Enables buttons 0x65a1 / 0x65a2 only when list 0x65a3 (or 0x65a4 when
 // 0x6d3b24 is clear) has a selection, and captions them accordingly (strings
 // 0x25b / 0x25d without one, 0x25c / 0x25e with).
-void __fastcall Window_UpdateListButtons(uint8_t* w) {
+RT3_NOINLINE void __fastcall Window_UpdateListButtons(uint8_t* w) {
     uint8_t* list = Widget_FindChild(w, 0, hook::Global<int32_t>(0x6d3b24) ? 0x65a3 : 0x65a4);
     bool none = F<int32_t>(list, 0x1d6) < 0;
     uint32_t type = none ? 0x87 : 0x65;
@@ -5529,7 +5529,7 @@ int32_t __fastcall Table_CountPositive3d(Collection* t);
 // 0x4ca430, events 0x7e / 0x7f; 40 cargo names from table 0x5f2d6e, event 0x88 with
 // the cargo number) and shows "N out of 40 are selected." (string 0x40b, the world's
 // +0x6987.. flags) in field 0x5aa4.
-void __fastcall EditorDialog_FillCargoList(uint8_t* w) {
+RT3_NOINLINE void __fastcall EditorDialog_FillCargoList(uint8_t* w) {
     Window_SendEvent5(w, 0, 0x7e, 0x5aa0, 0x4ca450, 0, 0);
     Window_SendEvent5(w, 0, 0x7f, 0x5aa0, 0x4ca430, 0, 0);
     Window_SendEvent5(w, 0, 0x8b, 0x5aa0, 0, 0, 0);
@@ -5705,7 +5705,7 @@ int32_t __fastcall StrIsBlank(const unsigned char* s);
 // 0x5b69 / 0x5b6a / 0x5b6c / 0x5b6b and switches +0x66de / !+0x66f3 on 0x5b6e /
 // 0x5b74. Quirk: the first number is formatted and then thrown away; field 0x5b69
 // gets the world's text at +0x672e instead.
-void __fastcall EditorDialog_ShowSettings(uint8_t* w) {
+RT3_NOINLINE void __fastcall EditorDialog_ShowSettings(uint8_t* w) {
     EditorDialog_ShowBriefings(w);
     char buf[0x440];
     uint8_t* world = hook::Global<uint8_t*>(0x6cec78);
@@ -6237,7 +6237,7 @@ float __fastcall Building_Price(uint8_t* b, int, uint32_t company);
 // at least 0) rounded up to a step. Range 0x6cebcc..0x6cebd0 (at least one step
 // apart) in 0x5f2c50 (>= 3) notches; the knob goes to the top with `reset` or no
 // current amount (0x6cec10 == -1), else to the current amount's notch.
-void __fastcall MoneySlider_Setup(int32_t reset) {
+RT3_NOINLINE void __fastcall MoneySlider_Setup(int32_t reset) {
     float aggr = Player_Aggressiveness((uint8_t*)Obj_Ref25(hook::Global<void*>(0x6cec78)));
     float cash = (float)hook::Global<int32_t>(0x6cec14);
     float v = (float)((double)cash * aggr);
@@ -6364,7 +6364,7 @@ RT3_REPLACE(0x562e40, Widget_OnHoverTimed);
 // table 0x5f3ab0 (9 bytes: hidden flag, name / description strings) that aren't
 // hidden, and "N of M selected" (string 0x41d; selected = world +0x4a7f.. flags) on
 // label 0xa7f8 of the city dialog (0x6cff84).
-void __fastcall EditorDialog_ShowAchievements(uint8_t* w, int, int32_t keep) {
+RT3_NOINLINE void __fastcall EditorDialog_ShowAchievements(uint8_t* w, int, int32_t keep) {
     char goal[0x1a0], on[0x18], all[0x18], text[0x160];
     Num_Format(goal, 8, (double)F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4b43), 10, 1, 0, 0);
     Window_SendEvent5(w, 0, 0x6f, 0xa7ff, (uint32_t)(uintptr_t)goal, 0, 0);
@@ -6466,7 +6466,7 @@ uint32_t __fastcall Sound_Get3DProvider(int32_t n);
 int32_t __fastcall Sound_GetSpeakers(uint8_t* s);
 int32_t __fastcall Engine_ModeCount(void* e);
 void __fastcall Engine_ModeAt(void* e, int, int32_t i, int32_t* w, int32_t* h, int32_t* bpp);
-uint8_t __fastcall Engine_IsFullscreen(void* e);
+uint32_t __fastcall Engine_IsFullscreen(void* e);
 void* __fastcall Array33_At(void* a, int, int32_t i);
 
 // 0x4dd410. Highlights the map-mode buttons of window w by its mode +0x8c (field
@@ -6577,7 +6577,7 @@ RT3_REPLACE(0x4fe4c0, OptionsDialog_FillResolutions);
 // <station>" (0x54d; 0x54c when the train has no station, +0x28 < 0; 0x54e and
 // disabled without a selection) and 0x2b04 for an active station (0x54f, else 0x550
 // and disabled); label 0x2b05 shows string 0x551 when the array is empty.
-void __fastcall TrainList_UpdateButtons(uint8_t* w) {
+RT3_NOINLINE void __fastcall TrainList_UpdateButtons(uint8_t* w) {
     bool none = F<int32_t>(Widget_FindChild(w, 0, 0x2aff), 0x1d6) < 0;
     if (hook::Global<uint8_t>(0x6d3ae1)) return;
     uint8_t* r = nullptr;
@@ -6753,7 +6753,7 @@ void* __fastcall Obj_Building(void* o);
 // yes/no value (+9, radios 0x4f60 / 0x4f61) or a number (+9 in 0x4f6a, type 1).
 // Controls 0x4f6f / 0x4f88 / 0x4f89 are disabled with +0x80 set, else enabled and
 // the mode +0xd picks 0x4f88 or 0x4f89.
-void __fastcall RulesDialog_ShowEffect(uint8_t* w) {
+RT3_NOINLINE void __fastcall RulesDialog_ShowEffect(uint8_t* w) {
     Window_SendEvent5(w, 0, 0x68, 0x4f56, F<uint32_t>(w, 0x78), 0, 0);
     uint32_t k = F<uint8_t*>(w, 0x84)[4];
     if (k <= 7) Window_SendEvent5(w, 0, 0x74, 0x4f57 + k, 1, 0, 0);
@@ -7023,7 +7023,7 @@ RT3_REPLACE(0x4b9fd0, TrainOrders_CargoTooltip);
 // neither: 0x7d07 / 0x7d08, any: 0x7d15; 0x20: 0x7d17 / 0x7d1a; 0x10 only: 0x7d18 /
 // 0x7d1b; both: 0x7d19 / 0x7d1c) and the cargo row 0x7f58.. matching the cargo
 // (ids >= 900 are rows 0..; else 3 + its place among the flagged cargo types).
-void __fastcall TrainOrders_UpdateButtons(uint8_t* w) {
+RT3_NOINLINE void __fastcall TrainOrders_UpdateButtons(uint8_t* w) {
     auto f = []() { return hook::Global<uint8_t*>(0x6cfe04)[0x28]; };
     auto both = [&]() { return (f() & 0x30) == 0x30 ? 0x65u : 0x87u; };
     auto one = [&]() { return ((f() >> 5) & 1) != ((f() >> 4) & 1) ? 0x65u : 0x87u; };
@@ -7065,7 +7065,7 @@ RT3_REPLACE(0x4b9a20, TrainOrders_UpdateButtons);
 // shows world +0xbe2 (x 0x5c85d8, rounded), the others +0xbe6.. (x 0x5c87f8,
 // rounded, + 50); labels 0x5bce ("%d" style 0x5d0b18 of +0xbe2 x 0x5c8c28) and
 // 0x5bd0.. (format 0x5d0b30 of value x 0x5c8c28 + 0x5c85b8).
-void __fastcall EditorDialog_ShowEconomy(uint8_t* w) {
+RT3_NOINLINE void __fastcall EditorDialog_ShowEconomy(uint8_t* w) {
     hook::Global<int32_t>(0x6cff9c) = 1;
     for (uint32_t id = 0x5bcd; id <= 0x5bd7; id += 2) Window_SendEvent5(w, 0, 0x84, id, 0x4ca980, 0, 0);
     Window_SendEvent5(w, 0, 0x7a, 0x5be1, 0x4caaf0, 0, 0);
@@ -7093,7 +7093,7 @@ void __fastcall Table_RefreshAll(Collection* t);
 // first (0x714f, knob +0x185 of 0x5f2c4c notches) from 0x6cebd4 up to 0x6cec0c into
 // 0x6cec14, the second (0x7150, 0x5f2c50 notches) over 0x6cebcc..0x6cebd0 into
 // 0x6cec10 (re-ranging the second first when `rerange`), then refreshes the money.
-void __fastcall MoneySliders_Read(int32_t rerange) {
+RT3_NOINLINE void __fastcall MoneySliders_Read(int32_t rerange) {
     if (!Widget_FindChild(hook::Global<uint8_t*>(0x6cec18), 0, 0x714f)) return;
     hook::Global<int32_t>(0x6cec14) = hook::Global<int32_t>(0x6cebd4);
     if (hook::Global<int32_t>(0x5f2c4c) > 1) {
@@ -7158,7 +7158,7 @@ RT3_REPLACE(0x4cc250, NewGameDialog_ListHumanRows);
 // trains, keeping the selection (clamped; first row when it was none) and the
 // scroll position (+0x1e2), ticks sort button 0x2761 + 0x622b28, then updates the
 // station buttons.
-void __fastcall TrainList_Refill(uint8_t* w) {
+RT3_NOINLINE void __fastcall TrainList_Refill(uint8_t* w) {
     hook::Global<uint8_t>(0x6d3ae1) = 1;
     int32_t sel = F<int32_t>(Widget_FindChild(w, 0, 0x2aff), 0x1d6);
     uint32_t scroll = F<uint32_t>(Widget_FindChild(w, 0, 0x2aff), 0x1e2);
@@ -7615,7 +7615,7 @@ RT3_REPLACE(0x4da0f0, RulesDialog_UpdateSlot);
 // 0x50e0 / 0x50e1, value +0x39 in 0x50e2 and the controls enabled to match; the
 // group line (string 0x417) on 0x50e5 and the "territory N" title (0xbbb, of the
 // id as passed, before the clamp to 1) on 0x50e7.
-void __fastcall TerritoryEditor_Show(uint8_t* w, int, int32_t id) {
+RT3_NOINLINE void __fastcall TerritoryEditor_Show(uint8_t* w, int, int32_t id) {
     if (id <= 0) id = hook::Global<int32_t>(0x621f4c);
     int32_t shown = id;
     if (id < 1) id = 1;
@@ -7691,7 +7691,7 @@ int32_t __fastcall World_LookupNamed2(void* w, int, const char* name);
 // via event 0xaf; switches world +0x4c97..+0x4c99 on 0x5b09..0x5b0b; "N of M
 // enabled" (string 0x41a; enabled = listed in the world's +0x66b6 table) on label
 // 0x5b04 of the city dialog (0x6cff84).
-void __fastcall EditorDialog_FillIndustries(uint8_t* w, int, int32_t keep) {
+RT3_NOINLINE void __fastcall EditorDialog_FillIndustries(uint8_t* w, int, int32_t keep) {
     Window_SendEvent5(w, 0, 0x7e, 0x5b05, 0x4cd570, 0, 0);
     Window_SendEvent5(w, 0, 0x7f, 0x5b05, 0x4ca960, 0, 0);
     for (int32_t k = 0; k < 3; ++k)
@@ -7763,7 +7763,7 @@ int32_t __fastcall World_LookupNamed1(void* w, int, const char* name);
 // eight cities, "..." beyond; sic: each city name is used as a format string),
 // greyed (event 0xaf) when no city has it; "N of M enabled" (string 0x41c; enabled
 // = in the world's +0x66b2 table) on label 0x9c41 of the city dialog (0x6cff84).
-void __fastcall EditorDialog_FillHouses(uint8_t* w, int, int32_t keep) {
+RT3_NOINLINE void __fastcall EditorDialog_FillHouses(uint8_t* w, int, int32_t keep) {
     Window_SendEvent5(w, 0, 0x7e, 0x9c42, 0x4cc130, 0, 0);
     Window_SendEvent5(w, 0, 0x7f, 0x9c42, 0x4c9d80, 0, 0);
     if (!keep) Window_SendEvent5(w, 0, 0x8b, 0x9c42, 0, 0, 0);
@@ -7822,7 +7822,7 @@ RT3_REPLACE(0x4cdbd0, EditorDialog_FillHouses);
 // 0x4cc2d0. Sets up the new-game player-row lists (callbacks 0x4c9da0 on 0x5a6e,
 // 0x4c9fa0 on 0x5a7e, 0x4cc230 hover on 0x5a6e), lists the rows and selects the
 // first.
-void __fastcall NewGameDialog_SetupRows(uint8_t* w) {
+RT3_NOINLINE void __fastcall NewGameDialog_SetupRows(uint8_t* w) {
     Window_SendEvent5(w, 0, 0x7a, 0x5a6e, 0x4c9da0, 0, 0);
     Window_SendEvent5(w, 0, 0x7a, 0x5a7e, 0x4c9fa0, 0, 0);
     Window_SendEvent5(w, 0, 0x79, 0x5a6e, 0x4cc230, 0, 0);
@@ -7947,7 +7947,7 @@ void CityDialog_UpdateButtons();
 // them (Obj_NamedValue) highest first, ties by localized name), the style list
 // 0x5083 (six names from 0x620ce8, current +0x272), the city list 0x507e sorted by
 // name (marking the current; blocked cities +0x23e tinted) and the summary line.
-void __fastcall CityEditor_Fill(uint8_t* w, int, int32_t id, int32_t keep) {
+RT3_NOINLINE void __fastcall CityEditor_Fill(uint8_t* w, int, int32_t id, int32_t keep) {
     Collection* cities = hook::Global<Collection*>(0x62bae0);
     if (id > 0) hook::Global<int32_t>(0x6cff74) = id;
     if (!Collection_IsValid(hook::Global<Collection*>(0x62bae0), 0, hook::Global<uint32_t>(0x6cff74))) hook::Global<int32_t>(0x6cff74) = 0;
@@ -8062,7 +8062,7 @@ void __fastcall String_Assign(char** s, const char* src);
 // list from 0x622048; cargo lists +0x14 / +0x28 with the non-+0x46 cargo types;
 // layout event 0xb3 by kind), the converter controls 0x59dc..0x59de when any entry
 // converts, and the template's +0x3ed in 0x59de.
-void __fastcall EditorDialog_ShowRegionTypes(uint8_t* w) {
+RT3_NOINLINE void __fastcall EditorDialog_ShowRegionTypes(uint8_t* w) {
     ++hook::Global<int32_t>(0x6cffa0);
     Templates_Normalize(hook::Global<uint8_t*>(0x6cec78));
     Window_SendEvent5(w, 0, 0x8b, 0x59d8, 0, 0, 0);
@@ -8230,7 +8230,7 @@ RT3_REPLACE(0x4d6090, ConditionDialog_ShowValue);
 // whole-company target 0x4f5d / 0x4f5e is picked in group 0x4fd6, unit labels
 // 0x4f70 / 0x4f71). Both radio queries share one event whose other fields the
 // original leaves uninitialized (zero here).
-void __fastcall RulesDialog_ShowEffectType(uint8_t* w) {
+RT3_NOINLINE void __fastcall RulesDialog_ShowEffectType(uint8_t* w) {
     if (hook::Global<int32_t>(0x6d07c0)) return;
     hook::Global<int32_t>(0x6d07c0) = 1;
     auto send = [w](uint32_t type, uint32_t id) { Window_SendEvent5(w, 0, type, id, 3, 0, 0); };
@@ -8834,7 +8834,7 @@ int32_t __fastcall NameTable_Read(uint8_t* t, int, void* dst, int32_t n);
 int32_t __fastcall NameTable_ReadBlock(uint8_t* t, int, int32_t, void** out);
 
 // 0x53c6f0. Pack_Acquire of font `idx` (kind 7, key 0x754d4c0 + idx).
-uint8_t* __fastcall Pack_AcquireFont(uint8_t* pack, int, int32_t idx) { return Pack_Acquire(pack, 0, 7, idx + 0x754d4c0); }
+RT3_NOINLINE uint8_t* __fastcall Pack_AcquireFont(uint8_t* pack, int, int32_t idx) { return Pack_Acquire(pack, 0, 7, idx + 0x754d4c0); }
 RT3_REPLACE(0x53c6f0, Pack_AcquireFont);
 
 static inline void* ExeMalloc(size_t n) { return ((void*(__cdecl*)(size_t))0x5a125d)(n); }
@@ -9027,7 +9027,7 @@ uint8_t* __fastcall TreeView_Load(uint8_t* w, int, int32_t) {
     return w;
 }
 RT3_REPLACE(0x55fcc0, TreeView_Load);
-uint8_t* __fastcall TreeView_Construct(uint8_t* w, int, const uint8_t* def) {
+RT3_NOINLINE uint8_t* __fastcall TreeView_Construct(uint8_t* w, int, const uint8_t* def) {
     Widget_Construct(w, 0, def);
     F<uint32_t>(w, 0) = 0x5de318;
     TreeView_Init(w);
@@ -9076,7 +9076,7 @@ uint8_t* __fastcall Button_Load(uint8_t* w, int, int32_t) {
     return w;
 }
 RT3_REPLACE(0x563c00, Button_Load);
-uint8_t* __fastcall Button_Construct(uint8_t* w, int, const uint8_t* def) {
+RT3_NOINLINE uint8_t* __fastcall Button_Construct(uint8_t* w, int, const uint8_t* def) {
     Widget_Construct(w, 0, def);
     F<uint32_t>(w, 0) = 0x5de3b0;
     Button_Init(w);
@@ -9605,7 +9605,7 @@ RT3_REPLACE(0x5389c0, Windows_Remove);
 // 0x5386e0. Shows `text` in the status line (+0x14, with font 7 in +0x18 while
 // there is text; one character or less clears it) for `ms` milliseconds (+0x1c =
 // end time, 0 = until replaced). Not re-entrant (0xccba18).
-void __fastcall StatusLine_Set(uint8_t* s, int, const char* text, int32_t ms) {
+RT3_NOINLINE void __fastcall StatusLine_Set(uint8_t* s, int, const char* text, int32_t ms) {
     int32_t& busy = hook::Global<int32_t>(0xccba18);
     if (busy) return;
     busy = 1;
@@ -9669,7 +9669,7 @@ RT3_REPLACE(0x4258c0, Company_CashRate);
 // debt stat 0x12), positive cash is lost entirely and a deficit halved, the share
 // count grows by half (rounded down to thousands), the price is recomputed and the
 // year noted in +0x163.
-void __fastcall Company_GoBankrupt(uint8_t* c) {
+RT3_NOINLINE void __fastcall Company_GoBankrupt(uint8_t* c) {
     if (!F<int32_t>(c, 0x3f)) return;
     int32_t total = 0;
     for (int32_t i = 0; i < F<int32_t>(c, 0x5b); ++i) {
@@ -9690,7 +9690,7 @@ RT3_REPLACE(0x425a90, Company_GoBankrupt);
 
 // 0x4273c0. Buys back `n` shares at the price after the buyback (70% of them
 // counted), paying 2% commission (stat 0xc) on top.
-void __fastcall Company_BuyBackShares(uint8_t* c, int, int32_t n) {
+RT3_NOINLINE void __fastcall Company_BuyBackShares(uint8_t* c, int, int32_t n) {
     double dn = n;
     double price = Company_SharePrice(c, 0, Ftol(dn * D(0x5c8680)), 1);
     double cost = dn * price;
@@ -9703,7 +9703,7 @@ RT3_REPLACE(0x4273c0, Company_BuyBackShares);
 // 0x427450. Issues `n` new shares: at the market price after the issue (70% of
 // them counted, 5% commission, date noted in +0x16b / +0x16f with the previous one
 // kept in +0x173 / +0x177), or at `price` when `atPrice` is set.
-void __fastcall Company_IssueShares(uint8_t* c, int, int32_t n, int32_t atPrice, int32_t price) {
+RT3_NOINLINE void __fastcall Company_IssueShares(uint8_t* c, int, int32_t n, int32_t atPrice, int32_t price) {
     int32_t p = price;
     if (!atPrice) {
         double issued = (double)-n;
@@ -10061,7 +10061,7 @@ void __fastcall EditButton_SetCursor(int32_t id, int, int32_t active, int32_t, i
 }
 RT3_REPLACE(0x4e0a70, EditButton_SetCursor);
 
-uint8_t __fastcall Engine_IsFullscreen(void* e);
+uint32_t __fastcall Engine_IsFullscreen(void* e);
 HWND __fastcall Engine_Window(void* e);
 int32_t __fastcall Cursor_InWindow();
 
@@ -10142,7 +10142,7 @@ void __fastcall Cursor_PopBusy(uint8_t* c) {
 RT3_REPLACE(0x53f310, Cursor_PopBusy);
 
 // 0x53f3d0. Shuts the cursor manager down: no cursor, buffer +0x1c freed.
-void __fastcall Cursor_Shutdown(uint8_t* c) {
+RT3_NOINLINE void __fastcall Cursor_Shutdown(uint8_t* c) {
     Cursor_Set(c, 0, 0, 0, 0);
     if (F<void*>(c, 0x1c)) Free(F<void*>(c, 0x1c));
     F<void*>(c, 0x1c) = nullptr;
@@ -10228,7 +10228,7 @@ RT3_REPLACE(0x53a560, ReleaseGlobalResource);
 // window (after deleting its children; the windows themselves stay), frees the
 // tooltip strings (+0xbd8, 16 bytes each, count +0xc58), the message (+0x10, font
 // +0xc), the status text (+0x14, font +0x18) and the font list +0xc69.
-void __fastcall Windows_Shutdown(uint8_t* m) {
+RT3_NOINLINE void __fastcall Windows_Shutdown(uint8_t* m) {
     StatusLine_Set(m, 0, (const char*)0x5c87a8, 0xbb8);
     for (uint8_t* w = F<uint8_t*>(m, 0); w;) {
         uint8_t* next = F<uint8_t*>(w, 0x58);
@@ -10309,7 +10309,7 @@ RT3_REPLACE(0x55fc50, TreeView_ClosePopup);
 
 // 0x558000. Widget destructor body: forgets the window manager's focus / hover
 // pointers to it (+0xc6d / +0xc71), frees its names and drops its fonts.
-void __fastcall Widget_Destruct(uint8_t* w) {
+RT3_NOINLINE void __fastcall Widget_Destruct(uint8_t* w) {
     F<uint32_t>(w, 0) = 0x5ddcd0;
     uint8_t* m = hook::Global<uint8_t*>(0x6d401c);
     if (F<uint8_t*>(m, 0xc6d) == w) {
@@ -10416,7 +10416,7 @@ float __fastcall Company_BondRateWithDebt(uint8_t* c, int, int32_t extraDebt, in
 // 0x4275c0. Issues a bond of `amount` for `years` at `rate` (0: the rate the
 // company would get with that debt), paying 2% commission when asked; at most 20
 // bonds (+0x5b, 12-byte entries at +0x5f: amount, maturity year, rate).
-int32_t __fastcall Company_IssueBond(uint8_t* c, int, int32_t amount, int32_t years, int32_t commission, float rate) {
+RT3_NOINLINE int32_t __fastcall Company_IssueBond(uint8_t* c, int, int32_t amount, int32_t years, int32_t commission, float rate) {
     if (F<int32_t>(c, 0x5b) >= 0x14) return 0;
     int32_t due = CurYear() + years;
     if (Fl(0x5c8598) == rate) rate = Company_BondRateWithDebt(c, 0, amount, years);
@@ -11712,7 +11712,7 @@ static int32_t Font_D3dxDrawText(uint8_t* f, const char* text, RECT* rect, uint3
 // 0x550470. Number of lines `text` takes wrapped to `width` (at least 1 for GDI
 // fonts, measured with DT_CALCRECT in a box 1.5 screens high); *textWidth gets the
 // widest line.
-int32_t __fastcall Font_CountLines(uint8_t* f, int, const char* text, float width, float* textWidth) {
+RT3_NOINLINE int32_t __fastcall Font_CountLines(uint8_t* f, int, const char* text, float width, float* textWidth) {
     if (F<int32_t>(f, 0x10)) {
         int32_t lines;
         Font_DrawText(f, 0, text, 0.0f, 0.0f, width, BitsF(0x461c3c00), 0xffffffff, 2, 1, 0, 1, &lines, textWidth, nullptr, 0);
@@ -11890,7 +11890,7 @@ RT3_REPLACE(0x4e50d0, Sprite_DrawSecondGlyph);
 
 // 0x566980. Draws `text` right-aligned near the top right of the screen in the
 // engine's overlay font (+0x1141f5) at half size; `shadow` 0 turns the shadow off.
-void __stdcall Overlay_DrawText(const char* text, int32_t shadow) {
+RT3_NOINLINE void __stdcall Overlay_DrawText(const char* text, int32_t shadow) {
     uint8_t* e = hook::Global<uint8_t*>(0x6d4024);
     if (!e || !F<uint8_t*>(e, 0x1141f5)) return;
     Font_DrawTextBox(F<uint8_t*>(e, 0x1141f5), 0, text, BitsF(0x3efccccd), BitsF(0x3bbf258c), 0.5f, 0.5f, 0xffffffff, 3, 1, shadow ? 0 : 2, 0.5f);
@@ -12100,7 +12100,7 @@ RT3_REPLACE(0x538b60, WindowManager_Draw);
 // 0x6cec0c rounding (10,000 with base 80,000 under 1e6, then 100,000, 1e6, 1e7),
 // the number of positions 0x5f2c4c (event 0x73) and, if `select`, the last
 // position (event 0x66).
-void __fastcall Dialog_SetupWorthSlider(int32_t select) {
+RT3_NOINLINE void __fastcall Dialog_SetupWorthSlider(int32_t select) {
     double worth = Player_CollateralWorth((uint8_t*)Obj_Ref25(hook::Global<uint8_t*>(0x6cec78)), 0, 1);
     double v = worth < D(0x5ce8a8) ? worth : 1e8;
     int32_t amount = Ftol(v);
@@ -12370,7 +12370,7 @@ RT3_REPLACE(0x521920, Net_StopListener);
 
 // 0x5215c0. Adds `text` as a wide-string component (name 0x5dcf5c) to the
 // DirectPlay8 address `addr` (AddComponent); 1 on success.
-int32_t __stdcall DpAddress_AddString(void* addr, const char* text) {
+RT3_NOINLINE int32_t __stdcall DpAddress_AddString(void* addr, const char* text) {
     wchar_t buf[0x80];
     Str_ToWide(buf, text, -1);
     int32_t len = ((int32_t(__cdecl*)(const wchar_t*))0x5a3e74)(buf);
@@ -12424,7 +12424,7 @@ void __fastcall Thread_Start(uint8_t* t);
 // +0x212, +0x216) and, the first time (no socket 0x6d40e8), starts Winsock 1.0
 // (WSADATA at the object's start; result in 0x6d4118) and the listener thread
 // 0x6d40d4 (vtable 0x5dcf94).
-uint8_t* __fastcall Net_Construct(uint8_t* o) {
+RT3_NOINLINE uint8_t* __fastcall Net_Construct(uint8_t* o) {
     F<uint32_t>(o, 0x18e) = 0;
     F<uint32_t>(o, 0x212) = 0;
     F<uint32_t>(o, 0x216) = 0;
@@ -12451,7 +12451,7 @@ RT3_REPLACE(0x521bf0, Net_Construct);
 
 // 0x521c80. Sets the local player's name (IDirectPlay8Peer::SetPeerInfo, sync);
 // the peer interface goes to 0x6d40e0. 1 on success.
-int32_t __fastcall Net_SetPlayerName(uint8_t* o, int, const char* name) {
+RT3_NOINLINE int32_t __fastcall Net_SetPlayerName(uint8_t* o, int, const char* name) {
     hook::Global<void*>(0x6d40e0) = F<void*>(F<uint8_t*>(o, 0x18e), 8);
     struct { uint32_t size, flags; wchar_t* name; void* data; uint32_t dataSize, playerFlags; } info;
     wchar_t buf[0x80];
@@ -12571,7 +12571,7 @@ void __fastcall Obj_GetXYZ1c(uint8_t* o, int, uint32_t* x, uint32_t* y, uint32_t
 // list 0x6d4044 (under 0x6d4048), returning nodes of the preallocated block to
 // the pool 0x6d4040 and deleting the rest. The unused argument is real: the
 // original reuses its slot to tail-call LeaveCriticalSection (RET 4).
-void __stdcall Net_PurgeSentMessages(int32_t) {
+RT3_NOINLINE void __stdcall Net_PurgeSentMessages(int32_t) {
     Import<void(__stdcall*)(void*)>(0x5c81fc)((void*)0x6d4048);
     ++hook::Global<int32_t>(0x6d4060);
     for (;;) {
@@ -13086,7 +13086,7 @@ RT3_REPLACE(0x475100, Effect_Free);
 // 0x556620. Frees a model library: its buffer +0, the name hashes +8 and +4,
 // the 200 shared models +0x10 (8 bytes apart), the pools +0x14 and +0xc and the
 // emitters +0x18 (count +0x1c).
-void __fastcall ModelLibrary_Free(uint32_t* o) {
+RT3_NOINLINE void __fastcall ModelLibrary_Free(uint32_t* o) {
     if (o[0]) {
         ExeDelete((void*)(uintptr_t)o[0]);
         o[0] = 0;
@@ -13515,7 +13515,7 @@ RT3_REPLACE(0x4354a0, Weather_ApplyIntensity);
 // pick height scaled; a tilt (+0x5c - +0x54) shifts sy by the eye-height
 // correction. Writes the cell (x, z) / cell size into *cx / *cz; false when the
 // ray misses (no object 0x62be68 or no renderer).
-int32_t __fastcall Camera_PickGround(uint8_t* cam, int, float sx, float sy, float height, float* cx, float* cz) {
+RT3_NOINLINE int32_t __fastcall Camera_PickGround(uint8_t* cam, int, float sx, float sy, float height, float* cx, float* cz) {
     float tilt = (float)((double)F<float>(cam, 0x5c) - F<float>(cam, 0x54));
     float off = Obj_ScaledSpanOffset(cam, 0, sy);
     float eased = off;
@@ -13661,7 +13661,7 @@ int32_t __stdcall Net_OpenChannel(uint8_t id);
 // sections, the node pools and their lists (players 0x26f4 x 4, packets 0x28 x
 // 0x2000, outgoing 0x11c x 0x20, channels 0x1d x 0x100), opens the broadcast
 // channel 0xff and installs the message handler 0x523380.
-int32_t __fastcall Net_InitShared(uint8_t* net) {
+RT3_NOINLINE int32_t __fastcall Net_InitShared(uint8_t* net) {
     if (hook::Global<void*>(0x6d408c)) return 0;
     F<uint32_t>(net, 0x18e) = hook::Global<uint32_t>(0xd973b4);
     memset((void*)0x6d4088, 0, 9 * 4);
@@ -13736,7 +13736,7 @@ int32_t __fastcall Window_SendEvent4(uint8_t* w, int, uint32_t type, uint32_t id
 // buttons 0x3e80 / 0x3e81, then lays out the four slots 0x3eee..0x3ef1 in a
 // ring so the last choice sits in front: position (event 0x99) and scale
 // (event 0xa9: 1.2 / 1.0 / 0.9 / 0.8, 1.03 for the front slot when there is none).
-void __fastcall PortraitWindow_Layout(uint8_t* w) {
+RT3_NOINLINE void __fastcall PortraitWindow_Layout(uint8_t* w) {
     int32_t n = *(const int32_t*)(0x6220a0 + F<int32_t>(w, 0x78) * 0xd);
     if (F<int32_t>(w, 0x80) == n) return;
     auto swapFrame = [&](uint32_t name) {
@@ -14134,7 +14134,7 @@ void __stdcall Options_SetWeatherOverride(int32_t on, int32_t level) {
 RT3_REPLACE(0x482850, Options_SetWeatherOverride);
 
 // 0x5634a0. TextLink_Draw with one colour for normal and hovered.
-void __fastcall TextLink_DrawPlain(uint8_t* win, uint8_t* font, const char* text, float x, float y, float w, float h, uint32_t color,
+RT3_NOINLINE void __fastcall TextLink_DrawPlain(uint8_t* win, uint8_t* font, const char* text, float x, float y, float w, float h, uint32_t color,
                                    int32_t align, int32_t valign, uint32_t flags, const char* tip, int32_t id) {
     TextLink_Draw(win, font, text, x, y, w, h, align, valign, flags, tip, id, color, color);
 }
@@ -14849,7 +14849,7 @@ void __fastcall Obj_ApplyStored3(void* o, int32_t idx);
 // bad circumference becomes 0.1 after formatting an unused warning, text 0x1b1). Then
 // places the front / back light emitters (+0x38 / +0x3c, from +0x242 / +0x246 along
 // the heading +0xee) and ticks the vehicle's emitters (+0x10.., null-ended).
-void __fastcall Vehicle_RollWheels(uint8_t* v, int, float dist) {
+RT3_NOINLINE void __fastcall Vehicle_RollWheels(uint8_t* v, int, float dist) {
     const double pi = Fl(0x5c8760), tau = Fl(0x5c8768);
     for (int32_t i = 0; i < F<int32_t>(v, 0x31a); ++i) {
         uint8_t* g = F<uint8_t*>(v, 0x316) + i * 0xc0;
@@ -16003,7 +16003,7 @@ void __fastcall Display_DestroyRenderer(uint8_t* o);
 // mouse (+0x20), then the scene (+0x18; with `full`, else only its renderer),
 // runs the shutdown hook 0x6d4010, destroys the window (+0) and unregisters
 // the "World" window class (instance +4).
-void __fastcall Engine_Shutdown(uint8_t* e, int, uint8_t full) {
+RT3_NOINLINE void __fastcall Engine_Shutdown(uint8_t* e, int, uint8_t full) {
     Pack_ReleaseFontHandles(hook::Global<uint8_t*>(0x6d4020));
     if (uint8_t* m = F<uint8_t*>(e, 0x20)) {
         Mouse_Destroy(m);
@@ -16063,7 +16063,7 @@ void __fastcall RulesDialog_Reset(uint8_t* w);
 // lists 0x500b / 0x4eaf / 0x4ed5 and button 0x4eb4; ticks 0x4fed, clears +0x9c,
 // fills territories and rules, resets and shows the first rule, and scrolls the
 // rule list to the remembered row 0x622070.
-void __fastcall RulesDialog_Init(uint8_t* w) {
+RT3_NOINLINE void __fastcall RulesDialog_Init(uint8_t* w) {
     int32_t row = hook::Global<int32_t>(0x622070);
     for (uint32_t id : { 0x4eacu, 0x4ed9u, 0x4fdfu, 0x4fe0u, 0x4fe1u, 0x4fe2u, 0x4edbu, 0x4eddu }) Window_SendEvent5(w, 0, 0xb9, id, 0x4d71b0, 0, 0);
     Window_SendEvent5(w, 0, 0x79, 0x4e84, 0x4db6a0, 0, 0);
@@ -20305,5 +20305,8283 @@ RT3_NOINLINE int32_t __fastcall Route_NextStep(Collection* routes, int, int32_t 
     return result;
 }
 RT3_REPLACE(0x4a6630, Route_NextStep);
+
+int32_t __fastcall Widget_IsVisible(uint8_t* w);
+void __fastcall Widget_Destruct(uint8_t* w);
+void __fastcall Company_GoBankrupt(uint8_t* c);
+void __fastcall Obj_Set4b(void* o, int, int32_t v);
+int32_t __fastcall Company_IssueBond(uint8_t* c, int, int32_t amount, int32_t years, int32_t commission, float rate);
+void __fastcall Company_IssueShares(uint8_t* c, int, int32_t n, int32_t atPrice, int32_t price);
+int32_t __fastcall Company_FreeShares(void* c);
+void __fastcall Company_BuyBackShares(uint8_t* c, int, int32_t n);
+
+// 0x55ee60. Stops (and releases) the movie of a widget that is no longer shown.
+RT3_NOINLINE void __fastcall Movie_StopIfHidden(uint8_t* w) {
+    if (!Widget_IsVisible(w)) Movie_Stop(w, 0, 1);
+}
+RT3_REPLACE(0x55ee60, Movie_StopIfHidden);
+
+// 0x55f9b0. Picture widget destructor (vtable 0x5de2a8): stops its movie, drops
+// it from the picture count 0xd9797c, destroys the widget base; frees it with
+// flag 1.
+RT3_NOINLINE uint8_t* __fastcall Picture_Destroy(uint8_t* w, int, uint32_t flags) {
+    F<uint32_t>(w, 0) = 0x5de2a8;
+    Movie_Stop(w, 0, 1);
+    --hook::Global<int32_t>(0xd9797c);
+    Widget_Destruct(w);
+    if (flags & 1) ExeDelete(w);
+    return w;
+}
+RT3_REPLACE(0x55f9b0, Picture_Destroy);
+
+// 0x4a6e00. 1 when track node `to` can be reached from `from` (optionally only
+// over routes with +0x1c, `needFlag`) and the first step is a real node.
+RT3_NOINLINE int32_t __stdcall Route_CanReach(int32_t from, int32_t to, int32_t needFlag) {
+    uint32_t cost;
+    int32_t step = Route_NextStep(hook::Global<Collection*>(0x6cfcb4), 0, from, to, &cost, needFlag, nullptr, nullptr, 0);
+    return cost != 0xffffffff && Collection_IsValid(hook::Global<Collection*>(0x6cfca8), 0, (uint32_t)step) ? 1 : 0;
+}
+RT3_REPLACE(0x4a6e00, Route_CanReach);
+
+// Shared tail of the company commands below: the issuing player gets the
+// normal cursor back and an open company window is refreshed.
+static void CompanyCmd_Done(uint32_t* cmd) {
+    if (Obj_Get25(hook::Global<uint8_t*>(0x6cec78)) == (int32_t)cmd[0]) Cursor_Set(hook::Global<uint8_t*>(0xccbb20), 0, 1, 0, 0);
+    if (hook::Global<uint8_t*>(0x6cfe4c)) CompanyWindow_Refresh(hook::Global<uint8_t*>(0x6cfe4c));
+}
+static uint8_t* CompanyCmd_Target(uint32_t* cmd) {
+    if (!Collection_IsValid(hook::Global<Collection*>(0x62be10), 0, cmd[1])) return nullptr;
+    return (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be10), 0, cmd[1]);
+}
+
+// Company commands (player cmd[0], company cmd[1], arguments from cmd[2]).
+// 0x4c6840: declare bankruptcy.
+RT3_NOINLINE void __fastcall CompanyCmd_Bankrupt(uint32_t* cmd) {
+    if (uint8_t* c = CompanyCmd_Target(cmd)) Company_GoBankrupt(c);
+    CompanyCmd_Done(cmd);
+}
+RT3_REPLACE(0x4c6840, CompanyCmd_Bankrupt);
+
+// 0x4c6990: set the dividend (+0x4b).
+RT3_NOINLINE void __fastcall CompanyCmd_SetDividend(uint32_t* cmd) {
+    if (uint8_t* c = CompanyCmd_Target(cmd)) Obj_Set4b(c, 0, (int32_t)cmd[2]);
+    CompanyCmd_Done(cmd);
+}
+RT3_REPLACE(0x4c6990, CompanyCmd_SetDividend);
+
+// 0x4c67d0: repay bond cmd[2].
+RT3_NOINLINE void __fastcall CompanyCmd_RepayBond(uint32_t* cmd) {
+    if (uint8_t* c = CompanyCmd_Target(cmd)) Company_RemoveEntry(c, 0, (int32_t)cmd[2], 1);
+    CompanyCmd_Done(cmd);
+}
+RT3_REPLACE(0x4c67d0, CompanyCmd_RepayBond);
+
+// 0x4c68a0: issue cmd[2] shares at price cmd[3].
+RT3_NOINLINE void __fastcall CompanyCmd_IssueShares(uint32_t* cmd) {
+    if (uint8_t* c = CompanyCmd_Target(cmd)) Company_IssueShares(c, 0, (int32_t)cmd[2], 0, (int32_t)cmd[3]);
+    CompanyCmd_Done(cmd);
+}
+RT3_REPLACE(0x4c68a0, CompanyCmd_IssueShares);
+
+// 0x4c6760: issue a bond of cmd[2] for cmd[3] years at rate cmd[4] (float bits).
+RT3_NOINLINE void __fastcall CompanyCmd_IssueBond(uint32_t* cmd) {
+    if (uint8_t* c = CompanyCmd_Target(cmd))
+        ((int32_t(__fastcall*)(uint8_t*, int, int32_t, int32_t, int32_t, uint32_t))&Company_IssueBond)(c, 0, (int32_t)cmd[2], (int32_t)cmd[3], 1, cmd[4]);
+    CompanyCmd_Done(cmd);
+}
+RT3_REPLACE(0x4c6760, CompanyCmd_IssueBond);
+
+// 0x4c6910: buy back cmd[2] shares, at most the free float.
+RT3_NOINLINE void __fastcall CompanyCmd_BuyBack(uint32_t* cmd) {
+    if (uint8_t* c = CompanyCmd_Target(cmd)) {
+        int32_t n = (int32_t)cmd[2];
+        Company_BuyBackShares(c, 0, n < Company_FreeShares(c) ? n : Company_FreeShares(c));
+    }
+    CompanyCmd_Done(cmd);
+}
+RT3_REPLACE(0x4c6910, CompanyCmd_BuyBack);
+
+uint32_t __fastcall TreeView_NodeData(uint8_t* w, int, int32_t i);
+void __fastcall Company_SetEntryFlag(void* c, int, int32_t i, uint8_t v);
+void* __fastcall Array33_Current(void* a);
+void* __fastcall Obj_CityRef(void* o);
+void* __fastcall Train_Company(void* t);
+int32_t __fastcall Rand(int32_t lo, int32_t hi);
+uint8_t* __fastcall Widget_SetVtblRet(uint8_t* w);
+uint8_t* __fastcall Pack_AcquireFont(uint8_t* pack, int, int32_t idx);
+void __fastcall Window_Load(uint8_t* win, int, float x, float y, const char* name);
+
+// 0x4a8f50. Rebuilds a train's row wherever it is shown: the train window's
+// header (view mode 2 on this train, window 0x6d3b20) and its row in the train
+// list (view mode 1, window 0x6d3b34) when the row is on screen.
+RT3_NOINLINE void __fastcall Train_RefreshRows(uint8_t* t) {
+    uint8_t* view = hook::Global<uint8_t*>(0x6d0818);
+    if (!view) return;
+    if (F<int32_t>(view, 0x8c) == 2 && F<int32_t>(view, 0x90) == F<int32_t>(t, 0x25) && hook::Global<uint8_t*>(0x6d3b20))
+        TrainRow_Build(hook::Global<uint8_t*>(0x6d3b20), F<uint32_t>(t, 0x25), 1, 0, 1);
+    view = hook::Global<uint8_t*>(0x6d0818);
+    if (F<int32_t>(view, 0x8c) != 1 || !hook::Global<uint8_t*>(0x6d3b34)) return;
+    uint8_t* list = Widget_FindChild(hook::Global<uint8_t*>(0x6d3b34), 0, Global6d3b30() ? 0x32c9 : 0x32ca);
+    for (int32_t i = 0; i < F<int32_t>(list, 0xa2); ++i) {
+        int32_t row = F<int32_t>(list, 0x1e2) + i;
+        if (row < F<int32_t>(list, 0x1d2) && TreeView_NodeData(list, 0, row) == F<uint32_t>(t, 0x25)) {
+            TrainRow_Build(hook::Global<uint8_t*>(0x6d3b34), F<uint32_t>(t, 0x25), 0, i, 1);
+            return;
+        }
+    }
+}
+RT3_REPLACE(0x4a8f50, Train_RefreshRows);
+
+// 0x4c6a00. Company command: buy into territory cmd[2] (entry flag) for cmd[3]
+// dollars, then the usual cursor / window refresh; the issuing player's
+// purchase list (0x948c) is cleared and refilled.
+RT3_NOINLINE void __fastcall CompanyCmd_BuyTerritory(uint32_t* cmd) {
+    if (uint8_t* c = CompanyCmd_Target(cmd)) {
+        Company_SetEntryFlag(c, 0, (int32_t)cmd[2], 1);
+        Company_AddStat(c, 0, 0xd, (float)-(int32_t)cmd[3]);
+    }
+    CompanyCmd_Done(cmd);
+    if (Obj_Get25(hook::Global<uint8_t*>(0x6cec78)) == (int32_t)cmd[0]) F<uint32_t>(Widget_FindChild(hook::Global<uint8_t*>(0x6cfe4c), 0, 0x948c), 0x117) = 0;
+    if (hook::Global<uint8_t*>(0x6cfe4c)) Window_SendEvent5(hook::Global<uint8_t*>(0x6cfe4c), 0, 0xba, 0x948c, 0, 0, 0);
+}
+RT3_REPLACE(0x4c6a00, CompanyCmd_BuyTerritory);
+
+// 0x4a91b0. 1 when the train (at node +0x49) can reach its current order's
+// node (an explicit node +0x2b, or the station's node), over its company's
+// allowed track (electrified only for electric engines unless `anyElectric`).
+RT3_NOINLINE int32_t __fastcall Train_CanReachOrder(uint8_t* t, int, int32_t anyElectric) {
+    if (F<int32_t>(t, 0x49) == -1 || F<int32_t>(t, 4) <= 0) return 0;
+    uint8_t* order = (uint8_t*)Array33_Current(t);
+    int32_t target;
+    if ((int8_t)order[0x28] < 0) target = F<int32_t>(order, 0x2b);
+    else {
+        if (!Collection_IsValid(hook::Global<Collection*>(0x6cec20), 0, F<uint16_t>(order, 0x29))) return 0;
+        target = F<int32_t>(Collection_Get(hook::Global<Collection*>(0x6cec20), 0, F<uint16_t>(order, 0x29)), 8);
+    }
+    if (!Collection_IsValid(hook::Global<Collection*>(0x6cfca8), 0, (uint32_t)target)) return 0;
+    if (!Collection_IsValid(hook::Global<Collection*>(0x6cfca8), 0, F<uint32_t>(t, 0x49))) return 0;
+    int32_t need = F<int32_t>(Obj_CityRef(t), 0x10) == 2;
+    if (anyElectric) need = 0;
+    uint32_t* co = (uint32_t*)Collection_Get(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(t, 0x51));
+    uint32_t cost;
+    int32_t step = Route_NextStep(hook::Global<Collection*>(0x6cfcb4), 0, target, F<int32_t>(t, 0x49), &cost, need, co, nullptr, 0);
+    return cost != 0xffffffff && step != -1 ? 1 : 0;
+}
+RT3_REPLACE(0x4a91b0, Train_CanReachOrder);
+
+// 0x48cad0. The node a train moves to from this node towards `target`: arriving
+// from `prev`, a train on route r (car `car` +0x356) takes the third link +0x20e
+// when the switch bit (+0x201 bit 1, flipped by direction) points there and it
+// stays on r; going back onto r gives null. Otherwise the route search's first
+// step (null when there is none or it stays here). No target: null (after a
+// random draw).
+RT3_NOINLINE uint8_t* __fastcall Node_NextTowards(uint8_t* n, int, int32_t target, int32_t car, int32_t prev, uint8_t* train, int32_t anyTrack) {
+    Collection* nodes = hook::Global<Collection*>(0x6cfca8);
+    uint8_t bits = n[0x201] >> 1;
+    int32_t sw = (prev == F<int32_t>(n, 0x206) ? bits : (uint8_t)~bits) & 1;
+    if (car != -1) {
+        int32_t at = F<int32_t>(Collection_Get(hook::Global<Collection*>(0x62ba84), 0, (uint32_t)car), 0x356);
+        if (at != -1) {
+            int32_t route = F<int32_t>(Collection_Get(nodes, 0, (uint32_t)at), 0x212);
+            if (route != -1) {
+                if (F<int32_t>(n, 0x20e) != -1 && sw && F<int32_t>(Collection_Get(nodes, 0, F<uint32_t>(n, 0x20e)), 0x212) == route)
+                    return (uint8_t*)Collection_Get(nodes, 0, F<uint32_t>(n, 0x20e));
+                if (prev != -1 && F<int32_t>(Collection_Get(nodes, 0, (uint32_t)prev), 0x212) == route) return nullptr;
+            }
+        }
+    }
+    if (target == -1) {
+        Rand(0, 100);
+        return nullptr;
+    }
+    int32_t need = 0;
+    uint32_t* co = nullptr;
+    if (train) {
+        if (F<int32_t>(Obj_CityRef(train), 0x10) == 2) need = 1;
+        co = (uint32_t*)Train_Company(train);
+    }
+    uint32_t cost;
+    int32_t step = Route_NextStep(hook::Global<Collection*>(0x6cfcb4), 0, F<int32_t>(n, 0x202), target, &cost, need, co, nullptr, anyTrack);
+    if (step == -1 || step == F<int32_t>(n, 0x202)) return nullptr;
+    return (uint8_t*)Collection_Get(nodes, 0, (uint32_t)step);
+}
+RT3_REPLACE(0x48cad0, Node_NextTowards);
+
+// 0x4c5540. Company window constructor (vtable 0x5d0858, the open window
+// 0x6cfe4c): two images and a font from the pack, the layout "CompanyDetail"
+// (0x5d0900), the drawing / list callbacks of its panels, then a refresh.
+RT3_NOINLINE uint8_t* __fastcall CompanyWindow_Construct(uint8_t* w) {
+    Widget_SetVtblRet(w);
+    F<uint32_t>(w, 0) = 0x5d0858;
+    hook::Global<uint8_t*>(0x6cfe4c) = w;
+    hook::Global<int32_t>(0x6cfe5c) = 0;
+    hook::Global<uint8_t*>(0x6cfe54) = Pack_AcquireNamed(hook::Global<uint8_t*>(0x6d4020), 0, (const char*)0x5c9f98);
+    hook::Global<uint8_t*>(0x6cfe58) = Pack_AcquireNamed(hook::Global<uint8_t*>(0x6d4020), 0, (const char*)0x5d0838);
+    hook::Global<uint8_t*>(0x6cfe50) = Pack_AcquireFont(hook::Global<uint8_t*>(0x6d4020), 0, 2);
+    Window_Load(w, 0, 0.0f, 0.0f, (const char*)0x5d0900);
+    static const uint32_t events[][3] = { { 0x7a, 0x9470, 0x4c1730 }, { 0x7a, 0x9471, 0x4c1ab0 }, { 0x7a, 0x947d, 0x4c1ec0 }, { 0x7a, 0x947e, 0x4c1ec0 },
+                                          { 0x7b, 0x948c, 0x4c22e0 }, { 0xba, 0x948c, 0 },        { 0x7a, 0x948d, 0x4c1d70 }, { 0x7a, 0x948e, 0x4c1d70 },
+                                          { 0x7b, 0x948d, 0x4c1d30 }, { 0x7b, 0x948e, 0x4c1d30 } };
+    for (const auto& e : events) Window_SendEvent5(w, 0, e[0], e[1], e[2], 0, 0);
+    CompanyWindow_Refresh(w);
+    return w;
+}
+RT3_REPLACE(0x4c5540, CompanyWindow_Construct);
+
+int32_t ClockMs();
+int32_t __fastcall Obj_BuildingStateActive(void* o);
+
+// 0x55ee80. Advances a movie widget's Bink playback (+0xf2) for this frame
+// (unless hidden and not `force`, or movies are frozen 0xd97970): skips ahead
+// by the time since the last frame (+0x102) at the movie's rate, decodes up to
+// four frames; at the end it loops (kinds with the loop flag 0x625836, from key
+// frame 0x62583a) or stops / releases it and calls the end callback +0xd6.
+RT3_NOINLINE void __fastcall Movie_Tick(uint8_t* w, int, int32_t force) {
+    typedef int32_t(__stdcall * BinkFn1)(uint8_t*);
+    if (!force && !Widget_IsVisible(w)) return;
+    if (hook::Global<int32_t>(0xd97970)) return;
+    uint8_t* b = F<uint8_t*>(w, 0xf2);
+    if (!b) return;
+    auto bgoto = [&](uint32_t frame, uint32_t flags) { Import<void(__stdcall*)(uint8_t*, uint32_t, uint32_t)>(0x5c836c)(b, frame, flags); };
+    bool decode = false;
+    if (!F<uint32_t>(b, 0x2a0) && F<uint32_t>(b, 0x10) >= 1 && F<uint32_t>(b, 0x10) != F<uint32_t>(b, 8) && F<int32_t>(w, 0x102)) {
+        int32_t elapsed = ClockMs() - F<int32_t>(w, 0x102);
+        uint32_t num = F<uint32_t>(b, 0x18) < 1 ? 1 : F<uint32_t>(b, 0x18);
+        uint32_t den = F<uint32_t>(b, 0x14) < 1 ? 1 : F<uint32_t>(b, 0x14);
+        uint32_t ms1000 = num * 1000;
+        double fn = (double)(int32_t)ms1000;
+        if ((int32_t)ms1000 < 0) fn += Fl(0x5c872c);
+        double fd = (double)(int32_t)den;
+        if ((int32_t)den < 0) fd += Fl(0x5c872c);
+        int32_t step = Ftol(fn / fd * D(0x5c8660));
+        int32_t n = elapsed / step;
+        uint32_t cur = F<uint32_t>(b, 0x10), total = F<uint32_t>(b, 8);
+        if (cur + (uint32_t)n + 1 > total) n = (int32_t)(total - cur - 1);
+        if (n > 0) {
+            bgoto(cur + (uint32_t)n + 1, 0);
+            decode = true;
+        }
+    }
+    if (!decode) {
+        if (F<uint32_t>(b, 0x10) != F<uint32_t>(b, 8)) decode = true;
+        else {
+            int32_t kind = F<int32_t>(w, 0xea);
+            if (hook::Global<uint8_t>(0x625836 + kind * 16)) {
+                uint8_t key = hook::Global<uint8_t>(0x62583a + kind * 16);
+                if (key) {
+                    Import<uint32_t(__stdcall*)(uint8_t*, uint32_t, uint32_t)>(0x5c837c)(b, key, 2);
+                    bgoto(hook::Global<uint8_t>(0x62583a + F<int32_t>(w, 0xea) * 16), 1);
+                } else
+                    bgoto(1, 0);
+                F<int32_t>(w, 0xda) = 1;
+                decode = true;
+            } else {
+                if (hook::Global<int32_t>(0x6d4000)) F<int32_t>(w, 0xae) = 1;
+                int32_t old = F<int32_t>(w, 0x106);
+                F<int32_t>(w, 0x106) = 1;
+                if (!F<int32_t>(w, 0xae)) Movie_Stop(w, 0, 1);
+                void (*cb)() = F<void (*)()>(w, 0xd6);
+                if (cb && !old) cb();
+            }
+        }
+    }
+    if (decode) {
+        Import<BinkFn1>(0x5c8370)(b);
+        Import<BinkFn1>(0x5c8374)(b);
+        if (!Import<BinkFn1>(0x5c8378)(F<uint8_t*>(w, 0xf2))) {
+            for (int32_t extra = 0;;) {
+                if (F<uint32_t>(b, 0x10) + 1 >= F<uint32_t>(b, 8)) break;
+                if (extra++ >= 3) break;
+                Import<BinkFn1>(0x5c8370)(b);
+                Import<BinkFn1>(0x5c8374)(b);
+                if (Import<BinkFn1>(0x5c8378)(F<uint8_t*>(w, 0xf2))) break;
+            }
+        }
+    }
+    F<int32_t>(w, 0x102) = ClockMs();
+}
+RT3_REPLACE(0x55ee80, Movie_Tick);
+
+// 0x4b2c10. Whether a train's order list (this: records of 0x33 bytes, count
+// +4) is drivable: every order's node (+0x2b, or its station's node) reaches the
+// next one (cyclically) and the first order reaches `start` (unless -1), on the
+// company's track (company `companyId` if > 0 and valid, none for 0, else the
+// train's), electrified when the engine is electric or `forceElectric`, not with
+// `noElectric`; and at least two different active stations are visited.
+RT3_NOINLINE uint8_t __fastcall Orders_Drivable(uint32_t* orders, int, uint8_t* train, int32_t start, int32_t forceElectric, int32_t noElectric,
+                                                int32_t companyId) {
+    uint8_t ok = 1;
+    uint32_t st1 = 0, st2 = 0;
+    int32_t need = 0;
+    uint32_t* co = nullptr;
+    if (train) co = (uint32_t*)Train_Company(train);
+    if (!companyId) co = nullptr;
+    else if (companyId > 0 && Collection_IsValid(hook::Global<Collection*>(0x62be10), 0, (uint32_t)companyId))
+        co = (uint32_t*)Collection_Get(hook::Global<Collection*>(0x62be10), 0, (uint32_t)companyId);
+    if (train && F<int32_t>(Obj_CityRef(train), 0x10) == 2) need = 1;
+    if (forceElectric) need = 1;
+    if (noElectric) need = 0;
+    Collection* stations = hook::Global<Collection*>(0x6cec20);
+    Collection* nodes = hook::Global<Collection*>(0x6cfca8);
+    for (int32_t i = 0; i < (int32_t)orders[1]; ++i) {
+        uint8_t* base = (uint8_t*)orders[0];
+        uint8_t* cur = base + i * 0x33;
+        uint8_t* next = i == (int32_t)orders[1] - 1 ? base : base + i * 0x33 + 0x33;
+        int32_t from;
+        if ((int8_t)cur[0x28] < 0) from = F<int32_t>(cur, 0x2b);
+        else {
+            if (!Collection_IsValid(stations, 0, F<uint16_t>(cur, 0x29))) return 0;
+            from = F<int32_t>(Collection_Get(stations, 0, F<uint16_t>(cur, 0x29)), 8);
+        }
+        if (!Collection_IsValid(nodes, 0, (uint32_t)from)) return 0;
+        int32_t to;
+        if ((int8_t)next[0x28] < 0) to = F<int32_t>(next, 0x2b);
+        else {
+            if (!Collection_IsValid(stations, 0, F<uint16_t>(next, 0x29))) return 0;
+            uint8_t* st = (uint8_t*)Collection_Get(stations, 0, F<uint16_t>(next, 0x29));
+            to = F<int32_t>(st, 8);
+            if (Obj_BuildingStateActive(st)) {
+                if (!st1) st1 = F<uint16_t>(next, 0x29);
+                else if (st1 != F<uint16_t>(next, 0x29)) st2 = F<uint16_t>(next, 0x29);
+            }
+        }
+        if (!Collection_IsValid(nodes, 0, (uint32_t)to)) return 0;
+        uint32_t cost;
+        Route_NextStep(hook::Global<Collection*>(0x6cfcb4), 0, from, to, &cost, need, co, nullptr, 0);
+        if (cost == 0xffffffff) {
+            ok = 0;
+            goto done;
+        }
+    }
+    if (start != -1 && (int32_t)orders[1] > 0) {
+        uint8_t* first = (uint8_t*)orders[0];
+        int32_t from;
+        if ((int8_t)first[0x28] < 0) from = F<int32_t>(first, 0x2b);
+        else {
+            if (!Collection_IsValid(stations, 0, F<uint16_t>(first, 0x29))) return 0;
+            from = F<int32_t>(Collection_Get(stations, 0, F<uint16_t>(first, 0x29)), 8);
+        }
+        if (!Collection_IsValid(nodes, 0, (uint32_t)from) || !Collection_IsValid(nodes, 0, (uint32_t)start)) return 0;
+        uint32_t cost;
+        Route_NextStep(hook::Global<Collection*>(0x6cfcb4), 0, from, start, &cost, need, co, nullptr, 0);
+        if (cost == 0xffffffff) ok = 0;
+    }
+done:
+    if (!st1 || !st2) ok = 0;
+    return ok;
+}
+RT3_REPLACE(0x4b2c10, Orders_Drivable);
+
+uint8_t __fastcall Obj_Flag3d4(void* o);
+int32_t __fastcall Game_EffectiveVersion();
+uint32_t __fastcall Obj_BuildingRegionIndex(void* o);
+int32_t __fastcall Obj_RegionHasKey(void* o, int, uint16_t k);
+int32_t __fastcall Obj_BuildingValue(void* o);
+void __fastcall Window_UpdateListButtons(uint8_t* w);
+
+// 0x514160. Refreshes the train window for the selected train (view +0x90): the
+// two order lists (0x65a3 / 0x65a4, one row per order, keeping the selection
+// +0x1d6 and scroll +0x1e2 of the visible one), their fillers and the cargo
+// cell callbacks, the "no orders" text 0x25a, the header row, then the list
+// buttons.
+RT3_NOINLINE void __fastcall TrainWindow_Refresh(uint8_t* win) {
+    uint32_t listId = hook::Global<int32_t>(0x6d3b24) ? 0x65a3 : 0x65a4;
+    int32_t sel = F<int32_t>(Widget_FindChild(win, 0, (int32_t)listId), 0x1d6);
+    int32_t scroll = F<int32_t>(Widget_FindChild(win, 0, (int32_t)listId), 0x1e2);
+    auto send = [&](uint32_t type, uint32_t id, uint32_t a, uint32_t b) { Window_SendEvent5(win, 0, type, id, a, b, 0); };
+    send(0x8b, 0x65a3, 0, 0);
+    send(0x8b, 0x65a4, 0, 0);
+    Window_DeleteChildren(win, 0, 0x65c2, 0x6946, 0);
+    Collection* trains = hook::Global<Collection*>(0x6cfcbc);
+    for (int k = 0; k < 2; ++k) {
+        uint8_t* view = hook::Global<uint8_t*>(0x6d0818);
+        if (!view || F<int32_t>(view, 0x90) <= 0 || !Collection_IsValid(trains, 0, F<uint32_t>(hook::Global<uint8_t*>(0x6d0818), 0x90))) return;
+    }
+    uint8_t* t = (uint8_t*)Collection_Get(trains, 0, F<uint32_t>(hook::Global<uint8_t*>(0x6d0818), 0x90));
+    if (!t) return;
+    for (int32_t i = 0; i < F<int32_t>(t, 4); ++i) {
+        send(0x88, 0x65a3, 0, (uint32_t)i);
+        send(0x88, 0x65a4, 0, (uint32_t)i);
+    }
+    send(0x7a, 0x65a3, 0x5133b0, 0);
+    send(0x7a, 0x65a4, 0x5133b0, 0);
+    for (uint32_t id : { 0x65b6u, 0x65b9u, 0x65bcu, 0x65bfu }) send(0x82, id, 0x513520, 0);
+    char buf[0x100];
+    if (F<int32_t>(t, 4) > 0) buf[0] = 0;
+    else strcpy(buf, GetString(0x25a));
+    send(0x6f, 0x659a, (uint32_t)(uintptr_t)buf, 0);
+    send(0x6f, 0x659b, (uint32_t)(uintptr_t)buf, 0);
+    int32_t n = F<int32_t>(t, 4);
+    if (sel >= n) sel = n - 1;
+    if (sel < 0 && n > 0) sel = 0;
+    send(0x67, listId, (uint32_t)sel, 0);
+    send(0x6b, listId, (uint32_t)scroll, 0);
+    send(0x95, listId, 0, 0);
+    TrainRow_Build(win, F<uint32_t>(t, 0x25), 1, 0, 0);
+    Window_UpdateListButtons(win);
+}
+RT3_REPLACE(0x514160, TrainWindow_Refresh);
+
+// 0x4815d0. Whether some station accepting cargo `a` is connected by track to
+// some station supplying cargo `b` (this = station collection): candidates are
+// open stations (+0x3d4 == 1; from save version 0x67 also active ones) whose
+// region (`aIsRegion` / `bIsRegion`: the region index equals a / b, else the
+// cargo type's region list holds the station) and value (unless `value` is -1)
+// match. 0 when a and b are the same.
+RT3_NOINLINE int32_t __fastcall Stations_CargoLinked(Collection* sts, int, int32_t a, int32_t b, int32_t aIsRegion, int32_t bIsRegion, int32_t value) {
+    if (a == b && aIsRegion == bIsRegion) return 0;
+    int32_t n = Collection_Count(sts);
+    if (!n) return 0;
+    auto malloc_ = (void*(__cdecl*)(size_t))0x5a125d;
+    uint32_t* listA = (uint32_t*)malloc_(n * 4);
+    uint32_t* listB = (uint32_t*)malloc_(n * 4);
+    memset(listA, 0, n * 4);
+    memset(listB, 0, n * 4);
+    int32_t cntA = 0, cntB = 0, result = 0;
+    auto st = [&](int32_t i) { return (uint8_t*)Collection_Get(sts, 0, Collection_IdAt(sts, 0, i, 0)); };
+    Collection* cargo = hook::Global<Collection*>(0x62bae0);
+    for (int32_t i = 0; i < n; ++i) {
+        if (Obj_Flag3d4(Obj_Building(st(i))) != 1) continue;
+        if (Game_EffectiveVersion() >= 0x67 && !Obj_BuildingStateActive(st(i))) continue;
+        uint32_t region = Obj_BuildingRegionIndex(st(i));
+        bool ok = aIsRegion ? region == (uint32_t)a
+                            : Obj_RegionHasKey(Collection_Get(cargo, 0, (uint32_t)a), 0, (uint16_t)Collection_IdAt(sts, 0, i, 0)) != 0;
+        if (ok && (value == -1 || Obj_BuildingValue(st(i)) == value)) listA[cntA++] = Collection_IdAt(sts, 0, i, 0);
+        ok = bIsRegion ? region == (uint32_t)b
+                       : Obj_RegionHasKey(Collection_Get(cargo, 0, (uint32_t)b), 0, (uint16_t)Collection_IdAt(sts, 0, i, 0)) != 0;
+        if (ok && (value == -1 || Obj_BuildingValue(st(i)) == value)) listB[cntB++] = Collection_IdAt(sts, 0, i, 0);
+    }
+    if (cntA && cntB) {
+        for (int32_t x = 0; x < cntA && !result; ++x) {
+            int32_t na = F<int32_t>(Collection_Get(sts, 0, listA[x]), 8);
+            for (int32_t y = 0; y < cntB; ++y) {
+                int32_t nb = F<int32_t>(Collection_Get(sts, 0, listB[y]), 8);
+                if (na == nb) continue;
+                uint32_t cost;
+                Route_NextStep(hook::Global<Collection*>(0x6cfcb4), 0, na, nb, &cost, 0, nullptr, nullptr, 0);
+                if (cost != 0xffffffff) {
+                    result = 1;
+                    break;
+                }
+            }
+        }
+    }
+    Free(listA);
+    Free(listB);
+    return result;
+}
+RT3_REPLACE(0x4815d0, Stations_CargoLinked);
+
+int32_t __fastcall Station_ConnectedToHome(uint8_t* s, int, uint32_t company);
+double __fastcall Obj_BuildingCellY(void* o);
+double __fastcall Obj_BuildingCellX(void* o);
+float __fastcall Company_NearestSiteDistance(int32_t* c, int, int32_t x, int32_t y);
+int32_t __fastcall Node_SameComponent(uint8_t* n, int, uint32_t id);
+void __fastcall Company_RateStations(int32_t* co);
+
+// 0x4093d0. AI company: rebuilds its station link table. Per station the
+// company's entry (+0x5bd[company]: +0 valid, +1 usable, +2 count, +6 records)
+// is reset; usable are its own active stations and others it is connected to
+// that lie near one of its sites. Each usable station gets one 13-byte record
+// per usable station: linked (+0), the other's id (+1), the route length (+5)
+// and the share of it on own track (+9) - copied from the mirror record for
+// earlier stations. Then the stations are rated.
+RT3_NOINLINE void __fastcall Company_BuildStationLinks(int32_t* co) {
+    F<uint32_t>(co, 0xd3e) = F<uint32_t>(hook::Global<uint8_t*>(0x6cec78), 0x15);
+    Collection* sts = hook::Global<Collection*>(0x6cec20);
+    int32_t n = Collection_Count(sts);
+    auto st = [&](int32_t i) { return (uint8_t*)Collection_Get(sts, 0, Collection_IdAt(sts, 0, i, 0)); };
+    auto entry = [&](uint8_t* s) { return F<uint8_t*>(F<uint8_t*>(s, 0x5bd), co[0] * 4); };
+    int32_t marked = 0;
+    for (int32_t i = 0; i < n; ++i) {
+        uint8_t* s = st(i);
+        entry(s)[0] = 1;
+        entry(s)[1] = 0;
+        if (F<void*>(entry(s), 6)) Free(F<void*>(entry(s), 6));
+        F<void*>(entry(s), 6) = nullptr;
+        if (!Obj_BuildingStateActive(s) || Obj_Flag3d4(Obj_Building(s)) != 1) continue;
+        bool use = Obj_BuildingValue(s) == co[0];
+        if (!use && Station_ConnectedToHome(s, 0, (uint32_t)co[0])) {
+            int32_t y = Ftol(Obj_BuildingCellY(s));
+            int32_t x = Ftol(Obj_BuildingCellX(s));
+            float d = Company_NearestSiteDistance(co, 0, x, y);
+            use = !(d >= Fl(0x5c8944));
+        }
+        if (use) {
+            entry(s)[1] = 1;
+            ++marked;
+        }
+    }
+    auto malloc_ = (void*(__cdecl*)(size_t))0x5a125d;
+    uint32_t iofs = 0;
+    for (int32_t i = 0; i < n; ++i) {
+        uint8_t* si = st(i);
+        if (!entry(si)[1]) continue;
+        F<int32_t>(entry(si), 2) = marked;
+        size_t size = marked * 0xd + 1;
+        F<void*>(entry(si), 6) = malloc_(size);
+        memset(F<void*>(entry(si), 6), 0, size);
+        uint32_t jofs = 0;
+        for (int32_t j = 0; j < n; ++j) {
+            uint8_t* sj = st(j);
+            if (!entry(sj)[1]) continue;
+            uint8_t* rec = F<uint8_t*>(entry(si), 6) + jofs;
+            if (j == i) rec[0] = 0;
+            else if (j < i) {
+                memcpy(rec, F<uint8_t*>(entry(sj), 6) + iofs, 0xd);
+                F<uint32_t>(rec, 1) = F<uint32_t>(sj, 0);
+            } else {
+                F<uint32_t>(rec, 1) = F<uint32_t>(sj, 0);
+                if (!Node_SameComponent((uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfca8), 0, F<uint32_t>(si, 8)), 0, F<uint32_t>(sj, 8)))
+                    rec[0] = 0;
+                else {
+                    rec[0] = 1;
+                    uint32_t cost, foreign;
+                    Route_NextStep(hook::Global<Collection*>(0x6cfcb4), 0, F<int32_t>(si, 8), F<int32_t>(sj, 8), &cost, 0, (uint32_t*)co, &foreign, 0);
+                    if (cost == 0xffffffff) rec[0] = 0;
+                    else {
+                        uint32_t own = cost - foreign;
+                        F<uint32_t>(rec, 5) = cost;
+                        uint32_t div = cost > 1 ? cost : 1;
+                        double fo = (double)(int32_t)own;
+                        if ((int32_t)own < 0) fo += Fl(0x5c872c);
+                        double fd = (double)(int32_t)div;
+                        if ((int32_t)div < 0) fd += Fl(0x5c872c);
+                        F<float>(rec, 9) = (float)((double)(float)fo / (float)fd);
+                    }
+                }
+            }
+            jofs += 0xd;
+        }
+        iofs += 0xd;
+    }
+    Company_RateStations(co);
+}
+RT3_REPLACE(0x4093d0, Company_BuildStationLinks);
+
+void __fastcall Train_SetBuffer1c6(uint8_t* t, int, const uint8_t* src);
+int32_t Global6d40e4();
+void __fastcall Window_SetLargeLayout(uint8_t* w, int, int32_t large);
+
+// 0x514410. Refreshes the train window when it is open.
+RT3_NOINLINE void TrainWindow_RefreshOpen() {
+    if (hook::Global<uint8_t*>(0x6d3b20)) TrainWindow_Refresh(hook::Global<uint8_t*>(0x6d3b20));
+}
+RT3_REPLACE(0x514410, TrainWindow_RefreshOpen);
+
+// 0x409720. AI company: rebuilds its station link table when it is missing or
+// older than 0x7ff80 world ticks, and re-rates its stations every 0x31380.
+RT3_NOINLINE void __fastcall Company_UpdateStationLinks(int32_t* co) {
+    uint8_t* c = (uint8_t*)co;
+    if (!F<int32_t>(c, 0xd3e) || F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x15) - F<int32_t>(c, 0xd3e) > 0x7ff80) Company_BuildStationLinks(co);
+    if (!F<int32_t>(c, 0xd3a) || F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x15) - F<int32_t>(c, 0xd3a) > 0x31380) Company_RateStations(co);
+}
+RT3_REPLACE(0x409720, Company_UpdateStationLinks);
+
+// 0x429c10. Rebuilds the station link tables of all active companies (+0x3f),
+// recounting them before each one.
+RT3_NOINLINE void __fastcall Companies_BuildStationLinks(Collection* cos) {
+    for (int32_t i = 0;; ++i) {
+        int32_t active = 0;
+        for (int32_t k = 0; k < Collection_Count(cos); ++k)
+            if (F<int32_t>(Collection_Get(cos, 0, Collection_IdAt(cos, 0, k, 0)), 0x3f)) ++active;
+        if (i >= active) return;
+        Company_BuildStationLinks((int32_t*)Table_NthField3f(cos, 0, i));
+    }
+}
+RT3_REPLACE(0x429c10, Companies_BuildStationLinks);
+
+// 0x514620. Applies a train command (player cmd[0], train cmd[1]): the train
+// takes the command's settings; the issuing local player's open train window is
+// refreshed and the cursor reset. Returns whether the train exists.
+RT3_NOINLINE int32_t __fastcall TrainCmd_Apply(uint32_t* cmd) {
+    int32_t ok = 0;
+    if (Collection_IsValid(hook::Global<Collection*>(0x6cfcbc), 0, cmd[1])) {
+        Train_SetBuffer1c6((uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfcbc), 0, cmd[1]), 0, (const uint8_t*)cmd);
+        ok = 1;
+    }
+    if (hook::Global<uint8_t*>(0x6d3b20) && Global6d40e4() == (int32_t)cmd[0]) {
+        TrainWindow_Refresh(hook::Global<uint8_t*>(0x6d3b20));
+        Cursor_Set(hook::Global<uint8_t*>(0xccbb20), 0, 1, 0, 0);
+    }
+    return ok;
+}
+RT3_REPLACE(0x514620, TrainCmd_Apply);
+
+// 0x514420. Train window constructor (vtable 0x5d1990, the open window
+// 0x6d3b20): fonts and an image from the pack, the layout 0x5d19c0, the list /
+// panel callbacks, the two-tab state 0x6d3b24, the edit buttons (off in
+// multiplayer viewing or the scenario editor), the layout size 0x6d3b28 (large
+// in multiplayer), a refresh and the help text 0xfe5.
+RT3_NOINLINE uint8_t* __fastcall TrainWindow_Construct(uint8_t* w) {
+    Widget_SetVtblRet(w);
+    F<uint32_t>(w, 0) = 0x5d1990;
+    hook::Global<uint8_t*>(0x6d3b20) = w;
+    hook::Global<uint8_t*>(0x6d3b14) = Pack_AcquireFont(hook::Global<uint8_t*>(0x6d4020), 0, 2);
+    hook::Global<uint8_t*>(0x6d3b18) = Pack_AcquireFont(hook::Global<uint8_t*>(0x6d4020), 0, 1);
+    hook::Global<uint8_t*>(0x6d3b1c) = Pack_AcquireNamed(hook::Global<uint8_t*>(0x6d4020), 0, (const char*)0x5c9ee8);
+    Window_Load(w, 0, 0.0f, 0.0f, (const char*)0x5d19c0);
+    static const uint32_t events[][3] = { { 0xba, 0x659d, 0 },        { 0x7e, 0x65a3, 0x5134a0 }, { 0x7f, 0x65a3, 0x513460 }, { 0x7e, 0x65a4, 0x5134a0 },
+                                          { 0x7f, 0x65a4, 0x513460 }, { 0x7a, 0x65ab, 0x5137d0 }, { 0x7a, 0x65ac, 0x513b50 }, { 0x7a, 0x659c, 0x513310 },
+                                          { 0x7b, 0x659d, 0x514110 } };
+    for (const auto& e : events) Window_SendEvent5(w, 0, e[0], e[1], e[2], 0, 0);
+    Window_SendEvent5(w, 0, hook::Global<int32_t>(0x6d3b24) ? 0x86 : 0x6d, 0x6592, 3, 0, 0);
+    Window_SendEvent5(w, 0, hook::Global<int32_t>(0x6d3b24) ? 0x6d : 0x86, 0x6591, 3, 0, 0);
+    uint32_t type = hook::Global<uint8_t*>(0x6cec7c)[0x82] || F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4aef) ? 0x87 : 0x65;
+    Window_SendEvent5(w, 0, type, 0x65ab, 3, 0, 0);
+    if (hook::Global<uint8_t*>(0x6cec7c)[0x82]) hook::Global<int32_t>(0x6d3b28) = 1;
+    Window_SetLargeLayout(w, 0, hook::Global<int32_t>(0x6d3b28));
+    TrainWindow_Refresh(w);
+    Window_SendEvent5(w, 0, 0x6e, 0x65a0, (uint32_t)(uintptr_t)GetString(0xfe5), 0, 0);
+    return w;
+}
+RT3_REPLACE(0x514420, TrainWindow_Construct);
+
+int32_t __fastcall Train_OrderTarget(uint8_t* t, int, int32_t* dist, int32_t preferStop);
+int32_t __fastcall Train_CurrentOrderNode(uint8_t* t);
+void* __fastcall Obj_Train390(void* o);
+void* __fastcall Obj_Node20a(void* o);
+void* __fastcall Obj_Node206(void* o);
+void __fastcall Vehicle_PointAlong(uint8_t* o, int, float t, float* x, float* z);
+
+// 0x48edf0. Moves a car `dist` along the track from position `pos` (0..1) on
+// this node in direction *dir (0: towards +0x206, 1: towards +0x20a), crossing
+// nodes as needed: at a route end with a junction the car's train picks the
+// branch towards its order target (front car) or follows the front car (rear
+// car `front` == 0). Writes the new position (*outPos, the point *x / *z),
+// counts the nodes crossed (*count) and adds the distance moved (*accum).
+// Returns the node id it stops on, -1 at a track end or off plain track.
+RT3_NOINLINE int32_t __fastcall Node_Advance(uint8_t* n, int, float pos, float dist, float* x, float* z, float* outPos, int32_t* dir, int32_t* count,
+                                             float* accum, int32_t car, int32_t, int32_t front) {
+    Collection* nodes = hook::Global<Collection*>(0x6cfca8);
+    for (;;) {
+        if (*dir) {
+            double rem = D(0x5c97e0) - pos;
+            if (dist < rem) {
+                float np = (float)((double)pos + dist);
+                *outPos = np;
+                Vehicle_PointAlong(n, 0, np, x, z);
+                if (accum) *accum = (float)((double)dist + *accum);
+                return F<int32_t>(n, 0x202);
+            }
+            *outPos = (float)((double)dist - rem);
+            if (accum) *accum = (float)((double)*accum + rem);
+        } else {
+            if (dist <= pos) {
+                float np = (float)((double)pos - dist);
+                *outPos = np;
+                Vehicle_PointAlong(n, 0, np, x, z);
+                if (accum) *accum = (float)((double)dist + *accum);
+                return F<int32_t>(n, 0x202);
+            }
+            *outPos = (float)((double)dist - pos);
+            if (accum) *accum = (float)((double)pos + *accum);
+        }
+        bool back = *dir == 0;
+        int32_t exitLink = back ? F<int32_t>(n, 0x206) : F<int32_t>(n, 0x20a);
+        if (exitLink == -1) return -1;
+        uint8_t* next = (uint8_t*)Collection_Get(nodes, 0, (uint32_t)exitLink);
+        if (next[0x216] != 2) return -1;
+        if (car != -1 && Node_IsRouteEnd(n) && F<int32_t>(n, 0x20e) != -1) {
+            uint8_t* c = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba84), 0, (uint32_t)car);
+            int32_t target = Train_OrderTarget((uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfcbc), 0, F<uint32_t>(c, 0x390)), 0, nullptr, 0);
+            int32_t linkA = back ? 0x206 : 0x20a, linkB = back ? 0x20a : 0x206;
+            if (front) {
+                uint8_t* r = Node_NextTowards(n, 0, target, F<int32_t>(c, 0x34e), F<int32_t>(n, linkA), (uint8_t*)Obj_Train390(c), 0);
+                if (r) next = r;
+            } else {
+                int32_t target2 = Train_CurrentOrderNode((uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfcbc), 0, F<uint32_t>(c, 0x390)));
+                int32_t follow = F<int32_t>(c, 0x352);
+                uint8_t* r = Node_NextTowards(n, 0, target2, follow, F<int32_t>(n, linkB), (uint8_t*)Obj_Train390(c), 0);
+                if (r) {
+                    if (target2 == target) {
+                        if (F<int32_t>(n, 0x206) == F<int32_t>(r, 0x202) && Collection_IsValid(nodes, 0, F<uint32_t>(n, 0x20a)))
+                            r = (uint8_t*)Obj_Node20a(n);
+                        else if (F<int32_t>(n, 0x20a) == F<int32_t>(r, 0x202) && Collection_IsValid(nodes, 0, F<uint32_t>(n, 0x206)))
+                            r = (uint8_t*)Obj_Node206(n);
+                    }
+                    if (r) next = r;
+                }
+            }
+        }
+        int32_t id = F<int32_t>(n, 0x202);
+        uint32_t newPos;
+        if (back) {
+            newPos = 0x3eb95810;
+            if (F<int32_t>(next, 0x206) == id || (F<int32_t>(next, 0x20e) == id && (next[0x201] & 2))) {
+                *dir = 1;
+                newPos = 0;
+            }
+        } else {
+            newPos = 0;
+            if (F<int32_t>(next, 0x20a) == id || (F<int32_t>(next, 0x20e) == id && !(next[0x201] & 2))) {
+                *dir = 0;
+                newPos = 0x3eb95810;
+            }
+        }
+        if (count) ++*count;
+        dist = *outPos;
+        pos = BitsF(newPos);
+        n = next;
+    }
+}
+RT3_REPLACE(0x48edf0, Node_Advance);
+
+// 0x4a8370. Refreshes the train window when it shows this train (view mode 2).
+RT3_NOINLINE void __fastcall Train_RefreshWindowIfShown(uint8_t* t) {
+    uint8_t* view = hook::Global<uint8_t*>(0x6d0818);
+    if (view && F<int32_t>(view, 0x8c) == 2 && F<int32_t>(view, 0x90) == F<int32_t>(t, 0x25)) TrainWindow_RefreshOpen();
+}
+RT3_REPLACE(0x4a8370, Train_RefreshWindowIfShown);
+
+double __fastcall Obj_Float242(void* o, int, int32_t i);
+float __fastcall Vehicle_ScreenHeading(uint8_t* o, int, int32_t forward);
+int32_t __fastcall Track_Link(uint8_t* t, int, int32_t second);
+double __fastcall AngleDelta(int32_t* wrapped, int, float a, float b);
+double __fastcall Effect_Blend(uint8_t* e, int, float t);
+int32_t IsMultiplayer();
+int32_t __stdcall Net_AllHaveVersion(float v);
+void __fastcall Obj_MoveToCell(uint8_t* o, int, float cx, float cz, float y);
+void __fastcall Model_SetAngles(uint8_t* o, int, uint32_t a, uint32_t b, uint32_t c);
+void __fastcall Model_SetPartAngle2(uint8_t* o, int, int32_t part, uint32_t v);
+void __fastcall Vehicle_RollWheels(uint8_t* v, int, float dist);
+int32_t __fastcall Map_Contains(void* m, int, float x, float y);
+
+static inline double PoseFabs(double x) { return ((double(__cdecl*)(double))0x5a152e)(x); }
+static inline double PoseAtan(double x) { return ((double(__cdecl*)(double))0x5a1270)(x); }
+
+// Front / rear bogie heading of Car_UpdatePose: near the end of the node the
+// heading is blended with the next node's (wrapping across +-pi).
+static float Car_BogieHeading(int32_t node, float at, int32_t dir, float heading, bool rear) {
+    Collection* nodes = hook::Global<Collection*>(0x6cfca8);
+    bool low;
+    if (!rear) low = dir ? !(at < D(0x5c97d8)) : (at <= D(0x5c97d8));
+    else low = dir ? (at <= D(0x5c97d8)) : !(at < D(0x5c97d8));
+    int32_t flagged = low ? 0 : 1;
+    // the front bogie looks along its direction when low, the rear one against it
+    int32_t arg = rear ? (low ? dir == 0 : dir) : (low ? dir : dir == 0);
+    int32_t nb = Track_Link((uint8_t*)Collection_Get(nodes, 0, (uint32_t)node), 0, arg);
+    if (nb == -1) return heading;
+    uint8_t* m = (uint8_t*)Collection_Get(nodes, 0, (uint32_t)nb);
+    int32_t fwd = 0;
+    if (!flagged) {
+        if (F<int32_t>(m, 0x206) == node || (F<int32_t>(m, 0x20e) == node && (m[0x201] & 2))) fwd = 1;
+    } else {
+        if (F<int32_t>(m, 0x20a) == node || (F<int32_t>(m, 0x20e) == node && !(m[0x201] & 2))) fwd = 1;
+    }
+    float hn = Vehicle_ScreenHeading(m, 0, fwd);
+    if (hn == heading) return heading;
+    double w = at;
+    if (!(at < D(0x5c97d8))) w = D(0x5c97e0) - at;
+    float wf = (float)(w / D(0x5c97d8) * D(0x5c8628) + D(0x5c8628));
+    if ((double)heading + D(0x5c96a8) < hn) hn = (float)((double)hn - D(0x5c96b8));
+    else if ((double)heading - D(0x5c96a8) > hn) hn = (float)((double)hn + D(0x5c96b8));
+    return (float)((D(0x5c8770) - wf) * hn + (double)wf * heading);
+}
+
+// Height of the car at `at` on `node`, rounded to 1/100 in multiplayer games
+// with version 1.02 everywhere.
+static float Car_PoseHeight(uint8_t* node, float pos) {
+    float y = (float)(Effect_Blend(node, 0, (float)((double)pos / D(0x5c97e0))) + D(0x5c8750));
+    if (hook::Global<uint8_t*>(0x6cec78) && IsMultiplayer() && Net_AllHaveVersion(BitsF(0x3f828f5c))) {
+        float r = (float)Ftol((double)y * Fl(0x5c8c28));
+        y = (float)((double)r / Fl(0x5c8c28));
+    }
+    return y;
+}
+
+// 0x41b080. Places a rail car on the track: both bogies are found by moving
+// half the car length either way from its node position (+0x356, +0x35e,
+// direction +0x35a); the car sits between them (offset sideways on curves of
+// kinds 4 / 2), headed and pitched along them, with the bogie models turned
+// to their track (+0x31a parts); then the wheels roll by `dist`. Off the
+// track ends it keeps the node heading.
+RT3_NOINLINE void __fastcall Car_UpdatePose(uint8_t* car, int, float dist) {
+    if (((int32_t(__fastcall*)(uint8_t*))(*(void***)car)[0x14 / 4])(car)) return;
+    float lenF = (float)(Obj_Float242(car, 0, 1) / Fl(0x5c8700));
+    float lenR = (float)(Obj_Float242(car, 0, 0) / Fl(0x5c8700));
+    Collection* nodes = hook::Global<Collection*>(0x6cfca8);
+    uint8_t* node = (uint8_t*)Collection_Get(nodes, 0, F<uint32_t>(car, 0x356));
+    if (!node) return;
+    int32_t dir1 = F<int32_t>(car, 0x35a), dir2 = dir1 == 0;
+    float x1, z1, x2, z2, at1, at2;
+    int32_t r1 = Node_Advance(node, 0, F<float>(car, 0x35e), lenF, &x1, &z1, &at1, &dir1, nullptr, nullptr, -1, -1, 1);
+    int32_t r2 = Node_Advance(node, 0, F<float>(car, 0x35e), lenR, &x2, &z2, &at2, &dir2, nullptr, nullptr, -1, -1, 0);
+    float sum = (float)((double)lenR + lenF);
+    float t = (float)((double)lenR / sum);
+    float mx = (float)(((double)x1 - x2) * t + x2);
+    float mz = (float)(((double)z1 - z2) * t + z2);
+    uint8_t kind = node[0x218];
+    if (kind == 4 || kind == 2) {
+        auto cos_ = (double(__cdecl*)(double))0x5a13e4;
+        auto sin_ = (double(__cdecl*)(double))0x5a1494;
+        float ang = (float)(D(0x5c97e8) - ((double)Vehicle_ScreenHeading(node, 0, F<int32_t>(car, 0x35a)) + D(0x5c97f0)));
+        if (kind == 4) {
+            mx = (float)(cos_(ang) * D(0x5c9740) + mx);
+            double mzd = mz;
+            mz = (float)(mzd - sin_(ang) * D(0x5c9740));
+        } else {
+            double c = cos_(ang) * D(0x5c9740);
+            mx = (float)(c * ((D(0x5c97e0) - F<float>(car, 0x35e)) / D(0x5c97e0)) + mx);
+            double mzd = mz;
+            double s = sin_(ang) * D(0x5c9740);
+            mz = (float)(mzd - s * ((D(0x5c97e0) - F<float>(car, 0x35e)) / D(0x5c97e0)));
+        }
+    }
+    if (r1 == -1 || r2 == -1) {
+        if (!Map_Contains(hook::Global<uint8_t*>(0x62c120), 0, mx, mz)) return;
+        float y = Car_PoseHeight(node, F<float>(car, 0x35e));
+        Obj_MoveToCell(car, 0, mx, mz, y);
+        float h = Vehicle_ScreenHeading(node, 0, F<int32_t>(car, 0x35a));
+        Model_SetAngles(car, 0, 0, FBits(h), 0);
+        return;
+    }
+    float h1 = Vehicle_ScreenHeading((uint8_t*)Collection_Get(nodes, 0, (uint32_t)r1), 0, dir1);
+    float h2 = Vehicle_ScreenHeading((uint8_t*)Collection_Get(nodes, 0, (uint32_t)r2), 0, dir2 == 0);
+    h1 = Car_BogieHeading(r1, at1, dir1, h1, false);
+    h2 = Car_BogieHeading(r2, at2, dir2, h2, true);
+    float delta = (float)PoseFabs(AngleDelta(nullptr, 0, h1, h2));
+    float heading;
+    if (!(delta <= D(0x5c97d0)) && delta < D(0x5c97c8)) heading = h1;
+    else if ((double)h2 + D(0x5c96a8) < h1) heading = (float)(((double)h2 + D(0x5c96b8) + h1) / D(0x5c85d0));
+    else if ((double)h1 + D(0x5c96a8) < h2) heading = (float)(((double)h1 + D(0x5c96b8) + h2) / D(0x5c85d0));
+    else heading = (float)(((double)h2 + h1) / Fl(0x5c878c));
+    float y1 = (float)(Effect_Blend((uint8_t*)Collection_Get(nodes, 0, (uint32_t)r1), 0, (float)((double)at1 / D(0x5c97e0))) / Fl(0x5c8700));
+    float y2 = (float)(Effect_Blend((uint8_t*)Collection_Get(nodes, 0, (uint32_t)r2), 0, (float)((double)at2 / D(0x5c97e0))) / Fl(0x5c8700));
+    float pitch = (float)PoseAtan(((double)y1 - y2) / sum);
+    float y = Car_PoseHeight(node, F<float>(car, 0x35e));
+    Obj_MoveToCell(car, 0, mx, mz, y);
+    Model_SetAngles(car, 0, FBits(pitch), FBits(heading), 0);
+    int32_t parts = F<int32_t>(car, 0x31a);
+    if (parts >= 2) {
+        Model_SetPartAngle2(car, 0, 1, FBits((float)((double)h1 - heading)));
+        if (parts > 2) Model_SetPartAngle2(car, 0, 2, FBits((float)((double)h2 - heading)));
+    }
+    Vehicle_RollWheels(car, 0, dist);
+}
+// NOT INSTALLED (stack residue): when a bogie runs off a track end, Node_Advance
+// returns -1 without writing its x / z outputs, and the original then places
+// the car at whatever its stack slots still held. The decode above is exact
+// otherwise (difftest game_CarUpdatePose); 0x41b080 stays original (skip list).
+// RT3_REPLACE(0x41b080, Car_UpdatePose); -- see above
+
+// 0x4ba3d0. The building type editor's cargo panel for the edited type
+// (0x6cfe04: +0 cargo count, +1 cargo ids, +0x21 selection, +0x28 flags):
+// per cargo a row (frame 0x7d64 + i, the cargo icon button 0x7d96 + i with
+// tooltip 0x1f4, a hover cell 0x7fd6 + i), the extra rows for the flags 0x10 /
+// 0x20, their hover cells 0x8026 / 0x8027, and the count list 0x7d0e (one more
+// than the cargo count, filler 0x4ba270).
+RT3_NOINLINE void __fastcall IndustryEditor_BuildCargoPanel(uint8_t* w) {
+    uint8_t* rec = hook::Global<uint8_t*>(0x6cfe04);
+    auto clear = [&](int32_t id) {
+        if (Widget_FindChild(w, 0, id)) Window_DeleteChildren(w, 0, id, 0xfff0, 0);
+    };
+    auto scrollbar = [&](uint8_t* def) {
+        uint8_t* s = (uint8_t*)ExeNew(0x111);
+        s = s ? Scrollbar_Construct(s, 0, def) : nullptr;
+        Window_AddChild(w, 0, s, 0);
+    };
+    auto timer = [&](uint16_t id, uint32_t x) {
+        uint8_t def[0x8b];
+        memset(def, 0, sizeof def);
+        F<uint32_t>(def, 7) = x;
+        F<uint32_t>(def, 0xb) = 0x3e822222;
+        F<uint32_t>(def, 0xf) = 0x3d4ccccd;
+        F<uint32_t>(def, 0x13) = 0x3d50369d;
+        F<uint16_t>(def, 5) = 0x7d06;
+        def[0x29] = 0x21;
+        F<uint16_t>(def, 0) = id;
+        uint8_t* t = (uint8_t*)ExeNew(0xda);
+        t = t ? TimerWidget_Construct(t, 0, def) : nullptr;
+        Window_AddChild(w, 0, t, 0);
+    };
+    auto rowX = [](int32_t y) {
+        float f = (float)y;
+        return FBits((float)((double)f / Fl(0x5ca198)));
+    };
+    if (rec[0]) {
+        int32_t id = 0x7d96, y = 0x217;
+        uint32_t off = 0;
+        do {
+            clear(id - 0x32);
+            uint8_t def[0x89];
+            memset(def, 0, sizeof def);
+            uint32_t x = rowX(y);
+            F<uint16_t>(def, 0) = (uint16_t)(id - 0x32);
+            F<uint32_t>(def, 0xb) = 0x3e822222;
+            F<uint32_t>(def, 0xf) = 0x3d4ccccd;
+            F<uint32_t>(def, 0x13) = 0x3d50369d;
+            F<uint16_t>(def, 5) = 0x7d06;
+            F<uint16_t>(def, 0x5f) = 9;
+            F<uint32_t>(def, 7) = x;
+            String_Assign(&F<char*>(def, 0x43), (const char*)0x5d0658);
+            scrollbar(def);
+            Free(F<void*>(def, 0x43));
+            clear(id);
+            memset(def, 0, sizeof def);
+            F<uint32_t>(def, 0xb) = 0x3e8740da;
+            F<uint32_t>(def, 0xf) = 0x3ccccccd;
+            F<uint32_t>(def, 0x13) = 0x3d088889;
+            F<uint32_t>(def, 7) = rowX(y + 0x17);
+            char buf[0x100];
+            int32_t cargo = F<int32_t>(hook::Global<uint8_t*>(0x6cfe04), off + 1);
+            if (Collection_IsValid(hook::Global<Collection*>(0x62ba8c), 0, (uint32_t)cargo))
+                ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)(
+                    buf, (const char*)0x5d0650,
+                    (const char*)Collection_Get(hook::Global<Collection*>(0x62ba8c), 0, F<uint32_t>(hook::Global<uint8_t*>(0x6cfe04), off + 1)) + 4);
+            else {
+                cargo = F<int32_t>(hook::Global<uint8_t*>(0x6cfe04), off + 1);
+                const char* fmt = cargo == 0x384 ? (const char*)0x5d0640 : cargo == 0x385 ? (const char*)0x5d0630 : (const char*)0x5d0620;
+                FormatText(buf, fmt, 0, 0, 0, 0, 0, 0, 0, 0);
+            }
+            String_Assign(&F<char*>(def, 0x43), NameTable_ContainsName(hook::Global<uint8_t*>(0x6d4020), 0, buf, 0, 0) ? buf : (const char*)0x5d0194);
+            F<uint16_t>(def, 0) = (uint16_t)id;
+            F<uint16_t>(def, 5) = 0x7d06;
+            F<uint32_t>(def, 0x2f) = 0x800;
+            String_Assign(&F<char*>(def, 0x3f), GetString(0x1f4));
+            scrollbar(def);
+            Free(F<void*>(def, 0x43));
+            Free(F<void*>(def, 0x3f));
+            clear(id + 0x28a);
+            timer((uint16_t)(id + 0x28a), x);
+            off += 4;
+            ++id;
+            y += 0x58;
+        } while (id - 0x7d96 < hook::Global<uint8_t*>(0x6cfe04)[0]);
+    }
+    auto button = [&](uint16_t id, uint32_t x, bool narrow, uint32_t image, uint16_t kind, uint32_t flags) {
+        uint8_t def[0x89];
+        memset(def, 0, sizeof def);
+        F<uint32_t>(def, 7) = x;
+        F<uint32_t>(def, 0xb) = narrow ? 0x3e8740da : 0x3e822222;
+        F<uint32_t>(def, 0xf) = narrow ? 0x3ccccccd : 0x3d4ccccd;
+        F<uint32_t>(def, 0x13) = narrow ? 0x3d088889 : 0x3d50369d;
+        F<uint16_t>(def, 5) = 0x7d06;
+        F<uint16_t>(def, 0) = id;
+        F<uint16_t>(def, 0x5f) = kind;
+        if (flags) F<uint32_t>(def, 0x2f) = flags;
+        String_Assign(&F<char*>(def, 0x43), (const char*)image);
+        scrollbar(def);
+        Free(F<void*>(def, 0x43));
+    };
+    uint8_t flags = hook::Global<uint8_t*>(0x6cfe04)[0x28];
+    if (flags & 0x30) button(0x7d6b, 0x3f3828f6, false, 0x5d0658, 9, 0);
+    flags = hook::Global<uint8_t*>(0x6cfe04)[0x28];
+    if ((flags & 0x20) && (flags & 0x10)) button(0x7d6a, 0x3f2a147b, false, 0x5d0658, 9, 0);
+    if (hook::Global<uint8_t*>(0x6cfe04)[0x28] & 0x20) button(0x7d9d, 0x3f3bd70a, true, 0x5d0614, 0, 0x30);
+    flags = hook::Global<uint8_t*>(0x6cfe04)[0x28];
+    if (flags & 0x10) {
+        int32_t row = (flags & 0x20) ? 6 : 7;
+        button((uint16_t)(row + 0x7d96), rowX(row * 0x58 + 0x22e), true, 0x5d0608, 0, 0x30);
+    }
+    flags = hook::Global<uint8_t*>(0x6cfe04)[0x28];
+    if ((flags & 0x10) && (flags & 0x20)) {
+        clear(0x8026);
+        timer(0x8026, 0x3f2a147b);
+    }
+    if (hook::Global<uint8_t*>(0x6cfe04)[0x28] & 0x30) {
+        clear(0x8027);
+        timer(0x8027, 0x3f3828f6);
+    }
+    clear(0x7d0e);
+    uint8_t def[0xe3];
+    memset(def, 0, sizeof def);
+    uint8_t* r = hook::Global<uint8_t*>(0x6cfe04);
+    F<uint32_t>(def, 7) = 0x3e8e6666;
+    F<uint32_t>(def, 0xb) = 0x3e6c5f93;
+    F<float>(def, 0xf) = (float)(((double)(r[0] * 0x59) + D(0x5d0600)) / D(0x5ca2c8));
+    F<uint32_t>(def, 0x13) = 0x3cda740e;
+    F<int32_t>(def, 0x5f) = r[0] + 1;
+    F<int32_t>(def, 0x63) = 0;
+    F<int32_t>(def, 0x67) = 1;
+    F<int32_t>(def, 0x97) = 5;
+    F<int32_t>(def, 0x9b) = r[0] + 0xa;
+    F<uint32_t>(def, 0xab) = 0xbc088889;
+    F<uint32_t>(def, 0xaf) = 0x3c7ae148;
+    F<float>(def, 0xb3) = (float)(((double)(r[0] * 0x59) + D(0x5d05f8)) / D(0x5ca2c8));
+    F<uint32_t>(def, 0xb7) = 0;
+    F<uint32_t>(def, 0xbb) = 0;
+    F<uint16_t>(def, 0x3c) = 0xb07;
+    F<uint32_t>(def, 0x2f) = 8;
+    String_Assign(&F<char*>(def, 0x43), (const char*)0x5d0658);
+    F<uint16_t>(def, 0) = 0x7d0e;
+    F<uint16_t>(def, 5) = 0x7d06;
+    uint8_t* l = (uint8_t*)ExeNew(0x1b9);
+    l = l ? ListBox_Construct(l, 0, def) : nullptr;
+    Window_AddChild(w, 0, l, 0);
+    Free(F<void*>(def, 0x43));
+    Window_SendEvent5(w, 0, 0x84, 0x7d0e, 0x4ba270, 0, 0);
+    Window_SendEvent5(w, 0, 0x73, 0x7d0e, hook::Global<uint8_t*>(0x6cfe04)[0] + 1, 0, 0);
+    Window_SendEvent5(w, 0, 0x66, 0x7d0e, hook::Global<uint8_t*>(0x6cfe04)[0x21], 0, 0);
+}
+RT3_REPLACE(0x4ba3d0, IndustryEditor_BuildCargoPanel);
+
+uint32_t __fastcall Company_NthSite(int32_t* o, int, int32_t n, int32_t activeOnly);
+void* __fastcall Obj_Building(void* o);
+double __fastcall Obj_Float4ec(void* o, int, int32_t i);
+double __fastcall Obj_Float4c4(void* o, int, int32_t i);
+double __fastcall Obj_Float53c(void* o, int, int32_t i);
+double __fastcall Obj_Float514(void* o, int, int32_t i);
+
+// 0x4e8bb0. The company's station list (company +0x88; 0x4ba when it is gone,
+// 0x4ff when it has no stations): six sortable headers (0x48f, 0x4f5,
+// 0x500..0x503; widths depend on the language 0x6d3c84), then the stations
+// ordered by the chosen column (name ascending, or descending with +0x760; the
+// numbers largest first), a page of 9 from row +0x7c * 9: name, the building's
+// +0x3d5, the four station figures, a tooltip (0x4f3) and the station id per
+// row (ids 0x3f48 + row, the selected row +0x98 grey). The shown site ids go
+// to +0x11c. With +0x760 a numeric column never updates its bound, so only
+// values below -1e6 qualify and the list stays empty.
+RT3_NOINLINE void __fastcall CompanyStations_Draw(uint8_t* p, int, float x, float y, float w, float h, int32_t sortKey) {
+    if (!Collection_IsValid(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(p, 0x88))) {
+        Font_DrawTextBox(F<uint8_t*>(p, 0xe55), 0, GetString(0x4ba), x, y, w, h, 0xff000000, 0, 0, 2, 1.0f);
+        return;
+    }
+    int32_t* co = (int32_t*)Collection_Get(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(p, 0x88));
+    if (!Company_CountCargoSites(co, 0, 1)) {
+        Font_DrawTextBox(F<uint8_t*>(p, 0xe55), 0, GetString(0x4ff), x, y, w, h, 0xff000000, 0, 0, 2, 1.0f);
+        return;
+    }
+    uint8_t used[200];
+    memset(used, 0, sizeof used);
+    memset(p + 0x11c, 0, 0x640);
+    Obj_YearOrNow(p);
+    uint32_t widths[6] = { 0x3e4ccccd, 0x3d8f5c29, 0x3d8f5c29, 0x3d8f5c29, 0x3da3d70a, 0x3da3d70a };
+    int32_t lang = hook::Global<int32_t>(0x6d3c84);
+    if (lang == 4) {
+        widths[0] = 0x3e366667;
+        widths[1] = 0x3ddc28f6;
+        widths[5] = 0x3dbae147;
+    } else if (lang == 3) {
+        widths[0] = 0x3e333333;
+        widths[1] = 0x3dcf5c29;
+        widths[2] = 0x3d933333;
+        widths[3] = 0x3da51eb8;
+        widths[4] = widths[5] = 0x3daa3d70;
+    } else if (lang == 2) {
+        widths[2] = widths[3] = 0x3da66666;
+        widths[0] = 0x3e466667;
+        widths[1] = 0x3d9c28f6;
+        widths[4] = widths[5] = 0x3d9eb852;
+    }
+    static const int32_t titles[6] = { 0x48f, 0x4f5, 0x500, 0x501, 0x502, 0x503 }, tips[6] = { 0x504, 0x4fa, 0x505, 0x506, 0x507, 0x508 };
+    float cx = x;
+    for (int32_t i = 0; i < 6; ++i) {
+        const char* tip = GetString(tips[i]);
+        TextLink_Draw(p, F<uint8_t*>(p, 0xe55), GetString(titles[i]), cx, y, BitsF(widths[i]), BitsF(0x3d9374bc), 3, 4, 3, tip, i + 0x3ffc, 0xff000000,
+                      0xff6d6b6e);
+        cx = (float)((double)cx + BitsF(widths[i]));
+    }
+    Collection* stations = hook::Global<Collection*>(0x6cec20);
+    auto site = [&](int32_t n) { return (uint8_t*)Collection_Get(stations, 0, Company_NthSite(co, 0, n, 1)); };
+    float rowY = (float)((double)y + D(0x5d1140));
+    int32_t seen = 0, rowId = 0x3f48;
+    int32_t* slot = (int32_t*)(p + 0x11c);
+    char buf[0x200];
+    float v = 0.0f;
+    for (int32_t r = 0; r < 200; ++r, ++slot) {
+        int32_t best = -1;
+        float bestVal = BitsF(0xc97423f0);
+        const char* bestName = nullptr;
+        if (Company_CountCargoSites(co, 0, 1) <= 0) return;
+        int32_t n = 1;
+        do {
+            if (!used[n - 1]) {
+                const char* name = nullptr;
+                switch (sortKey) {
+                case 0: name = (const char*)site(n) + 0x46b; break;
+                case 1: v = (float)F<int32_t>(Obj_Building(site(n)), 0x3d5); break;
+                case 2: v = (float)Obj_Float4ec(site(n), 0, 1); break;
+                case 3: v = (float)Obj_Float4c4(site(n), 0, 1); break;
+                case 4: v = (float)Obj_Float53c(site(n), 0, 1); break;
+                case 5: v = (float)Obj_Float514(site(n), 0, 1); break;
+                default: v = (float)F<uint32_t>(Obj_Building(site(n)), 0x3cc); break;
+                }
+                bool take;
+                if (!p[0x760]) {
+                    if (sortKey) take = v > bestVal;
+                    else take = !bestName || Stricmp(name, bestName) < 0;
+                    if (take) bestVal = v;
+                } else if (sortKey)
+                    take = v < bestVal;
+                else
+                    take = !bestName || Stricmp(name, bestName) > 0;
+                if (take) {
+                    best = n - 1;
+                    bestName = name;
+                }
+            }
+            ++n;
+        } while (n - 1 < Company_CountCargoSites(co, 0, 1));
+        if (best == -1) return;
+        used[best] = 1;
+        if (++seen <= F<int32_t>(p, 0x7c) * 9) continue;
+        uint32_t color = F<int32_t>(p, 0x98) == rowId ? 0xff6d6b6e : 0xff000000;
+        uint8_t* st = site(best + 1);
+        *slot = (int32_t)Company_NthSite(co, 0, best + 1, 1);
+        FormatText(buf, (const char*)st + 0x46b, 0, 0, 0, 0, 0, 0, 0, 0);
+        Font_DrawTextBox(F<uint8_t*>(p, 0xe55), 0, buf, x, rowY, BitsF(widths[0]), BitsF(0x3d2c0831), color, 3, 0, 2, 1.0f);
+        float colX = (float)((double)BitsF(widths[0]) + x);
+        Num_Format(buf, 8, (double)F<int32_t>(Obj_Building(st), 0x3d5), 10, 1, 0, 0);
+        Font_DrawTextBox(F<uint8_t*>(p, 0xe55), 0, buf, colX, rowY, BitsF(widths[1]), BitsF(0x3d2c0831), color, 3, 0, 2, 1.0f);
+        Num_Format(buf, 1, (double)Ftol(Obj_Float4ec(st, 0, 1)), 10, 1, 0, 0);
+        colX = (float)((double)colX + BitsF(widths[1]));
+        Font_DrawTextBox(F<uint8_t*>(p, 0xe55), 0, buf, colX, rowY, BitsF(widths[2]), BitsF(0x3d2c0831), color, 3, 0, 2, 1.0f);
+        Num_Format(buf, 1, (double)Ftol(Obj_Float4c4(st, 0, 1)), 10, 1, 0, 0);
+        colX = (float)((double)colX + BitsF(widths[2]));
+        Font_DrawTextBox(F<uint8_t*>(p, 0xe55), 0, buf, colX, rowY, BitsF(widths[3]), BitsF(0x3d2c0831), color, 3, 0, 2, 1.0f);
+        Num_FormatSimple2(buf, 0xb, Obj_Float53c(st, 0, 1), 0xb);
+        colX = (float)((double)colX + BitsF(widths[3]));
+        Font_DrawTextBox(F<uint8_t*>(p, 0xe55), 0, buf, colX, rowY, BitsF(widths[4]), BitsF(0x3d2c0831), color, 3, 0, 2, 1.0f);
+        Num_FormatSimple2(buf, 0xb, Obj_Float514(st, 0, 1), 0xb);
+        colX = (float)((double)colX + BitsF(widths[4]));
+        Font_DrawTextBox(F<uint8_t*>(p, 0xe55), 0, buf, colX, rowY, BitsF(widths[5]), BitsF(0x3d2c0831), color, 3, 0, 2, 1.0f);
+        if (rowId - 0x3f48 > 0) Ui_Line(0x2f000000, 0, x, rowY, (float)((double)x + w), rowY, 2.0f);
+        FormatText(buf, GetString(0x4f3), (const char*)st + 0x46b, 0, 0, 0, 0, 0, 0, 0);
+        Window_SendEvent5(p, 0, 0x6e, rowId, (uint32_t)(uintptr_t)buf, 0, 0);
+        Window_SendEvent5(p, 0, 0x7c, rowId, F<uint32_t>(st, 0), 0, 0);
+        if (++rowId - 0x3f48 >= 9) return;
+        rowY = (float)((double)rowY + D(0x5ce8c0));
+    }
+}
+RT3_REPLACE(0x4e8bb0, CompanyStations_Draw);
+
+void* Get6d3ae8();
+void __fastcall TrainList_Refill(uint8_t* w);
+
+// 0x4b2ea0. Refreshes what shows this train order list's train (+0xd): the
+// train's window, or without a train the train list 0x6d3ac8 when it is this.
+void __fastcall TrainOrders_RefreshOwner(uint8_t* o) {
+    Collection* trains = hook::Global<Collection*>(0x6cfcbc);
+    if (F<uint32_t>(o, 0xd) && Collection_Get(trains, 0, F<uint32_t>(o, 0xd))) {
+        Train_RefreshWindowIfShown((uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfcbc), 0, F<uint32_t>(o, 0xd)));
+        return;
+    }
+    uint8_t* list = hook::Global<uint8_t*>(0x6d3ac8);
+    if (list && Get6d3ae8() == o) TrainList_Refill(hook::Global<uint8_t*>(0x6d3ac8));
+}
+RT3_REPLACE(0x4b2ea0, TrainOrders_RefreshOwner);
+
+void __fastcall TrainOrders_UpdateButtons(uint8_t* w);
+
+// 0x4bad20. Shows tab `tab` of the building type editor (tab buttons 0x7d05 /
+// 0x7d06): tab 0 sets the two size lists for the edited type's shape (flags
+// 0x20 / 0x10 of 0x6cfe04 +0x28: 0x7d11 / 0x7d12 when both, 0x7d07 / 0x7d08
+// when neither, else 0x7d13 / 0x7d14) to +0x22 / +0x23 and updates the
+// buttons; tab 1 sizes the cargo count list 0x7d0e and rebuilds the cargo panel.
+RT3_NOINLINE void __fastcall IndustryEditor_ShowTab(uint8_t* w, int, int32_t tab) {
+    for (int32_t i = 0; i < 2; ++i) Window_SendEvent5(w, 0, i == tab ? 0x6d : 0x86, 0x7d05 + i, 3, 0, 0);
+    auto rec = [] { return hook::Global<uint8_t*>(0x6cfe04); };
+    if (tab) {
+        Window_SendEvent5(w, 0, 0x73, 0x7d0e, rec()[0] + 1, 0, 0);
+        Window_SendEvent5(w, 0, 0x66, 0x7d0e, rec()[0x21], 0, 0);
+        IndustryEditor_BuildCargoPanel(w);
+        return;
+    }
+    uint8_t flags = rec()[0x28];
+    bool b20 = (flags >> 5) & 1;
+    int32_t first, count;
+    if (b20 && (flags & 0x10)) first = 0x7d11, count = 7;
+    else if (!b20 && !(flags & 0x10)) first = 0x7d07, count = 9;
+    else first = 0x7d13, count = 8;
+    Window_SendEvent5(w, 0, 0x73, first, count, 0, 0);
+    Window_SendEvent5(w, 0, 0x66, first, rec()[0x22], 0, 0);
+    Window_SendEvent5(w, 0, 0x73, first + 1, count, 0, 0);
+    Window_SendEvent5(w, 0, 0x66, first + 1, rec()[0x23], 0, 0);
+    TrainOrders_UpdateButtons(w);
+}
+RT3_REPLACE(0x4bad20, IndustryEditor_ShowTab);
+
+int32_t __fastcall Company_CountIdleBuildings(void* c);
+void __fastcall Company_CacheBuildings(int32_t* o);
+void __stdcall SetGlobal62bae8(uint8_t v);
+uint32_t __fastcall Company_NthBuilding(int32_t* o, int, int32_t n);
+double __fastcall Obj_Remaining(void* o, int, int32_t i);
+double __fastcall Obj_Float2c0(void* o, int, int32_t i);
+double __fastcall Obj_Float2e8(void* o, int, int32_t i);
+
+// 0x4e8270. The company's industry list (company +0x88; 0x4ba when it is gone,
+// 0x4f4 when it owns none; at most 400): six sortable headers (0x4e4, 0x4f5,
+// 0xae9, 0x4d4, 0x4f7, 0x4f8; widths depend on the language 0x6d3c84), then
+// the industries (building cache on) ordered by the chosen column (largest
+// first, or smallest with +0x760), a page of 9 from row +0x7c * 9: type name,
+// +0x3d5, +0x27a, Obj_Remaining and two figures ("-" / 0xe4 for idle ones), a
+// tooltip (0x4fe) and +0x2a4 per row (ids 0x3f48 + row, the selected row
+// +0x98 grey). The shown building ids go to +0x11c.
+RT3_NOINLINE void __fastcall CompanyIndustries_Draw(uint8_t* p, int, float x, float y, float w, float h, int32_t sortKey) {
+    if (!Collection_IsValid(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(p, 0x88))) {
+        Font_DrawTextBox(F<uint8_t*>(p, 0xe55), 0, GetString(0x4ba), x, y, w, h, 0xff000000, 0, 0, 2, 1.0f);
+        return;
+    }
+    int32_t* co = (int32_t*)Collection_Get(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(p, 0x88));
+    int32_t count;
+    if (Company_CountIdleBuildings(co) >= 400) count = 400;
+    else {
+        count = Company_CountIdleBuildings(co);
+        if (!count) {
+            Font_DrawTextBox(F<uint8_t*>(p, 0xe55), 0, GetString(0x4f4), x, y, w, h, 0xff000000, 0, 0, 2, 1.0f);
+            return;
+        }
+    }
+    uint8_t used[400];
+    memset(used, 0, sizeof used);
+    memset(p + 0x11c, 0, 0x640);
+    Obj_YearOrNow(p);
+    uint32_t widths[6] = { 0x3e3851ec, 0x3d4ccccd, 0x3db851ec, 0x3d75c28f, 0x3dcccccd, 0x3dcccccd };
+    int32_t lang = hook::Global<int32_t>(0x6d3c84);
+    if (lang == 1) {
+        widths[0] = 0x3e3147af;
+        widths[1] = 0x3d828f5c;
+        widths[2] = 0x3ddeb852;
+        widths[3] = 0x3d851eb8;
+        widths[5] = 0x3dab851f;
+    } else if (lang == 4) {
+        widths[1] = 0x3d933333;
+        widths[3] = 0x3d9ae148;
+        widths[4] = 0x3dc51eb9;
+        widths[5] = 0x3db33333;
+        widths[2] = 0x3dab851f;
+    } else if (lang == 3) {
+        widths[1] = 0x3dc66666;
+        widths[3] = 0x3d851eb8;
+        widths[4] = 0x3db9999a;
+        widths[5] = 0x3d95c290;
+    } else if (lang == 2) {
+        widths[1] = 0x3d666667;
+        widths[4] = widths[5] = 0x3dd9999a;
+        widths[2] = 0x3dab851f;
+    }
+    static const int32_t titles[6] = { 0x4e4, 0x4f5, 0xae9, 0x4d4, 0x4f7, 0x4f8 }, tips[6] = { 0x4f9, 0x4fa, 0xaea, 0x4fb, 0x4fc, 0x4fd };
+    float cx = x;
+    for (int32_t i = 0; i < 6; ++i) {
+        const char* tip = GetString(tips[i]);
+        TextLink_Draw(p, F<uint8_t*>(p, 0xe55), GetString(titles[i]), cx, y, BitsF(widths[i]), BitsF(0x3d9374bc), 3, 4, 3, tip, i + 0x3ff2, 0xff000000,
+                      0xff6d6b6e);
+        cx = (float)((double)cx + BitsF(widths[i]));
+    }
+    float rowY = (float)((double)y + D(0x5d1140));
+    Company_CacheBuildings(co);
+    SetGlobal62bae8(1);
+    Collection* inds = hook::Global<Collection*>(0x62b26c);
+    auto ind = [&](int32_t n) { return (uint8_t*)Collection_Get(inds, 0, Company_NthBuilding(co, 0, n)); };
+    auto typeName = [](uint8_t* b) {
+        uint8_t* type = ((uint8_t*(__fastcall*)(uint8_t*))(*(void***)b)[0x20])(b);
+        return LocalizeName((const char*)type + 0x4f);
+    };
+    int32_t seen = 0, rowId = 0x3f48;
+    int32_t* slot = (int32_t*)(p + 0x11c);
+    char buf[0x200];
+    for (int32_t r = 0; r < 400; ++r, ++slot) {
+        int32_t best = -1;
+        float hi = BitsF(0xc97423f0), lo = BitsF(0x4e6e6b28);
+        if (count <= 0) break;
+        for (int32_t n = 1; n - 1 < count; ++n) {
+            if (used[n - 1]) continue;
+            float v;
+            switch (sortKey) {
+            case 1: v = (float)F<int32_t>(ind(n), 0x3d5); break;
+            case 2: v = F<float>(ind(n), 0x27a); break;
+            case 3: v = (float)Obj_Remaining(ind(n), 0, 1); break;
+            case 4: v = (float)Obj_Float2c0(ind(n), 0, 1); break;
+            case 5: v = (float)Obj_Float2e8(ind(n), 0, 1); break;
+            default: v = (float)F<uint32_t>(ind(n), 0x3cc); break;
+            }
+            if (!p[0x760]) {
+                if (v > hi) {
+                    hi = v;
+                    best = n - 1;
+                }
+            } else if (v < lo) {
+                lo = v;
+                best = n - 1;
+            }
+        }
+        if (best == -1) break;
+        used[best] = 1;
+        if (++seen <= F<int32_t>(p, 0x7c) * 9) continue;
+        uint32_t color = F<int32_t>(p, 0x98) == rowId ? 0xff6d6b6e : 0xff000000;
+        uint8_t* b = ind(best + 1);
+        *slot = (int32_t)Company_NthBuilding(co, 0, best + 1);
+        FormatText(buf, typeName(b), 0, 0, 0, 0, 0, 0, 0, 0);
+        Font_DrawTextBox(F<uint8_t*>(p, 0xe55), 0, buf, x, rowY, BitsF(widths[0]), BitsF(0x3d2c0831), color, 3, 0, 2, 1.0f);
+        float colX = (float)((double)BitsF(widths[0]) + x);
+        Num_Format(buf, 8, (double)F<int32_t>(b, 0x3d5), 10, 1, 0, 0);
+        Font_DrawTextBox(F<uint8_t*>(p, 0xe55), 0, buf, colX, rowY, BitsF(widths[1]), BitsF(0x3d2c0831), color, 3, 0, 2, 1.0f);
+        Num_FormatSimple2(buf, 0xb, (double)F<float>(b, 0x27a), 0xb);
+        colX = (float)((double)colX + BitsF(widths[1]));
+        Font_DrawTextBox(F<uint8_t*>(p, 0xe55), 0, buf, colX, rowY, BitsF(widths[2]), BitsF(0x3d2c0831), color, 3, 0, 2, 1.0f);
+        Num_FormatSimple2(buf, 0xb, Obj_Remaining(b, 0, 1), 0xb);
+        colX = (float)((double)colX + BitsF(widths[2]));
+        Font_DrawTextBox(F<uint8_t*>(p, 0xe55), 0, buf, colX, rowY, BitsF(widths[3]), BitsF(0x3d2c0831), color, 3, 0, 2, 1.0f);
+        auto figure = [&](double(__fastcall * get)(void*, int, int32_t)) {
+            if (Obj_StateKindIs4(b))
+                FormatText(buf, hook::Global<int32_t>(0x6d3c84) == 1 ? (const char*)0x5ca2b4 : GetString(0xe4), 0, 0, 0, 0, 0, 0, 0, 0);
+            else
+                Num_Format(buf, 1, (double)Ftol(get(b, 0, 1)), 10, 1, 0, 0);
+        };
+        figure(&Obj_Float2c0);
+        colX = (float)((double)colX + BitsF(widths[3]));
+        Font_DrawTextBox(F<uint8_t*>(p, 0xe55), 0, buf, colX, rowY, BitsF(widths[4]), BitsF(0x3d2c0831), color, 3, 0, 2, 1.0f);
+        figure(&Obj_Float2e8);
+        colX = (float)((double)colX + BitsF(widths[4]));
+        Font_DrawTextBox(F<uint8_t*>(p, 0xe55), 0, buf, colX, rowY, BitsF(widths[5]), BitsF(0x3d2c0831), color, 3, 0, 2, 1.0f);
+        if (rowId - 0x3f48 > 0) Ui_Line(0x2f000000, 0, x, rowY, (float)((double)x + w), rowY, 2.0f);
+        const char* name = typeName(b);
+        FormatText(buf, GetString(0x4fe), name, 0, 0, 0, 0, 0, 0, 0);
+        Window_SendEvent5(p, 0, 0x6e, rowId, (uint32_t)(uintptr_t)buf, 0, 0);
+        Window_SendEvent5(p, 0, 0x7c, rowId, F<uint32_t>(b, 0x2a4), 0, 0);
+        if (++rowId - 0x3f48 >= 9) break;
+        rowY = (float)((double)rowY + D(0x5ce8c0));
+    }
+    SetGlobal62bae8(0);
+}
+RT3_REPLACE(0x4e8270, CompanyIndustries_Draw);
+
+int32_t __fastcall HashRand(int32_t seed, int32_t lo, int32_t hi);
+uint8_t* __fastcall EditBox_Construct(uint8_t* w, int, const uint8_t* def);
+int32_t __fastcall Widget_TextLines(uint8_t* w);
+void __fastcall Widget_SetClip(uint8_t* w, int, uint32_t a, uint32_t b, uint32_t c, uint32_t d);
+char* __fastcall Date_Format(char* buf, const uint8_t* d, int32_t mode);
+
+// 0x4f2ea0. Fills the newspaper with the story `rec` (+0x78; marks it read,
+// +0x18): the paper's name (0x5f2b78, picked by the story's seed +8), the
+// price by year (5 / 10 / 15 / 25 / 50 cents, string 0xea), the date; the
+// headline (+0x19), the story (+0x92) and a caption (0x5f2b90) as text boxes
+// stacked from +0x7c (the headline sets +0x7c), sides swapped by the seed; and
+// six picture frames (0x88eb..0x88ef) whose images follow from the seed.
+void __fastcall Newspaper_Fill(uint8_t* w, int, uint8_t* rec) {
+    if (!rec) return;
+    F<uint8_t*>(w, 0x78) = rec;
+    rec[0x18] = 1;
+    uint8_t* c = Widget_FindChild(w, 0, 0x88ba);
+    String_Assign(&F<char*>(c, 0xba), GetString(hook::Global<int32_t>(0x5f2b78 + HashRand(F<int32_t>(F<uint8_t*>(w, 0x78), 8), 0, 4) * 4)));
+    c = Widget_FindChild(w, 0, 0x88bb);
+    uint16_t year = F<uint16_t>(F<uint8_t*>(w, 0x78), 0xc);
+    int32_t price = year < 0x771 ? 5 : year < 0x79e ? 10 : year < 0x7a8 ? 15 : year < 0x7c1 ? 25 : 50;
+    char text[0x120];
+    Num_Format(text, 1, (double)price, 10, 1, 0, 0);
+    FormatText(text + 0x10, GetString(0xea), text, 0, 0, 0, 0, 0, 0, 0);
+    String_Assign(&F<char*>(c, 0xba), text + 0x10);
+    c = Widget_FindChild(w, 0, 0x88bc);
+    Date_Format(text + 0x10, F<uint8_t*>(w, 0x78) + 0xc, 2);
+    String_Assign(&F<char*>(c, 0xba), text + 0x10);
+    Window_DeleteChildren(w, 0, 0x88e8, 0x88f4, 0);
+    auto textBox = [&](uint16_t id, uint32_t x, uint32_t y, uint32_t wd, uint8_t style, const char* s) {
+        uint8_t def[0x91];
+        memset(def, 0, sizeof def);
+        F<uint32_t>(def, 7) = x;
+        F<uint32_t>(def, 0xb) = y;
+        F<uint32_t>(def, 0xf) = wd;
+        F<uint32_t>(def, 0x34) = 0xff000000;
+        F<uint32_t>(def, 0x2f) = 0xb0;
+        String_Assign(&F<char*>(def, 0x77), s);
+        def[0x33] = style;
+        F<int32_t>(def, 0x6f) = 1;
+        F<uint16_t>(def, 0) = id;
+        uint8_t* b = (uint8_t*)ExeNew(0xf0);
+        b = b ? EditBox_Construct(b, 0, def) : nullptr;
+        struct R { uint8_t* box; void* str; };
+        return R{ b, F<void*>(def, 0x77) };
+    };
+    auto r1 = textBox(0x88e8, 0x3e351eb8, 0x3ea6d3a0, 0x3f24f5c3, 0xf, (const char*)F<uint8_t*>(w, 0x78) + 0x19);
+    float t = (float)Widget_TextLines(r1.box);
+    t = (float)((double)t * Fl(0x5caa9c));
+    F<float>(r1.box, 0x17) = (float)((double)t / Fl(0x5ca164));
+    F<float>(w, 0x7c) = (float)((double)t + Fl(0x5d138c));
+    Window_AddChild(w, 0, r1.box, 0);
+    Free(r1.str);
+    uint32_t a, b;
+    if (HashRand(F<int32_t>(F<uint8_t*>(w, 0x78), 8), 0, 1)) a = 0x438f0000, b = 0x44648000;
+    else a = 0x44328000, b = 0x438f0000;
+    float ax = (float)((double)BitsF(a) / Fl(0x5ca198));
+    auto r2 = textBox(0x88e9, FBits(ax), FBits((float)((double)F<float>(w, 0x7c) / Fl(0x5ca164))), 0x3ec00000, 0xd, (const char*)F<uint8_t*>(w, 0x78) + 0x92);
+    t = (float)(Widget_TextLines(r2.box) * 0x38);
+    F<float>(r2.box, 0x17) = (float)((double)t / Fl(0x5ca164));
+    float u = (float)((double)t + F<float>(w, 0x7c) + Fl(0x5c85f8));
+    Window_AddChild(w, 0, r2.box, 0);
+    Free(r2.str);
+    float bx = (float)((double)BitsF(b) / Fl(0x5ca198));
+    uint32_t by = FBits((float)((double)F<float>(w, 0x7c) / Fl(0x5ca164)));
+    auto r3 = textBox(0x88ea, FBits(bx), by, 0x3e800000, 0xe,
+                      GetString(hook::Global<int32_t>(0x5f2b90 + HashRand(F<int32_t>(F<uint8_t*>(w, 0x78), 8), 0, 0x26) * 4)));
+    t = (float)(Widget_TextLines(r3.box) * 40);
+    F<float>(r3.box, 0x17) = (float)((double)t / Fl(0x5ca164));
+    float u3 = (float)((double)t + F<float>(w, 0x7c) + Fl(0x5c85f8));
+    Window_AddChild(w, 0, r3.box, 0);
+    Free(r3.str);
+    auto frame = [&](uint16_t id, uint32_t x, uint32_t y, uint32_t h, int32_t image, uint32_t cx, uint32_t cw) {
+        uint8_t def[0x89];
+        memset(def, 0, sizeof def);
+        F<uint32_t>(def, 7) = x;
+        F<uint32_t>(def, 0xb) = y;
+        F<uint32_t>(def, 0xf) = 0x3e000000;
+        F<uint32_t>(def, 0x13) = h;
+        F<uint16_t>(def, 0) = id;
+        F<uint16_t>(def, 0x5f) = (uint16_t)image;
+        String_Assign(&F<char*>(def, 0x43), (const char*)0x5d1374);
+        uint8_t* s = (uint8_t*)ExeNew(0x111);
+        s = s ? Scrollbar_Construct(s, 0, def) : nullptr;
+        Widget_SetClip(s, 0, cx, y, cw, 0x3f4a3d71);
+        Window_AddChild(w, 0, s, 0);
+        Free(F<void*>(def, 0x43));
+    };
+    auto seed = [&] { return F<int32_t>(F<uint8_t*>(w, 0x78), 8); };
+    float uy = (float)((double)u / Fl(0x5ca164));
+    float hh = (float)((Fl(0x5d1388) - (double)u) / Fl(0x5ca164));
+    float x2 = (float)(((double)BitsF(a) + Fl(0x5c9f00)) / Fl(0x5ca198));
+    frame(0x88eb, FBits(ax), FBits(uy), FBits(hh), HashRand(seed(), 0, 4), FBits(ax), FBits(x2));
+    int32_t v = HashRand(seed(), 5, 7);
+    float x3 = (float)(((double)BitsF(a) + Fl(0x5c8904)) / Fl(0x5ca198));
+    frame(0x88ec, FBits(x2), FBits(uy), FBits(hh), v, FBits(x2), FBits(x3));
+    float x4 = (float)(((double)BitsF(a) + Fl(0x5c8cf8)) / Fl(0x5ca198));
+    frame(0x88ed, FBits(x3), FBits(uy), FBits(hh), v == 7 ? 5 : v + 1, FBits(ax), FBits(x4));
+    float uy2 = (float)((double)u3 / Fl(0x5ca164));
+    float hh2 = (float)((Fl(0x5d1388) - (double)u3) / Fl(0x5ca164));
+    v = HashRand(seed(), 0, 4);
+    float x5 = (float)(((double)BitsF(b) + Fl(0x5c9f00)) / Fl(0x5ca198));
+    frame(0x88ee, FBits(bx), FBits(uy2), FBits(hh2), v == 4 ? 0 : v + 1, FBits(bx), FBits(x5));
+    v = HashRand(seed(), 5, 7);
+    float x6 = (float)(((double)BitsF(b) + Fl(0x5c8904)) / Fl(0x5ca198));
+    frame(0x88ef, FBits(x5), FBits(uy2), FBits(hh2), v == 5 ? 7 : v - 1, FBits(x5), FBits(x6));
+}
+RT3_REPLACE(0x4f2ea0, Newspaper_Fill);
+
+void __fastcall Ui_PlaySound(int32_t id, int, uint32_t pan);
+int32_t __fastcall Obj_Get21(void* o);
+void __fastcall Reset_625a94();
+int32_t __fastcall Company_TrainCount(void* c);
+int32_t __fastcall Table_CountField4(Collection* t);
+int32_t __fastcall Table_CountField3f(Collection* t);
+int32_t __fastcall Company_NthHolder(int32_t* o, int, int32_t n, int32_t flag);
+void* __fastcall Table_NthField4(Collection* t, int, int32_t n);
+void __fastcall PortraitWindow_Layout(uint8_t* w);
+
+// 0x4e2c10. Switches the company window to tab `tab` page `page` (-1 keeps
+// them) with selection `sel` (a company, or for tab 8 a player; -1 keeps it):
+// clicks (0x33 to another kind of tab, else 0x34) unless nothing changes,
+// drops the old content (0x3fac..0x464f), works out the page count +0x84 and
+// the rows shown (list frame 0x3f0c, row buttons 0x3f48..) for the list tabs
+// (2 companies, 7 players, 0xa trains, 0xc stations, 0xe cargo, 0xf
+// industries), the holders of tab 6 (0x3f0f..0x3f11), records the step in the
+// back / forward history (+0xa0, 10 entries of tab / page / selection, +0x118
+// the position) unless 0x6d10ac, lays the window out and sets the tab and
+// navigation buttons. Per-tab flags are in 0x6220a0 (13 bytes per tab).
+RT3_NOINLINE void __fastcall CompanyWindow_ShowTab(uint8_t* w, int, int32_t tab, int32_t page, int32_t sel) {
+    if (tab == -1) tab = F<int32_t>(w, 0x78);
+    if (page == -1) page = F<int32_t>(w, 0x7c);
+    int32_t cur = F<int32_t>(w, 0x78);
+    auto info = [](int32_t t) { return (uint8_t*)(0x6220a0 + t * 0xd); };
+    if (tab == cur && page == F<int32_t>(w, 0x7c) && sel == -1) return;
+    bool click = true;
+    if (tab == cur || cur == -1) {
+        int32_t p = F<int32_t>(w, 0x7c);
+        if ((page == p || p == -1) && sel <= 0) click = false;
+    }
+    if (click) Ui_PlaySound(cur != -1 && F<int32_t>(info(cur), 0) != F<int32_t>(info(tab), 0) ? 0x33 : 0x34, 0, 0x3f000000);
+    if (tab == 8) {
+        uint8_t* pl = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6ceb9c), 0, F<uint32_t>(w, 0x8c));
+        F<uint32_t>(w, 0x88) = F<uint32_t>(pl, 0x1dd);
+        if (sel != -1) F<int32_t>(w, 0x8c) = sel;
+    } else if (sel != -1)
+        F<int32_t>(w, 0x88) = sel;
+    else if (!Collection_IsValid(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(w, 0x88)))
+        F<int32_t>(w, 0x88) = Obj_Get21(hook::Global<uint8_t*>(0x6cec78));
+    Reset_625a94();
+    Window_DeleteChildren(w, 0, 0x3fac, 0x464f, 0);
+    bool changed = true;
+    if (F<int32_t>(w, 0x78) == tab) changed = false;
+    else F<int32_t>(w, 0x75c) = 0;
+    F<int32_t>(w, 0x78) = tab;
+    F<int32_t>(w, 0x7c) = page;
+    F<int32_t>(w, 0x84) = -1;
+    Collection* companies = hook::Global<Collection*>(0x62be10);
+    auto company = [&] { return Collection_Get(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(w, 0x88)); };
+    // Pages of 9: the count, the page count (+0x84, one less when the last
+    // page is exactly full) and the rows on this page.
+    auto pages = [&](auto count) {
+        int32_t rows = count() % 9;
+        int32_t q = count() / 9;
+        F<int32_t>(w, 0x84) = q;
+        if (page < q) return 9;
+        if (rows) return rows;
+        F<int32_t>(w, 0x84) = q - 1;
+        return count() ? 9 : rows;
+    };
+    auto frame = [&](int32_t rows) {
+        uint8_t* f = Widget_FindChild(w, 0, 0x3f0c);
+        float h = (float)((double)rows * D(0x5ce8c0));
+        F<float>(f, 0xf) = (float)((double)h + Fl(0x5d1090));
+        F<float>(f, 0x17) = (float)(Fl(0x5d108c) - (double)h);
+    };
+    auto rowButtons = [&](int32_t rows) {
+        for (int32_t i = 0; i < 9; ++i) Window_SendEvent5(w, 0, i >= rows ? 0x87 : 0x65, 0x3f48 + i, 3, 0, 0);
+    };
+    if (tab == 0xe) {
+        Collection* cargo = hook::Global<Collection*>(0x62ba8c);
+        F<int32_t>(w, 0x84) = Collection_Count(cargo) / 9;
+        if (Collection_Count(hook::Global<Collection*>(0x62ba8c)) % 9 == 0) --F<int32_t>(w, 0x84);
+    } else if (tab == 0xa || tab == 0xc) {
+        if (!Collection_IsValid(companies, 0, F<uint32_t>(w, 0x88))) F<int32_t>(w, 0x84) = 1;
+        else {
+            int32_t rows = tab == 0xa ? pages([&] { return Company_TrainCount(company()); })
+                                      : pages([&] { return Company_CountCargoSites(company(), 0, 1); });
+            frame(rows);
+            rowButtons(rows);
+        }
+    } else if (tab == 0xf) {
+        if (!Collection_IsValid(companies, 0, F<uint32_t>(w, 0x88))) F<int32_t>(w, 0x84) = 1;
+        else {
+            int32_t n = Company_CountIdleBuildings(company()) >= 400 ? 400 : Company_CountIdleBuildings(company());
+            int32_t rows = n % 9, q = n / 9;
+            F<int32_t>(w, 0x84) = q;
+            if (page < q) rows = 9;
+            else if (!rows) {
+                F<int32_t>(w, 0x84) = q - 1;
+                if (n) rows = 9;
+            }
+            frame(rows);
+            rowButtons(rows);
+        }
+    } else if (tab == 7) {
+        int32_t rows = pages([&] { return Table_CountField4(hook::Global<Collection*>(0x6ceb9c)); });
+        frame(rows);
+        if (changed) w[0x760] = 1;
+        rowButtons(rows);
+    } else if (tab == 2) {
+        frame(pages([&] { return Table_CountField3f(hook::Global<Collection*>(0x62be10)); }));
+    } else if (tab == 6) {
+        Window_SendEvent5(w, 0, 0x6e, 0x3ef9, 0x5c87a8, 0, 0);
+        int32_t* co = (int32_t*)company();
+        int32_t shown = 0, id = 0x3f0f;
+        char buf[0x200];
+        int32_t k = Company_NthHolder(co, 0, 1, 0);
+        while (k > -1) {
+            uint8_t* pl = (uint8_t*)Table_NthField4(hook::Global<Collection*>(0x6ceb9c), 0, k);
+            FormatText(buf, GetString(0x4b1), (const char*)pl + 8, 0, 0, 0, 0, 0, 0, 0);
+            Window_SendEvent5(w, 0, 0x65, id, 3, 0, 0);
+            Window_SendEvent5(w, 0, 0x6e, id, (uint32_t)(uintptr_t)buf, 0, 0);
+            Window_SendEvent5(w, 0, 0x7c, id, F<uint32_t>(pl, 0), 0, 0);
+            ++shown;
+            ++id;
+            k = Company_NthHolder(co, 0, id - 0x3f0e, 0);
+            if (id >= 0x3f12) break;
+        }
+        for (; shown < 3; ++shown) Window_SendEvent5(w, 0, 0x87, 0x3f0f + shown, 3, 0, 0);
+    }
+    if (!hook::Global<uint8_t>(0x6d10ac) && tab) {
+        int32_t n = ++F<int32_t>(w, 0x118);
+        if (n == 10) {
+            memmove(w + 0xa0, w + 0xac, 0x6c);
+            --F<int32_t>(w, 0x118);
+        } else if (n < 10)
+            for (int32_t i = n; i < 10; ++i) F<int32_t>(w, 0xa0 + i * 12) = F<int32_t>(w, 0xa4 + i * 12) = F<int32_t>(w, 0xa8 + i * 12) = -1;
+        n = F<int32_t>(w, 0x118);
+        F<int32_t>(w, 0xa0 + n * 12) = tab;
+        F<int32_t>(w, 0xa4 + n * 12) = page;
+        F<int32_t>(w, 0xa8 + n * 12) = sel;
+    }
+    PortraitWindow_Layout(w);
+    int32_t t = F<int32_t>(w, 0x78);
+    Window_SendEvent5(w, 0, t == 2 || t == 7 || t == 0xc || t == 0xf || t == 0xa ? 0x65 : 0x87, 0x3f0c, 3, 0, 0);
+    if (F<int32_t>(info(F<int32_t>(w, 0x78)), 0)) {
+        Window_SendEvent5(w, 0, F<int32_t>(info(F<int32_t>(w, 0x78)), 8) ? 0x65 : 0x87, 0x3ef8, 3, 0, 0);
+        Window_SendEvent5(w, 0, F<int32_t>(w, 0x7c) >= F<int32_t>(w, 0x84) ? 0x87 : 0x65, 0x3efb, 3, 0, 0);
+        Window_SendEvent5(w, 0, F<int32_t>(w, 0x7c) <= 0 ? 0x87 : 0x65, 0x3efc, 3, 0, 0);
+        Window_SendEvent5(w, 0, F<int32_t>(w, 0x118) <= 0 ? 0x87 : 0x65, 0x3ef6, 3, 0, 0);
+        int32_t n = F<int32_t>(w, 0x118);
+        Window_SendEvent5(w, 0, n + 1 == 10 || F<int32_t>(w, 0xac + n * 12) == -1 ? 0x87 : 0x65, 0x3ef7, 3, 0, 0);
+        t = F<int32_t>(w, 0x78);
+        if (t == 0xa || t == 0xf || t == 0xc) Window_SendEvent5(w, 0, 0x87, 0x3f0e, 3, 0, 0);
+    }
+    auto sel_ = [&](bool on, int32_t id) { Window_SendEvent5(w, 0, on ? 0x6d : 0x86, id, 3, 0, 0); };
+    sel_(F<int32_t>(w, 0x78) == 6, 0x3efd);
+    sel_(F<int32_t>(w, 0x78) == 1, 0x3f0a);
+    sel_(F<int32_t>(w, 0x78) == 8, 0x3f0b);
+    sel_(F<int32_t>(w, 0x78) == 0xe, 0x3f0d);
+    t = F<int32_t>(w, 0x78);
+    sel_(t == 7 || t == 0xc || t == 0xf || t == 0xa, 0x3f12);
+    sel_(info(F<int32_t>(w, 0x78))[0xc] != 0, 0x3ef5);
+    sel_(F<int32_t>(w, 0x78) == 6, 0x3efd);
+    t = F<int32_t>(w, 0x78);
+    sel_(t == 3 || t == 5, 0x3f19);
+    sel_(F<int32_t>(w, 0x78) == 4, 0x3f1c);
+    uint8_t* co = F<uint32_t>(w, 0x88) ? (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(w, 0x88)) : nullptr;
+    bool old = co && F<uint16_t>(hook::Global<uint8_t*>(0x6cec78), 0xd) - F<uint16_t>(co, 0x157) + 1 > 3;
+    for (int32_t id : { 0x3f1a, 0x3f1b, 0x3f1d, 0x3f1d }) Window_SendEvent5(w, 0, old ? 0x65 : 0x87, id, 3, 0, 0);
+    bool any = Table_CountField3f(hook::Global<Collection*>(0x62be10)) > 0;
+    for (int32_t id : { 0x3f07, 0x3f05, 0x3f06, 0x3f04, 0x3f13 }) Window_SendEvent5(w, 0, any ? 0x65 : 0x87, id, 3, 0, 0);
+}
+RT3_REPLACE(0x4e2c10, CompanyWindow_ShowTab);
+
+int32_t __fastcall TreeView_NodeOfRow(uint8_t* w, int, int32_t row);
+
+// 0x5603e0. Draws a tree view (when visible). A closed one (+0x126) is its
+// button image (+0x12a), the selected node's text (+0x14e.. box) and the
+// arrow (+0x132 open / +0x12e). An open one draws its visible rows (+0xa2
+// rows, +0x1de nodes from +0x1e2) in two passes: first per node the indent
+// (+0x122: depth * 0.01), a +/- box for nodes with children (+0x1c, the bar
+// of the + while closed +0x18), the text (or the owner's callback +0x1ce) and
+// the selection frame (+0xe2); then the separators between rows (+0xe6: image
+// +0x11e or a line). Row metrics come from the screen's font table.
+RT3_NOINLINE void __fastcall TreeView_Draw(uint8_t* w, int, int32_t, int32_t, int32_t, int32_t) {
+    if (!Widget_IsVisible(w)) return;
+    auto glyph = [&](int32_t image, float x, float y) {
+        Glyph_Queue((uint8_t*)(uintptr_t)Table_Entry(F<uint8_t*>(w, 0x92), 0, image), 0, x, y, 0x3f800000, 1.0f, 1.0f, 0xffffffff, 0, 1, 0, 0.0f,
+                    0.0f, 1.0f, 1.0f);
+    };
+    if (F<int32_t>(w, 0x126)) {
+        uint8_t* r = F<uint8_t*>(w, 0x86);
+        float y = (float)((double)F<float>(r, 9) + F<float>(w, 0xf));
+        glyph(F<int32_t>(w, 0x12a), (float)((double)F<float>(r, 5) + F<float>(w, 0xb)), y);
+        int32_t sel = F<int32_t>(w, 0x1d6);
+        if (sel != -1) {
+            uint8_t* e = F<uint8_t*>(w, 0x176) + sel * 32;
+            uint32_t color = F<uint32_t>(e, 0xc) ? F<uint32_t>(e, 0xc) : F<uint32_t>(w, 0x38);
+            r = F<uint8_t*>(w, 0x86);
+            float ty = (float)((double)F<float>(r, 9) + F<float>(w, 0x152) + F<float>(w, 0xf));
+            float tx = (float)((double)F<float>(r, 5) + F<float>(w, 0x14e) + F<float>(w, 0xb));
+            Font_DrawTextBox(F<uint8_t*>(w, 0x63), 0, F<const char*>(e, 0), tx, ty, F<float>(w, 0x156), F<float>(w, 0x15a), color, w[0x2b], w[0x2c], 0, 1.0f);
+        }
+        int32_t arrow = F<int32_t>(w, 0x1a8) ? F<int32_t>(w, 0x132) : F<int32_t>(w, 0x12e);
+        r = F<uint8_t*>(w, 0x86);
+        float ay = (float)((double)F<float>(r, 9) + F<float>(w, 0x14a) + F<float>(w, 0xf));
+        glyph(arrow, (float)((double)F<float>(r, 5) + F<float>(w, 0x146) + F<float>(w, 0xb)), ay);
+        return;
+    }
+    auto metrics = [] {
+        uint8_t* g = hook::Global<uint8_t*>(0x6d4024);
+        return F<uint8_t*>(g, 0x34) + F<int32_t>(g, 0x11421e) * 0x15;
+    };
+    const double half = D(0x5c8628), one = D(0x5c8770);
+    float pad = (float)(D(0x5c85a8) / (double)F<int32_t>(metrics(), 4));
+    for (int32_t pass = 0; pass < 2; ++pass) {
+        for (int32_t row = 0; row < F<int32_t>(w, 0xa2); ++row) {
+            uint8_t* r = F<uint8_t*>(w, 0x86);
+            float left = (float)((double)F<float>(r, 5) + F<float>(w, 0xb) + F<float>(w, 0xa6));
+            uint8_t* fm = metrics();
+            int32_t fh = F<int32_t>(fm, 4);
+            float hf = (float)fh;
+            double hd = (double)fh;
+            int32_t k = Ftol((double)hf * F<float>(w, 0xb6));
+            double gap = ((double)k + D(0x5d0250)) / hd;
+            float rowY = (float)(((gap + F<float>(w, 0xb2)) * row + F<float>(r, 9) + F<float>(w, 0xf)) + F<float>(w, 0xaa));
+            float right = (float)((double)F<float>(r, 5) + F<float>(w, 0xae) + F<float>(w, 0xb) + F<float>(w, 0xa6));
+            double bottomD = (double)rowY + F<float>(w, 0xb2);
+            float bottom = (float)bottomD, below = (float)(bottomD + gap);
+            bool sep = row < F<int32_t>(w, 0x1de) && row + 1 < F<int32_t>(w, 0xa2) && F<int32_t>(w, 0xe6);
+            if (row >= F<int32_t>(w, 0x1de)) continue;
+            int32_t node = TreeView_NodeOfRow(w, 0, F<int32_t>(w, 0x1e2) + row);
+            if (pass == 1) {
+                if (!sep) continue;
+                if (F<int32_t>(w, 0x11e)) glyph(F<int32_t>(w, 0x11e), left, bottom);
+                else Ui_FillRect(0xff000000, 0, left, bottom, (float)((double)right - left), (float)((double)below - bottom), 3);
+                continue;
+            }
+            float indent = 0.0f;
+            uint8_t* nodes = F<uint8_t*>(w, 0x176);
+            if (F<int32_t>(w, 0x122)) {
+                uint8_t* e = nodes + node * 32;
+                int32_t depth = 0;
+                while (F<int32_t>(e, 0x10)) {
+                    e = nodes + F<int32_t>(e, 0x14) * 32;
+                    ++depth;
+                }
+                indent = (float)((double)(depth + 1) * D(0x5c8918));
+            }
+            uint8_t* e = F<uint8_t*>(w, 0x176) + node * 32;
+            if (F<int32_t>(e, 0x1c)) {
+                int32_t fw = F<int32_t>(fm, 0);
+                double wd = (double)fw;
+                double invW = one / wd;
+                float invWf = (float)invW;
+                double invH = one / hd;
+                float invHf = (float)invH;
+                float wf = (float)fw;
+                double cx = (double)indent + left - D(0x5c85b8);
+                double v1 = (double)Ftol((cx + invW * half) * wd) / wf;
+                float v1f = (float)v1;
+                double v2 = (double)Ftol(((double)F<float>(w, 0xb2) * half + rowY + invH * half) * hd) / hf;
+                float v2f = (float)v2;
+                int32_t n = Ftol(wd * D(0x5ca2f0) + one);
+                if (!(n & 1)) ++n;
+                float boxW = (float)((double)n / wf);
+                int32_t m = Ftol(hd * D(0x5ca2e0) + one);
+                if (!(m & 1)) ++m;
+                float boxH = (float)((double)m / hf);
+                Ui_FrameRect(0xffcccccc, 1, (float)(v1 - (double)boxW * half), (float)(v2 - (double)boxH * half), boxW, boxH, (float)(wd * D(0x5cab68)), 3);
+                fm = metrics();
+                int32_t a = Ftol((double)F<int32_t>(fm, 0) * D(0x5ca300));
+                int32_t b = Ftol((double)F<int32_t>(fm, 4) * D(0x5ca2f8));
+                if (!(a & 1)) ++a;
+                if (!(b & 1)) ++b;
+                int32_t thick = F<int32_t>(fm, 0) > 0x500 ? 3 : 1;
+                float thickF = (float)thick, flagF = (float)(thick >= 3);
+                double am1 = (double)(a - 1);
+                Ui_FillRect(0xffcccccc, 0, (float)(v1 - (double)invWf * am1 * half), (float)((double)v2f - (double)flagF * invHf), (float)((double)a * invWf),
+                            (float)((double)thickF * invHf), 3);
+                if (!F<int32_t>(F<uint8_t*>(w, 0x176) + node * 32, 0x18))
+                    Ui_FillRect(0xffcccccc, 0, (float)((double)v1f - (double)flagF * invWf), (float)(v2 - (double)invHf * am1 * half),
+                                (float)((double)thickF * invWf), (float)((double)b * invHf), 3);
+            }
+            if (auto cb = F<void(__fastcall*)(int32_t, int32_t, float, float, float, uint32_t, int32_t)>(w, 0x1ce)) {
+                int32_t isSel = node == F<int32_t>(w, 0x1d6);
+                cb(F<uint16_t>(w, 4), F<int32_t>(F<uint8_t*>(w, 0x176) + node * 32, 8), (float)((double)indent + left), rowY,
+                   (float)((double)F<float>(w, 0xae) - indent), F<uint32_t>(w, 0xb2), isSel);
+            } else {
+                uint32_t color = F<uint32_t>(w, 0xf6) && node == F<int32_t>(w, 0x1d6) ? F<uint32_t>(w, 0xf6) : F<uint32_t>(w, 0x38);
+                uint8_t* en = F<uint8_t*>(w, 0x176) + node * 32;
+                if (F<uint32_t>(en, 0xc)) color = F<uint32_t>(en, 0xc);
+                uint8_t align = w[0x2b];
+                double inset = align == 2 ? BitsD(0x3f770a3d70a3d70aull) : 0.0;
+                double lead = align == 2 ? D(0x5de358) : D(0x5c8608);
+                float tw = (float)((double)F<float>(w, 0xae) - (inset + indent));
+                float tx = (float)((lead + indent) + left);
+                Font_DrawTextBox(F<uint8_t*>(w, 0x63), 0, F<const char*>(en, 0), tx, rowY, tw, F<float>(w, 0xb2), color, align, w[0x2c], 0, 1.0f);
+            }
+            if (F<int32_t>(w, 0xe2) && node == F<int32_t>(w, 0x1d6)) {
+                float end = sep ? below : bottom;
+                Ui_FillRect(0x40000000, 0, (float)((double)indent + left), (float)((double)rowY - pad), (float)((double)right - left - indent),
+                            (float)((double)pad + pad + end - rowY), 3);
+            }
+        }
+    }
+}
+RT3_REPLACE(0x5603e0, TreeView_Draw);
+
+int32_t __fastcall Table_LiveRankOf(Collection* t, int, uint32_t id);
+uint32_t __fastcall Table_NthIdField3f(Collection* t, int, int32_t n);
+
+// 0x4e3a00. Steps the company window to the company `delta` places on
+// (wrapping), on the same tab, page 0.
+void __fastcall CompanyWindow_StepCompany(uint8_t* w, int, int32_t delta) {
+    Collection* cos = hook::Global<Collection*>(0x62be10);
+    int32_t n = Table_CountField3f(cos);
+    if (n <= 0) return;
+    int32_t at = 0;
+    if (Collection_IsValid(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(w, 0x88)))
+        at = Table_LiveRankOf(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(w, 0x88));
+    uint32_t id = Table_NthIdField3f(hook::Global<Collection*>(0x62be10), 0, (at + n + delta) % n);
+    F<uint32_t>(w, 0x88) = id;
+    CompanyWindow_ShowTab(w, 0, F<int32_t>(w, 0x78), 0, (int32_t)id);
+}
+RT3_REPLACE(0x4e3a00, CompanyWindow_StepCompany);
+
+// 0x561740. Renders a tree view: draws it at its pixel box, then (debug flag
+// 0x6d401c +0xc79 for its group +6) outlines it and its list area (+0x1b..).
+void __fastcall TreeView_Render(uint8_t* w) {
+    uint8_t* r = F<uint8_t*>(w, 0x86);
+    int32_t y1 = Ftol((double)F<float>(r, 9) + F<float>(w, 0xf) + F<float>(w, 0x17) - Fl(0x5c85b4));
+    int32_t x1 = Ftol((double)F<float>(w, 0xb) + F<float>(w, 0x13) + F<float>(r, 5) - Fl(0x5c85b4));
+    int32_t y0 = Ftol((double)F<float>(r, 9) + F<float>(w, 0xf));
+    int32_t x0 = Ftol((double)F<float>(w, 0xb) + F<float>(r, 5));
+    TreeView_Draw(w, 0, x0, y0, x1, y1);
+    if (!(F<uint32_t>(hook::Global<uint8_t*>(0x6d401c), 0xc79) & F<uint16_t>(w, 6)) || !Widget_IsVisible(w)) return;
+    r = F<uint8_t*>(w, 0x86);
+    float y = (float)((double)F<float>(r, 9) + F<float>(w, 0xf));
+    Ui_FrameRect(0xffffffff, 0, (float)((double)F<float>(r, 5) + F<float>(w, 0xb)), y, F<float>(w, 0x13), F<float>(w, 0x17), 1.0f, 3);
+    if (F<float>(w, 0x23) == Fl(0x5c8598)) return;
+    r = F<uint8_t*>(w, 0x86);
+    y = (float)((double)F<float>(r, 9) + F<float>(w, 0x1f));
+    Ui_FrameRect(0xffffffff, 0, (float)((double)F<float>(r, 5) + F<float>(w, 0x1b)), y, F<float>(w, 0x23), F<float>(w, 0x27), 1.0f, 3);
+}
+RT3_REPLACE(0x561740, TreeView_Render);
+
+int32_t __fastcall Obj_Get25(void* o);
+uint8_t* __fastcall Pack_AcquireFont(uint8_t* pack, int, int32_t idx);
+uint8_t* __fastcall Pack_AcquireNamed(uint8_t* pack, int, const char* name);
+void __fastcall Window_Load(uint8_t* win, int, float x, float y, const char* name);
+
+// 0x4e4b10. Opens the ledger (Ledger.win) on tab `tab`: resets the state and
+// the history, picks the player's company and player, loads the font, the
+// logo / frame / default images, the 41 portraits (portraitL%02d01), the
+// two images per company type (0x6d4020 +0x429b4: +0x40, +0x20) and the cargo
+// icons (default.imb when missing), installs the draw callbacks and tab
+// flags, shows the tab, and on tab 0 shows the four digits of `year`.
+void __fastcall Ledger_Init(uint8_t* w, int, int32_t tab, int32_t year) {
+    F<int32_t>(w, 0x9c) = year;
+    F<int32_t>(w, 0x80) = F<int32_t>(w, 0x78) = F<int32_t>(w, 0x7c) = F<int32_t>(w, 0x98) = -1;
+    F<int32_t>(w, 0xb2d) = F<int32_t>(w, 0xb31) = 0;
+    F<int32_t>(w, 0x94) = F<int32_t>(w, 0x90) = F<int32_t>(w, 0x8c) = F<int32_t>(w, 0x88) = 0;
+    for (int32_t k = 0; k < 10; ++k) F<int32_t>(w, 0xa0 + k * 12) = F<int32_t>(w, 0xa4 + k * 12) = -1;
+    F<int32_t>(w, 0x118) = -1;
+    F<int32_t>(w, 0x75c) = 0;
+    w[0x760] = 0;
+    F<int32_t>(w, 0x84) = -1;
+    if (hook::Global<uint8_t*>(0x6cec78)) {
+        F<int32_t>(w, 0x88) = Obj_Get21(hook::Global<uint8_t*>(0x6cec78));
+        F<int32_t>(w, 0x8c) = Obj_Get25(hook::Global<uint8_t*>(0x6cec78));
+    }
+    auto pack = [] { return hook::Global<uint8_t*>(0x6d4020); };
+    F<uint8_t*>(w, 0xe55) = Pack_AcquireFont(pack(), 0, 8);
+    F<uint8_t*>(w, 0xb29) = Pack_AcquireNamed(pack(), 0, (const char*)0x5c9f98);
+    F<uint8_t*>(w, 0xb31) = Pack_AcquireNamed(pack(), 0, (const char*)0x5d10ac);
+    F<uint8_t*>(w, 0xb25) = Pack_AcquireNamed(pack(), 0, (const char*)0x5d0f04);
+    char buf[0x100];
+    for (int32_t i = 0; i < 0x29; ++i) {
+        ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)(buf, (const char*)0x5d0ab0, i);
+        F<uint8_t*>(w, 0x761 + i * 4) = Pack_AcquireNamed(pack(), 0, buf);
+    }
+    for (int32_t j = 0; j < Collection_Count(F<Collection*>(pack(), 0x429b4)); ++j) {
+        Collection* types = F<Collection*>(pack(), 0x429b4);
+        uint8_t* rec = (uint8_t*)Collection_Get(types, 0, Collection_IdAt(types, 0, j, 0));
+        F<uint8_t*>(w, 0x805 + j * 4) = Pack_AcquireNamed(pack(), 0, (const char*)rec + 0x40);
+        F<uint8_t*>(w, 0x995 + j * 4) = Pack_AcquireNamed(pack(), 0, (const char*)rec + 0x20);
+    }
+    for (int32_t k = 0; k < Collection_Count(hook::Global<Collection*>(0x62ba8c)); ++k) {
+        Collection* cargo = hook::Global<Collection*>(0x62ba8c);
+        uint8_t* rec = (uint8_t*)Collection_Get(cargo, 0, Collection_IdAt(cargo, 0, k, 0));
+        FormatText(buf, (const char*)0x5d01bc, (const char*)rec + 4, 0, 0, 0, 0, 0, 0, 0);
+        if (!NameTable_ContainsName(pack(), 0, buf, 0, 0)) FormatText(buf, (const char*)0x5d10a0, 0, 0, 0, 0, 0, 0, 0, 0);
+        F<uint8_t*>(w, 0xb35 + k * 4) = Pack_AcquireNamed(pack(), 0, buf);
+    }
+    Window_Load(w, 0, BitsF(0x3deccccd), BitsF(0x3c8f5c29), (const char*)0x5d1094);
+    Window_SendEvent5(w, 0, 0x7a, 0x3ee4, 0x4e1cd0, 0, 0);
+    Window_SendEvent5(w, 0, 0x7a, 0x3ef4, 0x4e1d00, 0, 0);
+    Window_SendEvent5(w, 0, 0x7a, 0x3ee5, 0x4e1d30, 0, 0);
+    for (int32_t i = 0; i < 9; ++i) Window_SendEvent5(w, 0, 0x7b, 0x3f48 + i, 0x4e1f70, 0, 0);
+    for (int32_t i = 0; i < 6; ++i) Window_SendEvent5(w, 0, 0x74, 0x3efe + i, hook::Global<uint8_t>(0x622098 + i), 0, 0);
+    ++hook::Global<int32_t>(0xccba14);
+    CompanyWindow_ShowTab(w, 0, tab, 0, F<int32_t>(w, 0x88));
+    --hook::Global<int32_t>(0xccba14);
+    if (tab) return;
+    char num[0x100], digit[0x10];
+    Num_Format(num, 8, (double)F<int32_t>(w, 0x9c), 10, 1, 0, 0);
+    for (int32_t i = 0; i < 4; ++i) {
+        ((char*(__cdecl*)(char*, const char*, size_t))0x5a18a0)(digit, num + i, 1);
+        digit[1] = 0;
+        Window_SendEvent5(w, 0, 0x6c, 0x3f14 + i, ((int(__cdecl*)(const char*))0x5a1ea5)(digit) + 2, 0, 0);
+    }
+}
+RT3_REPLACE(0x4e4b10, Ledger_Init);
+
+int32_t __fastcall Obj_CargoStockAndQuota(uint8_t* o, int, int32_t i, float* stock, float* quota);
+void __fastcall IndustryEditor_ShowTab(uint8_t* w, int, int32_t tab);
+
+// 0x4baef0. Rebuilds the building type editor for the edited type (0x6cfe04):
+// the shape checkboxes, then the cargo grid: three header cells (strings
+// 0x621df8, images 0x621e10, slider frames) and one cell per cargo already
+// available (marked in 0x6cfd38 by id, counted in 0x6cfe14 plus the headers),
+// five per row with the row height shrunk for more than 6 rows; each cell
+// has the cargo name (greyed 0xffbfb789 when the edited station has no stock
+// of it), its icon and a slider (0x7f58 + n, callback 0x4b9fd0). Then the
+// cargo panel, the buttons, the station name (0x7d0b), the size list fillers
+// and the current tab.
+RT3_NOINLINE void __fastcall IndustryEditor_Build(uint8_t* w) {
+    auto rec = [] { return hook::Global<uint8_t*>(0x6cfe04); };
+    Window_SendEvent5(w, 0, 0x74, 0x7d02, ~(rec()[0x28] >> 6) & 1, 0, 0);
+    Window_SendEvent5(w, 0, 0x74, 0x7d03, (rec()[0x28] >> 6) & 1, 0, 0);
+    Window_SendEvent5(w, 0, 0x74, 0x7d0d, hook::Global<uint8_t*>(0x6cfe08)[0xc], 0, 0);
+    Window_SendEvent5(w, 0, 0x74, 0x7d0f, (rec()[0x28] >> 5) & 1, 0, 0);
+    Window_SendEvent5(w, 0, 0x74, 0x7d10, (rec()[0x28] >> 4) & 1, 0, 0);
+    static const int32_t ranges[][2] = { { 0x7d0e, 0xfff0 }, { 0x7d96, 0x7dc7 }, { 0x7d64, 0x7d95 }, { 0x7dc8, 0x7e8f },
+                                         { 0x7e90, 0x7f57 }, { 0x7f58, 0x801f }, { 0x8020, 0x8051 } };
+    for (auto& r : ranges) Window_DeleteChildren(w, 0, r[0], r[1], 0);
+    uint8_t* shown = (uint8_t*)0x6cfd38;
+    memset(shown, 0, 200);
+    hook::Global<int32_t>(0x6cfe14) = 0;
+    auto cargo = [] { return hook::Global<Collection*>(0x62ba8c); };
+    for (int32_t j = 0; j < Collection_Count(cargo()); ++j)
+        if (Obj_YearReached(Collection_Get(cargo(), 0, Collection_IdAt(cargo(), 0, j, 0)))) {
+            shown[Collection_IdAt(cargo(), 0, j, 0)] = 1;
+            ++hook::Global<int32_t>(0x6cfe14);
+        }
+    float y = 70.0f, off = 0.0f, span = 280.0f;
+    int32_t n = 0;
+    for (int32_t j = 0; j < Collection_Count(cargo()); ++j)
+        if (shown[Collection_IdAt(cargo(), 0, j, 0)]) ++n;
+    int32_t rows = (n - 1) / 5 + 1;
+    float step = 40.0f;
+    if (rows >= 8) {
+        off = -15.0f;
+        span = 292.0f;
+    }
+    if (rows > 7) {
+        y = 50.0f;
+        float rf = (float)rows;
+        step = (float)((double)span / rf);
+    } else if (rows > 6) {
+        off = -7.0f;
+        span = (float)((double)span + Fl(0x5c8554));
+        y = 54.0f;
+        float rf = (float)rows;
+        step = (float)((double)span / rf);
+    }
+    float t = (float)((double)off + Fl(0x5d0680));
+    hook::Global<int32_t>(0x6cfe14) += 2;
+    float headH = (float)(((double)t + D(0x5c8800)) / D(0x5ca2d0));
+    float headY = (float)((double)t / Fl(0x5ca164));
+    char buf[0x100];
+    int32_t cell = 0;
+    auto editBox = [&](uint32_t x, uint32_t yy, uint32_t wd, uint32_t h, uint32_t color, uint8_t style, const char* text) {
+        uint8_t def[0x91];
+        memset(def, 0, sizeof def);
+        F<uint32_t>(def, 7) = x;
+        F<uint32_t>(def, 0xb) = yy;
+        F<uint32_t>(def, 0xf) = wd;
+        F<uint32_t>(def, 0x13) = h;
+        def[0x27] = 3;
+        def[0x28] = 0;
+        F<uint32_t>(def, 0x34) = color;
+        String_Assign(&F<char*>(def, 0x77), text);
+        def[0x33] = style;
+        F<uint16_t>(def, 0) = (uint16_t)(0x7dc8 + cell);
+        uint8_t* b = (uint8_t*)ExeNew(0xf0);
+        b = b ? EditBox_Construct(b, 0, def) : nullptr;
+        Window_AddChild(w, 0, b, 0);
+        Free(F<void*>(def, 0x77));
+    };
+    auto picture = [&](uint32_t x, uint32_t yy, uint32_t wd, uint32_t h, const char* fmtArg) {
+        uint8_t def[0x89];
+        memset(def, 0, sizeof def);
+        F<uint16_t>(def, 0) = (uint16_t)(0x7e90 + cell);
+        F<uint32_t>(def, 0xb) = yy;
+        F<uint32_t>(def, 0xf) = wd;
+        F<uint32_t>(def, 0x13) = h;
+        F<uint32_t>(def, 0x2f) = 0x800;
+        F<uint16_t>(def, 0x5f) = 0;
+        F<uint32_t>(def, 7) = x;
+        FormatText(buf, (const char*)0x5d01bc, fmtArg, 0, 0, 0, 0, 0, 0, 0);
+        String_Assign(&F<char*>(def, 0x43), NameTable_ContainsName(hook::Global<uint8_t*>(0x6d4020), 0, buf, 0, 0) ? buf : (const char*)0x5d0194);
+        uint8_t* s = (uint8_t*)ExeNew(0x111);
+        s = s ? Scrollbar_Construct(s, 0, def) : nullptr;
+        Window_AddChild(w, 0, s, 0);
+        Free(F<void*>(def, 0x43));
+    };
+    auto slider = [&](uint32_t x, uint32_t yy, uint32_t wd, uint32_t h) {
+        uint8_t def[0x89];
+        memset(def, 0, sizeof def);
+        F<uint32_t>(def, 7) = x;
+        F<uint32_t>(def, 0xb) = yy;
+        F<uint32_t>(def, 0xf) = wd;
+        F<uint32_t>(def, 0x13) = h;
+        F<uint16_t>(def, 0) = (uint16_t)(0x7f58 + cell);
+        F<uint32_t>(def, 0x2f) = 0x800;
+        def[0x29] = 0x21;
+        F<int32_t>(def, 0x61) = 2;
+        uint8_t* s = (uint8_t*)ExeNew(0x111);
+        s = s ? Scrollbar_Construct(s, 0, def) : nullptr;
+        Window_AddChild(w, 0, s, 0);
+        Window_SendEvent5(w, 0, 0x82, F<uint16_t>(def, 0), 0x4b9fd0, 0, 0);
+    };
+    for (int32_t x = 0x242; x < 0x5bd; x += 0x129, ++cell) {
+        float fx = (float)(x - 0x104);
+        editBox(FBits((float)((double)fx / Fl(0x5ca198))), FBits(headY), 0x3e200000, 0x3d2aaaab, 0xfffff799,
+                hook::Global<int32_t>(0x6d3c84) != 3 ? 3 : 2, GetString(hook::Global<int32_t>(0x621df8 + cell * 4)));
+        fx = (float)x;
+        picture(FBits((float)((double)fx / Fl(0x5ca198))), FBits(headH), 0x3ccccccd, 0x3d2aaaab, hook::Global<const char*>(0x621e10 + cell * 4));
+        float sx = (float)(x - 0xe6);
+        slider(FBits((float)((double)sx / Fl(0x5ca198))), FBits(headY), 0x3e2ae148, 0x3d2aaaab);
+    }
+    y = (float)((double)off + y);
+    int32_t shownCount = 0;
+    for (int32_t j = 0; j < Collection_Count(cargo()); ++j) {
+        if (!shown[Collection_IdAt(cargo(), 0, j, 0)]) continue;
+        int32_t col = shownCount % 5;
+        if (shownCount > 0 && !col) y = (float)((double)step + y);
+        uint32_t color = 0xfffff799;
+        if (uint8_t* st = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cec20), 0, F<uint16_t>(rec(), 0x29))) {
+            float stock, quota;
+            if (!Obj_CargoStockAndQuota(st, 0, (int32_t)Collection_IdAt(cargo(), 0, j, 0), &stock, &quota) || !(stock >= D(0x5c9ba0))) color = 0xffbfb789;
+        }
+        float cf = (float)col;
+        uint32_t ex = FBits((float)(((double)cf * Fl(0x5d067c) + Fl(0x5d0678) - Fl(0x5d0674)) / Fl(0x5ca198)));
+        uint32_t ey = FBits((float)(((double)y + Fl(0x5d0670)) / Fl(0x5ca164)));
+        editBox(ex, ey, 0x3dc28f5c, 0x3cf5c28f, color, 2,
+                LocalizeName((const char*)Collection_Get(cargo(), 0, Collection_IdAt(cargo(), 0, j, 0)) + 4));
+        cf = (float)col;
+        uint32_t px = FBits((float)(((double)cf * Fl(0x5d067c) + Fl(0x5d066c)) / Fl(0x5ca198)));
+        uint32_t py = FBits((float)(((double)y + Fl(0x5d0668)) / Fl(0x5ca164)));
+        picture(px, py, 0x3ccccccd, 0x3cf5c28f, (const char*)Collection_Get(cargo(), 0, Collection_IdAt(cargo(), 0, j, 0)) + 4);
+        float pad = (float)(col ? 0 : 9);
+        cf = (float)col;
+        uint32_t sx = FBits((float)(((double)cf * Fl(0x5d067c) + Fl(0x5d0678) - Fl(0x5c8d60) + pad) / Fl(0x5ca198)));
+        uint32_t sy = FBits((float)(((double)y + Fl(0x5d0680)) / D(0x5ca2d0)));
+        uint32_t sw = FBits((float)(((double)Fl(0x5cfcfc) - pad) / Fl(0x5ca198)));
+        float h = Fl(0x5d0664) > step ? 38.0f : step;
+        slider(sx, sy, sw, FBits((float)((double)h / D(0x5ca2d0))));
+        ++shownCount;
+        ++cell;
+    }
+    IndustryEditor_BuildCargoPanel(w);
+    TrainOrders_UpdateButtons(w);
+    uint8_t* nameBox = Widget_FindChild(w, 0, 0x7d0b);
+    String_Assign(&F<char*>(nameBox, 0xba), (const char*)Collection_Get(hook::Global<Collection*>(0x6cec20), 0, F<uint16_t>(rec(), 0x29)) + 0x46b);
+    for (int32_t id : { 0x7d07, 0x7d08, 0x7d11, 0x7d12, 0x7d13, 0x7d14 }) Window_SendEvent5(w, 0, 0x84, id, 0x4ba270, 0, 0);
+    IndustryEditor_ShowTab(w, 0, (rec()[0x28] >> 6) & 1);
+}
+RT3_REPLACE(0x4baef0, IndustryEditor_Build);
+
+uint32_t __fastcall Company_NthTrain(int32_t* o, int, int32_t n);
+void* __fastcall Obj_City41(void* o);
+void* __fastcall Obj_Ref388(void* o);
+double __fastcall Obj_Sum3(void* o, int, int32_t i);
+uint32_t __fastcall Car_SkinTexture(uint8_t* car);
+char* __fastcall Train_DisplayName(uint8_t* train, int, int32_t numberOnly);
+
+// 0x4e7670. The company's train list (company +0x88; 0x4ba when it is gone,
+// 0x4e3 when it has no trains): nine sortable headers (0x4e4, 0xb36, 0x4e6..
+// 0x4e9, the current and last year's income 0x4ea with the year, 0xb34;
+// widths depend on the language), then the trains ordered by the chosen
+// column (largest first, or smallest with +0x760; default the engine's +0x126),
+// a page of 9 from row +0x7c * 9: the engine picture, age (0 when world
+// +0x4aeb), three percentages (+0xdc, +0xe0, +0xe4), +0x18e, the income of this
+// and last year and the lifetime total, a tooltip (0x4f3 with the train's
+// name) and the train id per row. The shown train ids go to +0x11c.
+RT3_NOINLINE void __fastcall CompanyTrains_Draw(uint8_t* p, int, float x, float y, float w, float h, int32_t sortKey) {
+    if (!Collection_IsValid(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(p, 0x88))) {
+        Font_DrawTextBox(F<uint8_t*>(p, 0xe55), 0, GetString(0x4ba), x, y, w, h, 0xff000000, 0, 0, 2, 1.0f);
+        return;
+    }
+    int32_t* co = (int32_t*)Collection_Get(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(p, 0x88));
+    if (!Company_TrainCount(co)) {
+        Font_DrawTextBox(F<uint8_t*>(p, 0xe55), 0, GetString(0x4e3), x, y, w, h, 0xff000000, 0, 0, 2, 1.0f);
+        return;
+    }
+    uint8_t used[200];
+    memset(used, 0, sizeof used);
+    memset(p + 0x11c, 0, 0x640);
+    int32_t year = Obj_YearOrNow(p);
+    int32_t yearsBack = F<uint16_t>(hook::Global<uint8_t*>(0x6cec78), 0xd) - year;
+    struct Col { int32_t title; uint32_t width; int32_t tip; } cols[9] = {
+        { 0x4e4, 0x3dd70a3d, 0x4eb }, { 0xb36, 0x3d23d70a, 0xb37 }, { 0x4e6, 0x3d54fdf4, 0x4ed }, { 0x4e7, 0x3d6147ae, 0x4ee }, { 0x4e8, 0x3d54fdf4, 0x4ef },
+        { 0x4e9, 0x3d50e560, 0x4f0 }, { 0x4ea, 0x3d9374bc, 0x4f1 }, { 0x4ea, 0x3d9374bc, 0x4f1 }, { 0xb34, 0x3da7ef9e, 0xb35 } };
+    int32_t lang = hook::Global<int32_t>(0x6d3c84);
+    if (lang == 1) {
+        cols[2].width = 0x3d483127;
+        cols[3].width = 0x3d75c28f;
+        cols[5].width = 0x3d6f9db2;
+    } else if (lang == 4)
+        cols[6].width = cols[7].width = 0x3d99db22;
+    else if (lang == 3) {
+        cols[0].width = 0x3dd0a3d7;
+        cols[5].width = 0x3d2a7efa;
+        cols[6].width = cols[7].width = 0x3d960418;
+        cols[8].width = 0x3dcbc6a8;
+    } else if (lang == 2) {
+        cols[5].width = 0x3d6a7efa;
+        cols[8].width = 0x3db4bc6b;
+    }
+    char buf[0x110], num[0x10];
+    float cx = x;
+    for (int32_t i = 0; i < 9; ++i) {
+        double pad = 0.0;
+        if (i <= 5 || i == 8) {
+            FormatText(buf, GetString(cols[i].title), 0, 0, 0, 0, 0, 0, 0, 0);
+            if (i == 1) pad = BitsD(0x3f947ae147ae147bull);
+        } else if (i == 6) {
+            Num_Format(num, 8, (double)year, 10, 1, 0, 0);
+            FormatText(buf, GetString(0x4ea), num, 0, 0, 0, 0, 0, 0, 0);
+        } else {
+            Num_Format(num, 8, (double)(year - 1), 10, 1, 0, 0);
+            FormatText(buf, GetString(cols[i].title), num, 0, 0, 0, 0, 0, 0, 0);
+        }
+        float padf = (float)pad;
+        const char* tip = GetString(cols[i].tip);
+        TextLink_Draw(p, F<uint8_t*>(p, 0xe55), buf, (float)((double)cx - padf), y, (float)((double)padf + BitsF(cols[i].width)), BitsF(0x3d9374bc),
+                      i ? 3 : 0, 4, 3, tip, 0x3fe8 + i, 0xff000000, 0xff6d6b6e);
+        cx = (float)((double)cx + BitsF(cols[i].width));
+    }
+    float rowY = (float)((double)y + D(0x5d1140));
+    int32_t seen = 0, rowId = 0x3f48;
+    int32_t* slot = (int32_t*)(p + 0x11c);
+    Collection* trains = hook::Global<Collection*>(0x6cfcbc);
+    auto train = [&](int32_t n) { return (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfcbc), 0, Company_NthTrain(co, 0, n)); };
+    (void)trains;
+    for (int32_t r = 0; r < 200; ++r, ++slot) {
+        int32_t best = -1;
+        float hi = BitsF(0xc97423f0), lo = BitsF(0x4e6e6b28);
+        if (Company_TrainCount(co) <= 0) return;
+        int32_t n = 1;
+        do {
+            if (!used[n - 1]) {
+                float v;
+                switch (sortKey) {
+                case 1: v = (float)F<int32_t>(train(n), 0xd4); break;
+                case 2: v = F<float>(train(n), 0xdc); break;
+                case 3: v = F<float>(train(n), 0xe4); break;
+                case 4: v = F<float>(train(n), 0xe0); break;
+                case 5: v = F<float>(train(n), 0x18e); break;
+                case 6: v = (float)Obj_Sum3(train(n), 0, yearsBack); break;
+                case 7: v = (float)Obj_Sum3(train(n), 0, yearsBack + 1); break;
+                case 8: {
+                    uint8_t* t = train(n);
+                    v = (float)(Obj_Sum3(t, 0, 0) + F<float>(t, 0x105) + F<float>(t, 0x101) + F<float>(t, 0xfd));
+                    break;
+                }
+                default: v = (float)F<int32_t>(Obj_Ref388(Obj_City41(train(n))), 0x126); break;
+                }
+                if (!p[0x760]) {
+                    if (v > hi) {
+                        hi = v;
+                        best = n - 1;
+                    }
+                } else if (v < lo) {
+                    lo = v;
+                    best = n - 1;
+                }
+            }
+            ++n;
+        } while (n - 1 < Company_TrainCount(co));
+        if (best == -1) return;
+        used[best] = 1;
+        if (++seen <= F<int32_t>(p, 0x7c) * 9) continue;
+        int32_t nth = best + 1;
+        uint8_t* t = train(nth);
+        *slot = (int32_t)Company_NthTrain(co, 0, nth);
+        uint32_t icon = Car_SkinTexture((uint8_t*)Obj_City41(t));
+        float gy = (float)((double)rowY + D(0x5c9bc0));
+        float gx = (float)((double)x + D(0x5c9bc0));
+        Glyph_Queue((uint8_t*)(uintptr_t)icon, 0, gx, gy, 0x3f800000, 1.0f, 1.0f, 0xffffffff, 0, 1, 0, 0.0f, 0.0f, 1.0f, 1.0f);
+        uint32_t color = F<int32_t>(p, 0x98) == rowId ? 0xff6d6b6e : 0xff000000;
+        int32_t age = year - F<int32_t>(t, 0xd4);
+        float colX = (float)((double)BitsF(cols[0].width) + x);
+        if (F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4aeb)) age = 0;
+        auto cell = [&](float cxv, uint32_t wd) {
+            Font_DrawTextBox(F<uint8_t*>(p, 0xe55), 0, buf, cxv, rowY, BitsF(wd), BitsF(0x3d2c0831), color, 3, 0, 2, 1.0f);
+        };
+        auto percent = [&](uint32_t off) {
+            ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)(buf, (const char*)0x5d0b18, Ftol((double)F<float>(t, off) * D(0x5c85d8)));
+        };
+        Num_Format(buf, 8, (double)age, 10, 1, 0, 0);
+        cell(colX, 0x3d23d70a);
+        percent(0xdc);
+        colX = (float)((double)colX + Fl(0x5cb660));
+        cell(colX, cols[2].width);
+        percent(0xe0);
+        colX = (float)((double)colX + BitsF(cols[2].width));
+        cell(colX, cols[3].width);
+        percent(0xe4);
+        colX = (float)((double)colX + BitsF(cols[3].width));
+        cell(colX, 0x3d54fdf4);
+        Num_Format(buf, 1, (double)Ftol(F<float>(t, 0x18e)), 10, 1, 0, 0);
+        colX = (float)((double)colX + Fl(0x5d1158));
+        cell(colX, cols[5].width);
+        Num_Format(buf, 0xb, Obj_Sum3(t, 0, yearsBack), 10, 1, 0, 0);
+        colX = (float)((double)colX + BitsF(cols[5].width));
+        cell(colX, cols[6].width);
+        Num_Format(buf, 0xb, Obj_Sum3(t, 0, yearsBack + 1), 10, 1, 0, 0);
+        colX = (float)((double)colX + BitsF(cols[6].width));
+        cell(colX, cols[7].width);
+        Num_Format(buf, 0xb, Obj_Sum3(t, 0, 0) + F<float>(t, 0x105) + F<float>(t, 0x101) + F<float>(t, 0xfd), 10, 1, 0, 0);
+        colX = (float)((double)colX + BitsF(cols[7].width));
+        cell(colX, cols[8].width);
+        if (rowId - 0x3f48 > 0) Ui_Line(0x2f000000, 0, x, rowY, (float)((double)x + w), rowY, 2.0f);
+        const char* name = Train_DisplayName(t, 0, 0);
+        FormatText(buf, GetString(0x4f3), name, 0, 0, 0, 0, 0, 0, 0);
+        Window_SendEvent5(p, 0, 0x6e, rowId, (uint32_t)(uintptr_t)buf, 0, 0);
+        Window_SendEvent5(p, 0, 0x7c, rowId, Company_NthTrain(co, 0, nth), 0, 0);
+        if (++rowId - 0x3f48 >= 9) return;
+        rowY = (float)((double)rowY + D(0x5ce8c0));
+    }
+}
+RT3_REPLACE(0x4e7670, CompanyTrains_Draw);
+
+double __stdcall SpeedFactor(float v);
+float __fastcall Cargo_DeliveryPayment(uint8_t* o, int32_t year, float v, uint32_t company, uint32_t region);
+float __fastcall Effects_Multiplier(uint8_t* w, int, int32_t idx, uint32_t company, uint32_t player, uint32_t region);
+int32_t __fastcall Obj_CargoBonus(void* o, int, int32_t i, uint32_t company, uint32_t player, uint32_t region);
+float __fastcall Obj_EffectScale(uint8_t* o, int, uint32_t company, uint32_t player);
+
+// 0x4f14d0. The locomotive detail panel for the picked engine (0x6d129c in
+// 0x6ada84; nothing when it is gone): an optional title (0x2bb), the engine's
+// number (+0x105 of its type +0x72), its name and seven stats (labels 0x2bc..
+// 0x2c2: cost with the company / player multipliers, +8, three graded ratings
+// from 0x620d88 / 0x620d58 / 0x620d2c with the effect bonuses, 0x620db4 by
+// +0x14 and 0x2c3.. by +0x10), the speed step for the era (10 / 20 / 40 / 80
+// mph, the shown unit 0x6226dc), then a 5 x 9 payment table: speeds across,
+// distances down, the payment per car (at least 1).
+void __fastcall LocoDetail_Draw(uint8_t* p, int, float x, float y, float w, float h, int32_t) {
+    if (!Collection_IsValid(hook::Global<Collection*>(0x6ada84), 0, hook::Global<uint32_t>(0x6d129c))) return;
+    auto font = [](uint32_t a) { return hook::Global<uint8_t*>(a); };
+    if (hook::Global<uint8_t>(0x6226d8)) {
+        float ty = (float)((double)y - D(0x5d0820));
+        Font_DrawTextBox(font(0x6d12a4), 0, GetString(0x2bb), x, ty, w, BitsF(0x3ccccccd), 0xffffffff, 0, 0, 0, 1.0f);
+    }
+    uint8_t* rec = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6ada84), 0, hook::Global<uint32_t>(0x6d129c));
+    uint8_t* type = F<uint32_t>(rec, 0x72) ? (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba88), 0, F<uint32_t>(rec, 0x72)) : nullptr;
+    char text[0x200], line[0x200];
+    Num_Format(text, 8, (double)F<int32_t>(type, 0x105), 10, 1, 0, 0);
+    float ny = (float)((double)y + Fl(0x5d1318));
+    Font_DrawTextBox(font(0x6d12ac), 0, text, (float)((double)x + Fl(0x5d1314)), ny, w, BitsF(0x3ccccccd), 0xffcfcfcf, 2, 1, 0, 1.0f);
+    float rowY = (float)((double)y + Fl(0x5d1310));
+    int32_t base = Ftol(F<float>(type, 0xfd));
+    if (rec[0x7a]) {
+        uint8_t* second = F<uint32_t>(rec, 0x76) ? (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba88), 0, F<uint32_t>(rec, 0x76)) : nullptr;
+        float bf = (float)base;
+        base = Ftol((double)bf + F<float>(second, 0xfd));
+    }
+    char stats[7][0x32];
+    memset(stats, 0, sizeof stats);
+    static const int32_t labels[7] = { 0x2bc, 0x2bd, 0x2be, 0x2bf, 0x2c0, 0x2c1, 0x2c2 };
+    uint8_t* world = hook::Global<uint8_t*>(0x6cec78);
+    auto who = [&](uint32_t& company, uint32_t& player) {
+        player = (uint32_t)Obj_Get25(hook::Global<uint8_t*>(0x6cec78));
+        company = (uint32_t)Obj_Get21(hook::Global<uint8_t*>(0x6cec78));
+    };
+    uint32_t co, pl;
+    who(co, pl);
+    int32_t k1 = Ftol(Obj_EffectScale(rec, 0, co, pl));
+    int32_t k2 = Ftol(F<float>(rec, 8));
+    who(co, pl);
+    float f1 = Effects_Multiplier(hook::Global<uint8_t*>(0x6cec78), 0, F<int32_t>(rec, 0x10) + 0x4e, co, pl, 0);
+    who(co, pl);
+    float f2 = Effects_Multiplier(hook::Global<uint8_t*>(0x6cec78), 0, 0x4d, co, pl, 0);
+    float k1f = (float)k1;
+    int32_t cost = Ftol((double)f2 * f1 * k1f);
+    Num_FormatSimple2(stats[0], 0xb, (double)cost, 0xb);
+    Num_FormatSimple2(stats[1], 0xb, (double)k2, 0xb);
+    int32_t kinds[3] = { 0x2c3, 0x2c4, 0x2c5 };
+    auto bonus = [&](int32_t idx) {
+        uint32_t c, q;
+        who(c, q);
+        return Obj_CargoBonus(hook::Global<uint8_t*>(0x6cec78), 0, idx, c, q, 0);
+    };
+    auto grade = [&](char* out, uint32_t table, int32_t idx) { FormatText(out, GetString(hook::Global<int32_t>(table + idx * 4)), 0, 0, 0, 0, 0, 0, 0, 0); };
+    int32_t b = bonus(F<int32_t>(rec, 0x10) + 0x4a);
+    int32_t g = F<int32_t>(rec, 0xc) + b + bonus(0x49);
+    g = g < 1 ? 1 : g >= 10 ? 10 : g;
+    grade(stats[2], 0x620d88, g);
+    b = bonus(F<int32_t>(rec, 0x10) + 0x5e);
+    g = F<int32_t>(rec, 0x1c) + b + bonus(0x5d);
+    if (g < 0) g = 0;
+    if (g >= 0xb) g = 0xb;
+    grade(stats[3], 0x620d58, g);
+    b = bonus(F<int32_t>(rec, 0x10) + 0x56);
+    g = F<int32_t>(rec, 0x18) + b + bonus(0x55);
+    if (g < 0) g = 0;
+    if (g >= 0xa) g = 0xa;
+    grade(stats[4], 0x620d2c, g);
+    grade(stats[5], 0x620db4, F<int32_t>(rec, 0x14));
+    FormatText(stats[6], GetString(kinds[F<int32_t>(rec, 0x10)]), 0, 0, 0, 0, 0, 0, 0, 0);
+    uint8_t* t2 = F<uint32_t>(rec, 0x72) ? (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba88), 0, F<uint32_t>(rec, 0x72)) : nullptr;
+    FormatText(text, LocalizeName((const char*)t2 + 0x45), 0, 0, 0, 0, 0, 0, 0, 0);
+    float ty = (float)((double)rowY - D(0x5d0820));
+    Font_DrawTextBox(font(0x6d12a4), 0, text, x, ty, w, BitsF(0x3ccccccd), 0xffffffff, 0, 0, 0, 1.0f);
+    rowY = (float)((double)rowY + Fl(0x5d0c60));
+    rowY = (float)((double)rowY + D(0x5d1308));
+    float sw = (float)((double)w - D(0x5c9b98));
+    float sx = (float)((double)x + D(0x5c8918));
+    for (int32_t i = 0; i < 7; ++i) {
+        float ly = (float)((double)rowY - D(0x5d0820));
+        Font_DrawTextBox(font(0x6d12a4), 0, GetString(labels[i]), sx, ly, sw, BitsF(0x3ccccccd), 0xffffffff, 2, 0, 0, 1.0f);
+        Font_DrawTextBox(font(0x6d12a4), 0, stats[i], sx, ly, sw, BitsF(0x3ccccccd), 0xffffffff, 3, 0, 0, 1.0f);
+        rowY = (float)((double)rowY + Fl(0x5d0c60));
+    }
+    rowY = (float)((double)rowY + D(0x5d1300));
+    uint16_t year = F<uint16_t>(world, 0xd);
+    int32_t step[3];
+    step[0] = year < 0x73a ? 10 : year < 0x76c ? 20 : year < 0x79e ? 40 : 80;
+    step[1] = Ftol((double)step[0] * D(0x5d12f8) + D(0x5c8628));
+    int32_t sum = step[1] + step[0];
+    step[2] = Ftol((double)sum / D(0x5c85d0) + D(0x5c8628));
+    Font_DrawTextBox(font(0x6d12ac), 0, GetString(0x2c6), x, rowY, w, BitsF(0x3cb17e4b), 0xffffffff, 0, 0, 0, 1.0f);
+    rowY = (float)((double)rowY + D(0x5d12f0));
+    rowY = (float)((double)rowY + D(0x5d12e8));
+    char num[0x40];
+    Num_Format(num, 1, (double)step[hook::Global<int32_t>(0x6226dc)], 10, 1, 0, 0);
+    FormatText(line, GetString(0x2c7), num, 0, 0, 0, 0, 0, 0, 0);
+    Font_DrawTextBox(font(0x6d12ac), 0, line, (float)((double)x + D(0x5d0700)), rowY, w, BitsF(0x3cb17e4b), 0xffffffff, 0, 0, 0, 1.0f);
+    rowY = (float)((double)rowY + D(0x5d12e0));
+    double inset = x;
+    float lw = (float)((double)h * D(0x5c8618));
+    float lyy = (float)((double)y + h + D(0x5d12d8));
+    float lx = (float)(inset + D(0x5c9b50));
+    Font_DrawTextBox(font(0x6d12a8), 0, GetString(0x2c8), lx, lyy, lw, BitsF(0x3cb17e4b), 0xffffffff, 0, 0, 0, 1.0f);
+    rowY = (float)((double)rowY + D(0x5d12d0));
+    char cell[0x20];
+    float rowStart = (float)(inset + D(0x5c9b98));
+    for (int32_t row = 0; row < 5; ++row) {
+        float colX = rowStart;
+        for (int32_t col = 0; col < 9; ++col) {
+            int32_t spd = step[hook::Global<int32_t>(0x6226dc)] * col + base;
+            float spdF = (float)spd;
+            if (!col) {
+                if (row > 0) ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)(cell, (const char*)0x5d0b18, row * 2 - 2);
+                else cell[0] = 0;
+            } else if (!row)
+                Num_Format(cell, 1, (double)col, 10, 1, 0, 0);
+            else {
+                float dist = (float)((double)(row - 1) * D(0x5c8918));
+                dist = (float)(SpeedFactor(dist) * spdF);
+                uint32_t company = (uint32_t)Obj_Get21(hook::Global<uint8_t*>(0x6cec78));
+                float pay = Cargo_DeliveryPayment(rec, F<uint16_t>(hook::Global<uint8_t*>(0x6cec78), 0xd), dist, company, 0);
+                if (pay < D(0x5c8770)) pay = 1.0f;
+                Num_Format(cell, 1, (double)Ftol((double)pay + D(0x5c8628)), 10, 1, 0, 0);
+            }
+            uint8_t* f = row && col ? font(0x6d12a4) : font(0x6d12ac);
+            inset = row ? 0.0 : BitsD(0x3f747ae147ae147bull);
+            float cx = (float)((double)colX - inset);
+            Font_DrawTextBox(f, 0, cell, cx, rowY, BitsF(0x3cf5c28f), BitsF(0x3cb17e4b), 0xffffffff, 3, 0, 0, 1.0f);
+            colX = (float)((double)colX + Fl(0x5d12c8));
+        }
+        rowY = (float)((double)rowY + Fl(0x5d0c60));
+    }
+}
+RT3_REPLACE(0x4f14d0, LocoDetail_Draw);
+
+uint8_t* __fastcall Button_Construct(uint8_t* w, int, const uint8_t* def);
+
+// 0x4f1f90. Builds the locomotive window's widgets at (x, y): a frame, the
+// engine picture (%1_NE.imb of its type, or the region's variant from the
+// pack's region list 0x429b8 when the picked city 0x6d12a0 has one, else a
+// generic picture by the engine kind +0x10), three speed-unit buttons
+// (0xb9f2.., the current unit 0x6226dc checked) whose tooltips give the
+// era's step (10 / 20 / 40 / 80) in each unit, the seven stat labels
+// 0xf02..0xf08 and the payment table caption 0x87c.
+void __fastcall LocoWindow_Build(uint8_t* w, int, float x, float y, float wd, float) {
+    uint8_t def[0x89];
+    memset(def, 0, sizeof def);
+    F<float>(def, 7) = (float)((double)x + Fl(0x5d0e18));
+    F<float>(def, 0xb) = (float)((double)y + D(0x5d1350));
+    F<uint32_t>(def, 0xf) = 0x3e800000;
+    F<uint32_t>(def, 0x13) = 0x3df5c28f;
+    F<int32_t>(def, 0x61) = 3;
+    F<int32_t>(def, 0x75) = 9;
+    F<uint32_t>(def, 0x2f) = 0xb0;
+    uint8_t* s = (uint8_t*)ExeNew(0x111);
+    s = s ? Scrollbar_Construct(s, 0, def) : nullptr;
+    Window_AddChild(w, 0, s, 0);
+    memset(def, 0, sizeof def);
+    F<float>(def, 7) = (float)((double)x + Fl(0x5d0e14));
+    F<uint32_t>(def, 0xf) = 0x3e75c28f;
+    F<uint32_t>(def, 0x13) = 0x3dda740e;
+    F<float>(def, 0xb) = (float)((double)y + D(0x5d1348));
+    uint8_t* rec = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6ada84), 0, hook::Global<uint32_t>(0x6d129c));
+    uint8_t* type = F<uint32_t>(rec, 0x72) ? (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba88), 0, F<uint32_t>(rec, 0x72)) : nullptr;
+    char name[0x220];
+    FormatText(name, (const char*)0x5d0e08, (const char*)type + 0x82, 0, 0, 0, 0, 0, 0, 0);
+    if (hook::Global<uint8_t*>(0x6d12a0) && ((uint8_t*)Obj_City41(hook::Global<uint8_t*>(0x6d12a0)))[0x3cc]) {
+        for (int32_t i = 0; i < Collection_Count(F<Collection*>(hook::Global<uint8_t*>(0x6d4020), 0x429b8)); ++i) {
+            Collection* regions = F<Collection*>(hook::Global<uint8_t*>(0x6d4020), 0x429b8);
+            uint8_t* e = (uint8_t*)Collection_Get(regions, 0, Collection_IdAt(regions, 0, i, 0));
+            if (!Stricmp((const char*)Obj_City41(hook::Global<uint8_t*>(0x6d12a0)) + 0x3ac, (const char*)e)) {
+                FormatText(name, (const char*)e + 0x80, 0, 0, 0, 0, 0, 0, 0, 0);
+                break;
+            }
+        }
+    }
+    if (!NameTable_ContainsName(hook::Global<uint8_t*>(0x6d4020), 0, name, 0, 0)) {
+        int32_t kind = F<int32_t>(rec, 0x10);
+        FormatText(name, kind == 1 ? (const char*)0x5d0df0 : kind == 2 ? (const char*)0x5d0dd8 : (const char*)0x5d0dc0, 0, 0, 0, 0, 0, 0, 0, 0);
+    }
+    String_Assign(&F<char*>(def, 0x43), name);
+    F<uint16_t>(def, 0x5f) = 0;
+    F<uint32_t>(def, 0x2f) = 0xb0;
+    s = (uint8_t*)ExeNew(0x111);
+    s = s ? Scrollbar_Construct(s, 0, def) : nullptr;
+    Window_AddChild(w, 0, s, 0);
+    Free(F<void*>(def, 0x43));
+    float by = (float)((double)y + D(0x5d1338));
+    static const uint32_t bx[3] = { 0x5d1340, 0x5d1330, 0x5d132c };
+    for (int32_t i = 0; i < 3; ++i) {
+        uint8_t b[0xa1];
+        memset(b, 0, sizeof b);
+        F<float>(b, 7) = (float)((double)x + Fl(bx[i]));
+        F<float>(b, 0xb) = by;
+        F<uint32_t>(b, 0xf) = 0x3db33333;
+        F<uint32_t>(b, 0x13) = 0x3d5a740e;
+        F<uint16_t>(b, 0) = (uint16_t)(0xb9f2 + i);
+        F<uint32_t>(b, 0x85) = 0xb9f1;
+        b[0x29] = 0x25;
+        String_Assign(&F<char*>(b, 0x43), (const char*)0x5d0a30);
+        F<uint32_t>(b, 0x6b) = 0;
+        F<uint32_t>(b, 0x67) = 1;
+        String_Assign(&F<char*>(b, 0x6f), GetString(0x2c9 + i));
+        b[0x33] = 1;
+        F<int32_t>(b, 0x34) = -1;
+        F<uint32_t>(b, 0x75) = 0x3cb851ec;
+        F<uint32_t>(b, 0x79) = 0xbc5a740e;
+        F<uint32_t>(b, 0x7d) = 0x3d800000;
+        F<uint32_t>(b, 0x81) = 0x3d5a740e;
+        uint8_t* bt = (uint8_t*)ExeNew(0xe8);
+        bt = bt ? Button_Construct(bt, 0, b) : nullptr;
+        Window_AddChild(w, 0, bt, 0);
+        Free(F<void*>(b, 0x43));
+        Free(F<void*>(b, 0x6f));
+    }
+    Window_SendEvent5(w, 0, 0x74, 0xb9f2 + hook::Global<int32_t>(0x6226dc), 1, 0, 0);
+    uint16_t year = F<uint16_t>(hook::Global<uint8_t*>(0x6cec78), 0xd);
+    int32_t step[3];
+    step[0] = year < 0x73a ? 10 : year < 0x76c ? 20 : year < 0x79e ? 40 : 80;
+    step[1] = Ftol((double)step[0] * D(0x5d12f8) + D(0x5c8628));
+    int32_t sum = step[1] + step[0];
+    step[2] = Ftol((double)sum / D(0x5c85d0) + D(0x5c8628));
+    char num[0x40], tip[0x220];
+    for (int32_t i = 0; i < 3; ++i) {
+        Num_Format(num, 1, (double)step[i], 10, 1, 0, 0);
+        FormatText(tip, GetString(0x546 + i), num, 0, 0, 0, 0, 0, 0, 0);
+        strcat(tip, GetString(0xf09));
+        Window_SendEvent5(w, 0, 0x6e, 0xb9f2 + i, (uint32_t)(uintptr_t)tip, 0, 0);
+    }
+    static const int32_t labels[7] = { 0xf02, 0xf03, 0xf04, 0xf05, 0xf06, 0xf07, 0xf08 };
+    float rowY = (float)((double)y + Fl(0x5d1328));
+    rowY = (float)((double)rowY + D(0x5d1308));
+    float lx = (float)((double)x + D(0x5c8918));
+    float lw = (float)((double)wd - D(0x5c8918));
+    auto timer = [&](uint32_t px, uint32_t py, uint32_t pw, uint32_t ph, const char* text) {
+        uint8_t t[0x8b];
+        memset(t, 0, sizeof t);
+        F<uint32_t>(t, 7) = px;
+        F<uint32_t>(t, 0xb) = py;
+        F<uint32_t>(t, 0xf) = pw;
+        F<uint32_t>(t, 0x13) = ph;
+        String_Assign(&F<char*>(t, 0x3f), text);
+        uint8_t* tw = (uint8_t*)ExeNew(0xda);
+        tw = tw ? TimerWidget_Construct(tw, 0, t) : nullptr;
+        Window_AddChild(w, 0, tw, 0);
+        Free(F<void*>(t, 0x3f));
+    };
+    for (int32_t i = 0; i < 7; ++i) {
+        float ly = (float)((double)rowY - D(0x5d0820));
+        timer(FBits(lx), FBits(ly), FBits(lw), 0x3ccccccd, GetString(labels[i]));
+        rowY = (float)((double)rowY + Fl(0x5d0c60));
+    }
+    float cx = (float)((double)x + D(0x5d0160));
+    float cy = (float)((double)y + D(0x5d1320));
+    timer(FBits(cx), FBits(cy), 0x3e933333, 0x3e01b4e8, GetString(0x87c));
+}
+RT3_REPLACE(0x4f1f90, LocoWindow_Build);
+
+int32_t CountFreeCompanySlots();
+int32_t __fastcall Rand(int32_t lo, int32_t hi);
+int32_t __fastcall NthFreeCompanySlot(int32_t n);
+uint32_t __fastcall Widget_SetFlags(uint8_t* w, int, uint32_t mask, uint32_t a, uint32_t b);
+void __fastcall Widget_ClearFlags(uint8_t* w, int, uint32_t mask);
+
+// 0x4f3d90. Fills the picker window for its tab +0x78 (tab buttons 0x9089..
+// 0x908d and 0x908e / 0x908f / 0x9090; content 0x90ec..0x93d9). Tab 3: up to
+// 12 companies in rows of 6 (the first picked when +0x7c is unset): logo (a
+// company without one is given a free logo slot at random), name and a
+// selectable frame (0x93a8 + id, callback 0x4f3d60). Tab 0: "all cargo" and
+// every available cargo, 5 per row: name, icon and a selectable frame
+// (0x91b4 + id, callback 0x4f3c60) whose tooltip gives the supply and demand
+// (or the plain description for cargo without a demand entry).
+void __fastcall PickerWindow_Build(uint8_t* w) {
+    for (int32_t i = 0; i < 5; ++i) Window_SendEvent5(w, 0, i != F<int32_t>(w, 0x78) ? 0x87 : 0x65, 0x9089 + i, 1, 0, 0);
+    Window_SendEvent5(w, 0, F<int32_t>(w, 0x78) != 1 ? 0x87 : 0x65, 0x908f, 1, 0, 0);
+    Window_SendEvent5(w, 0, F<int32_t>(w, 0x78) != 2 ? 0x87 : 0x65, 0x908e, 1, 0, 0);
+    Window_SendEvent5(w, 0, F<int32_t>(w, 0x78) != 4 ? 0x87 : 0x65, 0x9090, 1, 0, 0);
+    Window_DeleteChildren(w, 0, 0x90ec, 0x93d9, 0);
+    auto cos = [] { return hook::Global<Collection*>(0x62be10); };
+    auto scrollbar = [&](uint8_t* def) {
+        uint8_t* s = (uint8_t*)ExeNew(0x111);
+        return s ? Scrollbar_Construct(s, 0, def) : nullptr;
+    };
+    auto editBox = [&](uint8_t* def) {
+        uint8_t* b = (uint8_t*)ExeNew(0xf0);
+        b = b ? EditBox_Construct(b, 0, def) : nullptr;
+        Window_AddChild(w, 0, b, 0);
+        Free(F<void*>(def, 0x77));
+    };
+    auto pick = [&](uint8_t* s, uint32_t id) {
+        if (id == F<uint32_t>(w, 0x7c)) Widget_SetFlags(s, 0, 1, 0, 0);
+        else Widget_ClearFlags(s, 0, 1);
+    };
+    if (F<int32_t>(w, 0x78) == 3) {
+        int32_t n = Table_CountField3f(cos());
+        if (n >= 12) n = 12;
+        int32_t rows = (n - 1) / 6 + 1;
+        if (!F<int32_t>(w, 0x7c) && n) F<uint32_t>(w, 0x7c) = Table_NthIdField3f(cos(), 0, 0);
+        if (n > 0) {
+            float colW = (float)(D(0x5d13e0) / (double)rows);
+            for (int32_t i = 0; i < n; ++i) {
+                uint32_t id = Table_NthIdField3f(cos(), 0, i);
+                int32_t q = i / 6, r = i % 6;
+                uint8_t def[0x89];
+                memset(def, 0, sizeof def);
+                float rf = (float)r;
+                float rx = (float)((double)rf * Fl(0x5d13dc));
+                F<float>(def, 7) = (float)(((double)rx + Fl(0x5d13d8)) / Fl(0x5ca198));
+                F<uint32_t>(def, 0xf) = 0x3d75c28f;
+                F<uint32_t>(def, 0x13) = 0x3d4ccccd;
+                F<uint16_t>(def, 0) = (uint16_t)(id + 0x9344);
+                def[0x27] = 0;
+                def[0x28] = 0;
+                float qf = (float)q;
+                float ry = (float)((double)qf * colW);
+                F<float>(def, 0xb) = (float)(((double)ry + Fl(0x5d13d4)) / Fl(0x5ca164));
+                String_Assign(&F<char*>(def, 0x3f), (const char*)Collection_Get(cos(), 0, id) + 4);
+                const char* img;
+                if (F<int32_t>(Collection_Get(cos(), 0, id), 0x37) != -1) {
+                    F<uint16_t>(def, 0x5f) = F<uint16_t>(Collection_Get(cos(), 0, id), 0x37);
+                    img = (const char*)0x5c9f98;
+                } else {
+                    F<uint16_t>(def, 0x5f) = 0;
+                    uint8_t* co = (uint8_t*)Collection_Get(cos(), 0, id);
+                    if (NameTable_ContainsName(hook::Global<uint8_t*>(0x6d4020), 0, (const char*)co + 0xd65, 0, 0))
+                        img = (const char*)Collection_Get(cos(), 0, id) + 0xd65;
+                    else {
+                        int32_t slot = NthFreeCompanySlot(Rand(0, CountFreeCompanySlots() - 1));
+                        F<int32_t>(Collection_Get(cos(), 0, id), 0x37) = slot;
+                        F<uint16_t>(def, 0x5f) = F<uint16_t>(Collection_Get(cos(), 0, id), 0x37);
+                        img = (const char*)0x5c9f98;
+                    }
+                }
+                String_Assign(&F<char*>(def, 0x43), img);
+                uint8_t* s = scrollbar(def);
+                F<uint32_t>(s, 0x100) = 0x3f000000;
+                F<uint32_t>(s, 0x104) = 0x3f000000;
+                Window_AddChild(w, 0, s, 0);
+                Free(F<void*>(def, 0x43));
+                Free(F<void*>(def, 0x3f));
+                uint8_t eb[0x91];
+                memset(eb, 0, sizeof eb);
+                float ex = (float)(((double)rx + Fl(0x5d13d0)) / Fl(0x5ca198));
+                F<uint32_t>(eb, 0xf) = 0x3dae147b;
+                F<uint32_t>(eb, 0x13) = 0x3d4ccccd;
+                eb[0x27] = 0;
+                eb[0x28] = 1;
+                F<int32_t>(eb, 0x34) = -1;
+                F<float>(eb, 7) = ex;
+                F<float>(eb, 0xb) = (float)(((double)ry + Fl(0x5ca210)) / Fl(0x5ca164));
+                String_Assign(&F<char*>(eb, 0x77), (const char*)Collection_Get(cos(), 0, id) + 4);
+                eb[0x29] = 0x20;
+                eb[0x33] = 1;
+                F<uint16_t>(eb, 0) = (uint16_t)(id + 0x9376);
+                editBox(eb);
+                memset(def, 0, sizeof def);
+                F<float>(def, 7) = ex;
+                F<uint32_t>(def, 0xf) = 0x3dae147b;
+                F<uint32_t>(def, 0x13) = 0x3de740da;
+                F<uint16_t>(def, 0) = (uint16_t)(id + 0x93a8);
+                def[0x29] = 0x20;
+                F<int32_t>(def, 0x61) = 2;
+                F<float>(def, 0xb) = (float)(((double)ry + Fl(0x5c8568)) / Fl(0x5ca164));
+                uint8_t* a = (uint8_t*)Collection_Get(cos(), 0, id);
+                uint8_t* b = (uint8_t*)Collection_Get(cos(), 0, id);
+                char tip[0x200];
+                FormatText(tip, GetString(0xeb), (const char*)b + 4, (const char*)a + 4, 0, 0, 0, 0, 0, 0);
+                String_Assign(&F<char*>(def, 0x3f), tip);
+                s = scrollbar(def);
+                pick(s, id);
+                Window_AddChild(w, 0, s, 0);
+                Free(F<void*>(def, 0x3f));
+                Window_SendEvent5(w, 0, 0x7b, id + 0x93a8, 0x4f3d60, 0, 0);
+            }
+        }
+    }
+    if (F<int32_t>(w, 0x78)) return;
+    auto cargo = [] { return hook::Global<Collection*>(0x62ba8c); };
+    int32_t rows = (F<int32_t>(cargo(), 0x242) - 1) / 5 + 2;
+    int32_t shown = 0;
+    if (Collection_Count(cargo()) <= -1) return;
+    for (int32_t i = -1; i < Collection_Count(cargo()); ++i) {
+        uint32_t id;
+        int32_t row, col;
+        if (i == -1) {
+            id = 0;
+            row = 0;
+            col = 2;
+        } else {
+            id = Collection_IdAt(cargo(), 0, i, 0);
+            if (!Obj_YearReached(Collection_Get(cargo(), 0, id))) continue;
+            Collection_Get(cargo(), 0, id);
+            row = shown / 5 + 1;
+            col = shown % 5;
+            ++shown;
+        }
+        float rowH = (float)(D(0x5d13c8) / (double)rows);
+        uint8_t eb[0x91];
+        memset(eb, 0, sizeof eb);
+        F<uint32_t>(eb, 0xf) = 0x3da5e354;
+        eb[0x27] = 3;
+        eb[0x28] = 0;
+        F<int32_t>(eb, 0x34) = -1;
+        float cf = (float)col;
+        float cx = (float)((double)cf * Fl(0x5d13c0));
+        F<float>(eb, 7) = (float)(((double)cx - Fl(0x5c85b4) + Fl(0x5ca058) - Fl(0x5c8898)) / Fl(0x5ca198));
+        float rf = (float)row;
+        float ry = (float)((double)rf * rowH);
+        F<float>(eb, 0xb) = (float)(((double)ry - Fl(0x5c878c) + Fl(0x5c8900)) / Fl(0x5ca164));
+        double hd = (double)rowH / D(0x5ca2d0);
+        F<float>(eb, 0x13) = (float)hd;
+        const char* text = id ? LocalizeName((const char*)Collection_Get(cargo(), 0, id) + 4) : GetString(0xec);
+        String_Assign(&F<char*>(eb, 0x77), text);
+        char name[0x200];
+        strcpy(name, F<const char*>(eb, 0x77));
+        eb[0x29] = 0x20;
+        eb[0x33] = 1;
+        F<uint16_t>(eb, 0) = (uint16_t)(id + 0x90ec);
+        editBox(eb);
+        uint8_t def[0x89];
+        memset(def, 0, sizeof def);
+        F<uint32_t>(def, 0xf) = 0x3ccccccd;
+        F<uint32_t>(def, 0x13) = 0x3cf5c28f;
+        float c1 = (float)(col + 1);
+        F<uint16_t>(def, 0) = (uint16_t)(id + 0x927c);
+        F<float>(def, 7) = (float)(((double)c1 * Fl(0x5d13c0) + Fl(0x5ca058) - Fl(0x5c8d4c)) / Fl(0x5ca198));
+        float ry2 = (float)((double)ry + Fl(0x5c8900));
+        F<float>(def, 0xb) = (float)((hd - D(0x5c9b80)) / D(0x5c85d0) + (double)ry2 / Fl(0x5ca164));
+        char img[0x200];
+        FormatText(img, (const char*)0x5d01bc, id ? (const char*)Collection_Get(cargo(), 0, id) + 4 : (const char*)0x5d05d4, 0, 0, 0, 0, 0, 0, 0);
+        String_Assign(&F<char*>(def, 0x43), NameTable_ContainsName(hook::Global<uint8_t*>(0x6d4020), 0, img, 0, 0) ? img : (const char*)0x5d0194);
+        uint8_t* s = scrollbar(def);
+        Window_AddChild(w, 0, s, 0);
+        Free(F<void*>(def, 0x43));
+        memset(def, 0, sizeof def);
+        float padF = (float)(col ? 7 : 0);
+        F<float>(def, 7) = (float)(((double)cx + Fl(0x5ca058) - padF) / Fl(0x5ca198));
+        F<float>(def, 0xb) = (float)(((double)ry2 - Fl(0x5c8900)) / Fl(0x5ca164));
+        float wpad = (float)(col ? 4 : 0);
+        F<float>(def, 0xf) = (float)(((double)wpad + Fl(0x5d13c0)) / D(0x5ca2c8));
+        float hh = Fl(0x5c8954) > rowH ? 33.0f : rowH;
+        F<float>(def, 0x13) = (float)((double)hh / D(0x5ca2d0));
+        def[0x33] = 1;
+        F<uint16_t>(def, 0) = (uint16_t)(id + 0x91b4);
+        def[0x29] = 0x20;
+        F<int32_t>(def, 0x61) = 2;
+        char tip[0x200], num1[0x40], num2[0x40], more[0x200];
+        if (F<int32_t>(cargo(), 0x9a + id * 4) != -1) {
+            float demand = (float)Cargo_DemandWeight(Collection_Get(cargo(), 0, id));
+            float supply = F<float>(Collection_Get(cargo(), 0, id), 0x5a);
+            float diff = (float)((double)supply - demand);
+            float extra = Fl(0x5c8598) > diff ? 0.0f : diff;
+            Num_Format(num2, 1, (double)extra, 10, 1, 0, 0);
+            Num_Format(num1, 1, (double)demand, 10, 1, 0, 0);
+            FormatText(tip, GetString(0xbf6), num1, name, num2, 0, 0, 0, 0, 0);
+        } else {
+            if (!id) FormatText(tip, name, 0, 0, 0, 0, 0, 0, 0, 0);
+            else {
+                float supply = F<float>(Collection_Get(cargo(), 0, id), 0x5a);
+                Num_Format(num1, 1, (double)supply, 10, 1, 0, 0);
+                FormatText(tip, GetString(0xed), num1, name, 0, 0, 0, 0, 0, 0);
+            }
+            FormatText(more, GetString(0xee), name, name, 0, 0, 0, 0, 0, 0);
+            strcat(tip, more);
+        }
+        String_Assign(&F<char*>(def, 0x3f), tip);
+        s = scrollbar(def);
+        Window_AddChild(w, 0, s, 0);
+        Free(F<void*>(def, 0x3f));
+        pick(s, id);
+        Window_SendEvent5(w, 0, 0x7b, id + 0x91b4, 0x4f3c60, 0, 0);
+    }
+}
+RT3_REPLACE(0x4f3d90, PickerWindow_Build);
+
+uint8_t* __fastcall Widget_SetVtblRet(uint8_t* w);
+
+// 0x4bc0a0. Constructs the building type editor window (vtable 0x5d05e0,
+// loaded at x 0.15625 when 0x6d3b4c) and builds it.
+uint8_t* __fastcall IndustryEditor_Construct(uint8_t* w) {
+    Widget_SetVtblRet(w);
+    F<uint32_t>(w, 0) = 0x5d05e0;
+    Window_Load(w, 0, hook::Global<int32_t>(0x6d3b4c) ? BitsF(0x3e200000) : 0.0f, 0.0f, (const char*)0x5d0684);
+    IndustryEditor_Build(w);
+    return w;
+}
+RT3_REPLACE(0x4bc0a0, IndustryEditor_Construct);
+
+uint8_t* __fastcall Windows_FindChild(uint8_t* o, int, int32_t id);
+void* __fastcall Engine_Input(void* e);
+uint32_t __fastcall Input_Flag800();
+uint32_t __fastcall Input_Flag2000();
+int32_t ClockMs();
+int32_t __fastcall Engine_IsForeground();
+int32_t __fastcall Cursor_InWindow();
+void __fastcall Camera_Pan(uint8_t* c, int, float dx, float dz);
+
+// 0x4e0780. Scrolls the map while one of the arrow buttons 0x7918..0x7921 is
+// held under the mouse (the focused widget 0x6d401c +0xc6d; +0x78 is a button
+// to ignore, released when the focus moves on): every >5 ms by the elapsed
+// time (at most 1 s) times the scroll speed option +0x114, in the button's
+// direction (0x6066c8 / 0x6066e8; 0x7920 / 0x7921 act as 0x791c / 0x791e).
+void __fastcall MapScroll_Tick(uint8_t* w) {
+    if (F<int32_t>(w, 0x78) && F<uint16_t>(F<uint8_t*>(hook::Global<uint8_t*>(0x6d401c), 0xc6d), 4) != F<int32_t>(w, 0x78)) {
+        if (uint8_t* b = Windows_FindChild(hook::Global<uint8_t*>(0x6d401c), 0, F<int32_t>(w, 0x78))) F<uint32_t>(b, 0x33) &= ~0x20u;
+        F<int32_t>(w, 0x78) = 0;
+    }
+    if (!F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x114) || !hook::Global<uint8_t*>(0x6d4024)[0x114226] ||
+        !F<uint8_t*>(hook::Global<uint8_t*>(0x6d401c), 0xc6d))
+        return;
+    Engine_Input(hook::Global<void*>(0x6d4024));
+    if (Input_Flag800()) return;
+    Engine_Input(hook::Global<void*>(0x6d4024));
+    if (Input_Flag2000()) return;
+    uint16_t id = F<uint16_t>(F<uint8_t*>(hook::Global<uint8_t*>(0x6d401c), 0xc6d), 4);
+    if (id < 0x7918 || id > 0x7921 || id == F<int32_t>(w, 0x78)) return;
+    int32_t dt = ClockMs() - F<int32_t>(F<uint8_t*>(hook::Global<uint8_t*>(0x6d401c), 0xc6d), 0xd2);
+    if (dt <= 5) return;
+    F<int32_t>(F<uint8_t*>(hook::Global<uint8_t*>(0x6d401c), 0xc6d), 0xd2) = ClockMs();
+    if (dt > 1000) dt = 1000;
+    int32_t speed = F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x114);
+    float v = (float)((double)dt / D(0x5c87f8) * D(0x5c8c18));
+    v = (float)((double)v * hook::Global<float>(0x5f34b0 + speed * 4));
+    int32_t dir = F<uint16_t>(F<uint8_t*>(hook::Global<uint8_t*>(0x6d401c), 0xc6d), 4);
+    if (dir == 0x7920) dir = 0x791c;
+    else if (dir == 0x7921) dir = 0x791e;
+    if (!Engine_IsForeground() || !Cursor_InWindow()) return;
+    float dz = (float)hook::Global<int32_t>(0x6066e8 + dir * 4);
+    dz = (float)((double)dz * v);
+    float dx = (float)hook::Global<int32_t>(0x6066c8 + dir * 4);
+    dx = (float)((double)dx * v);
+    Camera_Pan(hook::Global<uint8_t*>(0x62be68), 0, dx, dz);
+}
+RT3_REPLACE(0x4e0780, MapScroll_Tick);
+
+int32_t World_AnyCondition();
+void* __fastcall Obj_Ref25(void* o);
+uint32_t __fastcall Company_Logo(uint8_t* c);
+double __fastcall Slider_StepA(uint8_t* s);
+double __fastcall Slider_StepB(uint8_t* s);
+void* __fastcall Obj_Company21(void* o);
+double __fastcall Company_Stat(uint8_t* c, int, int32_t id, int32_t year);
+double __fastcall Font_TextHeight(uint8_t* f, int, const char* text, float width, float* textWidth);
+void* __fastcall Company_Owner(void* c);
+int32_t __fastcall Player_OwnsAllOf(uint8_t* p, int, uint32_t id);
+int32_t __fastcall Obj_Level34b(void* o);
+
+// 0x4e5a70. The company overview page of the company window (company +0x88;
+// without one a notice 0xf30 / 0xbe3 / 0x4ba and the trade buttons off): the
+// logo (a "your company" link 0x795 for the player's own), five stats (labels
+// 0x4bb..0x4bf: two company stats, revenue per mile, their ratio and one with
+// 0x4c0), who controls it (0xbe5..0xbe9), the player's / owner's stake
+// (0xbea..0xbef), this year's change of control (0xbf0 / 0xbf1), the
+// difficulty (0x4c2, at the top) and two columns of action links
+// (0x3fad..0x3fb5, the fourth only without world +0x4a7f).
+void __fastcall CompanyOverview_Draw(uint8_t* p, int, float x, float y, float w, float h) {
+    uint8_t* font = F<uint8_t*>(p, 0xe55);
+    uint8_t* co = F<uint32_t>(p, 0x88) ? (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(p, 0x88)) : nullptr;
+    char buf[0x400], line[0x400], num[0x40], num2[0x40], tip[0x400];
+    auto world = [] { return hook::Global<uint8_t*>(0x6cec78); };
+    if (!co) {
+        Obj_Ref25(world());
+        const char* s;
+        if (World_AnyCondition()) s = GetString(0xf30);
+        else s = F<int32_t>(Obj_Ref25(world()), 0x2a7) ? GetString(0xbe3) : GetString(0x4ba);
+        strcpy(buf, s);
+        Font_DrawTextBox(F<uint8_t*>(p, 0xe55), 0, buf, x, y, w, h, 0xff000000, 0, 0, 2, 1.0f);
+        Window_SendEvent5(p, 0, 0x87, 0x3f06, 3, 0, 0);
+        Window_SendEvent5(p, 0, 0x87, 0x3f07, 3, 0, 0);
+        return;
+    }
+    (void)font;
+    Window_SendEvent5(p, 0, 0x65, 0x3f06, 3, 0, 0);
+    Window_SendEvent5(p, 0, 0x65, 0x3f07, 3, 0, 0);
+    float gx = (float)((double)x + D(0x5c9b98));
+    static const int32_t labels[5] = { 0x4bb, 0x4bc, 0x4bd, 0x4be, 0x4bf };
+    Glyph_Queue((uint8_t*)(uintptr_t)Company_Logo(co), 0, gx, y, 0x3f800000, BitsF(0x3fa66666), BitsF(0x3fa66666), 0xffffffff, 0, 1, 0, 0.0f, 0.0f, 1.0f, 1.0f);
+    if (co == Obj_Company21(world())) {
+        const char* t = GetString(0xbe4);
+        float lw = (float)(Slider_StepA((uint8_t*)(uintptr_t)Company_Logo(co)) * D(0x5c8660));
+        float ly = (float)(Slider_StepB((uint8_t*)(uintptr_t)Company_Logo(co)) * D(0x5c8660) + y);
+        TextLink_Draw(p, F<uint8_t*>(p, 0xe55), GetString(0x795), gx, ly, lw, BitsF(0x3d1374bc), 0, 0, 3, t, 0x3fb9, 0xff605e18, 0xff908e38);
+    }
+    float colX = (float)((double)x + D(0x5c8758));
+    float colW = (float)((double)w - ((double)colX - x));
+    float rowY = y;
+    for (int32_t pass = 0; pass < 2; ++pass) {
+        rowY = y;
+        for (int32_t i = 0; i < 5; ++i) {
+            if (!pass) {
+                FormatText(line, (const char*)0x5d1128, GetString(labels[i]), 0, 0, 0, 0, 0, 0, 0);
+                Font_DrawTextBox(F<uint8_t*>(p, 0xe55), 0, line, colX, rowY, colW, BitsF(0x3cd4fdf4), 0xff000000, 2, 1, 2, 1.0f);
+            } else {
+                switch (i) {
+                case 0: Num_Format(line, 0xb, Company_Stat(co, 0, 0x2c, Obj_YearOrNow(p)), 10, 1, 0, 0); break;
+                case 1: Num_Format(line, 0xb, Company_Stat(co, 0, 0x2b, Obj_YearOrNow(p)), 10, 1, 0, 0); break;
+                case 2: Num_Format(line, 1, Company_Stat(co, 0, 0x17, Obj_YearOrNow(p)), 10, 1, 0, 0); break;
+                case 3: {
+                    double miles = Company_Stat(co, 0, 0x17, Obj_YearOrNow(p)) < D(0x5c8770) ? 1.0 : Company_Stat(co, 0, 0x17, Obj_YearOrNow(p));
+                    float v = (float)(Company_Stat(co, 0, 0x2c, Obj_YearOrNow(p)) / miles);
+                    Num_Format(line, 9, (double)v, 10, 1, 0, 0);
+                    break;
+                }
+                default:
+                    Num_Format(num, 1, Company_Stat(co, 0, 0x26, Obj_YearOrNow(p)), 10, 1, 0, 0);
+                    FormatText(line, GetString(0x4c0), num, 0, 0, 0, 0, 0, 0, 0);
+                    break;
+                }
+                float vw = (float)((double)colW - D(0x5c8918));
+                Font_DrawTextBox(F<uint8_t*>(p, 0xe55), 0, line, colX, rowY, vw, BitsF(0x3cd4fdf4), 0xff000000, 3, 1, 2, 1.0f);
+            }
+            rowY = (float)((double)rowY + D(0x5d10f0));
+        }
+    }
+    rowY = (float)((double)rowY + D(0x5c8918));
+    auto para = [&]() {
+        Font_DrawTextBox(F<uint8_t*>(p, 0xe55), 0, buf, x, rowY, w, 1.0f, 0xff000000, 0, 1, 2, 1.0f);
+        double th = Font_TextHeight(F<uint8_t*>(p, 0xe55), 0, buf, w, nullptr);
+        rowY = (float)(th + rowY + D(0x5d01d8));
+    };
+    if (!F<int32_t>(co, 0x3b)) {
+        strcpy(buf, GetString(0xbe5));
+        para();
+    } else {
+        uint32_t first = F<uint32_t>(co, 0);
+        int32_t all = Player_OwnsAllOf((uint8_t*)Company_Owner(co), 0, first);
+        int32_t owner = F<int32_t>(co, 0x3b);
+        if (all) {
+            if (owner == Obj_Get25(world())) FormatText(buf, GetString(0xbe6), 0, 0, 0, 0, 0, 0, 0, 0);
+            else {
+                const char* n = (const char*)Company_Owner(co) + 8;
+                FormatText(buf, GetString(0xbe7), n, 0, 0, 0, 0, 0, 0, 0);
+            }
+        } else {
+            bool mine = owner == Obj_Get25(world());
+            const char* lvl = GetString(hook::Global<int32_t>(0x622170 + Obj_Level34b(co) * 4));
+            FormatText(buf, GetString(mine ? 0xbe8 : 0xbe9), lvl, 0, 0, 0, 0, 0, 0, 0);
+        }
+        para();
+        buf[0] = 0;
+        int32_t shares = F<int32_t>(co, 0x14f);
+        int32_t diff = shares - F<int32_t>(co, 0xd59);
+        Num_FormatSimple(num, 9, (double)shares, 0xb);
+        int32_t ad = diff < 0 ? -diff : diff;
+        Num_FormatSimple(num2, 9, (double)ad, 0xb);
+        bool mine = F<int32_t>(co, 0x3b) == Obj_Get25(world());
+        int32_t sid;
+        if (diff < 0) sid = mine ? 0xbea : 0xbed;
+        else if (diff > 0) sid = mine ? 0xbeb : 0xbee;
+        else sid = mine ? 0xbec : 0xbef;
+        if (diff) FormatText(line, GetString(sid), num2, num, 0, 0, 0, 0, 0, 0);
+        else FormatText(line, GetString(sid), num, 0, 0, 0, 0, 0, 0, 0);
+        strcat(buf, line);
+        para();
+        if (F<int32_t>(co, 0x34f) == Obj_YearOrNow(p)) {
+            buf[0] = 0;
+            Num_FormatSimple(num, 9, (double)F<int32_t>(co, 0x353), 0xb);
+            bool me = F<int32_t>(co, 0x3b) == Obj_Get25(world());
+            FormatText(line, GetString(me ? 0xbf0 : 0xbf1), num, 0, 0, 0, 0, 0, 0, 0);
+            strcat(buf, line);
+            para();
+        }
+    }
+    const char* diffName = GetString(hook::Global<int32_t>(0x620cc0 + F<int32_t>(world(), 0x2d) * 4));
+    FormatText(line, GetString(0x4c2), diffName, 0, 0, 0, 0, 0, 0, 0);
+    Font_DrawTextBox(F<uint8_t*>(p, 0xe55), 0, line, x, y, w, h, 0xff000000, 0, 4, 2, 1.0f);
+    double a = (double)rowY - D(0x5d01d8);
+    double b = (double)y - D(0x5d1120) + D(0x5d1118);
+    float top = (float)(a > b ? a : b);
+    rowY = top;
+    float lx = (float)((double)x + D(0x5d01b0));
+    const char* name = (const char*)co + 4;
+    auto link = [&](float lxv, float base, int32_t tipId, int32_t textId, int32_t id, bool plainTip) {
+        if (!plainTip) FormatText(tip, GetString(tipId), name, 0, 0, 0, 0, 0, 0, 0);
+        const char* t = plainTip ? GetString(tipId) : tip;
+        float ty = (float)((double)base + D(0x5d01e0));
+        TextLink_Draw(p, F<uint8_t*>(p, 0xe55), GetString(textId), lxv, ty, BitsF(0x3e400000), BitsF(0x3ccccccd), 2, 0, 3, t, id, 0xff605e18, 0xff908e38);
+    };
+    link(lx, rowY, 0x4c3, 0x4c4, 0x3fad, false);
+    rowY = (float)((double)rowY + D(0x5d1110));
+    link(lx, rowY, 0x4c5, 0x4c6, 0x3fae, false);
+    rowY = (float)((double)rowY + D(0x5d1110));
+    link(lx, rowY, 0x4c7, 0x4c8, 0x3faf, false);
+    rowY = (float)((double)rowY + D(0x5d1110));
+    if (!F<int32_t>(world(), 0x4a7f)) link(lx, rowY, 0x4c9, 0x4ca, 0x3fb0, false);
+    float lx2 = (float)((double)x + D(0x5d1118));
+    link(lx2, top, 0x4cb, 0x4cc, 0x3fb1, false);
+    rowY = (float)((double)top + D(0x5d1110));
+    link(lx2, rowY, 0x4cd, 0x4ce, 0x3fb2, false);
+    rowY = (float)((double)rowY + D(0x5d1110));
+    link(lx2, rowY, 0x4cf, 0x4d0, 0x3fb5, false);
+    rowY = (float)((double)rowY + D(0x5d1110));
+    link(lx2, rowY, 0x4d2, 0x4d1, 0x3fb3, true);
+}
+RT3_REPLACE(0x4e5a70, CompanyOverview_Draw);
+
+void* SelectedTrain();
+void* __fastcall Identity(void* o);
+void* Get6d3ae8b();
+void __fastcall Engine_ResetTextureQueue(void* e);
+void* __fastcall Array33_At(void* a, int, int32_t i);
+float __fastcall Obj_CenterCellX(void* o);
+float __fastcall Obj_CenterCellY(void* o);
+float __fastcall Obj_MapY(uint8_t* o, int, float y);
+double __fastcall Obj_MapX(uint8_t* o, int, float x);
+int32_t __fastcall Obj_BuildingStateActive(void* o);
+float __fastcall Obj_NodeCenterX(void* o);
+float __fastcall Obj_NodeCenterY(void* o);
+int32_t __fastcall Obj_BuildingValue(void* o);
+int32_t __fastcall Obj_ByteF9(uint8_t* o);
+void __fastcall Train_RearPoint(uint8_t* t, int, float* x, float* y);
+float __fastcall SceneObj_Angle2(uint8_t* o);
+void __fastcall Obj_CenterCell(void* o, int, float* x, float* y);
+
+// 0x478330. Draws the route markers on the minimap for the order list being
+// edited (the selected train's +0x10000, or the train list's +0x20000): the
+// marker size follows the map scale and zoom (+0x13). In six passes: stations
+// that are not / are active (+ again, ordered ones in passes 3 / 4), the
+// order nodes (numbered images 0x3d..0x44), and the window's own station
+// (+0x10f, double size); then every running train's arrow by heading (the
+// selected one highlighted) and the marked node +0x113. Only markers inside
+// the minimap's pixel box (+0xc3.., inset by 2) are drawn.
+void __fastcall Minimap_DrawRouteMarkers(uint8_t* m) {
+    void* list;
+    uint32_t flags = F<uint32_t>(m, 0x33);
+    if (flags & 0x10000) {
+        if (!SelectedTrain()) return;
+        list = Identity(SelectedTrain());
+    } else if (flags & 0x20000)
+        list = Get6d3ae8b();
+    else
+        return;
+    if (!list) return;
+    Engine_ResetTextureQueue(hook::Global<void*>(0x6d4024));
+    int32_t x0 = F<int32_t>(m, 0xc3), y0 = F<int32_t>(m, 0xc7);
+    float bx0 = (float)(x0 + 2), by0 = (float)(y0 + 2), bx1 = (float)(F<int32_t>(m, 0xcb) - 2), by1 = (float)(F<int32_t>(m, 0xcf) - 2);
+    float wf = (float)(F<int32_t>(m, 0xcb) - x0);
+    uint8_t* map = hook::Global<uint8_t*>(0x62c120);
+    float mw = (float)F<int32_t>(map, 0x2155);
+    float sx = (float)((double)wf / mw);
+    float hf = (float)(F<int32_t>(m, 0xcf) - y0);
+    float mh = (float)F<int32_t>(map, 0x2159);
+    float sy = (float)((double)hf / mh);
+    float scale = sx < sy ? sx : sy;
+    float zoom = (float)((double)F<float>(m, 0x13) / D(0x5c8640));
+    double k = scale < D(0x5c85b8) ? BitsD(0x3f847ae147ae147bull) : (double)scale;
+    float r = (float)(D(0x5c8770) / k);
+    r = (float)((double)r * zoom);
+    if (r < D(0x5c8770)) r = (float)((D(0x5c8770) - r) * D(0x5c8c20) + r);
+    else r = (float)(((double)r - D(0x5c8770)) * D(0x5c8628) + D(0x5c8770));
+    uint32_t rb = FBits(r);
+    auto inBox = [&](float px, float pz) { return !(px < bx0) && !(pz < by0) && !(px > bx1) && !(pz > by1); };
+    auto marker = [&](uint8_t* img, uint32_t tint, float px, float pz) {
+        double gyd = Obj_MapY(m, 0, pz);
+        float gy = (float)(gyd - Slider_StepB(img) * r * D(0x5c8628));
+        double gxd = Obj_MapX(m, 0, px);
+        float gx = (float)(gxd - Slider_StepA(img) * r * D(0x5c8628));
+        Glyph_Queue(img, 0, gx, gy, tint, BitsF(rb), BitsF(rb), 0xffffffff, 0, 1, 0, 0.0f, 0.0f, 1.0f, 1.0f);
+    };
+    auto image = [&](int32_t i) { return (uint8_t*)(uintptr_t)Table_Entry(F<uint8_t*>(m, 0xaf), 0, i); };
+    for (int32_t pass = 0; pass < 6; ++pass) {
+        if (pass == 2) {
+            Engine_ResetTextureQueue(hook::Global<void*>(0x6d4024));
+            for (int32_t i = 0; i < F<int32_t>(list, 4); ++i) {
+                if (!(((int8_t*)Array33_At(list, 0, i))[0x28] < 0)) continue;
+                void* node = Collection_Get(hook::Global<Collection*>(0x6cfca8), 0, F<uint32_t>(Array33_At(list, 0, i), 0x2b));
+                float px = Obj_CenterCellX(node);
+                float pz = Obj_CenterCellY(node);
+                if (!inBox(px, pz)) continue;
+                marker(image((i < 7 ? i : 7) + 0x3d), 0x3f800000, px, pz);
+            }
+            continue;
+        }
+        Collection* stations = hook::Global<Collection*>(0x6cec20);
+        for (int32_t j = 0; j < Collection_Count(hook::Global<Collection*>(0x6cec20)); ++j) {
+            stations = hook::Global<Collection*>(0x6cec20);
+            uint8_t* st = (uint8_t*)Collection_Get(stations, 0, Collection_IdAt(stations, 0, j, 0));
+            if ((pass == 0 || pass == 3) && Obj_BuildingStateActive(st)) continue;
+            if ((pass == 1 || pass == 4) && !Obj_BuildingStateActive(st)) continue;
+            bool own = F<uint32_t>(st, 0) == F<uint32_t>(m, 0x10f);
+            if (pass == 5 ? !own : own) continue;
+            float px = Obj_NodeCenterX(st);
+            float pz = Obj_NodeCenterY(st);
+            if (!inBox(px, pz)) continue;
+            int32_t id = 0x14;
+            int32_t mine = Obj_Get21(hook::Global<uint8_t*>(0x6cec78));
+            if (Obj_BuildingValue(st) != mine) id = 0x28;
+            bool hit = false;
+            for (int32_t o = 0; o < F<int32_t>(list, 4); ++o)
+                if (F<uint16_t>(Array33_At(list, 0, o), 0x29) == F<uint32_t>(st, 0)) {
+                    id += (o < 7 ? o : 7) + 1;
+                    hit = true;
+                    break;
+                }
+            if (!Obj_BuildingStateActive(st)) {
+                uint8_t* b = (uint8_t*)Obj_Building(st);
+                uint8_t* type = ((uint8_t*(__fastcall*)(uint8_t*))(*(void***)b)[0x20])(b);
+                id = (type[0x8c] != 3) * 2 + 0x96;
+                if (hit) ++id;
+            }
+            if ((pass == 0 || pass == 1) && hit) continue;
+            if ((pass == 3 || pass == 4) && !hit) continue;
+            marker(image(id), own ? 0x40000000 : 0x3f800000, px, pz);
+        }
+    }
+    for (int32_t j = 0; j < Collection_Count(hook::Global<Collection*>(0x6cfcbc)); ++j) {
+        Collection* trains = hook::Global<Collection*>(0x6cfcbc);
+        uint8_t* t = (uint8_t*)Collection_Get(trains, 0, Collection_IdAt(trains, 0, j, 0));
+        if (Obj_ByteF9(t) <= 0) continue;
+        float px, pz;
+        Train_RearPoint(t, 0, &px, &pz);
+        if (!inBox(px, pz)) continue;
+        double a = SceneObj_Angle2((uint8_t*)Obj_City41(t));
+        int32_t dir = Ftol(((double)a / Fl(0x5c8768) + Fl(0x5c85b4)) * Fl(0x5c8898) + D(0x5c8c30)) & 7;
+        void* sel = F<uint32_t>(m, 0x33) & 0x10000 ? SelectedTrain() : nullptr;
+        dir += t == sel ? 0x50 : 0x5a;
+        uint8_t* img = image(dir);
+        float left = (float)F<int32_t>(m, 0xc3);
+        float width = (float)(F<int32_t>(m, 0xcb) - F<int32_t>(m, 0xc3));
+        float gxT = (float)(((double)px - left) * F<float>(m, 0x13) / width + F<float>(F<uint8_t*>(m, 0x86), 5) + F<float>(m, 0xb));
+        double gyd = Obj_MapY(m, 0, pz);
+        float gy = (float)(gyd - Slider_StepB(img) * r * D(0x5c8628));
+        float gx = (float)((double)gxT - Slider_StepA(img) * r * D(0x5c8628));
+        Glyph_Queue(img, 0, gx, gy, 0x3f800000, BitsF(rb), BitsF(rb), 0xffffffff, 0, 1, 0, 0.0f, 0.0f, 1.0f, 1.0f);
+    }
+    if (!F<uint32_t>(m, 0x113) || !Collection_IsValid(hook::Global<Collection*>(0x6cfca8), 0, F<uint32_t>(m, 0x113))) return;
+    float px, pz;
+    Obj_CenterCell(Collection_Get(hook::Global<Collection*>(0x6cfca8), 0, F<uint32_t>(m, 0x113)), 0, &px, &pz);
+    if (!inBox(px, pz)) return;
+    marker(image(0x3c), 0x40000000, px, pz);
+}
+RT3_REPLACE(0x478330, Minimap_DrawRouteMarkers);
+
+int32_t __fastcall Render_TriangleCount(uint8_t* r);
+void __stdcall Textures_MemoryTotals(int32_t* video, int32_t* resident, int32_t* count);
+int32_t __fastcall Engine_TotalTextureMem(void* e);
+int32_t __fastcall Engine_FreeTextureMem(void* e);
+int32_t __fastcall SysInfo_Zero();
+void __stdcall Overlay_DrawText(const char* text, int32_t shadow);
+
+// 0x527650. The debug statistics overlay of the scene `s` for a frame of
+// `dt` seconds (the shown frame time is held for 150 ms, 0xcc3b44 / 0xcc3b48):
+// with screen +0x114206 the frame rate alone (options +0x8c) or the full
+// render stats (FPS, ms per frame, max index, polygons and million triangles
+// per second, reflection polygons and ratio; trees, objects, sorted vertices,
+// bursts); with options +0x18 the memory stats (KB / MB) and with +0x1a the
+// texture changes per frame. The ten number slots sit 16 bytes apart in the
+// frame, as in the original.
+void __fastcall SceneStats_Draw(uint8_t* s, int, float dt) {
+    if (ClockMs() - 0x96 < hook::Global<int32_t>(0xcc3b48)) dt = hook::Global<float>(0xcc3b44);
+    else {
+        hook::Global<float>(0xcc3b44) = dt;
+        hook::Global<int32_t>(0xcc3b48) = ClockMs();
+    }
+    char text[0x400];
+    text[0] = 0;
+    int32_t tris = Render_TriangleCount(F<uint8_t*>(s, 0x2d));
+    float fps = dt == D(0x5c8608) ? 0.0f : (float)(D(0x5c87f8) / dt);
+    int32_t shadow = 0;
+    char area[0x70];  // the original's number slots at +0x20, +0x30, ... +0x80
+    char* slot[7];
+    for (int32_t i = 0; i < 7; ++i) slot[i] = area + i * 0x10;
+    char big[0x200];
+    auto nf = [](char* b, int32_t style, double v) { return Num_Format(b, style, v, 10, 1, 0, 0); };
+    if (hook::Global<uint8_t*>(0x6d4024)[0x114206]) {
+        int32_t rate = Ftol((double)tris * fps);
+        if (F<int32_t>(F<uint8_t*>(s, 0x29), 0x8c)) {
+            char* n = nf(big, 4, (double)fps);
+            FormatText(text, (const char*)0x5dd150, n, 0, 0, 0, 0, 0, 0, 0);
+            shadow = 1;
+        } else {
+            float c87 = F<float>(s, 0x22b87);
+            double ratio = (double)F<float>(s, 0x22b83) / (Fl(0x5c85b4) > c87 ? Fl(0x5c85b4) : c87);
+            if (ratio > D(0x5c8770)) ratio = Fl(0x5c85b4);
+            float fpsC = fps > Fl(0x5c85b4) ? fps : 1.0f;
+            char* n1 = nf(slot[5], 3, ratio);
+            char* n2 = nf(slot[6], 8, (double)F<int32_t>(s, 0x22b7b));
+            char* n3 = nf(slot[1], 3, (double)rate * Fl(0x5dd14c));
+            char* n4 = nf(slot[3], 8, (double)tris);
+            char* n5 = nf(slot[2], 8, (double)hook::Global<uint16_t>(0xcc3b34));
+            char* n6 = nf(slot[4], 4, D(0x5c87f8) / fpsC);
+            char* n7 = nf(slot[0], 4, (double)fps);
+            FormatText(text, (const char*)0x5dd0d8, n7, n6, n5, n4, n3, n2, n1, 0);
+            char* m1 = nf(slot[1], 3, (double)F<int32_t>(s, 0xd) * Fl(0x5dcfb8));
+            char* m2 = nf(slot[3], 8, (double)hook::Global<int32_t>(0xccd81c));
+            char* m3 = nf(slot[2], 8, (double)hook::Global<int32_t>(0xccd818));
+            char* m4 = nf(slot[4], 8, (double)hook::Global<int32_t>(0xcc3b38));
+            char* m5 = nf(slot[0], 8, (double)hook::Global<int32_t>(0xcc3b3c));
+            FormatText(text, (const char*)0x5dd090, text, m5, m4, m3, m2, m1, 0, 0);
+        }
+    }
+    if (F<uint8_t*>(s, 0x29)[0x18]) {
+        memcpy(text + strlen(text), (const void*)0x5c9ce8, 2);
+        int32_t video, resident;
+        Textures_MemoryTotals(&video, &resident, nullptr);
+        int32_t total = Engine_TotalTextureMem(hook::Global<void*>(0x6d4024));
+        int32_t used = (total - Engine_FreeTextureMem(hook::Global<void*>(0x6d4024))) / 1024;
+        char* l1 = nf(slot[1], 1, (double)(resident / 1024));
+        char* l2 = nf(slot[3], 1, (double)(video / 1024));
+        char* l3 = nf(slot[2], 1, (double)used);
+        char* l4 = nf(slot[4], 1, (double)(total / 1024));
+        uint32_t z = (uint32_t)SysInfo_Zero();
+        char* l5 = nf(slot[0], 3, (double)z * Fl(0x5dd08c));
+        FormatText(big, (const char*)0x5dd028, l5, l4, l3, l2, l1, 0, 0, 0);
+        strcat(text, big);
+    }
+    if (F<uint8_t*>(s, 0x29)[0x1a]) {
+        memcpy(text + strlen(text), (const void*)0x5c9ce8, 2);
+        char* n = nf(slot[0], 1, (double)F<int32_t>(F<uint8_t*>(s, 0x2d), 0x370d));
+        FormatText(big, (const char*)0x5dd004, n, 0, 0, 0, 0, 0, 0, 0);
+        strcat(text, big);
+    }
+    Overlay_DrawText(text, shadow);
+}
+RT3_REPLACE(0x527650, SceneStats_Draw);
+
+uint32_t __fastcall TreeView_SelectedData(uint8_t* w);
+
+// 0x50fff0. The engine panel of the train buying window (0x6d3ac8, the engine
+// picked in its list 0x2afe): name, the seven stats (as the locomotive
+// window, but the first two are the effect-scaled cost and the price with
+// the multipliers; reliability and the two cargo lines hidden in sandbox /
+// no-money games, world +0x4aef or 0x6cec7c +0x82), the stat labels as
+// timers (created once, 0x6d3ae2), the speed step of the chosen unit
+// (0x6d3aac by 0x622b28) and the payment table with cents (style 5) down the
+// side.
+void __fastcall TrainBuy_EngineDraw(uint8_t* p, int, float x, float y, float w, float h, int32_t) {
+    auto list = [] { return Widget_FindChild(hook::Global<uint8_t*>(0x6d3ac8), 0, 0x2afe); };
+    if (!hook::Global<uint8_t*>(0x6d3ac8)) return;
+    uint8_t* l0 = list();
+    if (F<int32_t>(l0, 0x1d6) < 0 || !TreeView_SelectedData(l0)) return;
+    uint32_t pick = 0;
+    if (hook::Global<uint8_t*>(0x6d3ac8)) {
+        uint8_t* l = list();
+        if (F<int32_t>(l, 0x1d6) >= 0) pick = TreeView_SelectedData(l);
+    }
+    uint8_t* rec = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6ada84), 0, pick);
+    uint8_t* type = F<uint32_t>(rec, 0x72) ? (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba88), 0, F<uint32_t>(rec, 0x72)) : nullptr;
+    int32_t base = Ftol(F<float>(type, 0xfd));
+    if (rec[0x7a]) {
+        uint8_t* second = F<uint32_t>(rec, 0x76) ? (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba88), 0, F<uint32_t>(rec, 0x76)) : nullptr;
+        float bf = (float)base;
+        base = Ftol((double)bf + F<float>(second, 0xfd));
+    }
+    char stats[7][0x32];
+    memset(stats, 0, sizeof stats);
+    static const int32_t labels[7] = { 0x2bc, 0x2bd, 0x2be, 0x2bf, 0x2c0, 0x2c1, 0x2c2 };
+    static const int32_t timers[7] = { 0xf02, 0xf03, 0xf04, 0xf05, 0xf06, 0xf07, 0xf08 };
+    auto who = [&](uint32_t& company, uint32_t& player) {
+        player = (uint32_t)Obj_Get25(hook::Global<uint8_t*>(0x6cec78));
+        company = (uint32_t)Obj_Get21(hook::Global<uint8_t*>(0x6cec78));
+    };
+    uint32_t co, pl;
+    who(co, pl);
+    float scale = Obj_EffectScale(rec, 0, co, pl);
+    Num_FormatSimple2(stats[0], 0xb, (double)scale, 0xb);
+    float price = F<float>(rec, 8);
+    who(co, pl);
+    float f1 = Effects_Multiplier(hook::Global<uint8_t*>(0x6cec78), 0, F<int32_t>(rec, 0x10) + 0x4e, co, pl, 0);
+    who(co, pl);
+    float f2 = Effects_Multiplier(hook::Global<uint8_t*>(0x6cec78), 0, 0x4d, co, pl, 0);
+    float cost = (float)((double)f2 * f1 * price);
+    Num_FormatSimple2(stats[1], 0xb, (double)cost, 0xb);
+    int32_t kinds[3] = { 0x2c3, 0x2c4, 0x2c5 };
+    auto bonus = [&](int32_t idx) {
+        uint32_t c, q;
+        who(c, q);
+        return Obj_CargoBonus(hook::Global<uint8_t*>(0x6cec78), 0, idx, c, q, 0);
+    };
+    auto grade = [&](char* out, uint32_t table, int32_t idx) { FormatText(out, GetString(hook::Global<int32_t>(table + idx * 4)), 0, 0, 0, 0, 0, 0, 0, 0); };
+    int32_t b = bonus(F<int32_t>(rec, 0x10) + 0x4a);
+    int32_t g = F<int32_t>(rec, 0xc) + b + bonus(0x49);
+    g = g < 1 ? 1 : g >= 10 ? 10 : g;
+    grade(stats[2], 0x620d88, g);
+    b = bonus(F<int32_t>(rec, 0x10) + 0x5e);
+    g = F<int32_t>(rec, 0x1c) + b + bonus(0x5d);
+    if (g < 0) g = 0;
+    if (g >= 0xb) g = 0xb;
+    grade(stats[3], 0x620d58, g);
+    b = bonus(F<int32_t>(rec, 0x10) + 0x56);
+    g = F<int32_t>(rec, 0x18) + b + bonus(0x55);
+    if (g < 0) g = 0;
+    if (g >= 0xa) g = 0xa;
+    grade(stats[4], 0x620d2c, g);
+    grade(stats[5], 0x620db4, F<int32_t>(rec, 0x14));
+    FormatText(stats[6], GetString(kinds[F<int32_t>(rec, 0x10)]), 0, 0, 0, 0, 0, 0, 0, 0);
+    auto font = [](uint32_t a) { return hook::Global<uint8_t*>(a); };
+    float rowY = (float)((double)y + D(0x5d0818));
+    uint8_t* t2 = F<uint32_t>(rec, 0x72) ? (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba88), 0, F<uint32_t>(rec, 0x72)) : nullptr;
+    char text[0x200], num[0x40], line[0x200];
+    FormatText(text, LocalizeName((const char*)t2 + 0x45), 0, 0, 0, 0, 0, 0, 0, 0);
+    float ty = (float)((double)rowY - D(0x5d0820));
+    Font_DrawTextBox(font(0x6d3abc), 0, text, x, ty, w, BitsF(0x3ccccccd), 0xffffffff, 0, 0, 0, 1.0f);
+    rowY = (float)((double)rowY + Fl(0x5d0c60));
+    rowY = (float)((double)rowY + D(0x5d1308));
+    auto simple = [] { return hook::Global<uint8_t*>(0x6cec7c)[0x82] || F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4aef); };
+    int32_t first = 0;
+    if (simple()) {
+        rowY = (float)((double)rowY + Fl(0x5d0c60));
+        first = 3;
+    }
+    for (int32_t i = first; i < 7; ++i) {
+        if (simple() && i == 5) continue;
+        float wl = (float)((double)w - D(0x5c9b98));
+        double lyd = (double)rowY - D(0x5d0820);
+        float ly = (float)lyd;
+        double lxd = (double)x + D(0x5c8918);
+        float lx = (float)lxd;
+        Font_DrawTextBox(font(0x6d3abc), 0, GetString(labels[i]), lx, ly, wl, BitsF(0x3ccccccd), 0xffffffff, 2, 0, 0, 1.0f);
+        Font_DrawTextBox(font(0x6d3abc), 0, stats[i], lx, ly, wl, BitsF(0x3ccccccd), 0xffffffff, 3, 0, 0, 1.0f);
+        if (!hook::Global<uint8_t>(0x6d3ae2)) {
+            uint8_t def[0x8b];
+            memset(def, 0, sizeof def);
+            uint8_t* win = hook::Global<uint8_t*>(0x6d3ac8);
+            F<float>(def, 7) = (float)(lxd - F<float>(win, 5));
+            F<uint32_t>(def, 0x13) = 0x3ccccccd;
+            F<float>(def, 0xb) = (float)(lyd - F<float>(win, 9));
+            F<float>(def, 0xf) = (float)((double)w - D(0x5c8918));
+            String_Assign(&F<char*>(def, 0x3f), GetString(timers[i]));
+            uint8_t* tw = (uint8_t*)ExeNew(0xda);
+            tw = tw ? TimerWidget_Construct(tw, 0, def) : nullptr;
+            Window_AddChild(hook::Global<uint8_t*>(0x6d3ac8), 0, tw, 0);
+            Free(F<void*>(def, 0x3f));
+        }
+        rowY = (float)((double)rowY + Fl(0x5d0c60));
+    }
+    if (simple()) rowY = (float)((double)rowY + Fl(0x5d1958));
+    rowY = (float)((double)rowY + D(0x5d1300));
+    Font_DrawTextBox(font(0x6d3ac0), 0, GetString(0x2c6), x, rowY, w, BitsF(0x3cb17e4b), 0xffffffff, 0, 0, 0, 1.0f);
+    int32_t step = hook::Global<int32_t>(0x6d3aac + hook::Global<int32_t>(0x622b28) * 4);
+    rowY = (float)((double)rowY + D(0x5d12f0));
+    rowY = (float)((double)rowY + D(0x5d12e8));
+    Num_Format(num, 1, (double)step, 10, 1, 0, 0);
+    FormatText(line, GetString(0x2c7), num, 0, 0, 0, 0, 0, 0, 0);
+    double xd = x;
+    Font_DrawTextBox(font(0x6d3ac0), 0, line, (float)(xd + D(0x5d0170)), rowY, w, BitsF(0x3cb17e4b), 0xffffffff, 0, 0, 0, 1.0f);
+    rowY = (float)((double)rowY + D(0x5d12e0));
+    float cw = (float)((double)h * D(0x5c8618));
+    float cy = (float)((double)y + h + D(0x5d1950));
+    Font_DrawTextBox(font(0x6d3ac4), 0, GetString(0x2c8), x, cy, cw, BitsF(0x3cb17e4b), 0xffffffff, 0, 0, 0, 1.0f);
+    rowY = (float)((double)rowY + D(0x5d12d0));
+    float rowStart = (float)(xd + D(0x5c85b8));
+    char cell[0x20];
+    double inset = xd;
+    for (int32_t row = 0; row < 5; ++row) {
+        float colX = rowStart;
+        for (int32_t col = 0; col < 9; ++col) {
+            int32_t spd = hook::Global<int32_t>(0x6d3aac + hook::Global<int32_t>(0x622b28) * 4) * col + base;
+            float spdF = (float)spd;
+            if (!col) {
+                if (row > 0) Num_Format(cell, 5, (double)(row * 2 - 2) / D(0x5c85d8), 10, 1, 0, 0);
+                else cell[0] = 0;
+            } else if (!row)
+                Num_Format(cell, 1, (double)col, 10, 1, 0, 0);
+            else {
+                float dist = (float)((double)(row - 1) * D(0x5c8918));
+                dist = (float)(SpeedFactor(dist) * spdF);
+                uint32_t company = (uint32_t)Obj_Get21(hook::Global<uint8_t*>(0x6cec78));
+                float pay = Cargo_DeliveryPayment(rec, F<uint16_t>(hook::Global<uint8_t*>(0x6cec78), 0xd), dist, company, 0);
+                if (pay < D(0x5c8770)) pay = 1.0f;
+                Num_Format(cell, 1, (double)Ftol((double)pay + D(0x5c8628)), 10, 1, 0, 0);
+            }
+            uint8_t* f = row && col ? font(0x6d3abc) : font(0x6d3ac0);
+            inset = row ? 0.0 : BitsD(0x3f747ae147ae147bull);
+            float cx = (float)((double)colX - inset);
+            Font_DrawTextBox(f, 0, cell, cx, rowY, BitsF(0x3cf5c28f), BitsF(0x3cb17e4b), 0xffffffff, 3, 0, 0, 1.0f);
+            colX = (float)((double)colX + Fl(0x5d12c8));
+        }
+        rowY = (float)((double)rowY + Fl(0x5d0c60));
+    }
+    hook::Global<uint8_t>(0x6d3ae2) = 1;
+}
+RT3_REPLACE(0x50fff0, TrainBuy_EngineDraw);
+
+int32_t __fastcall CarType_Available(uint8_t* o, int, uint32_t company, uint32_t player);
+uint32_t __fastcall EngineTypes_PickForYear(Collection* c);
+void __fastcall ListView_RefreshVisible(uint8_t* tv);
+void UpgradeDialog_UpdateCostText();
+void __fastcall TrainList_UpdateButtons(uint8_t* w);
+
+// 0x511500. Opens the train buying window (it becomes 0x6d3ac8, with its three
+// fonts): the engine list 0x2afe holds the available engines from the best
+// (+0x105, then by name), preselecting 0x6d1aa0 (or the year's default when
+// none is available). Upgrading a train (0x6d3acc) also fills the upgrade
+// controls: the cost of the first engine, the 10..70 % rebuild choices
+// (0x275a), the current and the other engine types in use (0x2759) and the
+// company's trains (0x275d, marked in 0x6d1aa8); otherwise the consist list
+// 0x2aff. Finally the era's speed steps (0x6d3aac, mph / km/h / ...) go to
+// the unit buttons' tooltips.
+void __fastcall TrainBuy_Init(uint8_t* w) {
+    Window_Load(w, 0, hook::Global<int32_t>(0x6d3b4c) ? BitsF(0x3e875c29) : BitsF(0x3dfd70a4), BitsF(0x3d64b17e), (const char*)0x5d1978);
+    int32_t lang = hook::Global<int32_t>(0x6d3c84);
+    if (lang == 4 || lang == 1) {
+        Window_SendEvent5(w, 0, 0x78, 0x2afa, 0x12, 0, 0);
+        Window_SendEvent5(w, 0, 0x78, 0x2afb, 0x12, 0, 0);
+    }
+    hook::Global<uint8_t*>(0x6d3ac8) = w;
+    hook::Global<uint8_t*>(0x6d3abc) = Pack_AcquireFont(hook::Global<uint8_t*>(0x6d4020), 0, 2);
+    hook::Global<uint8_t*>(0x6d3ac0) = Pack_AcquireFont(hook::Global<uint8_t*>(0x6d4020), 0, 1);
+    hook::Global<uint8_t*>(0x6d3ac4) = Pack_AcquireFont(hook::Global<uint8_t*>(0x6d4020), 0, 0x14);
+    uint8_t used[0x5dc];
+    memset(used, 0, sizeof used);
+    int32_t shown = 0, preselect = 0;
+    auto engines = [] { return hook::Global<Collection*>(0x6ada84); };
+    auto types = [] { return hook::Global<Collection*>(0x62ba88); };
+    auto who = [](uint32_t& company, uint32_t& player) {
+        player = (uint32_t)Obj_Get25(hook::Global<uint8_t*>(0x6cec78));
+        company = (uint32_t)Obj_Get21(hook::Global<uint8_t*>(0x6cec78));
+    };
+    for (;;) {
+        int32_t best = -1, bestVal = -1;
+        uint8_t* bestType = nullptr;
+        for (int32_t j = 0; j < Collection_Count(engines()); ++j) {
+            if (used[j]) continue;
+            uint8_t* rec = (uint8_t*)Collection_Get(engines(), 0, Collection_IdAt(engines(), 0, j, 0));
+            uint8_t* type = F<uint32_t>(rec, 0x72) ? (uint8_t*)Collection_Get(types(), 0, F<uint32_t>(rec, 0x72)) : nullptr;
+            uint32_t co, pl;
+            who(co, pl);
+            if (!CarType_Available(type, 0, co, pl)) continue;
+            bool take = F<int32_t>(type, 0x105) > bestVal;
+            if (!take && F<int32_t>(type, 0x105) == bestVal) {
+                const char* a = LocalizeName((const char*)type + 0x45);
+                const char* b = LocalizeName((const char*)bestType + 0x45);
+                take = Stricmp(a, b) < 0;
+            }
+            if (take) {
+                bestVal = F<int32_t>(type, 0x105);
+                best = j;
+                bestType = type;
+            }
+        }
+        if (best < 0) break;
+        Window_SendEvent5(w, 0, 0x88, 0x2afe, 0x5c87a8, Collection_IdAt(engines(), 0, best, 0), 0);
+        used[best] = 1;
+        if (hook::Global<uint32_t>(0x6d1aa0) == Collection_IdAt(engines(), 0, best, 0)) preselect = shown;
+        ++shown;
+    }
+    if (!shown) Window_SendEvent5(w, 0, 0x88, 0x2afe, 0x5c87a8, EngineTypes_PickForYear(engines()), 0);
+    Window_SendEvent5(w, 0, 0x7b, 0x2afc, 0x50f610, 0, 0);
+    Window_SendEvent5(w, 0, 0x7a, 0x2afe, 0x50fc00, 0, 0);
+    Window_SendEvent5(w, 0, 0x7e, 0x2afe, 0x50fa00, 0, 0);
+    Window_SendEvent5(w, 0, 0x7f, 0x2afe, 0x50f690, 0, 0);
+    Window_SendEvent5(w, 0, 0x7a, 0x2afd, 0x50fff0, 0, 0);
+    if (uint8_t* lv = Widget_FindChild(w, 0, 0x2afe)) ListView_RefreshVisible(lv);
+    Window_SendEvent5(w, 0, 0xba, 0x2afc, 0, 0, 0);
+    if (Collection_Count(engines())) Window_SendEvent5(w, 0, 0x66, 0x2afe, preselect, 0, 0);
+    char num[0x40], text[0x220], tip[0x220];
+    if (hook::Global<uint32_t>(0x6d3acc)) {
+        Window_SendEvent5(w, 0, 0x86, 0x2b3e, 3, 0, 0);
+        Window_SendEvent5(w, 0, 0x6d, 0x2b3f, 3, 0, 0);
+        bool simple = hook::Global<uint8_t*>(0x6cec7c)[0x82] || F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4aef);
+        Window_SendEvent5(w, 0, simple ? 0x87 : 0x65, 0x275c, 3, 0, 0);
+        uint8_t* c = Widget_FindChild(w, 0, 0x2afa);
+        String_Assign(&F<char*>(c, 0xce), GetString(0x540));
+        String_Assign(&F<char*>(c, 0x43), GetString(0x541));
+        c = Widget_FindChild(w, 0, 0x2afb);
+        String_Assign(&F<char*>(c, 0x43), GetString(0x542));
+        uint8_t* rec0 = (uint8_t*)Collection_Get(engines(), 0, Collection_IdAt(engines(), 0, 0, 0));
+        uint32_t co, pl;
+        who(co, pl);
+        int32_t cost = Ftol(Obj_EffectScale(rec0, 0, co, pl));
+        uint8_t* box = Widget_FindChild(w, 0, 0x275c);
+        Num_FormatSimple2(num, 0xb, (double)cost, 0xb);
+        uint8_t* t0 = F<uint32_t>(rec0, 0x72) ? (uint8_t*)Collection_Get(types(), 0, F<uint32_t>(rec0, 0x72)) : nullptr;
+        const char* nm = LocalizeName((const char*)t0 + 0x45);
+        FormatText(text, GetString(0x543), nm, num, 0, 0, 0, 0, 0, 0);
+        String_Assign(&F<char*>(box, 0xba), text);
+        Window_SendEvent5(w, 0, 0x88, 0x275a, (uint32_t)(uintptr_t)GetString(0xe4), 0, 0);
+        for (int32_t pct = 10, k = 0; k < 13; ++k, pct += 5) {
+            Num_Format(num, 1, (double)pct, 10, 1, 0, 0);
+            FormatText(tip, GetString(0x544), num, 0, 0, 0, 0, 0, 0, 0);
+            Window_SendEvent5(w, 0, 0x88, 0x275a, (uint32_t)(uintptr_t)tip, pct, 0);
+        }
+        Window_SendEvent5(w, 0, 0x66, 0x275a, 0, 0, 0);
+        Window_SendEvent5(w, 0, 0x88, 0x2759, (uint32_t)(uintptr_t)GetString(0xe4), 0, 0);
+        Window_SendEvent5(w, 0, 0x88, 0x2759, (uint32_t)(uintptr_t)GetString(0x545), 0x3e8, 0);
+        uint8_t* cur = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfcbc), 0, hook::Global<uint32_t>(0x6d3acc));
+        if (cur) {
+            const char* n = LocalizeName((const char*)Obj_Ref388(Obj_City41(cur)) + 0x45);
+            Window_SendEvent5(w, 0, 0x88, 0x2759, (uint32_t)(uintptr_t)n, F<uint32_t>(Obj_Ref388(Obj_City41(cur)), 0x126), 0);
+        }
+        auto trains = [] { return hook::Global<Collection*>(0x6cfcbc); };
+        for (int32_t i = 0; i < Collection_Count(engines()); ++i) {
+            uint32_t typeId = Collection_IdAt(engines(), 0, i, 0);
+            for (int32_t j = 0; j < Collection_Count(trains()); ++j) {
+                void* loco = Obj_City41(Collection_Get(trains(), 0, Collection_IdAt(trains(), 0, j, 1)));
+                uint32_t e = F<uint32_t>(Obj_Ref388(loco), 0x126);
+                if (e != typeId) continue;
+                if (cur && F<uint32_t>(Obj_Ref388(Obj_City41(cur)), 0x126) == e) continue;
+                const char* n = LocalizeName((const char*)Obj_Ref388(loco) + 0x45);
+                Window_SendEvent5(w, 0, 0x88, 0x2759, (uint32_t)(uintptr_t)n, F<uint32_t>(Obj_Ref388(loco), 0x126), 0);
+                break;
+            }
+        }
+        Window_SendEvent5(w, 0, 0x66, 0x2759, 0, 0, 0);
+        memset((void*)0x6d1aa8, 0, 0x2000);
+        Window_SendEvent5(w, 0, 0x7e, 0x275d, 0x511050, 0, 0);
+        Window_SendEvent5(w, 0, 0x7f, 0x275d, 0x50f6b0, 0, 0);
+        Window_SendEvent5(w, 0, 0x7a, 0x275d, 0x510e30, 0, 0);
+        for (int32_t i = 0; i < Collection_Count(trains()); ++i) {
+            uint8_t* t = (uint8_t*)Collection_Get(trains(), 0, Collection_IdAt(trains(), 0, i, 1));
+            int32_t owner = F<int32_t>(t, 0x51);
+            if (owner != Obj_Get21(hook::Global<uint8_t*>(0x6cec78))) continue;
+            uint32_t id = F<uint32_t>(t, 0x25);
+            if (id >= 0x2000) continue;
+            if (id == hook::Global<uint32_t>(0x6d3acc)) hook::Global<uint8_t>(0x6d1aa8 + id) = 1;
+            Window_SendEvent5(w, 0, 0x88, 0x275d, 0x5c87a8, Collection_IdAt(trains(), 0, i, 1), 0);
+        }
+        Window_SendEvent5(w, 0, 0x79, 0x2759, 0x510b60, 0, 0);
+        Window_SendEvent5(w, 0, 0x79, 0x275a, 0x510cc0, 0, 0);
+        Window_SendEvent5(w, 0, 0x79, 0x2afe, 0x510e20, 0, 0);
+        Window_SendEvent5(w, 0, 0x95, 0x2afe, 0, 0, 0);
+        UpgradeDialog_UpdateCostText();
+    } else {
+        Window_SendEvent5(w, 0, 0x86, 0x2b3f, 3, 0, 0);
+        Window_SendEvent5(w, 0, 0x6d, 0x2b3e, 3, 0, 0);
+        for (int32_t i = 0; i < hook::Global<int32_t>(0x6d3aec); ++i) Window_SendEvent5(w, 0, 0x88, 0x2aff, 0, i, 0);
+        Window_SendEvent5(w, 0, 0x7a, 0x2aff, 0x50f660, 0, 0);
+        Window_SendEvent5(w, 0, 0x7e, 0x2aff, 0x50f650, 0, 0);
+        Window_SendEvent5(w, 0, 0x7f, 0x2aff, 0x50f640, 0, 0);
+        Window_SendEvent5(w, 0, 0x79, 0x2aff, 0x5114f0, 0, 0);
+    }
+    uint16_t year = F<uint16_t>(hook::Global<uint8_t*>(0x6cec78), 0xd);
+    int32_t rate = year < 0x73a ? 10 : year < 0x76c ? 20 : year < 0x79e ? 40 : 80;
+    hook::Global<int32_t>(0x6d3aac) = rate;
+    hook::Global<int32_t>(0x6d3ab0) = Ftol((double)rate * D(0x5d12f8) + D(0x5c8628));
+    int32_t sum = hook::Global<int32_t>(0x6d3ab0) + rate;
+    hook::Global<int32_t>(0x6d3ab4) = Ftol((double)sum / D(0x5c85d0) + D(0x5c8628));
+    for (int32_t k = 0; k < 3; ++k) {
+        Num_Format(num, 1, (double)hook::Global<int32_t>(0x6d3aac + k * 4), 10, 1, 0, 0);
+        FormatText(tip, GetString(0x546 + k), num, 0, 0, 0, 0, 0, 0, 0);
+        strcat(tip, GetString(0xf09));
+        Window_SendEvent5(w, 0, 0x6e, 0x2761 + k, (uint32_t)(uintptr_t)tip, 0, 0);
+    }
+    TrainList_UpdateButtons(w);
+    Window_SendEvent5(w, 0, 0x6e, 0x2b02, (uint32_t)(uintptr_t)GetString(0xfe5), 0, 0);
+}
+RT3_REPLACE(0x511500, TrainBuy_Init);
+
+void __fastcall Dialog_SetupWorthSlider(int32_t select);
+void __fastcall MoneySlider_Setup(int32_t reset);
+void __fastcall MoneySliders_Read(int32_t rerange);
+uint8_t* __fastcall ListBox_Construct(uint8_t* w, int, const uint8_t* def);
+
+// 0x47c590. Builds the player setup panel in the box (x, y, w, h) of `w` (it
+// becomes 0x6cec18), from the bottom up: two money sliders with their labels
+// and value boxes (0x714f / 0x7149, 0x7150 / 0x714a), a frame, the player
+// name box 0x714b (0x6cebd8), the company logo picker (0x714e, the next free
+// logo slot after 0x5f2c48; slots from 0x24 are the pack's extra logos) with
+// its arrows 0x714c / 0x714d and the 0xf82 caption; then sets the sliders.
+void __fastcall PlayerSetup_Build(uint8_t* w, int, float x, float y, float wd, float h) {
+    hook::Global<uint8_t*>(0x6cec18) = w;
+    auto editBox = [&](uint16_t id, uint32_t px, uint32_t py, uint32_t pw, uint32_t ph, uint8_t align, uint8_t style, const char* text, bool scroll) {
+        uint8_t e[0x91];
+        memset(e, 0, sizeof e);
+        F<uint32_t>(e, 7) = px;
+        F<uint32_t>(e, 0xb) = py;
+        F<uint32_t>(e, 0xf) = pw;
+        F<uint32_t>(e, 0x13) = ph;
+        if (id) F<uint16_t>(e, 0) = id;
+        e[0x27] = align;
+        e[0x28] = 0;
+        F<int32_t>(e, 0x34) = -1;
+        if (scroll) {
+            F<int32_t>(e, 0x5f) = 1;
+            F<int32_t>(e, 0x63) = 1;
+            F<int32_t>(e, 0x67) = 0x26;
+        }
+        String_Assign(&F<char*>(e, 0x77), text);
+        e[0x33] = style;
+        uint8_t* b = (uint8_t*)ExeNew(0xf0);
+        b = b ? EditBox_Construct(b, 0, e) : nullptr;
+        Window_AddChild(w, 0, b, 0);
+        Free(F<void*>(e, 0x77));
+    };
+    auto listBox = [&](uint16_t id, float py) {
+        uint8_t l[0xe3];
+        memset(l, 0, sizeof l);
+        F<float>(l, 7) = x;
+        F<int32_t>(l, 0x63) = 1;
+        F<int32_t>(l, 0x67) = 1;
+        F<int32_t>(l, 0x97) = 1;
+        F<float>(l, 0xb) = py;
+        F<uint32_t>(l, 0xf) = 0x3e700000;
+        F<uint32_t>(l, 0x13) = 0x3cb851ec;
+        F<uint16_t>(l, 0) = id;
+        F<int32_t>(l, 0x5f) = 0xa;
+        F<int32_t>(l, 0x87) = 2;
+        F<int32_t>(l, 0x8b) = 3;
+        F<int32_t>(l, 0x8f) = 4;
+        F<int32_t>(l, 0x93) = 5;
+        F<int32_t>(l, 0x9b) = 0;
+        F<uint32_t>(l, 0xab) = 0x3c088889;
+        F<uint32_t>(l, 0xaf) = 0x3ceb851f;
+        F<uint32_t>(l, 0xb3) = 0x3e500000;
+        F<uint32_t>(l, 0xb7) = 0;
+        F<uint32_t>(l, 0xbb) = 0;
+        F<uint32_t>(l, 0xbf) = 0x3bcccccd;
+        F<uint32_t>(l, 0xc3) = 0x3c088889;
+        F<uint32_t>(l, 0xc7) = 0x3e51eb85;
+        F<uint32_t>(l, 0xcb) = 0x3c088889;
+        String_Assign(&F<char*>(l, 0x43), (const char*)0x5ce8d8);
+        uint8_t* b = (uint8_t*)ExeNew(0x1b9);
+        b = b ? ListBox_Construct(b, 0, l) : nullptr;
+        Window_AddChild(w, 0, b, 0);
+        Free(F<void*>(l, 0x43));
+        Window_SendEvent5(w, 0, 0x84, id, 0x47c360, 0, 0);
+    };
+    float row = (float)((double)y + h - D(0x5ce8f0));
+    editBox(0, FBits(x), FBits(row), FBits(wd), 0x3cf5c28f, 0, 2, GetString(0x211), false);
+    row = (float)((double)row + D(0x5c9b80));
+    listBox(0x714f, row);
+    float x1 = (float)((double)x + D(0x5c9c80));
+    float w1 = (float)((double)wd - D(0x5c9c80));
+    editBox(0x7149, FBits(x1), FBits(row), FBits(w1), 0x3cf5c28f, 3, 3, GetString(0x212), false);
+    row = (float)((double)row + D(0x5c9b80));
+    row = (float)((double)row + D(0x5ca1a8));
+    editBox(0, FBits(x), FBits(row), FBits(wd), 0x3cf5c28f, 0, 2, GetString(0x213), false);
+    row = (float)((double)row + D(0x5c9b80));
+    listBox(0x7150, row);
+    editBox(0x714a, FBits(x1), FBits(row), FBits(w1), 0x3cf5c28f, 3, 3, GetString(0x214), false);
+    row = (float)((double)row + D(0x5c9b80));
+    row = (float)((double)row + D(0x5ca1a8));
+    editBox(0, FBits(x), FBits(row), FBits(wd), 0x3cf5c28f, 0, 2, GetString(0x215), false);
+    row = (float)((double)row + D(0x5c9b80));
+    {
+        uint8_t s[0x89];
+        memset(s, 0, sizeof s);
+        F<float>(s, 7) = x;
+        F<float>(s, 0xb) = row;
+        F<float>(s, 0xf) = wd;
+        F<uint32_t>(s, 0x13) = 0x3d23d70a;
+        F<int32_t>(s, 0x61) = 3;
+        F<int32_t>(s, 0x75) = 6;
+        uint8_t* b = (uint8_t*)ExeNew(0x111);
+        b = b ? Scrollbar_Construct(b, 0, s) : nullptr;
+        Window_AddChild(w, 0, b, 0);
+    }
+    editBox(0x714b, FBits((float)((double)x - D(0x5ce8d0))), FBits(row), FBits((float)((double)wd + D(0x5cab68))), 0x3d23d70a, 0, 3,
+            (const char*)0x6cebd8, true);
+    row = (float)((double)row + D(0x5c9b98));
+    row = (float)((double)row + D(0x5ca1a8));
+    {
+        uint8_t s[0x89];
+        memset(s, 0, sizeof s);
+        int32_t slotFrom = hook::Global<int32_t>(0x5f2c48) + 1;
+        F<float>(s, 7) = (float)((double)x + D(0x5c8c20));
+        F<uint32_t>(s, 0xf) = 0x3d866666;
+        F<uint32_t>(s, 0x13) = 0x3db33333;
+        F<float>(s, 0xb) = (float)((double)row - D(0x5c9bc0));
+        int32_t slot = NthFreeCompanySlot(slotFrom);
+        F<uint16_t>(s, 0x5f) = (uint16_t)slot;
+        String_Assign(&F<char*>(s, 0x43), (const char*)0x5c9f98);
+        if (F<int16_t>(s, 0x5f) >= 0x24) {
+            Collection* logos = F<Collection*>(hook::Global<uint8_t*>(0x6d4020), 0x429b0);
+            String_Assign(&F<char*>(s, 0x43), (const char*)Collection_Get(logos, 0, Collection_IdAt(logos, 0, F<int16_t>(s, 0x5f) - 0x24, 0)));
+            F<uint16_t>(s, 0x5f) = 0;
+        }
+        F<uint16_t>(s, 0) = 0x714e;
+        uint8_t* b = (uint8_t*)ExeNew(0x111);
+        b = b ? Scrollbar_Construct(b, 0, s) : nullptr;
+        Window_AddChild(w, 0, b, 0);
+        Free(F<void*>(s, 0x43));
+    }
+    float cx = (float)((double)x + D(0x5ce8f0));
+    auto arrow = [&](uint16_t id, double dy, uint16_t i0, uint16_t i1) {
+        uint8_t c[0xa5];
+        memset(c, 0, sizeof c);
+        F<float>(c, 0xb) = (float)((double)row + dy);
+        F<float>(c, 7) = cx;
+        F<uint32_t>(c, 0xf) = 0x3d0ccccd;
+        F<uint32_t>(c, 0x13) = 0x3cae147b;
+        F<uint16_t>(c, 0x5f) = i0;
+        F<uint16_t>(c, 0x61) = i1;
+        c[0x89] = 6;
+        c[0x8a] = 7;
+        F<uint16_t>(c, 0) = id;
+        String_Assign(&F<char*>(c, 0x43), (const char*)0x5ce8d8);
+        uint8_t* b = (uint8_t*)ExeNew(0xe9);
+        b = b ? Control_Construct(b, 0, c) : nullptr;
+        Window_AddChild(w, 0, b, 0);
+        Free(F<void*>(c, 0x43));
+    };
+    arrow(0x714c, D(0x5ce8c8), 0xa, 0xb);
+    arrow(0x714d, D(0x5ce8c0), 0xc, 0xd);
+    editBox(0, FBits(x), FBits(row), 0x3e19999a, 0x3da3d70a, 3, 2, GetString(0xf82), false);
+    Dialog_SetupWorthSlider(1);
+    MoneySlider_Setup(1);
+    MoneySliders_Read(0);
+    MoneySlider_Setup(1);
+    MoneySliders_Read(0);
+    MoneySlider_Setup(0);
+}
+RT3_REPLACE(0x47c590, PlayerSetup_Build);
+
+void __fastcall TextLink_DrawPlain(uint8_t* win, uint8_t* font, const char* text, float x, float y, float w, float h, uint32_t color,
+                                   int32_t align, int32_t valign, uint32_t flags, const char* tip, int32_t id);
+int32_t __fastcall Obj_NameIndex(void* o);
+
+// 0x4c0160. The company's share panel at (x, y) (`compact` for the small
+// version in white): the logo, the top three holders (faces, names, shares,
+// the focused one highlighted) and everyone else, the six stat links
+// (linkBase + 0..5, values of stats 0x1c..0x21), a frame with three lines, and
+// a line chart of the chosen series (`show`[6]) over the last ten years
+// (to yesterday on 1 Jan), each series scaled to a round top (pairs 0/1, 2/3,
+// 3/4 share their axis), with year labels and two value axes.
+RT3_NOINLINE void __fastcall CompanyStock_DrawChart(uint8_t* win, uint32_t linkBase, float x, float y, float, float, int32_t compact, uint32_t coId,
+                                       uint8_t* faces, uint8_t** custom, int32_t, const uint8_t* show) {
+    uint8_t* co = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be10), 0, coId);
+    auto font = [] { return F<uint8_t*>(hook::Global<uint8_t*>(0x6cec78), 0x46a98); };
+    auto font2 = [] { return F<uint8_t*>(hook::Global<uint8_t*>(0x6cec78), 0x46a9c); };
+    if (!compact) {
+        float gy = (float)((double)y - D(0x5d0810));
+        float gx = (float)((double)x + D(0x5d0808));
+        Glyph_Queue((uint8_t*)(uintptr_t)Company_Logo(co), 0, gx, gy, 0x3f800000, 0.5f, 0.5f, 0xffffffff, 0, 1, 0, 0.0f, 0.0f, 1.0f, 1.0f);
+    }
+    int32_t edi = compact ? 2 : 0;
+    uint32_t color = compact ? 0xff000000 : 0xffffffff;
+    float rowY = (float)((double)y + D(0x5c85b8));
+    float colX = (float)((double)x + D(0x5d0800));
+    uint32_t frameColor = compact ? 0xff000000 : 0xffaaa3a3;
+    uint32_t lineColor = compact ? 0xffaaa3a3 : 0xff8a8383;
+    int32_t edi1 = edi | 1;
+    Font_DrawTextBox(font(), 0, GetString(0x3a0), colX, rowY, BitsF(0x3e89999a), BitsF(0x3cf5c28f), color, 2, 1, edi1, 1.0f);
+    Font_DrawTextBox(font(), 0, GetString(0x3a1), colX, rowY, BitsF(0x3e89999a), BitsF(0x3cf5c28f), color, 3, 1, edi1, 1.0f);
+    int32_t k = Company_NthHolder((int32_t*)co, 0, 1, 0);
+    int32_t held = 0;
+    int32_t i = 1;
+    float row0 = (float)((double)y + D(0x5c9ba0));
+    float row = row0;
+    char buf[0x200], num[0x40];
+    while (k > -1) {
+        uint32_t c = color;
+        if (compact) {
+            uint8_t* f = F<uint8_t*>(hook::Global<uint8_t*>(0x6d401c), 0xc6d);
+            if (f && F<uint16_t>(f, 4) == i + 0x3f0e) c = 0xff6d6b6e;
+        }
+        uint8_t* pl = (uint8_t*)Table_NthField4(hook::Global<Collection*>(0x6ceb9c), 0, k);
+        uint8_t face = pl[0x15c];
+        float fy = (float)((double)row - D(0x5ca2d8));
+        uint32_t img;
+        if (face != 0x29) img = Table_Entry(faces, 0, face);
+        else if (Obj_NameIndex(pl) > -1) img = Table_Entry(custom[Obj_NameIndex(pl)], 0, 0);
+        else {
+            pl[0x15c] = 0;
+            img = Table_Entry(faces, 0, 0);
+        }
+        Glyph_Queue((uint8_t*)(uintptr_t)img, 0, colX, fy, 0x3f800000, BitsF(0x3f0f5c29), BitsF(0x3f0f5c29), 0xffffffff, 0, 1, 0, 0.0f, 0.0f, 1.0f, 1.0f);
+        float ny = (float)((double)row - D(0x5c8918));
+        float nx = (float)((double)x + D(0x5d07f8));
+        Font_DrawTextBox(font(), 0, (const char*)pl + 8, nx, ny, BitsF(0x3e3147ae), BitsF(0x3d8f5c29), c, 2, 0, edi, 1.0f);
+        int32_t shares = F<int32_t>(pl, 0x15d + coId * 4);
+        Num_Format(num, shares < 10000000 ? 1 : 0xd, (double)shares, 10, 1, 0, 0);
+        held += F<int32_t>(pl, 0x15d + coId * 4);
+        Font_DrawTextBox(font(), 0, num, colX, row, BitsF(0x3e89999a), BitsF(0x3cf5c28f), c, 3, 1, edi, 1.0f);
+        ++i;
+        k = Company_NthHolder((int32_t*)co, 0, i, 0);
+        row = (float)((double)row + D(0x5d07f0));
+        if (i - 1 >= 3) break;
+    }
+    float oy = (float)((double)y + D(0x5d07e8));
+    Glyph_Queue((uint8_t*)(uintptr_t)Table_Entry(faces, 0, 0), 0, colX, (float)((double)oy - D(0x5ce8c8)), 0x3f800000, BitsF(0x3f147ae1), BitsF(0x3f147ae1),
+                0xffffffff, 0, 1, 0, 0.0f, 0.0f, 1.0f, 1.0f);
+    Font_DrawTextBox(font(), 0, GetString(0x276), (float)((double)x + D(0x5d07f8)), (float)((double)oy - D(0x5c8918)), BitsF(0x3e3147ae),
+                     BitsF(0x3d8f5c29), color, 2, 0, edi, 1.0f);
+    int32_t others = F<int32_t>(co, 0x47) - held;
+    Num_Format(num, others < 10000000 ? 1 : 0xd, (double)others, 10, 1, 0, 0);
+    Font_DrawTextBox(font(), 0, num, colX, oy, BitsF(0x3e89999a), BitsF(0x3cf5c28f), color, 3, 1, edi, 1.0f);
+    float lx = (float)((double)x + D(0x5c85b8));
+    Font_DrawTextBox(font(), 0, GetString(0x3a2), lx, rowY, 0.2f, BitsF(0x3cf5c28f), color, 2, 1, edi1, 1.0f);
+    uint32_t flags = edi | 0x20;
+    float r3 = row0;
+    float vx = 0.0f;
+    static const int32_t stats[6] = { 0x1c, 0x1d, 0x1e, 0x1f, 0x20, 0x21 };
+    static const int32_t styles[6] = { 9, 9, 0xa, 0xa, 0xa, 5 };
+    for (int32_t n = 0; n < 6; ++n) {
+        if (n) r3 = (float)((double)r3 + D(0x5c9b80));
+        const char* tip = GetString(0x3a3 + n);
+        TextLink_DrawPlain(win, font(), GetString(0x3a9 + n), lx, r3, BitsF(0x3e766666), BitsF(0x3cf5c28f), color, 2, 1, flags, tip, linkBase + n);
+        Num_FormatSimple2(num, styles[n], Company_Stat(co, 0, stats[n], 0x2329), 0xb);
+        if (!n) vx = (float)((double)x + D(0x5d07e0));
+        Font_DrawTextBox(font(), 0, num, vx, r3, BitsF(0x3d99999a), BitsF(0x3cf5c28f), color, 3, 1, edi, 1.0f);
+    }
+    r3 = (float)((double)r3 + D(0x5c9ba0));
+    float y2 = (float)((double)r3 + D(0x5c9ba0));
+    float a = (float)((double)x + D(0x5d07d8));
+    double bd = (double)x + D(0x5c86b0);
+    float bf = (float)bd;
+    Ui_Line(lineColor, 0, bf, y2, a, y2, 2.0f);
+    float y3 = (float)((double)r3 + D(0x5c86b8));
+    Ui_Line(lineColor, 0, bf, y3, a, y3, 2.0f);
+    float y4 = (float)((double)r3 + D(0x5c8988));
+    Ui_Line(lineColor, 0, bf, y4, a, y4, 2.0f);
+    Ui_FrameRect(frameColor, 0, bf, r3, BitsF(0x3eee147b), BitsF(0x3e4ccccd), 2.0f, 3);
+    uint32_t colors[6] = { compact ? 0xff12a019u : 0xff22c029u, 0xfff97908, 0xff0808c3, 0xffc2061c, 0xff0acbdc, 0xff9414c4 };
+    int32_t full[6] = { 1, 1, 1, 1, 1, 1 };
+    int32_t today = 1, axisA = -1, axisB = -1;
+    uint8_t* world = hook::Global<uint8_t*>(0x6cec78);
+    int32_t from = F<uint16_t>(co, 0x157) - 1;
+    int32_t to = F<uint16_t>(world, 0xd);
+    if (to - from > 10) from = to - 10;
+    if (world[0xf] == 1 && world[0x11] == 1 && to - 1 > from) {
+        to = to - 1;
+        today = 0;
+    }
+    int32_t count = to - from + 1;
+    float bottom = (float)((double)r3 + D(0x5d07d0));
+    bool labelled = false;
+    float lo[6], hi[6], range[6];
+    for (int32_t s = 0; s < 6; ++s) {
+        if (!show[s]) continue;
+        float top = 0.0f;
+        for (int32_t yr = from; yr <= to; ++yr) {
+            double prev = top;
+            double v = CrtFabs(Company_Stat(co, 0, stats[s], yr));
+            double nt = v < prev ? (double)top : CrtFabs(Company_Stat(co, 0, stats[s], yr));
+            top = (float)nt;
+        }
+        top = (float)((double)top * D(0x5c85a8));
+        if (top < D(0x5c85b8)) top = BitsF(0x3c23d70a);
+        if (s < 2) top = (float)((1 - Ftol((double)top / Fl(0x5d07cc))) * 20);
+        else if (s < 5) top = (float)((1 - Ftol((double)top / Fl(0x5d07c8))) * 2);
+        else top = (float)((double)(1 - Ftol((double)top / D(0x5d07c0))) * D(0x5c9ba0));
+        float low = s <= 1 ? 0.0f : -top;
+        hi[s] = top;
+        range[s] = (float)((double)top - low);
+        lo[s] = low;
+        int32_t with = -1;
+        if (s == 1) with = axisA == 0 ? 0 : -1;
+        else if (s == 3) with = axisA == 2 || axisB == 2 ? 2 : -1;
+        else if (s == 4) with = axisA == 2 || axisB == 2 ? 2 : axisA == 3 || axisB == 3 ? 3 : -1;
+        if (with < 0) {
+            if (axisA == -1) axisA = s;
+            else if (axisB == -1) axisB = s;
+            continue;
+        }
+        float nl = lo[with] < low ? lo[with] : low;
+        lo[s] = lo[with] = nl;
+        float nh = hi[with] > top ? hi[with] : top;
+        hi[s] = hi[with] = nh;
+        float rg = (float)((double)hi[s] - lo[s]);
+        range[s] = range[with] = rg;
+        if (s == 4 && show[2] && show[3]) {
+            lo[3] = lo[4];
+            hi[3] = hi[4];
+            range[3] = range[4];
+        }
+    }
+    for (int32_t s = 0; s < 6; ++s) {
+        if (!show[s]) continue;
+        int32_t n = count - 1 < 1 ? 1 : count - 1;
+        float dx = (float)(D(0x5d07b8) / (double)n);
+        for (int32_t yr = from; yr <= to - 1; ++yr) {
+            if (yr == from && !full[s]) continue;
+            float t0 = 0.0f, t1 = 1.0f;
+            if (yr == from) {
+                uint32_t d = F<uint32_t>(co, 0x157);
+                int32_t day = (int32_t)((uint8_t)(d >> 16)) * 0x1c + (uint8_t)F<uint32_t>(co, 0x15b) - 0x1d;
+                float df = (float)day;
+                t0 = (float)((double)df / Fl(0x5c99fc));
+            }
+            if (yr == to - 1 && today) {
+                int32_t day = world[0xf] * 0x1c + world[0x11] - 0x1d;
+                float df = (float)day;
+                t1 = (float)((double)df / Fl(0x5c99fc));
+            }
+            double minT = (double)t0 + D(0x5c9b80);
+            t1 = (float)(t1 > minT ? (double)t1 : minT);
+            float v0 = (float)Company_Stat(co, 0, stats[s], yr);
+            float v1 = (float)Company_Stat(co, 0, stats[s], yr + 1);
+            float yrF = (float)yr, fromF = (float)from;
+            float x0 = (float)((((double)yrF + t0) - fromF) * dx + x + D(0x5d07b0));
+            float x1 = (float)((((double)yrF + t1) - fromF) * dx + x + D(0x5d07b0));
+            float py0 = (float)(bottom - ((double)v0 - lo[s]) * Fl(0x5d07a8) / range[s]);
+            float py1 = (float)(bottom - ((double)v1 - lo[s]) * Fl(0x5d07a8) / range[s]);
+            Ui_Line(colors[s], 0, x0, py0, x1, py1, 2.0f);
+        }
+        if (!labelled) {
+            if (count > 0) {
+                double bdd = bottom;
+                float tickY = (float)(bdd + D(0x5ca1a8));
+                float textY = (float)(bdd + D(0x5d07a0));
+                for (int32_t t = 0; t < count; ++t) {
+                    float tf = (float)t;
+                    float gx = (float)((double)tf * dx + x + D(0x5d07b0));
+                    Ui_Line(frameColor, 0, gx, bottom, gx, tickY, 1.0f);
+                    if (!t || (t == count && today)) FormatText(buf, (const char*)0x5c87a8, 0, 0, 0, 0, 0, 0, 0, 0);
+                    else if (!show[0] && !show[1]) Num_Format(buf, 8, (double)(t + from), 10, 1, 0, 0);
+                    else {
+                        Num_Format(num, 1, (double)((t + from) % 100), 10, 1, 0, 0);
+                        FormatText(buf, GetString(0x3af), num, 0, 0, 0, 0, 0, 0, 0);
+                    }
+                    Font_DrawTextBox(font2(), 0, buf, (float)((double)gx - D(0x5c9b50)), textY, BitsF(0x3d4ccccd), BitsF(0x3cf5c28f), color, 0, 1, edi, 1.0f);
+                }
+            }
+            labelled = true;
+        }
+        if (s != axisA && s != axisB) continue;
+        float step = (float)((double)range[s] / Fl(0x5c8568));
+        bool left = axisA == s;
+        for (int32_t q = 0; q < 5; ++q) {
+            float qf = (float)q;
+            float ly = (float)(bottom - (double)qf * Fl(0x5d0798));
+            double val = (double)qf * step + lo[s];
+            char lab[0x40];
+            if (s < 2) Num_FormatSimple(lab, 9, val, 0xb);
+            else if (s < 5) Num_FormatSimple(lab, 0xa, val, 0xb);
+            else Num_Format(lab, 5, val, 10, 1, 0, 0);
+            double off = left ? BitsD(0xbfac28f5c28f5c29ull) : BitsD(0x3fde147ae147ae14ull);
+            float xx = (float)(bd + off);
+            float ly2 = (float)((double)ly - D(0x5ca1a8));
+            Font_DrawTextBox(font2(), 0, lab, xx, ly2, BitsF(0x3d4ccccd), BitsF(0x3cf5c28f), color, 0, 1, edi, 1.0f);
+        }
+    }
+}
+RT3_REPLACE(0x4c0160, CompanyStock_DrawChart);
+
+int32_t __fastcall Font_CountLines(uint8_t* f, int, const char* text, float width, float* textWidth);
+void __fastcall Widget_SetRect(uint8_t* w, int, float x, float y, float wd, float ht);
+int32_t __fastcall Window_HandleEvent(uint8_t* w, int, uint32_t* ev);
+double __fastcall Scroll_Total(uint8_t* s);
+uint8_t* __fastcall TreeView_Construct(uint8_t* w, int, const uint8_t* def);
+
+// 0x4c86c0. Sets up the generic message dialog (DefaultDialog.win): the text
+// (+0x78), its type (+0x80: which of the buttons 0x3f2..0x3f8 show and their
+// captions / keys), the position (-1 for the default), the callback that
+// places extra content, and `count` choices (`choices`): as buttons (one per
+// choice, +0x88 radio / +0x8c check boxes with the states in +0x90) or else a
+// scrolling list 0x3ef. The window grows by 1..4 rows to fit the text and
+// choices; long texts get pages (+0x94).
+void __fastcall Dialog_Setup(uint8_t* w, int, const char* text, int32_t type, uint32_t px, uint32_t py, int32_t p4,
+                             void(__fastcall* place)(uint8_t*, int, uint32_t, uint32_t, uint32_t, float), float extraH, uint32_t buttonText,
+                             int32_t count, const char** choices, int32_t radio, int32_t check, int32_t* checked) {
+    bool big = count > 12;
+    F<int32_t>(w, 0x90) = (int32_t)(uintptr_t)checked;
+    F<int32_t>(w, 0x8c) = check;
+    F<int32_t>(w, 0x88) = radio;
+    F<uint8_t*>(w, 0x7c) = Pack_AcquireFont(hook::Global<uint8_t*>(0x6d4020), 0, 3);
+    F<int32_t>(w, 0x80) = type;
+    if (type == 0xb) extraH = (float)((double)extraH + D(0x5d0aa8));
+    else if (type == 0xd) extraH = (float)((double)extraH + D(0x5d08a0));
+    else if (type == 9) extraH = (float)((double)extraH + D(0x5d0aa0));
+    float lastTextW = 0.0f;
+    double lastRowD = 0.0;
+    if (count > 0) {
+        if (!F<int32_t>(w, 0x88) && !F<int32_t>(w, 0x8c)) extraH = (float)((double)(big ? 0x234 : 0x130) / D(0x5ca2d0) + extraH);
+        else {
+            float acc = 0.0f;
+            for (int32_t i = 0; i < (count > 10 ? 10 : count); ++i) {
+                float th = (float)Font_TextHeight(F<uint8_t*>(w, 0x7c), 0, choices[i], BitsF(0x3ea6147b), &lastTextW);
+                double thd = (double)th + D(0x5ca2d8);
+                lastRowD = D(0x5caaf0) > thd ? BitsD(0x3fa1111111111111ull) : thd;
+                acc = (float)((double)acc + lastRowD);
+            }
+            extraH = (float)((double)acc + extraH + D(0x5caaf0));
+        }
+    }
+    int32_t buttons = type != 4 && type != 5 && type != 0xb;
+    F<int32_t>(w, 0x84) = 0;
+    F<int32_t>(w, 0x78) = 0;
+    String_Assign(&F<char*>(w, 0x78), text);
+    F<int32_t>(w, 0x9c) = p4;
+    float textH = 0.0f;
+    int32_t lines = 0;
+    float minH = BitsF(0x3d9d036a);
+    if (strlen(F<char*>(w, 0x78))) {
+        textH = (float)Font_TextHeight(F<uint8_t*>(w, 0x7c), 0, F<char*>(w, 0x78), BitsF(0x3eb4cccd), nullptr);
+        lines = Font_CountLines(F<uint8_t*>(w, 0x7c), 0, F<char*>(w, 0x78), BitsF(0x3eb4cccd), nullptr);
+    }
+    textH = (float)((double)textH + extraH);
+    int32_t t = F<int32_t>(w, 0x80);
+    if (buttons || t == 5 || t == 9 || t == 0xd || t == 0xb) minH = BitsF(0x3d0f5c29);
+    int32_t rows = 0;
+    if (minH < textH) {
+        do {
+            ++rows;
+            float rf = (float)rows;
+        if (!(((double)rf * Fl(0x5d0a9c) + minH) < textH)) break;
+        } while (true);
+        if (rows < 1) rows = 1;
+        else if (rows > 4) rows = 4;
+    } else
+        rows = 1;
+    uint32_t wx = px == 0xbf800000 ? 0x3e6e147b : px;
+    if (py == 0xbf800000) {
+        float r1 = (float)(rows - 1);
+        py = FBits((float)(D(0x5d0a90) - (double)r1 * Fl(0x5d0a98)));
+    }
+    if (BitsF(py) <= D(0x5c8918)) py = 0x3ca3d70a;
+    Window_Load(w, 0, BitsF(wx), BitsF(py), (const char*)0x5d0a7c);
+    float r1 = (float)(rows - 1);
+    float extra = (float)((double)r1 * Fl(0x5d0a9c));
+    Widget_SetRect(w, 0, BitsF(0xbf800000), BitsF(0xbf800000), BitsF(0xbf800000), (float)((double)extra + F<float>(w, 0x11)));
+    uint32_t ev[0xc];
+    memset(ev, 0, sizeof ev);
+    ev[0] = 0xb6;
+    ev[1] = 0x3ec;
+    ev[2] = 0;
+    ev[3] = (uint32_t)Ftol((double)extra * Fl(0x5ca164));
+    Window_HandleEvent(w, 0, ev);
+    int32_t n = hook::Global<int32_t>(0x621f40) > 3 ? hook::Global<int32_t>(0x621f40) : 3;
+    Window_SendEvent5(w, 0, 0xbd, 0x3f6, n, 0, 0);
+    n = hook::Global<int32_t>(0x621f40) > 3 ? hook::Global<int32_t>(0x621f40) : 3;
+    Window_SendEvent5(w, 0, 0xbd, 0x3f8, n, 0, 0);
+    float boxH = (float)((double)extra + minH + Fl(0x5d0a9c));
+    F<float>(Widget_FindChild(w, 0, 0x3ed), 0x17) = boxH;
+    Window_SendEvent5(w, 0, 0x9f, 0x3ed, (uint32_t)(uintptr_t)w, 0, 0);
+    Window_SendEvent5(w, 0, 0x7a, 0x3ed, 0x4c86a0, 0, 0);
+    F<int32_t>(w, 0x94) = 1;
+    F<int32_t>(w, 0x98) = 0;
+    float lineH = (float)Scroll_Total(F<uint8_t*>(w, 0x7c));
+    int32_t per = Ftol((double)boxH / lineH);
+    if (hook::Global<int32_t>(0x6d4034) && per >= 0x15) per -= 4;
+    if (strlen(F<char*>(w, 0x78)) && lines > per) {
+        int32_t pages = F<int32_t>(w, 0x94), rem = lines;
+        do {
+            if (pages == 1) {
+                --per;
+                if (per < 1) per = 1;
+            }
+            rem -= per;
+            ++pages;
+        } while (rem > per);
+        F<int32_t>(w, 0x94) = pages;
+    }
+    for (int32_t i = 0; i < rows - 1; ++i) {
+        uint8_t s[0x89];
+        memset(s, 0, sizeof s);
+        float fi = (float)(i + 1);
+        F<uint32_t>(s, 7) = 0x3c23d70a;
+        F<float>(s, 0xb) = (float)((double)fi * Fl(0x5d0a9c) + D(0x5c9cb0) - D(0x5cab60));
+        String_Assign(&F<char*>(s, 0x43), (const char*)0x5d0a68);
+        F<uint16_t>(s, 0x5f) = 1;
+        uint8_t* b = (uint8_t*)ExeNew(0x111);
+        b = b ? Scrollbar_Construct(b, 0, s) : nullptr;
+        Window_AddChild(w, 0, b, 0);
+        Free(F<void*>(s, 0x43));
+    }
+    auto send = [&](uint32_t e, uint32_t id, uint32_t a, uint32_t b2 = 0) { Window_SendEvent5(w, 0, e, id, a, b2, 0); };
+    auto str = [](int32_t id) { return (uint32_t)(uintptr_t)GetString(id); };
+    send(0x87, 0x3f6, 3);
+    send(0x87, 0x3f5, 3);
+    send(0x87, 0x3f8, 3);
+    send(0x87, 0x3f7, 3);
+    switch (F<int32_t>(w, 0x80)) {
+    case 1:
+    case 6:
+        send(0x87, 0x3f2, 3);
+        send(0x87, 0x3f4, 3);
+        send(0x6f, 0x3f3, str(F<int32_t>(w, 0x80) == 6 ? 0xa : 9));
+        send(0x8d, 0x3f3, 0xd);
+        send(0x8d, 0x3f3, 0x1b);
+        break;
+    case 2:
+    case 7:
+        send(0x87, 0x3f3, 3);
+        send(0x6f, 0x3f2, str(F<int32_t>(w, 0x80) == 7 ? 0xe : 9));
+        send(0x6f, 0x3f4, str(0xa));
+        send(0x8d, 0x3f2, 0xd);
+        send(0x8d, 0x3f2, 0x4f);
+        send(0x8d, 0x3f4, 0x1b);
+        send(0x8d, 0x3f4, 0x43);
+        break;
+    case 3:
+        send(0x87, 0x3f3, 3);
+        send(0x6f, 0x3f2, str(0xb));
+        send(0x8d, 0x3f2, 0xd);
+        send(0x8d, 0x3f2, 0x59);
+        send(0x6f, 0x3f4, str(0xc));
+        send(0x8d, 0x3f4, 0x1b);
+        send(0x8d, 0x3f4, 0x4e);
+        break;
+    case 4:
+        send(0x87, 0x3f2, 3);
+        send(0x87, 0x3f4, 3);
+        send(0x87, 0x3f3, 3);
+        break;
+    case 5:
+    case 9:
+        send(0x65, 0x3f6, 3);
+        send(0x65, 0x3f5, 3);
+        send(0x6f, 0x3f6, buttonText);
+        send(0x87, 0x3f2, 3);
+        send(0x87, 0x3f4, 3);
+        send(0x87, 0x3f3, 3);
+        if (F<int32_t>(w, 0x80) == 9) {
+            send(0xb5, 0x3f6, 0, (uint32_t)-0x46);
+            send(0xb5, 0x3f5, 0, (uint32_t)-0x46);
+            send(0x65, 0x3f3, 3);
+            send(0x6f, 0x3f3, str(9));
+            send(0x8d, 0x3f3, 0xd);
+            send(0x8d, 0x3f3, 0x1b);
+        }
+        break;
+    case 10:
+        send(0x87, 0x3f3, 3);
+        send(0x6f, 0x3f2, str(0x106));
+        send(0x8d, 0x3f2, 0xd);
+        send(0x8d, 0x3f2, 0x56);
+        send(0x6f, 0x3f4, str(0xd));
+        send(0x8d, 0x3f4, 0x1b);
+        send(0x8d, 0x3f4, 0x45);
+        break;
+    case 11:
+        send(0x65, 0x3f8, 3);
+        send(0x65, 0x3f7, 3);
+        send(0x6f, 0x3f8, buttonText);
+        send(0x87, 0x3f2, 3);
+        send(0x87, 0x3f4, 3);
+        send(0x87, 0x3f3, 3);
+        break;
+    case 12:
+        send(0x87, 0x3f3, 3);
+        send(0x6f, 0x3f2, str(0x105));
+        send(0x8d, 0x3f2, 0xd);
+        send(0x6f, 0x3f4, str(0xa));
+        send(0x8d, 0x3f4, 0x1b);
+        break;
+    case 13:
+        send(0x65, 0x3f8, 3);
+        send(0x65, 0x3f7, 3);
+        send(0x6f, 0x3f8, buttonText);
+        send(0xb5, 0x3f7, 0, (uint32_t)-0x5a);
+        send(0xb5, 0x3f8, 0, (uint32_t)-0x5a);
+        send(0x6f, 0x3f3, str(9));
+        send(0x8d, 0x3f3, 0xd);
+        send(0x8d, 0x3f3, 0x1b);
+        send(0x87, 0x3f2, 3);
+        send(0x87, 0x3f4, 3);
+        send(0x65, 0x3f3, 3);
+        break;
+    default: break;
+    }
+    if (F<int32_t>(w, 0x88) || F<int32_t>(w, 0x8c)) {
+        if (count > 0) {
+            float maxW = BitsF(0x3d99999a);
+            float total = 0.0f;
+            float textW;
+            for (int32_t i = 0; i < (count > 10 ? 10 : count); ++i) {
+                float th = (float)Font_TextHeight(F<uint8_t*>(w, 0x7c), 0, choices[i], BitsF(0x3ea6147b), &textW);
+                double m = maxW;
+                double wd = (double)textW + D(0x5d0700);
+                maxW = (float)(m > wd ? m : wd);
+                total = (float)((double)th + total);
+            }
+            maxW = (float)((double)maxW + D(0x5d0a60));
+            maxW = (float)((double)maxW - D(0x5d0a58));
+            float y0 = (float)((D(0x5d0a50) - total) + extra);
+            for (int32_t i = 0; i < (count > 10 ? 10 : count); ++i) {
+                float th = (float)Font_TextHeight(F<uint8_t*>(w, 0x7c), 0, choices[i], BitsF(0x3ea6147b), &textW);
+                double thd = (double)th + D(0x5ca2d8);
+                float h = (float)(D(0x5caaf0) > thd ? BitsD(0x3fa1111111111111ull) : thd);
+                uint8_t b[0xa1];
+                memset(b, 0, sizeof b);
+                float half = (float)(((double)h - D(0x5caaf0)) * D(0x5c8628));
+                F<float>(b, 0xb) = y0;
+                F<float>(b, 0x13) = h;
+                F<uint16_t>(b, 0) = (uint16_t)(0x406 + i);
+                F<float>(b, 7) = (float)((double)maxW * D(0x5ca180) + D(0x5d0a48));
+                F<float>(b, 0xf) = (float)((double)maxW + Fl(0x5d0a44));
+                if (F<int32_t>(w, 0x88)) F<uint32_t>(b, 0x85) = 0x3f0;
+                String_Assign(&F<char*>(b, 0x43), (const char*)0x5d0a30);
+                b[0x29] = 0x24;
+                F<int32_t>(b, 0x6b) = F<int32_t>(w, 0x8c) ? 2 : 0;
+                F<int32_t>(b, 0x67) = F<int32_t>(w, 0x8c) ? 3 : 1;
+                String_Assign(&F<char*>(b, 0x6f), choices[i]);
+                F<float>(b, 0x63) = half;
+                b[0x33] = 3;
+                F<int32_t>(b, 0x34) = -1;
+                if (F<int32_t>(w, 0x8c)) {
+                    F<uint32_t>(b, 0x75) = 0x3ce66666;
+                    F<uint32_t>(b, 0x79) = 0;
+                } else {
+                    F<uint32_t>(b, 0x75) = 0x3cb851ec;
+                    F<uint32_t>(b, 0x79) = 0xbba3d70a;
+                }
+                F<float>(b, 0x81) = h;
+                F<float>(b, 0x7d) = (float)((double)maxW + Fl(0x5d0a2c));
+                uint8_t* bt = (uint8_t*)ExeNew(0xe8);
+                bt = bt ? Button_Construct(bt, 0, b) : nullptr;
+                Window_AddChild(w, 0, bt, 0);
+                Free(F<void*>(b, 0x43));
+                Free(F<void*>(b, 0x6f));
+                y0 = (float)((double)y0 + h);
+                if (F<int32_t>(w, 0x8c) && F<int32_t*>(w, 0x90)[i]) send(0x74, 0x406 + i, 1);
+            }
+            if (F<int32_t>(w, 0x88)) send(0x74, 0x406, 1);
+        }
+    } else if (count > 0) {
+        int32_t bump = big ? 0x12c : 0;
+        float lh = (float)(bump + 0x108);
+        {
+            uint8_t s[0x89];
+            memset(s, 0, sizeof s);
+            F<uint32_t>(s, 7) = 0x3dd0a3d7;
+            F<uint32_t>(s, 0xb) = 0x3e64b17e;
+            F<uint32_t>(s, 0xf) = 0x3e8f5c29;
+            F<int32_t>(s, 0x61) = 6;
+            F<int32_t>(s, 0x75) = 9;
+            F<uint32_t>(s, 0x69) = 0xff1a5230;
+            F<float>(s, 0x13) = (float)((double)(bump + 0xfe) / D(0x5ca2d0));
+            uint8_t* b = (uint8_t*)ExeNew(0x111);
+            b = b ? Scrollbar_Construct(b, 0, s) : nullptr;
+            Window_AddChild(w, 0, b, 0);
+        }
+        uint8_t tv[0x12f];
+        memset(tv, 0, sizeof tv);
+        int32_t visible = big ? 0x12 : 6;
+        F<int32_t>(tv, 0x5f) = visible;
+        F<uint32_t>(tv, 7) = 0x3dd33333;
+        F<uint32_t>(tv, 0xb) = 0x3e606d3a;
+        F<uint32_t>(tv, 0xf) = 0x3e9e6666;
+        tv[0x33] = 2;
+        F<uint16_t>(tv, 0) = 0x3ef;
+        F<uint32_t>(tv, 0x63) = 0x3ba3d70a;
+        F<uint32_t>(tv, 0x67) = 0x3c3f258c;
+        F<uint32_t>(tv, 0x6b) = 0x3e8947ae;
+        F<float>(tv, 0x13) = (float)((double)lh / D(0x5ca2d0));
+        int32_t vis = visible >= 1 ? visible : 1;
+        float span = (float)(bump - visible * 3 + 0xef);
+        F<int32_t>(tv, 0x9f) = 1;
+        F<int32_t>(tv, 0xa3) = 1;
+        F<int32_t>(tv, 0xc7) = 1;
+        float vf = (float)vis;
+        double rowH = (double)span / vf;
+        F<uint32_t>(tv, 0x8b) = 0x3e93851f;
+        F<uint32_t>(tv, 0x93) = 0x3e93851f;
+        F<int32_t>(tv, 0xd7) = big ? 7 : 5;
+        F<uint32_t>(tv, 0x73) = 0x3b23d70a;
+        F<uint32_t>(tv, 0x77) = 0x3b4ccccd;
+        F<uint32_t>(tv, 0x7b) = 0x3d088889;
+        F<uint32_t>(tv, 0x83) = 0x3e9428f6;
+        F<uint32_t>(tv, 0x87) = 0x3ce147ae;
+        F<uint32_t>(tv, 0x8f) = 0;
+        F<uint32_t>(tv, 0xc3) = 0;
+        F<int32_t>(tv, 0xcb) = 2;
+        F<int32_t>(tv, 0xcf) = 3;
+        F<int32_t>(tv, 0xd3) = 4;
+        F<float>(tv, 0x6f) = (float)(rowH / D(0x5ca2d0));
+        F<float>(tv, 0x7f) = (float)((double)(bump + 0xe3) / D(0x5ca2d0));
+        F<float>(tv, 0x97) = (float)((double)(bump + 0xe7) / D(0x5ca2d0));
+        String_Assign(&F<char*>(tv, 0x43), (const char*)0x5d0a10);
+        uint8_t* b = (uint8_t*)ExeNew(0x1ea);
+        b = b ? TreeView_Construct(b, 0, tv) : nullptr;
+        Window_AddChild(w, 0, b, 0);
+        Free(F<void*>(tv, 0x43));
+        for (int32_t i = 0; i < count; ++i) send(0x88, 0x3ef, (uint32_t)(uintptr_t)choices[i]);
+        send(0x66, 0x3ef, 0);
+    }
+    if (place) {
+        uint8_t* c = Widget_FindChild(w, 0, 0x3ed);
+        double off = buttons ? BitsD(0x3fa5555555555555ull) : 0.0;
+        float rf = (float)rows;
+        float cy = (float)((double)rf * Fl(0x5d0a9c) + minH - off);
+        place(w, 0, F<uint32_t>(c, 0xb), F<uint32_t>(c, 0xf), 0x3eb4cccd, cy);
+    }
+    (void)lastRowD;
+}
+RT3_REPLACE(0x4c86c0, Dialog_Setup);
+
+// 0x500640. Settings window constructor ("SettingsWindow.win", vtable
+// 0x5d14a4). Font 1 goes to 0x6d1358. The tab list 0x7532 gets the 13 entries
+// of the table at 0x622870 ({text, depth}; the 13th only when 0x6cec7c +0x82
+// is set). A nested entry names its parent: the last entry one level up,
+// searched back from the previous parent. Then come the control handlers, the
+// "Setup_Options_Buttons" button 0x759d, and five settings rows. Each row is
+// an edit box caption plus a drop-down tree view (0x759e..0x75a2) with its
+// handler, and the last two rows also get their choices and current value.
+uint8_t* __fastcall SettingsWindow_Construct(uint8_t* w) {
+    Widget_SetVtblRet(w);
+    F<uint32_t>(w, 0) = 0x5d14a4;
+    Window_Load(w, 0, 0.0f, 0.0f, (const char*)0x5d1530);
+    hook::Global<uint8_t*>(0x6d1358) = Pack_AcquireFont(hook::Global<uint8_t*>(0x6d4020), 0, 1);
+    int32_t prev = 0;
+    for (int32_t i = 0; i < 0xd; ++i) {
+        if (i == 0xc && hook::Global<uint8_t*>(0x6cec7c)[0x82] == 0) continue;
+        uint8_t item[0x20];
+        memset(item, 0, sizeof item);
+        String_Assign(&F<char*>(item, 0), GetString(hook::Global<uint32_t>(0x622870 + i * 8)));
+        int32_t depth = hook::Global<int32_t>(0x622874 + i * 8);
+        if (depth == 0)
+            prev = i;
+        else {
+            F<int32_t>(item, 0x10) = 1;
+            if (depth != hook::Global<int32_t>(0x622874 + prev * 8) + 1) {
+                int32_t j = i - 1;
+                int32_t d;
+                do {
+                    d = hook::Global<int32_t>(0x622874 + j * 8);
+                    prev = j--;
+                } while (depth != d + 1);
+            }
+            F<int32_t>(item, 0x14) = prev;
+        }
+        Window_SendEvent5(w, 0, 0x89, 0x7532, (uint32_t)(uintptr_t)item, 0, 0);
+        Free(F<void*>(item, 0));
+    }
+    Window_SendEvent5(w, 0, 0x73, 0x7596, 5, 0, 0);
+    static const uint32_t handlers[][2] = {
+        { 0x7532, 0x500620 }, { 0x7546, 0x4fd100 }, { 0x7548, 0x4fd130 }, { 0x7591, 0x4fd160 }, { 0x755a, 0x4fd1d0 },
+        { 0x755b, 0x4fd200 }, { 0x7574, 0x4fd230 }, { 0x7553, 0x4fe270 }, { 0x7557, 0x4fe2d0 }, { 0x755f, 0x4fe3b0 },
+        { 0x7569, 0x4fe400 }, { 0x754f, 0x4fd190 }, { 0x7551, 0x4fe1b0 }, { 0x7587, 0x4fd260 }, { 0x7588, 0x4fd3d0 },
+        { 0x7573, 0x4fd2c0 },
+    };
+    for (auto& h : handlers) Window_SendEvent5(w, 0, 0x79, h[0], h[1], 0, 0);
+    Window_SendEvent5(w, 0, 0x66, 0x7532, 0, 0, 0);
+    Window_SendEvent5(w, 0, 0x7a, 0x757a, 0x4fd010, 0, 0);
+    for (uint32_t id = 0x7549; id < 0x754f; id += 2) Window_SendEvent5(w, 0, 0x84, id, 0x4fede0, 0, 0);
+    static const uint32_t sliders[] = { 0x7558, 0x7566, 0x7560, 0x7562, 0x7564, 0x756e, 0x756a, 0x756c, 0x7570, 0x757d, 0x757f, 0x7581, 0x7596 };
+    for (uint32_t id : sliders) Window_SendEvent5(w, 0, 0x84, id, 0x4fede0, 0, 0);
+    {
+        uint8_t b[0xa1];
+        memset(b, 0, sizeof b);
+        F<uint32_t>(b, 7) = 0x3f19c28f;
+        F<uint32_t>(b, 0xb) = 0x3ea88889;
+        F<uint32_t>(b, 0xf) = 0x3e19999a;
+        F<uint32_t>(b, 0x13) = 0x3d792c60;
+        F<uint32_t>(b, 0x75) = 0x3d147ae1;
+        F<uint32_t>(b, 0x79) = 0;
+        F<uint32_t>(b, 0x7d) = 0x3de8f5c3;
+        F<uint32_t>(b, 0x81) = 0x3d792c60;
+        b[0x33] = 2;
+        b[0x27] = 2;
+        F<uint16_t>(b, 0) = 0x759d;
+        F<uint16_t>(b, 5) = 0x7535;
+        F<uint32_t>(b, 0x63) = 0x3c4ccccd;
+        String_Assign(&F<char*>(b, 0x43), (const char*)0x5d0ae0);
+        F<int32_t>(b, 0x6b) = 5;
+        F<int32_t>(b, 0x67) = 6;
+        String_Assign(&F<char*>(b, 0x6f), GetString(0xfb7));
+        String_Assign(&F<char*>(b, 0x3f), GetString(0xfb8));
+        if (hook::Global<int32_t>(0x6d3c84) == 4) {
+            F<float>(b, 0xf) = (float)((double)F<float>(b, 0xf) + D(0x5d1528));
+            F<float>(b, 0x7d) = (float)((double)F<float>(b, 0x7d) + D(0x5d1528));
+        }
+        uint8_t* c = (uint8_t*)ExeNew(0xe8);
+        c = c ? Button_Construct(c, 0, b) : nullptr;
+        Window_AddChild(w, 0, c, 0);
+        Free(F<void*>(b, 0x43));
+        Free(F<void*>(b, 0x6f));
+        Free(F<void*>(b, 0x3f));
+    }
+    Window_SendEvent5(w, 0, 0x74, 0x759d, F<uint32_t>(hook::Global<uint8_t*>(0x6d4024), 0x11474a), 0, 0);
+    Window_SendEvent5(w, 0, 0xb2, 0x7554, 0x2c7, 0, 0);
+    Window_SendEvent5(w, 0, 0xa1, 0x7532, 0x8000, 0, 0);
+    // One settings row: caption (text, tooltip) at height `labelY`, then the
+    // drop-down `id` at `treeY` under the same tooltip, and its handler.
+    auto row = [&](uint16_t parent, uint32_t labelY, uint32_t text, uint32_t tip, uint16_t id, uint32_t treeY, uint32_t handler) {
+        {
+            uint8_t e[0x91];
+            memset(e, 0, sizeof e);
+            F<uint32_t>(e, 7) = 0x3ee51eb8;
+            F<uint32_t>(e, 0xb) = labelY;
+            F<uint32_t>(e, 0xf) = 0x3ea3d70a;
+            F<uint32_t>(e, 0x13) = 0x3d088889;
+            e[0x27] = 0;
+            e[0x28] = 4;
+            F<int32_t>(e, 0x34) = -1;
+            String_Assign(&F<char*>(e, 0x77), GetString(text));
+            String_Assign(&F<char*>(e, 0x3f), GetString(tip));
+            e[0x33] = 2;
+            F<uint16_t>(e, 5) = parent;
+            uint8_t* c = (uint8_t*)ExeNew(0xf0);
+            c = c ? EditBox_Construct(c, 0, e) : nullptr;
+            Window_AddChild(w, 0, c, 0);
+            Free(F<void*>(e, 0x77));
+            Free(F<void*>(e, 0x3f));
+        }
+        uint8_t t[0x12f];
+        memset(t, 0, sizeof t);
+        static const uint32_t tmpl[][2] = {
+            { 0x5f, 0xa }, { 0x63, 0x3b75c28f }, { 0x6b, 0x3e9570a4 }, { 0x6f, 0x3cf5c28f }, { 0x73, 0x3ada740e },
+            { 0x7b, 0x3cfc9630 }, { 0x7f, 0x3e9258bf }, { 0x83, 0x3e99999a }, { 0x8b, 0x3e99eb85 }, { 0x93, 0x3e99eb85 },
+            { 0x97, 0x3e9258bf }, { 0x9f, 1 }, { 0xa3, 1 }, { 0xc7, 1 }, { 0xcb, 2 }, { 0xcf, 3 }, { 0xd3, 4 }, { 0xd7, 5 },
+            { 0xe3, 1 }, { 0xe7, 0xb }, { 0xeb, 2 }, { 0xef, 3 }, { 0xf3, 7 }, { 0xf7, 8 }, { 0xfb, 9 }, { 0xff, 0xa },
+            { 0x103, 0x3e99999a }, { 0x107, 0x3ba3d70a }, { 0x10b, 0x3b75c28f }, { 0x10f, 0x3bda740e }, { 0x113, 0x3e9570a4 },
+            { 0x117, 0x3cf5c28f },
+        };
+        for (auto& f : tmpl) F<uint32_t>(t, f[0]) = f[1];
+        F<uint32_t>(t, 7) = 0x3ee51eb8;
+        F<uint32_t>(t, 0xb) = treeY;
+        F<uint32_t>(t, 0xf) = 0x3ea3d70a;
+        F<uint32_t>(t, 0x13) = 0x3d2aaaab;
+        t[0x33] = 2;
+        F<uint16_t>(t, 0) = id;
+        F<uint16_t>(t, 5) = parent;
+        t[0x3e] = 1;
+        String_Assign(&F<char*>(t, 0x3f), GetString(tip));
+        String_Assign(&F<char*>(t, 0x43), (const char*)0x5d1514);
+        uint8_t* c = (uint8_t*)ExeNew(0x1ea);
+        c = c ? TreeView_Construct(c, 0, t) : nullptr;
+        Window_AddChild(w, 0, c, 0);
+        Free(F<void*>(t, 0x43));
+        Free(F<void*>(t, 0x3f));
+        Window_SendEvent5(w, 0, 0x79, id, handler, 0, 0);
+    };
+    row(0x7540, 0x3e222222, 0xfe6, 0xfe7, 0x759e, 0x3e488889, 0x4fd4a0);
+    row(0x753c, 0x3ecccccd, 0xfe8, 0xfe9, 0x759f, 0x3ee00000, 0x4fd4f0);
+    row(0x753c, 0x3ef77777, 0xfea, 0xfeb, 0x75a0, 0x3f055555, 0x4fd520);
+    for (int32_t id = 0x7593; id <= 0x7594; ++id) {
+        uint8_t* c = Widget_FindChild(w, 0, id);
+        F<float>(c, 0xf) = (float)((double)F<float>(c, 0xf) - Fl(0x5d09ac));
+    }
+    row(0x7540, 0x3e7f258c, 0x10db, 0x10dc, 0x75a1, 0x3e92c5f9, 0x4fd430);
+    for (uint32_t s = 0x10df; s <= 0x10e9; ++s) Window_SendEvent5(w, 0, 0x88, 0x75a1, (uint32_t)(uintptr_t)GetString(s), 0, 0);
+    Window_SendEvent5(w, 0, 0x66, 0x75a1, F<uint32_t>(hook::Global<uint8_t*>(0x6cec74), 0x31d), 0, 0);
+    row(0x7540, 0x3eae147b, 0x10dd, 0x10de, 0x75a2, 0x3ec147ae, 0x4fd460);
+    for (uint32_t s = 0x10ea; s <= 0x10f4; ++s) Window_SendEvent5(w, 0, 0x88, 0x75a2, (uint32_t)(uintptr_t)GetString(s), 0, 0);
+    Window_SendEvent5(w, 0, 0x66, 0x75a2, F<uint32_t>(hook::Global<uint8_t*>(0x6cec74), 0x319), 0, 0);
+    return w;
+}
+RT3_REPLACE(0x500640, SettingsWindow_Construct);
+
+int32_t Global6d07b4Set2();
+void* __fastcall Collection_RecordAt(Collection* t, int, uint32_t pos);
+void __fastcall Train_GatherLoads(uint8_t* o, int, int32_t simulate, uint8_t* city, uint8_t* to, int32_t cargo, float cap,
+                                  float* outCount, float* outAmount, float* outFlagged);
+
+// 0x43f640. Draw handler of the station window's cargo panel (control 0x7d7).
+// For the selected station 0x5ee4fc and cargo 0x5ee500 it shows a table with
+// columns name, price, difference and amount. There are three sections: the
+// station itself, up to 8 stations that are cheaper (they pay less than this
+// one minus 0.5) and up to 8 that are dearer. For a "carried" cargo (cargo
+// +0x46) the prices are what a train from here would get there (0x47e690
+// both ways). Pass 0 counts the rows, pass 1 measures the text to size the
+// backdrop, and pass 2 draws the backdrop, frame and text.
+RT3_NOINLINE void __fastcall StationCargo_DrawCompare(void*, int, float, float, float, float, int32_t) {
+    if (!hook::Global<uint8_t*>(0x6cec78) || !hook::Global<int32_t>(0x6d0818)) return;
+    Collection* stations = hook::Global<Collection*>(0x6cec20);
+    if (!stations || !hook::Global<Collection*>(0x62ba8c)) return;
+    if (!Collection_IsValid(stations, 0, hook::Global<uint32_t>(0x5ee4fc))) return;
+    if (hook::Global<uint32_t>(0x5ee500) && !Collection_IsValid(hook::Global<Collection*>(0x62ba8c), 0, hook::Global<uint32_t>(0x5ee500))) return;
+    if (Global6d07b4Set2()) return;
+    if (hook::Global<uint8_t*>(0x6cec7c)[0x82]) return;
+    if (F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4aef)) return;
+    if (!hook::Global<uint32_t>(0x5ee500)) return;
+    Fade_Save();
+    uint8_t* ref = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cec20), 0, hook::Global<uint32_t>(0x5ee4fc));
+    float refStock, refPrice;
+    Obj_CargoStockAndQuota(ref, 0, hook::Global<int32_t>(0x5ee500), &refStock, &refPrice);
+    refPrice = (float)(refPrice / D(0x5c87f8));
+    uint8_t* cargo = nullptr;
+    int32_t carried = 0;
+    if (hook::Global<uint32_t>(0x5ee500)) {
+        cargo = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba8c), 0, hook::Global<uint32_t>(0x5ee500));
+        if (cargo) {
+            carried = cargo[0x46];
+            if (carried) refPrice = 0.0f;
+        }
+    }
+    float widths[4] = { 440.0f, 70.0f, 80.0f, 75.0f };
+    float colX[5];
+    colX[4] = 1580.0f;
+    for (int k = 3; k >= 0; --k) colX[k] = colX[k + 1] - widths[k];
+    int32_t align[4] = { 3, 3, 3, 3 };
+    static uint8_t skip[500], skipSave[500];
+    static uint8_t* list[500];
+    static float price[500], amount[500], back[500], backAmount[500];
+    memset(skip, 0, sizeof skip);
+    int32_t count = Collection_Count(hook::Global<Collection*>(0x6cec20)) > 500 ? 500 : Collection_Count(hook::Global<Collection*>(0x6cec20));
+    for (int32_t i = 0; i < count; ++i) {
+        uint8_t* st = (uint8_t*)Collection_RecordAt(hook::Global<Collection*>(0x6cec20), 0, i);
+        list[i] = st;
+        if (!Obj_BuildingStateActive(st))
+            skip[i] = 1;
+        else if (carried && st != ref) {
+            Train_GatherLoads(ref, 0, 1, nullptr, st, hook::Global<int32_t>(0x5ee500), BitsF(0x4479c000u), &amount[i], &price[i], nullptr);
+            if (!(amount[i] == Fl(0x5c8598))) price[i] = price[i] / amount[i];
+            price[i] = (float)(((double)price[i] + Fl(0x5ca06c)) / D(0x5c87f8));
+            Train_GatherLoads(st, 0, 1, nullptr, ref, hook::Global<int32_t>(0x5ee500), BitsF(0x4479c000u), &backAmount[i], &back[i], nullptr);
+            if (!(backAmount[i] == Fl(0x5c8598))) back[i] = back[i] / backAmount[i];
+            back[i] = (float)(((double)back[i] + Fl(0x5ca06c)) / D(0x5c87f8));
+        } else {
+            Obj_CargoStockAndQuota(st, 0, hook::Global<int32_t>(0x5ee500), &amount[i], &price[i]);
+            price[i] = (float)(price[i] / D(0x5c87f8));
+        }
+    }
+    float sectionY[4] = { 18.0f, 108.0f, 465.0f, 75.0f };
+    float top = 1.0f, left = 1.0f, bottom = 0.0f, right = 0.0f;
+    int32_t cheaperRows = 0, dearerRows = 0;
+    memcpy(skipSave, skip, sizeof skip);
+    char text[0x1f8], num[0x68];
+    for (int32_t pass = 0; pass < 3; ++pass) {
+        if (pass == 2) {
+            if (F<int32_t>(hook::Global<uint8_t*>(0x6d401c), 0xc64) <= 0) Fade_Set(0x3a378034);
+            memcpy(skip, skipSave, sizeof skip);
+            if (right > left && bottom > top) {
+                bottom = BitsF(0x3f2bbbbcu);
+                double l = left < D(0x5ca308) ? (double)left : BitsD(0x3fe7000000000000ull);
+                left = (float)l;
+                float x = (float)(left - D(0x5ca300));
+                float y = (float)(top - D(0x5ca2f8));
+                float w = (float)(((double)right - left) + D(0x5ca2f0));
+                float h = (float)(((double)Fl(0x5ca2e8) - top) + D(0x5ca2e0));
+                float sx = (float)(w / D(0x5c9bc0));
+                float sy = (float)(h / D(0x5ca2d8));
+                Glyph_Queue((uint8_t*)Table_Entry(F<uint8_t*>(hook::Global<uint8_t*>(0x6cec78), 0x46a8c), 0, hook::Global<int32_t>(0x6d3e34)), 0, x, y,
+                            0x3f800000, sx, sy, 0xffffffff, 0, 1, 0, 0.0f, 0.0f, 1.0f, 1.0f);
+                Ui_FrameRect(0xff000000, 0, x, y, w, h, 2.5f, 3);
+            }
+        }
+        for (int32_t sec = 0; sec < 3; ++sec) {
+            if (sec == 2 && carried) memcpy(skip, skipSave, sizeof skip);
+            float y = (float)(sectionY[sec] / D(0x5ca2d0));
+            int32_t rowEnd = (sec != 0) * 8 + 1;
+            int32_t diff = 0;
+            for (int32_t row = -2; row < rowEnd; ++row) {
+                int32_t idx = -1;
+                if (row >= 0) {
+                    if (sec == 0) {
+                        idx = (int32_t)Collection_PositionOf(hook::Global<Collection*>(0x6cec20), 0, hook::Global<uint32_t>(0x5ee4fc), 0);
+                        if (idx >= 500) idx = -1;
+                    } else {
+                        float best = 0.0f;
+                        for (int32_t i = 0; i < count; ++i) {
+                            if (skip[i] || list[i] == ref) continue;
+                            if (sec == 1) {
+                                if (carried) {
+                                    if (!(backAmount[i] > D(0x5c8628))) continue;
+                                    if (idx != -1 && !(back[i] > best)) continue;
+                                    best = back[i];
+                                } else {
+                                    if (!(amount[i] >= D(0x5c8628))) continue;
+                                    if (!(refPrice - D(0x5c8578) > price[i])) continue;
+                                    if (idx != -1 && !(price[i] < best)) continue;
+                                    best = price[i];
+                                }
+                            } else if (sec == 2) {
+                                if (carried && !(amount[i] > D(0x5c8628))) continue;
+                                if (!(refPrice + D(0x5c8578) < price[i])) continue;
+                                if (idx != -1 && !(price[i] > best)) continue;
+                                best = price[i];
+                            } else
+                                continue;
+                            idx = i;
+                        }
+                    }
+                    if (idx == -1) break;
+                }
+                if (pass == 0) {
+                    if (row >= 0) {
+                        if (sec == 1) ++cheaperRows;
+                        else if (sec == 2) ++dearerRows;
+                    }
+                    continue;
+                }
+                bool nextRow = false;
+                for (int32_t col = 0; col < 4 && !nextRow; ++col) {
+                    float x = (float)(colX[col] / D(0x5ca2c8));
+                    uint8_t* font = F<uint8_t*>(hook::Global<uint8_t*>(0x6cec78), 0x46a94);
+                    int32_t al = align[col];
+                    uint32_t color = 0xffffffff;
+                    float w = (float)((((double)colX[col + 1] - colX[col]) - Fl(0x5c8554)) / D(0x5ca2c8));
+                    if (row < 0) {
+                        if (col > 0) continue;
+                        x = BitsF(0x3f480000u);
+                        al = 0;
+                        w = (float)(((double)colX[3] + Fl(0x5ca01c)) / D(0x5ca2c8) - D(0x5ca2c0));
+                        if (sec == 0) {
+                            if (row != -2) {
+                                nextRow = true;
+                                break;
+                            }
+                            if (cargo) ExeSprintf()(text, LocalizeName((const char*)cargo + 4));
+                            else ExeSprintf()(text, (const char*)0x5ca2bc);
+                        } else if (row == -2) {
+                            const char* a1;
+                            uint32_t fmt;
+                            if (carried) {
+                                a1 = (const char*)cargo + 0x46b;
+                                fmt = sec == 1 ? 0xf22 : 0xf23;
+                            } else {
+                                a1 = Num_FormatSimple(num, 9, (double)Ftol(refPrice), 0xb);
+                                fmt = sec == 1 ? 0xf24 : 0xf25;
+                            }
+                            FormatText(text, GetString(fmt), a1, 0, 0, 0, 0, 0, 0, 0);
+                            font = F<uint8_t*>(hook::Global<uint8_t*>(0x6cec78), 0x46a98);
+                        } else if (sec == 1) {
+                            if (cheaperRows) {
+                                nextRow = true;
+                                break;
+                            }
+                            FormatText(text, GetString(0xf26), 0, 0, 0, 0, 0, 0, 0, 0);
+                        } else {
+                            if (sec != 2 || dearerRows) {
+                                nextRow = true;
+                                break;
+                            }
+                            FormatText(text, GetString(0xf26), 0, 0, 0, 0, 0, 0, 0, 0);
+                        }
+                    } else {
+                        uint8_t* st = list[idx];
+                        int32_t value = Obj_BuildingValue(st);
+                        bool differs = value != Obj_Get21(hook::Global<uint8_t*>(0x6cec78));
+                        switch (col) {
+                        case 0:
+                            FormatText(text, (const char*)st + 0x46b, 0, 0, 0, 0, 0, 0, 0, 0);
+                            break;
+                        case 1:
+                            if (carried) continue;
+                            Num_FormatSimple(text, 9, (double)price[idx], 0xb);
+                            break;
+                        case 2: {
+                            if (carried) {
+                                if (sec == 0) continue;
+                                float v = sec == 1 ? -back[idx] : price[idx];
+                                diff = Ftol(v);
+                            } else {
+                                int32_t a = Ftol(price[idx]);
+                                diff = a - Ftol(refPrice);
+                            }
+                            const char* sign = diff < 0 ? (const char*)0x5ca2b4 : (const char*)0x5ca2b8;
+                            int32_t mag = diff < 0 ? -diff : diff;
+                            FormatText(text, (const char*)0x5c8730, sign, Num_FormatSimple(num, 9, (double)mag, 0xb), 0, 0, 0, 0, 0, 0);
+                            break;
+                        }
+                        case 3: {
+                            float v = carried && sec == 1 ? backAmount[idx] : amount[idx];
+                            ExeSprintf()(text, (const char*)0x5ca2ac, (double)v);
+                            break;
+                        }
+                        }
+                        if (sec == 0)
+                            color = 0xffffff00;
+                        else if (col == 2) {
+                            uint32_t base = diff == 0 ? 0xdfdfdf : diff > 0 ? 0xbfffbf : 0xffbfbf;
+                            color = ((differs ? 0xffcfcfd0u : 0u) + base) | 0xff000000;
+                        } else if (differs)
+                            color = 0xffbfbfbf;
+                    }
+                    if (pass == 1) {
+                        float textW;
+                        Font_TextHeight(font, 0, text, w, &textW);
+                        double t = (double)y + D(0x5c9bc0);
+                        top = (float)(top < t ? (double)top : t);
+                        float yb = (float)(y + Fl(0x5ca2a8));
+                        if (!(bottom > yb)) bottom = yb;
+                        if (al == 3) {
+                            x = (float)(w + x);
+                            t = ((double)x - textW) - D(0x5ca2a0);
+                            left = (float)(left < t ? (double)left : t);
+                        } else if (al == 0) {
+                            t = ((double)w - textW) * D(0x5c8628) + x;
+                            left = (float)(left < t ? (double)left : t);
+                            x = (float)(w + x);
+                        } else {
+                            if (!(left < x)) left = x;
+                            x = (float)(w + x);
+                        }
+                        right = bottom > x ? bottom : x;
+                    } else {
+                        float pad = 0.0f;
+                        if (row == -2 && !IsEnglish()) pad = BitsF(0x3ccccccdu);
+                        Font_DrawTextBox(font, 0, text, x - pad, y, pad + w, BitsF(0x3ce81b4fu), color, al, 0, 0, 1.0f);
+                    }
+                }
+                if (nextRow) continue;
+                y = (float)(row == -2 && sec == 0 ? y + D(0x5ca298) : y + Fl(0x5ca2a8));
+                if (idx >= 0 && idx < 500) skip[idx] = 1;
+            }
+        }
+    }
+    Fade_Restore();
+}
+RT3_REPLACE(0x43f640, StationCargo_DrawCompare);
+
+// 0x4e5130. Company window stock page in the box (x, y, w, h). For a valid
+// company +0x88 it draws the stock chart in compact mode (links from 0x40d8,
+// faces +0xb25, custom faces +0x995 / +0xb29, all series shown). Otherwise it
+// shows text 0x513 in font +0xe55 and hides control 0x3efd.
+void __fastcall CompanyWindow_DrawStockPage(uint8_t* w, int, float x, float y, float wd, float h) {
+    if (Collection_IsValid(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(w, 0x88))) {
+        CompanyStock_DrawChart(w, 0x40d8, x, y, wd, h, 1, F<uint32_t>(w, 0x88), F<uint8_t*>(w, 0xb25), (uint8_t**)(w + 0x995), F<int32_t>(w, 0xb29),
+                               (const uint8_t*)0x622098);
+        return;
+    }
+    Font_DrawTextBox(F<uint8_t*>(w, 0xe55), 0, GetString(0x513), x, y, wd, h, 0xff000000, 0, 0, 2, 1.0f);
+    Window_SendEvent5(w, 0, 0x86, 0x3efd, 3, 0, 0);
+}
+RT3_REPLACE(0x4e5130, CompanyWindow_DrawStockPage);
+
+float __fastcall Station_TotalAvailable(void* o);
+float __fastcall City_CargoOutput(uint8_t* c, int, int32_t cargo);
+double __fastcall Grid_Float1605(uint8_t* g, int, int32_t x, int32_t y);
+double __stdcall Distance3D(float x1, float y1, float z1, float x2, float y2, float z2);
+int32_t Tutorial_Blink348();
+int32_t Tutorial_Blink352();
+
+// 0x4515c0. Map overlay for the 4x4 block of cell (cx, cy) at screen (x, y).
+// The block record is 0x1d7 bytes, rows of +0x2145 blocks from +0x2129. It
+// draws a stack of icons for the block's amount: everything (0x42be20) when
+// no cargo +0x2179 is picked, else that cargo's amount (+0x103 + c % 53 * 4).
+// Each icon is up to a unit. With a cargo it also draws two bars, the
+// block's demand (+0x6a word / 0x5c9c40) and its output (0x42bf20). The
+// icons and bars are sized by the camera distance, and they fade with the
+// view height 0x62be68 +0x14 and the camera's +0x20. Below height 0x5cab10
+// everything is drawn at fade `fade`.
+RT3_NOINLINE void __fastcall Map_DrawCellOverlay(uint8_t* m, int, float x, float y, uint32_t fade, int32_t cx, int32_t cy) {
+    uint8_t* cell = F<uint8_t*>(m, 0x2129) + (F<int32_t>(m, 0x2145) * (cy / 4) + cx / 4) * 0x1d7;
+    uint32_t color = 0xff000000;
+    float h = F<float>(hook::Global<uint8_t*>(0x62be68), 0x14);
+    if (h < D(0x5c8618)) return;
+    float k = 1.0f;
+    if (h < D(0x5cab18)) {
+        k = (float)((h - D(0x5c8618)) / D(0x5c86b0));
+        color = (uint32_t)Ftol((double)k * Fl(0x5ca0ec)) << 24;
+    }
+    int32_t mode = F<int32_t>(m, 0x2179);
+    float count, demand, output;
+    if (mode == 0) {
+        count = Station_TotalAvailable(cell);
+        demand = 0.0f;
+        output = 0.0f;
+    } else {
+        double d = (double)F<uint16_t>(cell, 0x6a + mode * 2);
+        demand = (float)(d / D(0x5c9c40));
+        count = F<float>(cell, 0x103 + mode % 0x35 * 4);
+        output = City_CargoOutput(cell, 0, mode);
+    }
+    uint8_t* view = hook::Global<uint8_t*>(0x62be68);
+    uint32_t color2 = color;
+    if (F<float>(view, 0x14) < D(0x5cab10)) {
+        Fade_Save();
+        Fade_Set(fade);
+        view = hook::Global<uint8_t*>(0x62be68);
+    }
+    if (F<int32_t>(m, 0x2179) == 0) {
+        int32_t t = Ftol(F<float>(view, 0x20));
+        if (t >= 10000) {
+            if (t < 15000) {
+                float f = (float)(t - 10000);
+                k = (float)((D(0x5c8770) - (double)f / Fl(0x5c85b0)) * k);
+                color2 = (uint32_t)Ftol((double)k * Fl(0x5ca0ec)) << 24 | (color & 0xffffff);
+            } else
+                color2 = 0;
+        }
+    }
+    float alpha;
+    {
+        int32_t t = Ftol(F<float>(view, 0x20));
+        if (t < 3000)
+            alpha = 0.0f;
+        else if (t < 0x1194) {
+            float f = (float)(t - 3000);
+            alpha = (float)(D(0x5c8770) - (double)f / Fl(0x5ca1a4));
+        } else
+            alpha = 1.0f;
+    }
+    if (count > Fl(0x5c8598) || demand > D(0x5c85b8) || output > D(0x5c85b8)) {
+        float fy = (float)(cy * 0x5c);
+        float gh = (float)Grid_Float1605(hook::Global<uint8_t*>(0x62c120), 0, cx, cy);
+        float fx = (float)(cx * 0x5c);
+        float dist = (float)Distance3D(F<float>(view, 0x1c), F<float>(view, 0x20), F<float>(view, 0x24), fx, gh, fy);
+        if (dist > Fl(0x5ca1c8)) dist = (float)(((double)dist - Fl(0x5ca1c8)) * D(0x5c8c18) + D(0x5cab08));
+        if (!(dist > Fl(0x5c873c)) || !(dist < Fl(0x5c8d00))) goto done;
+        {
+            float scale = (float)(D(0x5cab00) / dist);
+            if (scale > D(0x5c86b8)) goto done;
+            if (Fl(0x5c8598) < count) {
+                int32_t i = 0;
+                float fi = 0.0f;
+                do {
+                    float rem = count - fi;
+                    if (!(rem < D(0x5c9ba0))) {
+                        uint32_t c = color;
+                        if (rem < D(0x5c8758)) c = color2;
+                        if (!(rem < D(0x5c8758)) || c) {
+                            float sz = !(rem >= Fl(0x5c85b4)) ? (float)((double)rem * Fl(0x5c8d70)) : 36.0f;
+                            int32_t icon = Ftol(sz);
+                            float w = (float)(scale / D(0x5caaf8));
+                            uint8_t* glyph = (uint8_t*)Table_Entry(F<uint8_t*>(hook::Global<uint8_t*>(0x6cec78), 0x46a90), 0, icon);
+                            float hh;
+                            if (rem < Fl(0x5c85b4)) {
+                                double n = (double)(icon + 4);
+                                hh = (float)(n / D(0x5ca2d0) * w);
+                            } else
+                                hh = (float)(w * D(0x5caaf0));
+                            if (!Tutorial_Blink348()) {
+                                if (!(rem < D(0x5c8758))) {
+                                    float gx = (float)(x - scale * D(0x5c8628));
+                                    Glyph_Queue(glyph, 0, gx, y - hh, 0x3f800000, w, w, color, 0, 1, 0, 0.0f, 0.0f, 1.0f, 1.0f);
+                                } else {
+                                    if (alpha > D(0x5c9ba0)) {
+                                        uint32_t a = (uint32_t)Ftol((double)alpha * k * Fl(0x5ca0ec));
+                                        float gx = (float)(x - scale * D(0x5c8628));
+                                        Ui_FillRect(a << 24 | (color & 0xffffff), 1, gx, y - hh, scale, hh, 1);
+                                    }
+                                    if (alpha < D(0x5c8650)) {
+                                        uint32_t a = (uint32_t)Ftol((D(0x5c8770) - alpha) * k * D(0x5ca110));
+                                        float gx = (float)(x - scale * D(0x5c8628));
+                                        Glyph_Queue(glyph, 0, gx, y - hh, 0x3f800000, w, w, a << 24 | (color & 0xffffff), 0, 1, 0, 0.0f, 0.0f, 1.0f, 1.0f);
+                                    }
+                                }
+                            }
+                            y = (float)(y - hh * D(0x5c87e8));
+                        }
+                    }
+                    ++i;
+                    fi = (float)i;
+                } while (fi < count);
+            }
+            float gapX = BitsF(0x3aa3d70au), gapY = BitsF(0x3ada740eu);
+            if (dist < Fl(0x5ca1c8)) {
+                float d = dist > Fl(0x5ca06c) ? dist : 500.0f;
+                float r = Fl(0x5ca1c8) / d;
+                gapX = r * Fl(0x5caaec);
+                gapY = r * Fl(0x5caae8);
+            }
+            if (!(demand > D(0x5c85b8)) && !(output > D(0x5c85b8))) goto done;
+            y = (float)(y - D(0x5caae0));
+            auto lines = [] { return *(int32_t*)(F<uint8_t*>(hook::Global<uint8_t*>(0x6d4024), 0x34) + F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x11421e) * 0x15 + 4); };
+            float m1 = (float)(D(0x5caad8) / dist);
+            double minLen = D(0x5c87b8) / (double)lines();
+            float cap = (float)(m1 > minLen ? (double)m1 : minLen);
+            float halfW = Fl(0x5c8780) / dist;
+            if (Tutorial_Blink352()) goto done;
+            // One bar: fill from y up by its length, with a white outline
+            // (`outlineUp` decides on which side the outline's base sits).
+            auto bar = [&](float v, uint32_t tint, uint32_t solid, bool first) {
+                float n = (float)lines();
+                float snapped = (float)Ftol((double)n * y);
+                y = (float)((double)snapped / n + D(0x5c88a0));
+                float len = (float)((double)v * Fl(0x5c8d4c) / dist);
+                uint32_t c;
+                if (len < cap) {
+                    float f = len / cap;
+                    if (f < D(0x5c8618)) f = BitsF(0x3eb33333u);
+                    c = (uint32_t)Ftol((double)f * Fl(0x5ca0ec)) << 24 | tint;
+                    len = cap;
+                } else {
+                    c = solid;
+                    if (v > D(0x5c8628)) {
+                        if (first) {
+                            float e = (float)((double)y - len - gapY);
+                            float fd = Fade_Step_Impl();
+                            Engine_QueueQuad(hook::Global<void*>(0x6d4024), 0, FBits((float)((double)halfW + gapX + x)), FBits(e), FBits(x), FBits((float)((double)gapY + y)),
+                                             FBits((float)((double)x - halfW - gapX)), FBits(e), FBits(fd), 0xffffffff, 0xffffffff, 0xffffffff, 0, 0, 0, 0x3f800000,
+                                             0x3f800000, 0x3f800000, 0, 0x3f800000, 0x3f800000, 0x3f800000);
+                        } else {
+                            float e = (float)((double)gapY + y);
+                            float fd = Fade_Step_Impl();
+                            Engine_QueueQuad(hook::Global<void*>(0x6d4024), 0, FBits(x), FBits((float)((double)y - len - gapY)), FBits((float)((double)halfW + gapX + x)), FBits(e),
+                                             FBits((float)((double)x - halfW - gapX)), FBits(e), FBits(fd), 0xffffffff, 0xffffffff, 0xffffffff, 0, 0, 0, 0x3f800000,
+                                             0x3f800000, 0x3f800000, 0, 0x3f800000, 0x3f800000, 0x3f800000);
+                        }
+                    }
+                }
+                float fd = Fade_Step_Impl();
+                if (first) {
+                    float e = y - len;
+                    Engine_QueueQuad(hook::Global<void*>(0x6d4024), 0, FBits((float)((double)halfW + x)), FBits(e), FBits(x), FBits(y), FBits((float)((double)x - halfW)), FBits(e),
+                                     FBits(fd), c, c, c, 0, 0, 0, 0x3f800000, 0x3f800000, 0x3f800000, 0, 0x3f800000, 0x3f800000, 0x3f800000);
+                    y = (float)(y - (len - D(0x5caad0)));
+                } else
+                    Engine_QueueQuad(hook::Global<void*>(0x6d4024), 0, FBits(x), FBits(y - len), FBits((float)((double)halfW + x)), FBits(y), FBits((float)((double)x - halfW)), FBits(y),
+                                     FBits(fd), c, c, c, 0, 0, 0, 0x3f800000, 0x3f800000, 0x3f800000, 0, 0x3f800000, 0x3f800000, 0x3f800000);
+            };
+            if (demand > D(0x5c85b8)) bar(demand, 0xa0ffd0, 0xffa0ffd0, true);
+            if (output > D(0x5c85b8)) bar(output, 0xffc0c0, 0xffffc0c0, false);
+        }
+    }
+done:
+    if (F<float>(hook::Global<uint8_t*>(0x62be68), 0x14) < D(0x5cab10)) Fade_Restore();
+}
+RT3_REPLACE(0x4515c0, Map_DrawCellOverlay);
+
+int32_t __fastcall Company_BestSite(int32_t* c);
+int32_t __fastcall Obj_CountAvailableCargos(uint8_t* o);
+uint32_t __fastcall Obj_NthAvailableCargo(uint8_t* o, int, int32_t n, float* stock, float* quota, int32_t);
+double __stdcall Effects_CargoMultiplier(int32_t idx);
+uint8_t* __fastcall Obj_BuildingRegion(void* o);
+void* __fastcall Obj_CityRef(void* o);
+int32_t __stdcall Route_CanReach(int32_t from, int32_t to, int32_t needFlag);
+void __fastcall Train_RearPoint(uint8_t* t, int, float* x, float* y);
+double __fastcall Obj_BuildingCellY(void* o);
+double __fastcall Obj_BuildingCellX(void* o);
+int32_t __fastcall DistanceInt(int32_t x1, int32_t y1, int32_t x2, int32_t y2);
+
+// Cars a train can carry in the current year (0x6cec78 +0xd).
+static int32_t TrainCarsForYear() {
+    uint32_t y = F<uint16_t>(hook::Global<uint8_t*>(0x6cec78), 0xd);
+    if (y < 0x749) return 4;
+    if (y < 0x758) return 5;
+    if (y < 0x76c) return 6;
+    if (y < 0x780) return 5;
+    if (y < 0x78f) return 6;
+    if (y < 0x79e) return 7;
+    if (y < 0x7b2) return 6;
+    return 7 + (y >= 0x7c6);
+}
+
+// 0x408380. Picks where company `c` (its id at +0) should send a train
+// loading at station `from`. It reads what `from` has on offer (cargo,
+// amount, price corrected by the cargo multiplier). For every enabled link in
+// the station's list for the company (+0x5bd[id]: count +2, 13-byte entries
+// +6 of {on, station, distance, weight}) it fills a train of this year's
+// length with the most profitable cargos. The score is (profit + bonus) *
+// weight / (distance + 40), scaled down for weak links. The bonus grows
+// shorter on longer links, is for an own station unless it has trains yet
+// (+0x5c1, +0x5c5 when the last one left), and is cut by the trains already
+// there. The best link becomes order `o` (0x33 bytes, station +0x29). If
+// `train` is given and cannot reach it, the order goes to the nearest active
+// station it can reach (own stations count 2000 closer). Returns 0 when there
+// is nowhere to go.
+int32_t __fastcall Company_PickTrainOrder(int32_t* c, int, uint8_t* o, uint32_t from, uint8_t* train) {
+    int32_t best;
+    uint8_t* st;
+    if (!Collection_IsValid(hook::Global<Collection*>(0x6cec20), 0, from) ||
+        !(st = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cec20), 0, from)))
+        best = Company_BestSite(c);
+    else {
+        int32_t n = Obj_CountAvailableCargos(st);
+        float avail[0x35], price[0x35], profit[0x35];
+        memset(avail, 0, sizeof avail);
+        memset(price, 0, sizeof price);
+        int32_t lo = 9999, hi = 0;
+        for (int32_t i = 1; i <= n; ++i) {
+            float amount, value;
+            int32_t cg = (int32_t)Obj_NthAvailableCargo(st, 0, i, &amount, &value, 0);
+            if (F<int32_t>(hook::Global<uint8_t*>(0x62ba8c), 0x9a + cg * 4) != -1 || !(amount > Fl(0x5c8598))) continue;
+            if (!(lo < cg)) lo = cg;
+            if (!(hi > cg)) hi = cg;
+            avail[cg] = amount;
+            float m = (float)Effects_CargoMultiplier(cg);
+            double d = m;
+            double div = D(0x5c85b8) > d ? BitsD(0x3f847ae147ae147bull) : d;
+            price[cg] = (float)(value / div);
+        }
+        auto list = [&] { return F<uint8_t*>(F<uint8_t*>(st, 0x5bd), *c * 4); };
+        best = -1;
+        float bestScore = BitsF(0xc61c3c00u);
+        for (int32_t j = 0; j < F<int32_t>(list(), 2); ++j) {
+            uint8_t* e = F<uint8_t*>(list(), 6) + j * 0xd;
+            if (!e[0]) continue;
+            memset(profit, 0, sizeof profit);
+            uint8_t* to = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cec20), 0, F<uint32_t>(e, 1));
+            uint16_t* pays = (uint16_t*)Obj_BuildingRegion(to);
+            for (int32_t cg = lo; cg <= hi; ++cg) {
+                if (!(avail[cg] > Fl(0x5c8598))) continue;
+                float pv = (float)(int32_t)((uint32_t)pays[cg] << 4);
+                if ((double)price[cg] + Fl(0x5c88e0) < pv) profit[cg] = (float)(((double)pv - price[cg]) * F<float>(e, 9));
+            }
+            float cars = (float)TrainCarsForYear();
+            float total = 0.0f, filled = 0.0f;
+            uint8_t used[0x35];
+            memset(used, 0, sizeof used);
+            do {
+                int32_t pick = -1;
+                for (int32_t cg = lo; cg <= hi; ++cg) {
+                    if (profit[cg] < Fl(0x5c8598) || profit[cg] == Fl(0x5c8598)) continue;
+                    if (used[cg]) continue;
+                    if (pick != -1 && !(profit[cg] > profit[pick])) continue;
+                    pick = cg;
+                }
+                if (pick == -1) break;
+                used[pick] = 1;
+                float take = cars - filled;
+                take = take < avail[pick] ? take : avail[pick];
+                filled = take + filled;
+                total = (float)((double)take * profit[pick] + total);
+            } while (!(cars - D(0x5c8918) < filled));
+            uint8_t* l = list();
+            float bonus = (float)(F<float>(l, 0x16) * D(0x5c8628));
+            uint32_t dist = F<uint32_t>(e, 5) + 100;
+            double dd = (double)(int32_t)dist;
+            if ((int32_t)dist < 0) dd += D(0x5c8910);
+            float f = (float)(D(0x5c8908) / dd);
+            dd = f;
+            f = (float)(D(0x5c8660) < dd ? BitsD(0x3ff4cccccccccccdull) : dd);
+            bonus = f * bonus;
+            if (Obj_BuildingValue(st) == *c && F<int32_t>(st, 0x5c1) == 0) {
+                int32_t left = F<int32_t>(st, 0x5c5);
+                int32_t months = (left - F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x15)) / 0x9d80;
+                if (left == 0)
+                    bonus = (float)((double)bonus * Fl(0x5c8898) + Fl(0x5c8904));
+                else if (months > 0x3c)
+                    bonus = bonus * Fl(0x5c8898);
+                else if (months > 0x24)
+                    bonus = bonus * Fl(0x5c8554);
+                else if (months > 0x18)
+                    bonus = bonus * Fl(0x5c8900);
+                else if (months > 0xc)
+                    bonus = (float)(bonus * D(0x5c88f8));
+                else if (months > 6)
+                    bonus = (float)(bonus * D(0x5c88f0));
+            }
+            int32_t trains = F<int32_t>(st, 0x5c1);
+            if (trains > 0) {
+                float k = (float)(trains < 1 ? 1 : trains);
+                float r = F<float>(list(), 0x12) / k;
+                double rd = r;
+                if (rd < D(0x5c88e8))
+                    bonus = 0.0f;
+                else if (rd < D(0x5c8640))
+                    bonus = (float)(bonus * D(0x5c88c8));
+                else if (rd < D(0x5c8698))
+                    bonus = (float)(bonus * D(0x5c8628));
+                else if (rd < D(0x5c88f8))
+                    bonus = (float)(bonus * D(0x5c8680));
+                else if (rd < D(0x5c87d8))
+                    bonus = (float)(bonus * D(0x5c85a0));
+            }
+            uint32_t len = F<uint32_t>(e, 5) + 0x28;
+            double ld = (double)(int32_t)len;
+            if ((int32_t)len < 0) ld += Fl(0x5c872c);
+            float lf = (float)ld;
+            float score = (float)(((double)bonus + total) * F<float>(e, 9) / lf);
+            double w = F<float>(e, 9);
+            if (w < D(0x5c86b8))
+                score = (float)(score * D(0x5c85b8));
+            else if (w < D(0x5c88c8))
+                score = (float)(score * D(0x5c88c8));
+            else if (w < D(0x5c8628))
+                score = (float)(score * D(0x5c8750));
+            else if (w < D(0x5c8750))
+                score = (float)(score * D(0x5c8888));
+            if (score > bestScore) {
+                best = F<int32_t>(e, 1);
+                bestScore = score;
+            }
+        }
+    }
+    if (!Collection_IsValid(hook::Global<Collection*>(0x6cec20), 0, (uint32_t)best)) return 0;
+    uint8_t* dst = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cec20), 0, (uint32_t)best);
+    memset(o, 0, 0x33);
+    o[0x28] &= 0xf;
+    F<uint32_t>(o, 0x2f) = 0x3e395810;
+    o[0x22] = 0;
+    o[0x23] = (uint8_t)TrainCarsForYear();
+    F<uint16_t>(o, 0x29) = (uint16_t)best;
+    F<int32_t>(o, 0x24) = 900;
+    if (!train) return 1;
+    int32_t needFlag = F<int32_t>((uint8_t*)Obj_CityRef(train), 0x10) == 2;
+    if (Route_CanReach(F<int32_t>(train, 0x49), F<int32_t>(dst, 8), needFlag)) return 1;
+    int32_t bestDist = -1, bestId = -1;
+    float tx, ty;
+    Train_RearPoint(train, 0, &tx, &ty);
+    for (int32_t j = 0; j < Collection_Count(hook::Global<Collection*>(0x6cec20)); ++j) {
+        Collection* stations = hook::Global<Collection*>(0x6cec20);
+        uint8_t* s = (uint8_t*)Collection_Get(stations, 0, Collection_IdAt(stations, 0, j, 0));
+        if (!Obj_BuildingStateActive(s)) continue;
+        if (F<int32_t>(s, 0) == F<int32_t>(train, 0xa0)) continue;
+        if (!Route_CanReach(F<int32_t>(train, 0x49), F<int32_t>(s, 8), needFlag)) continue;
+        int32_t sy = Ftol(Obj_BuildingCellY(s));
+        int32_t sx = Ftol(Obj_BuildingCellX(s));
+        int32_t y1 = Ftol(ty);
+        int32_t x1 = Ftol(tx);
+        int32_t d = (uint16_t)DistanceInt(x1, y1, sx, sy);
+        if (d <= 4) continue;
+        int32_t score = 2000 - d;
+        if (Obj_BuildingValue(s) == *c) score += 2000;
+        if (score > bestDist) {
+            bestDist = score;
+            bestId = F<int32_t>(s, 0);
+        }
+    }
+    if (bestId == -1) return 0;
+    F<uint16_t>(o, 0x29) = (uint16_t)bestId;
+    return 1;
+}
+RT3_REPLACE(0x408380, Company_PickTrainOrder);
+
+int32_t __fastcall Camera_InBounds(uint8_t* c, int, float x, float y);
+int32_t __fastcall Chain_Contains(void* o, int, uint16_t k);
+int32_t __fastcall Chain_AnyActive(void* o);
+int32_t __fastcall City_CargoQuota(uint8_t* o, int, int32_t i);
+void* __fastcall Obj_FirstActiveInChain(void* o);
+void* __fastcall Obj_Building(void* o);
+int32_t __fastcall Table_NearestValue23a(Collection* t, int, float x, float y);
+double __fastcall Camera_TargetAboveGround(uint8_t* c);
+void* __fastcall Engine_Renderer(void* e);
+int32_t __fastcall Scene_ProjectNormalised(uint8_t* s, int, float x, float y, float z, float* ox, float* oy, float* oz);
+uint8_t* __fastcall Grid_RegionAt(void* g, int, int32_t x, int32_t y);
+float __fastcall Obj_Level(void* o, int, int32_t i);
+void __fastcall Obj_GetDims(uint8_t* o, int, int32_t* a, int32_t* b, float* c);
+void* __fastcall Engine_Get1C(void* e);
+void __fastcall Fog_ParamsAt(uint8_t*, int, int32_t x, int32_t z, float bias, float* scale, uint32_t* color, float* strength);
+void __fastcall Map_DrawCellOverlay(uint8_t* m, int, float x, float y, uint32_t fade, int32_t cx, int32_t cy);
+
+// 0x452100. Text label of map overlay mode +0x2171 for cell (cx, cy) at screen
+// (x, y); `fade` is the depth to draw it at.
+//   1: the cargo overlay (icons by 0x4515c0). With a station +0x2181 picked,
+//      label the building of the cell (or its city) with the cargo's demand
+//      there against the station's supply (+n / -n), or, for a carried cargo,
+//      the price a train would get (+rate (amount)). The station's own block
+//      shows its name, drawn above the building.
+//   2: block value +0xf3[cargo % 8] / 0x5caacc.  3: quota and level.
+//   4: level (+0x103).  5: Obj_Level.
+//   6: the placement preview 0x6cfe18 (X in the middle, o around, dots at
+//      the edge of its radius).
+// Labels fade out from view height 0x5c8880 (plus a bonus near the station).
+void __fastcall Map_DrawCellLabel(uint8_t* m, int, float x, float y, float fade, int32_t cx, int32_t cy) {
+    if (!Camera_InBounds(hook::Global<uint8_t*>(0x62be68), 0, x, y)) return;
+    uint8_t* cell = nullptr;
+    float lift = 0.0f, quota = 0.0f;
+    int32_t forced = 0;
+    int32_t hasPax = 0, dist = 0;
+    char text[0x130], buf[0x190], num[0x20];
+    text[0] = 0;
+    if (F<int32_t>(m, 0x2171) == 1) {
+        Map_DrawCellOverlay(m, 0, x, y, FBits(fade), cx, cy);
+        if (F<int32_t>(m, 0x2179) <= 0 || F<int32_t>(m, 0x2181) <= 0) return;
+        cell = F<uint8_t*>(m, 0x2129) + (F<int32_t>(m, 0x2145) * (cy / 4) + cx / 4) * 0x1d7;
+        if (Chain_Contains(cell, 0, F<uint16_t>(m, 0x2181))) {
+            forced = 1;
+            lift = 100.0f;
+        } else {
+            if ((!(cell[0xe6] & 0x10) || F<int32_t>(cell, 0xeb) > 0) && !Chain_AnyActive(cell)) return;
+            if (!Collection_IsValid(hook::Global<Collection*>(0x6cec20), 0, F<uint32_t>(m, 0x2181))) return;
+            uint8_t* st = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cec20), 0, F<uint32_t>(m, 0x2181));
+            if (!st) return;
+            int32_t q = City_CargoQuota(Obj_BuildingRegion(st), 0, F<int32_t>(m, 0x2179));
+            lift = BitsF(0x3e4ccccdu);
+            quota = (float)q;
+            hasPax = F<int16_t>(cell, 0xd4) != 0;
+            int32_t sy = Ftol(Obj_BuildingCellY(st));
+            int32_t sx = Ftol(Obj_BuildingCellX(st));
+            dist = (uint16_t)DistanceInt(cx, cy, sx, sy);
+            if (dist < 0x46)
+                lift = 100.0f;
+            else if (dist < 0x82) {
+                double d = (double)(dist - 0x46);
+                lift = (float)((D(0x5c8770) - d / D(0x5c88a8)) * D(0x5c8758) + D(0x5cab80));
+            }
+        }
+    }
+    float h = F<float>(hook::Global<uint8_t*>(0x62be68), 0x14) + lift;
+    float zOff = 0.0f;
+    uint32_t color = 0xffcf1f00;
+    int32_t flags = 2;
+    int32_t mode = F<int32_t>(m, 0x2171);
+    if (mode != 6) {
+        if (h < D(0x5c8880)) return;
+        if (h < D(0x5cab78)) {
+            h = (float)((h - D(0x5c8880)) / D(0x5cab70));
+            color = (uint32_t)Ftol((double)h * Fl(0x5ca0ec)) << 24 | 0xcf1f00;
+        }
+    }
+    switch (mode) {
+    case 1: {
+        uint8_t* b = nullptr;
+        uint8_t* site = (uint8_t*)Obj_FirstActiveInChain(cell);
+        if (site)
+            b = (uint8_t*)Obj_Building(site);
+        else if (cell[0xe6] & 0x10) {
+            float fy = (float)cy, fx = (float)cx;
+            int32_t id = Table_NearestValue23a(hook::Global<Collection*>(0x62bae0), 0, fx, fy);
+            if (!id) return;
+            b = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62bae0), 0, (uint32_t)id);
+        }
+        bool own = forced != 0;
+        if (own && Collection_Get(hook::Global<Collection*>(0x6cec20), 0, F<uint32_t>(m, 0x2181)))
+            b = (uint8_t*)Obj_Building(Collection_Get(hook::Global<Collection*>(0x6cec20), 0, F<uint32_t>(m, 0x2181)));
+        if (b) {
+            float bz = F<float>(b, 0x1e6);
+            double t = Camera_TargetAboveGround(hook::Global<uint8_t*>(0x62be68)) / Fl(0x5c8c28) + Fl(0x5cab50);
+            double dd = (double)dist;
+            bz = (float)(t + dd * D(0x5c8578) + bz);
+            Scene_ProjectNormalised((uint8_t*)Engine_Renderer(hook::Global<void*>(0x6d4024)), 0, F<float>(b, 0x1e2), bz, F<float>(b, 0x1ea), &x, &y,
+                                    &fade);
+        }
+        if (own) {
+            uint8_t* st = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cec20), 0, F<uint32_t>(m, 0x2181));
+            if (st) FormatText(text, (const char*)st + 0x46b, 0, 0, 0, 0, 0, 0, 0, 0);
+            color |= 0xffffff;
+        } else if (F<int32_t>(hook::Global<uint8_t*>(0x62ba8c), 0x9a + F<int32_t>(m, 0x2179) * 4) == -1) {
+            int32_t k = F<int32_t>(m, 0x2179) % 0x35;
+            int32_t q = City_CargoQuota(Grid_RegionAt(m, 0, cx / 4, cy / 4), 0, k);
+            float qf = (float)q;
+            int32_t a = Ftol((double)qf / Fl(0x5cab40));
+            int32_t diff = Ftol((double)quota / Fl(0x5cab40)) - a;
+            int32_t mag = diff < 0 ? -diff : diff;
+            Num_FormatSimple(buf, 9, (double)mag, 0xb);
+            color &= 0xff000000;
+            if (diff == 0) {
+                FormatText(text, buf, 0, 0, 0, 0, 0, 0, 0, 0);
+                color |= 0xdfdfdf;
+            } else if (diff > 0) {
+                FormatText(text, (const char*)0x5cab3c, buf, 0, 0, 0, 0, 0, 0, 0);
+                color |= 0xbfffbf;
+            } else {
+                FormatText(text, (const char*)0x5cab38, buf, 0, 0, 0, 0, 0, 0, 0);
+                color |= 0xffbfbf;
+            }
+        } else {
+            uint8_t* st = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cec20), 0, F<uint32_t>(m, 0x2181));
+            if (!st || !site) return;
+            float cnt, amt;
+            Train_GatherLoads(st, 0, 1, nullptr, site, F<int32_t>(m, 0x2179), BitsF(0x4479c000u), &cnt, &amt, nullptr);
+            float rate = 0.0f;
+            if (!(cnt == Fl(0x5c8598))) rate = amt / cnt;
+            rate = (float)((double)rate / Fl(0x5c86a0) + D(0x5c8628));
+            if (cnt < D(0x5c8628))
+                text[0] = 0;
+            else {
+                char count[0x40];
+                Num_Format(count, 4, (double)cnt, 10, 1, 0, 0);
+                FormatText(text, (const char*)0x5cab44, Num_FormatSimple(buf, 9, (double)rate, 0xb), count, 0, 0, 0, 0, 0, 0);
+            }
+            color &= 0xff000000;
+            color |= !(rate >= Fl(0x5c85b4)) ? 0xdfdfdf : 0xbfffbf;
+        }
+        flags = hasPax ? 0x80 : 0;
+        zOff = -2.0f;
+        break;
+    }
+    case 2: {
+        uint8_t* r = Grid_RegionAt(m, 0, cx / 4, cy / 4);
+        float v = (float)F<uint16_t>(r, 0xf3 + F<int32_t>(m, 0x2179) % 8 * 2);
+        v = v / Fl(0x5caacc);
+        ExeSprintf()(text, (const char*)0x5cab54, (double)v);
+        break;
+    }
+    case 3: {
+        int32_t k = F<int32_t>(m, 0x2179) % 0x35;
+        float qf = (float)City_CargoQuota(Grid_RegionAt(m, 0, cx / 4, cy / 4), 0, k);
+        Num_FormatSimple(text, 9, (double)qf, 0xb);
+        uint8_t* r = Grid_RegionAt(m, 0, cx / 4, cy / 4);
+        float v = F<float>(r, 0x103 + F<int32_t>(m, 0x2179) % 0x35 * 4);
+        ExeSprintf()(buf, (const char*)0x5cab30, (double)v);
+        strcat(text, buf);
+        break;
+    }
+    case 4: {
+        uint8_t* r = Grid_RegionAt(m, 0, cx / 4, cy / 4);
+        float v = F<float>(r, 0x103 + F<int32_t>(m, 0x2179) % 0x35 * 4);
+        ExeSprintf()(text, (const char*)0x5cab54, (double)v);
+        break;
+    }
+    case 5: {
+        int32_t k = F<int32_t>(m, 0x2179) % 0x35;
+        float v = Obj_Level(Grid_RegionAt(m, 0, cx / 4, cy / 4), 0, k);
+        ExeSprintf()(text, (const char*)0x5cab20, (double)v);
+        break;
+    }
+    case 6: {
+        uint8_t* p = hook::Global<uint8_t*>(0x6cfe18);
+        if (!p) return;
+        float fa, fb, fr;
+        Obj_GetDims(p, 0, (int32_t*)&fa, (int32_t*)&fb, &fr);
+        fa = (float)(fa + D(0x5c8628));
+        fb = (float)(fb + D(0x5c8628));
+        int32_t px = Ftol(fa), py = Ftol(fb), r = Ftol(fr);
+        if ((px - cx < 0 ? cx - px : px - cx) + (py - cy < 0 ? cy - py : py - cy) > r * 2 + 4) return;
+        int32_t lx = px - r - 2, ly = py - r - 2;
+        if (lx < 0) lx = 0;
+        if (ly < 0) ly = 0;
+        int32_t hx = r + px + 2, hy = r + py + 2;
+        if (F<int32_t>(m, 0x15d9) - 1 < hx) hx = F<int32_t>(m, 0x15d9) - 1;
+        if (F<int32_t>(m, 0x15d5) - 1 < hy) hy = F<int32_t>(m, 0x15d5) - 1;
+        if (cx < lx || cx > hx || cy < ly || cy > hy) return;
+        if (r == 0)
+            lift = cx == px && cy == py ? 1.0f : 0.0f;
+        else {
+            float rf = (float)r;
+            float d = (float)(uint16_t)DistanceInt(px, py, cx, cy);
+            lift = (float)(((double)rf - d) / rf);
+        }
+        double t = lift < D(0x5c86b8) ? BitsD(0x3fb999999999999aull) : (double)lift;
+        color = 0xffcf1f00;
+        zOff = (float)-t;
+        if (lift >= D(0x5caa68)) {
+            text[0] = 'X';
+            text[1] = 0;
+        } else if (lift > Fl(0x5c8598)) {
+            text[0] = 'o';
+            text[1] = 0;
+        } else {
+            color = 0xffcccccc;
+            x = (float)(x + D(0x5cab68));
+            text[0] = '.';
+            text[1] = 0;
+            y = (float)(y - D(0x5cab60));
+        }
+        fade = Fade_Step_Impl();
+        break;
+    }
+    }
+    float fogScale, fogStrength;
+    uint32_t fogFont;
+    Fog_ParamsAt((uint8_t*)Engine_Get1C(hook::Global<void*>(0x6d4024)), 0, cx * 0x5c, cy * 0x5c, zOff, &fogScale, &fogFont, &fogStrength);
+    Fade_Save();
+    if (F<int32_t>(hook::Global<uint8_t*>(0x6d401c), 0xc64) <= 0 && (y < D(0x5cab28) || y == D(0x5cab28)))
+        fade = BitsF(0x3a9d4952u);
+    else if (F<float>(hook::Global<uint8_t*>(0x62be68), 0x14) >= D(0x5c8da8))
+        fade = (float)(fade - D(0x5c85b8));
+    Fade_Set(FBits(fade));
+    float ty = (float)(y - D(0x5c86b8));
+    float tx = (float)(x - D(0x5c88c8));
+    Font_DrawTextBox((uint8_t*)(uintptr_t)fogFont, 0, text, tx, ty, BitsF(0x3f19999au), BitsF(0x3e4ccccdu), color, 0, 0, (uint32_t)flags,
+                     fogScale);
+    Fade_Restore();
+}
+RT3_REPLACE(0x452100, Map_DrawCellLabel);
+
+int32_t __fastcall Render_ProjectClip(uint8_t* r, int, float x, float y, float z, float limit, float maxZ, float* out);
+int32_t __fastcall Render_GridCell(uint8_t* r, int, int32_t x, int32_t y);
+void* __fastcall Terrain_HeightsSlot(uint8_t* r);
+int32_t __fastcall Terrain_Rows(uint8_t* r);
+uint32_t __fastcall Terrain_Get1619(uint8_t* r, int, int8_t i);
+
+// 0x526b70. Top level of the terrain LOD pass over cells [u0, uEnd) x [v0,
+// vEnd) at `level` (grid +0x61 and base shift +0x69 from the settings +0x65).
+// A cell is kept when it is close enough (distance table 0x6d9098 at most
+// 0x18), or else on screen: for mid distances (up to 0x2e) any corner, for
+// far ones its centre with a wider margin (renderer +0x2d). A kept cell is
+// listed at +0x374f ({u, v, grid cell, threshold}, count +0x22b53), marks
+// its grid corners with level + 1, and is refined by 0x526670 where its
+// height variation (+0x1619 per level) beats its threshold (scaled by
+// +0x22b5b). The threshold offset 0xaf3528 is set from 0x8f2518 * 0x5dd000.
+void __fastcall TerrainLod_Build(uint8_t* self, int, int32_t levelArg, uint8_t* t, int32_t u0, int32_t v0, int32_t uEnd, int32_t vEnd) {
+    uint8_t* g = F<uint8_t*>(self, 0x65);
+    F<int32_t>(self, 0x69) = F<int32_t>(g, 0x1f418);
+    int32_t level = (int8_t)levelArg;
+    uint32_t sh = (uint32_t)(F<int32_t>(g, 0x1f418) + level);
+    F<uint32_t>(self, 0x61) = F<uint32_t>(g, 0x1f414);
+    int32_t step = 1 << (sh & 31);
+    float** slots = (float**)Terrain_HeightsSlot(t);
+    float* H0 = slots[0];
+    float* Hl = slots[level];
+    int32_t rows1 = Terrain_Rows(t) + 1;
+    uint32_t cellPx = 0x5c << (level & 31);
+    uint16_t half = (uint16_t)((uint16_t)cellPx >> 1);
+    const uint16_t* var = (const uint16_t*)(uintptr_t)Terrain_Get1619(t, 0, (int8_t)levelArg);
+    int32_t W = (Terrain_Rows(t) >> (level & 31)) + 1;
+    uint8_t* out = self + 0x374f;
+    hook::Global<int32_t>(0xaf3528) = Ftol((double)hook::Global<float>(0x8f2518) * hook::Global<float>(0x5dd000));
+    if (!((int16_t)u0 < (int16_t)uEnd)) return;
+    int32_t rowOff0 = (int32_t)(int16_t)v0 << (sh & 31);
+    int32_t rowOff1 = ((int32_t)(int16_t)v0 + 1) << (sh & 31);
+    uint16_t cpx = (uint16_t)cellPx;
+    auto clip = [&](int32_t x, float z, int32_t y, uint32_t limit) {
+        return Render_ProjectClip(F<uint8_t*>(self, 0x2d), 0, (float)x, z, (float)y, BitsF(limit), 1.0f, nullptr);
+    };
+    int32_t u = u0, ub = (int16_t)u0, u1 = u0 + 1, childU = u0 * 2 + 2;
+    do {
+        int32_t du = (ub << (level & 31)) - F<int32_t>(self, 0x3682);
+        if (du < 0) du = -du;
+        int32_t uLo = u << (level & 31), uHi = u1 << (level & 31);
+        uint8_t* G = F<uint8_t*>(self, 0x61);
+        uint8_t* r0 = G + rowOff0;
+        uint8_t* r1 = G + rowOff1;
+        int32_t v = v0;
+        int32_t vi = (uint16_t)v0;
+        if (vi < (int16_t)vEnd) {
+            int32_t duRow = (int32_t)(uint16_t)du * 0x418;
+            int32_t childV = v0 * 2 + 2;
+            do {
+                int32_t vs = vi << (level & 31);
+                int32_t dv = vs - F<int32_t>(self, 0x3686);
+                if (dv < 0) dv = -dv;
+                const uint16_t* dp = (const uint16_t*)0x6d9098 + ((int16_t)dv + duRow);
+                uint16_t d = *dp;
+                bool keep;
+                if (d > 0x2e)
+                    keep = clip(ub * cpx + half, Hl[vi * W + ub], cpx * vi + half, 0x3ff33333) != 0;
+                else if (d > 0x18) {
+                    int32_t x0 = ub * cpx, y0 = vi * cpx;
+                    int32_t row = vs * rows1;
+                    keep = clip(x0, H0[(int16_t)uLo + row], y0, 0x3fe00000) != 0;
+                    if (!keep) {
+                        int32_t x1 = x0 + half * 2;
+                        keep = clip(x1, H0[(int16_t)uHi + row], y0, 0x3fe00000) != 0;
+                        if (!keep) {
+                            int32_t row1 = ((vi + 1) << (level & 31)) * rows1;
+                            int32_t y1 = y0 + half * 2;
+                            keep = clip(x1, H0[(int16_t)uHi + row1], y1, 0x3fe00000) != 0;
+                            if (!keep) keep = clip(x1 - half * 2, H0[row1 + (int16_t)uLo], y1, 0x3fe00000) != 0;
+                        }
+                    }
+                } else
+                    keep = true;
+                if (keep) {
+                    int32_t dd = (int16_t)*dp;
+                    int32_t thr = Ftol((double)dd * hook::Global<float>(0x6d9090)) + hook::Global<int32_t>(0xaf3528);
+                    F<int32_t>(out, 0) = ub;
+                    F<int32_t>(out, 4) = vi;
+                    F<int32_t>(out, 8) = Render_GridCell(t, 0, ub, vi);
+                    F<int32_t>(out, 0xc) = (int16_t)thr;
+                    out += 0x10;
+                    ++F<int32_t>(self, 0x22b53);
+                    int32_t t2 = ((const int16_t*)0xc33d38)[(int16_t)thr];
+                    int32_t thr2 = Ftol((double)t2 * F<float>(self, 0x22b5b));
+                    uint8_t mark = (uint8_t)(levelArg + 1);
+                    r1[(int16_t)uHi] = mark;
+                    r1[(int16_t)uLo] = mark;
+                    r0[(int16_t)uHi] = mark;
+                    r0[(int16_t)uLo] = mark;
+                    r1 += step;
+                    r0 += step;
+                    if ((int32_t)var[vi * W + ub] - (int16_t)thr2 > 0)
+                        TerrainLod_Mark(self, 0, (uint8_t)(levelArg - 1), t, u * 2, v * 2, childU, childV);
+                } else {
+                    r0 += step;
+                    r1 += step;
+                }
+                ++v;
+                vi = (uint16_t)v;
+                childV += 2;
+            } while (vi < (int16_t)vEnd);
+        }
+        ++u;
+        ++u1;
+        childU += 2;
+        ++ub;
+    } while ((int16_t)u < (int16_t)uEnd);
+}
+RT3_REPLACE(0x526b70, TerrainLod_Build);
+
+void StreamInit();
+void Language_Load();
+const char* __fastcall StrFind(const char* hay, const char* needle, int32_t caseSensitive);
+void __fastcall Fatal_Exit(const char* msg);
+
+// 0x481fd0. Start of the game object's setup. It finds the game CD: the drive
+// 0x625a90 holding "_Autorun\rt3d1.txt" (or rt3d2.txt). QUIRK: a disc-1 hit
+// keeps scanning, so the last such drive wins, while a disc-2 hit stops at
+// the first. Then it clears the object's state, sets the handler 0xd97968,
+// starts the streams and loads the language. For the Taiwanese text the
+// table 0x5ee8e0 is filled with 'c'; under language 12 this exe refuses to
+// run.
+uint8_t* __fastcall Game_InitStart(uint8_t* g) {
+    auto driveType = Import<uint32_t(__stdcall*)(const char*)>(0x5c806c);
+    auto open_ = (int(__cdecl*)(const char*, int))0x5a4c57;
+    auto close_ = (int(__cdecl*)(int))0x5a440d;
+    int32_t disc1 = 0;
+    for (int32_t d = 0; d < 26; ++d) {
+        char root[4];
+        F<uint32_t>(root, 0) = 0x5c3a41;
+        root[0] = (char)('A' + d);
+        if (driveType(root) != 5) continue;
+        char path[0x1e8];
+        FormatText(path, (const char*)0x5ceca4, root, 0, 0, 0, 0, 0, 0, 0);
+        int fd = open_(path, 0x8000);
+        if (fd != -1)
+            disc1 = 1;
+        else {
+            FormatText(path, (const char*)0x5cec8c, root, 0, 0, 0, 0, 0, 0, 0);
+            fd = open_(path, 0x8000);
+            if (fd == -1) continue;
+        }
+        close_(fd);
+        hook::Global<int32_t>(0x625a90) = d;
+        if (!disc1) break;
+    }
+    hook::Global<uint32_t>(0xd97968) = 0x481fc0;
+    F<int32_t>(g, 0x18) = 0;
+    F<int32_t>(g, 0x64) = 0;
+    F<int32_t>(g, 0x501) = 0;
+    memset(g + 0x1c, 0, 0x11 * 4);
+    StreamInit();
+    Language_Load();
+    if (StrFind(GetString(0x5be), (const char*)0x5cec80, 0)) memset((void*)0x5ee8e0, 0x63, 0x25b * 4 + 3);
+    if (hook::Global<int32_t>(0x6d3c84) == 0xc) Fatal_Exit((const char*)0x5cec20);
+    return g;
+}
+RT3_REPLACE(0x481fd0, Game_InitStart);
+
+int32_t __fastcall VisitGrid_Log2(uint8_t* g);
+uint8_t* __fastcall VisitGrid_Flags(uint8_t* g);
+uint32_t __fastcall Terrain_Get15e5(uint8_t* r);
+int32_t __fastcall Terrain_Cols(uint8_t* r);
+uint32_t __fastcall Terrain_Get165d(uint8_t* r);
+
+// 0x524e60. Builds the skirts that hide the terrain's outer edge: for each map
+// side the camera is near (within 4 of the camera cell from +0x369c / +0x36a4,
+// scaled by 0x5dcfe8), a strip down to y = -1024 per run of marked LOD cells
+// (grid +0x61 via settings +0x65). Each quad (6 vertices of x, y, z, 0, u, v
+// at +0x22bb7, count +0x3abb7) runs from a marked cell to the next marked
+// one, its top at the cell heights of their levels plus +0x25, faded by the
+// cell attributes' low nibble. +0x3abbb..+0x3abd7 get each side's vertex
+// range. QUIRK: the level of "the next cell" carries over between cells and
+// sides in the argument slot, so a run reaching the side's end uses the
+// previous level again, one lower each time, starting from the low byte of
+// `t` itself; the right side reads its attributes one entry too early.
+void __fastcall TerrainSkirt_Build(uint8_t* self, int, uint8_t* t) {
+    int32_t shift = VisitGrid_Log2(F<uint8_t*>(self, 0x65));
+    uint8_t* grid = VisitGrid_Flags(F<uint8_t*>(self, 0x65));
+    float** slots = (float**)Terrain_HeightsSlot(t);
+    uint32_t* xs = (uint32_t*)(uintptr_t)Terrain_Get15e5(t);
+    int32_t W = Terrain_Rows(t);
+    int32_t H = Terrain_Cols(t);
+    uint8_t* attr = (uint8_t*)(uintptr_t)Terrain_Get165d(t);
+    uint32_t* out = (uint32_t*)(self + 0x22bb7);
+    int32_t& count = F<int32_t>(self, 0x3abb7);
+    count = 0;
+    int32_t camX = Ftol((double)F<float>(self, 0x369c) * Fl(0x5dcfe8));
+    int32_t camY = Ftol((double)F<float>(self, 0x36a4) * Fl(0x5dcfe8));
+    for (uint32_t o = 0x3abbb; o <= 0x3abd7; o += 4) F<int32_t>(self, o) = 0;
+    uint8_t carry = (uint8_t)(uintptr_t)t;
+    auto alphaOf = [](uint8_t nib) { return (float)((D(0x5c8770) - (double)(int32_t)nib * D(0x5d0aa0)) * D(0x5c9ba0)); };
+    auto height = [&](int8_t lvl, int32_t row, int32_t col) {
+        return slots[lvl][((W >> (lvl & 31)) + 1) * (row >> (lvl & 31)) + (col >> (lvl & 31))];
+    };
+    auto put = [&](uint32_t x, float y, uint32_t z, float u, float v) {
+        out[0] = x;
+        out[1] = FBits(y);
+        out[2] = z;
+        out[3] = 0;
+        out[4] = FBits(u);
+        out[5] = FBits(v);
+        out += 6;
+    };
+    const float low = BitsF(0xc4800000u), bottomV = BitsF(0x3f7d70a4u);
+    // One side: `n` cells, cell(k) its LOD byte, nib(k) its attribute
+    // nibble, top(lvl, k) its height and emit() the quad's six vertices.
+    auto side = [&](int32_t n, auto cell, auto nib, auto top, auto emit) {
+        for (int32_t i = 0; i < n; ++i) {
+            uint8_t c = cell(i);
+            if (!c) continue;
+            int8_t l1 = (int8_t)(c - 1);
+            int32_t j = i + 1;
+            if (j > n) {
+                if (!carry) continue;
+            } else {
+                for (;; ++j) {
+                    if (j > n) break;
+                    carry = cell(j);
+                    if (carry) break;
+                }
+                if (j > n) continue;
+            }
+            --carry;
+            uint8_t na = nib(i), nb = nib(j);
+            float aA = alphaOf(na), aB = alphaOf(nb);
+            float h1 = top(l1, i), h2 = top((int8_t)carry, j);
+            float a1 = na ? aA : 0.05f;
+            float a2 = nb ? aB : Fl(0x5d0058);
+            float ui = (float)((double)i * D(0x5dcfe0)), uj = (float)((double)j * D(0x5dcfe0));
+            float t1 = h1 + F<float>(self, 0x25), t2 = h2 + F<float>(self, 0x25);
+            emit(i, j, t1, t2, ui, uj, a1, a2);
+            count += 6;
+            i = j - 1;
+        }
+    };
+    if (camY < 4) {
+        F<int32_t>(self, 0x3abbb) = 0;
+        side(W, [&](int32_t k) { return grid[k]; }, [&](int32_t k) { return (uint8_t)(attr[k * 3 + 2] & 0xf); },
+             [&](int8_t l, int32_t k) { return height(l, 0, k); },
+             [&](int32_t i, int32_t j, float t1, float t2, float ui, float uj, float a1, float a2) {
+                 put(xs[i], t1, xs[0], ui, a1);
+                 put(xs[j], low, xs[0], uj, bottomV);
+                 put(xs[i], low, xs[0], ui, bottomV);
+                 put(xs[j], low, xs[0], uj, bottomV);
+                 put(xs[i], t1, xs[0], ui, a1);
+                 put(xs[j], t2, xs[0], uj, a2);
+             });
+        F<int32_t>(self, 0x3abbf) = count;
+    }
+    if (camX < 4) {
+        F<int32_t>(self, 0x3abc3) = count;
+        side(H, [&](int32_t k) { return grid[k << (shift & 31)]; }, [&](int32_t k) { return (uint8_t)(attr[(W + 1) * k * 3 + 2] & 0xf); },
+             [&](int8_t l, int32_t k) { return height(l, k, 0); },
+             [&](int32_t i, int32_t j, float t1, float t2, float ui, float uj, float a1, float a2) {
+                 put(xs[0], t1, xs[i], ui, a1);
+                 put(xs[0], low, xs[i], ui, bottomV);
+                 put(xs[0], low, xs[j], uj, bottomV);
+                 put(xs[0], t1, xs[i], ui, a1);
+                 put(xs[0], low, xs[j], uj, bottomV);
+                 put(xs[0], t2, xs[j], uj, a2);
+             });
+        F<int32_t>(self, 0x3abc7) = count;
+    }
+    int32_t r = H - 1;
+    if (camY > H - 4) {
+        F<int32_t>(self, 0x3abcb) = count;
+        side(W, [&](int32_t k) { return grid[(r << (shift & 31)) + k]; },
+             [&](int32_t k) { return (uint8_t)(attr[(r * 3 - 3) * (W + 1) + k * 3 + 2] & 0xf); },
+             [&](int8_t l, int32_t k) { return height(l, r, k); },
+             [&](int32_t i, int32_t j, float t1, float t2, float ui, float uj, float a1, float a2) {
+                 put(xs[i], t1, xs[r], ui, a1);
+                 put(xs[i], low, xs[r], ui, bottomV);
+                 put(xs[j], low, xs[r], uj, bottomV);
+                 put(xs[i], t1, xs[r], ui, a1);
+                 put(xs[j], low, xs[r], uj, bottomV);
+                 put(xs[j], t2, xs[r], uj, a2);
+             });
+        F<int32_t>(self, 0x3abcf) = count;
+    }
+    int32_t c = W - 1;
+    if (camX > W - 4) {
+        F<int32_t>(self, 0x3abd3) = count;
+        side(H, [&](int32_t k) { return grid[(k << (shift & 31)) + c]; },
+             [&](int32_t k) { return (uint8_t)(attr[((W + 1) * k + c) * 3 - 3 + 2] & 0xf); },
+             [&](int8_t l, int32_t k) { return height(l, k, c); },
+             [&](int32_t i, int32_t j, float t1, float t2, float ui, float uj, float a1, float a2) {
+                 put(xs[c], t1, xs[i], ui, a1);
+                 put(xs[c], low, xs[j], uj, bottomV);
+                 put(xs[c], low, xs[i], ui, bottomV);
+                 put(xs[c], low, xs[j], uj, bottomV);
+                 put(xs[c], t1, xs[i], ui, a1);
+                 put(xs[c], t2, xs[j], uj, a2);
+             });
+        F<int32_t>(self, 0x3abd7) = count;
+    }
+}
+RT3_REPLACE(0x524e60, TerrainSkirt_Build);
+
+void __fastcall Obj_CenterCell(void* o, int, float* x, float* y);
+double __stdcall Distance2D(float x1, float y1, float x2, float y2);
+double __stdcall DistanceSq2D(float x1, float y1, float x2, float y2);
+double __stdcall AngleOf(float x0, float y0, float x1, float y1);
+double __fastcall AngleDelta(int32_t* wrapped, int, float a, float b);
+void __fastcall Effect_GetVectors(uint8_t* e, int, uint32_t* a, uint32_t* b, uint32_t* c, uint32_t* d);
+int32_t __fastcall Track_HasLink(uint8_t* t, int, uint8_t end);
+
+// 0x498320. Plans a curve from the builder's current piece (ends +0x139 and
+// +0x15d, centre their mean, direction +0x145) to piece `bId` of collection
+// `t` (its ends from 0x5394b0). Each end's travel direction comes from its
+// free links, or from which end lies toward the other piece. Unless the two
+// directions already agree, it puts circles of radius 3.62 on both sides of
+// each end and takes the shortest of the four tangent paths (outer left,
+// outer right and the two crossings, arcs included). *out gets the list
+// {start of tangent} -> {end of tangent} -> {p4, p5} (12-byte nodes, next at
+// +8). If that is longer than twice the straight distance it tries once more
+// with radius 1.81. Returns 0 only when both tries are too long (the list is
+// then freed); 1 otherwise, also when no curve is needed.
+int32_t __fastcall Track_PlanCurve(uint8_t* t, int, uint32_t aId, uint32_t bId, uint32_t p4, uint32_t p5, uint32_t** out) {
+    if (aId == bId) return 1;
+    auto sin_ = (double(__cdecl*)(double))0x5a1494;
+    auto cos_ = (double(__cdecl*)(double))0x5a13e4;
+    auto atan_ = (double(__cdecl*)(double))0x5a1270;
+    auto fabs_ = (double(__cdecl*)(double))0x5a152e;
+    auto asin_ = (double(__cdecl*)(double))0x5a2f84;
+    auto malloc_ = (void*(__cdecl*)(size_t))0x5a125d;
+    auto free_ = (void(__cdecl*)(void*))0x5a1145;
+    int32_t pass = 0;
+    uint32_t* prev = nullptr;
+    float r = BitsF(0x4067ae14u);
+    uint8_t* A = (uint8_t*)Collection_Get((Collection*)t, 0, aId);
+    uint8_t* B = (uint8_t*)Collection_Get((Collection*)t, 0, bId);
+    const float k = Fl(0x5c8700);
+    float cx = (float)((((double)F<float>(t, 0x151) + F<float>(t, 0x139)) / Fl(0x5c878c)) / k);
+    float cz = (float)((((double)F<float>(t, 0x159) + F<float>(t, 0x141)) / Fl(0x5c878c)) / k);
+    float bx, bz;
+    Obj_CenterCell(B, 0, &bx, &bz);
+    float d0 = (float)Distance2D(cx, cz, bx, bz);
+    float p0x = F<float>(t, 0x139), p0z = F<float>(t, 0x141), dirx = F<float>(t, 0x145), dirz = F<float>(t, 0x14d);
+    float p1x = F<float>(t, 0x15d), p1z = F<float>(t, 0x165);
+    uint32_t qa[3], qd[3], qb[3];
+    Effect_GetVectors(B, 0, qa, qd, nullptr, qb);
+    float q0x = BitsF(qa[0]), q0z = BitsF(qa[2]), dqx = BitsF(qd[0]), dqz = BitsF(qd[2]), q1x = BitsF(qb[0]), q1z = BitsF(qb[2]);
+    int32_t aF1 = Track_HasLink(A, 0, 1), aF2 = Track_HasLink(A, 0, 2);
+    int32_t bF1 = Track_HasLink(B, 0, 1), bF2 = Track_HasLink(B, 0, 2);
+    if (!aF1 && !aF2) {
+        float dA = (float)DistanceSq2D((float)(p0x / k), (float)(p0z / k), bx, bz);
+        if (!(DistanceSq2D((float)(p1x / k), (float)(p1z / k), bx, bz) > dA)) aF1 = 1;
+        else aF2 = 1;
+    }
+    if (!bF1 && !bF2) {
+        float dA = (float)DistanceSq2D((float)(q0x / k), (float)(q0z / k), cx, cz);
+        if (!(DistanceSq2D((float)(q1x / k), (float)(q1z / k), cx, cz) > dA)) bF1 = 1;
+        else bF2 = 1;
+    }
+    auto slope = [](float dz, float dx) {
+        if (dz == Fl(0x5c8598)) dz = BitsF(0x38d1b717u);
+        if (dx == Fl(0x5c8598)) dx = BitsF(0x38d1b717u);
+        return (float)(Fl(0x5c9b08) / ((double)dz / dx));
+    };
+    auto nz = [](float& v) {
+        if (v == Fl(0x5c8598)) v = BitsF(0x38d1b717u);
+    };
+    for (;;) {
+        float angA;
+        if (!aF1)
+            angA = (float)AngleOf(p1x, p1z, p0x, p0z);
+        else if (!aF2)
+            angA = (float)AngleOf(p0x, p0z, p1x, p1z);
+        else {
+            float m = slope(p1z - p0z, p1x - p0x);
+            bool below = (double)p0z / k < ((double)p0x / k - cx) * m + cz;
+            bool gt = ((double)bx - cx) * m + cz > bz;
+            angA = below == gt ? (float)AngleOf(p1x, p1z, p0x, p0z) : (float)AngleOf(p0x, p0z, p1x, p1z);
+        }
+        float angB;
+        if (!bF1)
+            angB = (float)AngleOf(q0x, q0z, q1x, q1z);
+        else if (!bF2)
+            angB = (float)AngleOf(q1x, q1z, q0x, q0z);
+        else {
+            float m = slope(q1z - q0z, q1x - q0x);
+            bool below = (double)q0z / k < ((double)q0x / k - bx) * m + bz;
+            bool gt = ((double)cx - bx) * m + bz > cz;
+            angB = below == gt ? (float)AngleOf(q0x, q0z, q1x, q1z) : (float)AngleOf(q1x, q1z, q0x, q0z);
+        }
+        float diff = (float)fabs_(AngleDelta(nullptr, 0, angA, angB));
+        if (diff < D(0x5c88e8)) {
+            float mid = (float)AngleOf((float)(((double)dirx + p0x) / Fl(0x5c878c)), (float)(((double)dirz + p0z) / Fl(0x5c878c)),
+                                       (float)(((double)dqx + q0x) / Fl(0x5c878c)), (float)(((double)dqz + q0z) / Fl(0x5c878c)));
+            diff = (float)fabs_(AngleDelta(nullptr, 0, angA, mid));
+            if (diff < D(0x5c88e8)) return 1;
+        }
+        // Circle centres beside each end (left = -90 degrees, right = +90).
+        auto side = [&](float ang, double off, float ox, float oz, float& x, float& z) {
+            float a = (float)(ang + off);
+            x = (float)(sin_(a) * r + ox);
+            z = (float)(cos_(a) * r + oz);
+        };
+        float aLx, aLz, aRx, aRz, bLx, bLz, bRx, bRz;
+        side(angA, -(double)Fl(0x5c8764), cx, cz, aLx, aLz);
+        side(angA, Fl(0x5c8764), cx, cz, aRx, aRz);
+        side(angB, -(double)Fl(0x5c8764), bx, bz, bLx, bLz);
+        side(angB, Fl(0x5c8764), bx, bz, bRx, bRz);
+        float d1 = bLx - aLx, d2 = bLx - aRx, d3 = bRx - aLx, d4 = bRx - aRx;
+        nz(d1);
+        nz(d2);
+        nz(d3);
+        nz(d4);
+        float s1 = (float)(((double)bLz - aLz) / d1), s2 = (float)(((double)bLz - aRz) / d2);
+        float s3 = (float)(((double)bRz - aLz) / d3), s4 = (float)(((double)bRz - aRz) / d4);
+        float dLL = (float)Distance2D(aLx, aLz, bLx, bLz), dRL = (float)Distance2D(aRx, aRz, bLx, bLz);
+        float dLR = (float)Distance2D(aLx, aLz, bRx, bRz), dRR = (float)Distance2D(aRx, aRz, bRx, bRz);
+        float ang1 = (float)AngleOf(aLx, aLz, bLx, bLz), ang2 = (float)AngleOf(aRx, aRz, bRx, bRz);
+        nz(s1);
+        nz(s4);
+        float t1 = (float)atan_(D(0x5c9bf0) / s1), t2 = (float)atan_(D(0x5c9bf0) / s4);
+        // Outer tangents: points r along the normal of the centre line.
+        float T1sx, T1sz, T1ex, T1ez, T2sx, T2sz, T2ex, T2ez;
+        if (ang1 < Fl(0x5c8760) && !(ang1 <= D(0x5c8608))) {
+            T1sx = (float)((double)aLx - sin_(t1) * r);
+            T1sz = (float)((double)aLz - cos_(t1) * r);
+            T1ex = (float)((double)bLx - sin_(t1) * r);
+            T1ez = (float)((double)bLz - cos_(t1) * r);
+        } else {
+            T1sx = (float)(sin_(t1) * r + aLx);
+            T1sz = (float)(cos_(t1) * r + aLz);
+            T1ex = (float)(sin_(t1) * r + bLx);
+            T1ez = (float)(cos_(t1) * r + bLz);
+        }
+        if (ang2 < Fl(0x5c8760) && !(ang2 <= D(0x5c8608))) {
+            T2sx = (float)(sin_(t2) * r + aRx);
+            T2sz = (float)(cos_(t2) * r + aRz);
+            T2ex = (float)(sin_(t2) * r + bRx);
+            T2ez = (float)(cos_(t2) * r + bRz);
+        } else {
+            T2sx = (float)((double)aRx - sin_(t2) * r);
+            T2sz = (float)((double)aRz - cos_(t2) * r);
+            T2ex = (float)((double)bRx - sin_(t2) * r);
+            T2ez = (float)((double)bRz - cos_(t2) * r);
+        }
+        float twoR = r + r;
+        // Crossing tangents (left of A to right of B and back); x = -1 when
+        // the circles overlap.
+        float T3sx = 0.0f, T3sz = 0.0f, T3ex = 0.0f, T3ez = 0.0f, T4sx = 0.0f, T4sz = 0.0f, T4ex = 0.0f, T4ez = 0.0f;
+        if (dLR < twoR)
+            T3sx = -1.0f;
+        else {
+            float dd = dLR;
+            if (dd == Fl(0x5c8598)) dd = BitsF(0x38d1b717u);
+            double as = asin_((double)twoR / dd);
+            float base = (float)(atan_(s3) + as);
+            float other = (float)(base + Fl(0x5c8760));
+            float sa = bRx < aLx ? other : base, ea = bRx < aLx ? base : other;
+            T3sx = (float)(sin_(sa) * r + aLx);
+            T3sz = (float)(cos_(sa) * r + aLz);
+            T3ex = (float)(sin_(ea) * r + bRx);
+            T3ez = (float)(cos_(ea) * r + bRz);
+        }
+        if (dRL < twoR)
+            T4sx = -1.0f;
+        else {
+            float dd = dRL;
+            if (dd == Fl(0x5c8598)) dd = BitsF(0x38d1b717u);
+            double at = atan_(s2);
+            float base = (float)(at - asin_((double)twoR / dd));
+            float other = (float)(base + Fl(0x5c8760));
+            float sa = bLx < aRx ? other : base, ea = bLx < aRx ? base : other;
+            T4sx = (float)(sin_(sa) * r + aRx);
+            T4sz = (float)(cos_(sa) * r + aRz);
+            T4ex = (float)(sin_(ea) * r + bLx);
+            T4ez = (float)(cos_(ea) * r + bLz);
+        }
+        // Arc lengths (as angles) on each circle, wrapped to [0, 2 pi).
+        auto wrap = [](float v) { return v < D(0x5c8608) ? (float)(v + Fl(0x5c8768)) : v; };
+        float hA = (float)AngleOf(aLx, aLz, cx, cz);
+        float aL1 = wrap((float)(hA - (float)AngleOf(aLx, aLz, T1sx, T1sz)));
+        float aL3 = wrap((float)(hA - (float)AngleOf(aLx, aLz, T3sx, T3sz)));
+        float hR = (float)AngleOf(aRx, aRz, cx, cz);
+        float aR2 = wrap((float)((float)AngleOf(aRx, aRz, T2sx, T2sz) - hR));
+        float aR4 = wrap((float)((float)AngleOf(aRx, aRz, T4sx, T4sz) - hR));
+        float hBL = (float)AngleOf(bLx, bLz, bx, bz);
+        float bL1 = wrap((float)((float)AngleOf(bLx, bLz, T1ex, T1ez) - hBL));
+        float bL4 = wrap((float)((float)AngleOf(bLx, bLz, T4ex, T4ez) - hBL));
+        float hBR = (float)AngleOf(bRx, bRz, bx, bz);
+        float bR3 = wrap((float)(hBR - (float)AngleOf(bRx, bRz, T3ex, T3ez)));
+        float bR2 = wrap((float)(hBR - (float)AngleOf(bRx, bRz, T2ex, T2ez)));
+        float len1 = (float)(((double)bL1 * r + (double)aL1 * r) + dLL);
+        float len2 = (float)(((double)bR2 * r + (double)aR2 * r) + dRR);
+        float len3 = T3sx < D(0x5c8608) ? BitsF(0x4e6e6b28u) : (float)((Distance2D(T3sx, T3sz, T3ex, T3ez) + (double)bR3 * r) + (double)aL3 * r);
+        float len4 = T4sx < D(0x5c8608) ? BitsF(0x4e6e6b28u) : (float)((Distance2D(T4sx, T4sz, T4ex, T4ez) + (double)bL4 * r) + (double)aR4 * r);
+        uint32_t* n1 = (uint32_t*)malloc_(0xc);
+        *out = n1;
+        uint32_t* n2 = (uint32_t*)malloc_(0xc);
+        n1[2] = (uint32_t)(uintptr_t)n2;
+        uint32_t* n3 = (uint32_t*)malloc_(0xc);
+        n2[2] = (uint32_t)(uintptr_t)n3;
+        n3[0] = p4;
+        n3[1] = p5;
+        n3[2] = 0;
+        float best;
+        auto set = [&](float sx, float sz, float ex, float ez, float len) {
+            n1[0] = FBits(sx);
+            n1[1] = FBits(sz);
+            n2[0] = FBits(ex);
+            n2[1] = FBits(ez);
+            best = len;
+        };
+        if (len1 < len2 && len1 < len3 && len1 < len4)
+            set(T1sx, T1sz, T1ex, T1ez, len1);
+        else if (len2 < len3 && len2 < len4)
+            set(T2sx, T2sz, T2ex, T2ez, len2);
+        else if (len3 < len4)
+            set(T3sx, T3sz, T3ex, T3ez, len3);
+        else
+            set(T4sx, T4sz, T4ex, T4ez, len4);
+        auto freeList = [&](uint32_t* l) {
+            while (l) {
+                uint32_t* next = (uint32_t*)(uintptr_t)l[2];
+                free_(l);
+                l = next;
+            }
+        };
+        bool tooLong = (double)d0 + d0 < best;
+        if (pass == 0) {
+            if (!tooLong) return 1;
+            pass = 1;
+            r = BitsF(0x3fe7ae14u);
+            prev = *out;
+            continue;
+        }
+        if (pass != 1) return 1;
+        if (!tooLong) {
+            freeList(prev);
+            return 1;
+        }
+        freeList(*out);
+        *out = nullptr;
+        freeList(prev);
+        return 0;
+    }
+}
+RT3_REPLACE(0x498320, Track_PlanCurve);
+
+int32_t __fastcall Obj_ArgMax67(void* o);
+void __fastcall Company_RemoveEntry(void* c, int, int32_t idx, int32_t post);
+int32_t __fastcall Company_IssueBond(uint8_t* c, int, int32_t amount, int32_t years, int32_t commission, float rate);
+void __fastcall Company_IssueShares(uint8_t* c, int, int32_t n, int32_t atPrice, int32_t price);
+float __fastcall Company_MaxDividend(uint8_t* c);
+int32_t __fastcall Company_FreeShares(void* c);
+void __fastcall Company_GoBankrupt(uint8_t* c);
+struct GameDate;
+int32_t __fastcall DateToMinutes(const GameDate* d);
+void __fastcall CompanyWindow_Refresh(uint8_t* win);
+int32_t Screen90();
+void __fastcall Company_BuyBackShares(uint8_t* c, int, int32_t n);
+void* __fastcall Company_Owner(void* c);
+int32_t __fastcall Game_EffectiveVersion();
+
+// Bond i of company c: amount (+0x5f), rate (+0x67), 12 bytes each.
+static inline int32_t& BondAmount(uint8_t* c, int32_t i) { return F<int32_t>(c, 0x5f + i * 0xc); }
+static inline float BondRate(uint8_t* c, int32_t i) { return F<float>(c, 0x67 + i * 0xc); }
+
+// 0x401c50. A computer company's yearly money decisions (December):
+//  - bankrupt when deep in debt, losing money and its stock is cheap;
+//  - refinance: on a copy of the company it tries repaying its n dearest
+//    bonds with new $500K ones for each n and keeps the best saving;
+//  - borrow more while cash is short (repeating while the refinance asks);
+//  - repay bonds of 6% and more while cash covers them, then buy back stock
+//    in lots of 1000 while cash is plenty (owner's AI bonus +0x5f2d37);
+//  - else possibly go bankrupt after years of losses, or issue stock when its
+//    bonds are dear and the price is good;
+//  - set the dividend from the last three years' profit;
+// and puts what it did in the news (0x6acd34).
+void __fastcall Company_YearFinance(uint8_t* c) {
+    auto cur = [] { return (int32_t)F<uint16_t>(hook::Global<uint8_t*>(0x6cec78), 0xd); };
+    auto world = [] { return hook::Global<uint8_t*>(0x6cec78); };
+    auto stat = [&](int32_t id, int32_t year) { return Company_Stat(c, 0, id, year); };
+    auto news = [&](const char* text) { Log_Add(hook::Global<Collection*>(0x6acd34), 0, text, 0x12, F<int32_t>(c, 0), 0); };
+    char text[0x1f8], msg[0x3f0], numA[0x1f8], numB[0x1f8];
+    int32_t issuedCount = 0;
+    float best = 0.0f;
+    int32_t bestN = 0;
+    if (Game_EffectiveVersion() >= 0x67 && F<int32_t>(world(), 0x4a8f) == 0 && world()[0xf] == 0xc &&
+        cur() - F<int32_t>(c, 0x163) >= 0xd && cur() - F<uint16_t>(c, 0x157) >= 4) {
+        int32_t lossYears = 0;
+        float sum = 0.0f, peak = 0.0f;
+        for (int32_t i = 0; i < 3; ++i) {
+            if (stat(0x2b, cur() - i) < D(0x5c86f8)) ++lossYears;
+            double p = peak;
+            double v = stat(0x2c, cur() - i) < p ? (double)peak : stat(0x2c, cur() - i);
+            peak = (float)v;
+            sum = (float)(stat(0x2b, cur() - i) + sum);
+        }
+        float cap;
+        if (peak < Fl(0x5c86f0))
+            cap = BitsF(0xc9127c00u);
+        else if (peak < Fl(0x5c86ec))
+            cap = BitsF(0xc9864700u);
+        else {
+            cap = BitsF(0xc9c35000u);
+            if (!(peak < Fl(0x5c86e8))) cap = BitsF(0xc9f42400u);
+        }
+        double cash = stat(0xd, 0x2329);
+        if (stat(0x12, 0x2329) + cash < cap) {
+            float price = Company_SharePrice(c, 0, 0, 0);
+            float lim = (float)(int32_t)((((lossYears != 3) - 1) & 5) + 0xf);
+            if (price <= lim && (double)cap * D(0x5c86e0) >= stat(9, 0x2329) && lossYears >= 2 && sum <= Fl(0x5c86d8)) {
+                Company_GoBankrupt(c);
+                FormatText(msg, GetString(0xb41), (const char*)c + 4, 0, 0, 0, 0, 0, 0, 0);
+                news(msg);
+                return;
+            }
+        }
+    }
+    uint8_t* backup = (uint8_t*)((void*(__cdecl*)(size_t))0x5a125d)(0x7684);
+    memcpy(backup, c, 0x7684);
+    for (int32_t n = 1; n <= F<int32_t>(backup, 0x5b); ++n) {
+        float paid = 0.0f, owed = 0.0f;
+        for (int32_t k = n; k > 0; --k) {
+            int32_t i = Obj_ArgMax67(c);
+            float amt = (float)BondAmount(c, i);
+            paid = (float)((double)amt * BondRate(c, i) + paid);
+            Company_RemoveEntry(c, 0, i, 1);
+        }
+        bool ok = true;
+        for (int32_t k = 0; k < n; ++k) {
+            if (!Company_IssueBond(c, 0, 500000, 0x1e, 1, 0.0f)) {
+                ok = false;
+                break;
+            }
+            int32_t last = F<int32_t>(c, 0x5b) - 1;
+            float amt = (float)BondAmount(c, last);
+            owed = (float)((double)amt * BondRate(c, last) + owed);
+        }
+        if (ok) {
+            float saved = paid - owed;
+            double dn = (double)n;
+            float score = (float)(saved - dn * D(0x5c86d0));
+            if (score > best) {
+                best = score;
+                bestN = n;
+            }
+        }
+        memcpy(c, backup, 0x7684);
+    }
+    ((void(__cdecl*)(void*))0x5a1145)(backup);
+    int32_t refinance = F<int32_t>(world(), 0x4a8b) ? 0 : bestN;
+    int32_t repaid = 0, issued = 0, bought = 0, bankrupt = 0, repaidCount = 0;
+    if (refinance > 0) {
+        for (int32_t k = refinance; k > 0; --k) {
+            int32_t i = Obj_ArgMax67(c);
+            int32_t a = BondAmount(c, i);
+            repaid += a < 0 ? -a : a;
+            Company_RemoveEntry(c, 0, i, 1);
+        }
+        repaidCount = refinance;
+    }
+    if (!F<int32_t>(world(), 0x4a8b)) {
+        int32_t want = refinance;
+        for (;;) {
+            bool need = stat(0xd, 0x2329) < D(0x5c86c8);
+            if (!need) need = stat(0xd, 0x2329) < D(0x5c86c0) && c[0xd56];
+            if (!need && want <= 0) break;
+            issued += 500000;
+            int32_t r = Company_IssueBond(c, 0, 500000, 0x1e, 1, 0.0f);
+            if (r) ++issuedCount;
+            --want;
+            if (!r) break;
+        }
+    }
+    {
+        int32_t payoff = c[0xd18];
+        int32_t keep = 0x86470;
+        if (F<int32_t>(c, 0x5b) > 0) {
+            int32_t i = Obj_ArgMax67(c);
+            if (BondRate(c, i) >= D(0x5c86b8)) payoff = 1;
+            if (Game_EffectiveVersion() >= 0x67) {
+                int32_t v = BondAmount(c, i) + 0x3a98;
+                if (v <= 0x86470) keep = v;
+            }
+        }
+        if (!F<int32_t>(world(), 0x4a8b) && payoff) {
+            double thr = (double)keep;
+            while (stat(0xd, 0x2329) > thr && F<int32_t>(c, 0x5b)) {
+                int32_t i = Obj_ArgMax67(c);
+                if (BondRate(c, i) < D(0x5c86b0)) break;
+                int32_t a = BondAmount(c, i);
+                repaid += a < 0 ? -a : a;
+                Company_RemoveEntry(c, 0, i, 1);
+                ++repaidCount;
+            }
+        }
+    }
+    if (c[0xd18]) {
+        for (;;) {
+            float f = 1.0f;
+            uint8_t* own = (uint8_t*)Company_Owner(c);
+            if (own) {
+                double v = (double)(hook::Global<int32_t>(0x5f2d37 + (int8_t)own[0x291] * 0x27) + 300);
+                f = (float)(v / D(0x5c86a8));
+            }
+            int32_t mode = F<int32_t>(world(), 0x4c7c);
+            if (mode == 1) f = (float)(f * D(0x5c8570));
+            if (mode == 2 || F<int32_t>(world(), 0x4a87)) break;
+            if (!((double)f * Fl(0x5c86a4) < stat(0xd, 0x2329))) break;
+            double cash = stat(0xd, 0x2329);
+            if (!((double)Company_SharePrice(c, 0, 0, 0) * f * Fl(0x5c86a0) * D(0x5c8698) < cash)) break;
+            if (Company_FreeShares(c) < 1000) break;
+            Company_BuyBackShares(c, 0, 1000);
+            bought += 1000;
+        }
+    }
+    if (!issuedCount && !repaidCount && !bought) {
+        int32_t age = cur() - F<uint16_t>(c, 0x157);
+        if (!F<int32_t>(world(), 0x4a8f) && stat(0xd, 0x2329) < D(0x5c8690) && age >= 3) {
+            int32_t recent = 0;
+            for (int32_t i = 0; i < (age > 5 ? 5 : age); ++i)
+                if (stat(0x2b, cur() - i - 1) > D(0x5c8688) && i < 3) recent = 1;
+            if (!recent && cur() - F<int32_t>(c, 0x163) >= 5) {
+                Company_GoBankrupt(c);
+                FormatText(text, GetString(0xb41), (const char*)c + 4, 0, 0, 0, 0, 0, 0, 0);
+                news(text);
+                bankrupt = 1;
+            }
+        }
+        if (Game_EffectiveVersion() >= 0x67 && !bankrupt && !F<int32_t>(world(), 0x4a8b) && !F<int32_t>(world(), 0x4a87) && F<int32_t>(c, 0x5b) > 1 &&
+            cur() - F<uint16_t>(c, 0x157) >= 1) {
+            int32_t n = F<int32_t>(c, 0x47) / 10 / 1000 * 1000;
+            if (n < 2000) n = 2000;
+            for (;;) {
+                float price = Company_SharePrice(c, 0, 0, 0);
+                float nf = (float)n;
+                if (!((double)price * nf > Fl(0x5c86a4))) {
+                    if (n < 2000) n = 2000;
+                    break;
+                }
+                n -= 1000;
+                if (n < 2000) {
+                    n = 2000;
+                    break;
+                }
+            }
+            double dn = (double)-n;
+            float np = Company_SharePrice(c, 0, Ftol(dn * D(0x5c8680)), 0);
+            float eps = (float)stat(0x1d, 0x2329);
+            if (Fl(0x5c85b4) > eps) eps = 1.0f;
+            float ratio = np / eps;
+            int32_t i = Obj_ArgMax67(c);
+            float rate = (float)(BondRate(c, i) + D(0x5c8678));
+            float nf = (float)n;
+            float total = nf * np;
+            if (np >= Fl(0x5c8674) && total >= Fl(0x5c8670)) {
+                double cash = stat(0xd, 0x2329);
+                if (cash < (double)(BondAmount(c, i) + 0x1388) &&
+                    F<int32_t>(world(), 0x15) - DateToMinutes((const GameDate*)(c + 0x16b)) >= 0x76200) {
+                    static const uint32_t ladder[][2] = { { 0x5c8668, 0x5c8660 }, { 0x5c86e0, 0x5c8698 }, { 0x5c8658, 0x5c85a8 }, { 0x5c86b8, 0x5c8650 },
+                                                          { 0x5c8648, 0x5c8640 }, { 0x5c8590, 0x5c8638 }, { 0x5c8630, 0x5c8628 }, { 0x5c8620, 0x5c8618 } };
+                    bool go = false;
+                    for (auto& l : ladder)
+                        if (rate >= D(l[0]) && ratio >= D(l[1])) {
+                            go = true;
+                            break;
+                        }
+                    if (go) {
+                        int32_t at = Ftol(np);
+                        int32_t m = Ftol((double)n * D(0x5c8628));
+                        Company_IssueShares(c, 0, m, 0, at);
+                        Company_IssueShares(c, 0, m, 0, at);
+                        Num_Format(text, 1, (double)n, 10, 1, 0, 0);
+                        Num_FormatSimple2(numB, 0xb, (double)total, 0xb);
+                        FormatText(msg, GetString(0xfd5), (const char*)c + 4, text, numB, 0, 0, 0, 0, 0);
+                        news(msg);
+                    }
+                }
+            }
+        }
+    }
+    if (!F<int32_t>(world(), 0x4a93) && world()[0xf] == 0xc && cur() - F<int32_t>(c, 0xd2d) >= 1 && cur() - F<uint16_t>(c, 0x157) >= 2) {
+        F<int32_t>(c, 0xd2d) = cur();
+        float profit = 0.0f;
+        for (int32_t k = 3, i = 0; k > 0; --k, ++i) {
+            double w = (double)k;
+            profit = (float)(stat(0x2b, cur() - i) * w + profit);
+        }
+        profit = (float)(profit / D(0x5c8610));
+        float per;
+        if (Company_FreeShares(c) <= 1000) {
+            double cash = stat(0xd, 0x2329) < D(0x5c8608) ? 0.0 : stat(0xd, 0x2329);
+            per = (float)(((double)profit / D(0x5c85c8) + cash / D(0x5c85c8)) / (double)F<int32_t>(c, 0x47));
+        } else
+            per = (float)((double)profit / D(0x5c8610) / (double)F<int32_t>(c, 0x47));
+        int32_t mode = F<int32_t>(world(), 0x4c7c);
+        if (mode == 1) F<float>(c, 0x4b) = (float)(F<float>(c, 0x4b) * D(0x5c8600));
+        else if (mode == 2) F<int32_t>(c, 0x4b) = 0;
+        if (per < D(0x5c86b8))
+            F<int32_t>(c, 0x4b) = 0;
+        else {
+            float v = (float)((((double)F<float>(c, 0x4b) + per) + D(0x5c86b8)) / D(0x5c85d0));
+            F<float>(c, 0x4b) = (float)((double)Ftol((double)v * Fl(0x5c85f8)) / D(0x5c85f0));
+        }
+        if (!(Company_MaxDividend(c) > F<float>(c, 0x4b))) F<float>(c, 0x4b) = Company_MaxDividend(c);
+    }
+    if (bankrupt) return;
+    if (!repaid && !issued && !bought) return;
+    if (hook::Global<uint8_t*>(0x6cfe4c) && Screen90() == F<int32_t>(c, 0)) CompanyWindow_Refresh(hook::Global<uint8_t*>(0x6cfe4c));
+    text[0] = 0;
+    const char* name = (const char*)c + 4;
+    if (repaid) {
+        if (!issued)
+            FormatText(text, GetString(0xb45), name, Num_FormatSimple(numA, 9, (double)repaid, 0xb), 0, 0, 0, 0, 0, 0);
+        else if (issued == repaid)
+            FormatText(text, GetString(0xb42), name, Num_FormatSimple(numA, 9, (double)repaid, 0xb), 0, 0, 0, 0, 0, 0);
+        else if (issued > repaid) {
+            char* d = Num_FormatSimple(msg, 9, (double)(issued - repaid), 0xb);
+            FormatText(text, GetString(0xb43), name, Num_FormatSimple(numA, 9, (double)repaid, 0xb), d, 0, 0, 0, 0, 0);
+        } else {
+            char* d = Num_FormatSimple(msg, 9, (double)(repaid - issued), 0xb);
+            FormatText(text, GetString(0xb44), name, Num_FormatSimple(numA, 9, (double)issued, 0xb), d, 0, 0, 0, 0, 0);
+        }
+    } else if (issued)
+        FormatText(text, GetString(0xb46), name, Num_FormatSimple(numA, 9, (double)issued, 0xb), 0, 0, 0, 0, 0, 0);
+    if (strlen(text) > 1) news(text);
+    if (bought) {
+        FormatText(text, GetString(0xb47), name, Num_Format(numA, 1, (double)bought, 10, 1, 0, 0), 0, 0, 0, 0, 0, 0);
+        news(text);
+    }
+}
+RT3_REPLACE(0x401c50, Company_YearFinance);
+
+uint32_t __fastcall Sound_ListenerIdle(uint8_t* s);
+int32_t ClockMs();
+int32_t __fastcall Terrain_KindIs1Or3to5(uint8_t* r, int, int32_t x, int32_t y);
+uint32_t __fastcall Terrain_RecBit9(uint8_t* r, int, int32_t x, int32_t y);
+uint32_t __fastcall Terrain_CellCount(uint8_t* t, int, int32_t x, int32_t y);
+float __cdecl Sky_NightFactor();
+int32_t __fastcall Rand(int32_t lo, int32_t hi);
+float SceneClock_MinutesSinceDawn();
+double __fastcall Terrain_HeightAtTile(uint8_t* r, int, float x, float z);
+uint32_t __fastcall Sound_Play3D(uint8_t* snd, int, const char* name, float x, float y, float z, float vol, int32_t mode, int32_t paused, int32_t prio,
+                                 float maxDist);
+int32_t __fastcall Sound_LookupSample(uint8_t* s, int, uint32_t key, int32_t kind);
+void __fastcall Sound_Stop(uint8_t* s, int, uint32_t key, int32_t kind);
+
+// 0x40b920. Ambient sound. When the camera moved (or every 20 ms) it samples
+// every other cell within 32 of the camera cell, weighted by nearness, for
+// water, trees (+0x... bit 9), and the block kinds (0 grass, 2 farm, 1 town,
+// 3 rock) with their buildings. From that it sets the target volumes of the
+// eight loops at 0x5ed240 (stride 0x20; 0x5ed2a0 is the wind by height,
+// 0x5ed2e0 the night chorus), shaded by night (0x482690) and faded out above
+// height 10..60 (sqrt of view +0x66). One of the 16 one-shots at 0x5ed088
+// (0x1b bytes: interval, counter, volume, range, height, where allowed, wav)
+// may play at a random spot around the camera, at most every 2.5 s. Each loop
+// then eases towards its target (by elapsed ms / 650), starting, pausing or
+// stopping its sample.
+void Ambient_Update() {
+    uint8_t* snd = hook::Global<uint8_t*>(0x6d402c);
+    if (Sound_ListenerIdle(snd)) return;
+    if (!hook::Global<int32_t>(0x62b248)) return;
+    int32_t dt = ClockMs() - hook::Global<int32_t>(0x62b24c);
+    uint8_t* view = hook::Global<uint8_t*>(0x62be68);
+    auto fabs_ = (double(__cdecl*)(double))0x5a152e;
+    auto sin_ = (double(__cdecl*)(double))0x5a1494;
+    auto cos_ = (double(__cdecl*)(double))0x5a13e4;
+    auto sqrt_ = (double(__cdecl*)(double))0x5a1634;
+    float vx = F<float>(view, 0x1c), vy = F<float>(view, 0x20), vz = F<float>(view, 0x24);
+    double m = fabs_((double)vz - hook::Global<float>(0x62b260));
+    m = fabs_((double)vy - hook::Global<float>(0x62b25c)) + m;
+    float moved = (float)(fabs_((double)vx - hook::Global<float>(0x62b258)) + m);
+    if (dt <= 0x14 && !(moved > D(0x5c8c48))) return;
+    view = hook::Global<uint8_t*>(0x62be68);
+    hook::Global<float>(0x62b258) = F<float>(view, 0x1c);
+    hook::Global<float>(0x62b25c) = F<float>(view, 0x20);
+    hook::Global<float>(0x62b260) = F<float>(view, 0x24);
+    int32_t cx = Ftol((double)F<float>(view, 0x1c) / Fl(0x5c8700));
+    int32_t cz = Ftol((double)F<float>(view, 0x24) / Fl(0x5c8700));
+    uint8_t* grid = hook::Global<uint8_t*>(0x62c120);
+    int32_t x0 = cx - 0x20 < 0 ? 0 : cx - 0x20, x1 = cx + 0x20;
+    if (F<int32_t>(grid, 0x2155) - 1 < x1) x1 = F<int32_t>(grid, 0x2155) - 1;
+    int32_t z0 = cz - 0x20 < 0 ? 0 : cz - 0x20, z1 = cz + 0x20;
+    if (F<int32_t>(grid, 0x2159) - 1 < z1) z1 = F<int32_t>(grid, 0x2159) - 1;
+    float total = 0.0f, water = 0.0f, grass = 0.0f, farm = 0.0f, town = 0.0f, trees = 0.0f, rock = 0.0f, open = 0.0f;
+    float shore = 9999.0f, nearest = 9999.0f;
+    if (z0 > z1)
+        total = 1.0f;
+    else {
+        for (int32_t z = z0; z <= z1; z += 2)
+            for (int32_t x = x0; x <= x1; x += 2) {
+                float d = (float)(uint16_t)DistanceInt(x, z, cx, cz);
+                float w = Fl(0x5c8c40) - d;
+                if (w < Fl(0x5c878c)) continue;
+                grid = hook::Global<uint8_t*>(0x62c120);
+                total = w + total;
+                if (Terrain_KindIs1Or3to5(grid, 0, x, z)) {
+                    water = w + water;
+                    if (!(nearest < d)) nearest = d;
+                    grid = hook::Global<uint8_t*>(0x62c120);
+                    bool edge = (x > 0 && !Terrain_KindIs1Or3to5(grid, 0, x - 1, z)) || (z > 0 && !Terrain_KindIs1Or3to5(grid, 0, x, z - 1)) ||
+                                (x < F<int32_t>(grid, 0x2155) - 1 && !Terrain_KindIs1Or3to5(grid, 0, x + 1, z)) ||
+                                (z < F<int32_t>(grid, 0x2159) - 1 && !Terrain_KindIs1Or3to5(grid, 0, x, z + 1));
+                    if (edge && !(shore < d)) shore = d;
+                    continue;
+                }
+                if (Terrain_RecBit9(hook::Global<uint8_t*>(0x62c120), 0, x, z)) {
+                    float k = BitsF(0x400ccccdu);
+                    if (d < Fl(0x5c873c)) k = (float)((((double)Fl(0x5c873c) - d) / D(0x5c8610) + D(0x5c8770)) * D(0x5c8c38));
+                    trees = (float)((double)k * w + trees);
+                }
+                int32_t n = (int32_t)Terrain_CellCount(hook::Global<uint8_t*>(0x62c120), 0, x, z);
+                grid = hook::Global<uint8_t*>(0x62c120);
+                uint8_t kind = F<uint8_t*>(grid, 0x212d)[(F<int32_t>(grid, 0x214d) * (z / 4) + x / 4) * 4 + 3];
+                double dn = (double)n;
+                if (kind == 0) grass = (float)(dn / D(0x5c87b8) * w + grass);
+                else if (kind == 2) farm = (float)(dn / D(0x5c87b8) * w + farm);
+                else if (kind == 1) town = (float)((dn + D(0x5c8628)) / D(0x5c8c30) * w + town);
+                else if (kind == 3) rock = w + rock;
+                if (n < 2 && (kind == 0 || kind == 2)) open = w + open;
+            }
+        if (Fl(0x5c85b4) > total) total = 1.0f;
+    }
+    float* T = (float*)0x5ed240; // T[k * 8]: the eight loops' target volumes
+    double tt = total;
+    T[6 * 8] = (float)(water / tt);
+    T[7 * 8] = (float)(trees / tt);
+    T[0] = (float)(grass / tt);
+    T[1 * 8] = (float)(farm / tt);
+    T[2 * 8] = (float)(town / tt);
+    T[4 * 8] = (float)(rock / tt);
+    float openF = (float)(open / tt);
+    float night = Sky_NightFactor();
+    view = hook::Global<uint8_t*>(0x62be68);
+    float alt = F<float>(view, 0x66);
+    float camY = F<float>(view, 0x20);
+    uint8_t on[16];
+    memset(on, 0, sizeof on);
+    if (alt < Fl(0x5c8c28) && camY < Fl(0x5c88e0) && T[6 * 8] < D(0x5c88e8) && T[4 * 8] < D(0x5c8c20)) on[15] = 1;
+    double w6 = T[6 * 8];
+    if (w6 < D(0x5c88e8)) on[14] = 1;
+    double w1 = T[1 * 8];
+    if (w1 > D(0x5c8680)) on[13] = 1;
+    if (w6 > D(0x5c8628) && night <= D(0x5c8880)) on[12] = 1;
+    if (T[4 * 8] > D(0x5c8680) && night <= D(0x5c8888)) on[11] = 1;
+    double wo = openF;
+    if (wo > D(0x5c8c18)) on[0] = 1;
+    if (wo > D(0x5c8880)) {
+        if (night <= D(0x5c8880)) on[10] = 1;
+        else on[8] = on[9] = 1;
+    }
+    double w2 = T[2 * 8];
+    if (w2 > D(0x5c8880) || w1 > D(0x5c8750)) on[5] = on[6] = 1;
+    double w0 = T[0];
+    if (w0 > D(0x5c8680) || w2 > D(0x5c8680) || w1 > D(0x5c8680)) on[7] = 1;
+    if ((w0 > D(0x5c88e8) || w2 > D(0x5c88e8) || w1 > D(0x5c88e8)) && w6 < D(0x5c88e8) && night <= D(0x5c8680)) on[1] = on[2] = 1;
+    if (w0 > D(0x5c8988) && w6 < D(0x5c88e8) && night <= D(0x5c8680)) on[3] = on[4] = 1;
+    int32_t since = ClockMs() - hook::Global<int32_t>(0x62b254);
+    bool roll = since >= 0x9c4;
+    if (roll && since < 0xfa0) roll = Rand(0, 0x64) < 0x21;
+    else if (roll && since < 0x157c) roll = Rand(0, 0x64) < 0x42;
+    if (roll) {
+        int32_t played = 0;
+        int32_t step = dt < 0x64 ? dt : 0x64;
+        for (int32_t k = 0; k < 0x10; ++k) {
+            if (!on[k] || played) continue;
+            uint8_t* e = (uint8_t*)0x5ed088 + k * 0x1b;
+            float r = (float)(fabs_((double)alt - F<float>(e, 0x10)) / D(0x5c8c48) / F<float>(e, 0xc));
+            if (r > Fl(0x5c85f8)) continue;
+            int32_t& counter = F<int32_t>(e, 4);
+            counter += step;
+            bool go;
+            if (k == 0 && counter > 0x14c08) {
+                float t = SceneClock_MinutesSinceDawn();
+                go = t >= Fl(0x5c8c14) && t <= Fl(0x5c8c10);
+            } else
+                go = counter > F<int32_t>(e, 0) >> 1 && Rand(0, F<int32_t>(e, 0)) < step;
+            if (!go) continue;
+            counter = 0;
+            for (int32_t tries = 0; tries < 0x14 && !played;) {
+                ++tries;
+                int32_t a = Rand(3, 0xf);
+                a += Rand(3, 0xf);
+                a += Rand(3, 0xf);
+                double ad = (double)a;
+                float dist = (float)(ad / D(0x5c8798) * F<float>(e, 0xc));
+                int32_t rr = Rand(0, 1000);
+                view = hook::Global<uint8_t*>(0x62be68);
+                float camX = F<float>(view, 0x1c);
+                double rd = (double)rr;
+                float ang = (float)(rd / D(0x5c87f8) * D(0x5c8c08));
+                double dd = dist;
+                float px = (float)(cos_(ang) * dd + camX);
+                float camZ = F<float>(hook::Global<uint8_t*>(0x62be68), 0x24);
+                float pz = (float)(sin_(ang) * dd + camZ);
+                int32_t tx = Ftol((double)px / Fl(0x5c8700));
+                int32_t tz = Ftol((double)pz / Fl(0x5c8700));
+                grid = hook::Global<uint8_t*>(0x62c120);
+                if (tx < 0 || tx >= F<int32_t>(grid, 0x2155) || tz < 0 || tz >= F<int32_t>(grid, 0x2159)) continue;
+                uint8_t ok;
+                if (Terrain_KindIs1Or3to5(grid, 0, tx, tz)) ok = e[0x14];
+                else ok = (int32_t)Terrain_CellCount(hook::Global<uint8_t*>(0x62c120), 0, tx, tz) > 0 ? e[0x16] : e[0x15];
+                if (!ok) continue;
+                float fz = (float)tz, fx = (float)tx;
+                double h = Terrain_HeightAtTile(hook::Global<uint8_t*>(0x62c120), 0, fx, fz);
+                float y = (float)(h + (double)F<float>(e, 0x10) * Fl(0x5c8700));
+                Sound_Play3D(hook::Global<uint8_t*>(0x6d402c), 0, F<const char*>(e, 0x17), px, y, pz, F<float>(e, 8), 0, 0, 2,
+                             F<float>(e, 0xc) * Fl(0x5c8700));
+                played = 1;
+                hook::Global<int32_t>(0x62b254) = ClockMs();
+            }
+        }
+    }
+    T[5 * 8] = 0.0f;
+    if (night > Fl(0x5c8598)) T[5 * 8] = (float)((((wo * D(0x5c8628) + T[2 * 8]) + T[1 * 8]) + T[0]) * night);
+    T[0] = (float)(wo * D(0x5c8988) + T[0]);
+    if (night > Fl(0x5c8598)) {
+        double dark = D(0x5c8770) - night;
+        T[0] = (float)(T[0] * dark);
+        T[1 * 8] = (float)((dark * D(0x5c8640) + D(0x5c8c20)) * T[1 * 8]);
+        T[2 * 8] = (float)((dark * D(0x5c8680) + D(0x5c88c8)) * T[2 * 8]);
+    }
+    if (alt < Fl(0x5c88e0))
+        T[3 * 8] = 0.0f;
+    else if (alt < Fl(0x5c8c04))
+        T[3 * 8] = (float)(((double)alt - Fl(0x5c88e0)) * D(0x5c88e8) / D(0x5c8838));
+    else if (alt < Fl(0x5c8c00))
+        T[3 * 8] = (float)(((double)alt - Fl(0x5c8c04)) * D(0x5c8880) / D(0x5c8bf8) + D(0x5c88e8));
+    else
+        T[3 * 8] = 1.0f;
+    T[3 * 8] = (float)(T[3 * 8] * D(0x5c8888));
+    double wind = T[3 * 8];
+    T[3 * 8] = (float)(D(0x5c8640) < wind ? BitsD(0x3fe999999999999aull) : wind);
+    double sq = alt == Fl(0x5c8598) ? 0.0 : sqrt_((double)alt);
+    float hf = (float)sq;
+    float fade;
+    if (hf > Fl(0x5c8990))
+        fade = 0.0f;
+    else if (!(hf > Fl(0x5c85f8)))
+        fade = 1.0f;
+    else
+        fade = (float)(D(0x5c8770) - ((double)hf - Fl(0x5c85f8)) / Fl(0x5c8780));
+    if (shore <= Fl(0x5c8738)) {
+        double a = shore, b = (double)nearest * D(0x5c87e8);
+        float mm = (float)(a > b ? a : b);
+        if (mm <= Fl(0x5c8738)) T[6 * 8] = (float)(((double)Fl(0x5c8738) - mm) / D(0x5c8bf0) * D(0x5c8628) + T[6 * 8]);
+    } else if (shore < Fl(0x5c873c))
+        T[6 * 8] = (float)((((double)Fl(0x5c873c) - shore) / Fl(0x5c8898) * D(0x5c8758) + D(0x5c8750)) * T[6 * 8]);
+    else
+        T[6 * 8] = (float)(T[6 * 8] * D(0x5c8750));
+    for (int k : { 0, 1, 2, 4, 5, 6, 7 }) T[k * 8] = fade * T[k * 8];
+    for (int k = 0; k < 8; ++k) {
+        if (T[k * 8] > D(0x5c8770)) T[k * 8] = 1.0f;
+        if (T[k * 8] < D(0x5c8918)) T[k * 8] = 0.0f;
+    }
+    double el = (double)(ClockMs() - hook::Global<int32_t>(0x62b24c));
+    float stepV = (float)(el / D(0x5c8be8));
+    double stepD = stepV;
+    for (int k = 0; k < 8; ++k) {
+        uint8_t* s = (uint8_t*)0x5ed244 + k * 0x20; // current volume; target at -4
+        float& cur = F<float>(s, 0);
+        float target = F<float>(s, -4);
+        if (fabs_((double)target - cur) <= stepD)
+            cur = target;
+        else
+            cur = cur > target ? cur - stepV : stepV + cur;
+        float vol = F<float>(s, -8) * cur;
+        uint32_t& handle = F<uint32_t>(s, -0xc);
+        uint8_t* snd2 = hook::Global<uint8_t*>(0x6d402c);
+        if (vol < D(0x5c85b8)) {
+            if (F<int32_t>(s, 0xc)) {
+                if (handle) {
+                    F<int32_t>(s, 8) = Sound_LookupSample(snd2, 0, handle, 1);
+                    if (F<int32_t>(s, 8)) Sound_Stop(hook::Global<uint8_t*>(0x6d402c), 0, handle, 1);
+                }
+                handle = 0;
+                F<int32_t>(s, 8) = 0;
+            } else {
+                uint8_t* smp = (uint8_t*)(uintptr_t)Sound_LookupSample(snd2, 0, handle, 1);
+                if (smp) {
+                    F<int32_t>(smp, 0xc) = 1;
+                    F<uint32_t>(smp, 0x44) |= 8;
+                }
+            }
+            continue;
+        }
+        bool have = false;
+        if (handle) {
+            F<int32_t>(s, 8) = Sound_LookupSample(snd2, 0, handle, 1);
+            if (F<int32_t>(s, 8)) {
+                F<uint32_t>((uint8_t*)(uintptr_t)F<int32_t>(s, 8), 0x44) = 0;
+                have = F<int32_t>(s, 8) != 0;
+            }
+        }
+        if (!have) handle = Sound_Play3D(hook::Global<uint8_t*>(0x6d402c), 0, F<const char*>(s, 0x10), 0.0f, 0.0f, 0.0f, 0.0f, 1, 1, F<int32_t>(s, 4), 0.0f);
+        uint8_t* smp = (uint8_t*)(uintptr_t)Sound_LookupSample(hook::Global<uint8_t*>(0x6d402c), 0, handle, 1);
+        if (smp) {
+            if (F<int32_t>(smp, 0xc)) {
+                F<uint32_t>(smp, 0x44) |= 8;
+                F<int32_t>(smp, 0xc) = 0;
+            }
+            F<float>(smp, 0x28) = vol;
+            F<uint32_t>(smp, 0x44) |= 1;
+        }
+    }
+    hook::Global<int32_t>(0x62b24c) = ClockMs();
+}
+RT3_REPLACE(0x40b920, Ambient_Update);
+
+int32_t CountHumanPlayers();
+int32_t IsMultiplayer();
+int32_t __fastcall Table_CountField3f(Collection* t);
+int32_t __fastcall Company_EntryFlag(void* c, int, int32_t i);
+int32_t __fastcall Company_Get7680(void* c);
+int32_t __fastcall Cities_CountConnected(Collection* c, int, int32_t company);
+int32_t __fastcall Territories_CountLinked(Collection* c, int, int32_t company);
+int32_t __fastcall Company_Sum42e300(void* c);
+int32_t __fastcall Company_Sum42e320(void* c);
+double __fastcall Company_YearPair1da0(uint8_t* c, int, int32_t y);
+double __fastcall Company_YearPair1da8(uint8_t* c, int, int32_t y);
+double __fastcall Company_YearPair1db0(uint8_t* c, int, int32_t y);
+double __fastcall Company_YearPair1db8(uint8_t* c, int, int32_t y);
+double __fastcall Company_YearStatPair(uint8_t* c, int, int32_t y, int32_t i);
+double __fastcall Company_YearStatPair2(uint8_t* c, int, int32_t y, int32_t i);
+int32_t __fastcall Company_YearSum3(uint8_t* c, int, int32_t y);
+int32_t __fastcall Company_YearNet1(uint8_t* c, int, int32_t y);
+int32_t __fastcall Company_YearNet3(uint8_t* c, int, int32_t y);
+int32_t __fastcall Company_TotalNet1(void* c);
+int32_t __fastcall Company_TotalNet3(void* c);
+int32_t __fastcall Obj_NetBc1(void* o);
+int32_t __fastcall Obj_NetBc3(void* o);
+int32_t __fastcall Table_CountActiveSites(Collection* t, int, int32_t highlighted);
+int32_t __fastcall Table_CountFlag201_40(Collection* t);
+double __fastcall Company_TrackLength(void* c);
+
+// 0x42e580. The value of a scenario-rule variable (condition / effect operand) for
+// the given player, company and city/station. Vars 0x83..0x35e are 12 groups of 0x3d
+// per-cargo values; the rest are single values. Missing context objects give 0.
+RT3_NOINLINE int32_t __stdcall RuleVar_Get(int32_t var, uint8_t* pl, uint8_t* co, uint8_t* st, int32_t p5, int32_t p6, int32_t p7, int32_t p8) {
+    uint8_t* w = hook::Global<uint8_t*>(0x6cec78);
+    if (var >= 0x83 && var <= 0x35e) {
+        int32_t k = (var - 0x83) % 0x3d;
+        switch (var - k) {
+        case 0x83: return Ftol(F<float>(w, 0xa26 + k * 4));
+        case 0xc0: return Ftol(F<float>(w, 0xafa + k * 4) + (double)F<float>(w, 0xa26 + k * 4));
+        case 0xfd: return co ? Ftol(F<float>(co, 0x24f + k * 4)) : 0;
+        case 0x13a: return co ? Ftol(F<float>(co, 0x24f + k * 4) + (double)F<float>(co, 0x17b + k * 4)) : 0;
+        case 0x177: return pl ? Ftol(F<float>(pl, 0x55 + k * 4)) : 0;
+        case 0x1b4: return pl ? Ftol(F<float>(pl, 0x20d + k * 4) + (double)F<float>(pl, 0x55 + k * 4)) : 0;
+        case 0x1f1: return pl ? Ftol(F<float>(pl, 0x129 + k * 4)) : 0;
+        case 0x22e: return pl ? Ftol(F<float>(pl, 0x2e1 + k * 4) + (double)F<float>(pl, 0x129 + k * 4)) : 0;
+        case 0x26b: return pl && co ? Ftol(F<float>(co + *(int32_t*)pl * 0x38d, 0x1ddc + k * 4)) : 0;
+        case 0x2a8: return pl && co ? Ftol(Company_YearStatPair(co, 0, *(int32_t*)pl, k)) : 0;
+        case 0x2e5: return pl && co ? Ftol(F<float>(co + *(int32_t*)pl * 0x38d, 0x1f84 + k * 4)) : 0;
+        case 0x322: return pl && co ? Ftol(Company_YearStatPair2(co, 0, *(int32_t*)pl, k)) : 0;
+        }
+    }
+    uint8_t* fin = hook::Global<uint8_t*>(0x6cfca8);
+    Collection* sites = hook::Global<Collection*>(0x6cec20);
+    auto yc = [&](uint32_t off) { return F<float>(co + *(int32_t*)pl * 0x38d, off); };
+    auto yi = [&](uint32_t off) { return F<int32_t>(co + *(int32_t*)pl * 0x38d, off); };
+    switch (var) {
+    case 1: return Ftol((float)CountHumanPlayers());
+    case 2: return Ftol((float)Table_CountField3f(hook::Global<Collection*>(0x62be10)));
+    case 3: return st ? F<int32_t>(st, 0x1dd) != 0 : 0;
+    case 4: return st ? Ftol(F<double>(st, 0x154)) : 0;
+    case 5: return Ftol((float)(F<uint16_t>(w, 0xd) - F<uint16_t>(w, 5)));
+    case 6: return F<uint16_t>(w, 5);
+    case 7: return F<uint16_t>(w, 0xd);
+    case 8: return w[0xf];
+    case 9: return Ftol(F<float>(w, 0xbce));
+    case 10: return Ftol(F<float>(w, 0xbd2) + (double)F<float>(w, 0xbce));
+    case 11: return Ftol(F<float>(w, 0xbd6));
+    case 12: return Ftol(F<float>(w, 0xbda) + (double)F<float>(w, 0xbd6));
+    case 13: return Ftol((float)F<int32_t>(w, 0x2d));
+    case 14: return co ? Ftol(Company_Stat(co, 0, 0xd, 9001)) : 0;
+    case 15: {
+        // Before version 0x69 in multiplayer the debt is added with the wrong sign.
+        if (!co) return 0;
+        float cash = (float)Company_Stat(co, 0, 0xd, 9001);
+        float neg = 0.0f < cash ? 0.0f : cash;
+        if (IsMultiplayer() && Game_EffectiveVersion() < 0x69) return Ftol((double)neg - Company_Stat(co, 0, 0x12, 9001));
+        return Ftol(-Company_Stat(co, 0, 0x12, 9001) - neg);
+    }
+    case 16: {
+        if (!co) return 0;
+        float cash = (float)Company_Stat(co, 0, 0xd, 9001);
+        float neg = 0.0f < cash ? 0.0f : cash;
+        return Ftol(Company_Stat(co, 0, 0x30, 9001) - neg);
+    }
+    case 17: return co ? Ftol(Company_Stat(co, 0, 0x31, 9001)) : 0;
+    case 18: return co ? Ftol(Company_Stat(co, 0, 0x2c, 9001)) : 0;
+    case 19: return co ? Ftol(Company_Stat(co, 0, 0x2c, 9002)) : 0;
+    case 20: return co ? Ftol(Company_Stat(co, 0, 0x2b, 9001)) : 0;
+    case 21: return co ? Ftol(Company_Stat(co, 0, 0x2b, 9002)) : 0;
+    case 22: return co ? Ftol(Company_Stat(co, 0, 0x16, 9001)) : 0;
+    case 23: return co ? Ftol(Company_Stat(co, 0, 0x16, 9002)) : 0;
+    case 24: return co ? Ftol(Company_TrackLength(co)) : 0;
+    case 25: return st ? Ftol(Player_Wealth(st, 0, 1)) : 0;
+    case 26: return st ? Ftol(Player_Wealth(st, 0, 3)) : 0;
+    case 27: case 28: case 29: case 30: return F<int32_t>(w, 0xba + var * 4);
+    case 0x1f: case 0x20: case 0x21: case 0x22: return co ? F<int32_t>(co, 0x38b + var * 4) : 0;
+    case 0x23: case 0x24: case 0x25: case 0x26: return st ? F<int32_t>(st, 0x2db + var * 4) : 0;
+    case 0x27: case 0x28: case 0x29: case 0x2a: return pl ? F<int32_t>(pl, 0x3e5 + var * 4) : 0;
+    case 0x2b: return Rand(1, 100);
+    case 0x2c: return Rand(1, 10000);
+    case 0x2d: return co ? Ftol((float)*(int32_t*)co) : 0;
+    case 0x2e: return st ? Ftol((float)*(int32_t*)st) : 0;
+    case 0x2f: return pl ? Ftol((float)*(uint32_t*)pl) : 0;
+    case 0x30: return Collection_IsValid(hook::Global<Collection*>(0x62be10), 0, (uint32_t)p5) ? p5 : p5 - 1;
+    case 0x31: return Collection_IsValid(hook::Global<Collection*>(0x6ceb9c), 0, (uint32_t)p5) ? p5 : p5 - 1;
+    case 0x32: return st ? F<int32_t>(st, 0x1dd) : 0;
+    case 0x33: return co ? Ftol(Company_Stat(co, 0, 3, 9001)) : 0;
+    case 0x34: return co ? Ftol(Company_Stat(co, 0, 3, 9002)) : 0;
+    case 0x35: return co ? Ftol(Company_Stat(co, 0, 0x26, 9001)) : 0;
+    case 0x36: return co ? Ftol(Company_Stat(co, 0, 0x26, 9002)) : 0;
+    case 0x37: return co ? Ftol(Company_Stat(co, 0, 0x27, 9001)) : 0;
+    case 0x38: return co ? Ftol(Company_Stat(co, 0, 0x27, 9002)) : 0;
+    case 0x39: return co ? Ftol(Company_Stat(co, 0, 0x28, 9001)) : 0;
+    case 0x3a: return co ? Ftol(Company_Stat(co, 0, 0x28, 9002)) : 0;
+    case 0x3b: return hook::Global<uint8_t*>(0x6cec7c)[0x7d];
+    case 0x3c: return F<uint16_t>(w, 0xd) * 100 + w[0xf];
+    case 0x3d: return pl ? Ftol(F<float>(pl, 0x45)) : 0;
+    case 0x3e: return pl ? Ftol(F<float>(pl, 0x1fd) + (double)F<float>(pl, 0x45)) : 0;
+    case 0x3f: return hook::Global<void*>(0x6cd8d8) != nullptr;
+    case 0x40: return pl ? Ftol(F<float>(pl, 0x49)) : 0;
+    case 0x41: return pl ? Ftol(F<float>(pl, 0x201) + (double)F<float>(pl, 0x49)) : 0;
+    // These check only the company, not the player.
+    case 0x42: return co ? Ftol(yc(0x1da0)) : 0;
+    case 0x43: return co ? Ftol(Company_YearPair1da0(co, 0, *(int32_t*)pl)) : 0;
+    case 0x44: return co ? Ftol(yc(0x1da8)) : 0;
+    case 0x45: return co ? Ftol(Company_YearPair1da8(co, 0, *(int32_t*)pl)) : 0;
+    case 0x46: return co ? Ftol(yc(0x1db0)) : 0;
+    case 0x47: return co ? Ftol(Company_YearPair1db0(co, 0, *(int32_t*)pl)) : 0;
+    case 0x48: return co ? Ftol(yc(0x1db8)) : 0;
+    case 0x49: return co ? Ftol(Company_YearPair1db8(co, 0, *(int32_t*)pl)) : 0;
+    case 0x4a: return co ? Company_EntryFlag(co, 0, *(int32_t*)pl) : 0;
+    case 0x4b: return pl ? Stations_CargoLinked(sites, 0, *(int32_t*)pl, p7, 1, 1, -1) != 0 : 0;
+    case 0x4c: return pl ? Stations_CargoLinked(sites, 0, *(int32_t*)pl, p7, 1, 0, -1) != 0 : 0;
+    case 0x4d: return pl && co ? Stations_CargoLinked(sites, 0, *(int32_t*)pl, p7, 1, 1, *(int32_t*)co) != 0 : 0;
+    case 0x4e: return pl && co ? Stations_CargoLinked(sites, 0, *(int32_t*)pl, p7, 1, 0, *(int32_t*)co) != 0 : 0;
+    case 0x4f: return F<int32_t>(fin, 0xc4) + F<int32_t>(fin, 0xc0) + F<int32_t>(fin, 0xbc);
+    case 0x50: return F<int32_t>(fin, 0xbc);
+    case 0x51: return F<int32_t>(fin, 0xc0);
+    case 0x52: return F<int32_t>(fin, 0xc4);
+    case 0x53: return F<int32_t>(fin, 0xc8);
+    case 0x54: return Obj_NetBc1(fin);
+    case 0x55: return F<int32_t>(fin, 0xcc);
+    case 0x56: return F<int32_t>(fin, 0xd0);
+    case 0x57: return F<int32_t>(fin, 0xd4);
+    case 0x58: return Obj_NetBc3(fin);
+    case 0x59: return co ? F<int32_t>(co, 0x766c) + F<int32_t>(co, 0x7668) + F<int32_t>(co, 0x7664) : 0;
+    case 0x5a: return co ? F<int32_t>(co, 0x7664) : 0;
+    case 0x5b: return co ? F<int32_t>(co, 0x7668) : 0;
+    case 0x5c: return co ? F<int32_t>(co, 0x766c) : 0;
+    case 0x5d: return co ? F<int32_t>(co, 0x7670) : 0;
+    case 0x5e: return co ? Company_TotalNet1(co) : 0;
+    case 0x5f: return co ? F<int32_t>(co, 0x7674) : 0;
+    case 0x60: return co ? F<int32_t>(co, 0x7678) : 0;
+    case 0x61: return co ? F<int32_t>(co, 0x767c) : 0;
+    case 0x62: return co ? Company_TotalNet3(co) : 0;
+    case 0x63: return pl ? F<int32_t>(pl, 0xd59) + F<int32_t>(pl, 0xd55) + F<int32_t>(pl, 0xd51) : 0;
+    case 0x64: return pl ? F<int32_t>(pl, 0xd51) : 0;
+    case 0x65: return pl ? F<int32_t>(pl, 0xd55) : 0;
+    case 0x66: return pl ? F<int32_t>(pl, 0xd59) : 0;
+    case 0x67: return pl ? F<int32_t>(pl, 0xd5d) : 0;
+    case 0x68: return pl ? Company_Sum42e300(pl) : 0;
+    case 0x69: return pl ? F<int32_t>(pl, 0xd61) : 0;
+    case 0x6a: return pl ? F<int32_t>(pl, 0xd65) : 0;
+    case 0x6b: return pl ? F<int32_t>(pl, 0xd69) : 0;
+    case 0x6c: return pl ? Company_Sum42e320(pl) : 0;
+    case 0x6d: return pl && co ? Company_YearSum3(co, 0, *(int32_t*)pl) : 0;
+    case 0x6e: return pl && co ? yi(0x1dc0) : 0;
+    case 0x6f: return pl && co ? yi(0x1dc4) : 0;
+    case 0x70: return pl && co ? yi(0x1dc8) : 0;
+    case 0x71: return pl && co ? yi(0x1dcc) : 0;
+    case 0x72: return pl && co ? Company_YearNet1(co, 0, *(int32_t*)pl) : 0;
+    case 0x73: return pl && co ? yi(0x1dd0) : 0;
+    case 0x74: return pl && co ? yi(0x1dd4) : 0;
+    case 0x75: return pl && co ? yi(0x1dd8) : 0;
+    case 0x76: return pl && co ? Company_YearNet3(co, 0, *(int32_t*)pl) : 0;
+    case 0x77: return Table_CountFlag201_40((Collection*)fin);
+    case 0x78: {
+        int32_t total = F<int32_t>(fin, 0xc4) + F<int32_t>(fin, 0xc0) + F<int32_t>(fin, 0xbc);
+        int32_t n = total < 1 ? 1 : total;
+        int32_t flagged = Table_CountFlag201_40((Collection*)fin);
+        return Ftol((double)flagged * D(0x5c85d8) / (double)n);
+    }
+    case 0x79: return Table_CountActiveSites(sites, 0, 0);
+    case 0x7a: return Table_CountActiveSites(sites, 0, 1);
+    case 0x7b: {
+        int32_t all = Table_CountActiveSites(sites, 0, 0);
+        int32_t n = all < 1 ? 1 : all;
+        int32_t lit = Table_CountActiveSites(hook::Global<Collection*>(0x6cec20), 0, 1);
+        return Ftol((double)lit * D(0x5c85d8) / (double)n);
+    }
+    // Names, as string pointers; the empty string without the object.
+    case 0x7c: return co ? (int32_t)(uintptr_t)(co + 4) : hook::Global<int32_t>(0x5ee270);
+    case 0x7d: return st ? (int32_t)(uintptr_t)(st + 8) : hook::Global<int32_t>(0x5ee270);
+    case 0x7e: return pl ? (int32_t)(uintptr_t)(pl + 4) : hook::Global<int32_t>(0x5ee270);
+    case 0x7f: return st && co ? F<int32_t>(st, 0x1dd) == *(int32_t*)co : 0;
+    case 0x80: return co != nullptr;
+    case 0x81: return st != nullptr;
+    case 0x82: return pl != nullptr;
+    case 0x35f: return Stations_CargoLinked(sites, 0, p7, p8, 0, 0, -1) != 0;
+    case 0x360: return co ? Stations_CargoLinked(sites, 0, p7, p8, 0, 0, *(int32_t*)co) != 0 : 0;
+    case 0x361: return co ? Company_Get7680(co) : 0;
+    case 0x362: return co ? Cities_CountConnected(hook::Global<Collection*>(0x62bae0), 0, *(int32_t*)co) : 0;
+    case 0x363: return co ? Territories_CountLinked(hook::Global<Collection*>(0x6cfc9c), 0, *(int32_t*)co) : 0;
+    case 0x364: return Ftol(F<float>(w, 0x4caa));
+    case 0x365: return Ftol(F<float>(w, 0x4caa) + (double)F<float>(w, 0x4ca6));
+    case 0x366: return co ? Ftol(F<float>(co, 0xd5d)) : 0;
+    case 0x367: return co ? Ftol(F<float>(co, 0xd61) + (double)F<float>(co, 0xd5d)) : 0;
+    case 0x368: return F<int32_t>(Map(), 0x21d6) * 2;
+    }
+    return 0;
+}
+RT3_REPLACE(0x42e580, RuleVar_Get);
+
+uint8_t __fastcall Obj_Flag3d4(void* o);
+uint32_t __fastcall Obj_GridByte(void* o);
+void* __fastcall Obj_Ref3cc(void* o);
+void* __fastcall Obj_OwnerCompany(void* o);
+uint8_t* __fastcall Obj_RegionAt(void* o);
+double __fastcall Recipe_NetValue(void* o, int, uint8_t* rec);
+void __fastcall Building_SpawnLot(uint8_t* b, int, int32_t kind, float factor);
+int32_t __fastcall Vehicle_Available(void*, int, uint8_t* rec, int32_t flag);
+int32_t __fastcall Obj_CountAvailableVehicles(void* o, int, int32_t flag);
+void __fastcall Cargo_MoveTo62(void* c, int, float a);
+const char* __fastcall Table_NearestName(Collection* t, int, float x, float y);
+void __fastcall Company_PostStat(void* c, int, int32_t stat, float amount, int32_t withCash);
+void __fastcall Obj_AddLevel(void* o, int, int32_t i, float f);
+int32_t __fastcall City_CargoQuota(uint8_t* o, int, int32_t i);
+double __fastcall City_ProduceCargo(uint8_t* o, int, int32_t i, float amt);
+float __fastcall Effects_Multiplier(uint8_t* w, int, int32_t idx, uint32_t company, uint32_t player, uint32_t region);
+double __fastcall Obj_CellX(void* o);
+double __fastcall Obj_CellY(void* o);
+int32_t __fastcall Collection_Count(Collection* c);
+int32_t __fastcall SimRand(int32_t lo, int32_t hi);
+char* __fastcall FormatText(char* dst, const char* fmt, const char* a1, const char* a2, const char* a3, const char* a4, const char* a5,
+                            const char* a6, const char* a7, const char* a8);
+const char* __fastcall GetString(int32_t id);
+const char* __fastcall LocalizeName(const char* name);
+
+static inline double AtLeastMilli(float v) { return v < D(0x5c8678) ? 0.001 : (double)v; }
+
+// 0x4101e0. An industry's production step: spawns new lots from its growth rates,
+// splits demand over its recipes (by profit when several vehicles/recipes are
+// available), consumes inputs from the region and produces outputs, books revenue,
+// costs and the owner's profit, and adjusts the two trend values (+0x296 profit,
+// +0x29a input supply) that can make the industry announce an expansion. bulk (10x
+// levels, no finances) is the catch-up mode.
+RT3_NOINLINE void __fastcall Industry_Produce(uint8_t* ind, int, int32_t bulk) {
+    typedef uint8_t*(__fastcall * RecFn)(uint8_t*);
+    auto recOf = [&]() { return ((RecFn)(*(void***)ind)[0x80 / 4])(ind); };
+    if (Obj_Flag3d4(ind) != 1) return;
+    if (hook::Global<uint8_t*>(0x6cec7c)[0x82]) return;
+    uint8_t* w = hook::Global<uint8_t*>(0x6cec78);
+    if (F<int32_t>(w, 0x4af7)) {
+        if (!F<int32_t>(w, 0x46c38)) return;
+    } else if (F<int32_t>(w, 0x4aef)) return;
+    uint8_t* rec = recOf();
+    bool nuclear = false, electric = false, recycle = false;
+    if (Stricmp((const char*)rec + 4, (const char*)0x5c8e00) == 0) nuclear = true;
+    else if (Stricmp((const char*)rec + 4, (const char*)0x5c8df0) == 0) electric = true;
+    else if (Stricmp((const char*)rec + 4, (const char*)0x5c8de0) == 0) recycle = true;
+    if (Game_EffectiveVersion() < 0x68) recycle = false;
+    float made = 0.0f;
+    float scale = (float)F<int32_t>(Obj_Ref3cc(ind), 0x141);
+    uint8_t* region = Obj_RegionAt(ind);
+    int32_t vehicles = Obj_CountAvailableVehicles(recOf(), 0, F<int32_t>(ind, 0x246) != 0);
+    int32_t pop = Collection_Count(hook::Global<Collection*>(0x6cfca8));
+    if (IsMultiplayer()) pop = 1000;
+    if (F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4af7)) pop = 0x514;
+    // Rate by the number of industries.
+    uint32_t rateBits;
+    if (Game_EffectiveVersion() < 0x67) {
+        rateBits = pop < 0x96 ? 0x3f000000 : pop < 0x12c ? 0x3f19999a : pop < 0x258 ? 0x3f333333 : pop < 0x384 ? 0x3f4ccccd
+                 : pop < 0x4b0 ? 0x3f666666 : pop < 0x5dc ? 0x3f800000 : 0x3f8ccccd;
+    } else {
+        rateBits = pop < 0x96 ? 0x3f000000 : pop < 0x12c ? 0x3f19999a : pop < 0x258 ? 0x3f333333 : pop < 0x384 ? 0x3f4ccccd
+                 : pop < 0x4b0 ? 0x3f5c28f6 : pop < 0x76c ? 0x3f6b851f : pop < 0xbb8 ? 0x3f63d70a : pop < 0x1194 ? 0x3f5c28f6
+                 : pop < 0x1770 ? 0x3f547ae1 : pop < 0x1f40 ? 0x3f4ccccd : 0x3f451eb8;
+    }
+    float rate = BitsF(rateBits);
+    uint32_t company = F<uint32_t>(ind, 0x276);
+    uint32_t player = company ? F<uint32_t>(Collection_Get(hook::Global<Collection*>(0x62be10), 0, company), 0x3b) : 0;
+    uint32_t cell = Obj_GridByte(ind);
+    float mult = Effects_Multiplier(hook::Global<uint8_t*>(0x6cec78), 0, 0xb1, F<uint32_t>(ind, 0x276), player, cell);
+    int32_t e2 = F<int32_t>(rec, 0x78c) ? 0xb2 : 0xb3;
+    mult = (float)((double)Effects_Multiplier(hook::Global<uint8_t*>(0x6cec78), 0, e2, F<uint32_t>(ind, 0x276), player, cell) * mult);
+    if (hook::Global<uint8_t*>(0x6cec78)[0x4c8d]) {
+        rate = (float)((double)rate + rate);
+        mult = (float)((double)mult + mult);
+    }
+    for (int32_t i = 0; i < 3; ++i) {
+        float g = (float)((double)F<float>(ind, 0x28a + i * 4) * *(float*)(0x5f3424 + i * 4) * rate);
+        if (!(g > Fl(0x5c8598))) continue;
+        int32_t k = F<int32_t>(hook::Global<uint8_t*>(0x62ba8c), 0x8e + i * 4) + 0xb4;
+        if (k >= 0xb4 && k <= 0xfa)
+            g = (float)((double)Effects_Multiplier(hook::Global<uint8_t*>(0x6cec78), 0, k, F<uint32_t>(ind, 0x276), player, cell) * g);
+        g = (float)((double)g * mult);
+        if (i == 0) {
+            int32_t y = F<uint16_t>(hook::Global<uint8_t*>(0x6cec78), 0xd);
+            if (y >= 0x7a6) g = (float)(g * D(0x5c8dd8));
+            else if (y >= 0x780) g = (float)(g * D(0x5c8dd0));
+        }
+        for (;;) {
+            if (!(g > D(0x5c8770))) {
+                float r = (float)SimRand(0, 1000);
+                if (!((double)g * Fl(0x5c86a0) >= r)) break;
+            }
+            g = (float)(g - D(0x5c8770));
+            Building_SpawnLot(ind, 0, i, rate);
+        }
+    }
+    float produced = 0.0f, revenue = 0.0f, costs = 0.0f, value = 0.0f, inputValue = 0.0f;
+    float lvl = 1.0f;
+    if (F<int32_t>(ind, 0x246)) lvl = (float)(F<float>(rec, 0x47) + D(0x5c8770));
+    float worstSupply = 0.0f;
+    // Per-recipe demand shares (only with several vehicles available).
+    char usable[32], counted[32];
+    float share[30], profit[30];
+    memset(usable, 0, sizeof usable);
+    memset(share, 0, sizeof share);
+    memset(profit, 0, sizeof profit);
+    if (vehicles > 1) {
+        float total = 0.0f, weighted = 0.0f;
+        for (int32_t i = 0; i < F<int32_t>(rec, 0x33); ++i) {
+            uint8_t* e = F<uint8_t*>(rec, 0x37) + i * 0xbc;
+            counted[i] = 0;
+            if (!Vehicle_Available(recOf(), 0, e, F<int32_t>(ind, 0x246) != 0)) continue;
+            if (F<int32_t>(e, 0) != 0 || F<int32_t>(e, 0x2c) == 0) continue;
+            usable[i] = 1;
+            counted[i] = 1;
+            double per = AtLeastMilli(F<float>(e, 4));
+            float need = 0.0f;
+            float base = (float)((double)F<float>(rec, 0x2a) / per * lvl * scale / D(0x5c8978));
+            base = (float)((double)base * mult);
+            float avail = base;
+            for (int32_t j = 0; j < F<int32_t>(e, 0x2c); ++j) {
+                uint8_t* in = e + 0x44 + j * 0x1c;
+                float want = (float)((double)avail * F<float>(in, 4));
+                int32_t q = City_CargoQuota(region, 0, F<int32_t>(in, 0));
+                float have = F<float>(region, 0x103 + F<int32_t>(in, 0) * 4);
+                float qf = (float)q;
+                need = (float)((double)qf * F<float>(in, 4) + need);
+                if (have < want) avail = (float)((double)have / want * avail);
+            }
+            if (avail < D(0x5c8dc8)) usable[i] = 0;
+            base = (float)AtLeastMilli(base);
+            float frac = (float)((double)avail / base);
+            float s = Fl(0x5c8598) > frac ? 0.0f : frac;
+            share[i] = s;
+            double per2 = F<float>(e, 4) < D(0x5c85b8) ? 0.01 : (double)F<float>(e, 4);
+            float qf = (float)City_CargoQuota(region, 0, F<int32_t>(e, 0x1c));
+            float p = (float)(((double)qf * F<float>(e, 4) - need) / per2);
+            profit[i] = p;
+            if (usable[i]) {
+                float v = (float)(base * D(0x5c8758) + s);
+                total = (float)((double)v + total);
+                share[i] = v;
+                weighted = (float)((double)p * v + weighted);
+            }
+        }
+        float avg = (float)(weighted / AtLeastMilli(total));
+        avg = (float)AtLeastMilli(avg);
+        int32_t n = F<int32_t>(rec, 0x33);
+        float sum = 0.0f;
+        if (n > 0) {
+            for (int32_t i = 0; i < n; ++i) {
+                if (!counted[i]) continue;
+                if (usable[i]) {
+                    float f = (float)(profit[i] / AtLeastMilli(avg));
+                    if (f > Fl(0x5c878c)) f = 2.0f;
+                    else if (f < D(0x5c8628)) f = 0.5f;
+                    share[i] = (float)((double)f * share[i]);
+                }
+                sum = (float)((double)sum + share[i]);
+            }
+            if (sum <= Fl(0x5c8598)) sum = 0.1f;
+        } else sum = 0.1f;
+        for (int32_t i = 0; i < n; ++i) {
+            if (counted[i]) share[i] = (float)((double)share[i] / sum);
+            if (!usable[i]) share[i] = BitsF(0x3e4ccccd);
+        }
+    }
+    for (int32_t i = 0; i < F<int32_t>(rec, 0x33); ++i) {
+        uint8_t* e = F<uint8_t*>(rec, 0x37) + i * 0xbc;
+        float used = 0.0f;
+        if (!Vehicle_Available(recOf(), 0, e, F<int32_t>(ind, 0x246) != 0)) continue;
+        float worst = 999.0f, inCost = 0.0f;
+        float f = (float)((double)lvl * scale / D(0x5c8978));
+        if (F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4af7)) {
+            uint8_t b = ind[0x391];
+            if (!b) continue;
+            f = (float)b;
+        }
+        uint8_t* wv = hook::Global<uint8_t*>(0x6cec78);
+        if (F<int32_t>(e, 0) != 0) {
+            // A raw-material producer: rate by how well the region takes its first input.
+            int32_t id = F<int32_t>(e, 0x44);
+            float price = F<float>(Collection_Get(hook::Global<Collection*>(0x62ba8c), 0, id), 0x18);
+            double pr = AtLeastMilli(price);
+            float x = (float)((double)City_CargoQuota(region, 0, id) / pr);
+            if (x < Fl(0x5c85b4)) x = (float)((x + D(0x5c8770)) / D(0x5c85d0));
+            else if (x < Fl(0x5c878c)) x = (float)((x + D(0x5c88c8)) / D(0x5c8660));
+            else x = (float)((x + D(0x5c88c8)) / D(0x5c8660) * (x - D(0x5c8770)));
+            if (nuclear) x = (float)((x + D(0x5c8dc0)) / D(0x5c8c30));
+            else if (electric) x = (float)((x + D(0x5c8698)) / D(0x5c8db8));
+            wv = hook::Global<uint8_t*>(0x6cec78);
+            if (!F<int32_t>(wv, 0x4af7)) {
+                f = (float)((double)f / x);
+                f = (float)((double)f * *(float*)(0x5f337c + F<int32_t>(wv, 0x2d) * 4));
+            }
+        } else if (F<int32_t>(e, 0x2c) == 0) {
+            // No inputs: rate by the region's demand for the output.
+            int32_t id = F<int32_t>(e, 0x1c);
+            float price = F<float>(Collection_Get(hook::Global<Collection*>(0x62ba8c), 0, id), 0x18);
+            double pr = AtLeastMilli(price);
+            float x = (float)((double)City_CargoQuota(region, 0, id) / pr);
+            uint8_t* w2 = hook::Global<uint8_t*>(0x6cec78);
+            if (!F<int32_t>(w2, 0x4af7)) {
+                double y;
+                if (x < Fl(0x5c85b4)) y = (x + D(0x5c8770)) / D(0x5c85d0);
+                else {
+                    double d = (double)x - D(0x5c8770);
+                    double dd = D(0x5c8770) < d ? 1.0 : d;
+                    y = dd * D(0x5c8988) + D(0x5c8770);
+                }
+                f = (float)(y * f);
+                f = (float)((double)f * *(float*)(0x5f3368 + F<int32_t>(w2, 0x2d) * 4));
+            }
+            f = (float)((double)f * mult);
+            int32_t k = F<int32_t>(e, 0x1c) + 0xb4;
+            if (k >= 0xb4 && k <= 0xfa) f = (float)((double)Effects_Multiplier(w2, 0, k, F<uint32_t>(ind, 0x276), player, cell) * f);
+        } else {
+            // A converter: rate by its recipe size and net value.
+            int32_t flag = F<int32_t>(wv, 0x4af7);
+            f = (float)((double)F<float>(rec, 0x2a) / AtLeastMilli(F<float>(e, 4)) * f);
+            f = (float)((double)f * mult);
+            if (flag) f = (float)((double)(int32_t)ind[0x391] / AtLeastMilli(F<float>(e, 4)));
+            int32_t k = F<int32_t>(e, 0x1c) + 0xb4;
+            if (k >= 0xb4 && k <= 0xfa) f = (float)((double)Effects_Multiplier(wv, 0, k, F<uint32_t>(ind, 0x276), player, cell) * f);
+            float net = (float)Recipe_NetValue(ind, 0, e);
+            uint8_t* w2 = hook::Global<uint8_t*>(0x6cec78);
+            if (!recycle && !F<int32_t>(w2, 0x4af7)) {
+                if (net < Fl(0x5c8598)) f = (float)((double)f * D(0x5c8758));
+                else {
+                    net = (float)((double)net / Fl(0x5c8db0));
+                    if (net < Fl(0x5c85b4)) f = (float)(((double)net / D(0x5c8da8) + D(0x5c8618)) * f);
+                    f = (float)((double)f * *(float*)(0x5f3368 + F<int32_t>(w2, 0x2d) * 4));
+                }
+            }
+        }
+        float base = f;
+        // Pass 0 limits the rate by the region's inputs, pass 1 consumes them.
+        for (int32_t pass = 0; pass < 2; ++pass) {
+            if (recycle) f = base;
+            if (vehicles > 1) {
+                uint8_t* e2p = F<uint8_t*>(rec, 0x37) + i * 0xbc;
+                if (F<int32_t>(e2p, 0) == 0 && F<int32_t>(e2p, 0x2c) != 0) {
+                    if (F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4af7)) {
+                        float b = (float)(int32_t)ind[0x391];
+                        float nv = (float)vehicles;
+                        f = (float)((double)b / nv);
+                    } else if (pass == 0 || (IsMultiplayer() && Game_EffectiveVersion() < 0x69)) {
+                        f = (float)((double)f * share[i]);
+                    }
+                }
+            }
+            if (pass == 1 && f < Fl(0x5c8598)) f = 0.0f;
+            for (int32_t j = 0; j < F<int32_t>(e, 0x2c); ++j) {
+                uint8_t* in = e + 0x44 + j * 0x1c;
+                float t = (float)((double)f * F<float>(in, 4));
+                float* stock = (float*)(region + 0x103 + F<int32_t>(in, 0) * 4);
+                if (pass == 0) {
+                    if (F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4af7)) {
+                        if (!(*stock > t)) *stock = t;
+                    } else {
+                        float have = *stock;
+                        if (have < t) f = (float)((double)have / AtLeastMilli(t) * f);
+                    }
+                    continue;
+                }
+                if (t > Fl(0x5c8598)) {
+                    if (t > *stock) t = *stock;
+                    *stock = (float)((double)*stock - t);
+                    uint8_t* cg = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba8c), 0, F<int32_t>(in, 0));
+                    costs = (float)((double)t * F<float>(cg, 0x18) + costs);
+                    float qf = (float)City_CargoQuota(region, 0, F<int32_t>(in, 0));
+                    inCost = (float)((double)qf * t + inCost);
+                    F<float>(ind, 0x2c0) = (float)((double)t + F<float>(ind, 0x2c0));
+                    made = (float)((double)t + made);
+                    used = (float)((double)t + used);
+                    Cargo_MoveTo62(Collection_Get(hook::Global<Collection*>(0x62ba8c), 0, F<int32_t>(in, 0)), 0, t);
+                    float left = (float)((double)*stock / AtLeastMilli(t));
+                    if (Fl(0x5c8c28) < left) left = 100.0f;
+                    if (left < worst) worst = left;
+                }
+                float lv = (float)(bulk ? 10 : 1);
+                Obj_AddLevel(region, 0, F<int32_t>(in, 0), (float)((double)lv * F<float>(in, 4) * base));
+            }
+        }
+        float out = 0.0f;
+        if (recycle) out = (float)(used * D(0x5c8628));
+        if (F<int32_t>(e, 0) != 0) {
+            if (f > Fl(0x5c8598) && F<int32_t>(rec, 0x78c)) {
+                float gain, waste;
+                bool power = true;
+                if (nuclear) {
+                    gain = (float)(made * Fl(0x5c8da4));
+                    gain = (float)((inCost * D(0x5c8570) + gain) / D(0x5c85d0));
+                    waste = (float)(made * D(0x5c8610));
+                } else if (electric) {
+                    gain = (float)(made * Fl(0x5c8da0));
+                    waste = made;
+                    gain = (float)((inCost * D(0x5c8570) + gain) / D(0x5c85d0));
+                } else power = false;
+                if (power) {
+                    if (!(waste == Fl(0x5c8598))) {
+                        waste = (float)(waste * Fl(0x5c8784));
+                        F<float>(ind, 0x2e8) = (float)((double)waste + F<float>(ind, 0x2e8));
+                        uint8_t* w3 = hook::Global<uint8_t*>(0x6cec78);
+                        F<float>(w3, 0x4caa) = (float)((double)waste + F<float>(w3, 0x4caa));
+                        if (F<int32_t>(ind, 0x276)) {
+                            uint8_t* oc = (uint8_t*)Obj_OwnerCompany(ind);
+                            F<float>(oc, 0xd5d) = (float)((double)waste + F<float>(oc, 0xd5d));
+                        }
+                    }
+                    if (!(gain == Fl(0x5c8598))) {
+                        value = (float)((double)gain + value);
+                        F<float>(ind, 0x310) = (float)((double)gain + F<float>(ind, 0x310));
+                        F<float>(ind, 0x338) = (float)((double)inCost + F<float>(ind, 0x338));
+                        revenue = (float)((double)gain + revenue);
+                        inputValue = (float)((double)inCost + inputValue);
+                    }
+                }
+            }
+        } else if (!recycle) out = (float)((double)f * F<float>(e, 4));
+        if (out > Fl(0x5c8598)) {
+            F<float>(ind, 0x2e8) = (float)((double)out + F<float>(ind, 0x2e8));
+            float earned = (float)City_ProduceCargo(region, 0, F<int32_t>(e, 0x1c), out);
+            if (recycle) earned = (float)(earned * D(0x5c8d98) + inCost);
+            uint8_t* cg = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba8c), 0, F<int32_t>(e, 0x1c));
+            value = (float)((double)out * F<float>(cg, 0x18) + value);
+            F<float>(ind, 0x310) = (float)((double)earned + F<float>(ind, 0x310));
+            F<float>(ind, 0x338) = (float)((double)inCost + F<float>(ind, 0x338));
+            revenue = (float)((double)earned + revenue);
+            inputValue = (float)((double)inCost + inputValue);
+            produced = (float)((double)out + produced);
+        }
+        if (worst < Fl(0x5c8d90) && !(worstSupply > worst)) worstSupply = worst;
+    }
+    float upkeep = (float)F<uint32_t>(rec, 0x22);
+    if (F<int32_t>(ind, 0x246)) {
+        float extra = (float)F<int32_t>(rec, 0x43);
+        upkeep = (float)((double)extra + upkeep);
+    }
+    if (bulk) goto done;
+    {
+        float scale2 = scale;
+        if (rec[0x32] == 2) {
+            // Processing industries also pay running costs that follow their margins.
+            float margin = (float)((double)value - costs);
+            float den = Fl(0x5c85b4) > value ? 1.0f : value;
+            float cover = (float)(D(0x5c8770) - (double)costs / den);
+            if (cover < Fl(0x5c8598)) cover = 0.0f;
+            else if (cover > Fl(0x5c85b4)) cover = 1.0f;
+            float ratio = 1.0f;
+            if (!(revenue == Fl(0x5c8598))) {
+                float den2 = Fl(0x5c85b4) > margin ? 1.0f : margin;
+                ratio = (float)(((double)revenue - inputValue) / den2);
+            }
+            float k = nuclear ? BitsF(0x3f19999a) : 0.5f;
+            if (electric) k = (float)(k * D(0x5c85a8));
+            if (ratio < Fl(0x5c85b4)) k = (float)((D(0x5c8770) - ratio) * D(0x5c88e8) + k);
+            else {
+                double r = ratio > D(0x5c85d0) ? 2.0 : (double)ratio;
+                k = (float)(k - (r - D(0x5c8770)) * D(0x5c86b8));
+            }
+            float c = (float)(cover - D(0x5c88c8));
+            c = (float)(c < D(0x5c86b8) ? 0.1 : (double)c);
+            k = (float)((double)c / D(0x5c8628) * k);
+            scale2 = (float)((double)scale * F<float>(rec, 0x2a) / D(0x5c8978));
+            if (F<int32_t>(ind, 0x246)) scale2 = (float)((F<float>(rec, 0x47) + D(0x5c8770)) * scale2);
+            double outDen = produced < D(0x5c88a0) ? 0.0001 : (double)produced;
+            float perUnit = (float)(((double)revenue - inputValue) / outDen);
+            float run = (float)((double)perUnit * k * produced);
+            float floorRun = (float)((double)scale2 * Fl(0x5c85b0));
+            if (!(run > floorRun)) run = floorRun;
+            inputValue = (float)((double)run + inputValue);
+            F<float>(ind, 0x360) = (float)((double)run + F<float>(ind, 0x360));
+        }
+        float maint = (float)(upkeep * D(0x5c8d88));
+        if (nuclear || electric) maint = (float)((double)maint * Fl(0x5c8900));
+        F<float>(ind, 0x360) = (float)((double)maint + F<float>(ind, 0x360));
+        float spent = (float)((double)maint + inputValue);
+        float net = (float)((double)revenue - spent);
+        if (F<int32_t>(ind, 0x276) && !((int32_t(__fastcall*)(uint8_t*))(*(void***)ind)[0x70 / 4])(ind))
+            Company_PostStat(Collection_Get(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(ind, 0x276)), 0, 3, net, 1);
+        if (F<uint16_t>(ind, 0x26e)) {
+            uint8_t* city = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62bae0), 0, F<uint16_t>(ind, 0x26e));
+            if (F<int32_t>(rec, 0x790)) {
+                F<float>(city, 0x2b2) = (float)((double)revenue + F<float>(city, 0x2b2));
+                F<float>(city, 0x2b6) = (float)((double)net + F<float>(city, 0x2b6));
+            }
+        }
+        if (F<int32_t>(ind, 0x276) || F<int32_t>(ind, 0x246) || !F<int32_t>(recOf(), 0x4b)) goto done;
+        float den = Fl(0x5c85b4) > spent ? 1.0f : spent;
+        float m = (float)((double)net / den);
+        float& trend = F<float>(ind, 0x296);
+        if (m >= D(0x5c8770)) trend = (float)((double)trend + Fl(0x5c878c));
+        else if (m >= D(0x5c8d80)) trend = (float)((double)trend + Fl(0x5c85b4));
+        else if (!(m >= Fl(0x5c8598))) {
+            if (m >= D(0x5c8d78)) trend = (float)((double)trend - Fl(0x5c8900));
+            else trend = (float)((double)trend - Fl(0x5c89a4));
+        }
+        if (trend < Fl(0x5c8d74)) F<uint32_t>(ind, 0x296) = 0xc0c00000;
+        else if (trend >= Fl(0x5c8d70)) F<uint32_t>(ind, 0x296) = 0x42100000;
+        float& supply = F<float>(ind, 0x29a);
+        if (worstSupply >= D(0x5c8978)) supply = (float)((double)supply + D(0x5c8578));
+        else if (worstSupply >= D(0x5c8d68)) supply = (float)((double)supply + Fl(0x5c85b4));
+        else if (!(worstSupply >= Fl(0x5c878c))) {
+            if (worstSupply >= D(0x5c8628)) supply = (float)((double)supply - Fl(0x5c8900));
+            else supply = (float)((double)supply - Fl(0x5c89a4));
+        }
+        if (supply < Fl(0x5c8d74)) F<uint32_t>(ind, 0x29a) = 0xc0c00000;
+        else if (supply >= Fl(0x5c8d70)) F<uint32_t>(ind, 0x29a) = 0x42100000;
+        if (trend > Fl(0x5c8d60) && supply >= Fl(0x5c8d60) && worstSupply >= Fl(0x5c85f8)) {
+            float chance = (float)((((double)trend - Fl(0x5c8d60)) + ((double)supply - Fl(0x5c8d60))) / D(0x5c8d58) * D(0x5c8d50));
+            float roll = (float)SimRand(0, 1000);
+            if (roll < chance) {
+                // "<industry> in <city> is expanding" news.
+                const char* name = LocalizeName((const char*)recOf() + 0x4f);
+                float cy = (float)Obj_CellY(ind);
+                float cx = (float)Obj_CellX(ind);
+                const char* town = Table_NearestName(hook::Global<Collection*>(0x62bae0), 0, cx, cy);
+                char msg[0x184];
+                FormatText(msg, GetString(0xb7), name, town, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
+                Log_Add(hook::Global<Collection*>(0x6acd34), 0, msg, 9, F<int32_t>(ind, 0x2a4), 0);
+                ((void(__fastcall*)(uint8_t*))(*(void***)ind)[0x74 / 4])(ind);
+            }
+        }
+    }
+done:
+    if (F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4af7)) ind[0x391] = 0;
+}
+RT3_REPLACE(0x4101e0, Industry_Produce);
+
+int32_t __fastcall Engine_FreeTextureMem(void* e);
+void* __fastcall Engine_Renderer(void* e);
+void __fastcall Scene_ApplyLighting(uint8_t* r);
+void __fastcall Scene_MarkDirty(uint8_t* r);
+int32_t __fastcall Sound_GetSpeakers(uint8_t* s);
+uint32_t __fastcall Sound_ActiveProvider(uint8_t* s);
+
+// 0x4625b0. Brings the main window's menu check marks (and a few enabled states) in
+// line with the engine, display and game options; relight also reapplies the scene
+// lighting before the scene is marked dirty.
+RT3_NOINLINE void __fastcall Menu_UpdateChecks(HMENU* m, int, char relight) {
+    typedef BOOL(WINAPI * CheckFn)(HMENU, UINT, UINT);
+    typedef BOOL(WINAPI * EnableFn)(HMENU, UINT, UINT);
+    typedef int(WINAPI * GetStrFn)(HMENU, UINT, LPSTR, int, UINT);
+    if (!hook::Global<uint8_t*>(0x6d4024) || !hook::Global<uint8_t*>(0x6d401c)) return;
+    CheckFn checkFn = hook::Global<CheckFn>(0x5c8234);
+    auto E = [] { return hook::Global<uint8_t*>(0x6d4024); };
+    auto O = [] { return hook::Global<uint8_t*>(0x6cec74); };
+    auto check = [&](UINT id, UINT flag) {
+        if (*m) checkFn(*m, id, flag);
+    };
+    auto on = [](bool b) -> UINT { return b ? 8 : 0; };
+    auto eb = [&](uint32_t off) { return on(E()[off] != 0); };
+    auto ei = [&](uint32_t off) { return on(F<int32_t>(E(), off) != 0); };
+    auto oi = [&](uint32_t off) { return on(F<int32_t>(O(), off) != 0); };
+    check(0x9c41, ei(0x114206));
+    check(0x9c42, eb(0x1146a3));
+    check(0x9c6f, eb(0x1146a4));
+    check(0x9c52, eb(0x1146e1));
+    check(0x9c7f, eb(0x1146e8));
+    check(0x9c49, eb(0x1146ab));
+    check(0x9c4a, eb(0x1146ac));
+    check(0x9c50, eb(0x1146ad));
+    check(0x9c51, eb(0x1146ae));
+    check(0x9c7a, eb(0x1146b7));
+    check(0x9c80, eb(0x1146a9));
+    check(0x9c72, on(F<int32_t>(E(), 0x114212) == 0));
+    check(0xe101, ei(0x11471a));
+    check(0xe102, ei(0x11471e));
+    check(0xe103, ei(0x11472a));
+    check(0xe104, ei(0x11472e));
+    bool half = F<float>(E(), 0x1146af) == D(0x5c8628);
+    EnableFn enableFn = hook::Global<EnableFn>(0x5c8230);
+    check(0x9c4b, on(half));
+    check(0x9c62, eb(0x1146e4));
+    check(0x9c4c, eb(0x1146a5));
+    check(0x9c4e, eb(0x1146a6));
+    check(0x9c4f, eb(0x1146a7));
+    check(0x9c79, eb(0x1146e5));
+    if (*m) enableFn(*m, 0x9c53, 1);
+    check(0x9c9c, eb(0x1146e9));
+    check(0x9c54, eb(0x1146eb));
+    check(0x8a, eb(0x1146ed));
+    check(0x8b, eb(0x1146ea));
+    check(0x9cca, oi(0x263));
+    // Some options need enough free texture memory.
+    if (Engine_FreeTextureMem(E()) < 0x800000) {
+        if (*m) enableFn(*m, 0x9c6e, 1);
+    } else check(0x9c6e, eb(0x1146e2));
+    check(0x9c6d, eb(0x1146e3));
+    check(0x9c7e, eb(0x1146e7));
+    check(0x9ca2, eb(0x1146e6));
+    check(0x9c56, eb(0x1146a8));
+    check(0x9c57, eb(0x1146a2));
+    check(0x9c94, 0);
+    check(0x9c95, 0);
+    check(0x9c64, 0);
+    switch (F<int32_t>(E(), 0x1146b3)) {
+    case 0: check(0x9c94, 8); break;
+    case 1: check(0x9c95, 8); break;
+    case 2: check(0x9c64, 8); break;
+    }
+    check(0x9c71, eb(0x1146d7));
+    check(0x9c9e, eb(0x1146d8));
+    check(0x9c9b, oi(0x108));
+    check(0x9c9a, oi(0x104));
+    check(0x87, eb(0x1146ef));
+    check(0x88, eb(0x1146f0));
+    check(0x9c7c, eb(0x1146b8));
+    check(0x9c97, oi(0xa0));
+    for (UINT id = 0xe2f4; id <= 0xe2f7; ++id) check(id, 0);
+    switch (F<int32_t>(O(), 0x1eb)) {
+    case 0: check(0xe2f4, 8); break;
+    case 1: check(0xe2f5, 8); break;
+    case 2: check(0xe2f6, 8); break;
+    case 3: check(0xe2f7, 8); break;
+    }
+    if (E()) {
+        for (UINT id = 58000; id <= 0xe293; ++id) check(id, 0);
+        if (F<int32_t>(E(), 0x114722) == 0) check(58000, 8);
+        else {
+            switch (F<int32_t>(E(), 0x114726)) {
+            case 0x46: check(0xe291, 8); break;
+            case 0x78: check(0xe292, 8); break;
+            case 0xf0: check(0xe293, 8); break;
+            }
+        }
+        check(0x84, 0);
+        check(0x85, 0);
+        check(0x86, 0);
+        switch (F<int32_t>(E(), 0x11420a)) {
+        case 0: check(0x84, 8); break;
+        case 1: check(0x85, 8); break;
+        case 2: check(0x86, 8); break;
+        }
+    }
+    bool three = F<int32_t>(E(), 0x114228) == 3;
+    check(0x9c83, on(three));
+    check(0x9c82, on(!three));
+    if (E() && Engine_Renderer(E())) {
+        if (relight) Scene_ApplyLighting((uint8_t*)Engine_Renderer(E()));
+        Scene_MarkDirty((uint8_t*)Engine_Renderer(E()));
+    }
+    for (int32_t k = 0; k < 10; ++k)
+        for (UINT id = k + 51000, n = 0; n < 4; ++n, id += 100) {
+            check(id - 1000, 0);
+            check(id, 0);
+            check(id + 1000, 0);
+        }
+    uint8_t* ui = hook::Global<uint8_t*>(0x6d401c);
+    for (UINT id = 0xcf6c; id <= 0xcf72; ++id) check(id, on(((1u << (id - 0xcf6c)) & F<uint32_t>(hook::Global<uint8_t*>(0x6d401c), 0xc79)) != 0));
+    (void)ui;
+    check(0xcf76, (F<uint32_t>(hook::Global<uint8_t*>(0x6d401c), 0xc79) >> 9) & 8);
+    check(0xcfd0, on(hook::Global<int32_t>(0x6d3ff8) != 0));
+    static const uint32_t kSel[][2] = { { 0x6d3de8, 50000 }, { 0x6d3dec, 0xc3b4 }, { 0x6d3df0, 0xc418 }, { 0x6d3df4, 0xc47c },
+                                        { 0x6d3e30, 51000 }, { 0x6d3e34, 0xc79c }, { 0x6d3e38, 0xc800 }, { 0x6d3e3c, 0xc864 },
+                                        { 0x6d3f20, 52000 }, { 0x6d3f24, 0xcb84 }, { 0x6d3f28, 0xcbe8 }, { 0x6d3f2c, 0xcc4c } };
+    for (auto& s : kSel) {
+        int32_t v = hook::Global<int32_t>(s[0]);
+        if (v <= 10) check(v + s[1], 8);
+    }
+    auto sel = [&](UINT base, int32_t n, int32_t cur) {
+        for (int32_t k = 0; k < n; ++k) check(base + k, on(cur == k));
+    };
+    sel(0xd048, 5, F<int32_t>(O(), 0x10c));
+    check(0xd09a, oi(0x70));
+    check(0xd09b, oi(0x184));
+    check(0x9c99, oi(0xf0));
+    sel(0x9d26, 3, F<int32_t>(O(), 0x178));
+    static const uint32_t kOpt1[][2] = { { 0x9cb9, 0x174 }, { 0x9cd4, 0x2c8 }, { 0x9cb7, 0x16c }, { 0x9cb4, 0x14c }, { 0x9cb3, 0x148 } };
+    for (auto& o : kOpt1) check(o[0], oi(o[1]));
+    check(0x9c63, ei(0x11469c));
+    static const uint32_t kOpt2[][2] = { { 0x9c60, 0x74 },   { 0x9c70, 0x78 },   { 0x9c61, 0x7c },   { 0x9c8d, 0x8c },   { 0x9c8e, 0x90 },
+                                         { 0x9cb6, 0x168 },  { 0x9c9d, 0x110 },  { 0x9ca0, 0x130 },  { 0x9cc6, 0x24f },  { 0x9ca1, 0x134 },
+                                         { 0x9cb8, 0x170 },  { 0x9c9f, 0x1bf },  { 0x9cd1, 0x2b3 } };
+    for (auto& o : kOpt2) check(o[0], oi(o[1]));
+    check(0x9c98, eb(0x1146bd));
+    static const uint32_t kOpt3[][2] = { { 0x9cd0, 0x2af }, { 0x9ccc, 0x27f }, { 0x9c8f, 0x80 }, { 0x9ccf, 0x293 }, { 0x9c96, 0x84 },
+                                         { 0x9ca8, 0x88 },  { 0x9c90, 0x94 },  { 0x9c92, 0x98 }, { 0x9c91, 0x9c },  { 0x9cb2, 0x144 },
+                                         { 0x9c93, 0xa8 },  { 0x9e23, 0xfc } };
+    for (auto& o : kOpt3) check(o[0], oi(o[1]));
+    check(0x9c5f, ei(0x114716));
+    sel(0x9d1c, 3, F<int32_t>(O(), 0x253));
+    sel(0x9d12, 3, F<int32_t>(O(), 0x22f));
+    sel(0x9d30, 3, F<int32_t>(O(), 0x2bb));
+    sel(0x9d3a, 3, F<int32_t>(O(), 0x2bf));
+    sel(0x9d08, 3, F<int32_t>(E(), 0x1146d9));
+    sel(0x9d6c, 6, F<int32_t>(E(), 0x1146dd));
+    // Three 0..10 sliders, as the scaled settings round to.
+    for (int32_t k = 0; k <= 10; ++k) {
+        if (!*m) continue;
+        auto level = [&](uint32_t off) { return Ftol(((double)F<float>(E(), off) + D(0x5c85b8)) * D(0x5c85f0)); };
+        check(k + 0xd160, on(level(0x1146fa) == k));
+        if (!*m) continue;
+        check(k + 0xd1c4, on(level(0x1146fe) == k));
+        if (!*m) continue;
+        check(k + 0xd228, on(level(0x114702) == k));
+    }
+    sel(0xdf0c, 6, Sound_GetSpeakers(hook::Global<uint8_t*>(0x6d402c)));
+    // Sound provider items: checked when the active provider's name contains the item text.
+    GetStrFn getStr = hook::Global<GetStrFn>(0x5c8238);
+    for (UINT id = 0xdea9; id < 0xdea9 + 8; ++id) {
+        if (!*m) continue;
+        char text[256];
+        getStr(*m, id, text, 0xff, 0);
+        const char* prov = (const char*)(uintptr_t)Sound_ActiveProvider(hook::Global<uint8_t*>(0x6d402c));
+        bool has = ((const char*(__cdecl*)(const char*, const char*))0x5a1ff0)(prov, text) != nullptr;
+        check(id, on(has));
+    }
+    check(0x9cb5, ei(0x114712));
+    for (int32_t k = 0; k < 10; ++k) {
+        check(k + 0xd28c, on(F<int32_t>(E(), 0x1146c6) == k));
+        check(k + 0xd354, on(F<int32_t>(E(), 0x1146ca) == k));
+        check(k + 54000, on(F<int32_t>(E(), 0x1146ce) == k));
+    }
+    for (int32_t k = 0; k < 7; ++k) check(k + 0xd480, on(F<int32_t>(E(), 0x1146c2) + 1 == k));
+    check(0x9cbb, oi(0x17c));
+    check(0x9cbc, oi(0x180));
+    check(0x9cc9, oi(0x25f));
+    check(0x9ccb, oi(0x267));
+    check(0x9cd5, on(O()[0x2d0] != 0));
+    static const uint32_t kOpt4[][2] = { { 0xdf70, 0x150 }, { 0xdf71, 0x154 }, { 0xdf72, 0x158 }, { 0xdf73, 0x15c }, { 0xdf74, 0x160 },
+                                         { 0xdf75, 0x164 }, { 0xd14c, 0x12c }, { 0x9cbd, 0x188 }, { 0x9e24, 0x1b3 }, { 0x9e25, 0x287 } };
+    for (auto& o : kOpt4) check(o[0], oi(o[1]));
+    check(0x9e26, on(hook::Global<int32_t>(0x62be84) != 0));
+    static const uint32_t kOpt5[][2] = { { 0x9cc4, 0x1db }, { 0xe09e, 0x1c3 }, { 0xe09f, 0x1c7 }, { 0xe0a0, 0x1cb }, { 0xe0a1, 0x1cf },
+                                         { 0xe0a2, 0x1d3 }, { 0x9cc5, 0x1e7 }, { 0x9ccd, 0x28f } };
+    for (auto& o : kOpt5) check(o[0], oi(o[1]));
+    check(0x9cce, ei(0x114732));
+    static const uint32_t kOpt6[][2] = { { 0x9cd3, 0x2b7 }, { 0x9cc7, 0x257 }, { 0x9cc8, 0x25b }, { 0x9f26, 0x26b }, { 0x9f27, 0x26f },
+                                         { 0x9f28, 0x273 }, { 0x9f29, 0x277 }, { 0x9f2a, 0x27b }, { 0x9e0c, 0x297 }, { 0x9e0d, 0x29b },
+                                         { 0x9e0e, 0x29f }, { 0x9e0f, 0x2a3 }, { 0x9e10, 0x2a7 }, { 0x9e18, 0x2ab } };
+    for (auto& o : kOpt6) check(o[0], oi(o[1]));
+    for (UINT k = 0; k < 0x18; ++k) check(k + 0xdc50, 0);
+    check(0xdc82, on(F<int32_t>(O(), 0x124) == 0));
+    if (F<int32_t>(O(), 0x124)) check(F<int32_t>(O(), 0x128) + 0xdc50, 8);
+    for (UINT k = 0; k < 10; ++k) check(k + 0xe167, 0);
+    check(0xe165, on(F<int32_t>(O(), 0x1df) == 0));
+    if (F<int32_t>(O(), 0x1df)) check(F<int32_t>(O(), 0x1e3) + 0xe167, 8);
+    sel(0xdfd4, 3, F<int32_t>(O(), 0xa4));
+    for (UINT k = 0; k < 0x13; ++k) check(k + 0xe038, on(O()[0x18c + k] != 0));
+    sel(0x9cbe, 3, F<int32_t>(E(), 0x1146be));
+}
+RT3_REPLACE(0x4625b0, Menu_UpdateChecks);
+
+HWND __fastcall Engine_Window(void* e);
+uint32_t __fastcall Engine_IsFullscreen(void* e);
+
+// 0x464170. Attaches the main menu to the game window (windowed mode only): detaches
+// first when there is none, then sets it, redraws the bar and updates the checks.
+void __fastcall Menu_Attach(HMENU* m) {
+    typedef BOOL(WINAPI * SetMenuFn)(HWND, HMENU);
+    if (!hook::Global<void*>(0x6d4024) || Engine_IsFullscreen(hook::Global<void*>(0x6d4024))) return;
+    SetMenuFn setMenu = hook::Global<SetMenuFn>(0x5c822c);
+    ((int32_t*)m)[1] = 1;
+    if (!*m) {
+        setMenu(Engine_Window(hook::Global<void*>(0x6d4024)), nullptr);
+        if (!*m) return;
+    }
+    setMenu(Engine_Window(hook::Global<void*>(0x6d4024)), *m);
+    Menu_UpdateChecks(m, 0, 0);
+}
+RT3_REPLACE(0x464170, Menu_Attach);
+
+// 0x413580. Runs the production step for a quarter of the industries, the quarter
+// picked by the week of the month (day / 7), and rerolls their animation offsets.
+void __fastcall Industries_ProduceQuarter(Collection* t) {
+    int32_t n = Collection_Count(t);
+    int32_t week = hook::Global<uint8_t*>(0x6cec78)[0x11] / 7;
+    for (int32_t i = week % 4; i < n; i += 4) {
+        uint8_t* ind = (uint8_t*)Collection_Get(t, 0, Collection_IdAt(t, 0, i, 0));
+        if (Obj_Flag3d4(ind) != 1) continue;
+        Industry_Produce(ind, 0, 0);
+        F<int32_t>(ind, 0x3d9) = Rand(0, 9);
+        F<int32_t>(ind, 0x3dd) = Rand(0, 9);
+    }
+}
+RT3_REPLACE(0x413580, Industries_ProduceQuarter);
+
+char* __fastcall Num_Format(char* buf, int32_t style, double v, int32_t width, int32_t unused, int32_t inK, int32_t inM);
+void __fastcall StatusLine_Set(uint8_t* s, int, const char* text, int32_t ms);
+void __fastcall Options_Save(uint8_t* o, int, int32_t withEngine);
+
+// 0x482920. Steps the engine setting +0x1146c2 by delta, wrapping -1..4 (-1 shows
+// as "off"), reports the new value on the status line for 3 s, refreshes the menu
+// checks and saves the options.
+int32_t __fastcall Engine_StepSetting(int32_t delta) {
+    F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x1146c2) += delta;
+    if (F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x1146c2) > 4) F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x1146c2) = -1;
+    if (F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x1146c2) < -1) F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x1146c2) = 4;
+    int32_t v = F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x1146c2);
+    char num[0x12c], msg[0x12c];
+    const char* text = v == -1 ? GetString(0x2f8) : Num_Format(num, 1, (double)v, 10, 1, 0, 0);
+    FormatText(msg, GetString(0x2f7), text, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
+    StatusLine_Set(hook::Global<uint8_t*>(0x6d401c), 0, msg, 3000);
+    Menu_UpdateChecks(hook::Global<HMENU*>(0x6ada8c), 0, 0);
+    Options_Save(hook::Global<uint8_t*>(0x6cec74), 0, 1);
+    return 0;
+}
+RT3_REPLACE(0x482920, Engine_StepSetting);
+
+int __fastcall ToUpper(char c);
+void __fastcall StrCopyN(char* dst, const char* src, size_t n);
+char* __fastcall Num_FormatSimple(char* buf, int32_t style, double v, int32_t width);
+void* __fastcall Company_Owner(void* c);
+
+// 0x430560. Expands scenario text: "[name]" becomes the value of rule variable name
+// (table 0x5f3d9c, 901 entries of 0x81 bytes) for the given player / company / city,
+// formatted by the variable's type, or by a "[name~~format]" override (number,
+// yes/no word pairs). Copies multibyte characters whole. An unknown name formats a
+// warning when the debug option +0x68 is on, but the text is never used.
+void __fastcall RuleText_Expand(uint8_t* self, int, const char* src, char* dst, int32_t size, uint8_t* pl, uint8_t* co, uint8_t* st) {
+    typedef LPSTR(WINAPI * CharNextExFn)(WORD, LPCSTR, DWORD);
+    if (!st) {
+        if (!co) goto start;
+        st = (uint8_t*)Company_Owner(co);
+    }
+    if (!co && st && Collection_IsValid(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(st, 0x1dd)))
+        co = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(st, 0x1dd));
+start:
+    memset(dst, 0, (size_t)size);
+    const char* p = src;
+    char* out = dst;
+    if (!*p) return;
+    CharNextExFn charNext = hook::Global<CharNextExFn>(0x5c8244);
+    char buf[100], name[200], fmt[700];
+    for (;;) {
+        if (*p == '[') {
+            const char* tag = ++p;
+            int32_t mode = 0;
+            name[0] = 0;
+            bool scanned = false;
+            for (;;) {
+                char c = *p;
+                if (!c) break;
+                if (c == ']') {
+                    StrCopyN(name, tag, (size_t)(p - tag));
+                    ++p;
+                    scanned = true;
+                    break;
+                }
+                if (c == '~' && p[1] == '~') {
+                    StrCopyN(name, tag, (size_t)(p - tag));
+                    p += 2;
+                    const char* f = p;
+                    while (*p && *p != ']') ++p;
+                    if (*p == ']') {
+                        StrCopyN(fmt, f, (size_t)(p - f));
+                        if (strlen(fmt) >= 1)
+                            for (int32_t i = 0; i < 6; ++i)
+                                if (!Stricmp(fmt, GetString(*(int32_t*)(0x620b6c + i * 4)))) mode = i;
+                        ++p;
+                    }
+                    scanned = true;
+                    break;
+                }
+                p = hook::Global<int32_t>(0x6d4034) ? charNext(hook::Global<WORD>(0x624328), p, 0) : p + 1;
+            }
+            if (scanned) {
+                char up = (char)ToUpper(name[0]);
+                int32_t var = 0;
+                const char* e = (const char*)0x5f3d9c;
+                for (; (uint32_t)e < 0x6103a1; e += 0x81, ++var)
+                    if ((char)ToUpper(*e) == up && !Stricmp(name, e)) break;
+                if ((uint32_t)e < 0x6103a1) {
+                    int32_t v = RuleVar_Get(var, pl, co, st, 0, 0, 0, 0);
+                    buf[0] = *(char*)0x5c87a8;
+                    if (mode == 0) {
+                        uint8_t* info = (uint8_t*)0x5f3d98 + var * 0x81;
+                        int32_t type = F<int32_t>(info, 0x4c);
+                        if (type == 0 || type == 2 || type == 3) strcpy(buf, GetString(v > 0 ? 0x6ce : 0x6cf));
+                        else {
+                            switch (info[0x4b]) {
+                            case 0: {
+                                int32_t kind = F<int32_t>(info, 0);
+                                Num_Format(buf, kind == 7 || kind == 6 || kind == 0x3c ? 8 : 1, (double)v, 10, 1, 0, 0);
+                                break;
+                            }
+                            case 1: Num_Format(buf, 5, (double)v / D(0x5c85d8), 10, 1, 0, 0); break;
+                            case 2: Num_FormatSimple(buf, 9, (double)v, 0xb); break;
+                            case 4:
+                                if (v) strcpy(buf, (const char*)(uintptr_t)v);
+                                break;
+                            }
+                        }
+                    } else if (mode == 1) Num_FormatSimple(buf, 9, (double)v, 0xb);
+                    else strcpy(buf, GetString(0xb16 + (mode - 2) * 2 + (v != 0 ? 0 : 1)));
+                    int32_t len = (int32_t)strlen(buf);
+                    if (len - (int32_t)(uintptr_t)dst + (int32_t)(uintptr_t)out + 2 < size) {
+                        memcpy(out + strlen(out), buf, (size_t)len);
+                        out += strlen(buf);
+                    }
+                }
+                if (var >= 0x385 && F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x68)) {
+                    char warn[0x1f4];
+                    FormatText(warn, GetString(0xd4), name, (const char*)self + 0x18, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
+                }
+            }
+        } else if (hook::Global<int32_t>(0x6d4034)) {
+            const char* from = p;
+            p = charNext(hook::Global<WORD>(0x624328), p, 0);
+            while (from != p) *out++ = *from++;
+        } else *out++ = *p++;
+        if ((int32_t)(out - dst) + 2 >= size) {
+            *out = 0;
+            return;
+        }
+        if (!*p) return;
+    }
+}
+RT3_REPLACE(0x430560, RuleText_Expand);
+
+void __fastcall Obj_UnlinkFromNode(void* o);
+void __fastcall Car_LinkToNode(uint8_t* car, int, int32_t id, int32_t side);
+void __fastcall Track_AddWear(uint8_t* t);
+void __fastcall Track_SetBlocked(uint8_t* o, int, uint8_t v);
+int32_t __fastcall World_LookupNamed1(void* w, int, const char* name);
+void __fastcall CargoTypes_MarkAvailable(Collection* c);
+
+// 0x41c700. Moves a train car onto track segment seg (-1: off the track) facing
+// dir: relinks it, and when the segment changes marks the new one worn and blocked.
+void __fastcall Car_MoveToSegment(uint8_t* car, int, int32_t seg, int32_t dir) {
+    uint8_t* s = seg != -1 ? (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfca8), 0, (uint32_t)seg) : nullptr;
+    Obj_UnlinkFromNode(car);
+    Car_LinkToNode(car, 0, seg, F<int32_t>(car, 0x35a));
+    if (F<int32_t>(car, 0x356) != seg) {
+        F<int32_t>(car, 0x356) = seg;
+        if (seg != -1) {
+            Track_AddWear(s);
+            Track_SetBlocked(s, 0, 1);
+        }
+    }
+    F<int32_t>(car, 0x35e) = dir;
+}
+// Kept original (not hooked): with this rewrite the simcheck run diverges late
+// (vehicle smoke emitters launch fewer particles, shifting the shared LCG 0x624324),
+// although the code matches the original instruction for instruction; the cause
+// looks like stack residue read by original render code. See dumpready's skip list.
+// RT3_REPLACE(0x41c700, Car_MoveToSegment);
+
+// 0x412c10. Marks which industry types are available: processing types (+0x32
+// == 2, not flagged +0xba / +0xbb) by the scenario's named list, all others always;
+// then updates the cargo types.
+void __fastcall IndustryTypes_MarkAvailable(Collection* t) {
+    if (!hook::Global<void*>(0x6cec78)) return;
+    for (int32_t i = 0; i < Collection_Count(t); ++i) {
+        uint8_t* r = (uint8_t*)Collection_Get(t, 0, Collection_IdAt(t, 0, (uint32_t)i, 0));
+        if (!r[0xba] && !r[0xbb] && r[0x32] == 2) F<int32_t>(r, 0x7ac) = World_LookupNamed1(hook::Global<void*>(0x6cec78), 0, (const char*)r + 4);
+        else F<int32_t>(r, 0x7ac) = 1;
+    }
+    if (hook::Global<Collection*>(0x62ba8c)) CargoTypes_MarkAvailable(hook::Global<Collection*>(0x62ba8c));
+}
+// Kept original (not hooked): with this rewrite the simcheck run diverges late
+// (vehicle smoke emitters launch fewer particles, shifting the shared LCG 0x624324),
+// although the code matches the original instruction for instruction; the cause
+// looks like stack residue read by original render code. See dumpready's skip list.
+// RT3_REPLACE(0x412c10, IndustryTypes_MarkAvailable);
+
+double __fastcall Vec3_Length(const float* v);
+void __fastcall Vec3_CrossInPlace(float* a, int, const float* b);
+float* __fastcall Vec3_Normalize(float* v);
+float* __fastcall Vec3_Transform(float* v, int, float* out, const float* m);
+
+// 0x458140. Turns a view-space direction v into world space through the inverse of
+// the camera matrix (+0x18e), crosses it with w, and returns the normalized result
+// in out with its length before normalizing in *len. Works on its stack
+// arguments in place, as the original does.
+float* __fastcall Camera_WorldCross(uint8_t* cam, int, float* out, float vx, float vy, float vz, float wx, float wy, float wz, float* len) {
+    float inv[16], det, t[3];
+    ((void*(__stdcall*)(void*, float*, const void*))0x56d8d9)(inv, &det, cam + 0x18e);
+    float* r = Vec3_Transform(&vx, 0, t, inv);
+    memcpy(&vx, r, 12);
+    Vec3_CrossInPlace(&vx, 0, &wx);
+    *len = (float)Vec3_Length(&vx);
+    Vec3_Normalize(&vx);
+    memcpy(out, &vx, 12);
+    return out;
+}
+// Kept original (not hooked): with this rewrite the simcheck run diverges late
+// (vehicle smoke emitters launch fewer particles, shifting the shared LCG 0x624324),
+// although the code matches the original instruction for instruction; the cause
+// looks like stack residue read by original render code. See dumpready's skip list.
+// RT3_REPLACE(0x458140, Camera_WorldCross);
+
+int32_t __fastcall Models_ValueByName(const char* name);
+void __fastcall Keyboard_SetScrollLock(int32_t on);
+void __fastcall Obj_Nudge92(void* o);
+
+// 0x482c90. Selects display mode m (option +0x10c; also kept as the last
+// windowed +0x1bb or full-screen +0x1b7 choice by the mode's kind, table 0x5ee4d0),
+// saves the options and refreshes the menu and the view; the Scroll Lock light
+// follows full-screen modes when the keyboard model value is 0x91.
+void __fastcall Options_SetDisplayMode(uint8_t* o, int, int32_t m) {
+    if (m != F<int32_t>(o, 0x10c)) {
+        if (*(uint8_t*)(0x5ee4d0 + m)) F<int32_t>(o, 0x1b7) = m;
+        else F<int32_t>(o, 0x1bb) = m;
+        F<int32_t>(o, 0x10c) = m;
+        Options_Save(o, 0, 1);
+        if (hook::Global<HMENU*>(0x6ada8c)) Menu_UpdateChecks(hook::Global<HMENU*>(0x6ada8c), 0, 0);
+        if (hook::Global<void*>(0x62be68)) Obj_Nudge92(hook::Global<void*>(0x62be68));
+    }
+    if (Models_ValueByName((const char*)0x5ced40) == 0x91) Keyboard_SetScrollLock(*(uint8_t*)(0x5ee4d0 + m) != 0);
+}
+RT3_REPLACE(0x482c90, Options_SetDisplayMode);
+
+int32_t __fastcall Cargo_MatchesClass(void* c, int, int32_t id);
+
+// 0x47e390 (with its tail 0x47e41f, reached only by falling through). The supply
+// of cargo class cls (0x384..0x386) over a region's cells (+0x34, count +0x38,
+// { x, y, - }): the sum of the cells' per-cargo amounts (+0x103) of every enabled
+// cargo in the class. The three classes are cached (+0x14 / +0xc / +0x10 with
+// stamps +0x20 / +0x18 / +0x1c) for 0xb40 minutes.
+RT3_NOINLINE float __fastcall Region_ClassSupply(uint8_t* r, int, int32_t cls) {
+    int32_t now = F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x15);
+    if (cls == 0x384 && F<int32_t>(r, 0x20) > 0 && now - F<int32_t>(r, 0x20) < 0xb40) return F<float>(r, 0x14);
+    if (cls == 0x386 && F<int32_t>(r, 0x18) > 0 && now - F<int32_t>(r, 0x18) < 0xb40) return F<float>(r, 0xc);
+    if (cls == 0x385 && F<int32_t>(r, 0x1c) > 0 && now - F<int32_t>(r, 0x1c) < 0xb40) return F<float>(r, 0x10);
+    uint8_t in[0x35];
+    memset(in, 0, sizeof in);
+    for (int32_t i = 0; i < 0x35; ++i) {
+        if (!Collection_IsValid(hook::Global<Collection*>(0x62ba8c), 0, (uint32_t)i)) continue;
+        void* c = Collection_Get(hook::Global<Collection*>(0x62ba8c), 0, (uint32_t)i);
+        if (!Cargo_MatchesClass(c, 0, cls)) continue;
+        if (F<int32_t>(hook::Global<uint8_t*>(0x62ba8c), 0x16e + i * 4)) in[i] = 1;
+    }
+    float sum = 0.0f;
+    if (F<int32_t>(r, 0x38) > 0) {
+        uint8_t* m = hook::Global<uint8_t*>(0x62c120);
+        int32_t w = F<int32_t>(m, 0x2145);
+        uint8_t* cells = F<uint8_t*>(m, 0x2129);
+        int32_t* p = F<int32_t*>(r, 0x34);
+        for (int32_t n = F<int32_t>(r, 0x38); n; --n, p += 3) {
+            uint8_t* cell = cells + (p[1] * w + p[0]) * 0x1d7;
+            for (int32_t i = 0; i < 0x35; ++i)
+                if (in[i]) X87AddMem(&sum, &sum, cell + 0x103 + i * 4);
+        }
+    }
+    if (cls == 0x384) {
+        F<float>(r, 0x14) = sum;
+        F<int32_t>(r, 0x20) = F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x15);
+    } else if (cls == 0x386) {
+        F<float>(r, 0xc) = sum;
+        F<int32_t>(r, 0x18) = F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x15);
+    } else if (cls == 0x385) {
+        F<float>(r, 0x10) = sum;
+        F<int32_t>(r, 0x1c) = F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x15);
+    }
+    return sum;
+}
+RT3_REPLACE(0x47e390, Region_ClassSupply);
+
+void __fastcall Nop53a580(void*, int, int32_t);
+int32_t __fastcall Models_DisplayName(const char* name, char* out);
+
+// 0x48a6c0. Saves a container: the child count (+8 list, its word +0xc), the
+// index of the selected child (+0x248; 0xff for none) and then each child via its
+// save method (+0x44) - all to stream s.
+RT3_NOINLINE void __fastcall Container_Save(uint8_t* o, int, int32_t s) {
+    Nop53a580(o, 0, s);
+    PtrList* l = F<PtrList*>(o, 8);
+    uint32_t n = l ? *(uint16_t*)((uint8_t*)l + 0xc) : 0;
+    StreamWrite(s, &n, 2, 0);
+    uint32_t sel = (uint32_t)s;
+    *(uint8_t*)&sel = 0xff;
+    if (F<void*>(o, 0x248)) {
+        uint8_t idx = 0;
+        PtrList_Rewind(F<PtrList*>(o, 8));
+        for (void* c = PtrList_Next(F<PtrList*>(o, 8)); c; c = PtrList_Next(F<PtrList*>(o, 8)), ++idx)
+            if (c == F<void*>(o, 0x248)) {
+                *(uint8_t*)&sel = idx;
+                break;
+            }
+    }
+    StreamWrite(s, &sel, 1, 0);
+    if (!F<PtrList*>(o, 8)) return;
+    PtrList_Rewind(F<PtrList*>(o, 8));
+    for (void* c = PtrList_Next(F<PtrList*>(o, 8)); c; c = PtrList_Next(F<PtrList*>(o, 8)))
+        ((void(__fastcall*)(void*, int, int32_t))(*(void***)c)[0x44 / 4])(c, 0, s);
+}
+RT3_REPLACE(0x48a6c0, Container_Save);
+
+// 0x4e0960. Fills the setup window's option labels 0x7918..0x7921 (event 0x65 in
+// windowed full-screen-capable mode with option +0x114, else 0x87) and its title
+// 0x7923: string 0x711, plus string 0xbcf with the display name of model 0x5d0f48
+// when there is one.
+RT3_NOINLINE void __fastcall SetupWindow_FillLabels(uint8_t* w) {
+    uint32_t ev = hook::Global<uint8_t*>(0x6d4024)[0x114226] && F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x114) ? 0x65 : 0x87;
+    for (uint32_t id = 0x7918; id <= 0x7921; ++id) Window_SendEvent5(w, 0, ev, id, 3, 0, 0);
+    char text[0x1f4], name[0x12c], extra[0x190];
+    strcpy(text, GetString(0x711));
+    if (Models_DisplayName((const char*)0x5d0f48, name)) {
+        FormatText(extra, GetString(0xbcf), name, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
+        strcat(text, extra);
+    }
+    Window_SendEvent5(w, 0, 0x6e, 0x7923, (uint32_t)(uintptr_t)text, 0, 0);
+}
+RT3_REPLACE(0x4e0960, SetupWindow_FillLabels);
+
+// 0x434f20. Sets the scenario's named value name (list +0x66b2: records of a
+// 0x1e-byte name and an int at +0x1e, matched by first letter and
+// case-insensitively), adding a record with the name capitalized when missing;
+// then refreshes which industry types are available (the original 0x412c10, which
+// stays unhooked).
+RT3_NOINLINE void __fastcall World_SetNamedValue(uint8_t* w, int, const char* name, int32_t value) {
+    Collection* l = F<Collection*>(w, 0x66b2);
+    int32_t n = Collection_Count(l);
+    char up = (char)ToUpper(name[0]);
+    bool found = false;
+    for (int32_t i = 0; i < n; ++i) {
+        Collection* t = F<Collection*>(w, 0x66b2);
+        uint8_t* r = (uint8_t*)Collection_Get(t, 0, Collection_IdAt(t, 0, (uint32_t)i, 0));
+        if (up != (char)r[0]) continue;
+        t = F<Collection*>(w, 0x66b2);
+        r = (uint8_t*)Collection_Get(t, 0, Collection_IdAt(t, 0, (uint32_t)i, 0));
+        if (Stricmp(name, (const char*)r)) continue;
+        t = F<Collection*>(w, 0x66b2);
+        F<int32_t>(Collection_Get(t, 0, Collection_IdAt(t, 0, (uint32_t)i, 0)), 0x1e) = value;
+        found = true;
+        break;
+    }
+    if (!found) {
+        uint8_t rec[0x22];
+        memset(rec, 0, sizeof rec);
+        F<int32_t>(rec, 0x1e) = value;
+        strcpy((char*)rec, name);
+        rec[0] = (uint8_t)ToUpper((char)rec[0]);
+        Collection* t = F<Collection*>(w, 0x66b2);
+        ((void(__fastcall*)(Collection*, int, void*, int32_t, int32_t, int32_t))(*(void***)t)[4 / 4])(t, 0, rec, 0, 0, 0);
+    }
+    if (hook::Global<void*>(0x62b268)) ((void(__fastcall*)(void*))0x412c10)(hook::Global<void*>(0x62b268));
+}
+RT3_REPLACE(0x434f20, World_SetNamedValue);
+
+void __fastcall Obj_MarkBlockSlot(uint8_t* o, int, int32_t on, int32_t idx, int32_t mode);
+void* __fastcall Obj_Ref388(void* o);
+int32_t __fastcall Obj_TestBlock(uint8_t* o, int, uint32_t mask, int32_t idx);
+uint32_t __fastcall Obj_SetBlockFlags(uint8_t* o, int, uint32_t mask, int32_t mode);
+uint32_t __fastcall Obj_BeginBlocks(uint8_t* o);
+int32_t __fastcall Signal_IsBehind(uint8_t* o, int, uint8_t* car, uint8_t* other);
+void __fastcall Obj_Dec58c(uint8_t* o);
+int32_t __fastcall Obj_CityRef10(void* o);
+int32_t __fastcall Obj_ClearAttachSlot(uint8_t* o, int, int32_t slot);
+
+// 0x4aaad0. A train t reaching block object other: unless its engine (+0x41) is a
+// type that ignores blocks, and while it is not moving faster than 1 (+0xe0),
+// records which side it is on (+0x192, from 0x4a7bc0) and marks other's block
+// slots accordingly (side 2: both ways; else claims the slot, releasing a stale
+// attachment, and flags the block when only side 2 remains free).
+void __fastcall Train_EnterBlock(uint8_t* t, int, uint8_t* car, uint8_t* other) {
+    if (F<int32_t>(t, 0x41) != -1) {
+        void* e = Collection_Get(hook::Global<Collection*>(0x62ba84), 0, F<uint32_t>(t, 0x41));
+        if (e && F<int32_t>(Collection_Get(hook::Global<Collection*>(0x6ada84), 0, F<uint32_t>(Obj_Ref388(e), 0x126)), 0x10)) return;
+    }
+    if (!(Fl(0x5c85b4) > F<float>(t, 0xe0))) {
+        F<int32_t>(t, 0x192) = -1;
+        return;
+    }
+    int32_t side = Signal_IsBehind(t, 0, car, other);
+    F<int32_t>(t, 0x192) = side;
+    if (side == 2) {
+        Obj_MarkBlockSlot(other, 0, 0, side, 1);
+        Obj_SetBlockFlags(other, 0, 2, 1);
+        return;
+    }
+    int32_t front = side == 0;
+    Obj_MarkBlockSlot(other, 0, 0, side, 1);
+    if (Obj_BeginBlocks(other) == 0xffffffff) {
+        Obj_MarkBlockSlot(other, 0, 1, F<int32_t>(t, 0x192), 0);
+        return;
+    }
+    if (Obj_ClearAttachSlot(other, 0, front) == 1) {
+        Obj_MarkBlockSlot(other, 0, 1, F<int32_t>(t, 0x192), 0);
+        return;
+    }
+    if (Obj_BeginBlocks(other) == 1 && Obj_TestBlock(other, 0, 2, 0) == 1) Obj_SetBlockFlags(other, 0, 2, 1);
+}
+RT3_REPLACE(0x4aaad0, Train_EnterBlock);
+
+// 0x4aac00. A train t leaving its station block (+0xac, while +0x1a2 is set):
+// frees the station building's block for its side unless a city reference keeps
+// it, then releases the previous block (+0xa4; its claim count +0x58c, the side
+// reset when still claimed).
+RT3_NOINLINE void __fastcall Train_LeaveBlock(uint8_t* t) {
+    if (F<int32_t>(t, 0xac) == -1 || t[0x1a2] != 1) return;
+    if (!Collection_IsValid(hook::Global<Collection*>(0x6cec20), 0, F<uint32_t>(t, 0xac))) return;
+    void* st = Collection_Get(hook::Global<Collection*>(0x6cec20), 0, F<uint32_t>(t, 0xac));
+    if (!Obj_CityRef10(t)) {
+        uint8_t* b = (uint8_t*)Obj_Building(st);
+        if (!Obj_ClearAttachSlot(b, 0, -1) && F<int32_t>(t, 0x192) == F<int32_t>(b, 0x262) && Obj_BeginBlocks(b) == 0xffffffff)
+            Obj_SetBlockFlags(b, 0, 2, 1);
+    }
+    t[0x1a2] = 0;
+    Collection* sts = hook::Global<Collection*>(0x6cec20);
+    if (Collection_IsValid(sts, 0, F<uint32_t>(t, 0xa4)) && F<int32_t>(Collection_Get(sts, 0, F<uint32_t>(t, 0xa4)), 0x58c)) {
+        Obj_Dec58c((uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cec20), 0, F<uint32_t>(t, 0xa4)));
+        if (F<int32_t>(Collection_Get(hook::Global<Collection*>(0x6cec20), 0, F<uint32_t>(t, 0xa4)), 0x58c)) F<int32_t>(t, 0x192) = -1;
+    }
+    F<int32_t>(t, 0xa4) = -1;
+}
+RT3_REPLACE(0x4aac00, Train_LeaveBlock);
+
+void __fastcall Vehicle_PassSignal(uint8_t* o);
+
+// 0x4aae90. A train waiting at a signal (state +0xe8 4 or 5) passes it: its
+// speed limit +0x8c becomes -1.0, the held block +0x94 moves to +0x1ba and the
+// train leaves its block.
+void __fastcall Train_PassSignal(uint8_t* t) {
+    int32_t st = F<int32_t>(t, 0xe8);
+    if (st != 5 && st != 4) return;
+    Vehicle_PassSignal(t);
+    F<uint32_t>(t, 0x8c) = 0xbf800000;
+    F<int32_t>(t, 0x1ba) = F<int32_t>(t, 0x94);
+    F<int32_t>(t, 0x94) = -1;
+    Train_LeaveBlock(t);
+}
+RT3_REPLACE(0x4aae90, Train_PassSignal);
+
+uint8_t __fastcall Obj_Flag3d4(void* o);
+void __fastcall Collection_Save(Collection* c, int, Stream s, int32_t recordSize);
+
+// 0x436a70. Marks available in world w the types of the buildings (0x62b26c)
+// that are flagged (+0x3d4 == 1) and whose type is kind 2 (+0x32) with neither
+// +0xba nor +0xbb set.
+void __fastcall World_MarkBuildingTypes(uint8_t* w) {
+    Collection* c = hook::Global<Collection*>(0x62b26c);
+    for (int32_t i = 0; i < Collection_Count(c); ++i) {
+        c = hook::Global<Collection*>(0x62b26c);
+        uint8_t* b = (uint8_t*)Collection_Get(c, 0, Collection_IdAt(c, 0, (uint32_t)i, 0));
+        if (Obj_Flag3d4(b) == 1) {
+            uint8_t* type = ((uint8_t*(__fastcall*)(uint8_t*))(*(void***)b)[0x80 / 4])(b);
+            if (type[0x32] == 2 && !type[0xba] && !type[0xbb]) World_SetNamedValue(w, 0, (const char*)type + 4, 1);
+        }
+        c = hook::Global<Collection*>(0x62b26c);
+    }
+}
+RT3_REPLACE(0x436a70, World_MarkBuildingTypes);
+
+// 0x437740. Marks every kind-2 building type (0x62b268, +0x32) available in the
+// world 0x6cec78.
+void World_MarkKind2Types() {
+    Collection* c = hook::Global<Collection*>(0x62b268);
+    for (int32_t i = 0; i < Collection_Count(c); ++i) {
+        c = hook::Global<Collection*>(0x62b268);
+        uint8_t* type = (uint8_t*)Collection_Get(c, 0, Collection_IdAt(c, 0, (uint32_t)i, 0));
+        if (type[0x32] == 2) World_SetNamedValue(hook::Global<uint8_t*>(0x6cec78), 0, (const char*)type + 4, 1);
+        c = hook::Global<Collection*>(0x62b268);
+    }
+}
+RT3_REPLACE(0x437740, World_MarkKind2Types);
+
+// 0x491c60. Saves a collection of containers: tag 0x38a5, the collection itself,
+// tag 0x38a6, the word +0x90, each container, tag 0x38a7.
+void __fastcall ContainerList_Save(Collection* c, int, Stream s, int32_t recordSize) {
+    StreamWriteU32(s, 0x38a5);
+    Collection_Save(c, 0, s, recordSize);
+    StreamWriteU32(s, 0x38a6);
+    StreamWrite(s, (uint8_t*)c + 0x90, 4, 0);
+    for (int32_t i = 0; i < Collection_Count(c); ++i)
+        Container_Save((uint8_t*)Collection_Get(c, 0, Collection_IdAt(c, 0, (uint32_t)i, 0)), 0, s);
+    StreamWriteU32(s, 0x38a7);
+}
+RT3_REPLACE(0x491c60, ContainerList_Save);
+
+// 0x4e0b20. Setup window constructor (vtable 0x5d0f3c, kept in 0x6d0820, layout
+// 0x5d0f68): edit buttons 0x7918..0x7921 get the cursor handler 0x4e0a70, the
+// labels are filled and control 0x7922 gets style 3.
+RT3_NOINLINE uint8_t* __fastcall SetupWindow_Construct(uint8_t* w) {
+    Widget_SetVtblRet(w);
+    F<uint32_t>(w, 0) = 0x5d0f3c;
+    hook::Global<uint8_t*>(0x6d0820) = w;
+    Window_Load(w, 0, 0.0f, 0.0f, (const char*)0x5d0f68);
+    for (uint32_t id = 0x7918; id <= 0x7921; ++id) Window_SendEvent5(w, 0, 0x7b, id, 0x4e0a70, 0, 0);
+    SetupWindow_FillLabels(w);
+    Window_SendEvent5(w, 0, 0x87, 0x7922, 3, 0, 0);
+    F<int32_t>(w, 0x78) = 0;
+    return w;
+}
+RT3_REPLACE(0x4e0b20, SetupWindow_Construct);
+
+// 0x4e0e40. Opens the setup window (0x6d0820) once and puts it on screen.
+void SetupWindow_Open() {
+    if (hook::Global<uint8_t*>(0x6d0820)) return;
+    uint8_t* w = (uint8_t*)ExeNew(0xae);
+    if (w) w = SetupWindow_Construct(w);
+    hook::Global<uint8_t*>(0x6d0820) = w;
+    WidgetList_Insert(hook::Global<uint8_t**>(0x6d401c), 0, w, 1);
+}
+RT3_REPLACE(0x4e0e40, SetupWindow_Open);
+
+void __fastcall Session_Shutdown(uint8_t* s);
+uint8_t* __fastcall Session_Init(uint8_t* s);
+
+// 0x4edc40. Starts a fresh network session (0x6cd8d8) from window w: the old one
+// is shut down, the status text (child 0xe47) and 0x6d11a8 are cleared and the
+// worker starts in mode 4 (host) or 1.
+void __fastcall Session_Restart(uint8_t* w, int, int32_t host) {
+    if (uint8_t* s = hook::Global<uint8_t*>(0x6cd8d8)) {
+        Session_Shutdown(s);
+        ExeDelete(s);
+        hook::Global<uint8_t*>(0x6cd8d8) = nullptr;
+    }
+    uint8_t* s = (uint8_t*)ExeNew(0x9898);
+    hook::Global<uint8_t*>(0x6cd8d8) = s ? Session_Init(s) : nullptr;
+    if (uint8_t* c = Widget_FindChild(w, 0, 0xe47))
+        if (char* text = F<char*>(c, 0xba)) *text = 0;
+    hook::Global<char>(0x6d11a8) = 0;
+    Session_StartWorker_Impl(host ? 4 : 1);
+}
+RT3_REPLACE(0x4edc40, Session_Restart);
+
+int32_t __fastcall Sound_SetBufferMs(uint8_t* e, int, void* o, int32_t ms);
+uint32_t* __stdcall Net_GetGuid(uint32_t* out);
+int32_t __fastcall CmdQueue_Broadcast(int32_t a, int32_t b, int32_t c);
+wchar_t* __fastcall Str_ToWide(wchar_t* dst, const char* src, int32_t n);
+int32_t __stdcall DpAddress_AddString(void* addr, const char* text);
+
+// 0x523af0. Joins the game at host as name (DirectPlay8 Peer Connect on
+// +0x18e: peer +8, device address +0xc, host address +0x10), with password (kept
+// at +0x21a) when given and timeout ms on both addresses. Returns the Connect
+// result (its async handle is queued as command 1), or DPNERR_GENERIC 0x80158480
+// when the session isn't ready, a connection is up (0x6d40dc) or a setup step fails.
+RT3_NOINLINE int32_t __fastcall Net_Connect(uint8_t* o, int, const char* host, const char* name, const char* password, int32_t ms) {
+    Net_InitShared(o);
+    if (!hook::Global<void*>(0x6d408c) || hook::Global<int32_t>(0x6d40dc)) return (int32_t)0x80158480;
+    if (Net_SetPlayerName(o, 0, name) != 1) return (int32_t)0x80158480;
+    if (DpAddress_AddString(F<void*>(F<uint8_t*>(o, 0x18e), 0x10), host) != 1) return (int32_t)0x80158480;
+    if (Sound_SetBufferMs(o, 0, F<void*>(F<uint8_t*>(o, 0x18e), 0xc), ms) != 1) return (int32_t)0x80158480;
+    if (Sound_SetBufferMs(o, 0, F<void*>(F<uint8_t*>(o, 0x18e), 0x10), ms) != 1) return (int32_t)0x80158480;
+    struct {
+        uint32_t handle;
+        int32_t caps;
+        uint32_t desc[0x12];
+        uint8_t guid[0x10];
+        char user[0x40];
+        wchar_t pass[0x40];
+    } l;
+    void* dev = F<void*>(F<uint8_t*>(o, 0x18e), 0xc);
+    l.caps = 0;
+    (*(int32_t(__stdcall**)(void*, const void*, void*, int32_t, int32_t))(*(uint8_t**)dev + 0x48))(dev, (const void*)0x5dcf9c, &l.caps, 4, 2);
+    memset(l.desc, 0, sizeof l.desc);
+    l.desc[0] = 0x48;
+    const uint32_t* g = Net_GetGuid((uint32_t*)l.guid);
+    l.desc[6] = g[0];
+    l.desc[7] = g[1];
+    l.desc[8] = g[2];
+    l.desc[9] = g[3];
+    l.desc[1] = 0x44;
+    if (password) {
+        Str_ToWide(l.pass, password, -1);
+        strcpy((char*)o + 0x21a, password);
+        l.desc[0xd] = (uint32_t)(uintptr_t)l.pass;
+        l.desc[1] |= 0x80;
+    }
+    memset(l.user, 0, sizeof l.user);
+    strcpy(l.user, name);
+    uint8_t* d = F<uint8_t*>(o, 0x18e);
+    void* peer = F<void*>(d, 8);
+    int32_t hr = (*(int32_t(__stdcall**)(void*, void*, void*, void*, void*, void*, void*, uint32_t, void*, void*, uint32_t*, uint32_t))(
+        *(uint8_t**)peer + 0x18))(peer, l.desc, F<void*>(d, 0x10), F<void*>(d, 0xc), nullptr, nullptr, l.user, 0x40, nullptr, nullptr, &l.handle, 0);
+    if (hr >= 0) CmdQueue_Broadcast(1, (int32_t)l.handle, 0);
+    return hr;
+}
+RT3_REPLACE(0x523af0, Net_Connect);
+
+// 0x5238e0. Hosts game (named with the "password" suffix, string 0xdba, when
+// password is given; the name kept at +0x192) for name as host player, timeout
+// ms, up to maxPlayers (+0x212, default 4) players (DirectPlay8 Peer Host on the
+// device address +0x18e +0xc). 1 when hosting (0x6d40dc set, command 4 queued).
+RT3_NOINLINE int32_t __fastcall Net_Host(uint8_t* o, int, const char* game, const char* name, const char* password, int32_t ms, int32_t maxPlayers) {
+    Net_InitShared(o);
+    if (!hook::Global<void*>(0x6d408c)) return 0;
+    struct {
+        int32_t caps;
+        uint32_t desc[0x12];
+        char title[0x100];
+        wchar_t pass[0x42];
+        wchar_t wtitle[0x7e];
+    } l;
+    if (!password) strcpy(l.title, game);
+    else ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)(l.title, (const char*)0x5c9d08, game, GetString(0xdba));
+    if (Net_SetPlayerName(o, 0, name) != 1) return 0;
+    if (Sound_SetBufferMs(o, 0, F<void*>(F<uint8_t*>(o, 0x18e), 0xc), ms) != 1) return 0;
+    void* dev = F<void*>(F<uint8_t*>(o, 0x18e), 0xc);
+    l.caps = 0;
+    (*(int32_t(__stdcall**)(void*, const void*, void*, int32_t, int32_t))(*(uint8_t**)dev + 0x48))(dev, (const void*)0x5dcf9c, &l.caps, 4, 2);
+    F<int32_t>(o, 0x212) = maxPlayers ? maxPlayers : 4;
+    Str_ToWide(l.wtitle, l.title, -1);
+    strcpy((char*)o + 0x192, l.title);
+    memset(l.desc, 0, sizeof l.desc);
+    for (int k = 0; k < 4; ++k) l.desc[6 + k] = ((const uint32_t*)0x6257e8)[k];
+    l.desc[0] = 0x48;
+    l.desc[0xc] = (uint32_t)(uintptr_t)l.wtitle;
+    l.desc[0xa] = F<uint32_t>(o, 0x212);
+    l.desc[1] = 0x44;
+    if (password) {
+        Str_ToWide(l.pass, password, -1);
+        strcpy((char*)o + 0x21a, password);
+        l.desc[0xd] = (uint32_t)(uintptr_t)l.pass;
+        l.desc[1] |= 0x80;
+    }
+    uint8_t* d = F<uint8_t*>(o, 0x18e);
+    void* peer = F<void*>(d, 8);
+    int32_t hr = (*(int32_t(__stdcall**)(void*, void*, void*, uint32_t, void*, void*, void*, uint32_t))(*(uint8_t**)peer + 0x24))(
+        peer, l.desc, d + 0xc, 1, nullptr, nullptr, nullptr, 0);
+    if (hr < 0) return 0;
+    hook::Global<int32_t>(0x6d40dc) = 1;
+    CmdQueue_Broadcast(4, 0, 0);
+    return 1;
+}
+RT3_REPLACE(0x5238e0, Net_Host);
+
+// 0x4cf430. The editor's house-types page event handler: a click (0xca) on a type
+// checkbox (0xa028..0xa40f; the type id at the control's +0x82) sets that type's
+// availability to the event's value, and the all / none buttons (0x9c43 / 0x9c44,
+// click or 0xcb) set every kind-2 building type; the page is refilled (keeping
+// its scroll position for a single checkbox). 0 when handled, else 1.
+int32_t __fastcall EditorDialog_HousesEvent(uint8_t* w, int, int32_t* ev) {
+    if (ev[0] != 0xca && ev[0] != 0xcb) return 1;
+    if (ev[0] == 0xca && ev[1] >= 0xa028 && ev[1] <= 0xa40f) {
+        uint8_t* type = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62b268), 0, F<uint32_t>((uint8_t*)(uintptr_t)ev[0xb], 0x82));
+        World_SetNamedValue(hook::Global<uint8_t*>(0x6cec78), 0, (const char*)type + 4, ev[2]);
+        EditorDialog_FillHouses(w, 0, 1);
+        return 0;
+    }
+    if (ev[1] < 0x9c43 || ev[1] > 0x9c44) return 1;
+    for (int32_t i = 0; i < Collection_Count(hook::Global<Collection*>(0x62b268)); ++i) {
+        Collection* c = hook::Global<Collection*>(0x62b268);
+        uint8_t* type = (uint8_t*)Collection_Get(c, 0, Collection_IdAt(c, 0, (uint32_t)i, 0));
+        if (type[0x32] == 2) World_SetNamedValue(hook::Global<uint8_t*>(0x6cec78), 0, (const char*)type + 4, ev[1] == 0x9c43 ? 1 : 0);
+    }
+    EditorDialog_FillHouses(w, 0, 0);
+    return 0;
+}
+RT3_REPLACE(0x4cf430, EditorDialog_HousesEvent);
+
+// 0x506ac0. Draws a station's summary at (x, y): its building-type icon (sprite
+// 0x622acc[first of 6 type bits at +0xc3] + 6 * (2 - size byte +0x8c), shifted by
+// that * 0x5caad0), its name and the class 0x385 / 0x386 supply figures (strings
+// 0xef / 0xf0) in text boxes of height h at fixed offsets.
+void __fastcall Station_DrawSummary(int32_t, uint32_t id, float x, float y, int32_t, float h, int32_t) {
+    uint8_t* st = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cec20), 0, id);
+    uint8_t* type = (uint8_t*)Obj_Ref3cc(Collection_Get(hook::Global<Collection*>(0x62b26c), 0, F<uint32_t>(st, 4)));
+    uint32_t mask = F<uint32_t>(type, 0xc3);
+    int32_t bit = 0;
+    for (; bit < 6; ++bit)
+        if (mask & 1u << bit) break;
+    uint8_t* b = (uint8_t*)Obj_Building(st);
+    uint8_t* rec = ((uint8_t*(__fastcall*)(uint8_t*))(*(void***)b)[0x80 / 4])(b);
+    int32_t n = 2 - rec[0x8c];
+    double shift = (double)n * D(0x5caad0);
+    double dx = (double)x;
+    float gy = (float)((double)y + shift + D(0x5caad0));
+    float gx = (float)(dx + shift);
+    uint8_t* g = (uint8_t*)Table_Entry(hook::Global<uint8_t*>(0x6d170c), 0, ((const int32_t*)0x622acc)[bit] + n * 6);
+    Glyph_Queue(g, 0, gx, gy, 0x3f800000, 1.0f, 1.0f, 0xffffffff, 0, 1, 0, 0.0f, 0.0f, 1.0f, 1.0f);
+    char text[0x100], num[0x20];
+    FormatText(text, (const char*)st + 0x46b, 0, 0, 0, 0, 0, 0, 0, 0);
+    uint8_t* font = hook::Global<uint8_t*>(0x6d1704);
+    Font_DrawTextBox(font, 0, text, (float)(dx + D(0x5c9730)), y, BitsF(0x3e4ccccd), h, 0xffffffff, 2, 0, 0, 1.0f);
+    float s386 = Region_ClassSupply(st, 0, 0x386);
+    float s385 = Region_ClassSupply(st, 0, 0x385);
+    {
+        const char* v = Num_Format(num, 4, (double)s385, 10, 1, 0, 0);
+        FormatText(text, GetString(0xef), v, 0, 0, 0, 0, 0, 0, 0);
+    }
+    Font_DrawTextBox(hook::Global<uint8_t*>(0x6d1704), 0, text, (float)(dx + D(0x5d0808)), y, BitsF(0x3e133333), h, 0xffffffff, 2, 0, 0, 1.0f);
+    {
+        const char* v = Num_Format(num, 4, (double)s386, 10, 1, 0, 0);
+        FormatText(text, GetString(0xf0), v, 0, 0, 0, 0, 0, 0, 0);
+    }
+    Font_DrawTextBox(hook::Global<uint8_t*>(0x6d1704), 0, text, (float)(dx + D(0x5d1788)), y, BitsF(0x3e133333), h, 0xffffffff, 2, 0, 0, 1.0f);
+}
+RT3_REPLACE(0x506ac0, Station_DrawSummary);
+
+int32_t __fastcall StreamRead(int32_t s, void* dst, uint32_t size, int32_t, int32_t);
+
+// 0x42ae50. Loads site record o from stream s, placed at (x, y) (+0xe7 / +0xe9): a
+// 0x14-byte presence mask selects, for each of 53 slots, a word at +0 + 2k, a
+// word at +0x6a + 2k and a dword at +0x103 + 4k (mask bits 3k + 0, +1, +2); then
+// fixed fields +0xe6 (1 byte), +0xd4 / +0xd6 (words), +0xd8 (7 bytes), and a
+// counted list (+0xeb) of 6-byte entries in a new buffer +0xef. +0xdf..+0xe5 are
+// cleared.
+void __fastcall Site_Load(uint8_t* o, int, int32_t s, int16_t x, int16_t y) {
+    memset(o, 0, 0x6a);
+    memset(o + 0x6a, 0, 0x6a);
+    memset(o + 0x103, 0, 0x35 * 4);
+    uint8_t mask[0x14];
+    StreamRead(s, mask, 0x14, 0, 1);
+    for (int32_t k = 0; k < 0x35; ++k) {
+        int32_t b = k * 3;
+        if (mask[b >> 3] & 1 << (b & 7)) StreamRead(s, o + k * 2, 2, 0, 1);
+        if (mask[(b + 1) >> 3] & 1 << ((b + 1) & 7)) StreamRead(s, o + 0x6a + k * 2, 2, 0, 1);
+        if (mask[(b + 2) >> 3] & 1 << ((b + 2) & 7)) StreamRead(s, o + 0x103 + k * 4, 4, 0, 1);
+    }
+    StreamRead(s, o + 0xe6, 1, 0, 1);
+    StreamRead(s, o + 0xd4, 2, 0, 1);
+    StreamRead(s, o + 0xd6, 2, 0, 1);
+    StreamRead(s, o + 0xd8, 7, 0, 1);
+    F<int32_t>(o, 0xdf) = 0;
+    F<int16_t>(o, 0xe3) = 0;
+    o[0xe5] = 0;
+    F<int16_t>(o, 0xe7) = x;
+    F<int16_t>(o, 0xe9) = y;
+    int16_t n = 0;
+    StreamRead(s, &n, 2, 0, 1);
+    F<int32_t>(o, 0xeb) = n;
+    F<void*>(o, 0xef) = ((void*(__cdecl*)(size_t))0x5a125d)((size_t)(n * 6));
+    for (int32_t i = 0; i < F<int32_t>(o, 0xeb); ++i) StreamRead(s, F<uint8_t*>(o, 0xef) + i * 6, 6, 0, 1);
+}
+RT3_REPLACE(0x42ae50, Site_Load);
+
+void __fastcall BuildingType_Load(uint8_t* o, int, const char* path, int32_t id);
+void __fastcall Industries_RebuildPortsWarehouses(Collection* c);
+void __fastcall Table_SetPriorities(Collection* t);
+const char* __fastcall LocalizeName(const char* name);
+void __fastcall StrCopyN(char* dst, const char* src, size_t n);
+
+// 0x412fb0. Loads every building type file (".\Data\BuildingTypes\*.bca") into
+// the table t (a new record each, via its vtable +4), rebuilds the port and
+// warehouse lists and the priorities, totals five counters (+0x8c..+0x9c) over the
+// kind-3 types, writes the display names (string 0xb53) of the kind-2 types with
+// ids up to 0x6e into the table 0x61dbc2 (0x6e bytes each, id at +0x47) and marks
+// the available industry types.
+RT3_NOINLINE void __fastcall BuildingTypes_LoadAll(Collection* t) {
+    char pattern[0x60], file[0xc8];
+    WIN32_FIND_DATAA fd;
+    FormatText(pattern, (const char*)0x5c93f4, (const char*)0x5c93fc, 0, 0, 0, 0, 0, 0, 0);
+    HANDLE h = hook::Global<HANDLE(WINAPI*)(const char*, WIN32_FIND_DATAA*)>(0x5c8190)(pattern, &fd);
+    if (h != INVALID_HANDLE_VALUE) {
+        auto next = hook::Global<BOOL(WINAPI*)(HANDLE, WIN32_FIND_DATAA*)>(0x5c8194);
+        do {
+            int32_t id = ((int32_t(__fastcall*)(Collection*, int, int32_t, int32_t, int32_t, int32_t))(*(void***)t)[1])(t, 0, 0, 0, 0, 0);
+            FormatText(file, (const char*)0x5c8730, (const char*)0x5c93fc, fd.cFileName, 0, 0, 0, 0, 0, 0);
+            BuildingType_Load((uint8_t*)Collection_Get(t, 0, (uint32_t)id), 0, file, id);
+        } while (next(h, &fd));
+        hook::Global<BOOL(WINAPI*)(HANDLE)>(0x5c819c)(h);
+    }
+    Industries_RebuildPortsWarehouses(t);
+    Table_SetPriorities(t);
+    uint8_t* o = (uint8_t*)t;
+    for (int k = 0; k < 5; ++k) F<int32_t>(o, 0x8c + k * 4) = 0;
+    for (int32_t i = 0; i < Collection_Count(t); ++i) {
+        uint8_t* r = (uint8_t*)Collection_Get(t, 0, Collection_IdAt(t, 0, (uint32_t)i, 0));
+        if (r[0x32] != 3) continue;
+        for (int k = 0; k < 5; ++k) F<int32_t>(o, 0x8c + k * 4) += F<int32_t>(r, 0x8d + k * 4);
+    }
+    char name[0x100];
+    for (int32_t i = 0; i < Collection_Count(t); ++i) {
+        uint8_t* r = (uint8_t*)Collection_Get(t, 0, Collection_IdAt(t, 0, (uint32_t)i, 0));
+        if (r[0x32] != 2 || r[0xba] || r[0xbb]) continue;
+        uint32_t id = Collection_IdAt(t, 0, (uint32_t)i, 0);
+        if (id > 0x6e) continue;
+        const char* loc = LocalizeName((const char*)r + 0x4f);
+        FormatText(name, GetString(0xb53), loc, 0, 0, 0, 0, 0, 0, 0);
+        StrCopyN((char*)0x61dbc2 + id * 0x6e, name, 0x46);
+        *(uint32_t*)(0x61dc09 + id * 0x6e) = id;
+    }
+    ((void(__fastcall*)(Collection*))0x412c10)(t);
+}
+RT3_REPLACE(0x412fb0, BuildingTypes_LoadAll);
+
+// 0x4131f0. Constructs the building type table (vtable 0x5c93cc): inline records
+// of 0x7c8 bytes, 10 to start, growing by 5, one list; then loads every type.
+Collection* __fastcall BuildingTypes_Construct(Collection* t) {
+    Collection_SetVtbl(t);
+    *(uint32_t*)t = 0x5c93cc;
+    Collection_Init(t, 0, 1, 0x7c8, 10, 5, 1, 0, 0);
+    BuildingTypes_LoadAll(t);
+    return t;
+}
+RT3_REPLACE(0x4131f0, BuildingTypes_Construct);
+
+// 0x4d4850. Fills the rules dialog's effect type list 0x4f56 with the effect types
+// (table 0x5f3d90, 0x385 records of 0x81 bytes) in ascending order of their sort
+// key +0 (ties keep table order): the ones in use (+0x64) and not hidden (+0x68),
+// and with checkbox 0x5034 (+0xcc, kept in 0x6d07bc) only those flagged +0x58.
+// Type sel becomes the dialog's effect (+0x78) and the list's selection.
+RT3_NOINLINE void __fastcall RulesDialog_FillEffectTypes(uint8_t* w, int, int32_t sel) {
+    int32_t pos = 0, selPos = 0;
+    int32_t filter = F<int32_t>(Widget_FindChild(w, 0, 0x5034), 0xcc);
+    hook::Global<int32_t>(0x6d07bc) = filter;
+    Window_SendEvent5(w, 0, 0x8b, 0x4f56, 0, 0, 0);
+    uint8_t* const table = (uint8_t*)0x5f3d90;
+    char used[0x385];
+    memset(used, 0, sizeof used);
+    for (int32_t n = 0; n < 0x385; ++n) {
+        int32_t best = -1;
+        for (int32_t i = 0; i < 0x385; ++i) {
+            uint8_t* r = table + i * 0x81;
+            if (F<int32_t>(r, 0x68) || !F<int32_t>(r, 0x64) || used[i]) continue;
+            if (filter && !F<int32_t>(r, 0x58)) continue;
+            if (best == -1 || F<float>(r, 0) < F<float>(table + best * 0x81, 0)) best = i;
+        }
+        if (best == -1) break;
+        uint32_t name = (uint32_t)(table + best * 0x81 + 0xc);
+        Window_SendEvent5(w, 0, 0x88, 0x4f56, name, best, name);
+        if (best == sel) {
+            F<int32_t>(w, 0x78) = sel;
+            selPos = pos;
+        }
+        ++pos;
+        used[best] = 1;
+    }
+    Window_SendEvent5(w, 0, 0x66, 0x4f56, selPos, 0, 0);
+}
+RT3_REPLACE(0x4d4850, RulesDialog_FillEffectTypes);
+
+void __fastcall Vec3_Sub(const float* a, int, float* out, const float* b);
+double __fastcall Vec3_Length(const float* v);
+float* __fastcall Vec3_Normalize(float* v);
+int32_t __fastcall Train_StateBOr12(uint8_t* t);
+
+// 0x4aa590. Updates o's speed factor +0xcc from its progress towards node +0x94
+// (0x6cfca8) along the segment from node +0x1ca, for scene object obj: the factor
+// starts from base +0x8c (-1 = unset: take +0xcc and the start node +0x49, or -1
+// again when obj is more than 5 steps from the node or o is in a special state)
+// and is scaled by the remaining share of the segment (distance projected on the
+// segment; multiplayer games before version 0x69 compare squared distances from
+// the origin instead), or by steps / +0x90 without a start node. The result is
+// kept at least 1 and at most the city's limit (+0x20). Always returns 0.
+int32_t __fastcall Train_UpdateApproachFactor(uint8_t* o, int, uint8_t* obj) {
+    F<uint8_t>(o, 0x8b) = 0;
+    if (F<int32_t>(o, 0xac) == -1 || F<int32_t>(o, 0x94) == -1) return 0;
+    if (!Collection_IsValid(hook::Global<Collection*>(0x6cec20), 0, F<uint32_t>(o, 0xac))) return 0;
+    int32_t target = F<int32_t>(o, 0x94), steps;
+    __asm {
+        push 5
+        push target
+        mov eax, obj
+        mov ecx, 0x4a78d0
+        call ecx
+        mov steps, eax
+    }
+    if (steps == -1) {
+        F<uint32_t>(o, 0x8c) = 0xbf800000;
+        return 0;
+    }
+    if (F<uint32_t>(o, 0x8c) == 0xbf800000) {
+        F<uint32_t>(o, 0x8c) = F<uint32_t>(o, 0xcc);
+        F<uint32_t>(o, 0x1ca) = F<uint32_t>(o, 0x49);
+        return 0;
+    }
+    if (((int32_t(__fastcall*)(uint8_t*))0x4a7220)(o) || Train_StateBOr12(o)) {
+        F<uint32_t>(o, 0x8c) = 0xbf800000;
+        return 0;
+    }
+    Collection* nodes = hook::Global<Collection*>(0x6cfca8);
+    uint32_t from = F<uint32_t>(o, 0x1ca);
+    double share;
+    if (from == 0xffffffff || from == 0 || !Collection_IsValid(nodes, 0, from)) {
+        float s = (float)(double)(uint32_t)steps;
+        float n = (float)(double)F<uint32_t>(o, 0x90);
+        share = (double)s / n;
+    } else if (IsMultiplayer() && Game_EffectiveVersion() <= 0x68) {
+        float f = 1.0f;
+        float a[3], pos[3];
+        uint8_t* n1 = (uint8_t*)Collection_Get(nodes, 0, from);
+        a[0] = F<float>(n1, 0xc);
+        a[2] = F<float>(n1, 0x10);
+        SceneObj_GetPos(obj, 0, (uint32_t*)&pos[0], (uint32_t*)&pos[1], (uint32_t*)&pos[2]);
+        pos[1] = 0.0f;
+        uint8_t* n2 = (uint8_t*)Collection_Get(nodes, 0, F<uint32_t>(o, 0x94));
+        float bx = F<float>(n2, 0xc), bz = F<float>(n2, 0x10);
+        float d1 = (float)((double)a[2] * a[2] + (double)a[0] * a[0]);
+        float d2 = (float)((double)bz * bz + (double)bx * bx);
+        float d3 = (float)((double)pos[2] * pos[2] + (double)pos[0] * pos[0]);
+        float span = (float)((double(__cdecl*)(double))0x5a152e)((double)d2 - d1);
+        float done = (float)((double(__cdecl*)(double))0x5a152e)((double)d3 - d1);
+        if (span > Fl(0x5c8598)) {
+            f = (float)((double)done / span);
+            if (Fl(0x5c85b4) < f) f = 1.0f;
+        }
+        share = Fl(0x5c85b4) - f;
+    } else {
+        float a[3], b[3], dir[3], pos[3], v[3];
+        uint8_t* n1 = (uint8_t*)Collection_Get(nodes, 0, from);
+        a[0] = F<float>(n1, 0xc);
+        a[1] = 0.0f;
+        a[2] = F<float>(n1, 0x10);
+        uint8_t* n2 = (uint8_t*)Collection_Get(nodes, 0, F<uint32_t>(o, 0x94));
+        b[0] = F<float>(n2, 0xc);
+        b[1] = 0.0f;
+        b[2] = F<float>(n2, 0x10);
+        Vec3_Sub(b, 0, dir, a);
+        float len = (float)Vec3_Length(dir);
+        if (!(len > Fl(0x5c8598))) goto clamp;
+        Vec3_Normalize(dir);
+        SceneObj_GetPos(obj, 0, (uint32_t*)&pos[0], (uint32_t*)&pos[1], (uint32_t*)&pos[2]);
+        pos[1] = 0.0f;
+        Vec3_Sub(pos, 0, v, a);
+        float dot = (float)(((double)v[2] * dir[2] + (double)v[1] * dir[1]) + (double)v[0] * dir[0]);
+        float f = (float)((double)dot / len);
+        if (Fl(0x5c85b4) < f) {
+            share = Fl(0x5c85b4) - 1.0f;
+        } else {
+            if (!(f >= Fl(0x5c8598))) goto clamp;
+            share = Fl(0x5c85b4) - f;
+        }
+    }
+    F<float>(o, 0xcc) = (float)(share * F<float>(o, 0x8c));
+clamp:
+    if (Fl(0x5c85b4) > F<float>(o, 0xcc)) {
+        F<uint32_t>(o, 0xcc) = 0x3f800000;
+        return 0;
+    }
+    if (F<float>(o, 0xcc) > F<float>(Obj_CityRef(o), 0x20)) F<uint32_t>(o, 0xcc) = F<uint32_t>(Obj_CityRef(o), 0x20);
+    return 0;
+}
+RT3_REPLACE(0x4aa590, Train_UpdateApproachFactor);
+
+// 0x4d57c0. Constructs the rules dialog (vtable 0x5d0cd4, kept in 0x6d07b8) for
+// owner a (+0x80) editing rule (+0x84): its effect type rule+0 goes to +0x78 and
+// its value rule+9 (when rule+5 is set) to +0x7c. Loads layout 0x5d0ce0, hides
+// two controls in languages 1 / 4, ticks filter 0x5034 when filtering and the
+// type is flagged, sets up the lists 0x4f56 (effect types) and 0x5032 (the 614
+// records at 0x6103a0, 0x6e bytes: in use +0x4f, not hidden +0x57) with their
+// callbacks, picks the radio for the effect (-2 / -1 / a type, then 0x502a /
+// 0x5029 by rule+5) and shows the effect.
+uint8_t* __fastcall RulesDialog_Construct(uint8_t* w, int, uint32_t a, int32_t* rule) {
+    Widget_SetVtblRet(w);
+    F<uint32_t>(w, 0) = 0x5d0cd4;
+    hook::Global<uint8_t*>(0x6d07b8) = w;
+    F<uint32_t>(w, 0x80) = a;
+    F<int32_t*>(w, 0x84) = rule;
+    F<int32_t>(w, 0x78) = rule[0];
+    int32_t selPos = 0;
+    F<int32_t>(w, 0x7c) = F<int32_t>(rule, 5) ? F<int32_t>(rule, 9) : 0;
+    uint32_t xb = 0x3e9b851f, yb = 0x3d64b17e;
+    Window_Load(w, 0, *(float*)&xb, *(float*)&yb, (const char*)0x5d0ce0);
+    int32_t lang = hook::Global<int32_t>(0x6d3c84);
+    if (lang == 4 || lang == 1) {
+        Window_SendEvent5(w, 0, 0x78, 0x4f73, 0x12, 0, 0);
+        Window_SendEvent5(w, 0, 0x78, 0x4fd1, 0x12, 0, 0);
+    }
+    Widget_FindChild(w, 0, 0x5034);
+    if (hook::Global<int32_t>(0x6d07bc) && rule[0] >= 0 && F<int32_t>((uint8_t*)0x5f3d90 + rule[0] * 0x81, 0x58) == 1)
+        F<int32_t>(Widget_FindChild(w, 0, 0x5034), 0xcc) = 1;
+    Window_SendEvent5(w, 0, 0x86, 0x4e48, 3, 0, 0);
+    Window_SendEvent5(w, 0, 0x79, 0x4f56, 0x4d5790, 0, 0);
+    Window_SendEvent5(w, 0, 0x79, 0x5032, 0x4d57b0, 0, 0);
+    RulesDialog_FillEffectTypes(w, 0, F<int32_t>(w, 0x78));
+    int32_t pos = 0;
+    int32_t i = 0;
+    for (uint32_t r = 0x6103a0; r < 0x620b74; r += 0x6e, ++i) {
+        if (F<int32_t>((void*)r, 0x57) || !F<int32_t>((void*)r, 0x4f)) continue;
+        Window_SendEvent5(w, 0, 0x88, 0x5032, r, (uint32_t)i, r);
+        if (i == F<int32_t>(w, 0x7c)) selPos = pos;
+        ++pos;
+    }
+    Window_SendEvent5(w, 0, 0x66, 0x5032, (uint32_t)selPos, 0, 0);
+    int32_t e = F<int32_t>(w, 0x78);
+    if (e == -2) {
+        Window_SendEvent5(w, 0, 0x74, 0x4f4d, 1, 0, 0);
+    } else if (e == -1) {
+        Window_SendEvent5(w, 0, 0x74, 0x4f4c, 1, 0, 0);
+    } else {
+        Window_SendEvent5(w, 0, 0x74, 0x4f4e, 1, 0, 0);
+        Window_SendEvent5(w, 0, 0x74, F<int32_t>(F<uint8_t*>(w, 0x84), 5) ? 0x502a : 0x5029, 1, 0, 0);
+    }
+    RulesDialog_ShowEffectType(w);
+    if (rule[0] < 0) {
+        Window_SendEvent5(w, 0, 0x74, 0x4f4c + (F<int32_t>(w, 0x78) != -1 ? 1 : 0), 1, 0, 0);
+        RulesDialog_ShowEffectType(w);
+        return w;
+    }
+    RulesDialog_ShowEffect(w);
+    RulesDialog_ShowEffectType(w);
+    return w;
+}
+RT3_REPLACE(0x4d57c0, RulesDialog_Construct);
+
+int32_t __fastcall RulesDialog_StoreRule(uint8_t* w);
+void __fastcall Nop4cf900(void*);
+void __fastcall EditorDialog_ShowSettings(uint8_t* w);
+int32_t __fastcall Dialog_SetCallback4a3b(uint8_t* w);
+int32_t __fastcall Dialog_SetupControl5141(uint8_t* w);
+int32_t __fastcall Dialog_SetCallback4a40(uint8_t* w);
+int32_t __fastcall Dialog_SetCallback4a3e(uint8_t* w);
+void __fastcall CityEditor_Fill(uint8_t* w, int, int32_t id, int32_t keep);
+void __fastcall TerritoryEditor_Show(uint8_t* w, int, int32_t id);
+void __fastcall RulesDialog_Init(uint8_t* w);
+void __fastcall NewGameDialog_SetupRows(uint8_t* w);
+void __fastcall EditorDialog_FillCargoList(uint8_t* w);
+void __fastcall EditorDialog_ShowEconomy(uint8_t* w);
+void __fastcall EditorDialog_FillIndustries(uint8_t* w, int, int32_t keep);
+void __fastcall EditorDialog_FillHouses(uint8_t* w, int, int32_t keep);
+void __fastcall EditorDialog_ShowAchievements(uint8_t* w, int, int32_t keep);
+void __fastcall EditorDialog_ShowRegionTypes(uint8_t* w);
+void __fastcall Window_ShowWorldPicks(uint8_t* w);
+int32_t __fastcall Dialog_SetCallback4a3f(uint8_t* w);
+int32_t __fastcall Dialog_SetCallback4a42(uint8_t* w);
+int32_t __fastcall Dialog_SetCallback4a43(uint8_t* w);
+int32_t __fastcall Dialog_SetCallback4a41(uint8_t* w);
+
+// 0x4ce070. Switches the map editor to tab 0..19 (+0x78, also 0x6cff80) unless
+// locked (+0x7c): leaving tab 9 runs its exit hook, leaving tab 11 (rules) only
+// when the rule could be stored. city is the city for tab 1 (-1: the last edited,
+// 0x6cff74, else the first). Resets panel 0x4a3c, highlights tab button 0x4e20 +
+// tab (0x6d, others 0x86) and sets the tab up.
+RT3_NOINLINE void __fastcall EditorDialog_SetTab(uint8_t* w, int, int32_t tab, int32_t city) {
+    if (F<int32_t>(w, 0x7c)) return;
+    int32_t cur = F<int32_t>(w, 0x78);
+    if (cur == 9) Nop4cf900(w);
+    else if (cur == 11 && !RulesDialog_StoreRule(w)) return;
+    if (city == -1 && tab == 1) {
+        if (Collection_IsValid(hook::Global<Collection*>(0x62bae0), 0, hook::Global<uint32_t>(0x6cff74)))
+            city = hook::Global<int32_t>(0x6cff74);
+        else if (Collection_Count(hook::Global<Collection*>(0x62bae0)))
+            city = (int32_t)Collection_IdAt(hook::Global<Collection*>(0x62bae0), 0, 0, 0);
+        else
+            city = 0;
+    }
+    Window_SendEvent5(w, 0, 0x6f, 0x4a3c, 0x5c87a8, 0, 0);
+    Window_SendEvent5(w, 0, 0x87, 0x4a3c, 3, 0, 0);
+    for (int32_t i = 0; i < 0x14; ++i) Window_SendEvent5(w, 0, i == tab ? 0x6d : 0x86, 0x4e20 + i, 3, 0, 0);
+    switch ((uint32_t)tab) {
+    case 0: EditorDialog_ShowSettings(w); break;
+    case 1: CityEditor_Fill(w, 0, city, 0); break;
+    case 2: TerritoryEditor_Show(w, 0, city); break;
+    case 3: NewGameDialog_SetupRows(w); break;
+    case 4: EditorDialog_FillCargoList(w); break;
+    case 5: EditorDialog_ShowEconomy(w); break;
+    case 6: EditorDialog_FillIndustries(w, 0, 0); break;
+    case 7: EditorDialog_FillHouses(w, 0, 0); break;
+    case 8: EditorDialog_ShowAchievements(w, 0, 0); break;
+    case 9: EditorDialog_ShowRegionTypes(w); break;
+    case 10: Window_ShowWorldPicks(w); break;
+    case 11: RulesDialog_Init(w); break;
+    case 12: Dialog_SetCallback4a43(w); break;
+    case 13: Dialog_SetCallback4a42(w); break;
+    case 14: Dialog_SetCallback4a41(w); break;
+    case 15: Dialog_SetCallback4a3e(w); break;
+    case 16: Dialog_SetCallback4a3b(w); break;
+    case 17: Dialog_SetupControl5141(w); break;
+    case 18: Dialog_SetCallback4a3f(w); break;
+    case 19: Dialog_SetCallback4a40(w); break;
+    }
+    F<int32_t>(w, 0x78) = tab;
+    hook::Global<int32_t>(0x6cff80) = tab;
+}
+RT3_REPLACE(0x4ce070, EditorDialog_SetTab);
+
+// 0x4cf550. Sets up the map editor (layout 0x5d0b90): the tab list 0x4a3a with
+// its callback and the 20 tabs of table 0x621f5c {name id, tip id, value}, the
+// language tweaks (wider controls in languages 1, 2 and 4), the title 0xf3d,
+// then selects tab (list notifications muted by +0x7c) and opens it on city.
+void __fastcall EditorDialog_Init(uint8_t* w, int, int32_t tab, int32_t city) {
+    Window_Load(w, 0, 0.0f, 0.0f, (const char*)0x5d0b90);
+    F<int32_t>(w, 0x7c) = 0;
+    F<int32_t>(w, 0x78) = tab;
+    Window_SendEvent5(w, 0, 0x79, 0x4a3a, 0x4cf530, 0, 0);
+    for (const int32_t* e = (const int32_t*)0x621f58; e < (const int32_t*)0x622048; e += 3) {
+        uint32_t item[8];
+        memset(item, 0, sizeof item);
+        String_Assign((char**)&item[0], GetString(e[0]));
+        String_Assign((char**)&item[1], GetString(e[1]));
+        item[3] = (uint32_t)e[2];
+        Window_SendEvent5(w, 0, 0x89, 0x4a3a, (uint32_t)(uintptr_t)item, 0, 0);
+        ((void(__cdecl*)(void*))0x5a1145)((void*)(uintptr_t)item[0]);
+        ((void(__cdecl*)(void*))0x5a1145)((void*)(uintptr_t)item[1]);
+    }
+    int32_t lang = hook::Global<int32_t>(0x6d3c84);
+    if (lang == 4 || lang == 2) {
+        Window_SendEvent5(w, 0, 0xb3, 0x4a44, 5, 0, 0);
+        lang = hook::Global<int32_t>(0x6d3c84);
+    }
+    if (lang == 1) {
+        Window_SendEvent5(w, 0, 0x78, 0x5b0c, 0x12, 0, 0);
+        Window_SendEvent5(w, 0, 0x78, 0x9c43, 0x12, 0, 0);
+        Window_SendEvent5(w, 0, 0x78, 0x9c44, 0x12, 0, 0);
+        lang = hook::Global<int32_t>(0x6d3c84);
+    }
+    if (lang == 2) {
+        Window_SendEvent5(w, 0, 0x78, 0x9c43, 0x12, 0, 0);
+        Window_SendEvent5(w, 0, 0x78, 0x9c44, 0x12, 0, 0);
+    }
+    Window_SendEvent5(w, 0, 0x6f, 0x5b74, (uint32_t)(uintptr_t)GetString(0xf3d), 0, 0);
+    ++F<int32_t>(w, 0x7c);
+    Window_SendEvent5(w, 0, 0x66, 0x4a3a, (uint32_t)tab, 0, 0);
+    --F<int32_t>(w, 0x7c);
+    EditorDialog_SetTab(w, 0, tab, city);
+}
+RT3_REPLACE(0x4cf550, EditorDialog_Init);
 
 } // namespace rt3

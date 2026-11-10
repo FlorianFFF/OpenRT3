@@ -30,7 +30,7 @@ void __fastcall Obj_DropCamera(uint8_t* o) {
 RT3_REPLACE(0x458230, Obj_DropCamera);
 
 // 0x52d400. Places the eye at distance +0x18 from the target (+0x1c) along yaw +0x10 / pitch +0x14.
-void __fastcall Camera_UpdateEye(uint8_t* c) {
+RT3_NOINLINE void __fastcall Camera_UpdateEye(uint8_t* c) {
     double cp = Fcos(F<float>(c, 0x14));
     float r = F<float>(c, 0x18);
     float z = (float)((double)F<float>(c, 0x24) - Fcos(F<float>(c, 0x10)) * r * cp);

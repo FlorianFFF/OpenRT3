@@ -25,7 +25,7 @@ uint8_t* __fastcall Obj_BuildingRegion(void* o);
 // destination (record list +6, 13 bytes: on, station, distance, rate) by gain per
 // distance (+2000 margin); the totals go to +0x12 (supply) and +0xe (gain), and the
 // best ratios fill up to 6 loads into +0x16 (expected rate). Dated +0xa / +0xd3a.
-void __fastcall Company_RateStations(int32_t* co) {
+RT3_NOINLINE void __fastcall Company_RateStations(int32_t* co) {
     uint8_t* world = hook::Global<uint8_t*>(0x6cec78);
     F<int32_t>(co, 0xd3a) = F<int32_t>(world, 0x15);
     Collection* stations = hook::Global<Collection*>(0x6cec20);

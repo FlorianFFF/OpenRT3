@@ -31,7 +31,7 @@ static inline Collection* Routes() { return hook::Global<Collection*>(0x6cfcb4);
 
 // 0x48b870. Whether track node n is an end of its route (+0x212), splitting the
 // route off first when it no longer exists.
-int32_t __fastcall Node_IsRouteEnd(uint8_t* n) {
+RT3_NOINLINE int32_t __fastcall Node_IsRouteEnd(uint8_t* n) {
     if (!Collection_IsValid(Routes(), 0, F<uint32_t>(n, 0x212)) && !Routes_SplitAt(Routes(), 0, F<uint32_t>(n, 0x202)))
         return 0;
     return Pair_Contains(Collection_Get(Routes(), 0, F<uint32_t>(n, 0x212)), 0, F<int32_t>(n, 0x202));
@@ -40,7 +40,7 @@ RT3_REPLACE(0x48b870, Node_IsRouteEnd);
 
 // 0x4a7bc0. For a signal node (+0x94, kind 4): 1 when `other`'s position (+0x1e2,
 // +0x1ea) is behind it for the car's direction (+0x35a), else 0; 2 for other kinds.
-int32_t __fastcall Signal_IsBehind(uint8_t* o, int, uint8_t* car, uint8_t* other) {
+RT3_NOINLINE int32_t __fastcall Signal_IsBehind(uint8_t* o, int, uint8_t* car, uint8_t* other) {
     uint8_t* e = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfca8), 0, F<uint32_t>(o, 0x94));
     if (e[0x218] != 4) return 2;
     return !Effect_PointOnSide(e, 0, F<int32_t>(car, 0x35a), F<float>(other, 0x1e2), F<float>(other, 0x1ea)) ? 1 : 0;
@@ -52,7 +52,7 @@ RT3_REPLACE(0x4a7bc0, Signal_IsBehind);
 // 0.5% a year, less the base (+0x24, not below 0); then 0.98 to the power of that
 // over +0x28, x +0x20 and the effects 0x51 and 0x52 + kind; at least 1, doubled
 // when world +0x4c8f.
-float __fastcall Cargo_DeliveryPayment(uint8_t* o, int32_t year, float v, uint32_t company, uint32_t region) {
+RT3_NOINLINE float __fastcall Cargo_DeliveryPayment(uint8_t* o, int32_t year, float v, uint32_t company, uint32_t region) {
     uint32_t player = company ? F<uint32_t>(Collection_Get(hook::Global<Collection*>(0x62be10), 0, company), 0x3b) : 0;
     float m1 = Effects_Multiplier(World(), 0, F<int32_t>(o, 0x10) + 0x5a, company, player, region);
     float m = (float)((double)Effects_Multiplier(World(), 0, 0x59, company, player, region) * m1);

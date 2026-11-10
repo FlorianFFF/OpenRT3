@@ -99,7 +99,7 @@ RT3_NOINLINE int32_t __fastcall Company_HumanHoldings(int32_t* o) {
 RT3_REPLACE(0x426200, Company_HumanHoldings);
 
 // 0x426520. ID of the n-th (1-based) train owned by this company; 0 if none.
-uint32_t __fastcall Company_NthTrain(int32_t* o, int, int32_t n) {
+RT3_NOINLINE uint32_t __fastcall Company_NthTrain(int32_t* o, int, int32_t n) {
     int32_t count = Collection_Count(g_trains);
     for (int32_t i = 0; i < count; ++i) {
         if (F<int32_t>(Collection_Get(g_trains, 0, Collection_IdAt(g_trains, 0, i, 0)), 0x51) != o[0]) continue;
@@ -111,7 +111,7 @@ RT3_REPLACE(0x426520, Company_NthTrain);
 
 // 0x426620. ID of the n-th 0x6cec20 record of this company whose building
 // is flagged (and, if `activeOnly`, active); 0 if none.
-uint32_t __fastcall Company_NthSite(int32_t* o, int, int32_t n, int32_t activeOnly) {
+RT3_NOINLINE uint32_t __fastcall Company_NthSite(int32_t* o, int, int32_t n, int32_t activeOnly) {
     int32_t count = Collection_Count(g_table6cec20);
     for (int32_t i = 0; i < count; ++i) {
         void* r = Collection_Get(g_table6cec20, 0, Collection_IdAt(g_table6cec20, 0, i, 0));
@@ -133,7 +133,7 @@ static inline int OwnedIdleBuilding(int32_t* o, uint8_t* b) {
 
 // 0x426740. ID of the n-th such building; served from the cache 0x62baf0
 // (filled by 0x4267f0) while 0x62bae8 is set and n is 1..400.
-uint32_t __fastcall Company_NthBuilding(int32_t* o, int, int32_t n) {
+RT3_NOINLINE uint32_t __fastcall Company_NthBuilding(int32_t* o, int, int32_t n) {
     if (n - 1 < 400 && hook::Global<uint8_t>(0x62bae8)) return ((const uint16_t*)0x62baee)[n];
     int32_t count = Collection_Count(g_buildings);
     for (int32_t i = 0; i < count; ++i) {
@@ -145,7 +145,7 @@ uint32_t __fastcall Company_NthBuilding(int32_t* o, int, int32_t n) {
 RT3_REPLACE(0x426740, Company_NthBuilding);
 
 // 0x4267f0. Fills the cache 0x62baf0..0x62be10 (u16 IDs) used by 0x426740.
-void __fastcall Company_CacheBuildings(int32_t* o) {
+RT3_NOINLINE void __fastcall Company_CacheBuildings(int32_t* o) {
     int32_t count = Collection_Count(g_buildings);
     Collection_PositionOf(g_companies, 0, o[0], 0); // result unused in the original
     uint16_t* p = (uint16_t*)0x62baf0;

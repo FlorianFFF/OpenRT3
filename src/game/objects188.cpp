@@ -63,7 +63,7 @@ void __fastcall Obj_PlaceAtCell(uint8_t* o, int, float cx, float cz, int32_t lif
 RT3_REPLACE(0x455660, Obj_PlaceAtCell);
 
 // 0x4556f0. Moves the object to cell (cx, cz) at height y.
-void __fastcall Obj_MoveToCell(uint8_t* o, int, float cx, float cz, float y) {
+RT3_NOINLINE void __fastcall Obj_MoveToCell(uint8_t* o, int, float cx, float cz, float y) {
     float z = (float)((double)cz * Fl(0x5c8700));
     Obj_MoveTo(o, 0, (float)((double)cx * Fl(0x5c8700)), y, z);
 }

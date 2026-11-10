@@ -53,7 +53,7 @@ RT3_REPLACE(0x47be50, Obj_ApplySetup);
 // 0x47e240. For cargo i: the stock (+0x103) summed over o's cells (+0x38 x 12
 // bytes at +0x34, {x, y}) and the quota of o's region city; 0 / 1.0 and 0 when
 // the cargo is not available yet.
-int32_t __fastcall Obj_CargoStockAndQuota(uint8_t* o, int, int32_t i, float* stock, float* quota) {
+RT3_NOINLINE int32_t __fastcall Obj_CargoStockAndQuota(uint8_t* o, int, int32_t i, float* stock, float* quota) {
     if (!Obj_YearReached(Collection_Get(hook::Global<Collection*>(0x62ba8c), 0, i))) {
         if (stock) *stock = 0.0f;
         if (quota) *quota = 1.0f;
@@ -101,7 +101,7 @@ RT3_REPLACE(0x481210, Collection_LoadWithArrays);
 
 // 0x482690. Night factor (0 day .. 1 night) for the renderer clock: full night
 // before 4:20 and after 20:51, ramps through dawn (to 6:51) and dusk (from 18:25).
-float __cdecl Sky_NightFactor() {
+RT3_NOINLINE float __cdecl Sky_NightFactor() {
     void* eng = hook::Global<void*>(0x6d4024);
     if (!eng || !Engine_Renderer(eng)) return *(const float*)0x5c8598;
     int32_t h, m, s;

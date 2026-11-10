@@ -108,7 +108,7 @@ void __fastcall Obj_SetText1c(uint8_t* o, int, const char* s, uint32_t v) {
 }
 RT3_REPLACE(0x53ef90, Obj_SetText1c);
 
-void __fastcall Widget_SetVtbl(uint8_t* w) { F<uint32_t>(w, 0) = 0x5dd860; }
+RT3_NOINLINE void __fastcall Widget_SetVtbl(uint8_t* w) { F<uint32_t>(w, 0) = 0x5dd860; }
 RT3_REPLACE(0x53f7d0, Widget_SetVtbl);
 RT3_NOINLINE uint8_t* __fastcall Widget_SetVtblRet(uint8_t* w) {
     F<uint32_t>(w, 0) = 0x5dd860;
@@ -126,7 +126,7 @@ RT3_REPLACE(0x53f830, Widget_FindChild);
 
 // 0x53f8d0. Sets the rectangle (+5/+9/+0xd/+0x11; 0x5c9b08 = keep); a size change
 // is passed to every child (vtbl +8 with +0x64, +0x68, w, h).
-void __fastcall Widget_SetRect(uint8_t* w, int, float x, float y, float wd, float ht) {
+RT3_NOINLINE void __fastcall Widget_SetRect(uint8_t* w, int, float x, float y, float wd, float ht) {
     const float keep = *(const float*)0x5c9b08;
     if (x == keep) x = F<float>(w, 5);
     if (y == keep) y = F<float>(w, 9);

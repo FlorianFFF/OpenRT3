@@ -22,7 +22,7 @@ void __fastcall Sound_StartFadeTimer(uint8_t* s, int, int32_t mode);
 void __fastcall Playlist_Tick(uint8_t* p);
 void* __fastcall Engine_Input(void* e);
 void __fastcall Mouse_GetPos(uint8_t* m, int, uint32_t* x, uint32_t* y);
-uint8_t __fastcall Engine_IsFullscreen(void* e);
+uint32_t __fastcall Engine_IsFullscreen(void* e);
 void __fastcall Mouse_Acquire(uint8_t* m);
 void __fastcall Mouse_Unacquire(uint8_t* m);
 int32_t __fastcall Terrain_Rows(uint8_t* r);

@@ -133,7 +133,7 @@ uint32_t __fastcall Sound_Play2D(uint8_t* snd, int, const char* name, float vol,
 RT3_REPLACE(0x531e10, Sound_Play2D);
 
 // 0x531e50. Plays a named 3D sound when the effects volume (+0x58) is up; else 0.
-uint32_t __fastcall Sound_Play3D(uint8_t* snd, int, const char* name, float x, float y, float z, float vol,
+RT3_NOINLINE uint32_t __fastcall Sound_Play3D(uint8_t* snd, int, const char* name, float x, float y, float z, float vol,
                                  int32_t mode, int32_t paused, int32_t prio, float maxDist) {
     if (!SoundUp(snd) || !(F<float>(Snd3D(), 0x58) > *(const float*)0x5c8598) || !name[0]) return 0;
     return Sound3D_Play(Snd3D(), 0, name, x, y, z, vol, mode, paused, prio, maxDist);

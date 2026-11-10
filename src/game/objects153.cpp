@@ -23,7 +23,7 @@ static const int32_t* const kDirX = (const int32_t*)0x624b28;
 static const int32_t* const kDirY = (const int32_t*)0x624b48;
 
 // 0x42bf20. Total output of cargo by the city's buildings (chain from +0xd6, next +0x2a2).
-float __fastcall City_CargoOutput(uint8_t* c, int, int32_t cargo) {
+RT3_NOINLINE float __fastcall City_CargoOutput(uint8_t* c, int, int32_t cargo) {
     float sum = 0.0f;
     for (uint32_t id = F<uint16_t>(c, 0xd6); id;) {
         uint8_t* b = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62b26c), 0, id);

@@ -72,7 +72,7 @@ static void RaiseYear(uint8_t* rec, uint32_t id) {
 // flags at +0xc0); the build cost of ones with +0x4b follows the capacity. Then its
 // cargo lists and flags are rebuilt and +0x798 set to its slot in the art table
 // 0x5ed338 (ports and warehouses by their prefix), or -1.
-void __fastcall BuildingType_Load(uint8_t* o, int, const char* path, int32_t id) {
+RT3_NOINLINE void __fastcall BuildingType_Load(uint8_t* o, int, const char* path, int32_t id) {
     F<int32_t>(o, 0xe4) = id;
     for (int32_t k = 0; k < 5; ++k) F<int32_t>(o, 0x7b4 + k * 4) = 0;
     F<int32_t>(o, 0x79c) = 0;

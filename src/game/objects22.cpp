@@ -73,7 +73,7 @@ int32_t __fastcall Obj_TypeKind1Class3(void* o) {
 RT3_REPLACE(0x40cc80, Obj_TypeKind1Class3);
 
 // 0x40d210. Owning company (+0x276), or 0.
-void* __fastcall Obj_OwnerCompany(void* o) {
+RT3_NOINLINE void* __fastcall Obj_OwnerCompany(void* o) {
     uint32_t id = F<uint32_t>(o, 0x276);
     return id ? Collection_Get(g_companies, 0, id) : nullptr;
 }
@@ -151,7 +151,7 @@ RT3_NOINLINE void __fastcall Obj_CellPos(void* o, int, float* x, float* y) {
 }
 RT3_REPLACE(0x439a90, Obj_CellPos);
 
-void __fastcall Obj_Nudge92(void* o) {
+RT3_NOINLINE void __fastcall Obj_Nudge92(void* o) {
     const double eps = *(const double*)0x5c88a0;
     F<float>(o, 0x96) = (float)((double)F<float>(o, 0x96) + eps);
     F<float>(o, 0x92) = (float)((double)F<float>(o, 0x92) + eps);

@@ -9,7 +9,7 @@ template <typename T> static inline T& F(void* o, uint32_t off) { return *(T*)((
 int32_t __fastcall Rand(int32_t lo, int32_t hi);
 
 // 0x477a10. Inverse linear map of y over [+0xc7, +0xcf] scaled by +0x17 plus the offsets (+0x86)->+9 and +0xf.
-float __fastcall Obj_MapY(uint8_t* o, int, float y) {
+RT3_NOINLINE float __fastcall Obj_MapY(uint8_t* o, int, float y) {
     float lo = (float)F<int32_t>(o, 0xc7);
     float span = (float)(F<int32_t>(o, 0xcf) - F<int32_t>(o, 0xc7));
     double v = ((double)y - lo) / span;

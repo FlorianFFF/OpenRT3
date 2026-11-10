@@ -49,7 +49,7 @@ void* __fastcall Table_Oldest14(Collection* t, int, uint8_t all) {
 RT3_REPLACE(0x473e70, Table_Oldest14);
 
 // 0x4768c0. Whether this player's holding +0x15d[id] equals company id's total +0x47 (sole owner).
-int32_t __fastcall Player_OwnsAllOf(uint8_t* p, int, uint32_t id) {
+RT3_NOINLINE int32_t __fastcall Player_OwnsAllOf(uint8_t* p, int, uint32_t id) {
     if (!id) return 0;
     uint8_t* c = (uint8_t*)Collection_Get(g_companies, 0, id);
     if (!c) return 0;

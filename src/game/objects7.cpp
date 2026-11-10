@@ -98,7 +98,7 @@ RT3_REPLACE(0x4a8690, Train_Rank);
 // 0x412560. Is an engine/car type available: required cargo type enabled (if
 // rec[0] == 0), within its year range, not barred by the flag/scenario bits,
 // and all its listed cargo types enabled (unless world +0x4afb).
-int32_t __fastcall Vehicle_Available(void*, int, uint8_t* rec, int32_t flag) {
+RT3_NOINLINE int32_t __fastcall Vehicle_Available(void*, int, uint8_t* rec, int32_t flag) {
     const int32_t* avail = (const int32_t*)(g_cargoTypes + 0x16e);
     int32_t ok = 0;
     bool pass = true;
@@ -132,7 +132,7 @@ static int32_t FindNamed(Collection* t, const char* name, uint32_t valueOffset) 
     }
     return 0;
 }
-int32_t __fastcall World_LookupNamed1(void* w, int, const char* name) {
+RT3_NOINLINE int32_t __fastcall World_LookupNamed1(void* w, int, const char* name) {
     return FindNamed(F<Collection*>(w, 0x66b2), name, 0x1e);
 }
 RT3_REPLACE(0x434ea0, World_LookupNamed1);
@@ -156,7 +156,7 @@ int32_t __fastcall Company_EntryOpen(void* c, int, int32_t i) {
 RT3_REPLACE(0x426be0, Company_EntryOpen);
 
 // 0x4299f0. Number of live (+0x3f) records before the one with ID `id` (0 if absent).
-int32_t __fastcall Table_LiveRankOf(Collection* t, int, uint32_t id) {
+RT3_NOINLINE int32_t __fastcall Table_LiveRankOf(Collection* t, int, uint32_t id) {
     int32_t n = 0;
     for (int32_t i = 0; i < Collection_Count(t); ++i) {
         if (Collection_IdAt(t, 0, i, 0) == id) return n;

@@ -8,7 +8,7 @@ namespace rt3 {
 
 // 0x51d660. Uppercases a-z and the Latin-1 range 0xf0..0xff (by -0x20);
 // everything else passes through. Char arrives in CL.
-int __fastcall ToUpper(char c) {
+RT3_NOINLINE int __fastcall ToUpper(char c) {
     unsigned char u = (unsigned char)c;
     if ((u >= 'a' && u <= 'z') || u >= 0xf0) return u - 0x20;
     return u;
@@ -23,7 +23,7 @@ RT3_REPLACE(0x51d660, ToUpper);
 //     then copied literally.
 //   - Arguments 8 and above, and %0, all take the 8th argument.
 //   - A trailing "%%" copies the terminator and keeps reading past it.
-char* __fastcall FormatText(char* dst, const char* fmt, const char* a1, const char* a2,
+RT3_NOINLINE char* __fastcall FormatText(char* dst, const char* fmt, const char* a1, const char* a2,
                             const char* a3, const char* a4, const char* a5, const char* a6,
                             const char* a7, const char* a8) {
     char* out = dst;
@@ -82,7 +82,7 @@ struct StringList {
 };
 
 // 0x518f60
-void __fastcall StringList_Free(StringList* l) {
+RT3_NOINLINE void __fastcall StringList_Free(StringList* l) {
     if (!l->items) return;
     for (int32_t i = 0; i < l->count; ++i)
         if (l->items[i]) Free(l->items[i]);
@@ -91,7 +91,7 @@ void __fastcall StringList_Free(StringList* l) {
 RT3_REPLACE(0x518f60, StringList_Free);
 
 // 0x5193d0. Frees the strings loaded from the language file (0x6d3c94).
-void FreeLanguageStrings() {
+RT3_NOINLINE void FreeLanguageStrings() {
     StringList*& args = hook::Global<StringList*>(0x6d3c94);
     if (!args) return;
     StringList_Free(args);
@@ -141,7 +141,7 @@ void __fastcall StrCatN(char* dst, const char* src, int32_t n) {
 RT3_REPLACE(0x51d8c0, StrCatN);
 
 // 0x51d900. strstr, case-insensitive unless caseSensitive. NULL if either is empty.
-const char* __fastcall StrFind(const char* hay, const char* needle, int32_t caseSensitive) {
+RT3_NOINLINE const char* __fastcall StrFind(const char* hay, const char* needle, int32_t caseSensitive) {
     int32_t hayLen = (int32_t)strlen(hay);
     int32_t len = (int32_t)strlen(needle);
     if (hayLen == 0 || len > hayLen) return nullptr;
@@ -199,7 +199,7 @@ RT3_REPLACE(0x51c920, LocalizeName);
 
 // 0x51d680. Appends "\n<text><ints...>" to .\data\log\<0x6d3ca8> when debug
 // logging (0x6d3ca0) is on. Ints equal to -1234 are skipped.
-void __fastcall DebugLog(const char* text, int32_t a, int32_t b, int32_t c, int32_t d, int32_t e,
+RT3_NOINLINE void __fastcall DebugLog(const char* text, int32_t a, int32_t b, int32_t c, int32_t d, int32_t e,
                          int32_t f, int32_t g, int32_t h, int32_t i) {
     if (!hook::Global<int32_t>(0x6d3ca0)) return;
     auto sprintf_ = (int(__cdecl*)(char*, const char*, ...))0x5a19c4;
@@ -365,7 +365,7 @@ RT3_REPLACE(0x51b630, IsSingleByte);
 #pragma pack(push, 1)
 struct LetterRange { char letter; int32_t first; int32_t last; };
 #pragma pack(pop)
-void BuildNameIndex() {
+RT3_NOINLINE void BuildNameIndex() {
     LetterRange* idx = (LetterRange*)0x6d3b98;
     const char* const* table = (const char* const*)0x6243c8; // {name, id} pairs
     for (int i = 0; i < 26; ++i) {

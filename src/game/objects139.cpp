@@ -222,7 +222,7 @@ RT3_REPLACE(0x5465c0, Render_ReleaseTextures);
 
 // 0x5468c0. Projects (x, y, z) with the combined matrix (+0x33af, 4x4); 1 with
 // out = (x, y, z) when in front (w >= 0.0001), z <= maxZ and |x|, |y| <= limit.
-int32_t __fastcall Render_ProjectClip(uint8_t* r, int, float x, float y, float z, float limit, float maxZ, float* out) {
+RT3_NOINLINE int32_t __fastcall Render_ProjectClip(uint8_t* r, int, float x, float y, float z, float limit, float maxZ, float* out) {
     const float* m = (const float*)(r + 0x33af);
     double w = (double)x * m[3] + (double)y * m[7] + (double)z * m[11] + m[15];
     if (w < D(0x5c88a0)) return 0;

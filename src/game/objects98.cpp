@@ -139,7 +139,7 @@ int32_t __fastcall Render_DrawPoints(uint8_t* r, int, int32_t first, int32_t end
 }
 RT3_REPLACE(0x545ca0, Render_DrawPoints);
 
-int32_t __fastcall Render_TriangleCount(uint8_t* r) { return F<int32_t>(r, 0x3711); }
+RT3_NOINLINE int32_t __fastcall Render_TriangleCount(uint8_t* r) { return F<int32_t>(r, 0x3711); }
 RT3_REPLACE(0x545d50, Render_TriangleCount);
 
 } // namespace rt3

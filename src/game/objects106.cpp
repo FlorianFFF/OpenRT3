@@ -75,7 +75,7 @@ char* __fastcall StrCopy(char* dst, const char* src) {
 RT3_REPLACE(0x557230, StrCopy);
 
 // 0x557250. Whether the string is empty or whitespace only.
-int32_t __fastcall Str_IsBlank(const char* s) {
+RT3_NOINLINE int32_t __fastcall Str_IsBlank(const char* s) {
     if (*s)
         while (IsSpace(*s)) {
             if (!*++s) break;
@@ -141,7 +141,7 @@ RT3_REPLACE(0x557920, Set_d973b0);
 
 // 0x557930 / 0x557970. ANSI <-> UTF-16 conversion into a buffer of n characters
 // (n = -1: the source length + 1), always terminated.
-wchar_t* __fastcall Str_ToWide(wchar_t* dst, const char* src, int32_t n) {
+RT3_NOINLINE wchar_t* __fastcall Str_ToWide(wchar_t* dst, const char* src, int32_t n) {
     if (n == -1) {
         int32_t k = 0;
         while (src[k]) ++k;
@@ -153,7 +153,7 @@ wchar_t* __fastcall Str_ToWide(wchar_t* dst, const char* src, int32_t n) {
     return dst;
 }
 RT3_REPLACE(0x557930, Str_ToWide);
-char* __fastcall Str_FromWide(char* dst, const wchar_t* src, int32_t n) {
+RT3_NOINLINE char* __fastcall Str_FromWide(char* dst, const wchar_t* src, int32_t n) {
     if (n == -1) n = (int32_t)((size_t(__cdecl*)(const wchar_t*))0x5a3e74)(src) + 1;
     Import<int32_t(__stdcall*)(uint32_t, uint32_t, const wchar_t*, int32_t, char*, int32_t, const char*, int32_t*)>(
         0x5c81e4)(0, 0, src, -1, dst, n - 1, nullptr, nullptr);

@@ -75,7 +75,7 @@ RT3_REPLACE(0x54fdd0, Fx_QueueFadedQuad);
 
 // 0x550090 / 0x5500b0. Scrollbar extents: (+0x28 + +0x1c) or +0x1c, scaled by +0x14;
 // +8 x +0x14 when not scrolling (+0x10 == 0).
-double __fastcall Scroll_Total(uint8_t* s) {
+RT3_NOINLINE double __fastcall Scroll_Total(uint8_t* s) {
     if (F<int32_t>(s, 0x10)) return ((double)F<float>(s, 0x28) + F<float>(s, 0x1c)) * F<float>(s, 0x14);
     return (double)F<float>(s, 0x14) * F<float>(s, 8);
 }

@@ -30,7 +30,7 @@ void __fastcall Load_Unlink(uint32_t* o);
 static inline double ExeSqrt(double v) { return ((double(__cdecl*)(double))0x5a1634)(v); }
 
 // 0x405920. Distance (cells) from (x, y) to the company's nearest site; at least 1.
-float __fastcall Company_NearestSiteDistance(int32_t* c, int, int32_t x, int32_t y) {
+RT3_NOINLINE float __fastcall Company_NearestSiteDistance(int32_t* c, int, int32_t x, int32_t y) {
     int32_t best = 999999999;
     int32_t n = Collection_Count(g_table6cec20);
     for (int32_t i = 0; i < n; ++i) {

@@ -23,7 +23,7 @@ static inline uint8_t* Input() { return hook::Global<uint8_t*>(0x6d4018); }
 
 // 0x5207a0. Texture memory totals over the global texture list (video memory,
 // resident, count).
-void __stdcall Textures_MemoryTotals(int32_t* video, int32_t* resident, int32_t* count) {
+RT3_NOINLINE void __stdcall Textures_MemoryTotals(int32_t* video, int32_t* resident, int32_t* count) {
     if (video) *video = 0;
     if (resident) *resident = 0;
     if (count) *count = 0;
@@ -187,7 +187,7 @@ RT3_REPLACE(0x543c10, Mouse_GetPos);
 
 uint32_t __fastcall Input_Flag400() { return Input() ? F<uint32_t>(Input(), 0xa8c) & 0x400 : 0; }
 RT3_REPLACE(0x543e00, Input_Flag400);
-uint32_t __fastcall Input_Flag2000() { return Input() ? F<uint32_t>(Input(), 0xa8c) & 0x2000 : 0; }
+RT3_NOINLINE uint32_t __fastcall Input_Flag2000() { return Input() ? F<uint32_t>(Input(), 0xa8c) & 0x2000 : 0; }
 RT3_REPLACE(0x543e20, Input_Flag2000);
 
 } // namespace rt3

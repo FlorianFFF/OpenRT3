@@ -140,9 +140,9 @@ void __fastcall VisitGrid_Visit(uint8_t* g, int, int16_t x, int16_t y) {
 }
 RT3_REPLACE(0x565470, VisitGrid_Visit);
 
-int32_t __fastcall VisitGrid_Log2(uint8_t* g) { return F<int32_t>(g, 0x1f418); }
+RT3_NOINLINE int32_t __fastcall VisitGrid_Log2(uint8_t* g) { return F<int32_t>(g, 0x1f418); }
 RT3_REPLACE(0x5654f0, VisitGrid_Log2);
-uint8_t* __fastcall VisitGrid_Flags(uint8_t* g) { return F<uint8_t*>(g, 0x1f414); }
+RT3_NOINLINE uint8_t* __fastcall VisitGrid_Flags(uint8_t* g) { return F<uint8_t*>(g, 0x1f414); }
 RT3_REPLACE(0x565500, VisitGrid_Flags);
 
 void __fastcall Nop565c10() {}

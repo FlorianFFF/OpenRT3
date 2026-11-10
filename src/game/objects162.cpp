@@ -147,7 +147,7 @@ RT3_REPLACE(0x4575d0, Map_RandomEdgeEntry);
 // 0x461cd0. The engine type closest to the current year: scored by the years from
 // its introduction (+500 if not yet introduced), +50 if retired, +2000 if not
 // available; kind 2 skipped. 1 if there are none.
-uint32_t __fastcall EngineTypes_PickForYear(Collection* c) {
+RT3_NOINLINE uint32_t __fastcall EngineTypes_PickForYear(Collection* c) {
     uint32_t bestId = 1;
     int32_t best = 9999999;
     for (int32_t i = 0; i < Collection_Count(c); ++i) {

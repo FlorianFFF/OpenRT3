@@ -153,7 +153,7 @@ int32_t __fastcall Str_IsNumber(const char* s) {
 RT3_REPLACE(0x51e6e0, Str_IsNumber);
 
 // 0x51e720. Sets the debug log file name (0x6d3ca8, 100 chars) and resets its state.
-void __fastcall DebugLog_SetFile(const char* name) {
+RT3_NOINLINE void __fastcall DebugLog_SetFile(const char* name) {
     ExeStrncpy((char*)0x6d3ca8, name, 100);
     hook::Global<uint8_t>(0x6d3d0c) = 0;
     hook::Global<int32_t>(0x6d3d10) = 0;

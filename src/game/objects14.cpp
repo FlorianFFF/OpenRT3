@@ -98,7 +98,7 @@ void __fastcall Obj_IncD0f(void* o) { F<int32_t>(o, 0xd0f)++; }
 RT3_REPLACE(0x423fd0, Obj_IncD0f);
 void __fastcall Obj_IncD0b(void* o) { F<int32_t>(o, 0xd0b)++; }
 RT3_REPLACE(0x423fe0, Obj_IncD0b);
-void __stdcall SetGlobal62bae8(uint8_t v) { hook::Global<uint8_t>(0x62bae8) = v; }
+RT3_NOINLINE void __stdcall SetGlobal62bae8(uint8_t v) { hook::Global<uint8_t>(0x62bae8) = v; }
 RT3_REPLACE(0x423ff0, SetGlobal62bae8);
 int32_t __stdcall Return0_424000(int32_t) { return 0; }
 RT3_REPLACE(0x424000, Return0_424000);
@@ -114,7 +114,7 @@ void __fastcall Obj_SetSlot35b(void* o, int, int32_t idx, int32_t value, int32_t
 RT3_REPLACE(0x424050, Obj_SetSlot35b);
 
 // 0x4240c0. (+0x34b + 58) / 9, clamped to 0..12.
-int32_t __fastcall Obj_Level34b(void* o) {
+RT3_NOINLINE int32_t __fastcall Obj_Level34b(void* o) {
     int32_t v = (F<int32_t>(o, 0x34b) + 0x3a) / 9;
     if (v <= 0) v = 0;
     return v < 12 ? v : 12;

@@ -39,7 +39,7 @@ static inline int32_t Ftol(double v) {
 // take, best share first, at most min(40, capacity) lots. Reports the number of
 // lots / k (outCount), the summed share (outAmount) and the lots flagged 2 / k
 // (outFlagged); unless `simulate`, loads them (charging upkeep on fresh lots).
-void __fastcall Train_GatherLoads(uint8_t* o, int, int32_t simulate, uint8_t* city, uint8_t* to, int32_t cargo, float cap,
+RT3_NOINLINE void __fastcall Train_GatherLoads(uint8_t* o, int, int32_t simulate, uint8_t* city, uint8_t* to, int32_t cargo, float cap,
                                   float* outCount, float* outAmount, float* outFlagged) {
     int32_t room = Ftol(((double)cap + D(0x5c8678)) * D(0x5c8d68));
     *outCount = 0.0f;
@@ -266,5 +266,112 @@ float __fastcall Map_ViewDistance(uint8_t* o) {
     return v;
 }
 RT3_REPLACE(0x484b00, Map_ViewDistance);
+
+void __fastcall Timer_SetBudget(uint8_t* t, int, uint32_t v);
+void __fastcall View_SetParams(uint8_t* v, int, int32_t a, uint32_t b, uint32_t c, uint32_t d, uint32_t e, uint32_t f);
+void __fastcall Obj_SetPair1ed(uint8_t* o, int, uint32_t v);
+uint32_t __fastcall Crc32String(const char* s, int32_t ignoreCase);
+
+// 0x4749d0 body. Applies emitter settings src to effect dst at scale: the six
+// angles +0x9c..+0xb0 times 0x5c9b68 (+0xb0 also scaled) to +0x70..+0x84; with
+// flag 0x1000 the spin +0xec to +0x88 / +0x90; colours +0x84 / +0xc4 (24 bits);
+// the budget, view sizes and lifetimes (+0x88..+0x98, scaled), the texture record
+// named +0x44 from table 0x6cea5c (0xa0 bytes) to +0x10c; flag 0x40000 the pair
+// +0xc0, flags 0x20080000 the rate +0xc8; the tail +0xcc..+0xe4 to +0xf0..+0x108.
+static void __cdecl Emitter_ApplyImpl(uint8_t* src, uint8_t* dst, uint32_t flags, float scale) {
+    const double k = Fl(0x5c9b68);
+    float a0 = (float)((double)F<float>(src, 0xa0) * k);
+    float a4 = (float)((double)F<float>(src, 0xa4) * k);
+    float a9c = (float)((double)F<float>(src, 0x9c) * k);
+    float aac = (float)((double)F<float>(src, 0xac) * k);
+    float ab0 = (float)((double)scale * F<float>(src, 0xb0) * k);
+    float aa8 = (float)((double)F<float>(src, 0xa8) * k);
+    F<float>(dst, 0x70) = a9c;
+    F<float>(dst, 0x74) = a4;
+    F<float>(dst, 0x78) = a0;
+    F<float>(dst, 0x7c) = aa8;
+    F<float>(dst, 0x80) = ab0;
+    F<float>(dst, 0x84) = aac;
+    F<uint32_t>(dst, 0x88) = 0;
+    F<uint32_t>(dst, 0x8c) = 0;
+    F<uint32_t>(dst, 0x90) = 0;
+    if (flags & 0x1000) {
+        F<uint32_t>(dst, 0x88) = F<uint32_t>(src, 0xec);
+        F<uint32_t>(dst, 0x8c) = 0;
+        F<uint32_t>(dst, 0x90) = F<uint32_t>(src, 0xec);
+    }
+    F<uint32_t>(dst, 0x48) = F<uint32_t>(src, 0x84) & 0xffffff;
+    F<uint32_t>(dst, 0x4c) = F<uint32_t>(src, 0xc4) & 0xffffff;
+    Timer_SetBudget(dst, 0, (uint32_t)Ftol((double)scale * F<float>(src, 0x90) * Fl(0x5c86a0)));
+    F<uint32_t>(dst, 0x98) = F<uint32_t>(src, 0xb4);
+    F<uint32_t>(dst, 0xd4) = F<uint32_t>(src, 0xe8);
+    float u = (float)((double)scale * F<float>(src, 0x98));
+    float v = (float)((double)scale * F<float>(src, 0x94));
+    float u2 = (float)((double)u * Fl(0x5ce500));
+    float v2 = (float)((double)v * Fl(0x5ce500));
+    int32_t life2 = Ftol((double)scale * F<float>(src, 0x8c) * Fl(0x5c86a0));
+    int32_t life1 = Ftol((double)scale * F<float>(src, 0x88) * Fl(0x5c86a0));
+    View_SetParams(dst, 0, life1, (uint32_t)life2, *(uint32_t*)&v, *(uint32_t*)&v2, *(uint32_t*)&u, *(uint32_t*)&u2);
+    uint32_t key = Crc32String((const char*)src + 0x44, 1);
+    if (uint8_t* t = hook::Global<uint8_t*>(0x6cea5c)) {
+        uint8_t* e = t + 0xc;
+        for (int32_t i = 0; i < F<int32_t>(t, 8); ++i, e += 0xa0)
+            if (F<uint32_t>(e, 0) == key) {
+                memcpy(dst + 0x10c, e, 0xa0);
+                break;
+            }
+    }
+    F<uint32_t>(dst, 0x1ac) = 0;
+    if (flags & 0x40000) Obj_SetPair1ed(dst, 0, (uint32_t)Ftol(F<float>(src, 0xc0)));
+    if (flags & 0x20080000) F<float>(dst, 0x94) = (float)((double)F<float>(src, 0xc8) * Fl(0x5ce4fc));
+    F<uint32_t>(dst, 0xf0) = F<uint32_t>(src, 0xcc);
+    F<uint32_t>(dst, 0xf4) = F<uint32_t>(src, 0xd0);
+    F<uint32_t>(dst, 0xf8) = F<uint32_t>(src, 0xd4);
+    F<uint32_t>(dst, 0x108) = F<uint32_t>(src, 0xe4);
+    F<uint32_t>(dst, 0xfc) = F<uint32_t>(src, 0xd8);
+    F<uint32_t>(dst, 0x100) = F<uint32_t>(src, 0xdc);
+    F<uint32_t>(dst, 0x104) = F<uint32_t>(src, 0xe0);
+}
+// 0x4749d0. Settings in EAX; effect, flags and scale on the stack.
+__declspec(naked) void Emitter_Apply() {
+    __asm {
+        push [esp + 12]
+        push [esp + 12]
+        push [esp + 12]
+        push eax
+        call Emitter_ApplyImpl
+        add esp, 16
+        ret 12
+    }
+}
+RT3_REPLACE(0x4749d0, Emitter_Apply);
+
+uint8_t* __fastcall EmitterLibrary_Get(uint8_t* lib, int, uint32_t key, uint32_t color, const char* name, uint8_t* obj, int32_t spawn);
+
+// 0x474c60. Re-applies every active (+0xb8 == 1) emitter definition of table
+// 0x6cea60 (0x140-byte records) to its library effect (by the CRC of its name
+// +4), with its flags +0xbc | 0x10004 and scale 1.
+void Effects_ReapplyAll() {
+    uint8_t* t = hook::Global<uint8_t*>(0x6cea60);
+    uint8_t* e = t + 0xc;
+    for (int32_t i = 0; i < F<int32_t>(t, 8); ++i, e += 0x140) {
+        if (F<int32_t>(e, 0xb8) != 1) continue;
+        uint8_t* fx = EmitterLibrary_Get(hook::Global<uint8_t*>(0x6d4030), 0, Crc32String((const char*)e + 4, 1), 0, nullptr,
+                                         nullptr, 0);
+        uint32_t flags = F<uint32_t>(e, 0xbc) | 0x10004;
+        F<uint32_t>(fx, 0xac) = flags;
+        void* fn = (void*)&Emitter_Apply;
+        float one = 1.0f;
+        __asm {
+            push one
+            push flags
+            push fx
+            mov eax, e
+            call fn
+        }
+        t = hook::Global<uint8_t*>(0x6cea60);
+    }
+}
+RT3_REPLACE(0x474c60, Effects_ReapplyAll);
 
 } // namespace rt3

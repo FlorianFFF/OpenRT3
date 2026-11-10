@@ -192,7 +192,7 @@ uint8_t* __fastcall Sound_Construct(uint8_t* snd, int, int32_t provider) {
 RT3_REPLACE(0x532150, Sound_Construct);
 
 // 0x532200. Destroys the sound system: shuts it down (fading) and frees the cache.
-void __fastcall Sound_Destruct(uint8_t* snd) {
+RT3_NOINLINE void __fastcall Sound_Destruct(uint8_t* snd) {
     if (F<int32_t>(snd, 4) != 1) return;
     Sound_Shutdown(snd, 0, 0);
     if (uint8_t* c = F<uint8_t*>(snd, 0)) {

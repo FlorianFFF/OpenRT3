@@ -103,7 +103,7 @@ void __fastcall Cargo_MoveTo66(void* c, int, float a) {
     F<float>(c, 0x66) = (float)((double)a + F<float>(c, 0x66));
 }
 RT3_REPLACE(0x41e1b0, Cargo_MoveTo66);
-void __fastcall Cargo_MoveTo62(void* c, int, float a) {
+RT3_NOINLINE void __fastcall Cargo_MoveTo62(void* c, int, float a) {
     F<float>(c, 0x5a) = (float)((double)F<float>(c, 0x5a) - a);
     F<float>(c, 0x62) = (float)((double)a + F<float>(c, 0x62));
 }

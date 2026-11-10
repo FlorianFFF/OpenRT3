@@ -34,7 +34,7 @@ void __fastcall Station_UnlinkNodes(void* s) {
 RT3_REPLACE(0x4a81b0, Station_UnlinkNodes);
 
 // 0x456710. out = vec * matrix (4x4 floats, translation in row 3), x87 order of the original.
-float* __fastcall Vec3_Transform(float* v, int, float* out, const float* m) { // returns out (callers use EAX)
+RT3_NOINLINE float* __fastcall Vec3_Transform(float* v, int, float* out, const float* m) { // returns out (callers use EAX)
     float z = (float)((((double)m[10] * v[2]) + (double)m[2] * v[0]) + (double)m[6] * v[1] + m[14]);
     float y = (float)((((double)m[9] * v[2]) + (double)m[1] * v[0]) + (double)m[5] * v[1] + m[13]);
     float x = (float)((((double)m[8] * v[2]) + (double)m[4] * v[1]) + (double)m[0] * v[0] + m[12]);
@@ -87,7 +87,7 @@ void __fastcall Obj_ApplyStored3(void* o, int32_t idx) {
 RT3_REPLACE(0x475030, Obj_ApplyStored3);
 
 // 0x429990. ID of the n-th (0-based) record with a nonzero +0x3f, or 0.
-uint32_t __fastcall Table_NthIdField3f(Collection* t, int, int32_t n) {
+RT3_NOINLINE uint32_t __fastcall Table_NthIdField3f(Collection* t, int, int32_t n) {
     for (int32_t i = 0; i < Collection_Count(t); ++i) {
         if (F<int32_t>(Collection_Get(t, 0, Collection_IdAt(t, 0, i, 0)), 0x3f) == 0) continue;
         if (n == 0) return Collection_IdAt(t, 0, i, 0);
@@ -109,7 +109,7 @@ void __fastcall List1a_Free(uint8_t** head) {
 RT3_REPLACE(0x42d690, List1a_Free);
 
 // 0x4568a0. Length of a float vec3 (squared sum rounded to float, result too).
-double __fastcall Vec3_Length(const float* v) {
+RT3_NOINLINE double __fastcall Vec3_Length(const float* v) {
     float sq = (float)(((double)v[0] * v[0] + (double)v[1] * v[1]) + (double)v[2] * v[2]);
     float len = (float)ExeSqrt(sq);
     return len;
@@ -127,7 +127,7 @@ RT3_REPLACE(0x469500, GameSpy_Pump);
 
 RT3_NOINLINE int32_t __fastcall Obj_Array590(void* o, int, int32_t i) { return F<int32_t>(o, 0x590 + i * 4); }
 RT3_REPLACE(0x47dc90, Obj_Array590);
-int32_t __fastcall Obj_ArrayAc2(void* o, int, int32_t i) { return F<int32_t>(o, 0xac + i * 4); }
+RT3_NOINLINE int32_t __fastcall Obj_ArrayAc2(void* o, int, int32_t i) { return F<int32_t>(o, 0xac + i * 4); }
 RT3_REPLACE(0x484af0, Obj_ArrayAc2);
 
 // 0x48dcb0. Owning company (u16 +0x22e) of a track node, if valid.

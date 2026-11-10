@@ -106,7 +106,7 @@ RT3_REPLACE(0x461830, Names_ApplyRegionVariants);
 
 // 0x4619c0. o's base value (+4) scaled by the effects 0x46 + kind (+0x10) and 0x45,
 // and 0x160 + id (+0) when that is an effect, for company / player.
-float __fastcall Obj_EffectScale(uint8_t* o, int, uint32_t company, uint32_t player) {
+RT3_NOINLINE float __fastcall Obj_EffectScale(uint8_t* o, int, uint32_t company, uint32_t player) {
     float base = F<float>(o, 4);
     float m1 = Effects_Multiplier(World(), 0, F<int32_t>(o, 0x10) + 0x46, company, player, 0);
     float m2 = Effects_Multiplier(World(), 0, 0x45, company, player, 0);

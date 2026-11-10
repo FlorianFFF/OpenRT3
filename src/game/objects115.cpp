@@ -26,7 +26,7 @@ static inline void AilLock() { Import<void(__stdcall*)()>(0x5c8484)(); }
 static inline void AilUnlock() { Import<void(__stdcall*)()>(0x5c83e4)(); }
 
 // 0x531620. The active 3D provider's info (or the empty default 0xccba0c).
-uint32_t __fastcall Sound_ActiveProvider(uint8_t* s) {
+RT3_NOINLINE uint32_t __fastcall Sound_ActiveProvider(uint8_t* s) {
     if (Is3D(s)) return Sound_ProviderInfo(Sound3D());
     return 0xccba0c;
 }
@@ -59,7 +59,7 @@ RT3_NOINLINE void __fastcall Sound_Speakers(uint8_t* s, int, int32_t type, int32
     if (Is3D(s)) Sound_SetSpeakerType(Sound3D(), 0, type, noApply);
 }
 RT3_REPLACE(0x531750, Sound_Speakers);
-int32_t __fastcall Sound_GetSpeakers(uint8_t* s) { return Is3D(s) ? Sound_SpeakerType() : 0; }
+RT3_NOINLINE int32_t __fastcall Sound_GetSpeakers(uint8_t* s) { return Is3D(s) ? Sound_SpeakerType() : 0; }
 RT3_REPLACE(0x531770, Sound_GetSpeakers);
 
 // 0x535c70. Destroys the per-block sound lists (+0x1681) and the grid.

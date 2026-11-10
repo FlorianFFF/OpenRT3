@@ -46,12 +46,12 @@ void __fastcall Industries_BuildCargoLists(Collection* c) {
 RT3_REPLACE(0x412bd0, Industries_BuildCargoLists);
 
 // 0x42c960. The city's quota for cargo i: its base (word i, x16) times the cargo multiplier.
-int32_t __fastcall City_CargoQuota(uint8_t* o, int, int32_t i) { return CargoQuota(o, i); }
+RT3_NOINLINE int32_t __fastcall City_CargoQuota(uint8_t* o, int, int32_t i) { return CargoQuota(o, i); }
 RT3_REPLACE(0x42c960, City_CargoQuota);
 
 // 0x42cab0. Produces amt of cargo i at the quota price, adds it to the city's
 // total (+0x103) and returns its value.
-double __fastcall City_ProduceCargo(uint8_t* o, int, int32_t i, float amt) {
+RT3_NOINLINE double __fastcall City_ProduceCargo(uint8_t* o, int, int32_t i, float amt) {
     float price = (float)CargoQuota(o, i);
     Cargo_Produce(Collection_Get(Cargos(), 0, i), 0, amt, price);
     F<float>(o, 0x103 + i * 4) = (float)((double)amt + F<float>(o, 0x103 + i * 4));

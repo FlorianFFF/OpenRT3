@@ -26,7 +26,7 @@ static inline void InvalidateCaches(Collection* c) {
 Collection* __fastcall Collection_SetVtbl(Collection* c) { c->vtbl = kVtbl; return c; } // returns this
 RT3_REPLACE(0x517ce0, Collection_SetVtbl);
 
-int32_t __fastcall Collection_Count(Collection* c) { return c->count; }
+RT3_NOINLINE int32_t __fastcall Collection_Count(Collection* c) { return c->count; }
 RT3_REPLACE(0x517cf0, Collection_Count);
 
 uint32_t __fastcall Collection_IsFree(Collection* c, int, uint32_t id) {
@@ -35,7 +35,7 @@ uint32_t __fastcall Collection_IsFree(Collection* c, int, uint32_t id) {
 }
 RT3_REPLACE(0x517d00, Collection_IsFree);
 
-int32_t __fastcall Collection_IsValid(Collection* c, int, uint32_t id) { return Live(c, id) ? 1 : 0; } // full 0/1 in EAX
+RT3_NOINLINE int32_t __fastcall Collection_IsValid(Collection* c, int, uint32_t id) { return Live(c, id) ? 1 : 0; } // full 0/1 in EAX
 RT3_REPLACE(0x517d40, Collection_IsValid);
 
 void __fastcall Collection_Save(Collection* c, int, Stream s, int32_t recordSize) {
@@ -112,7 +112,7 @@ void __fastcall Collection_Grow(Collection* c, int, uint32_t by) {
 }
 RT3_REPLACE(0x517f90, Collection_Grow);
 
-void* __fastcall Collection_Get(Collection* c, int, uint32_t id) {
+RT3_NOINLINE void* __fastcall Collection_Get(Collection* c, int, uint32_t id) {
     if (!Live(c, id)) return nullptr;
     uint8_t* slot = c->slots + c->stride * id;
     return c->inlineRecords ? (void*)slot : *(void**)slot;
@@ -186,7 +186,7 @@ void __fastcall Collection_Link(Collection* c, int, uint32_t id, int list, uint3
 }
 RT3_REPLACE(0x518260, Collection_Link);
 
-uint32_t __fastcall Collection_IdAt(Collection* c, int, uint32_t pos, int list) {
+RT3_NOINLINE uint32_t __fastcall Collection_IdAt(Collection* c, int, uint32_t pos, int list) {
     if (list != 0) {
         CollectionNode* nodes = c->nodes[list];
         if (c->cachePos[list] == pos - 1) { // sequential walk: one step from the cache
@@ -420,7 +420,7 @@ void __fastcall Collection_SwapOrder(Collection* c, int, uint32_t a, uint32_t b,
 }
 RT3_REPLACE(0x518b20, Collection_SwapOrder);
 
-Collection* __fastcall Collection_Construct(Collection* c, int, int32_t inlineRecords, int32_t stride,
+RT3_NOINLINE Collection* __fastcall Collection_Construct(Collection* c, int, int32_t inlineRecords, int32_t stride,
                                             int32_t initialCapacity, int32_t growBy,
                                             int32_t list1, int32_t list2, int32_t list3) {
     c->vtbl = kVtbl;
@@ -429,7 +429,7 @@ Collection* __fastcall Collection_Construct(Collection* c, int, int32_t inlineRe
 }
 RT3_REPLACE(0x518b90, Collection_Construct);
 
-void __fastcall Collection_Destruct(Collection* c) {
+RT3_NOINLINE void __fastcall Collection_Destruct(Collection* c) {
     c->vtbl = kVtbl;
     Collection_Clear(c);
 }

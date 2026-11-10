@@ -24,7 +24,7 @@ static inline double ExeSqrt(double v) { return ((double(__cdecl*)(double))0x5a1
 
 // 0x408280. The company's best site by its per-company entry value (+0x16;
 // +1000 for unshared own sites); -1 if none.
-int32_t __fastcall Company_BestSite(int32_t* c) {
+RT3_NOINLINE int32_t __fastcall Company_BestSite(int32_t* c) {
     int32_t bestId = -1;
     float bestVal = 0.0f;
     int32_t n = Collection_Count(g_table6cec20);

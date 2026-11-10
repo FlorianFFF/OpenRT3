@@ -29,7 +29,7 @@ static void FatalCannotOpen(const char* path) {
     FatalError(msg);
 }
 
-void StreamInit() {
+RT3_NOINLINE void StreamInit() {
     if (g_streamsReady == 0) {
         memset(g_streams, 0, sizeof(StreamRecord) * kStreams);
         g_streamsReady = 1;
@@ -37,7 +37,7 @@ void StreamInit() {
 }
 RT3_REPLACE(0x5309d0, StreamInit);
 
-void __fastcall StreamClose(Stream s) {
+RT3_NOINLINE void __fastcall StreamClose(Stream s) {
     StreamRecord& r = g_streams[s];
     switch (r.mode) {
     case kStreamWriteFile:
@@ -117,14 +117,14 @@ int32_t __fastcall FileExists(const char* path) {
 }
 RT3_REPLACE(0x530c20, FileExists);
 
-void StreamReleaseAll() {
+RT3_NOINLINE void StreamReleaseAll() {
     if (g_streamsReady == 0) return;
     for (int i = 0; i < kStreams; ++i) StreamRelease(i);
     g_streamsReady = 0;
 }
 RT3_REPLACE(0x530c50, StreamReleaseAll);
 
-Stream __fastcall StreamOpen(const char* path, int32_t mode, int32_t bufferSize, int32_t fatalIfMissing) {
+RT3_NOINLINE Stream __fastcall StreamOpen(const char* path, int32_t mode, int32_t bufferSize, int32_t fatalIfMissing) {
     StreamInit();
     int k = -1;
     if (mode == kStreamReadMemory || mode == kStreamWriteMemory) {
@@ -239,7 +239,7 @@ void __fastcall StreamWrite(Stream s, const void* data, uint32_t size, int32_t) 
 }
 RT3_REPLACE(0x531030, StreamWrite);
 
-int32_t __fastcall StreamRead(Stream s, void* dst, uint32_t size, int32_t, int32_t) {
+RT3_NOINLINE int32_t __fastcall StreamRead(Stream s, void* dst, uint32_t size, int32_t, int32_t) {
     StreamRecord& r = g_streams[s];
     uint8_t* out = (uint8_t*)dst;
     if (r.mode == kStreamReadFile) return Read(r.fd, dst, size);

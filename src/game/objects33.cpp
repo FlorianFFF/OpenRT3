@@ -102,7 +102,7 @@ RT3_REPLACE(0x477920, Table_ActiveIndexOf);
 
 // 0x4779c0. Linear map of x from [+0xc3, +0xcb] scaled by +0x13, plus the
 // offsets (+0x86)->+5 and +0xb; returned unrounded.
-double __fastcall Obj_MapX(uint8_t* o, int, float x) {
+RT3_NOINLINE double __fastcall Obj_MapX(uint8_t* o, int, float x) {
     float lo = (float)F<int32_t>(o, 0xc3);
     float span = (float)(F<int32_t>(o, 0xcb) - F<int32_t>(o, 0xc3));
     double v = ((double)x - lo) * F<float>(o, 0x13);

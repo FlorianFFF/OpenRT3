@@ -37,13 +37,13 @@ void __stdcall Map_PixelsPerTile(float* sx, float* sy) {
 RT3_REPLACE(0x415370, Map_PixelsPerTile);
 
 // 0x439d30. Height of the camera target (+0x1c/+0x20/+0x24) above the terrain (+0x6e).
-double __fastcall Camera_TargetAboveGround(uint8_t* c) {
+RT3_NOINLINE double __fastcall Camera_TargetAboveGround(uint8_t* c) {
     return (double)F<float>(c, 0x20) - Terrain_HeightAt(F<uint8_t*>(c, 0x6e), 0, F<float>(c, 0x1c), F<float>(c, 0x24));
 }
 RT3_REPLACE(0x439d30, Camera_TargetAboveGround);
 
 // 0x448bd0. Terrain height at tile coordinates (x 0x5c8700 world units).
-double __fastcall Terrain_HeightAtTile(uint8_t* r, int, float x, float z) {
+RT3_NOINLINE double __fastcall Terrain_HeightAtTile(uint8_t* r, int, float x, float z) {
     const float k = *(const float*)0x5c8700;
     float wz = (float)((double)z * k);
     float wx = (float)((double)x * k);
@@ -168,7 +168,7 @@ RT3_REPLACE(0x4951f0, Map_SlopeBetween);
 
 // 0x52cec0. Terrain height under the object's position (+0x1c, +0x24), snapped
 // through tile units (x87 products as in the original).
-double __fastcall SceneObj_GroundHeight(uint8_t* o) {
+RT3_NOINLINE double __fastcall SceneObj_GroundHeight(uint8_t* o) {
     float x, z;
     __asm {
         mov ecx, o
@@ -186,7 +186,7 @@ double __fastcall SceneObj_GroundHeight(uint8_t* o) {
 RT3_REPLACE(0x52cec0, SceneObj_GroundHeight);
 
 // 0x52d1e0. Sets the camera target and its height above the terrain (+0x66).
-void __fastcall Camera_SetTarget(uint8_t* c, int, float x, float y, float z) {
+RT3_NOINLINE void __fastcall Camera_SetTarget(uint8_t* c, int, float x, float y, float z) {
     F<float>(c, 0x20) = y;
     F<float>(c, 0x1c) = x;
     F<float>(c, 0x24) = z;
@@ -201,7 +201,7 @@ RT3_REPLACE(0x52d1e0, Camera_SetTarget);
 
 // 0x52d450. Places the target at distance +0x18 from the eye (+4..) along yaw +0x10 /
 // pitch +0x14 and updates its height above the terrain.
-void __fastcall Camera_UpdateTarget(uint8_t* c) {
+RT3_NOINLINE void __fastcall Camera_UpdateTarget(uint8_t* c) {
     double cp = Fcos(F<float>(c, 0x14));
     float x = (float)(Fsin(F<float>(c, 0x10)) * cp * F<float>(c, 0x18) + F<float>(c, 0x4));
     F<float>(c, 0x1c) = x;

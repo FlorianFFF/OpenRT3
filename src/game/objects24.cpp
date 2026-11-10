@@ -141,7 +141,7 @@ void __fastcall Obj_StampDate(uint8_t* o, int, int32_t v) {
 RT3_REPLACE(0x46a390, Obj_StampDate);
 
 // 0x46ab10. New empty 20-byte list header. QUIRK: writes through null on failure.
-void* __stdcall NewListHeader(int32_t) {
+RT3_NOINLINE void* __stdcall NewListHeader(int32_t) {
     uint32_t* p = (uint32_t*)ExeMalloc53b(0x14);
     if (p) {
         p[2] = 0;

@@ -126,9 +126,9 @@ RT3_REPLACE(0x55f9f0, TreeView_Init);
 
 // Tree nodes (+0x176, 32 bytes): +0 value, +8 data, +0x10 has parent, +0x14 parent, +0x18 expanded.
 static inline uint8_t* Node(uint8_t* w, int32_t i) { return F<uint8_t*>(w, 0x176) + i * 32; }
-uint32_t __fastcall TreeView_NodeData(uint8_t* w, int, int32_t i) { return F<uint32_t>(Node(w, i), 8); }
+RT3_NOINLINE uint32_t __fastcall TreeView_NodeData(uint8_t* w, int, int32_t i) { return F<uint32_t>(Node(w, i), 8); }
 RT3_REPLACE(0x55fb80, TreeView_NodeData);
-uint32_t __fastcall TreeView_SelectedData(uint8_t* w) { return F<uint32_t>(Node(w, F<int32_t>(w, 0x1d6)), 8); }
+RT3_NOINLINE uint32_t __fastcall TreeView_SelectedData(uint8_t* w) { return F<uint32_t>(Node(w, F<int32_t>(w, 0x1d6)), 8); }
 RT3_REPLACE(0x55fba0, TreeView_SelectedData);
 // 0x55fbc0. Whether some ancestor of node i is collapsed.
 int32_t __fastcall TreeView_IsHidden(uint8_t* w, int, int32_t i) {
@@ -147,7 +147,7 @@ int32_t __fastcall TreeView_Depth(uint8_t* w, int, int32_t i) {
     return d;
 }
 RT3_REPLACE(0x55fc10, TreeView_Depth);
-uint32_t __fastcall TreeView_NodeValue(uint8_t* w, int, int32_t i) { return F<uint32_t>(Node(w, i), 0); }
+RT3_NOINLINE uint32_t __fastcall TreeView_NodeValue(uint8_t* w, int, int32_t i) { return F<uint32_t>(Node(w, i), 0); }
 RT3_REPLACE(0x55fca0, TreeView_NodeValue);
 
 // 0x55ffb0. Row height as a fraction of the screen, snapped to whole pixels

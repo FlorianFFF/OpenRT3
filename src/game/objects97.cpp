@@ -24,7 +24,7 @@ static inline int32_t VbLock(void* vb, uint32_t off, uint32_t size, void* pp, ui
 }
 
 // 0x439b20. Normalised screen position of a tile point (tile x, tile y, height).
-int32_t __stdcall Map_TileToScreen(float tx, float ty, float h, float* ox, float* oy) {
+RT3_NOINLINE int32_t __stdcall Map_TileToScreen(float tx, float ty, float h, float* ox, float* oy) {
     const float k = *(const float*)0x5c8700;
     float wz = (float)((double)ty * k);
     float wx = (float)((double)tx * k);

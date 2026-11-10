@@ -18,7 +18,7 @@ void __fastcall Company_CountTrack(uint8_t* c, int, uint8_t* t, int32_t add);
 double __fastcall Obj_Float18(void* o);
 
 // 0x45b430. Block flag update (0x45a2e0) on +0x256 when +0x75 is set.
-uint32_t __fastcall Obj_SetBlockFlags(uint8_t* o, int, uint32_t mask, int32_t mode) {
+RT3_NOINLINE uint32_t __fastcall Obj_SetBlockFlags(uint8_t* o, int, uint32_t mask, int32_t mode) {
     uint8_t* blocks = F<uint8_t*>(o, 0x256);
     if (!blocks || !F<int32_t>(o, 0x75)) return (uint32_t)o;
     BlockIter_SetFlags(blocks, mask, mode);

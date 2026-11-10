@@ -95,7 +95,7 @@ void __fastcall Station_Reset(void* o, int, uint16_t x, uint16_t y) {
 RT3_REPLACE(0x42b3b0, Station_Reset);
 
 // 0x42be20. Sum of +0x103[i] over the available cargo types (i = 0..52).
-float __fastcall Station_TotalAvailable(void* o) {
+RT3_NOINLINE float __fastcall Station_TotalAvailable(void* o) {
     const uint8_t* ct = (const uint8_t*)g_cargoTypes;
     float sum = 0.0f;
     for (int32_t i = 0; i < 0x35; ++i)
@@ -105,7 +105,7 @@ float __fastcall Station_TotalAvailable(void* o) {
 RT3_REPLACE(0x42be20, Station_TotalAvailable);
 
 // 0x42c7d0 / 0x42c820. Searches of the site chain (u16 +0xd4, next +0x3c).
-int32_t __fastcall Chain_Contains(void* o, int, uint16_t k) {
+RT3_NOINLINE int32_t __fastcall Chain_Contains(void* o, int, uint16_t k) {
     for (uint16_t id = F<uint16_t>(o, 0xd4); id; id = F<uint16_t>(Collection_Get(g_table6cec20, 0, id), 0x3c))
         if (id == k) return 1;
     return 0;
@@ -119,7 +119,7 @@ RT3_NOINLINE int32_t __fastcall Chain_HasValue(void* o, int, int32_t v) {
 RT3_REPLACE(0x42c820, Chain_HasValue);
 // 0x42c880 is Obj_FirstActiveInChain (objects4.cpp).
 static inline void* Chain_FirstActive(void* o) { return Obj_FirstActiveInChain(o); }
-int32_t __fastcall Chain_AnyActive(void* o) {
+RT3_NOINLINE int32_t __fastcall Chain_AnyActive(void* o) {
     if (!F<uint16_t>(o, 0xd4)) return 0;
     return Chain_FirstActive(o) ? 1 : 0;
 }

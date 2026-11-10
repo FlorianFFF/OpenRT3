@@ -15,7 +15,7 @@ static inline uint8_t* Renderer() { return (uint8_t*)Engine_Renderer(hook::Globa
 
 // 0x43aef0. Base +0x14 plus twice the scene scale times t's offset from
 // the span centre, relative to the span (+0x54..+0x5c).
-float __fastcall Obj_ScaledSpanOffset(uint8_t* o, int, float t) {
+RT3_NOINLINE float __fastcall Obj_ScaledSpanOffset(uint8_t* o, int, float t) {
     float d = (float)((double)F<float>(o, 0x5c) - F<float>(o, 0x54));
     float base = F<float>(o, 0x14);
     Obj_Scene36f9(Renderer());  // result discarded by the original
@@ -98,7 +98,7 @@ RT3_NOINLINE int32_t __fastcall Camera_InBounds(uint8_t* c, int, float x, float 
     return 1;
 }
 RT3_REPLACE(0x52d0f0, Camera_InBounds);
-void __fastcall Camera_SetBounds(uint8_t* c, int, uint32_t a, uint32_t b, uint32_t d, uint32_t e) {
+RT3_NOINLINE void __fastcall Camera_SetBounds(uint8_t* c, int, uint32_t a, uint32_t b, uint32_t d, uint32_t e) {
     F<uint32_t>(c, 0x50) = a;
     F<uint32_t>(c, 0x54) = b;
     F<uint32_t>(c, 0x58) = d;

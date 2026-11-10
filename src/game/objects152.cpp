@@ -76,7 +76,7 @@ RT3_REPLACE(0x41ea50, CargoTypes_UpdateAverages);
 // (recipes without inputs; waste for recycling plants; ports/warehouses only where a
 // city links them); all with option +0x25f; only six goods in the scenario mode
 // world +0x4afb. Then recounts.
-void __fastcall CargoTypes_MarkAvailable(Collection* c) {
+RT3_NOINLINE void __fastcall CargoTypes_MarkAvailable(Collection* c) {
     if (!hook::Global<Collection*>(0x62b268)) return;
     uint8_t flags[0x3e8];
     memset(flags, 0, sizeof flags);

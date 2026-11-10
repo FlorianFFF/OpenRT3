@@ -19,7 +19,7 @@ void __fastcall String_Assign(char** s, const char* src);
 uint32_t IsEnglish();
 
 // 0x482d10. The game version as a number (major + minor / 0x5c8c28), cached.
-float __fastcall Game_VersionNumber() {
+RT3_NOINLINE float __fastcall Game_VersionNumber() {
     if (!hook::Global<uint8_t>(0x6cec84)) {
         hook::Global<uint8_t>(0x6cec84) = 1;
         uint32_t v = File_Version((const char*)0x5cec18);
@@ -54,7 +54,7 @@ int32_t __fastcall TreeView_RowOfNode(uint8_t* w, int, int32_t n) {
     return rows;
 }
 RT3_REPLACE(0x5602c0, TreeView_RowOfNode);
-int32_t __fastcall TreeView_NodeOfRow(uint8_t* w, int, int32_t row) {
+RT3_NOINLINE int32_t __fastcall TreeView_NodeOfRow(uint8_t* w, int, int32_t row) {
     if (row == -1) return -1;
     int32_t cnt = 0;
     for (int32_t i = 0; i < F<int32_t>(w, 0x1d2); ++i) {
@@ -128,7 +128,7 @@ uint8_t* __fastcall KeyTable_Init(uint8_t* t) {
     return t;
 }
 RT3_REPLACE(0x564150, KeyTable_Init);
-void __fastcall Nop564170() {}
+RT3_NOINLINE void __fastcall Nop564170() {}
 RT3_REPLACE(0x564170, Nop564170);
 void __fastcall KeyTable_Set(uint8_t* t, int, uint8_t k) { t[k] = 1; }
 RT3_REPLACE(0x564180, KeyTable_Set);

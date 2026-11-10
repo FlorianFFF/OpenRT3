@@ -74,7 +74,7 @@ RT3_REPLACE(0x557550, Holder_Alloc);
 // Music stream (+0, Miles HSTREAM; volume +0x104).
 static inline int32_t StreamStatus(void* s) { return Import<int32_t(__stdcall*)(void*)>(0x5c83c0)(s); }
 static inline void StreamPause(void* s, int32_t on) { Import<void(__stdcall*)(void*, int32_t)>(0x5c8464)(s, on); }
-static inline void StreamClose(void* s) { Import<void(__stdcall*)(void*)>(0x5c83bc)(s); }
+RT3_NOINLINE static inline void StreamClose(void* s) { Import<void(__stdcall*)(void*)>(0x5c83bc)(s); }
 
 void __fastcall Music_Close(uint8_t* m) {
     if (!F<void*>(m, 0)) return;

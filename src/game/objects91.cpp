@@ -103,7 +103,7 @@ void __fastcall Widget5157c0_Destruct(uint8_t* w) {
 RT3_REPLACE(0x5157c0, Widget5157c0_Destruct);
 
 // 0x538810. Child `id` of any window in the chain (+0, next +0x58).
-uint8_t* __fastcall Windows_FindChild(uint8_t* o, int, int32_t id) {
+RT3_NOINLINE uint8_t* __fastcall Windows_FindChild(uint8_t* o, int, int32_t id) {
     for (uint8_t* w = F<uint8_t*>(o, 0); w; w = F<uint8_t*>(w, 0x58))
         if (uint8_t* c = Widget_FindChild(w, 0, id)) return c;
     return nullptr;

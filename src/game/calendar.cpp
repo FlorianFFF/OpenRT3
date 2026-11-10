@@ -20,7 +20,7 @@ int32_t __fastcall MinutesFromParts(int32_t year, int32_t month, int32_t day, in
 }
 RT3_REPLACE(0x51d390, MinutesFromParts);
 
-int32_t __fastcall DateToMinutes(const GameDate* d) {
+RT3_NOINLINE int32_t __fastcall DateToMinutes(const GameDate* d) {
     return (DaysOf(*d) * 24 + d->hour) * 60 + d->minute;
 }
 RT3_REPLACE(0x51d3c0, DateToMinutes);

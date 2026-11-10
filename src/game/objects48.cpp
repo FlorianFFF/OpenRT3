@@ -108,7 +108,7 @@ RT3_REPLACE(0x45a520, BlockIter_MarkSlot);
 
 // 0x4952f0. Angle (radians, [0, 2 pi)) of the direction from (x1, y1) to
 // (x0, y0) via atan; returned unrounded.
-double __stdcall AngleOf(float x0, float y0, float x1, float y1) {
+RT3_NOINLINE double __stdcall AngleOf(float x0, float y0, float x1, float y1) {
     if (x0 == x1) return y0 > y1 ? (float)4.71238898038 : (float)1.5707963267948966;
     float a = (float)((double(__cdecl*)(double))0x5a1270)(((double)y0 - y1) / ((double)x0 - x1));
     if (x0 > x1) return (double)a + *(const float*)0x5c8760;
@@ -143,7 +143,7 @@ RT3_REPLACE(0x4a80a0, Train_CheckPendingNode);
 // 0x4a83a0. Destination of the train's current order (+8 array): a track
 // node for flagged orders, else the site's +8; `preferStop` picks +0x94
 // when valid. *dist gets the order's +0x2f. -1 if none.
-int32_t __fastcall Train_OrderTarget(uint8_t* t, int, int32_t* dist, int32_t preferStop) {
+RT3_NOINLINE int32_t __fastcall Train_OrderTarget(uint8_t* t, int, int32_t* dist, int32_t preferStop) {
     if (F<int32_t>(t, 8) == -1) return -1;
     uint8_t* c = (uint8_t*)Array33_Current(t);
     if (!c) return -1;

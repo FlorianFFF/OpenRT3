@@ -63,7 +63,7 @@ RT3_REPLACE(0x457fb0, Obj_BendOffset);
 
 // 0x473a60. Registers the ten multiplayer sync-check categories (names
 // 0x5ce40c.., checksum callbacks) with the lobby.
-void RegisterSyncChecks() {
+RT3_NOINLINE void RegisterSyncChecks() {
     static const uint32_t kChecks[10][2] = {
         { 0x5ce40c, 0x46de80 }, { 0x5ce404, 0x46e030 }, { 0x5ce3fc, 0x46e250 }, { 0x5ce3f0, 0x46de40 },
         { 0x5ce3e8, 0x46dd10 }, { 0x5ce3e0, 0x46dbd0 }, { 0x5ce3d4, 0x46db90 }, { 0x5ce3cc, 0x46dac0 },

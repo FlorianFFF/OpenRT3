@@ -130,7 +130,7 @@ RT3_REPLACE(0x415570, Site_ChooseShape);
 
 // 0x437d20. Combined multiplier for cargo idx: the global cargo effect (0x69) times
 // the cargo's own effect (0x6a + idx, when in range).
-double __stdcall Effects_CargoMultiplier(int32_t idx) {
+RT3_NOINLINE double __stdcall Effects_CargoMultiplier(int32_t idx) {
     float base = Effects_Multiplier(World(), 0, 0x69, 0, 0, 0);
     int32_t id = idx + 0x6a;
     if (id < 0x6a || id > 0x15f) return base;

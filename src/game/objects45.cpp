@@ -141,7 +141,7 @@ RT3_REPLACE(0x4a4340, Routes_AddRef);
 
 void __fastcall Nop4a6e50(void*) {}
 RT3_REPLACE(0x4a6e50, Nop4a6e50);
-int32_t __fastcall Obj_ByteF9(uint8_t* o) { return o[0xf9]; }
+RT3_NOINLINE int32_t __fastcall Obj_ByteF9(uint8_t* o) { return o[0xf9]; }
 RT3_REPLACE(0x4a6e60, Obj_ByteF9);
 
 } // namespace rt3

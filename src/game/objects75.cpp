@@ -62,7 +62,7 @@ void __fastcall Model_SetPartFrame(uint8_t* o, int, int32_t part, int32_t frame)
 RT3_REPLACE(0x45d030, Model_SetPartFrame);
 
 // 0x4a77d0. Rear point of the train's first car; (10, 10) without cars.
-void __fastcall Train_RearPoint(uint8_t* t, int, float* x, float* y) {
+RT3_NOINLINE void __fastcall Train_RearPoint(uint8_t* t, int, float* x, float* y) {
     int32_t id = F<int32_t>(t, 0x41);
     if (id != -1) {
         Car_RearPoint((uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba84), 0, id), 0, x, y);

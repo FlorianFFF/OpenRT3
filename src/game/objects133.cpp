@@ -22,7 +22,7 @@ static inline float Fl(uint32_t a) { return *(const float*)a; }
 // 0x51e980. Fatal error: once (0x6d3d18), flags the engine (+0x57), shows the
 // cursor, logs msg (or string 0x45) and shows it in a message box (title string
 // 0x44), restores the keyboard and exits.
-void __fastcall Fatal_Exit(const char* msg) {
+RT3_NOINLINE void __fastcall Fatal_Exit(const char* msg) {
     if (hook::Global<int32_t>(0x6d3d18)) return;
     hook::Global<int32_t>(0x6d3d18) = 1;
     if (uint8_t* e = hook::Global<uint8_t*>(0x6d4024)) e[0x57] = 1;

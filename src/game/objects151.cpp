@@ -71,7 +71,7 @@ RT3_REPLACE(0x419230, BuildingTypes_RebuildPortsWarehouses);
 // 0x41d550. Whether car type o (kind +0x41: 2/3 = cargo cars checked against the
 // cargo's effects and era options) is available to company / player in this year
 // (within +0x105..+0x109; a cargo car from its first year's July on).
-int32_t __fastcall CarType_Available(uint8_t* o, int, uint32_t company, uint32_t player) {
+RT3_NOINLINE int32_t __fastcall CarType_Available(uint8_t* o, int, uint32_t company, uint32_t player) {
     int32_t bonus = 0;
     int32_t k = F<int32_t>(o, 0x41);
     if (k == 2 || k == 3) {

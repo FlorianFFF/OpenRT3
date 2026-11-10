@@ -86,7 +86,7 @@ RT3_NOINLINE void __fastcall Texture_Destroy(uint8_t* t) {
 RT3_REPLACE(0x542c90, Texture_Destroy);
 
 // 0x54e630. Whether the game window is in the foreground.
-int32_t __fastcall Engine_IsForeground() {
+RT3_NOINLINE int32_t __fastcall Engine_IsForeground() {
     if (!Engine()) return 0;
     ::HWND__* w = Engine_Window(Engine());
     return w == Import<::HWND__*(__stdcall*)()>(0x5c8284)() ? 1 : 0;
@@ -96,7 +96,7 @@ RT3_REPLACE(0x54e630, Engine_IsForeground);
 static inline void KeyboardState(uint8_t* buf) { Import<int32_t(__stdcall*)(uint8_t*)>(0x5c8280)(buf); }
 
 // 0x54e660. Sets the scroll-lock toggle (by simulating a key press).
-void __fastcall Keyboard_SetScrollLock(int32_t on) {
+RT3_NOINLINE void __fastcall Keyboard_SetScrollLock(int32_t on) {
     uint8_t keys[0x100];
     KeyboardState(keys);
     if ((int32_t)(keys[0x91] & 1) == on) return;
@@ -135,7 +135,7 @@ uint8_t* __fastcall Input_Construct(uint8_t* in) {
 }
 RT3_REPLACE(0x54e710, Input_Construct);
 
-void __fastcall Nop54e780() {}
+RT3_NOINLINE void __fastcall Nop54e780() {}
 RT3_REPLACE(0x54e780, Nop54e780);
 
 // 0x54e790. Clears handler h from the input bindings (+0x128, 0x30 bytes, count +0xa88).
@@ -171,7 +171,7 @@ void __fastcall Input_UpdateCtrl(uint8_t* in) {
 RT3_REPLACE(0x54e830, Input_UpdateCtrl);
 
 // 0x54f540. Whether the cursor is inside the client area (always when fullscreen).
-int32_t __fastcall Cursor_InWindow() {
+RT3_NOINLINE int32_t __fastcall Cursor_InWindow() {
     if (Engine()[0x114226]) return 1;
     int32_t pt[2];
     Import<int32_t(__stdcall*)(int32_t*)>(0x5c8270)(pt);

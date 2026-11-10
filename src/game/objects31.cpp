@@ -40,7 +40,7 @@ void __fastcall Obj_UpdateThreshold(uint8_t* o) {
 RT3_REPLACE(0x452ea0, Obj_UpdateThreshold);
 
 // 0x456820. a = a x b (float vectors).
-void __fastcall Vec3_CrossInPlace(float* a, int, const float* b) {
+RT3_NOINLINE void __fastcall Vec3_CrossInPlace(float* a, int, const float* b) {
     float a0 = a[0], a1 = a[1], a2 = a[2];
     float b0 = b[0], b1 = b[1], b2 = b[2];
     a[0] = (float)((double)b2 * a1 - (double)b1 * a2);
@@ -50,7 +50,7 @@ void __fastcall Vec3_CrossInPlace(float* a, int, const float* b) {
 RT3_REPLACE(0x456820, Vec3_CrossInPlace);
 
 // 0x45b460. Block test (0x45a380) on +0x256 when +0x75 is set; 0 otherwise.
-int32_t __fastcall Obj_TestBlock(uint8_t* o, int, uint32_t mask, int32_t idx) {
+RT3_NOINLINE int32_t __fastcall Obj_TestBlock(uint8_t* o, int, uint32_t mask, int32_t idx) {
     uint8_t* blocks = F<uint8_t*>(o, 0x256);
     if (!blocks || !F<int32_t>(o, 0x75)) return 0;
     return BlockIter_BeginTest(blocks, mask, idx);

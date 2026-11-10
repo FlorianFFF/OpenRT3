@@ -125,7 +125,7 @@ uint8_t* __fastcall BlockIter_NextSameKey(uint8_t* b) {
 RT3_REPLACE(0x459cb0, BlockIter_NextSameKey);
 
 // 0x45b540. Begins the block iteration of +0x256 when +0x75 is set; 1 otherwise.
-uint32_t __fastcall Obj_BeginBlocks(uint8_t* o) {
+RT3_NOINLINE uint32_t __fastcall Obj_BeginBlocks(uint8_t* o) {
     uint8_t* blocks = F<uint8_t*>(o, 0x256);
     if (!blocks || !F<int32_t>(o, 0x75)) return 1;
     return BlockIter_Begin(blocks);

@@ -70,7 +70,7 @@ __declspec(naked) int32_t Obj_KindE8Special() { RT3_KEEP_ECX_EDX(Obj_KindE8Speci
 RT3_REPLACE(0x4a7220, Obj_KindE8Special);
 
 // 0x4a7270. Sum of three float arrays at i: (+0x159 + +0x131) + +0x109.
-double __fastcall Obj_Sum3(void* o, int, int32_t i) {
+RT3_NOINLINE double __fastcall Obj_Sum3(void* o, int, int32_t i) {
     return ((double)F<float>(o, 0x159 + i * 4) + F<float>(o, 0x131 + i * 4)) + F<float>(o, 0x109 + i * 4);
 }
 RT3_REPLACE(0x4a7270, Obj_Sum3);
@@ -120,7 +120,7 @@ RT3_REPLACE(0x40caa0, Obj_Float338);
 void __fastcall Obj_Set2a2(void* o, int, uint16_t v) { F<uint16_t>(o, 0x2a2) = v; }
 RT3_REPLACE(0x40cb00, Obj_Set2a2);
 
-uint8_t* __fastcall Grid_RegionAt(void* g, int, int32_t x, int32_t y) {
+RT3_NOINLINE uint8_t* __fastcall Grid_RegionAt(void* g, int, int32_t x, int32_t y) {
     return F<uint8_t*>(g, 0x2129) + (F<int32_t>(g, 0x2145) * y + x) * 0x1d7;
 }
 RT3_REPLACE(0x40ccd0, Grid_RegionAt);

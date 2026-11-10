@@ -183,7 +183,7 @@ void __fastcall String_Assign(char** s, const char* src);
 // language (variants of Spanish, French, German, Chinese, Italian, Portuguese, and
 // Japanese, Polish, Russian, Hungarian; else English), overridden by the first line
 // of data2\overridelanguage (control characters cut), if its RT3.lng exists.
-void Language_Select() {
+RT3_NOINLINE void Language_Select() {
     struct {
         char lang[0x198]; // the override is copied here unbounded (fits before buf)
         char buf[0x12d];

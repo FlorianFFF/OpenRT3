@@ -27,7 +27,7 @@ void __fastcall Lobby_SetMode(int32_t kind, int, int32_t, int32_t) {
 RT3_REPLACE(0x4ecc90, Lobby_SetMode);
 
 // 0x4ed800. Clears the network session object; returns it.
-uint8_t* __fastcall Session_Init(uint8_t* s) {
+RT3_NOINLINE uint8_t* __fastcall Session_Init(uint8_t* s) {
     static const uint32_t kZero[] = { 0, 4, 8, 0xc, 0x8f18, 0x8f20, 0x8f24, 0x8f28, 0x8f2c, 0x8f30, 0x8f3c,
                                       0x8f40, 0x8f44, 0x9050, 0x9054, 0x985c };
     for (uint32_t off : kZero) F<int32_t>(s, off) = 0;

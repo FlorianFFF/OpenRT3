@@ -51,7 +51,7 @@ int32_t __fastcall Routes_Load(Collection* t, int, Stream s, int32_t recordSize)
 RT3_REPLACE(0x4a41b0, Routes_Load);
 
 // 0x4a8470. Target node of the current order: flagged orders' +0x2b, else the site's +8; -1 if none.
-int32_t __fastcall Train_CurrentOrderNode(uint8_t* t) {
+RT3_NOINLINE int32_t __fastcall Train_CurrentOrderNode(uint8_t* t) {
     if (F<int32_t>(t, 8) == -1) return -1;
     uint8_t* c = OrderList_Current(t);
     if (!c) return -1;

@@ -48,7 +48,7 @@ double __fastcall Obj_Rate(void* o) {
 RT3_REPLACE(0x41bf90, Obj_Rate);
 
 // 0x41f6e0. The region under this object has key k.
-int32_t __fastcall Obj_RegionHasKey(void* o, int, uint16_t k) { return Obj_HasKey(Obj_Region(o), 0, k); }
+RT3_NOINLINE int32_t __fastcall Obj_RegionHasKey(void* o, int, uint16_t k) { return Obj_HasKey(Obj_Region(o), 0, k); }
 RT3_REPLACE(0x41f6e0, Obj_RegionHasKey);
 
 // 0x4228b0. Buildings in the chain from u16 +0x383 (next u16 +0x270) whose
@@ -84,7 +84,7 @@ RT3_NOINLINE double __fastcall Obj_WeightedAverage(void* o) {
 }
 RT3_REPLACE(0x423e40, Obj_WeightedAverage);
 
-void __fastcall Obj_Set4b(void* o, int, int32_t v) { F<int32_t>(o, 0x4b) = v; }
+RT3_NOINLINE void __fastcall Obj_Set4b(void* o, int, int32_t v) { F<int32_t>(o, 0x4b) = v; }
 RT3_REPLACE(0x423fb0, Obj_Set4b);
 double __fastcall Company_QualityRaw(void* c) { return F<float>(c, 0xd31); }
 RT3_REPLACE(0x4240f0, Company_QualityRaw);
@@ -104,7 +104,7 @@ RT3_REPLACE(0x424230, Company_NameIndex);
 
 // 0x4266c0. Buildings this company owns (+0x276) with flag +0x3d4 == 1 and
 // virtual slot 28 returning 0.
-int32_t __fastcall Company_CountIdleBuildings(void* c) {
+RT3_NOINLINE int32_t __fastcall Company_CountIdleBuildings(void* c) {
     int32_t total = Collection_Count(g_buildings), n = 0;
     for (int32_t i = 0; i < total; ++i) {
         uint8_t* b = (uint8_t*)Collection_Get(g_buildings, 0, Collection_IdAt(g_buildings, 0, i, 0));

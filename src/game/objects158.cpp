@@ -91,7 +91,7 @@ void __fastcall Camera_UpdateShake(uint8_t* c) {
 RT3_REPLACE(0x43a1e0, Camera_UpdateShake);
 
 // 0x43a5a0. Resets the camera state and reloads the render capabilities.
-void __fastcall Camera_Reset(uint8_t* c) {
+RT3_NOINLINE void __fastcall Camera_Reset(uint8_t* c) {
     Camera_Init(c);
     for (int32_t i = 0; i < 10; ++i) F<int32_t>(c, 0x10e + i * 0x30) = 0;
     F<int32_t>(c, 0x9e) = 1;

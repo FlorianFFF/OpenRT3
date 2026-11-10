@@ -103,7 +103,7 @@ void __fastcall Sound_WaitIdle() {
 RT3_REPLACE(0x5318b0, Sound_WaitIdle);
 
 // 0x531dc0. Whether the 3D listener is idle (both speeds zero); 1 for 2D sounds.
-uint32_t __fastcall Sound_ListenerIdle(uint8_t* s) {
+RT3_NOINLINE uint32_t __fastcall Sound_ListenerIdle(uint8_t* s) {
     if (!Is3D(s)) return 1;
     const float zero = *(const float*)0x5c8598;
     if (!(F<float>(hook::Global<uint8_t*>(0xccb9f8), 0x20) == zero)) return 0;
@@ -128,7 +128,7 @@ uint32_t __fastcall Sound_Get2c(uint8_t* s) {
 RT3_REPLACE(0x531ed0, Sound_Get2c);
 
 // 0x531ef0. Looks key up in the 2D (kind 0) or 3D (kind 1) sample table.
-int32_t __fastcall Sound_LookupSample(uint8_t* s, int, uint32_t key, int32_t kind) {
+RT3_NOINLINE int32_t __fastcall Sound_LookupSample(uint8_t* s, int, uint32_t key, int32_t kind) {
     if (F<int32_t>(s, 4) != 1 || hook::Global<int32_t>(0xccb9f4)) return 0;
     if (kind == 0) return Hash_Get((HashMap*)(hook::Global<uint8_t*>(0xccb9f8) + 0xc), 0, key);
     if (kind == 1) return Hash_Get((HashMap*)(hook::Global<uint8_t*>(0xccb9fc) + 0x14), 0, key);

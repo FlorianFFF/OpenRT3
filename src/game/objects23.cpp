@@ -43,7 +43,7 @@ RT3_REPLACE(0x43f620, SetGlobals5ee4fc);
 // 0x448c00..0x448f30. Grid accessors: float grid +0x1605 (stride
 // +0x15d9 + 1), 3-byte cells +0x165d and byte grids +0x1661 / +0x1665
 // (stride +0x15dd).
-double __fastcall Grid_Float1605(uint8_t* g, int, int32_t x, int32_t y) {
+RT3_NOINLINE double __fastcall Grid_Float1605(uint8_t* g, int, int32_t x, int32_t y) {
     return F<float*>(g, 0x1605)[(F<int32_t>(g, 0x15d9) + 1) * y + x];
 }
 RT3_REPLACE(0x448c00, Grid_Float1605);
@@ -135,7 +135,7 @@ RT3_REPLACE(0x455a50, Obj_CloseCurrent);
 void Clear6acd60() { hook::Global<int32_t>(0x6acd60) = 0; }
 RT3_REPLACE(0x45a3f0, Clear6acd60);
 
-double __fastcall Obj_Float242(void* o, int, int32_t i) { return F<float>(o, 0x242 + i * 4); }
+RT3_NOINLINE double __fastcall Obj_Float242(void* o, int, int32_t i) { return F<float>(o, 0x242 + i * 4); }
 RT3_REPLACE(0x45c6e0, Obj_Float242);
 
 // 0x45ed70. Repacks flags: bit 0 = any of bits 0-1, bit 1 = bit 5, bit 2 = bit 2.

@@ -44,7 +44,7 @@ PtrListNode* __fastcall SceneObj_AddChild(uint8_t* o, int, uint8_t* child) {
 RT3_REPLACE(0x52d8a0, SceneObj_AddChild);
 
 // 0x4825d0. Minutes of the scene clock since 5:15 (wrapping past midnight); 0 without a renderer.
-float SceneClock_MinutesSinceDawn() {
+RT3_NOINLINE float SceneClock_MinutesSinceDawn() {
     void* e = hook::Global<void*>(0x6d4024);
     if (!e || !Engine_Renderer(e)) return *(const float*)0x5c8598;
     int32_t h, m, s;

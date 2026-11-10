@@ -99,7 +99,7 @@ RT3_REPLACE(0x47f2d0, Station_ConnectedTo);
 
 // 0x4801a0. Whether this active, ready station is track-connected to the company's
 // home station.
-int32_t __fastcall Station_ConnectedToHome(uint8_t* s, int, uint32_t company) {
+RT3_NOINLINE int32_t __fastcall Station_ConnectedToHome(uint8_t* s, int, uint32_t company) {
     if (!Obj_BuildingStateActive(s)) return 0;
     void* b = F<uint32_t>(s, 4) ? Collection_Get(hook::Global<Collection*>(0x62b26c), 0, F<uint32_t>(s, 4)) : nullptr;
     if (Obj_Flag3d4(b) != 1) return 0;

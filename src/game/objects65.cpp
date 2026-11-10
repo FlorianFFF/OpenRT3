@@ -102,11 +102,11 @@ uint8_t Net_AllPlayersFlag1() {
 }
 RT3_REPLACE(0x4ee500, Net_AllPlayersFlag1);
 
-int32_t Global6d40e4() { return hook::Global<int32_t>(0x6d40e4); }
+RT3_NOINLINE int32_t Global6d40e4() { return hook::Global<int32_t>(0x6d40e4); }
 RT3_REPLACE(0x5216c0, Global6d40e4);
 
 // 0x5216d0. Unlock variant that pops one (unused) argument.
-void __stdcall Net_UnlockQueueArg(int32_t) {
+RT3_NOINLINE void __stdcall Net_UnlockQueueArg(int32_t) {
     hook::Global<int32_t>(0x6d40a8)--;
     Import<void(__stdcall*)(void*)>(0x5c81f8)((void*)0x6d4090);
 }

@@ -58,7 +58,7 @@ uint8_t* __fastcall Camera_Construct(uint8_t* c) {
 RT3_REPLACE(0x52d6d0, Camera_Construct);
 
 // 0x52d6f0. Attaches the camera to a terrain with eye (x, y, z) and distance.
-void __fastcall Camera_Setup(uint8_t* c, int, uint32_t terrain, uint32_t x, uint32_t y, uint32_t z, uint32_t dist) {
+RT3_NOINLINE void __fastcall Camera_Setup(uint8_t* c, int, uint32_t terrain, uint32_t x, uint32_t y, uint32_t z, uint32_t dist) {
     F<uint32_t>(c, 0x4) = x;
     F<uint32_t>(c, 0x6e) = terrain;
     F<uint32_t>(c, 0x8) = y;
@@ -128,7 +128,7 @@ void __fastcall Effect_SetStyle(uint8_t* e, int, uint8_t kind, uint8_t on) {
 RT3_REPLACE(0x539380, Effect_SetStyle);
 
 // 0x5394b0. Copies the four vectors at +0x14/+0x20/+0x2c/+0x38 to the non-null outputs.
-void __fastcall Effect_GetVectors(uint8_t* e, int, uint32_t* a, uint32_t* b, uint32_t* c, uint32_t* d) {
+RT3_NOINLINE void __fastcall Effect_GetVectors(uint8_t* e, int, uint32_t* a, uint32_t* b, uint32_t* c, uint32_t* d) {
     uint32_t* out[4] = { a, b, c, d };
     for (int k = 0; k < 4; ++k)
         if (out[k])
@@ -146,7 +146,7 @@ void __fastcall Group_SetAngles(uint8_t* g, int, uint32_t a, uint32_t b) {
 RT3_REPLACE(0x539530, Group_SetAngles);
 
 // 0x539f90. Linear blend (1 - t) * +0x1f1 + t * +0x1ed (unrounded).
-double __fastcall Effect_Blend(uint8_t* e, int, float t) {
+RT3_NOINLINE double __fastcall Effect_Blend(uint8_t* e, int, float t) {
     return ((double)*(const float*)0x5c85b4 - t) * F<float>(e, 0x1f1) + (double)t * F<float>(e, 0x1ed);
 }
 RT3_REPLACE(0x539f90, Effect_Blend);
@@ -159,7 +159,7 @@ void __fastcall Obj_SetArgb(uint8_t* o, int, uint8_t a, uint8_t r, uint8_t g, ui
     F<uint32_t>(o, 0x5f) = ((uint32_t)a << 24) | ((uint32_t)r << 16) | ((uint32_t)g << 8) | b;
 }
 RT3_REPLACE(0x53a350, Obj_SetArgb);
-void __fastcall Obj_SetRgb(uint8_t* o, int, uint8_t r, uint8_t g, uint8_t b) {
+RT3_NOINLINE void __fastcall Obj_SetRgb(uint8_t* o, int, uint8_t r, uint8_t g, uint8_t b) {
     SetTinted(o, r == 0x7f && g == 0x7f && b == 0x7f ? 0 : 1);
     F<uint32_t>(o, 0x5f) = ((uint32_t)r << 16) | ((uint32_t)g << 8) | (F<uint32_t>(o, 0x5f) & 0xff000000) | b;
 }
@@ -174,7 +174,7 @@ RT3_REPLACE(0x53a440, Obj_SetAlpha5b);
 
 uint32_t __fastcall Get_ccba20() { return hook::Global<uint32_t>(0xccba20); }
 RT3_REPLACE(0x53a510, Get_ccba20);
-void __fastcall Nop53a580(void*, int, int32_t) {}
+RT3_NOINLINE void __fastcall Nop53a580(void*, int, int32_t) {}
 RT3_REPLACE(0x53a580, Nop53a580);
 
 } // namespace rt3

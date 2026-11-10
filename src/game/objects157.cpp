@@ -63,7 +63,7 @@ RT3_REPLACE(0x436af0, World_UpdateSpeedScale);
 // five terrain samples around it plus a margin, eased in by +0x34e unless option
 // +0x1146d8; in free mode (+0x60) the ease restarts. Also capped by the view limit
 // (vtable +0xc).
-void __fastcall Camera_ClampToGround(uint8_t* c) {
+RT3_NOINLINE void __fastcall Camera_ClampToGround(uint8_t* c) {
     uint8_t* r = F<uint8_t*>(c, 0x6e);
     float x = F<float>(c, 0x1c), z = F<float>(c, 0x24);
     float h0 = (float)Terrain_HeightAt(r, 0, x, z);

@@ -21,21 +21,21 @@ RT3_NOINLINE int32_t ClockMs() { return (int32_t)(Ticks() - g_clockStart); }
 RT3_REPLACE(0x51d890, ClockMs);
 
 // 0x51db40
-double __stdcall Distance3D(float x1, float y1, float z1, float x2, float y2, float z2) {
+RT3_NOINLINE double __stdcall Distance3D(float x1, float y1, float z1, float x2, float y2, float z2) {
     double dx = (double)x2 - x1, dy = (double)y2 - y1, dz = (double)z2 - z1;
     return sqrt((dz * dz + dy * dy) + dx * dx); // x87 order of the original
 }
 RT3_REPLACE(0x51db40, Distance3D);
 
 // 0x51db80
-double __stdcall Distance2D(float x1, float y1, float x2, float y2) {
+RT3_NOINLINE double __stdcall Distance2D(float x1, float y1, float x2, float y2) {
     double dx = (double)x2 - x1, dy = (double)y2 - y1;
     return sqrt(dx * dx + dy * dy);
 }
 RT3_REPLACE(0x51db80, Distance2D);
 
 // 0x51dbb0
-double __stdcall DistanceSq2D(float x1, float y1, float x2, float y2) {
+RT3_NOINLINE double __stdcall DistanceSq2D(float x1, float y1, float x2, float y2) {
     double dx = (double)x2 - x1, dy = (double)y2 - y1;
     return dx * dx + dy * dy;
 }
@@ -49,7 +49,7 @@ RT3_REPLACE(0x51dbe0, DistanceSqInt);
 
 // 0x51dc00. Integer distance; small offsets come from a precomputed
 // 1048x1048 sqrt table (0x6d9098, u16), larger ones are computed and truncated.
-int32_t __fastcall DistanceInt(int32_t x1, int32_t y1, int32_t x2, int32_t y2) {
+RT3_NOINLINE int32_t __fastcall DistanceInt(int32_t x1, int32_t y1, int32_t x2, int32_t y2) {
     int32_t dx = x1 > x2 ? x1 - x2 : x2 - x1;
     int32_t dy = y1 > y2 ? y1 - y2 : y2 - y1;
     if (dx < 0x418 && dy < 0x418)

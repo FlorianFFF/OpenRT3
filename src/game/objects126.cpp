@@ -39,7 +39,7 @@ static inline float CentreWorld(int32_t n) { return (float)((double)Centre(n) * 
 // 0x40faa0. Net value per unit of production recipe rec (0xbc bytes) at o's city:
 // the output (+0x1c, x +4) at the city's quota minus the inputs (+0x2c items
 // {cargo +0x44, amount +0x48}), divided by the output amount.
-double __fastcall Recipe_NetValue(void* o, int, uint8_t* rec) {
+RT3_NOINLINE double __fastcall Recipe_NetValue(void* o, int, uint8_t* rec) {
     int32_t cellX, cellY;
     __asm {
         mov ecx, o

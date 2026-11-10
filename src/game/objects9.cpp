@@ -26,7 +26,7 @@ double __stdcall Distance2D(float x1, float y1, float x2, float y2);
 
 // 0x436710. Cargo-i bonus: own value (+0x8a) plus the company's (+0x35b), the
 // player's (given, or the company's owner; +0x2ab) and the region type's (+0x3b5).
-int32_t __fastcall Obj_CargoBonus(void* o, int, int32_t i, uint32_t company, uint32_t player, uint32_t region) {
+RT3_NOINLINE int32_t __fastcall Obj_CargoBonus(void* o, int, int32_t i, uint32_t company, uint32_t player, uint32_t region) {
     int32_t v = F<int32_t>(o, 0x8a + i * 4);
     uint32_t p = player;
     if (company && Collection_IsValid(g_companies, 0, company)) {
@@ -73,7 +73,7 @@ RT3_REPLACE(0x417790, RotateNegated);
 
 // 0x4a6f20. Speed factor of a gradient/curve value: positive: (1 + v/(pi/2)*24.5)^2;
 // otherwise 1 + 12v, at least 0.2.
-double __stdcall SpeedFactor(float v) {
+RT3_NOINLINE double __stdcall SpeedFactor(float v) {
     if (v > *(const float*)0x5c8598) {
         float r = (float)((double)v / *(const float*)0x5c8764 * *(const double*)0x5d0050 + *(const double*)0x5c8770);
         r = (float)((double)r * r);
@@ -103,7 +103,7 @@ void __fastcall Obj_UpdatePortFlags(void* o) {
 RT3_REPLACE(0x420410, Obj_UpdatePortFlags);
 
 // 0x422010. +0x23a of the nearest record (with +0x23e == 0) to (x, y) in cells.
-int32_t __fastcall Table_NearestValue23a(Collection* t, int, float x, float y) {
+RT3_NOINLINE int32_t __fastcall Table_NearestValue23a(Collection* t, int, float x, float y) {
     float best = 1.0e8f; // 0x4cbebc20
     int32_t result = 0;
     for (int32_t i = 0; i < Collection_Count(t); ++i) {
@@ -150,7 +150,7 @@ RT3_REPLACE(0x426aa0, Company_InvestInBuilding);
 
 // 0x42a250. Company track length: its nodes (u16 +0x22e) of kind 2 (+0x216),
 // double-track (+0x218 == 4) counting twice, times 0.5.
-double __fastcall Company_TrackLength(void* c) {
+RT3_NOINLINE double __fastcall Company_TrackLength(void* c) {
     int32_t total = Collection_Count(g_trackNodes), n = 0;
     for (int32_t i = 0; i < total; ++i) {
         uint8_t* nd = (uint8_t*)Collection_Get(g_trackNodes, 0, Collection_IdAt(g_trackNodes, 0, i, 0));

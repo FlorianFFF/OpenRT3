@@ -38,7 +38,7 @@ void __fastcall Track_SetKind(uint8_t* o, int, uint8_t kind) {
 RT3_REPLACE(0x48b830, Track_SetKind);
 
 // 0x48e310. Sets the track piece's blocked flag (+0x201 bit 6), recolouring on change.
-void __fastcall Track_SetBlocked(uint8_t* o, int, uint8_t v) {
+RT3_NOINLINE void __fastcall Track_SetBlocked(uint8_t* o, int, uint8_t v) {
     uint8_t f = o[0x201];
     if (((f >> 6) & 1) == v) return;
     o[0x201] = (uint8_t)((((v << 6) ^ f) & 0x40) ^ f);

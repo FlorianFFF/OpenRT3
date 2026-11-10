@@ -51,7 +51,7 @@ void __fastcall Render_FixTileSeams(uint8_t* r) {
 }
 RT3_REPLACE(0x532860, Render_FixTileSeams);
 
-uint32_t __fastcall Input_Flag800() {
+RT3_NOINLINE uint32_t __fastcall Input_Flag800() {
     uint8_t* in = hook::Global<uint8_t*>(0x6d4018);
     return in ? F<uint32_t>(in, 0xa8c) & 0x800 : 0;
 }

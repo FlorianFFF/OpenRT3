@@ -47,7 +47,7 @@ RT3_REPLACE(0x489e90, Vehicle_PushState);
 
 // 0x48a440. Point at fraction t / 0x5c97e0 between the front and rear axle
 // midpoints (x into *x, z into *z), in tile units.
-void __fastcall Vehicle_PointAlong(uint8_t* o, int, float t, float* x, float* z) {
+RT3_NOINLINE void __fastcall Vehicle_PointAlong(uint8_t* o, int, float t, float* x, float* z) {
     Corners k;
     GetCorners(o, k);
     const float two = *(const float*)0x5c878c;
@@ -142,7 +142,7 @@ float __fastcall Vehicle_Heading(uint8_t* o, int, int32_t forward) {
 RT3_REPLACE(0x48ba40, Vehicle_Heading);
 
 // 0x48bb40. Same, as a screen angle (0x5cfda0 - (atan + 0x5c96f0)).
-float __fastcall Vehicle_ScreenHeading(uint8_t* o, int, int32_t forward) {
+RT3_NOINLINE float __fastcall Vehicle_ScreenHeading(uint8_t* o, int, int32_t forward) {
     Corners k;
     Effect_GetVectors(o, 0, (uint32_t*)k.a, nullptr, nullptr, (uint32_t*)k.d);
     float dx = (float)((double)k.a[0] - k.d[0]);

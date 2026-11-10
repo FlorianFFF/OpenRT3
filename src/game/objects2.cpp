@@ -46,7 +46,7 @@ RT3_NOINLINE void* __fastcall Table_NthField3f(Collection* t, int, int32_t n) {
 RT3_REPLACE(0x429a90, Table_NthField3f);
 
 // 0x4953c0. a - b (as float) wrapped into [-pi, pi]; *wrapped (optional) = 1 if it was.
-double __fastcall AngleDelta(int32_t* wrapped, int, float a, float b) {
+RT3_NOINLINE double __fastcall AngleDelta(int32_t* wrapped, int, float a, float b) {
     const double pi = *(const double*)0x5c96a8, twoPi = *(const double*)0x5c96b8, negPi = *(const double*)0x5cfe30;
     float d = (float)((double)a - b);
     if (wrapped) *wrapped = 0;
@@ -63,7 +63,7 @@ double __fastcall AngleDelta(int32_t* wrapped, int, float a, float b) {
 RT3_REPLACE(0x4953c0, AngleDelta);
 
 // 0x40fa50. Region record (4x4 cells) at this object's position.
-uint8_t* __fastcall Obj_RegionAt(void* o) {
+RT3_NOINLINE uint8_t* __fastcall Obj_RegionAt(void* o) {
     int32_t col = (int32_t)(Obj_CellX(o) / 4.0f);
     int32_t row = (int32_t)(Obj_CellY(o) / 4.0f);
     uint8_t* grid = hook::Global<uint8_t*>(0x62c120);
@@ -83,7 +83,7 @@ RT3_REPLACE(0x4349a0, CountHumanPlayers);
 
 // 0x41e260. Cargo accepts class `id`: own class (+0x3e), 900 = any, 901 = plain
 // freight (none of the passenger/mail/troop flags +0x47..+0x49), 902 = any of them.
-int32_t __fastcall Cargo_MatchesClass(void* c, int, int32_t id) {
+RT3_NOINLINE int32_t __fastcall Cargo_MatchesClass(void* c, int, int32_t id) {
     if (F<int32_t>(c, 0x3e) == id || id == 900) return 1;
     bool special = F<uint8_t>(c, 0x47) || F<uint8_t>(c, 0x48) || F<uint8_t>(c, 0x49);
     if (id == 901) return special ? 0 : 1;
@@ -108,9 +108,9 @@ void __fastcall Store3Globals(int32_t* v) {
 RT3_REPLACE(0x475010, Store3Globals);
 
 // 0x47df30 / 0x47df50. Centre (cells) of the track node at +8.
-float __fastcall Obj_NodeCenterX(void* o) { return Obj_CenterCellX(Collection_Get(g_trackNodes, 0, F<uint32_t>(o, 8))); }
+RT3_NOINLINE float __fastcall Obj_NodeCenterX(void* o) { return Obj_CenterCellX(Collection_Get(g_trackNodes, 0, F<uint32_t>(o, 8))); }
 RT3_REPLACE(0x47df30, Obj_NodeCenterX);
-float __fastcall Obj_NodeCenterY(void* o) { return Obj_CenterCellY(Collection_Get(g_trackNodes, 0, F<uint32_t>(o, 8))); }
+RT3_NOINLINE float __fastcall Obj_NodeCenterY(void* o) { return Obj_CenterCellY(Collection_Get(g_trackNodes, 0, F<uint32_t>(o, 8))); }
 RT3_REPLACE(0x47df50, Obj_NodeCenterY);
 
 // 0x48a5c0. Clears the node's link pairs (+0x21a/+0x238 and +0x21e/+0x23c)
@@ -131,7 +131,7 @@ int32_t __fastcall Pair_Contains(void* p, int, int32_t v) { return (v == F<int32
 RT3_REPLACE(0x494ed0, Pair_Contains);
 
 // 0x4a9020. Field +0x10 of this object's city's 0x6ada84 record (0 if no city).
-int32_t __fastcall Obj_CityRef10(void* o) {
+RT3_NOINLINE int32_t __fastcall Obj_CityRef10(void* o) {
     int32_t id = F<int32_t>(o, 0x41);
     void* city = id != -1 ? Collection_Get(g_cities, 0, id) : nullptr;
     if (!city) return 0;
@@ -146,7 +146,7 @@ RT3_REPLACE(0x40ca80, Obj_Float2e8);
 RT3_NOINLINE double __fastcall Obj_Float310(void* o, int, int32_t i) { return F<float>(o, 0x310 + i * 4); }
 RT3_REPLACE(0x40ca90, Obj_Float310);
 
-void* __fastcall Obj_Train390(void* o) {
+RT3_NOINLINE void* __fastcall Obj_Train390(void* o) {
     int32_t id = F<int32_t>(o, 0x390);
     return id != -1 ? Collection_Get(g_trains, 0, id) : nullptr;
 }
@@ -181,7 +181,7 @@ void __fastcall Obj_Entry37f(void* o, int, int32_t i, char* dst, int32_t* out) {
 RT3_REPLACE(0x41fac0, Obj_Entry37f);
 
 // 0x4264c0. Number of trains owned by this company (train +0x51 == company id *this).
-int32_t __fastcall Company_TrainCount(void* c) {
+RT3_NOINLINE int32_t __fastcall Company_TrainCount(void* c) {
     int32_t total = Collection_Count(g_trains), n = 0;
     for (int32_t i = 0; i < total; ++i)
         if (F<int32_t>(Collection_Get(g_trains, 0, Collection_IdAt(g_trains, 0, i, 0)), 0x51) == F<int32_t>(c, 0)) ++n;

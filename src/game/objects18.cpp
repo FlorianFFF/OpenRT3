@@ -31,7 +31,7 @@ static inline void* Virtual80(void* o) { return ((void*(__thiscall*)(void*))(*(v
 // 0x4206b0. Sets the amount (+0x1e) of the named entry in +0x37f: removes
 // it when amount <= 0, adds a new {name, amount} entry when missing and
 // amount > 0; then refreshes (0x420410).
-uint32_t __fastcall Obj_SetNamedAmount(void* o, int, const char* name, float amount) {
+RT3_NOINLINE uint32_t __fastcall Obj_SetNamedAmount(void* o, int, const char* name, float amount) {
     Collection* c = F<Collection*>(o, 0x37f);
     int32_t i = 0;
     for (; i < Collection_Count(F<Collection*>(o, 0x37f)); ++i) {
@@ -185,7 +185,7 @@ int32_t __fastcall Obj_AnyKind4to7(void* o) {
 }
 RT3_REPLACE(0x42e2b0, Obj_AnyKind4to7);
 
-int32_t __fastcall Company_Sum42e300(void* c) {
+RT3_NOINLINE int32_t __fastcall Company_Sum42e300(void* c) {
     return F<int32_t>(c, 0xd59) - F<int32_t>(c, 0xd5d) + F<int32_t>(c, 0xd55) + F<int32_t>(c, 0xd51);
 }
 RT3_REPLACE(0x42e300, Company_Sum42e300);
@@ -197,7 +197,7 @@ RT3_REPLACE(0x42e320, Company_Sum42e320);
 
 // 0x42e350 / 0x42e370 / 0x42e390. Sums of float pairs in the per-year
 // blocks (stride 0x38d) starting at +0x1da0; returned unrounded (ST0).
-double __fastcall Company_YearPair1da0(uint8_t* c, int, int32_t y) {
+RT3_NOINLINE double __fastcall Company_YearPair1da0(uint8_t* c, int, int32_t y) {
     uint8_t* b = c + y * 0x38d;
     return (double)F<float>(b, 0x1da4) + F<float>(b, 0x1da0);
 }
@@ -207,7 +207,7 @@ double __fastcall Company_YearPair1da8(uint8_t* c, int, int32_t y) {
     return (double)F<float>(b, 0x1dac) + F<float>(b, 0x1da8);
 }
 RT3_REPLACE(0x42e370, Company_YearPair1da8);
-double __fastcall Company_YearStatPair(uint8_t* c, int, int32_t y, int32_t i) {
+RT3_NOINLINE double __fastcall Company_YearStatPair(uint8_t* c, int, int32_t y, int32_t i) {
     uint8_t* b = c + y * 0x38d + i * 4;
     return (double)F<float>(b, 0x1eb0) + F<float>(b, 0x1ddc);
 }

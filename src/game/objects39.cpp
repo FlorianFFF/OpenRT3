@@ -121,7 +121,7 @@ int32_t __fastcall Track_Link2(uint8_t* t, int, int32_t second) { return second 
 RT3_REPLACE(0x48a420, Track_Link2);
 
 // 0x48a590. Wear +0x22a grows by 0x5c8d48 for kind 4, else by 0x5c85b4.
-void __fastcall Track_AddWear(uint8_t* t) {
+RT3_NOINLINE void __fastcall Track_AddWear(uint8_t* t) {
     float inc = t[0x218] == 4 ? *(const float*)0x5c8d48 : *(const float*)0x5c85b4;
     F<float>(t, 0x22a) = (float)((double)F<float>(t, 0x22a) + inc);
 }

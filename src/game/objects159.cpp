@@ -44,7 +44,7 @@ RT3_REPLACE(0x43ce80, Camera_UpdateGround);
 // object, else the screen-centre cell, else the eye itself) with its screen position
 // (+0xfe/+0x102), distance (+0xfa), heading (+0x106, mod 2 pi) and the heading
 // relative to the camera yaw (+0x10a).
-void __fastcall Camera_UpdateFocus(uint8_t* c) {
+RT3_NOINLINE void __fastcall Camera_UpdateFocus(uint8_t* c) {
     F<int32_t>(c, 0xea) = 0;
     F<uint32_t>(c, 0xfe) = F<uint32_t>(hook::Global<uint8_t*>(0x6d4018), 0xa94);
     F<uint32_t>(c, 0x102) = F<uint32_t>(hook::Global<uint8_t*>(0x6d4018), 0xa98);
@@ -98,7 +98,7 @@ RT3_REPLACE(0x43d480, Camera_UpdateFocus);
 // decides which axes follow (+0x33e horizontal, +0x342 vertical) from the dominant
 // direction; an axis left out joins once its accumulated motion dominates enough.
 // Horizontal turns the yaw (+0x8a), vertical the pitch (+0x92) by the speed option.
-void __fastcall Camera_Drag(uint8_t* c, int, float dx, float dy, int32_t) {
+RT3_NOINLINE void __fastcall Camera_Drag(uint8_t* c, int, float dx, float dy, int32_t) {
     const double k = D(0x5c85c8);
     if (!F<int32_t>(c, 0x306)) {
         F<int32_t>(c, 0x30a) = 0;

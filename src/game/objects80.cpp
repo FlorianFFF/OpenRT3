@@ -181,7 +181,7 @@ RT3_NOINLINE void __fastcall Render_AllocGrid(uint8_t* r, int, int32_t rows, int
 }
 RT3_REPLACE(0x532c80, Render_AllocGrid);
 
-void __fastcall Render_SetLayerValue(uint8_t* r, int, int32_t i, float v) { F<float>(r, 0x14e4 + i * 4) = v; }
+RT3_NOINLINE void __fastcall Render_SetLayerValue(uint8_t* r, int, int32_t i, float v) { F<float>(r, 0x14e4 + i * 4) = v; }
 RT3_REPLACE(0x533100, Render_SetLayerValue);
 
 void __fastcall NamedObj_Destructor(uint8_t* o);

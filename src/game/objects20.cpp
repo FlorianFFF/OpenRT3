@@ -70,7 +70,7 @@ static void FreeCompanySlots(uint8_t freeSlot[0x88]) {
 }
 
 // 0x4242a0 / 0x424430. Number of free company slots / index of the n-th (0 if none).
-int32_t CountFreeCompanySlots() {
+RT3_NOINLINE int32_t CountFreeCompanySlots() {
     uint8_t freeSlot[0x88];
     FreeCompanySlots(freeSlot);
     int32_t n = 0;
@@ -79,7 +79,7 @@ int32_t CountFreeCompanySlots() {
     return n;
 }
 RT3_REPLACE(0x4242a0, CountFreeCompanySlots);
-int32_t __fastcall NthFreeCompanySlot(int32_t n) {
+RT3_NOINLINE int32_t __fastcall NthFreeCompanySlot(int32_t n) {
     uint8_t freeSlot[0x88];
     FreeCompanySlots(freeSlot);
     for (int32_t i = 0; i < 0x88; ++i) {

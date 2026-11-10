@@ -70,7 +70,7 @@ RT3_REPLACE(0x467f50, Lot_Create);
 
 // 0x488110. Number of territory groups (leader +0 / group +0x35) with a station of
 // the company linked to another area.
-int32_t __fastcall Territories_CountLinked(Collection* c, int, int32_t company) {
+RT3_NOINLINE int32_t __fastcall Territories_CountLinked(Collection* c, int, int32_t company) {
     uint8_t seen[0x19];
     memset(seen, 0, sizeof seen);
     int32_t n = 0;

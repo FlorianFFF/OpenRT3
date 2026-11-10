@@ -42,7 +42,7 @@ static inline int32_t Ftol(double v) {
 // index, the best of the random-weighted wants (scaled by k when it has
 // stations) wins; a strong want or scanning past a tenth of the buildings ends the
 // search. No lot if the two share a region key.
-void __fastcall Building_SpawnLot(uint8_t* b, int, int32_t kind, float factor) {
+RT3_NOINLINE void __fastcall Building_SpawnLot(uint8_t* b, int, int32_t kind, float factor) {
     Collection* blds = hook::Global<Collection*>(0x62b26c);
     int32_t n = Collection_Count(blds);
     int32_t start = SimRand(0, n - 1);
@@ -117,7 +117,7 @@ static inline double Ramp(double v) {
 
 // 0x51dfc0. Colour for t in 0..1 (cold to hot) in the renderer's pixel format
 // (+0x11474e: 0 = RGB, 4, 3, 2 variants, else grey), alpha 0xcf.
-uint32_t __stdcall HeatColor(float t) {
+RT3_NOINLINE uint32_t __stdcall HeatColor(float t) {
     float v = t;
     if (v < Fl(0x5c8598)) v = Fl(0x5c8598);
     else if (v > Fl(0x5c85b4)) v = Fl(0x5c85b4);

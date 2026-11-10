@@ -50,34 +50,58 @@ def implied_purge(conv, params):
     return 0  # __cdecl / default
 
 
+KEEP = re.compile(r"RT3_KEEP_ECX_EDX\(\s*\w+\s*,\s*(\d+)\s*\)")
+
+
+def find_def(name, text, texts):
+    pat = re.compile(r"(__declspec\(naked\)[^\n(]*?)?(__fastcall|__stdcall|__cdecl)?\s*\**\s*\b" + name + r"\s*\(([^)]*)\)\s*\{")
+    for t in [text] + list(texts.values()):
+        m = pat.search(t)
+        if m:
+            return m, t
+    return None, None
+
+
 def main():
     purge = {}
     for line in (ROOT / "decomp" / "conv.tsv").read_text().splitlines():
         a, _, p, *_ = line.split("\t")
         purge[int(a, 16)] = int(p)
+    texts = {path: path.read_text(encoding="utf-8") for path in sorted((ROOT / "src").rglob("*.cpp"))}
     bad = 0
     seen = {}
-    for path in sorted((ROOT / "src").rglob("*.cpp")):
-        for m in re.finditer(r"RT3_REPLACE\(\s*0x([0-9a-fA-F]+)", path.read_text(encoding="utf-8")):
+    for path, text in texts.items():
+        for m in re.finditer(r"RT3_REPLACE\(\s*0x([0-9a-fA-F]+)", text):
             a = int(m.group(1), 16)
             if a in seen:
                 print(f"DUP {a:08x}: replaced in {seen[a]} and {path.name}")
                 bad += 1
             seen[a] = path.name
-    for path in sorted((ROOT / "src").rglob("*.cpp")):
-        text = path.read_text(encoding="utf-8")
+    for path, text in texts.items():
         for m in re.finditer(r"RT3_REPLACE\(\s*0x([0-9a-fA-F]+)\s*,\s*(\w+)\s*\)", text):
             addr, name = int(m.group(1), 16), m.group(2)
-            d = re.search(r"(__fastcall|__stdcall|__cdecl)?\s*\**\s*\b" + name + r"\s*\(([^)]*)\)\s*\{", text)
+            want = purge.get(addr)
+            d, t = find_def(name, text, texts)
             if not d:
                 print(f"?? {addr:08x} {name}: definition not found")
                 continue
-            conv = d.group(1) or "__cdecl"
-            params = [p for p in d.group(2).split(",")] if d.group(2).strip() else []
-            want = purge.get(addr)
-            got = implied_purge(conv, params)
             if want is None or want == 2147483647:
                 continue  # unknown (tail-calling thunks)
+            if d.group(1):  # naked entry: its own RET (or the keep-registers macro) decides the purge
+                body = t[d.end():]
+                body = body[:body.find("\n}")]
+                k = KEEP.search(body)
+                if k:
+                    rets = {int(k.group(1)) * 4}
+                else:
+                    rets = {int(r, 0) if r else 0 for r in re.findall(r"\bret\b\s*(0x[0-9a-fA-F]+|\d+)?", body)}
+                if rets and rets != {want}:
+                    bad += 1
+                    print(f"MISMATCH {addr:08x} {name}: original pops {want}, naked rewrite returns with {sorted(rets)}  [{path.relative_to(ROOT)}]")
+                continue
+            conv = d.group(2) or "__cdecl"
+            params = [p for p in d.group(3).split(",")] if d.group(3).strip() else []
+            got = implied_purge(conv, params)
             if want != got:
                 bad += 1
                 print(f"MISMATCH {addr:08x} {name}: original pops {want}, rewrite ({conv}, {len(params)} params) pops {got}"

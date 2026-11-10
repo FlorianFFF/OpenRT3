@@ -26,7 +26,7 @@ void __fastcall Table_RefreshAll(Collection* t) {
 RT3_REPLACE(0x413620, Table_RefreshAll);
 
 // 0x456780. Normalises a float vec3 in place (if its length is > 0); returns it.
-float* __fastcall Vec3_Normalize(float* v) {
+RT3_NOINLINE float* __fastcall Vec3_Normalize(float* v) {
     float sq = (float)(((double)v[0] * v[0] + (double)v[1] * v[1]) + (double)v[2] * v[2]);
     float len = (float)ExeSqrt(sq);
     if (*(const float*)0x5c8598 < len) {
@@ -109,7 +109,7 @@ RT3_REPLACE(0x421490, Bracket5);
 
 // 0x4125f0. Vehicle entries (0xbc bytes, +0x37, count +0x33) that are unused
 // (+0 == 0), defined (+0x2c) and available.
-int32_t __fastcall Obj_CountAvailableVehicles(void* o, int, int32_t flag) {
+RT3_NOINLINE int32_t __fastcall Obj_CountAvailableVehicles(void* o, int, int32_t flag) {
     int32_t n = 0;
     uint8_t* e = F<uint8_t*>(o, 0x37);
     for (int32_t i = 0; i < F<int32_t>(o, 0x33); ++i, e += 0xbc)

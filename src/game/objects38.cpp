@@ -99,9 +99,9 @@ void __fastcall Obj_FreeList244(uint8_t* o) {
 RT3_REPLACE(0x489f40, Obj_FreeList244);
 
 // 0x48a070 / 0x48a130. Track piece end links (+0x206, +0x20a).
-int32_t __fastcall Track_Link(uint8_t* t, int, int32_t second) { return second ? F<int32_t>(t, 0x20a) : F<int32_t>(t, 0x206); }
+RT3_NOINLINE int32_t __fastcall Track_Link(uint8_t* t, int, int32_t second) { return second ? F<int32_t>(t, 0x20a) : F<int32_t>(t, 0x206); }
 RT3_REPLACE(0x48a070, Track_Link);
-int32_t __fastcall Track_HasLink(uint8_t* t, int, uint8_t end) {
+RT3_NOINLINE int32_t __fastcall Track_HasLink(uint8_t* t, int, uint8_t end) {
     if (end == 1) return F<int32_t>(t, 0x206) != -1 ? 1 : 0;
     if (end == 2) return F<int32_t>(t, 0x20a) != -1 ? 1 : 0;
     return 0;

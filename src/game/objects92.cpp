@@ -2,6 +2,8 @@
 #include "hook/hook.h"
 #include "core/crt.h"
 #include <stdint.h>
+#include <stdio.h>
+#include <string.h>
 
 namespace rt3 {
 
@@ -27,7 +29,7 @@ void __fastcall NameDialog_SetNameIfOpen(const char* name) {
 RT3_REPLACE(0x4edce0, NameDialog_SetNameIfOpen);
 
 // 0x53c900. Rescans the resource directories and forgets the open files (+0x4290c).
-void __fastcall NameTable_Rescan(uint8_t* t) {
+RT3_NOINLINE void __fastcall NameTable_Rescan(uint8_t* t) {
     NameTable_Clear(t);
     NameTable_ScanDirs(t);
     for (int k = 0; k < 10; ++k) F<int32_t>(t, 0x4290c + k * 4) = -1;
@@ -158,7 +160,7 @@ RT3_REPLACE(0x541930, Texture_ImageSize);
 
 // 0x541970. 32-bit pixels of image i, expanded from ARGB4444 on first use;
 // 0 for format-2 images.
-uint32_t* __fastcall Texture_Pixels32(uint8_t* t, int, int32_t* w, int32_t* h, int32_t i) {
+RT3_NOINLINE uint32_t* __fastcall Texture_Pixels32(uint8_t* t, int, int32_t* w, int32_t* h, int32_t i) {
     uint8_t* img = F<uint8_t*>(t, 0xa0 + i * 4);
     if (F<int32_t>(img, 0x14) == 2) return nullptr;
     if (w) *w = F<int32_t>(img, 8);
@@ -180,6 +182,193 @@ uint32_t* __fastcall Texture_Pixels32(uint8_t* t, int, int32_t* w, int32_t* h, i
 }
 RT3_REPLACE(0x541970, Texture_Pixels32);
 
+int32_t __fastcall Pack_Compress(int32_t* p, int, const void* src, int32_t n, uint8_t** out, int32_t* outSize);
+void __fastcall Nop552ff0();
+
+// 0x5428c0. Writes the texture's first image to file f as a baseline RGB JPEG at
+// quality (bundled libjpeg; ARGB4444 images are expanded first when 0x6d4024
+// +0x11424f is set), then with withAlpha its alpha plane: packed + its size +
+// 0xbaba, or raw + its size + 0xbabb when packing fails, and the end mark 0xbabe.
+// QUIRK: the raw plane is written from the end of the alpha buffer (the pointer
+// the pixel loop advanced), so it holds the n bytes of heap that follow it.
+RT3_NOINLINE void __fastcall Texture_SaveJpeg(uint8_t* t, int, void* f, uint32_t withAlpha, int32_t quality) {
+    typedef size_t(__cdecl * FwriteFn)(const void*, size_t, size_t, void*);
+    FwriteFn fwrite_ = (FwriteFn)0x5a276f;
+    uint8_t* img = F<uint8_t*>(t, 0xa0);
+    int32_t w = F<int32_t>(img, 8), h = F<int32_t>(img, 0xc);
+    int32_t n = h * w;
+    uint8_t* alpha = (uint8_t*)Malloc((size_t)n);
+    uint8_t* rgb = (uint8_t*)Malloc((size_t)(n * 3));
+    if (F<uint8_t>(hook::Global<uint8_t*>(0x6d4024), 0x11424f)) Texture_Pixels32(t, 0, nullptr, nullptr, 0);
+    const uint32_t* px = F<uint32_t*>(F<uint8_t*>(t, 0xa0), 0x26);
+    uint8_t* a = alpha;
+    uint8_t* c = rgb;
+    for (int32_t k = n; k != 0; --k) {
+        uint32_t v = *px++;
+        *a++ = (uint8_t)(v >> 24);
+        *c++ = (uint8_t)(v >> 16);
+        *c++ = (uint8_t)(v >> 8);
+        *c++ = (uint8_t)v;
+    }
+    struct {
+        uint8_t* row;
+        uint8_t cinfo[0x15c];
+        uint8_t err[0x84];
+    } l;
+    F<void*>(l.cinfo, 0) = ((void*(__fastcall*)(void*))0x5b3b30)(l.err);
+    ((void(__fastcall*)(void*, int32_t, int32_t))0x5b3b80)(l.cinfo, 0x3e, 0x15b);
+    ((void(__fastcall*)(void*, void*))0x5b48f0)(l.cinfo, f);
+    F<int32_t>(l.cinfo, 0x19) = w;
+    F<int32_t>(l.cinfo, 0x1d) = h;
+    F<int32_t>(l.cinfo, 0x21) = 3;
+    F<int32_t>(l.cinfo, 0x25) = 2;
+    ((void(__fastcall*)(void*))0x5b4710)(l.cinfo);
+    ((void(__fastcall*)(void*, int32_t, int32_t))0x5b4290)(l.cinfo, quality, 1);
+    ((void(__fastcall*)(void*, uint8_t))0x5b3db0)(l.cinfo, 1);
+    while (F<uint32_t>(l.cinfo, 0xc6) < F<uint32_t>(l.cinfo, 0x1d)) {
+        l.row = rgb + F<uint32_t>(l.cinfo, 0xc6) * (uint32_t)w * 3;
+        ((uint32_t(__fastcall*)(void*, uint8_t**, uint32_t))0x5b3e20)(l.cinfo, &l.row, 1);
+    }
+    ((void(__fastcall*)(void*))0x5b3cc0)(l.cinfo);
+    ((void(__fastcall*)(void*))0x5b3c40)(l.cinfo);
+    if ((uint8_t)withAlpha) {
+        uint8_t* out;
+        int32_t outSize;
+        int32_t packer[3] = { 0x91, 0, 0 };
+        uint32_t mark;
+        if (Pack_Compress(packer, 0, alpha, n, &out, &outSize) == 1) {
+            fwrite_(out, 1, (size_t)outSize, f);
+            fwrite_(&outSize, 1, 4, f);
+            mark = 0xbaba;
+            fwrite_(&mark, 1, 2, f);
+            Free(out);
+        } else {
+            fwrite_(a, 1, (size_t)n, f);
+            int32_t size = n;
+            fwrite_(&size, 1, 4, f);
+            mark = 0xbabb;
+            fwrite_(&mark, 1, 2, f);
+        }
+        mark = 0xbabe;
+        fwrite_(&mark, 1, 2, f);
+        ((void(__fastcall*)(int32_t*))&Nop552ff0)(packer);
+    }
+    Free(alpha);
+    Free(rgb);
+}
+RT3_REPLACE(0x5428c0, Texture_SaveJpeg);
+
+FILE* __fastcall NameTable_OpenFile(uint8_t* t, int, int32_t id, uint8_t text);
+void __fastcall Image_To4444(uint8_t* tex, int, uint8_t* img);
+int32_t __fastcall Pack_Decompress(int32_t* p, int, const int32_t* src, int32_t n, uint8_t** out, int32_t* outSize);
+
+// 0x541c30. Loads image id (pack 0x6d4020) into img as a JPEG with the alpha
+// plane Texture_SaveJpeg appends (end mark 0xbabe, then 0xbaba packed / 0xbabb raw
+// with its size; none: opaque) and converts it for texture t (Image_To4444).
+// An image already loaded (+0x26, or +0x2a without full colour 0x6d4024
+// +0x11422f) is only converted. 1 when it is larger than the device allows
+// (0x11423b / 0x11423f, or 256 for small textures, t+5), else 0.
+// QUIRK: an unknown alpha mark leaves the alpha pointers unset in the original
+// (stack garbage); here they are null.
+RT3_NOINLINE int32_t __fastcall Texture_LoadJpeg(uint8_t* t, int, int32_t id, uint8_t* img) {
+    typedef size_t(__cdecl * FioFn)(void*, size_t, size_t, void*);
+    typedef int(__cdecl * FseekFn)(void*, long, int);
+    FioFn fread_ = (FioFn)0x5a1b05;
+    FseekFn fseek_ = (FseekFn)0x5a261f;
+    uint8_t* dev = hook::Global<uint8_t*>(0x6d4024);
+    if (!F<uint8_t>(dev, 0x11422f)) {
+        if (F<void*>(img, 0x2a)) return 0;
+        if (F<void*>(img, 0x26)) {
+            Image_To4444(t, 0, img);
+            return 0;
+        }
+    } else if (F<void*>(img, 0x26)) {
+        return 0;
+    }
+    FILE* f = NameTable_OpenFile(hook::Global<uint8_t*>(0x6d4020), 0, id, 0);
+    struct {
+        uint8_t* row;
+        uint8_t cinfo[0x1a0];
+        uint8_t err[0x84];
+    } l;
+    F<void*>(l.cinfo, 0) = ((void*(__fastcall*)(void*))0x5b3b30)(l.err);
+    ((void(__fastcall*)(void*, int32_t, int32_t))0x5b3230)(l.cinfo, 0x3e, 0x19f);
+    ((void(__fastcall*)(void*, void*))0x5b3980)(l.cinfo, f);
+    ((int(__fastcall*)(void*, uint8_t))0x5b3610)(l.cinfo, 1);
+    ((int(__fastcall*)(void*))0x5b37e0)(l.cinfo);
+    int32_t w = F<int32_t>(l.cinfo, 0x52), h = F<int32_t>(l.cinfo, 0x56);
+    int32_t n = h * w;
+    dev = hook::Global<uint8_t*>(0x6d4024);
+    if (w > F<int32_t>(dev, 0x11423b) || h > F<int32_t>(dev, 0x11423f)) return 1;
+    if (!F<uint8_t>(dev, 0x11422f) && t[5] && (w > 0x100 || h > 0x100)) return 1;
+    uint8_t* rgb = (uint8_t*)Malloc((size_t)(n * 3));
+    while (F<uint32_t>(l.cinfo, 0x6e) < F<uint32_t>(l.cinfo, 0x56)) {
+        l.row = rgb + F<uint32_t>(l.cinfo, 0x6e) * F<uint32_t>(l.cinfo, 0x52) * 3;
+        ((uint32_t(__fastcall*)(void*, uint8_t**, uint32_t))0x5b3740)(l.cinfo, &l.row, 1);
+    }
+    ((int(__fastcall*)(void*))0x5b3550)(l.cinfo);
+    ((void(__fastcall*)(void*))0x5b3300)(l.cinfo);
+    fseek_(f, 0, 2);
+    long size = ((long(__cdecl*)(void*))0x5a254f)(f);
+    fseek_(f, size - 2, 0);
+    uint32_t mark = 0;
+    fread_(&mark, 1, 2, f);
+    uint8_t* alpha = nullptr;
+    uint8_t* alphaFree = nullptr;
+    if ((uint16_t)mark != 0xbabe) {
+        alpha = (uint8_t*)Malloc((size_t)(F<int32_t>(l.cinfo, 0x56) * F<int32_t>(l.cinfo, 0x52)));
+        memset(alpha, 0xff, (size_t)(h * w));
+        alphaFree = alpha;
+    } else {
+        fseek_(f, size - 4, 0);
+        fread_(&mark, 1, 2, f);
+        int32_t stored;
+        fseek_(f, size - 8, 0);
+        fread_(&stored, 1, 4, f);
+        int32_t packer[3] = { 0x91, 0, 0 };
+        fseek_(f, size - stored - 8, 0);
+        if ((uint16_t)mark == 0xbaba) {
+            uint8_t* buf = (uint8_t*)Malloc((size_t)stored);
+            fread_(buf, 1, (size_t)stored, f);
+            int32_t outSize;
+            Pack_Decompress(packer, 0, (const int32_t*)buf, stored, &alpha, &outSize);
+            Free(buf);
+            alphaFree = alpha;
+        } else if ((uint16_t)mark == 0xbabb) {
+            alpha = (uint8_t*)Malloc((size_t)(F<int32_t>(l.cinfo, 0x56) * F<int32_t>(l.cinfo, 0x52)));
+            fread_(alpha, 1, (size_t)stored, f);
+            alphaFree = alpha;
+        }
+        ((void(__fastcall*)(int32_t*))&Nop552ff0)(packer);
+    }
+    uint32_t bytes = (uint32_t)(h * w) << 2;
+    uint32_t* pix = (uint32_t*)Malloc(bytes);
+    const uint8_t* a = alpha;
+    const uint8_t* c = rgb;
+    uint32_t* p = pix;
+    for (int32_t k = n; k != 0; --k) {
+        *p++ = (uint32_t)*a++ << 24 | (uint32_t)c[0] << 16 | (uint32_t)c[1] << 8 | c[2];
+        c += 3;
+    }
+    Free(alphaFree);
+    Free(rgb);
+    F<int32_t>(img, 8) = w;
+    F<int32_t>(img, 0xc) = h;
+    F<int32_t>(img, 0x10) = 0x20;
+    F<uint8_t>(img, 0x21) = 0;
+    F<int32_t>(img, 0x14) = 3;
+    F<int32_t>(img, 0x18) = 4;
+    F<int32_t>(img, 0x1c) = 0x15;
+    F<int32_t>(img, 0) = id;
+    F<uint32_t*>(img, 0x26) = pix;
+    F<uint32_t>(img, 4) = bytes;
+    F<uint32_t*>(img, 0x22) = pix;
+    F<uint8_t>(img, 0x20) = (h < 0x40 && w < 0x40) ? 0 : 1;
+    Image_To4444(t, 0, img);
+    return 0;
+}
+RT3_REPLACE(0x541c30, Texture_LoadJpeg);
+
 int32_t __fastcall Texture_Width(uint8_t* t) {
     if (t[4] && t[0x98] && F<uint8_t*>(t, 0xa0)) return F<int32_t>(F<uint8_t*>(t, 0xa0), 8);
     return 1;
@@ -198,7 +387,7 @@ uint8_t* __fastcall Texture_ConstructDefault(uint8_t* t) {
 RT3_REPLACE(0x541b00, Texture_ConstructDefault);
 
 // 0x541b10. Adds an empty w x h image of `format` in the first free slot; -1 when full.
-int32_t __fastcall Texture_AddImage(uint8_t* t, int, int32_t w, int32_t h, int32_t format) {
+RT3_NOINLINE int32_t __fastcall Texture_AddImage(uint8_t* t, int, int32_t w, int32_t h, int32_t format) {
     int32_t i = 0;
     while (F<void*>(t, 0xa0 + i * 4)) {
         if (++i >= 8) return -1;
@@ -215,5 +404,56 @@ int32_t __fastcall Texture_AddImage(uint8_t* t, int, int32_t w, int32_t h, int32
     return i;
 }
 RT3_REPLACE(0x541b10, Texture_AddImage);
+
+int32_t __fastcall Texture_LoadDds(uint8_t* o, int, int32_t id, uint8_t* img);
+int32_t __fastcall Texture_LoadTga(uint8_t* tex, int, int32_t id, uint8_t* img);
+void __fastcall Texture_RemoveImage(uint8_t* t, int, int32_t i);
+void __fastcall Texture_CountMemory(uint8_t* t);
+
+// 0x542f50. Appends texture t's first image as a JPEG (Texture_SaveJpeg) to file
+// path; returns where it starts, 0 when the file can't be opened.
+int32_t __fastcall Texture_AppendJpeg(uint8_t* t, int, const char* path, uint32_t withAlpha, int32_t quality) {
+    void* f = ((void*(__cdecl*)(const char*, const char*))0x5a1887)(path, (const char*)0x5dd8f4);
+    if (!f) return 0;
+    ((int(__cdecl*)(void*, long, int))0x5a261f)(f, 0, 2);
+    int32_t pos = ((long(__cdecl*)(void*))0x5a254f)(f);
+    Texture_SaveJpeg(t, 0, f, withAlpha, quality);
+    ((int(__cdecl*)(void*))0x5a1740)(f);
+    return pos;
+}
+RT3_REPLACE(0x542f50, Texture_AppendJpeg);
+
+// 0x542fb0. Loads image id into img by its file kind (+0x18): 2 DDS, 3 TGA,
+// 4 JPEG; 2 for anything else.
+int32_t __fastcall Texture_LoadImage(uint8_t* t, int, int32_t id, uint8_t* img) {
+    switch (F<int32_t>(img, 0x18)) {
+    case 2: return Texture_LoadDds(t, 0, id, img);
+    case 3: return Texture_LoadTga(t, 0, id, img);
+    case 4: return Texture_LoadJpeg(t, 0, id, img);
+    }
+    return 2;
+}
+RT3_REPLACE(0x542fb0, Texture_LoadImage);
+
+// 0x542ff0. Adds an image of format to texture t (+7 cleared) and loads id into
+// it by its kind (as Texture_LoadImage); the image is removed again when that
+// returns 1 or 2. Recounts the texture memory; 0 when no image could be added.
+int32_t __fastcall Texture_AddAndLoad(uint8_t* t, int, int32_t id, int32_t format) {
+    F<uint32_t>(t, 7) = 0;
+    int32_t i = Texture_AddImage(t, 0, 0, 0, format);
+    if (i == -1) return 0;
+    uint8_t* img = F<uint8_t*>(t, 0xa0 + i * 4);
+    int32_t r;
+    switch (F<int32_t>(img, 0x18)) {
+    case 2: r = Texture_LoadDds(t, 0, id, img); break;
+    case 3: r = Texture_LoadTga(t, 0, id, img); break;
+    case 4: r = Texture_LoadJpeg(t, 0, id, img); break;
+    default: r = 2; break;
+    }
+    if (r == 1 || r == 2) Texture_RemoveImage(t, 0, i);
+    Texture_CountMemory(t);
+    return r;
+}
+RT3_REPLACE(0x542ff0, Texture_AddAndLoad);
 
 } // namespace rt3

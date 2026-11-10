@@ -86,7 +86,7 @@ RT3_REPLACE(0x52d5a0, Camera_Init);
 
 // 0x52d640. Keeps the target above the ground limit (vtbl +0xc): pulls the
 // distance in by the shortfall / sin(pitch) (pitch sine at least 0.01).
-void __fastcall Camera_KeepAboveGround(uint8_t* c) {
+RT3_NOINLINE void __fastcall Camera_KeepAboveGround(uint8_t* c) {
     Camera_UpdateTarget(c);
     auto limit = (int32_t(__thiscall*)(void*))(*(void***)c)[0xc / 4];
     if (!((double)limit(c) <= F<float>(c, 0x20))) return;

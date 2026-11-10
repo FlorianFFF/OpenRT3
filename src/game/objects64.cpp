@@ -15,7 +15,7 @@ static inline char* ExeStrncpy(char* d, const char* s, size_t n) { return ((char
 
 // 0x51e740. Writes the separator line to the debug log once per session
 // (default file rt3_debug.txt in .\data\log\).
-void DebugLog_WriteHeader() {
+RT3_NOINLINE void DebugLog_WriteHeader() {
     if (!hook::Global<int32_t>(0x6d3ca0) || hook::Global<int32_t>(0x6d3d10)) return;
     char line[0x14];
     for (int k = 0; k < 0x14; ++k) line[k] = ((const char*)0x5dce90)[k];

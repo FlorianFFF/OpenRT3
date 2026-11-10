@@ -129,17 +129,17 @@ RT3_REPLACE(0x534c50, Render_GetSize4);
 static inline uint8_t* Rec(uint8_t* r, int32_t x, int32_t y) {
     return F<uint8_t*>(r, 0x165d) + (F<int32_t>(r, 0x15dd) * y + x) * 3;
 }
-int32_t __fastcall Terrain_KindIs1Or3to5(uint8_t* r, int, int32_t x, int32_t y) {
+RT3_NOINLINE int32_t __fastcall Terrain_KindIs1Or3to5(uint8_t* r, int, int32_t x, int32_t y) {
     int32_t k = Rec(r, x, y)[0] & 7;
     return k == 1 || (k > 2 && k <= 5) ? 1 : 0;
 }
 RT3_REPLACE(0x534e10, Terrain_KindIs1Or3to5);
-int32_t __fastcall Terrain_KindIs1Or4(uint8_t* r, int, int32_t x, int32_t y) {
+RT3_NOINLINE int32_t __fastcall Terrain_KindIs1Or4(uint8_t* r, int, int32_t x, int32_t y) {
     uint8_t k = Rec(r, x, y)[0] & 7;
     return k == 1 || k == 4 ? 1 : 0;
 }
 RT3_REPLACE(0x534e50, Terrain_KindIs1Or4);
-uint32_t __fastcall Terrain_RecBit9(uint8_t* r, int, int32_t x, int32_t y) {
+RT3_NOINLINE uint32_t __fastcall Terrain_RecBit9(uint8_t* r, int, int32_t x, int32_t y) {
     return (*(const uint16_t*)Rec(r, x, y) >> 9) & 1;
 }
 RT3_REPLACE(0x534e90, Terrain_RecBit9);
@@ -302,7 +302,7 @@ void __fastcall Engine_Set1C(void* e, int, void* v);
 
 // 0x537e30. Terrain renderer destructor: destroys it and unhooks it from the
 // engine (+0x1c) when it is the current one.
-void __fastcall Terrain_Destructor(uint8_t* r) {
+RT3_NOINLINE void __fastcall Terrain_Destructor(uint8_t* r) {
     F<uint32_t>(r, 0) = 0x5dd25c;
     Terrain_Destroy(r);
     if (Engine_Get1C(hook::Global<uint8_t*>(0x6d4024)) == r) Engine_Set1C(hook::Global<uint8_t*>(0x6d4024), 0, nullptr);

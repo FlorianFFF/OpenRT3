@@ -48,7 +48,7 @@ RT3_REPLACE(0x41c5f0, Car_ShowCargoModel);
 
 // 0x439be0. Accumulates how far the camera moved since the last snapshot
 // (+0x352..: positions +0x4.. and +0x1c..) into +0x34e, capped at 1.
-void __fastcall View_AccumulateMotion(uint8_t* o) {
+RT3_NOINLINE void __fastcall View_AccumulateMotion(uint8_t* o) {
     double t = ExeFabs((double)F<float>(o, 0x366) - F<float>(o, 0x24));
     t = ExeFabs((double)F<float>(o, 0x35e) - F<float>(o, 0x1c)) + t;
     t = ExeFabs((double)F<float>(o, 0x352) - F<float>(o, 0x4)) + t;

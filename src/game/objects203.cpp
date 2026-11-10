@@ -53,7 +53,7 @@ void __fastcall Renderer_SetTimeOfDay(uint8_t* r, int, int32_t secs, int32_t nig
 // scene's light curve, 0..1) give a haze factor; when it changed by more than 0.01
 // (cached in 0x5ee4d8) the scene's two light pairs and the time-of-day lighting
 // are refreshed.
-void __fastcall Camera_UpdateHaze(uint8_t* cam, int, float h) {
+RT3_NOINLINE void __fastcall Camera_UpdateHaze(uint8_t* cam, int, float h) {
     if (h < Fl(0x5c8598))
         h = (float)((double)F<float>(cam, 0x20) -
                     Terrain_HeightAt(F<uint8_t*>(cam, 0x6e), 0, F<float>(cam, 0x1c), F<float>(cam, 0x24)));
@@ -100,7 +100,7 @@ void __fastcall Obj_Set8(void* o, int, int32_t v);
 // 0x473280. Resets the multiplayer session state (0x6ce808 / 0x6ce290 blocks and
 // flags, seed 7, timeout 0x5f2b4c = 1e6) and registers the game's message handlers
 // on the lobby object (0x6cd8d8): the default 0x46f4a0 and 129 id -> handler pairs.
-void MpSession_Reset() {
+RT3_NOINLINE void MpSession_Reset() {
     memset((void*)0x6ce808, 0, 0x60 * 4);
     hook::Global<int32_t>(0x6ce9a0) = 0;
     hook::Global<uint32_t>(0x5f2b4c) = 0x49741cf0;

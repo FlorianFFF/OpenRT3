@@ -114,7 +114,7 @@ RT3_REPLACE(0x422100, Cities_RandomBoom);
 
 // 0x422850. Number of real cities with an active, ready station track-connected
 // to another city, of the given company.
-int32_t __fastcall Cities_CountConnected(Collection* c, int, int32_t company) {
+RT3_NOINLINE int32_t __fastcall Cities_CountConnected(Collection* c, int, int32_t company) {
     int32_t n = 0;
     for (int32_t i = 0; i < Collection_Count(c); ++i) {
         uint8_t* e = (uint8_t*)Collection_Get(c, 0, Collection_IdAt(c, 0, i, 0));

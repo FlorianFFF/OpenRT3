@@ -62,7 +62,7 @@ uint32_t* __fastcall Obj_GetEntry5f(uint8_t* o, int, uint32_t* out, int32_t i) {
 }
 RT3_REPLACE(0x4c16b0, Obj_GetEntry5f);
 
-int32_t Screen90() { return F<int32_t>(hook::Global<uint8_t*>(0x6d0818), 0x90); }
+RT3_NOINLINE int32_t Screen90() { return F<int32_t>(hook::Global<uint8_t*>(0x6d0818), 0x90); }
 RT3_REPLACE(0x4c16e0, Screen90);
 void SetGlobal6cfeac() { hook::Global<int32_t>(0x6cfeac) = 1; }
 RT3_REPLACE(0x4c8670, SetGlobal6cfeac);
@@ -97,7 +97,7 @@ int32_t __fastcall Ui_HandleModeMsg(void*, int, const int32_t* msg) {
 }
 RT3_REPLACE(0x4cb9f0, Ui_HandleModeMsg);
 
-void __fastcall Nop4cf900(void*) {}
+RT3_NOINLINE void __fastcall Nop4cf900(void*) {}
 RT3_REPLACE(0x4cf900, Nop4cf900);
 
 // 0x4d03d0. Ratio +0x76 / +0x7a, with the divisor floored at 0.001.

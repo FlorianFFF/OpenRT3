@@ -102,4 +102,82 @@ int32_t __stdcall Site_CheckFlatness(int32_t allowSteep, int32_t ignoreFlags) {
 }
 RT3_REPLACE(0x415020, Site_CheckFlatness);
 
+int32_t __fastcall Track_RectIsFree(void* t, int, int32_t x0, int32_t x1, int32_t y0, int32_t y1, int32_t allowSpecial);
+int32_t __stdcall Site_ChooseShape(uint8_t* obj);
+void __fastcall Terrain_SnapshotFlags();
+
+// The placement message 0x62b270 = string id.
+static void Site_SetMessage(int32_t id) {
+    const char* s = GetString(id);
+    char* d = (char*)0x62b270;
+    while ((*d++ = *s++) != 0) {}
+}
+
+// 0x416620 body. Checks that building type can go on the placement rect
+// (0x62b7a8..0x62b7b4, grown by one cell right / down within the map) at a, b
+// (kept in 0x62b30c / 0x62b310): no track around it (0xb9); a type with a shape
+// (+0x123) must find one (0xba, rect then 3 cells out each way, 8 wide); ports
+// (0x62b2fc +0x9c) must not cover occupied cells of grid 0x62b300 (0xbb). Success
+// takes the terrain flag snapshot. An unset rect (x1 = -1000000) always passes.
+static int32_t __cdecl Site_CheckPlacementImpl(uint8_t* type, uint32_t a, uint32_t b) {
+    float x1f = (float)hook::Global<int32_t>(0x62b7ac);
+    hook::Global<uint32_t>(0x62b308) = hook::Global<uint32_t>(0x62b304);
+    hook::Global<uint32_t>(0x62b30c) = a;
+    hook::Global<uint32_t>(0x62b310) = b;
+    if (*(uint32_t*)&x1f == 0xc97423f0) return 1;
+    int32_t& x0 = hook::Global<int32_t>(0x62b7a8);
+    int32_t& x1 = hook::Global<int32_t>(0x62b7ac);
+    int32_t& y0 = hook::Global<int32_t>(0x62b7b0);
+    int32_t& y1 = hook::Global<int32_t>(0x62b7b4);
+    uint8_t* map = hook::Global<uint8_t*>(0x62c120);
+    if (x1 < F<int32_t>(map, 0x2155) - 1) ++x1;
+    if (y1 < F<int32_t>(map, 0x2159) - 1) ++y1;
+    ((int32_t*)0x62b318)[hook::Global<int32_t>(0x62b7a4)] = -1;
+    int32_t special = F<int32_t>(hook::Global<uint8_t*>(0x62bae0), 0x88) <= 0 ? 1 : 0;
+    if (!Track_RectIsFree(hook::Global<void*>(0x6cfca8), 0, x0 - 1, x1 + 1, y0 - 1, y1 + 1, special)) {
+        Site_SetMessage(0xb9);
+        return 0;
+    }
+    if (type[0x123]) {
+        if (Site_ChooseShape(type) == 1) {
+            x0 -= 3;
+            x1 = x0 + 8;
+            y0 -= 3;
+            y1 = y0 + 8;
+            Terrain_SnapshotFlags();
+            return 1;
+        }
+        Site_SetMessage(0xba);
+        return 0;
+    }
+    int32_t ok = 1;
+    if (F<int32_t>(hook::Global<uint8_t*>(0x62b2fc), 0x9c) == 1) {
+        for (int32_t y = y0; y <= y1; ++y) {
+            if (ok != 1) continue;
+            for (int32_t x = x0; x <= x1; ++x) {
+                int32_t* grid = hook::Global<int32_t*>(0x62b300);
+                if (grid && grid[F<int32_t>(map, 0x2155) * y + x]) {
+                    Site_SetMessage(0xbb);
+                    ok = 0;
+                    break;
+                }
+            }
+        }
+    }
+    if (ok == 1) Terrain_SnapshotFlags();
+    return ok;
+}
+// 0x416620. Type in EAX, a and b on the stack.
+__declspec(naked) int32_t Site_CheckPlacement() {
+    __asm {
+        push [esp + 8]
+        push [esp + 8]
+        push eax
+        call Site_CheckPlacementImpl
+        add esp, 12
+        ret 8
+    }
+}
+RT3_REPLACE(0x416620, Site_CheckPlacement);
+
 } // namespace rt3

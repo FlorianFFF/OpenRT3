@@ -12,25 +12,25 @@ char* __stdcall Net_LocalAddress(char* out);
 
 uint8_t __stdcall Net_MsgKind(const uint8_t* msg) { return F<uint8_t*>((void*)msg, 4)[9]; }
 RT3_REPLACE(0x5217a0, Net_MsgKind);
-void __fastcall Nop5217b0(void*) {}
+RT3_NOINLINE void __fastcall Nop5217b0(void*) {}
 RT3_REPLACE(0x5217b0, Nop5217b0);
 
 // 0x5217c0 / 0x5217e0. Lock / unlock the second network list (critical
 // section 0x6d4048, depth 0x6d4060); lock returns the list 0x6d4044.
-int32_t Net_LockList2() {
+RT3_NOINLINE int32_t Net_LockList2() {
     Import<void(__stdcall*)(void*)>(0x5c81fc)((void*)0x6d4048);
     hook::Global<int32_t>(0x6d4060)++;
     return hook::Global<int32_t>(0x6d4044);
 }
 RT3_REPLACE(0x5217c0, Net_LockList2);
-void Net_UnlockList2() {
+RT3_NOINLINE void Net_UnlockList2() {
     hook::Global<int32_t>(0x6d4060)--;
     Import<void(__stdcall*)(void*)>(0x5c81f8)((void*)0x6d4048);
 }
 RT3_REPLACE(0x5217e0, Net_UnlockList2);
 
 // 0x521800. Broadcasts the LAN game announcement "name[;tag];ip;port" to UDP port 1234.
-void __fastcall Net_BroadcastGame(uint8_t* o, int, const char* name) {
+RT3_NOINLINE void __fastcall Net_BroadcastGame(uint8_t* o, int, const char* name) {
     if (hook::Global<int32_t>(0x6d4100) >= 4) return;
     char msg[0x100], ip[0x100];
     auto sprintf = (int(__cdecl*)(char*, const char*, ...))0x5a19c4;
@@ -59,7 +59,7 @@ void __fastcall Net_BroadcastGame(uint8_t* o, int, const char* name) {
 }
 RT3_REPLACE(0x521800, Net_BroadcastGame);
 
-void __stdcall SetGlobal6d4108(int32_t v) { hook::Global<int32_t>(0x6d4108) = v; }
+RT3_NOINLINE void __stdcall SetGlobal6d4108(int32_t v) { hook::Global<int32_t>(0x6d4108) = v; }
 RT3_REPLACE(0x521910, SetGlobal6d4108);
 
 // 0x521990. Text (in 0x6d4120) for the last socket error 0x6d4118.
@@ -80,7 +80,7 @@ const char* Net_SocketErrorText() {
 RT3_REPLACE(0x521990, Net_SocketErrorText);
 
 // 0x521aa0. Copies the session GUID 0x6257e8.
-uint32_t* __stdcall Net_GetGuid(uint32_t* out) {
+RT3_NOINLINE uint32_t* __stdcall Net_GetGuid(uint32_t* out) {
     for (int k = 0; k < 4; ++k) out[k] = ((const uint32_t*)0x6257e8)[k];
     return out;
 }

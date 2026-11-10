@@ -10,9 +10,9 @@ float __fastcall Render_Get14e0(uint8_t* r) { return F<float>(r, 0x14e0); }
 RT3_REPLACE(0x5331c0, Render_Get14e0);
 uint32_t __fastcall Render_Get1548(uint8_t* r) { return F<uint32_t>(r, 0x1548); }
 RT3_REPLACE(0x5331d0, Render_Get1548);
-int32_t __fastcall Terrain_Rows(uint8_t* r) { return F<int32_t>(r, 0x15d9); }
+RT3_NOINLINE int32_t __fastcall Terrain_Rows(uint8_t* r) { return F<int32_t>(r, 0x15d9); }
 RT3_REPLACE(0x533970, Terrain_Rows);
-int32_t __fastcall Terrain_Cols(uint8_t* r) { return F<int32_t>(r, 0x15d5); }
+RT3_NOINLINE int32_t __fastcall Terrain_Cols(uint8_t* r) { return F<int32_t>(r, 0x15d5); }
 RT3_REPLACE(0x533980, Terrain_Cols);
 void __fastcall Terrain_Set15e1(uint8_t* r, int, uint32_t v) { F<uint32_t>(r, 0x15e1) = v; }
 RT3_REPLACE(0x533990, Terrain_Set15e1);
@@ -51,13 +51,13 @@ double __stdcall Plane_HeightAt(float x0, float y0, float z0, float x1, float y1
 }
 RT3_REPLACE(0x533a30, Plane_HeightAt);
 
-uint32_t __fastcall Terrain_Get165d(uint8_t* r) { return F<uint32_t>(r, 0x165d); }
+RT3_NOINLINE uint32_t __fastcall Terrain_Get165d(uint8_t* r) { return F<uint32_t>(r, 0x165d); }
 RT3_REPLACE(0x533ae0, Terrain_Get165d);
 uint32_t __fastcall Terrain_Get1661(uint8_t* r) { return F<uint32_t>(r, 0x1661); }
 RT3_REPLACE(0x533af0, Terrain_Get1661);
 uint32_t __fastcall Terrain_Get1665(uint8_t* r) { return F<uint32_t>(r, 0x1665); }
 RT3_REPLACE(0x533b00, Terrain_Get1665);
-void* __fastcall Terrain_HeightsSlot(uint8_t* r) { return r + 0x1605; }
+RT3_NOINLINE void* __fastcall Terrain_HeightsSlot(uint8_t* r) { return r + 0x1605; }
 RT3_REPLACE(0x533b10, Terrain_HeightsSlot);
 uint32_t __fastcall Terrain_Get15e9(uint8_t* r) { return F<uint32_t>(r, 0x15e9); }
 RT3_REPLACE(0x533b20, Terrain_Get15e9);

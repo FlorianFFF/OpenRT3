@@ -41,7 +41,7 @@ static inline void* BuildingOf4(void* o) {
 }
 
 // 0x47f170. Region index (cell byte >> 3) at the building's cell.
-uint32_t __fastcall Obj_BuildingRegionIndex(void* o) {
+RT3_NOINLINE uint32_t __fastcall Obj_BuildingRegionIndex(void* o) {
     void* b1 = BuildingOf4(o);
     void* b2 = BuildingOf4(o);
     float x = (float)Obj_CellX(b2);
@@ -99,7 +99,7 @@ void __fastcall Table_RemovePairKey(Collection* t, int, int32_t key) {
 RT3_REPLACE(0x4814c0, Table_RemovePairKey);
 
 // 0x4818b0. Active sites (highlighted only, when `highlighted`).
-int32_t __fastcall Table_CountActiveSites(Collection* t, int, int32_t highlighted) {
+RT3_NOINLINE int32_t __fastcall Table_CountActiveSites(Collection* t, int, int32_t highlighted) {
     int32_t n = 0;
     for (int32_t i = 0; i < Collection_Count(t); ++i) {
         uint8_t* r = (uint8_t*)Collection_Get(t, 0, Collection_IdAt(t, 0, i, 0));
