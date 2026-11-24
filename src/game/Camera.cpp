@@ -874,7 +874,7 @@ RT3_NOINLINE void __fastcall World_Startup(uint8_t* w, int, int32_t setup, int32
     Loading_Pump(ed(), 0, 1, 0);
     {
         uint8_t* m = alloc(0x8c);
-        g_6cea4c = m ? Collection5ce418_Construct((Collection*)m) : nullptr;
+        g_news = m ? Collection5ce418_Construct((Collection*)m) : nullptr;
     }
     {
         uint8_t* m = alloc(0x8c);
@@ -1071,12 +1071,12 @@ RT3_NOINLINE int32_t __fastcall World_Frame(uint8_t* w) {
         bool show = true;
         if (F<int32_t>(g_gameWindow, 0x8c) == 0xc && (F<uint32_t>(g_input, 0xa8c) & 0x400))
             show = F<int32_t>(w, 0x4a73) && !F<int32_t>(g_world, 0x4a77);
-        if (show && (!UiBusy() || Table_AnyPending(g_6cea4c))) {
-            if (uint8_t* rec = (uint8_t*)Table_Oldest14(g_6cea4c, 0, 0)) Newspaper_Show(rec);
+        if (show && (!UiBusy() || Table_AnyPending(g_news))) {
+            if (uint8_t* rec = (uint8_t*)Table_Oldest14(g_news, 0, 0)) Newspaper_Show(rec);
         }
     }
     if (!Global6d12bcSet() && !Global6d10a8Set() && !g_6d4000 && F<int32_t>(w, 0x4d) &&
-        (!UiBusy() || Table_AnyPending(g_6cea4c))) {
+        (!UiBusy() || Table_AnyPending(g_news))) {
         F<int32_t>(w, 0x4d) = 0;
         if (!Global6d10a8Set()) {
             if (F<int32_t>(w, 0x19) && !g_session) World_TogglePause(w, 0, 0);
@@ -1577,7 +1577,7 @@ RT3_REPLACE(0x43aef0, Obj_ScaledSpanOffset);
 RT3_NOINLINE int32_t __fastcall Tool_AddModifier(uint8_t* t) {
     if (F<int32_t>(t, 0xa2)) return 1;
     uint32_t shift = Flag400();
-    if (uint8_t* g = g_6d1a8c)
+    if (uint8_t* g = g_trackTool)
         if (Obj_Flag7dOrTracks118(g)) shift = 0;
     int32_t alt;
     if (SwapModifiers() && Flag2000()) alt = 1;
@@ -1596,7 +1596,7 @@ RT3_NOINLINE int32_t __fastcall Tool_RemoveModifier() {
     uint32_t shift = Flag400();
     Flag2000();
     uint32_t ctrl = Flag800();
-    if (uint8_t* g = g_6d1a8c)
+    if (uint8_t* g = g_trackTool)
         if (Obj_Flag7dOrTracks118(g)) shift = 0;
     if (ctrl && (InputButtons() & 3)) return 0;
     if (SwapModifiers()) return ctrl && !shift ? 1 : 0;
@@ -2491,7 +2491,7 @@ RT3_NOINLINE void __fastcall Camera_MouseUpdate(uint8_t* c, int, int32_t forced)
         }
     }
     if ((!Tool_AddModifier(c) && F<int32_t>(c, 0x336)) || (!Tool_RemoveModifier() && F<int32_t>(c, 0x33a)))
-        if (uint8_t* p = g_6d0820) Obj_TakeListCommand(p);
+        if (uint8_t* p = g_setupWindow) Obj_TakeListCommand(p);
     F<int32_t>(c, 0x336) = Tool_AddModifier(c);
     F<int32_t>(c, 0x33a) = Tool_RemoveModifier();
     F<float>(c, 0x2fe) = z;

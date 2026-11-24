@@ -360,7 +360,7 @@ static void __cdecl Session_StartWorker_Impl(int32_t mode) {
     g_6d1278 = 0;
     g_6d127c = mode;
     g_6d1280 = 0;
-    g_6d1288 = 0;
+    g_lobbyMode = 0;
     g_6d128c = 0;
     if (mode == 1 || mode == 4) g_6cd8dc = 0;
     if (uint8_t* t = g_6d1294) {
@@ -692,7 +692,7 @@ RT3_REPLACE(0x4eb230, Obj_CopyTo6d10d8);
 // 0x4eb250 (callback). Adds d (EDX) to the base 0x6d1110 (0x6d10cc) and
 // prices it with the company 0x6d10d0's +0x47 (0x6d1114).
 void __fastcall Company_PriceShares(void*, int32_t d) {
-    const uint32_t id = g_6d10d0;
+    const uint32_t id = g_companyOverview;
     g_6d10cc = g_6d1110 + d;
     uint8_t* c = (uint8_t*)Collection_Get(g_companies, 0, id);
     g_6d1114 = F<int32_t>(c, 0x47) * g_6d10cc;
@@ -703,8 +703,8 @@ RT3_REPLACE(0x4eb250, Company_PriceShares);
 // (0x6d10d0): its button 0xbfce is enabled for public companies, the price
 // (0x6d1110, 10 for private ones) goes on the slider.
 void __fastcall ShareDialog_SelectCompany(uint32_t id) {
-    if (id == g_6d10d0) return;
-    g_6d10d0 = id;
+    if (id == g_companyOverview) return;
+    g_companyOverview = id;
     uint8_t* c = (uint8_t*)Collection_Get(g_companies, 0, id);
     int32_t price;
     if (!F<int32_t>(c, 0x3f)) {
@@ -712,7 +712,7 @@ void __fastcall ShareDialog_SelectCompany(uint32_t id) {
         price = 0xa;
     } else {
         Window_SendEvent5(g_6d1118, 0, 0x65, 0xbfce, 3, 0, 0);
-        price = Ftol(Company_SharePrice((uint8_t*)Collection_Get(g_companies, 0, g_6d10d0), 0, 0, 0));
+        price = Ftol(Company_SharePrice((uint8_t*)Collection_Get(g_companies, 0, g_companyOverview), 0, 0, 0));
     }
     g_6d1110 = price;
     Window_SendEvent5(g_6d1118, 0, 0x73, 0xbfce, (uint32_t)(price + 1), 0, 0);
@@ -757,7 +757,7 @@ void __fastcall CompanyOverview_DrawCb(void*, int, float x, float y, float w, fl
     const float ty2 = (float)((double)ty + D(0x5d11d0));
     Font_DrawTextBox(g_6d111c, 0, GetString(0x2d1), tx, ty2, tw, rh, 0xffffffff, 0, 1, 0, 1.0f);
     float row = (float)((double)y + D(0x5c9f28));
-    uint8_t* c = (uint8_t*)Collection_Get(g_companies, 0, g_6d10d0);
+    uint8_t* c = (uint8_t*)Collection_Get(g_companies, 0, g_companyOverview);
     if (!F<int32_t>(c, 0x3f)) {
         char* a = frame + 0x2d4;
         char* b = frame + 0x20c;
@@ -771,7 +771,7 @@ void __fastcall CompanyOverview_DrawCb(void*, int, float x, float y, float w, fl
     }
     Font_DrawTextBox(g_6d111c, 0, GetString(0x2d2), tx, row, tw, rh, 0xffffffff, 0, 1, 0, 1.0f);
     row = (float)((double)y + D(0x5d11c8));
-    uint8_t* co = (uint8_t*)Collection_Get(g_companies, 0, g_6d10d0);
+    uint8_t* co = (uint8_t*)Collection_Get(g_companies, 0, g_companyOverview);
     Font_DrawTextBox(g_6d111c, 0, GetString(0x2d3), rx, row, rw, rh, 0xffffffff, 2, 1, 0, 1.0f);
     Num_FormatSimple(num, 9, (double)g_6d10cc, 0xb);
     Font_DrawTextBox(g_6d111c, 0, num, rx, row, rw, rh, 0xffffffff, 3, 1, 0, 1.0f);
@@ -982,7 +982,7 @@ void __fastcall CompanyPicker_Build(uint8_t* win, int, float x, float y, float, 
         Window_SendEvent5(win, 0, 0x7a, 0xbfcd, 0x4eb350, 0, 0);
         Free(F<void*>(t, 0x43));
     }
-    hook::As<int32_t>(g_6d10d0) = -2;
+    hook::As<int32_t>(g_companyOverview) = -2;
     int32_t first = -1;
     for (int32_t i = 0; i < Collection_Count(g_companies); ++i) {
         Collection* cs = g_companies;
@@ -1054,7 +1054,7 @@ RT3_NOINLINE void Merger_OfferDialog() {
     }
     int32_t mine = Obj_Get21(g_world);
     hook::As<int32_t>(g_6d10d4) = mine;
-    hook::As<int32_t>(g_6d10d0) = -1;
+    hook::As<int32_t>(g_companyOverview) = -1;
     g_6d10cc = 0;
     g_6d1114 = 0;
     g_6d1110 = 0;
@@ -1073,8 +1073,8 @@ RT3_NOINLINE void Merger_OfferDialog() {
                                    0, nullptr, nullptr, 0, 0, nullptr, 0);
     char num1[0x80], num2[0x80], num3[0x80], text[0x200];
     if (r == 0x3f2) {
-        uint8_t* tgt = (uint8_t*)Collection_Get(g_companies, 0, g_6d10d0);
-        if (!F<int32_t>(Collection_Get(g_companies, 0, g_6d10d0), 0x3f)) {
+        uint8_t* tgt = (uint8_t*)Collection_Get(g_companies, 0, g_companyOverview);
+        if (!F<int32_t>(Collection_Get(g_companies, 0, g_companyOverview), 0x3f)) {
             float cost = Obj_Sum12a7Scaled(tgt);
             uint8_t* me = (uint8_t*)Collection_Get(g_companies, 0, g_6d10d4);
             if (Company_Stat(me, 0, 0xd, 0x2329) < (double)cost) {
@@ -1086,17 +1086,17 @@ RT3_NOINLINE void Merger_OfferDialog() {
                 Dialog_RunMessage(text, 1, 0xbf800000, 0xbf800000, 0, nullptr, 0, 0.0f, 0, 0x1e, 0, nullptr, nullptr, 0, 0, nullptr, 0);
             } else if (!IsMultiplayer()) {
                 Company_Absorb((uint8_t*)Collection_Get(g_companies, 0, g_6d10d4), 0,
-                               g_6d10d0, 0);
+                               g_companyOverview, 0);
             } else {
                 int32_t msg[3];
                 msg[0] = Global6d40e4();
                 msg[1] = hook::As<int32_t>(g_6d10d4);
-                msg[2] = hook::As<int32_t>(g_6d10d0);
+                msg[2] = hook::As<int32_t>(g_companyOverview);
                 Net_SendToHost(g_session, 0, 0x79, 0xc, (const uint8_t*)msg);
                 Cursor_Set(g_cursorManager, 0, 6, 0, 0);
             }
         } else {
-            int32_t total = F<int32_t>(Collection_Get(g_companies, 0, g_6d10d0), 0x47) * g_6d10cc;
+            int32_t total = F<int32_t>(Collection_Get(g_companies, 0, g_companyOverview), 0x47) * g_6d10cc;
             float cost = (float)total;
             uint8_t* me = (uint8_t*)Collection_Get(g_companies, 0, g_6d10d4);
             if (Company_Stat(me, 0, 0xd, 0x2329) < (double)cost) {
@@ -1114,7 +1114,7 @@ RT3_NOINLINE void Merger_OfferDialog() {
                 F<int32_t>(msg, 0) = Global6d40e4();
                 msg[4] = (uint8_t)hook::As<int32_t>(g_6d10d4);
                 F<uint16_t>(msg, 6) = (uint16_t)g_6d10cc;
-                msg[5] = (uint8_t)hook::As<int32_t>(g_6d10d0);
+                msg[5] = (uint8_t)hook::As<int32_t>(g_companyOverview);
                 Net_SendToHost(g_session, 0, 0x46, 0xc, msg);
                 Log_Add(g_messageLog, 0, GetString(0xbf2), 0xb, 0, 0);
             }
@@ -1134,7 +1134,7 @@ RT3_NOINLINE void NewGameConfig_ClearSlots() {
     F<uint16_t>(c, 0x7b) = 0;
     for (int k = 0; k < 16; ++k) c[0x87 + k] = 0;
     for (int k = 0; k < 0x33; ++k) c[0x44 + k] = 0;
-    if (uint8_t* l = g_6d1270)
+    if (uint8_t* l = g_lobbyBuffer)
         for (int k = 0; k < 0x100f0 * 4 + 2; ++k) l[k] = 0;
 }
 RT3_REPLACE(0x4ecb20, NewGameConfig_ClearSlots);
@@ -1145,7 +1145,7 @@ RT3_REPLACE(0x4ecb20, NewGameConfig_ClearSlots);
 RT3_NOINLINE int32_t __fastcall NewGameConfig_ClaimAiSlot(int32_t mode) {
     if (g_6cd914 == 1) return 0;
     uint8_t* c = g_newGame;
-    uint8_t* l = g_6d1270;
+    uint8_t* l = g_lobbyBuffer;
     if (mode == 1) {
         if (!l) return 0;
         int32_t n7b = F<uint16_t>(c, 0x7b), n79 = F<uint16_t>(c, 0x79);
@@ -1166,7 +1166,7 @@ RT3_REPLACE(0x4ecb90, NewGameConfig_ClaimAiSlot);
 
 // 0x4ecc50. Lobby entries (9-byte, from +0x31b, count +0x3ae) with both flags clear.
 RT3_NOINLINE int32_t __fastcall Lobby_CountFreeEntries(uint8_t* l) {
-    if (!l) l = g_6d1270;
+    if (!l) l = g_lobbyBuffer;
     if (!l) return 0;
     int32_t n = 0;
     for (int32_t i = 0; i < F<int32_t>(l, 0x3ae); ++i)
@@ -1177,9 +1177,9 @@ RT3_REPLACE(0x4ecc50, Lobby_CountFreeEntries);
 
 // 0x4ecc90. Sets the lobby mode 0x6d1288 for kinds 5, 6 and 8.
 RT3_NOINLINE void __fastcall Lobby_SetMode(int32_t kind, int, int32_t, int32_t) {
-    if (kind == 5) g_6d1288 = 5;
-    else if (kind == 6) g_6d1288 = 6;
-    else if (kind == 8) g_6d1288 = 8;
+    if (kind == 5) g_lobbyMode = 5;
+    else if (kind == 6) g_lobbyMode = 6;
+    else if (kind == 8) g_lobbyMode = 8;
 }
 RT3_REPLACE(0x4ecc90, Lobby_SetMode);
 
@@ -1438,7 +1438,7 @@ RT3_REPLACE(0x4ed890, Session_StartWorker);
 // configured AI count (+0x79) whose row is empty an AI slot is claimed (mode 1, then
 // mode 0); the AI count is shown in field 0xe36 of window 0x6d1268.
 RT3_NOINLINE void __fastcall NewGame_RefreshAiSlots(uint8_t* o) {
-    if (!o) o = g_6d1270;
+    if (!o) o = g_lobbyBuffer;
     int32_t left = F<uint16_t>(g_newGame, 0x79);
     for (int32_t k = 0xf; k >= 0; --k) {
         uint8_t* ng = g_newGame;
@@ -1466,7 +1466,7 @@ RT3_REPLACE(0x4ed940, NewGame_RefreshAiSlots);
 RT3_NOINLINE int32_t __fastcall NewGame_ClaimSlot(int, int32_t mode) {
     uint8_t* ng = g_newGame;
     if (mode == 1) {
-        uint8_t* p = g_6d1270;
+        uint8_t* p = g_lobbyBuffer;
         if (!p) return 7;
         if (F<int32_t>(p, 0x3b6) >= 4) F<int32_t>(p, 0x3b6) = 4;
         int32_t claimed = F<uint16_t>(ng, 0x79);
@@ -1482,7 +1482,7 @@ RT3_NOINLINE int32_t __fastcall NewGame_ClaimSlot(int, int32_t mode) {
         }
         return 3;
     }
-    uint8_t* rows = g_6d1270 + 0x31d;
+    uint8_t* rows = g_lobbyBuffer + 0x31d;
     for (int32_t k = 0; k < 0x10; ++k)
         if (!ng[0x87 + k] && rows[k * 9]) {
             ng[0x87 + k] = 1;
@@ -1696,9 +1696,9 @@ void __fastcall OptionsScreen_Destruct(uint8_t* w) {
         ExeDelete(p);
         hook::As<void*>(g_6d126c) = nullptr;
     }
-    if (void* p = hook::As<void*>(g_6d1270)) {
+    if (void* p = hook::As<void*>(g_lobbyBuffer)) {
         ExeDelete(p);
-        hook::As<void*>(g_6d1270) = nullptr;
+        hook::As<void*>(g_lobbyBuffer) = nullptr;
     }
     if (void* p = hook::As<void*>(g_6d1294)) {
         ((void(__thiscall*)(void*, int32_t))(*(void***)p)[0])(p, 1);
@@ -1863,31 +1863,31 @@ RT3_NOINLINE void __fastcall MpScenarioPanel_Update(uint8_t* d, int, const char*
     }
     const char* hit = ((const char*(__cdecl*)(const char*, const char*))0x5a1ff0)((const char*)g_newGame + 0x11, (const char*)0x5c9cf8);
     F<int32_t>(g_app, 0x6c) = !hit;
-    Block_Load((const char*)g_newGame + 0x11, g_6d1270, 0);
-    uint8_t* info = g_6d1270;
+    Block_Load((const char*)g_newGame + 0x11, g_lobbyBuffer, 0);
+    uint8_t* info = g_lobbyBuffer;
     int32_t players = F<int32_t>(info, 0x3b6);
     if (players >= 4) players = 4;
     F<int32_t>(info, 0x3b6) = players;
-    F<int32_t>(g_6d1270, 0x3b2) = 1;
+    F<int32_t>(g_lobbyBuffer, 0x3b2) = 1;
     if (g_6d40dc && g_6226d4)
-        F<uint16_t>(g_newGame, 0x77) = F<uint16_t>(g_6d1270, 0xc);
-    Obj_ApplySetup(g_newGame, 0, g_6d1270);
+        F<uint16_t>(g_newGame, 0x77) = F<uint16_t>(g_lobbyBuffer, 0xc);
+    Obj_ApplySetup(g_newGame, 0, g_lobbyBuffer);
     char yearText[0x20], aText[0x20], bText[0x20], line[0x200];
     Num_Format(yearText, 8, (double)F<uint16_t>(g_newGame, 0x77), 10, 1, 0, 0);
     Window_SendEvent5(d, 0, 0x6f, 0xd4f, (uint32_t)(uintptr_t)yearText, 0, 0);
     Window_SendEvent5(d, 0, 0x6f, 0xe23, (uint32_t)(uintptr_t)(g_newGame + 0x44), 0, 0);
-    Window_SendEvent5(d, 0, 0x6f, 0xe2e, (uint32_t)(uintptr_t)(g_6d1270 + 0x70), 0, 0);
-    const char* ws = Num_Format(aText, 8, (double)F<int32_t>(g_6d1270, 5), 10, 1, 0, 0);
-    const char* hs = Num_Format(bText, 8, (double)F<int32_t>(g_6d1270, 1), 10, 1, 0, 0);
+    Window_SendEvent5(d, 0, 0x6f, 0xe2e, (uint32_t)(uintptr_t)(g_lobbyBuffer + 0x70), 0, 0);
+    const char* ws = Num_Format(aText, 8, (double)F<int32_t>(g_lobbyBuffer, 5), 10, 1, 0, 0);
+    const char* hs = Num_Format(bText, 8, (double)F<int32_t>(g_lobbyBuffer, 1), 10, 1, 0, 0);
     FormatText(line, GetString(0x2b2), hs, ws, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
-    info = g_6d1270;
+    info = g_lobbyBuffer;
     if (F<int32_t>(info, 5) * F<int32_t>(info, 1) > 0x51000) strcat(line, GetString(0xe0c));
     Window_SendEvent5(d, 0, 0x6f, 0xe4b, (uint32_t)(uintptr_t)line, 0, 0);
-    const char* maxs = Num_Format(aText, 1, (double)F<int32_t>(g_6d1270, 0x3b6), 10, 1, 0, 0);
-    const char* mins = Num_Format(bText, 1, (double)F<int32_t>(g_6d1270, 0x3b2), 10, 1, 0, 0);
+    const char* maxs = Num_Format(aText, 1, (double)F<int32_t>(g_lobbyBuffer, 0x3b6), 10, 1, 0, 0);
+    const char* mins = Num_Format(bText, 1, (double)F<int32_t>(g_lobbyBuffer, 0x3b2), 10, 1, 0, 0);
     FormatText(line, GetString(0xe6c), mins, maxs, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
     Window_SendEvent5(d, 0, 0x6f, 0xe50, (uint32_t)(uintptr_t)line, 0, 0);
-    Widget_SetPicture(Widget_FindChild(d, 0, 0xe4a), 0, g_6d1270 + 0x3c2, 0x100, 0x100);
+    Widget_SetPicture(Widget_FindChild(d, 0, 0xe4a), 0, g_lobbyBuffer + 0x3c2, 0x100, 0x100);
     if (g_6d40dc) GameSpy_Pump();
     NewGameDialog_ShowSetting77(d);
     Window_SetMode1(d, 0, g_6ce9bc);
@@ -2091,7 +2091,7 @@ RT3_NOINLINE int32_t MpSession_ReportEvent() {
         return 1;
     }
     case 6: {
-        const int32_t r = g_6d1288;
+        const int32_t r = g_lobbyMode;
         if (r == 8) {
             strcpy(text, GetString(0xe5a));
         } else if (r == 5) {
@@ -2099,7 +2099,7 @@ RT3_NOINLINE int32_t MpSession_ReportEvent() {
                 // QUIRK: the random name is made but the dialog gets 0x6ae2c4.
                 randomName();
                 NameDialog_ShowName(g_6d1268, 0, (const char*)0x6ae2c4);
-                g_6d1288 = 0;
+                g_lobbyMode = 0;
                 g_6ae3c4 = 2;
                 return 1;
             }
@@ -2110,13 +2110,13 @@ RT3_NOINLINE int32_t MpSession_ReportEvent() {
             endSession();
             strcpy(text, GetString(0xe5d));
             toMenu();
-            g_6d1288 = 0;
+            g_lobbyMode = 0;
             return 1;
         }
         show(text);
         MpDialog_SelectMode(g_6d1268, 0, 0xe13);
         g_6cd8dc = 1;
-        g_6d1288 = 0;
+        g_lobbyMode = 0;
         return 1;
     }
     case 8:
@@ -2170,7 +2170,7 @@ uint32_t __fastcall SessionWorker_Run(uint8_t* thr) {
         Cursor_Set(g_cursorManager, 0, 6, 0, 1);
         if (!Session_Open(s(), 0, 1, name())) {
             done(5);
-        } else if (g_6d1288) {
+        } else if (g_lobbyMode) {
             done(6);
         } else {
             MpDialog_SelectMode(g_6d1268, 0, 0xe13);
@@ -2179,7 +2179,7 @@ uint32_t __fastcall SessionWorker_Run(uint8_t* thr) {
         break;
     case 6:
         Peer_JoinNamed(name());
-        if (g_6d1288) done(6);
+        if (g_lobbyMode) done(6);
         break;
     case 2: {
         hook::Global<int32_t(__stdcall*)(void*, int32_t)>(0x5c8084)(F<void*>(thr, 4), 2);
@@ -2288,12 +2288,12 @@ uint8_t* __fastcall MpDialog_Construct(uint8_t* d) {
     g_6d1274 = 0;
     g_6d1278 = 0;
     g_6d1280 = 0;
-    g_6d1288 = 0;
+    g_lobbyMode = 0;
     g_6cd90c = 0;
     g_6cd8dc = 1;
     g_6d1268 = d;
     uint8_t* buf = exeNew(0x403c2);
-    g_6d1270 = buf;
+    g_lobbyBuffer = buf;
     memset(buf, 0, 0x403c2);
     F<int32_t>(d, 0x80) = ClockMs();
     const int32_t games = F<int32_t>(g_app, 0x30d);
@@ -2465,7 +2465,7 @@ int32_t __fastcall MpDialog_HandleEvent(uint8_t* d, int, uint32_t* msg) {
         if (g_6d1280 == 2) return clearAddress();
         return 0;
     }
-    if (!g_6cd8dc || g_6d1274 == 1 || g_6d1288) return 0;
+    if (!g_6cd8dc || g_6d1274 == 1 || g_lobbyMode) return 0;
     if (g_6cd920) {
         // GameSpy: take the chosen name, then join the chosen server.
         const int32_t step = g_6ae3c4;
@@ -2514,7 +2514,7 @@ int32_t __fastcall MpDialog_HandleEvent(uint8_t* d, int, uint32_t* msg) {
         uint8_t* e = F<uint8_t*>(g_6d126c, 8) + (int32_t)msg[2] * 0x25a;
         MpScenarioPanel_Update(d, 0, (const char*)e, (const char*)e + 0x12d, 0);
         if (strcmp_(before, (const char*)cfg() + 0x11)) {
-            F<uint16_t>(cfg(), 0x77) = F<uint16_t>(g_6d1270, 0xc);
+            F<uint16_t>(cfg(), 0x77) = F<uint16_t>(g_lobbyBuffer, 0xc);
             g_6ce9bc = 0;
             Window_SetMode1(d, 0, 0);
         }
@@ -2648,7 +2648,7 @@ int32_t __fastcall MpDialog_HandleEvent(uint8_t* d, int, uint32_t* msg) {
             return 0;
         case 0xe2c: {
             int32_t year = F<uint16_t>(cfg(), 0x77) + 5;
-            const int32_t last = F<int32_t>(g_6d1270, 0x10);
+            const int32_t last = F<int32_t>(g_lobbyBuffer, 0x10);
             if (last < year) year = last;
             F<uint16_t>(cfg(), 0x77) = (uint16_t)year;
             NewGameDialog_ShowSetting77(d);
@@ -2656,7 +2656,7 @@ int32_t __fastcall MpDialog_HandleEvent(uint8_t* d, int, uint32_t* msg) {
         }
         case 0xe2d: {
             int32_t year = F<uint16_t>(cfg(), 0x77) - 5;
-            const int32_t first = F<int32_t>(g_6d1270, 0xc);
+            const int32_t first = F<int32_t>(g_lobbyBuffer, 0xc);
             if (first > year) year = first;
             F<uint16_t>(cfg(), 0x77) = (uint16_t)year;
             NewGameDialog_ShowSetting77(d);
@@ -2714,7 +2714,7 @@ int32_t __fastcall MpDialog_HandleEvent(uint8_t* d, int, uint32_t* msg) {
             uint8_t* c = cfg();
             const int32_t ai = F<uint16_t>(c, 0x7b);
             if (!ai) return 0;
-            uint8_t* slots = g_6d1270;
+            uint8_t* slots = g_lobbyBuffer;
             int32_t open = 0, empty = 0;
             if (slots && F<int32_t>(slots, 0x3ae) > 0)
                 for (int32_t k = 0; k < F<int32_t>(slots, 0x3ae); ++k)

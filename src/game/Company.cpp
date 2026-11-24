@@ -959,7 +959,7 @@ RT3_NOINLINE void __fastcall Company_YearEnd(uint8_t* c) {
     const char* ns = Num_Format(num, 1, df, 10, 1, 0, 0);
     FormatText(text, GetString(0x131), (const char*)(c + 4), ns, 0, 0, 0, 0, 0, 0);
     if (F<int32_t>(c, 0) == Obj_Get21(g_world) && CountHumanPlayers() <= 1)
-        News_Add(g_6cea4c, 0, text, GetString(0x132), 0, 0);
+        News_Add(g_news, 0, text, GetString(0x132), 0, 0);
     else
         Log_Add(g_messageLog, 0, text, 0x12, F<int32_t>(c, 0), 0);
 }
@@ -1674,7 +1674,7 @@ RT3_NOINLINE void __fastcall Company_Absorb(uint8_t* c, int, uint32_t id, int32_
             const char* fmt = GetString(0xfd7);
             FormatText(text, fmt, chair, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
         }
-        News_Add(g_6cea4c, 0, title, text, 1, 0);
+        News_Add(g_news, 0, title, text, 1, 0);
         cost = (float)(F<double>(o, 0x124f) + F<double>(o, 0x12a7));
         cost = (float)((double)cost * *(const double*)0x5c9b48);
         F<double>(c, 0x124f) = F<double>(o, 0x124f) * *(const double*)0x5c9b48 + F<double>(c, 0x124f);
@@ -1684,7 +1684,7 @@ RT3_NOINLINE void __fastcall Company_Absorb(uint8_t* c, int, uint32_t id, int32_
             const char* fmt = GetString(0x134);
             FormatText(title, fmt, (const char*)c + 4, (const char*)o + 4, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
         }
-        News_Add(g_6cea4c, 0, title, GetString(0x135), 1, 0);
+        News_Add(g_news, 0, title, GetString(0x135), 1, 0);
         cost = (float)((double)F<int32_t>(o, 0x47) * (double)price);
         for (int32_t k = 0; k < Table_CountField4(g_players); ++k) {
             uint8_t* pl = (uint8_t*)Table_NthField4(g_players, 0, k);
@@ -1891,7 +1891,7 @@ RT3_NOINLINE void __fastcall Company_InstallChairman(int32_t* c, int, int32_t pl
     uint8_t* p = (uint8_t*)Collection_Get(g_players, 0, (uint32_t)player);
     char buf[0x12c];
     FormatText(buf, GetString(0x129), (const char*)p + 8, (const char*)c + 4, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
-    News_Add(g_6cea4c, 0, buf, GetString(0x12a), 1, 0);
+    News_Add(g_news, 0, buf, GetString(0x12a), 1, 0);
     if (int32_t old = F<int32_t>(p, 0x1dd)) Company_SetChairman((int32_t*)Collection_Get(g_companies, 0, (uint32_t)old), 0, 0);
     Company_SetChairman(c, 0, player);
 }
@@ -2048,7 +2048,7 @@ RT3_NOINLINE void __fastcall Company_AnnualReview(uint8_t* c) {
                 if (F<int32_t>(c, 0x357) >= year() - 1) {
                     uint8_t* pl = (uint8_t*)Collection_Get(g_players, 0, F<uint32_t>(c, 0x3b));
                     FormatText(buf, GetString(0x12b), (const char*)pl + 8, (const char*)c + 4, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
-                    News_Add(g_6cea4c, 0, buf, GetString(0x12c), 1, 0);
+                    News_Add(g_news, 0, buf, GetString(0x12c), 1, 0);
                     Company_SetChairman((int32_t*)c, 0, 0);
                 } else {
                     if (F<int32_t>(c, 0x3b) == Obj_Get25(hook::As<void*>(g_world)))
@@ -2081,7 +2081,7 @@ RT3_NOINLINE void __fastcall Company_AnnualReview(uint8_t* c) {
     if (i == years && quiet()) {
         FormatText(buf, GetString(0x12f), (const char*)c + 4, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
         Company_Dissolve(c);
-        News_Add(g_6cea4c, 0, buf, GetString(0x130), 1, 0);
+        News_Add(g_news, 0, buf, GetString(0x130), 1, 0);
     }
 
     for (int32_t k = 0x13; k <= 0x2a; ++k) F<double>(c, 0x1407 + (k - 0x13) * 0x58) = Company_Stat(c, 0, k, 0x2329);

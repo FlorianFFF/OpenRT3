@@ -1344,7 +1344,7 @@ void __fastcall OptionsDialog_OnSlider(uint8_t* sl, int32_t v) {
             int32_t old = F<int32_t>(g_app, 0x118);
             F<int32_t>(g_app, 0x118) = v;
             Options_Save(g_app, 0, 1);
-            if (uint8_t* setup = g_6d0820)
+            if (uint8_t* setup = g_setupWindow)
                 if (old != v && (!old || !v)) SetupWindow_FillLabels(setup);
         }
         break;
@@ -1592,7 +1592,7 @@ int32_t __fastcall OptionsDialog_HandleEvent(uint8_t* d, int, uint32_t* msg) {
     case 0x759c: {
         F<int32_t>(opts(), 0x309) = F<int32_t>(opts(), 0x309) == 0;
         const int32_t on = F<int32_t>(opts(), 0x309);
-        if (hook::As<int32_t>(g_6d1a8c) && hook::As<uint8_t*>(g_tracks)) {
+        if (hook::As<int32_t>(g_trackTool) && hook::As<uint8_t*>(g_tracks)) {
             if (on)
                 Camera_BeginA0(hook::As<uint8_t*>(g_tracks));
             else

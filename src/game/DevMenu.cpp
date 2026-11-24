@@ -978,7 +978,7 @@ void __fastcall DevMenu_Command(HMENU* m, int, uint32_t cmd) {
         Obj_SetPlayer(game(), 0, Collection_IdAt(g_players, 0, (uint32_t)(((int32_t)pos + 1) % n), 0));
         F<int32_t>(Obj_Ref25(game()), 0x1e1) = 1;
     } else if (cmd == 0x9cc1) {
-        if (Collection* news = g_6cea4c) {
+        if (Collection* news = g_news) {
             const char* text = GetString(0x1be);
             News_Add(news, 0, GetString(0x1bd), text, 0, 0);
         }

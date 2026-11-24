@@ -1599,7 +1599,7 @@ void __fastcall InfoWindow_Destruct(uint8_t* w) {
     F<uint32_t>(w, 0) = 0x5d17c0;
     InfoWindow_ClearHighlights(w);
     Pack_Release(g_pack, 0, hook::As<void*>(g_6d1724));
-    hook::As<uint32_t>(g_6d1720) = 0;
+    hook::As<uint32_t>(g_buildingDialog) = 0;
     Widget_SetVtbl(w);
 }
 RT3_REPLACE(0x507b50, InfoWindow_Destruct);
@@ -1850,7 +1850,7 @@ RT3_REPLACE(0x508550, BuildingDialog_ShowPrice);
 // turn (0x5d1810 = pi/16) and keeps the new rotation.
 RT3_NOINLINE void __fastcall Placement_RotateSteps(void*, int, int32_t steps) {
     float a = (float)((double)steps * D(0x5d1810) + Fl(0x6d172c));
-    Placement_SetRotation(g_6d1720, 0, FBits(a), 1);
+    Placement_SetRotation(g_buildingDialog, 0, FBits(a), 1);
 }
 RT3_REPLACE(0x5086c0, Placement_RotateSteps);
 
@@ -1889,7 +1889,7 @@ RT3_NOINLINE void __fastcall BuildingDialog_Select(uint8_t* w, int, int32_t id) 
 RT3_REPLACE(0x508730, BuildingDialog_Select);
 
 void __fastcall BuildingDialog_SelectCb(int32_t v, int32_t id) {
-    if (v != -1 && g_6d1720) BuildingDialog_Select(g_6d1720, 0, id);
+    if (v != -1 && g_buildingDialog) BuildingDialog_Select(g_buildingDialog, 0, id);
 }
 RT3_REPLACE(0x508860, BuildingDialog_SelectCb);
 
@@ -1938,7 +1938,7 @@ RT3_NOINLINE void __fastcall BuildingDialog_SetPage(uint8_t* w, int, int32_t pag
         Window_SendEvent5(w, 0, 0x69, 0x69e3, Collection_IdAt(g_buildingTypes, 0, i, 0), 0, 0);
         break;
     }
-    BuildingDialog_Select(g_6d1720, 0, F<int32_t>(w, 0x8c));
+    BuildingDialog_Select(g_buildingDialog, 0, F<int32_t>(w, 0x8c));
     BuildingDialog_ShowTabs(w);
     if (g_622af4 >= 3) {
         Overview_Close(g_map);
@@ -2312,7 +2312,7 @@ uint8_t* __fastcall BuildingDialog_Construct(uint8_t* w) {
     Widget_SetVtblRet(w);
     F<uint32_t>(w, 0) = 0x5d17c0;
     World_SetFollow(g_world, 0, 0, nullptr);
-    g_6d1720 = w;
+    g_buildingDialog = w;
     g_6d1724 = Pack_AcquireNamed(g_pack, 0, (const char*)0x5d1870);
     Window_Load(w, 0, 0.0f, 0.0f, (const char*)0x5d185c);
     F<int32_t>(w, 0x7c) = -1;

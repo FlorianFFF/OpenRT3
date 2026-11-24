@@ -297,9 +297,9 @@ static inline SprintfFn ExeSprintf() { return (SprintfFn)0x5a19c4; }
 // Refreshes the company list window (0x6d19f0) after a stock trade.
 static void StockTrade_Refresh() {
     Reset_625a94();
-    if (g_6d19f0) Window_DeleteChildren(g_6d19f0, 0, 0x3b60, 0x3e7f, 0);
+    if (g_stockWindow) Window_DeleteChildren(g_stockWindow, 0, 0x3b60, 0x3e7f, 0);
     Reset_625a94();
-    if (g_6d19f0) CompanyList_Refill(g_6d19f0);
+    if (g_stockWindow) CompanyList_Refill(g_stockWindow);
 }
 
 namespace {
@@ -349,7 +349,7 @@ static void Notify(void* manager, uint32_t type) {
 // 0x50c130. Clears 0x625a94 and refills the company list window when it is open.
 void __fastcall CompanyList_Reset() {
     Reset_625a94();
-    if (uint8_t* w = g_6d19f0) CompanyList_Refill(w);
+    if (uint8_t* w = g_stockWindow) CompanyList_Refill(w);
 }
 RT3_REPLACE(0x50c130, CompanyList_Reset);
 
@@ -397,7 +397,7 @@ uint8_t* __fastcall StockBuy_Construct(uint8_t* w) {
         if (p == Obj_Ref25(g_world)) g_6d19f4 = i;
     }
     for (uint32_t a = 0x6d18d8; a < 0x6d19d8; a += 4) hook::Global<int32_t>(a) = 1000;
-    g_6d19f0 = w;
+    g_stockWindow = w;
     g_6d19d8 = Pack_AcquireNamed(g_pack, 0, (const char*)0x5d190c);
     g_6d19dc = Pack_AcquireNamed(g_pack, 0, (const char*)0x5d0f04);
     hook::As<uint8_t*>(g_6d19e0) = Pack_AcquireNamed(g_pack, 0, (const char*)0x5c9f98);
@@ -870,7 +870,7 @@ RT3_NOINLINE void __fastcall TrackTool_Destroy(uint8_t* tool) {
     F<uint32_t>(tool, 0) = 0x5d191c;
     Method(0x50d1e0, tool);
     TrackList_ResetBuildState(hook::As<uint8_t*>(g_tracks));
-    hook::As<uint32_t>(g_6d1a8c) = 0;
+    hook::As<uint32_t>(g_trackTool) = 0;
     hook::Orig<void(__fastcall*)(void*, int, const char*, int32_t)>(0x53ef90)(
         hook::As<void*>(g_cursorManager), 0, (const char*)0x5c87a8, -1);
     if (F<uint32_t>(hook::As<void*>(g_app), 0x263) && !g_6d1a94) {
@@ -1087,7 +1087,7 @@ RT3_REPLACE(0x50e1e0, TrackTool_Resume);
 uint8_t* __fastcall TrackTool_Construct(uint8_t* w) {
     Widget_SetVtblRet(w);
     F<uint32_t>(w, 0) = 0x5d191c;
-    g_6d1a8c = w;
+    g_trackTool = w;
     g_6d1a90 = 0;
     World_SetFollow(g_world, 0, 0, nullptr);
     F<int32_t>(w, 0x78) = -1;

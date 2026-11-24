@@ -3202,7 +3202,7 @@ RT3_NOINLINE int32_t __fastcall TrackNet_BuildLine(Collection* net, int, float x
         goto done;
     }
     {
-        uint8_t* tool = g_6d1a8c;
+        uint8_t* tool = g_trackTool;
         if (tool && !F<int32_t>(tool, 0x83) && !F<int32_t>(n, 0xe9)) {
             fr.i(0xf4) = 1;
             Cursor_Set(g_cursorManager, 0, 4, 0, 0);

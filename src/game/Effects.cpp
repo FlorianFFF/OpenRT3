@@ -283,9 +283,9 @@ uint8_t* EffectNode() {
 }
 // The effect of emitters.dat 0x6cea60 named `name` (by CRC), or null.
 uint8_t* EffectDef(const char* name) {
-    uint8_t* r = g_6cea60 + 0xc;
+    uint8_t* r = g_effects + 0xc;
     uint32_t key = Crc32String(name, 1);
-    for (int32_t i = 0; i < F<int32_t>(g_6cea60, 8); ++i, r += 0x140)
+    for (int32_t i = 0; i < F<int32_t>(g_effects, 8); ++i, r += 0x140)
         if (F<uint32_t>(r, 0) == key) return r;
     return nullptr;
 }
@@ -586,8 +586,8 @@ RT3_REPLACE(0x474610, Collection_SaveWithRecords61a9);
 // enabled +0xb4, flags +0xb8) in the model library 0x6d4030, keyed by the
 // name's CRC, with rate / period + 2 particles per point.
 RT3_NOINLINE void __fastcall Effects_RegisterEmitters() {
-    for (int32_t i = 0; i < F<int32_t>(g_6cea60, 8); ++i) {
-        uint8_t* e = g_6cea60 + 0x10 + i * 0x140;
+    for (int32_t i = 0; i < F<int32_t>(g_effects, 8); ++i) {
+        uint8_t* e = g_effects + 0x10 + i * 0x140;
         if (F<int32_t>(e, 0xb4) != 1) continue;
         int32_t n = Ftol((double)F<float>(e, 0x84) / F<float>(e, 0x8c) + Fl_205(0x5c878c));
         uint32_t flags = F<uint32_t>(e, 0xb8) | 0x10000;
@@ -619,9 +619,9 @@ RT3_REPLACE(0x474700, Particles_LoadTable);
 
 // 0x474790. (Re)loads emitters.dat (0x6cea60) from the packs.
 RT3_NOINLINE void __cdecl Emitters_Load() {
-    if (hook::As<void*>(g_6cea60)) {
-        Free(hook::As<void*>(g_6cea60));
-        hook::As<void*>(g_6cea60) = nullptr;
+    if (hook::As<void*>(g_effects)) {
+        Free(hook::As<void*>(g_effects));
+        hook::As<void*>(g_effects) = nullptr;
     }
     if (!NameTable_ContainsName(Packs(), 0, (const char*)0x5ce4d8, 0, nullptr)) return;
     int32_t id = NameTable_Hash(Packs(), 0, (const char*)0x5ce4d8);
@@ -629,7 +629,7 @@ RT3_NOINLINE void __cdecl Emitters_Load() {
     if (size <= 0) return;
     NameTable_Seek(Packs(), 0, id, 0);
     void* p = Malloc(size);
-    hook::As<void*>(g_6cea60) = p;
+    hook::As<void*>(g_effects) = p;
     NameTable_Read(Packs(), 0, p, size);
 }
 RT3_REPLACE(0x474790, Emitters_Load);
@@ -637,7 +637,7 @@ RT3_REPLACE(0x474790, Emitters_Load);
 // 0x474820. Record (0x140 bytes, from +0xc of 0x6cea60) whose key is the
 // case-insensitive CRC of `name`; NULL if none.
 RT3_NOINLINE void* __fastcall FindRecordByCrc(const char* name) {
-    uint8_t* t = g_6cea60;
+    uint8_t* t = g_effects;
     uint32_t crc = Crc32String(name, 1);
     uint8_t* r = t + 0xc;
     for (int32_t i = 0; i < F<int32_t>(t, 8); ++i, r += 0x140)
@@ -657,7 +657,7 @@ uint8_t* __fastcall Emitters_NextFile(const char* prefix, int32_t restart) {
     }
     int32_t n = g_5f2c30;
     int32_t idx = g_6ceb94;
-    uint8_t* data = g_6cea60;
+    uint8_t* data = g_effects;
     uint8_t* e = data + 0xc + idx * 0x140;
     char buf[0x100];
     for (; idx < F<int32_t>(data, 8); ++idx, e += 0x140) {
@@ -672,7 +672,7 @@ uint8_t* __fastcall Emitters_NextFile(const char* prefix, int32_t restart) {
             for (const char* s = buf; (*d++ = *s++) != 0;) {}
             return (uint8_t*)0x6cea90;
         }
-        data = g_6cea60;
+        data = g_effects;
         n = 1;
         g_5f2c30 = 1;
     }
@@ -709,7 +709,7 @@ RT3_REPLACE(0x4749d0, Emitter_Apply);
 // 0x6cea60 (0x140-byte records) to its library effect (by the CRC of its name
 // +4), with its flags +0xbc | 0x10004 and scale 1.
 RT3_NOINLINE void Effects_ReapplyAll() {
-    uint8_t* t = g_6cea60;
+    uint8_t* t = g_effects;
     uint8_t* e = t + 0xc;
     for (int32_t i = 0; i < F<int32_t>(t, 8); ++i, e += 0x140) {
         if (F<int32_t>(e, 0xb8) != 1) continue;
@@ -726,7 +726,7 @@ RT3_NOINLINE void Effects_ReapplyAll() {
             mov eax, e
             call fn
         }
-        t = g_6cea60;
+        t = g_effects;
     }
 }
 RT3_REPLACE(0x474c60, Effects_ReapplyAll);

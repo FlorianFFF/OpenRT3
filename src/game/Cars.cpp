@@ -809,7 +809,7 @@ RT3_REPLACE(0x41c5f0, Car_ShowCargoModel);
 // 0x41c6b0 (vtable). Shows car c's status as a tooltip (not while the
 // bulldozer tool runs).
 void __fastcall Car_ShowStatusTooltip(uint8_t* c) {
-    if (g_6d1a8c && Global622b0cIs64()) return;
+    if (g_trackTool && Global622b0cIs64()) return;
     char text[0x1f8];
     Car_StatusText(c, 0, text);
     Ui_ShowTooltip(g_windowManager, 0, text, 3, 0, -1);

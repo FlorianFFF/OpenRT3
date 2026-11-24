@@ -535,7 +535,7 @@ RT3_REPLACE(0x4f2ea0, Newspaper_Fill);
 // vertical and a horizontal rule (black, with glow) whose layout is picked by
 // a coin flip seeded with the edition (+0x78 -> +8); the rule height follows +0x7c.
 RT3_NOINLINE void __fastcall Newspaper_DrawRules(uint8_t* w) {
-    if (!hook::As<int32_t>(g_6cea4c)) return;
+    if (!hook::As<int32_t>(g_news)) return;
     int32_t flip = HashRand(F<int32_t>(F<uint8_t*>(w, 0x78), 8), 0, 1);
     float yv = (float)(((double)F<float>(w, 0x7c) - Fl(0x5c878c)) / Fl(0x5ca164) + F<float>(w, 9));
     float x = (float)((double)F<float>(w, 5) + Fl(flip ? 0x5d13a0 : 0x5d1394));
@@ -549,7 +549,7 @@ RT3_REPLACE(0x4f3750, Newspaper_DrawRules);
 
 // 0x4f3880 (draw callback). Draws the newspaper rules when shown.
 void __fastcall Newspaper_DrawRulesCb(void*, int, int32_t, int32_t, int32_t, int32_t, int32_t) {
-    if (hook::As<int32_t>(g_6cea4c)) Newspaper_DrawRules(g_6d12bc);
+    if (hook::As<int32_t>(g_news)) Newspaper_DrawRules(g_6d12bc);
 }
 RT3_REPLACE(0x4f3880, Newspaper_DrawRulesCb);
 
@@ -588,7 +588,7 @@ int32_t __fastcall Newspaper_HandleEvent(uint8_t* w, int, uint32_t* ev) {
     case 0xcb: {
         uint8_t* cur = F<uint8_t*>(w, 0x78);
         if (ev[1] == 0x88bd) {
-            uint8_t* r = (uint8_t*)Table_FindField14Prev(g_6cea4c, 0, F<int32_t>(cur, 0x14));
+            uint8_t* r = (uint8_t*)Table_FindField14Prev(g_news, 0, F<int32_t>(cur, 0x14));
             if (r && r != F<uint8_t*>(w, 0x78)) {
                 Newspaper_Fill(w, 0, r);
                 return 0;
@@ -597,7 +597,7 @@ int32_t __fastcall Newspaper_HandleEvent(uint8_t* w, int, uint32_t* ev) {
             return 0;
         }
         if (ev[1] == 0x88be) {
-            uint8_t* r = (uint8_t*)Table_FindField14Next(g_6cea4c, 0, F<int32_t>(cur, 0x14));
+            uint8_t* r = (uint8_t*)Table_FindField14Next(g_news, 0, F<int32_t>(cur, 0x14));
             if (r && r != F<uint8_t*>(w, 0x78)) {
                 Newspaper_Fill(w, 0, r);
                 return 0;
@@ -616,7 +616,7 @@ RT3_REPLACE(0x4f38f0, Newspaper_HandleEvent);
 // 0x6cea4c, and none is open, 0x6d12bc) with its sound 0x2a, then frees it and
 // restores the cursor when the view mode is unchanged.
 RT3_NOINLINE void __fastcall Newspaper_Show(uint8_t* rec) {
-    if (!hook::As<uint32_t>(g_6cea4c) || g_6d12bc) return;
+    if (!hook::As<uint32_t>(g_news) || g_6d12bc) return;
     hook::As<uint32_t>(g_6d12cc) = 0;
     int32_t mode = F<int32_t>(g_gameWindow, 0x8c);
     int32_t cursor = F<int32_t>(g_cursorManager, 4);

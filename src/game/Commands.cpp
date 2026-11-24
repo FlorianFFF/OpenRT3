@@ -277,8 +277,8 @@ int32_t __fastcall Models_DisplayName(const char* name, char* out);
 #define RT3_ROTATE_HOTKEY(addr, name, steps, keyName, msg) \
     int32_t name() { \
         if (!g_world) return 0; \
-        if (g_6d1720) { \
-            Placement_RotateSteps(hook::As<void*>(g_6d1720), 0, steps); \
+        if (g_buildingDialog) { \
+            Placement_RotateSteps(hook::As<void*>(g_buildingDialog), 0, steps); \
             return 0; \
         } \
         char key[0x190], shown[0x190], text[0x190]; \
@@ -307,12 +307,12 @@ void Vehicles_SelectNextBack();
 #define RT3_SELECT_HOTKEY(addr, name, buildings, trains, company, vehicles, key, msg) \
     int32_t name() { \
         if (hook::As<int32_t>(g_stationWindow)) return buildings(), 0; \
-        if (hook::As<int32_t>(g_6cfd04)) return trains(), 0; \
+        if (hook::As<int32_t>(g_industryWindow)) return trains(), 0; \
         if (hook::As<int32_t>(g_6cfe4c)) { \
             if (!hook::As<int32_t>(g_6cfe6c) && !Global6cfeb4Positive()) company(); \
             return 0; \
         } \
-        if (hook::As<int32_t>(g_6d3b20)) return vehicles(), 0; \
+        if (hook::As<int32_t>(g_trainWindow)) return vehicles(), 0; \
         if (g_world) Log_KeyName(key, msg); \
         return 0; \
     } \
@@ -1018,10 +1018,10 @@ RT3_REPLACE(0x441460, Cmd_MarkOldestLog);
 // (or the newest) of log 0x6cea4c.
 int32_t Cmd_ShowPreviousNewspaper() {
     if (g_world) {
-        Collection* log = g_6cea4c;
+        Collection* log = g_news;
         uint8_t* e = (uint8_t*)Table_Oldest14(log, 0, 0);
-        uint8_t* r = e ? (uint8_t*)Table_FindField14Prev(g_6cea4c, 0, F<int32_t>(e, 0x14))
-                       : (uint8_t*)Table_Newest14(g_6cea4c);
+        uint8_t* r = e ? (uint8_t*)Table_FindField14Prev(g_news, 0, F<int32_t>(e, 0x14))
+                       : (uint8_t*)Table_Newest14(g_news);
         if (r) Newspaper_Show(r);
     }
     return 0;
@@ -1327,8 +1327,8 @@ RT3_REPLACE(0x442330, PopOptionHistory);
 // (0x6d1720) when open.
 RT3_NOINLINE void Game_PauseTools() {
     AppendOptionHistory();
-    if (g_6d1a8c) TrackTool_Suspend(g_6d1a8c);
-    if (g_6d1720) InfoWindow_ClearHighlights(g_6d1720);
+    if (g_trackTool) TrackTool_Suspend(g_trackTool);
+    if (g_buildingDialog) InfoWindow_ClearHighlights(g_buildingDialog);
 }
 RT3_REPLACE(0x4423a0, Game_PauseTools);
 
@@ -1336,8 +1336,8 @@ RT3_REPLACE(0x4423a0, Game_PauseTools);
 // an open building dialog (0x6d1720) and the track tool (0x6d1a8c) resume.
 RT3_NOINLINE void Options_Restore() {
     PopOptionHistory();
-    if (uint8_t* dlg = g_6d1720) BuildingDialog_Retrack(dlg);
-    if (uint8_t* tool = g_6d1a8c) TrackTool_Resume(tool);
+    if (uint8_t* dlg = g_buildingDialog) BuildingDialog_Retrack(dlg);
+    if (uint8_t* tool = g_trackTool) TrackTool_Resume(tool);
 }
 RT3_REPLACE(0x4423d0, Options_Restore);
 

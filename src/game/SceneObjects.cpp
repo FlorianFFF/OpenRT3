@@ -1450,14 +1450,14 @@ RT3_REPLACE(0x455790, SceneObj_Angle1);
 // 0x4557b0. Closes the model preview: the previewed object (0x6acd3c) is
 // forgotten and the preview model (0x6acd40) released and deleted.
 RT3_NOINLINE void ModelPreview_Close() {
-    if (!g_6acd40) return;
+    if (!g_previewModel) return;
     hook::As<uint32_t>(g_6acd3c) = 0;
-    ModelObj_Release(g_6acd40);
-    if (uint8_t* m = g_6acd40) {
+    ModelObj_Release(g_previewModel);
+    if (uint8_t* m = g_previewModel) {
         ModelObj_Destructor(m);
         ((void(__cdecl*)(void*))0x53b080)(m);
     }
-    hook::As<uint32_t>(g_6acd40) = 0;
+    hook::As<uint32_t>(g_previewModel) = 0;
 }
 RT3_REPLACE(0x4557b0, ModelPreview_Close);
 
@@ -1503,7 +1503,7 @@ int32_t __fastcall Obj_CloseCurrent(void* o, int, int32_t a) {
     ((void(__thiscall*)(void*, int32_t))(*(void***)o)[0x40 / 4])(o, a);
     hook::As<int32_t>(g_6acd38) = 0;
     hook::As<int32_t>(g_6acd3c) = 0;
-    hook::As<int32_t>(g_6acd40) = 0;
+    hook::As<int32_t>(g_previewModel) = 0;
     return 0;
 }
 RT3_REPLACE(0x455a50, Obj_CloseCurrent);
@@ -1602,13 +1602,13 @@ RT3_NOINLINE void __fastcall SceneObj_Teardown(uint8_t* o) {
         Effect_Free(g_6acd38);
         hook::As<uint32_t>(g_6acd38) = 0;
     }
-    if (!g_6acd40 || o == g_6acd40) return;
-    ModelObj_Release(g_6acd40);
-    if (uint8_t* m = g_6acd40) {
+    if (!g_previewModel || o == g_previewModel) return;
+    ModelObj_Release(g_previewModel);
+    if (uint8_t* m = g_previewModel) {
         ModelObj_Destructor(m);
         ((void(__cdecl*)(void*))0x53b080)(m);
     }
-    hook::As<uint32_t>(g_6acd40) = 0;
+    hook::As<uint32_t>(g_previewModel) = 0;
 }
 RT3_REPLACE(0x455d20, SceneObj_Teardown);
 
@@ -1620,20 +1620,20 @@ RT3_REPLACE(0x455d20, SceneObj_Teardown);
 // QUIRK: an object without a model table (+0x14) reads its part at 0
 // (crash).
 RT3_NOINLINE void __fastcall SceneObj_ShowPreview(uint8_t* o) {
-    if (o == g_6acd40) return;
+    if (o == g_previewModel) return;
     Ui_PlaySound(0x21, 0, 0x3f000000);
-    if (g_6acd40) {
+    if (g_previewModel) {
         hook::As<uint32_t>(g_6acd3c) = 0;
-        ModelObj_Release(g_6acd40);
-        if (uint8_t* m = g_6acd40) {
+        ModelObj_Release(g_previewModel);
+        if (uint8_t* m = g_previewModel) {
             ModelObj_Destructor(m);
             ((void(__cdecl*)(void*))0x53b080)(m);
         }
-        hook::As<uint32_t>(g_6acd40) = 0;
+        hook::As<uint32_t>(g_previewModel) = 0;
     }
     uint8_t* mem = ((uint8_t*(__cdecl*)(size_t))0x53b070)(0x26e);
     uint8_t* m = mem ? ModelObj_Construct(mem) : nullptr;
-    g_6acd40 = m;
+    g_previewModel = m;
     float cz = (float)((double)F<float>(o, 0x1ea) / Fl_207(0x5c8700));
     float cx = (float)((double)F<float>(o, 0x1e2) / Fl_207(0x5c8700));
     Building_Init(m, 0, (const char*)0x5cb244, (const char*)0x5cb244, cx, cz, 1, 0, 0, 0);
@@ -1645,9 +1645,9 @@ RT3_NOINLINE void __fastcall SceneObj_ShowPreview(uint8_t* o) {
     float y = (float)((double)top + BitsF(py));
     float z = (float)((double)F<float>(o, 0x1ea) / Fl_207(0x5c8700));
     float x = (float)((double)F<float>(o, 0x1e2) / Fl_207(0x5c8700));
-    Obj_MoveTo(g_6acd40, 0, (float)((double)x * Fl_207(0x5c8700)), y, (float)((double)z * Fl_207(0x5c8700)));
-    SceneObj_SetScale36(g_6acd40, 0, BitsF(0x3f4ccccd));
-    g_6acd40[0x20] &= 0xdf;
+    Obj_MoveTo(g_previewModel, 0, (float)((double)x * Fl_207(0x5c8700)), y, (float)((double)z * Fl_207(0x5c8700)));
+    SceneObj_SetScale36(g_previewModel, 0, BitsF(0x3f4ccccd));
+    g_previewModel[0x20] &= 0xdf;
     g_6acd3c = o;
     void** vt = *(void***)o;
     int32_t now = ClockMs();
@@ -3453,7 +3453,7 @@ void __fastcall ModelObj_Select(uint8_t* o) {
     F<int32_t>(o, 0x236) = 0;
     SceneObj_ShowPreview(o);
     if (!F<void*>(o, 0x246)) return;
-    uint8_t* p = g_6acd40;
+    uint8_t* p = g_previewModel;
     ((void(__fastcall*)(uint8_t*))(*(void***)p)[29])(p);
 }
 RT3_REPLACE(0x45b400, ModelObj_Select);
@@ -3733,7 +3733,7 @@ void __fastcall SelectMarker_Update(uint8_t* o, int, int32_t now) {
         SceneObj_SetAngles(o, 0, 0, 0x3fc90fdb, 0);
         return;
     }
-    if (g_6acd40 != o && !(flags & 2)) return;
+    if (g_previewModel != o && !(flags & 2)) return;
     if (F<float>(o, 0x232) == Fl_207(0x5c8598)) {
         F<uint32_t>(o, 0x232) = 0xbf800000;
         F<uint32_t>(o, 0x22e) = 0x3f800000;
@@ -3761,7 +3761,7 @@ void __fastcall SelectMarker_Update(uint8_t* o, int, int32_t now) {
             v = (float)(((double(__thiscall*)(uint8_t*))(*(void***)target)[0x68 / 4])(target) + (double)bounce * Fl_207(0x5c9af4));
         else
             v = (float)((double)bounce * Fl_207(0x5c9af4) + *(const float*)(uintptr_t)(Obj_AnimFrame(target) + 0x18));
-        Obj_MoveTo(g_6acd40, 0, x, (float)((double)v + y), z);
+        Obj_MoveTo(g_previewModel, 0, x, (float)((double)v + y), z);
     }
     float frames = (float)(now - F<int32_t>(o, 0x236));
     frames = (float)((double)frames / Fl_207(0x5c8554));

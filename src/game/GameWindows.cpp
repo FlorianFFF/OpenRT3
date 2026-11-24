@@ -1335,7 +1335,7 @@ int32_t __fastcall GameView_HandleEvent(uint8_t* d, int, uint32_t* msg) {
     } else {
         // Region names only when several trains are on the map.
         tip = false;
-        if (!hook::As<int32_t>(g_6d1a8c) && !hook::As<int32_t>(g_6d1720)) {
+        if (!hook::As<int32_t>(g_trackTool) && !hook::As<int32_t>(g_buildingDialog)) {
             int32_t running = 0;
             for (int32_t i = 0; i < Collection_Count(g_territories); ++i)
                 if (F<int32_t>(Table_At(g_territories, 0, i), 0x31) &&
@@ -1606,9 +1606,9 @@ int32_t __fastcall NewsList_HandleEvent(uint8_t* d, int, uint32_t* msg) {
         if (!F<uint32_t>(Collection_Get(g_companies, 0, F<uint32_t>(item(), 0x216)), 0x3f)) return 0;
         click();
         View_SetToolMode(g_gameWindow, 0, 0xb, -1);
-        if (!g_6d19f0) return 0;
+        if (!g_stockWindow) return 0;
         SetGlobal6d19f4(Table_ActiveIndexOf(g_players, 0, F<uint32_t>(item(), 0x212)));
-        CompanyList_Select(g_6d19f0, 0, Table_LiveRankOf(g_companies, 0, F<uint32_t>(item(), 0x216)));
+        CompanyList_Select(g_stockWindow, 0, Table_LiveRankOf(g_companies, 0, F<uint32_t>(item(), 0x216)));
         return 0;
     }
     case 18:
@@ -1826,7 +1826,7 @@ RT3_REPLACE(0x4e0a70, EditButton_SetCursor);
 RT3_NOINLINE uint8_t* __fastcall SetupWindow_Construct(uint8_t* w) {
     Widget_SetVtblRet(w);
     F<uint32_t>(w, 0) = 0x5d0f3c;
-    g_6d0820 = w;
+    g_setupWindow = w;
     Window_Load(w, 0, 0.0f, 0.0f, (const char*)0x5d0f68);
     for (uint32_t id = 0x7918; id <= 0x7921; ++id) Window_SendEvent5(w, 0, 0x7b, id, 0x4e0a70, 0, 0);
     SetupWindow_FillLabels(w);
@@ -1880,10 +1880,10 @@ RT3_REPLACE(0x4e0df0, Panel6d0820_Close);
 
 // 0x4e0e40. Opens the setup window (0x6d0820) once and puts it on screen.
 void SetupWindow_Open() {
-    if (g_6d0820) return;
+    if (g_setupWindow) return;
     uint8_t* w = (uint8_t*)ExeNew(0xae);
     if (w) w = SetupWindow_Construct(w);
-    g_6d0820 = w;
+    g_setupWindow = w;
     WidgetList_Insert(hook::As<uint8_t**>(g_windowManager), 0, w, 1);
 }
 RT3_REPLACE(0x4e0e40, SetupWindow_Open);

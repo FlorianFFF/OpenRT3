@@ -739,7 +739,7 @@ RT3_NOINLINE void __fastcall Minimap_AddOrder(uint8_t* o, int, float x, float y)
         if (g_input[0xa8c] & 3) {
             uint8_t* w = hook::As<uint32_t>(g_6d3ae4)
                              ? Widget_FindChild(g_6d3ac8, 0, 0x2aff)
-                             : Widget_FindChild(g_6d3b20, 0, hook::As<uint32_t>(g_6d3b24) ? 0x65a3 : 0x65a4);
+                             : Widget_FindChild(g_trainWindow, 0, hook::As<uint32_t>(g_6d3b24) ? 0x65a3 : 0x65a4);
             idx = F<int32_t>(w, 0x1d6);
         }
         if (idx < 0) idx = 0;

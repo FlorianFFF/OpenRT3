@@ -1055,7 +1055,7 @@ RT3_REPLACE(0x4338d0, View_OnModeInput);
 // zoom with `mode` 1.
 RT3_NOINLINE void __stdcall Camera_FollowObject(uint8_t* o, int32_t mode) {
     if (mode == 2) return;
-    Window_SendEvent5(g_6d0820, 0, 0x87, 0x7922, 3, 0, 0);
+    Window_SendEvent5(g_setupWindow, 0, 0x87, 0x7922, 3, 0, 0);
     Obj_Float18(hook::As<void*>(g_62be68));
     int32_t hi = 0xfa, lo = 0x78;
     if (((int32_t(__fastcall*)(uint8_t*))(*(void***)o)[0x1c])(o)) hi = 0x28a;
@@ -1169,13 +1169,13 @@ RT3_REPLACE(0x433bd0, Economy_UpdateEraFactors);
 // Reverse engineered by GPT6.1 SOL MEDIUM.
 // 0x433da0. Set editor-button groups, select mode 25, and apply its byte mode.
 RT3_NOINLINE void __stdcall World_SetEditorButtons(uint32_t modeArg, uint32_t disabledArg) {
-    Event(hook::As<void*>(g_6d0820), (uint8_t)disabledArg ? 0x87 : 0x65, 0x7925, 3, 0, 0);
+    Event(hook::As<void*>(g_setupWindow), (uint8_t)disabledArg ? 0x87 : 0x65, 0x7925, 3, 0, 0);
     uint8_t mode = (uint8_t)modeArg;
-    Event(hook::As<void*>(g_6d0820), mode == 1 ? 0x65 : 0x87, 0x7924, 3, 0, 0);
+    Event(hook::As<void*>(g_setupWindow), mode == 1 ? 0x65 : 0x87, 0x7924, 3, 0, 0);
     uint32_t type = mode == 1 ? 0x87 : 0x65;
-    Event(hook::As<void*>(g_6d0820), type, 0x7923, 3, 0, 0);
+    Event(hook::As<void*>(g_setupWindow), type, 0x7923, 3, 0, 0);
     for (uint32_t id = 0x7db; id < 0x838; ++id) Event(hook::As<void*>(g_gameWindow), type, id, 3, 0, 0);
-    if ((uint8_t)disabledArg) Event(hook::As<void*>(g_6d0820), 0x87, 0x7924, 3, 0, 0);
+    if ((uint8_t)disabledArg) Event(hook::As<void*>(g_setupWindow), 0x87, 0x7924, 3, 0, 0);
     View_SetToolMode(g_gameWindow, 0, 25, -1);
     hook::Orig<void(__fastcall*)(void*, int, uint32_t)>(0x43a0a0)(hook::As<void*>(g_62be68), 0, mode);
 }
@@ -1450,10 +1450,10 @@ RT3_NOINLINE int32_t UiBusy() {
         int32_t screen = F<int32_t>(g_gameWindow, 0x8c);
         if (screen == 0xc) {
             if (F<uint32_t>(g_input, 0xa8c) & 0x400) stamp = true;
-            else if (void* d = hook::As<void*>(g_6d1a8c)) stamp = Obj_Has78(d) != 0;
+            else if (void* d = hook::As<void*>(g_trackTool)) stamp = Obj_Has78(d) != 0;
         }
         if (!stamp && screen == 6) {
-            uint8_t* w = g_6d1720;
+            uint8_t* w = g_buildingDialog;
             if (w && F<int32_t>(w, 0x7c)) stamp = true;
         }
     }
@@ -1485,13 +1485,13 @@ RT3_REPLACE(0x4349a0, CountHumanPlayers);
 RT3_NOINLINE void __fastcall World_SetFollow(uint8_t* w, int, int32_t on, uint8_t* target) {
     F<int32_t>(w, 0x45) = 0;
     F<int32_t>(w, 0x49) = 0;
-    if (!g_6d0820) return;
+    if (!g_setupWindow) return;
     if (!on) {
-        Window_SendEvent5(g_6d0820, 0, 0x87, 0x7922, 3, 0, 0);
+        Window_SendEvent5(g_setupWindow, 0, 0x87, 0x7922, 3, 0, 0);
         if (F<int32_t>(g_62be68, 0x60)) Camera_SetMode(g_62be68, 0, 0);
         return;
     }
-    Window_SendEvent5(g_6d0820, 0, 0x65, 0x7922, 3, 0, 0);
+    Window_SendEvent5(g_setupWindow, 0, 0x65, 0x7922, 3, 0, 0);
     if (target == F<uint8_t*>(g_62be68, 0x60)) return;
     Camera_SetMode(g_62be68, 0, (int32_t)(uintptr_t)target);
     float zoom = (float)Obj_Float18(g_62be68);
@@ -1546,7 +1546,7 @@ RT3_NOINLINE void __fastcall World_EconomyTick(uint8_t* w, int, int32_t force) {
         int32_t idx = next + 5 * (next >= F<int32_t>(w, 0x2d) ? 1 : 0);
         const char* text = GetString(*(const int32_t*)(0x620c74 + idx * 8));
         int32_t idx2 = next + 5 * (next >= F<int32_t>(w, 0x2d) ? 1 : 0);
-        News_Add(g_6cea4c, 0, GetString(*(const int32_t*)(0x620c70 + idx2 * 8)), text, 0, 0);
+        News_Add(g_news, 0, GetString(*(const int32_t*)(0x620c70 + idx2 * 8)), text, 0, 0);
     } else {
         int32_t idx = next + 5 * (next >= F<int32_t>(w, 0x2d) ? 1 : 0);
         char buf[0x204];
@@ -1911,7 +1911,7 @@ void __fastcall World_YearEvents(uint8_t* w) {
     if (F<int32_t>(world, 0x46c38) || F<uint16_t>(world, 5) == year) return;
     auto headline = [](int32_t title, int32_t text) {
         const char* t2 = GetString(text);
-        News_Add(g_6cea4c, 0, GetString(title), t2, 0, 0);
+        News_Add(g_news, 0, GetString(title), t2, 0, 0);
     };
     switch (year) {
     case 1865: headline(0x157, 0x158); return;

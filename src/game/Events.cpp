@@ -631,7 +631,7 @@ RT3_NOINLINE uint32_t __fastcall Event_ShowText(uint8_t* e, int, uint8_t* pl, ui
         char headline[0xc8];
         RuleText_Expand(e, 0, (const char*)e + 0xe0, text, 0x320, pl, co, st);
         RuleText_Expand(e, 0, (const char*)e + 0x401, headline, 0xc8, pl, co, st);
-        News_Add(g_6cea4c, 0, text, headline, 0, 0);
+        News_Add(g_news, 0, text, headline, 0, 0);
         return picked;
     }
     case 3:

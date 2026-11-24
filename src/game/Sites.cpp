@@ -887,7 +887,7 @@ RT3_NOINLINE int32_t __stdcall Site_FootprintFlat(const int32_t* pos, int32_t sh
             int32_t w = F<int32_t>(Map(), 0x2155);
             if (x >= (uint32_t)(w - 1)) return 0;
             if (((const uint8_t*)0x5edd30)[(j + shape * 8) * 8 + i]) {
-                uint32_t* occ = hook::As<uint32_t*>(g_62b300);
+                uint32_t* occ = hook::As<uint32_t*>(g_cellOwners);
                 uint32_t o = occ ? occ[w * (int32_t)y + (int32_t)x] : 0;
                 if (Map_CellFlag(Map(), 0, (int32_t)x * 4, (int32_t)y * 4, 0)) return 0;
                 if (Map_NearFeature(Map(), 0, (int32_t)x, (int32_t)y)) return 0;
@@ -907,11 +907,11 @@ RT3_REPLACE(0x4153f0, Site_FootprintFlat);
 // 0x415570. Chooses a footprint shape (0x62ba3a) for placing obj at 0x62b7a8: the
 // preferred one (0x5ee030, consumed) or a random one, else the first that fits.
 RT3_NOINLINE int32_t __stdcall Site_ChooseShape(uint8_t* obj) {
-    if (!hook::As<uint32_t*>(g_62b300)) {
+    if (!hook::As<uint32_t*>(g_cellOwners)) {
         uint8_t* m = g_map;
         uint32_t n = (uint32_t)(F<int32_t>(m, 0x2159) * F<int32_t>(m, 0x2155)) << 2;
         uint8_t* p = (uint8_t*)Malloc(n);
-        hook::As<uint8_t*>(g_62b300) = p;
+        hook::As<uint8_t*>(g_cellOwners) = p;
         for (uint32_t k = 0; k < n; ++k) p[k] = 0;
     }
     g_62ba3a = -1;
@@ -954,11 +954,11 @@ RT3_REPLACE(0x415570, Site_ChooseShape);
 // first use) and adds terrain points of kind (type index of +0x736) * 7 + 6, 4 of
 // them for type kind 3, else 999. Then marks the scene dirty and refreshes the view.
 RT3_NOINLINE void __cdecl Footprint_StampImpl(uint8_t* o, int32_t owner) {
-    if (!g_62b300) {
+    if (!g_cellOwners) {
         uint8_t* m = g_map;
         size_t n = (size_t)(F<int32_t>(m, 0x2159) * F<int32_t>(m, 0x2155) * 4);
         void* p = ((void*(__cdecl*)(size_t))0x5a125d)(n);
-        hook::As<void*>(g_62b300) = p;
+        hook::As<void*>(g_cellOwners) = p;
         memset(p, 0, n);
     }
     if (!o) o = (uint8_t*)0x62b308;
@@ -971,7 +971,7 @@ RT3_NOINLINE void __cdecl Footprint_StampImpl(uint8_t* o, int32_t owner) {
             if (!*(uint8_t*)(0x5edd30 + (dy + F<int32_t>(o, 0x732) * 8) * 8 + dx)) continue;
             if (Map_CellFlag(hook::As<void*>(g_map), 0, x * 4, y * 4, 0)) continue;
             uint8_t* m = g_map;
-            g_62b300[F<int32_t>(m, 0x2155) * y + x] = owner;
+            g_cellOwners[F<int32_t>(m, 0x2155) * y + x] = owner;
             Terrain_AddPoints(g_map, 0, x, y, (uint8_t)kind, F<int32_t>(F<uint8_t*>(o, 0x736), 4) == 3 ? 4 : 0x3e7);
         }
     }
@@ -1106,7 +1106,7 @@ RT3_NOINLINE void __cdecl Site_LevelGroundImpl(int32_t id, const int32_t* r, flo
                 float s = 0.0f;
                 int32_t ok;
                 if (Game_EffectiveVersion() >= 0x68) ok = Map_NearestFlag2Impl(&s, x, y);
-                else if (g_62b300 && g_62b300[F<int32_t>(g_map, 0x2155) * y + x])
+                else if (g_cellOwners && g_cellOwners[F<int32_t>(g_map, 0x2155) * y + x])
                     ok = Map_BlockHasFlag2Impl(x, y);
                 else
                     ok = 1;
@@ -1139,7 +1139,7 @@ RT3_NOINLINE void __cdecl Site_LevelGroundImpl(int32_t id, const int32_t* r, flo
             for (int32_t x = r[0]; x <= r[1]; ++x) {
                 uint8_t* m = g_map;
                 if (F<uint8_t*>(m, 0x2135)[(F<int32_t>(m, 0x2155) + 1) * y + x] & 1) continue;
-                if (g_62b300 && g_62b300[F<int32_t>(m, 0x2155) * y + x] && !Map_BlockHasFlag2Impl(x, y))
+                if (g_cellOwners && g_cellOwners[F<int32_t>(m, 0x2155) * y + x] && !Map_BlockHasFlag2Impl(x, y))
                     continue;
                 store(x, y, h);
             }
@@ -1305,7 +1305,7 @@ RT3_NOINLINE void __stdcall Site_ReleaseCells(const int32_t* rect, HashMap* hash
                 }
                 uint8_t* s = (uint8_t*)node[1];
                 F<uint32_t>(s, 0x4c8 + k * 4) = 0x497423f0;
-                uint32_t* occ = hook::As<uint32_t*>(g_62b300);
+                uint32_t* occ = hook::As<uint32_t*>(g_cellOwners);
                 if (F<int32_t>(s, 0x732) != -1 && (uint8_t*)(occ ? occ[F<int32_t>(m, 0x2155) * y + x] : 0) == s) {
                     occ[F<int32_t>(m, 0x2155) * y + x] = 0;
                 } else {
@@ -1315,7 +1315,7 @@ RT3_NOINLINE void __stdcall Site_ReleaseCells(const int32_t* rect, HashMap* hash
             } else {
                 Hash_Remove(hash, 0, key);
                 if (F<int32_t>((uint8_t*)n[1], 0x732) != -1)
-                    hook::As<uint32_t*>(g_62b300)[F<int32_t>(g_map, 0x2155) * y + x] = 0;
+                    hook::As<uint32_t*>(g_cellOwners)[F<int32_t>(g_map, 0x2155) * y + x] = 0;
                 Map_SetCoarseByte(hook::As<void*>(g_map), 0, x, y, 0);
             }
             if (pool[3] && (uint32_t)node >= pool[1] && (uint32_t)node < pool[2]) {
@@ -1343,11 +1343,11 @@ RT3_NOINLINE void ResetGlobals62b308() {
     g_62b7a8 = 0xf423f;
     g_62b7b0 = 0xf423f;
     g_62b270 = 0;
-    if (hook::As<void*>(g_62b300)) return;
+    if (hook::As<void*>(g_cellOwners)) return;
     uint8_t* map = g_map;
     uint32_t n = F<int32_t>(map, 0x2159) * F<int32_t>(map, 0x2155) * 4;
     uint8_t* p = (uint8_t*)((void*(__cdecl*)(size_t))0x5a125d)(n);
-    hook::As<void*>(g_62b300) = p;
+    hook::As<void*>(g_cellOwners) = p;
     for (uint32_t i = 0; i < n; ++i) p[i] = 0;
 }
 RT3_REPLACE(0x416590, ResetGlobals62b308);
@@ -1394,7 +1394,7 @@ RT3_NOINLINE int32_t __cdecl Site_CheckPlacementImpl(uint8_t* type, uint32_t a, 
         for (int32_t y = y0; y <= y1; ++y) {
             if (ok != 1) continue;
             for (int32_t x = x0; x <= x1; ++x) {
-                int32_t* grid = g_62b300;
+                int32_t* grid = g_cellOwners;
                 if (grid && grid[F<int32_t>(map, 0x2155) * y + x]) {
                     Site_SetMessage(0xbb);
                     ok = 0;
@@ -1459,9 +1459,9 @@ RT3_NOINLINE void __fastcall Sites_DestroyAll(Collection* c) {
         ((void(__thiscall*)(Collection*, uint32_t))vt[2])(c, Collection_IdAt(c, 0, 0, 0));
     }
     Collection_Clear(c);
-    if (hook::As<void*>(g_62b300)) {
-        Free(hook::As<void*>(g_62b300));
-        hook::As<void*>(g_62b300) = nullptr;
+    if (hook::As<void*>(g_cellOwners)) {
+        Free(hook::As<void*>(g_cellOwners));
+        hook::As<void*>(g_cellOwners) = nullptr;
     }
     if (HashMap* h = F<HashMap*>(c, 0x88)) {
         Hash_DestroyThunk(h);
@@ -2249,7 +2249,7 @@ RT3_REPLACE(0x419110, Map_RefreshBuildingsAround);
 
 // 0x419200. Per-cell value from the buffer 0x62b300 (0 if absent).
 int32_t __stdcall CellBuffer_Get(int32_t x, int32_t y) {
-    int32_t* b = g_62b300;
+    int32_t* b = g_cellOwners;
     if (!b) return 0;
     return b[F<int32_t>(g_map, 0x2155) * y + x];
 }

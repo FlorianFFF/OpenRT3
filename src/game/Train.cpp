@@ -1881,8 +1881,8 @@ RT3_REPLACE(0x4a8ec0, Train_SmoothSpeed);
 RT3_NOINLINE void __fastcall Train_RefreshRows(uint8_t* t) {
     uint8_t* view = g_gameWindow;
     if (!view) return;
-    if (F<int32_t>(view, 0x8c) == 2 && F<int32_t>(view, 0x90) == F<int32_t>(t, 0x25) && g_6d3b20)
-        TrainRow_Build(g_6d3b20, F<uint32_t>(t, 0x25), 1, 0, 1);
+    if (F<int32_t>(view, 0x8c) == 2 && F<int32_t>(view, 0x90) == F<int32_t>(t, 0x25) && g_trainWindow)
+        TrainRow_Build(g_trainWindow, F<uint32_t>(t, 0x25), 1, 0, 1);
     view = g_gameWindow;
     if (F<int32_t>(view, 0x8c) != 1 || !g_6d3b34) return;
     uint8_t* list = Widget_FindChild(g_6d3b34, 0, Global6d3b30() ? 0x32c9 : 0x32ca);

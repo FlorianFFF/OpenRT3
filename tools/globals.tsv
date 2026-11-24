@@ -93,7 +93,7 @@ address	name	type	note
 621ec4	g_621ec4	uint32_t	
 621ec8	g_621ec8	uint32_t	
 621f40	g_621f40	int32_t	
-621f48	g_621f48	int32_t	
+621f48	g_selectedTerritory	int32_t	selected territory
 621f4c	g_621f4c	int32_t	
 621f50	g_621f50	int32_t	
 622070	g_622070	int32_t	
@@ -209,7 +209,7 @@ address	name	type	note
 62b2f4	g_62b2f4	void*	
 62b2f8	g_62b2f8	void*	
 62b2fc	g_buildingTypes	Collection*	building types (.bty)
-62b300	g_62b300	int32_t*	
+62b300	g_cellOwners	int32_t*	cell-owner map
 62b304	g_62b304	int32_t	
 62b308	g_62b308	uint32_t	
 62b30c	g_62b30c	uint32_t	
@@ -287,7 +287,7 @@ address	name	type	note
 6acd34	g_messageLog	Collection*	message / news log
 6acd38	g_6acd38	uint32_t*	
 6acd3c	g_6acd3c	uint8_t*	
-6acd40	g_6acd40	uint8_t*	
+6acd40	g_previewModel	uint8_t*	preview model
 6acd44	g_6acd44	int32_t	
 6acd48	g_6acd48	int32_t	
 6acd4c	g_6acd4c	uint8_t*	
@@ -404,12 +404,12 @@ address	name	type	note
 6cea3d	g_6cea3d	int32_t	
 6cea41	g_6cea41	int32_t	
 6cea48	g_6cea48	int32_t	
-6cea4c	g_6cea4c	Collection*	
+6cea4c	g_news	Collection*	news list
 6cea50	g_6cea50	Collection*	
 6cea54	g_6cea54	void*	
 6cea58	g_6cea58	uint32_t*	
 6cea5c	g_6cea5c	void*	
-6cea60	g_6cea60	uint8_t*	
+6cea60	g_effects	uint8_t*	effect (emitter) table
 6cea64	g_6cea64	int32_t	
 6cea68	g_6cea68	int32_t	
 6cea6c	g_6cea6c	int32_t	
@@ -466,7 +466,7 @@ address	name	type	note
 6cfcf8	g_6cfcf8	uint8_t*	
 6cfcfc	g_6cfcfc	uint8_t*	
 6cfd00	g_6cfd00	uint8_t*	
-6cfd04	g_6cfd04	uint8_t*	
+6cfd04	g_industryWindow	uint8_t*	industry window
 6cfd08	g_6cfd08	uint8_t	
 6cfd09	g_6cfd09	uint8_t	
 6cfd0a	g_6cfd0a	uint8_t	
@@ -493,15 +493,15 @@ address	name	type	note
 6cfe24	g_6cfe24	int32_t	
 6cfe40	g_6cfe40	float	
 6cfe44	g_6cfe44	float	
-6cfe48	g_6cfe48	float	
+6cfe48	g_dividendPerShare	float	dividend per share
 6cfe4c	g_6cfe4c	uint8_t*	
 6cfe50	g_6cfe50	uint8_t*	
 6cfe54	g_6cfe54	uint8_t*	
 6cfe58	g_6cfe58	uint8_t*	
 6cfe5c	g_6cfe5c	int32_t	
 6cfe60	g_6cfe60	int32_t	
-6cfe64	g_6cfe64	int32_t	
-6cfe68	g_6cfe68	int32_t	
+6cfe64	g_issueShareCount	int32_t	shares to issue
+6cfe68	g_issueSharePrice	int32_t	price of the shares to issue
 6cfe6c	g_6cfe6c	uint32_t	
 6cfe70	g_6cfe70	uint8_t*	
 6cfe74	g_6cfe74	void*	
@@ -572,7 +572,7 @@ address	name	type	note
 6d0814	g_6d0814	uint8_t*	
 6d0818	g_gameWindow	uint8_t*	the game window (selected company +0x90)
 6d081c	g_6d081c	uint8_t*	
-6d0820	g_6d0820	uint8_t*	
+6d0820	g_setupWindow	uint8_t*	setup window
 6d1078	g_6d1078	void*	
 6d107c	g_6d107c	uint8_t*	
 6d1080	g_6d1080	uint8_t*	
@@ -595,7 +595,7 @@ address	name	type	note
 6d10c4	g_6d10c4	int32_t	
 6d10c8	g_6d10c8	int32_t	
 6d10cc	g_6d10cc	int32_t	
-6d10d0	g_6d10d0	uint32_t	
+6d10d0	g_companyOverview	uint32_t	company overview dialog
 6d10d4	g_6d10d4	uint32_t	
 6d10dc	g_6d10dc	uint16_t	
 6d10de	g_6d10de	uint16_t	
@@ -611,13 +611,13 @@ address	name	type	note
 6d1228	g_6d1228	char	
 6d1268	g_6d1268	uint8_t*	
 6d126c	g_6d126c	uint8_t*	
-6d1270	g_6d1270	uint8_t*	
+6d1270	g_lobbyBuffer	uint8_t*	lobby buffer
 6d1274	g_6d1274	int32_t	
 6d1278	g_6d1278	int32_t	
 6d127c	g_6d127c	int32_t	
 6d1280	g_6d1280	int32_t	
 6d1284	g_6d1284	int32_t	
-6d1288	g_6d1288	int32_t	
+6d1288	g_lobbyMode	int32_t	lobby mode
 6d128c	g_6d128c	int32_t	
 6d1290	g_6d1290	uint8_t	
 6d1291	g_6d1291	uint8_t	
@@ -699,7 +699,7 @@ address	name	type	note
 6d1714	g_6d1714	int32_t	
 6d1718	g_6d1718	uint8_t*	
 6d171c	g_6d171c	int32_t	
-6d1720	g_6d1720	uint8_t*	
+6d1720	g_buildingDialog	uint8_t*	building being placed / building dialog
 6d1724	g_6d1724	uint8_t*	
 6d1728	g_6d1728	int32_t	
 6d172c	g_6d172c	uint32_t	
@@ -715,7 +715,7 @@ address	name	type	note
 6d19e4	g_6d19e4	uint8_t*	
 6d19e8	g_6d19e8	uint8_t*	
 6d19ec	g_6d19ec	uint8_t*	
-6d19f0	g_6d19f0	uint8_t*	
+6d19f0	g_stockWindow	uint8_t*	stock market list window
 6d19f4	g_6d19f4	int32_t	
 6d19f8	g_6d19f8	int32_t	
 6d19fc	g_6d19fc	int32_t	
@@ -741,7 +741,7 @@ address	name	type	note
 6d1a88	g_6d1a88	uint8_t	
 6d1a89	g_6d1a89	uint8_t	
 6d1a8a	g_6d1a8a	uint8_t	
-6d1a8c	g_6d1a8c	uint8_t*	
+6d1a8c	g_trackTool	uint8_t*	the track tool
 6d1a90	g_6d1a90	uint32_t	
 6d1a94	g_6d1a94	uint32_t	
 6d1a98	g_6d1a98	int32_t	
@@ -772,7 +772,7 @@ address	name	type	note
 6d3b14	g_6d3b14	uint8_t*	
 6d3b18	g_6d3b18	void*	
 6d3b1c	g_6d3b1c	void*	
-6d3b20	g_6d3b20	uint8_t*	
+6d3b20	g_trainWindow	uint8_t*	train window
 6d3b24	g_6d3b24	int32_t	
 6d3b28	g_6d3b28	int32_t	
 6d3b2c	g_6d3b2c	int32_t	
@@ -781,7 +781,7 @@ address	name	type	note
 6d3b38	g_6d3b38	int32_t	
 6d3b3c	g_6d3b3c	uint8_t*	
 6d3b40	g_6d3b40	uint8_t*	
-6d3b44	g_6d3b44	uint8_t*	
+6d3b44	g_dialogWindow	uint8_t*	the open dialog window
 6d3b48	g_6d3b48	const char*	
 6d3b4c	g_6d3b4c	int32_t	
 6d3b50	g_6d3b50	int32_t	
@@ -884,7 +884,7 @@ ccb9f0	g_ccb9f0	int32_t
 ccb9f4	g_ccb9f4	int32_t	
 ccb9f8	g_ccb9f8	uint8_t*	
 ccb9fc	g_ccb9fc	uint8_t*	
-ccba00	g_ccba00	uint8_t*	
+ccba00	g_music	uint8_t*	game music
 ccba04	g_ccba04	int32_t	
 ccba08	g_ccba08	uint32_t	
 ccba10	g_ccba10	int32_t	

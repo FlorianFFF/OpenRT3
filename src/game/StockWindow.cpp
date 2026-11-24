@@ -209,14 +209,14 @@ void __fastcall Stock_DrawChartCb(void*, int, float x, float y, float w, float h
     if (idx < 0 || idx >= Table_CountField3f(g_companies)) return;
     const int32_t a = hook::As<int32_t>(g_6d19dc), b = g_6d19e0;
     const uint32_t co = Table_NthIdField3f(g_companies, 0, g_622b00);
-    CompanyStock_DrawChart(g_6d19f0, 0x3e4e, x, y, w, h, 0, co, (uint8_t*)(uintptr_t)a, (uint8_t**)0x6d1748, b,
+    CompanyStock_DrawChart(g_stockWindow, 0x3e4e, x, y, w, h, 0, co, (uint8_t*)(uintptr_t)a, (uint8_t**)0x6d1748, b,
                            (const uint8_t*)0x622b04);
 }
 RT3_REPLACE(0x50a570, Stock_DrawChartCb);
 
 void Dialog_Clear3b60() {
     Reset_625a94();
-    Window_DeleteChildren(g_6d19f0, 0, 0x3b60, 0x3e7f, 0);
+    Window_DeleteChildren(g_stockWindow, 0, 0x3b60, 0x3e7f, 0);
 }
 RT3_REPLACE(0x50a5e0, Dialog_Clear3b60);
 
@@ -229,13 +229,13 @@ RT3_REPLACE(0x50a660, SetGlobal6d19f4);
 // company list window 0x6d19f0.
 void CompanyList_ClearRows() {
     Reset_625a94();
-    if (uint8_t* w = g_6d19f0) Window_DeleteChildren(w, 0, 0x3b60, 0x3e7f, 0);
+    if (uint8_t* w = g_stockWindow) Window_DeleteChildren(w, 0, 0x3b60, 0x3e7f, 0);
 }
 RT3_REPLACE(0x50a670, CompanyList_ClearRows);
 
 RT3_NOINLINE void Dialog_Clear3b60IfOpen() {
     Reset_625a94();
-    if (g_6d19f0) Window_DeleteChildren(g_6d19f0, 0, 0x3b60, 0x3e7f, 0);
+    if (g_stockWindow) Window_DeleteChildren(g_stockWindow, 0, 0x3b60, 0x3e7f, 0);
 }
 RT3_REPLACE(0x50a6a0, Dialog_Clear3b60IfOpen);
 
@@ -292,7 +292,7 @@ RT3_NOINLINE void __fastcall PlayerFinance_Draw(void*, int, float x, float y, fl
             else if (Obj_NameIndex(pl) != -1) table = hook::Global<uint8_t*>(0x6d1748 + Obj_NameIndex(pl) * 4);
             else pl[0x15c] = 0;
             Glyph_Queue((uint8_t*)(uintptr_t)Table_Entry(table, 0, idx), 0, gx, faceY, 0x3f800000, scale, scale, 0xffffffff, 0, 1, 0, 0.0f, 0.0f, 1.0f, 1.0f);
-            if (Widget_FindChild(g_6d19f0, 0, i + 0x3afc)) continue;
+            if (Widget_FindChild(g_stockWindow, 0, i + 0x3afc)) continue;
             uint8_t def[0x8b];
             memset(def, 0, sizeof def);
             F<float>(def, 7) = (float)(((double)slotW - cellW) * D(0x5ca180) + margin + x + mid - half);
@@ -308,7 +308,7 @@ RT3_NOINLINE void __fastcall PlayerFinance_Draw(void*, int, float x, float y, fl
             String_Assign(&F<char*>(def, 0x3f), text);
             uint8_t* tw = (uint8_t*)ExeNew(0xda);
             tw = tw ? TimerWidget_Construct(tw, 0, def) : nullptr;
-            Window_AddChild(g_6d19f0, 0, tw, 0);
+            Window_AddChild(g_stockWindow, 0, tw, 0);
             FreeAndNull(&F<void*>(def, 0x3f));
         }
     }
@@ -334,7 +334,7 @@ RT3_NOINLINE void __fastcall PlayerFinance_Draw(void*, int, float x, float y, fl
         uint32_t color = v >= Fl(0x5c8598) ? 0xffffffff : 0xffff5f5f;
         const char* tip = GetString(tips[k]);
         float h2 = (float)(hm * D(0x5d0bf8));
-        TextLink_DrawPlain(g_6d19f0, font, buf, x, rowY, valueW, h2, color, 3, 0, 0x20, tip, k + 0x3e1c);
+        TextLink_DrawPlain(g_stockWindow, font, buf, x, rowY, valueW, h2, color, 3, 0, 0x20, tip, k + 0x3e1c);
         if (k == 1) {
             float ly = (float)((double)rowY + Fl(0x5d12c8));
             float right = (float)((double)x + w);
@@ -417,7 +417,7 @@ void __fastcall StockList_DrawRow(void*, uint32_t id, float x, float y, int32_t,
             float cx = (float)((double)x + C(k));
             Font_DrawTextBox(font, 0, num, cx, y, w, h, 0xffffffff, 3, 0, 0, 1.0f);
             int32_t wid = (k + 0x98) * 0x64 + (int32_t)id;
-            if (Widget_FindChild(g_6d19f0, 0, wid)) continue;
+            if (Widget_FindChild(g_stockWindow, 0, wid)) continue;
             uint8_t def[0x8b];
             memset(def, 0, sizeof def);
             F<float>(def, 0xb) = y;
@@ -428,7 +428,7 @@ void __fastcall StockList_DrawRow(void*, uint32_t id, float x, float y, int32_t,
             String_Assign(&F<char*>(def, 0x3f), text);
             uint8_t* tw = (uint8_t*)((void*(__cdecl*)(size_t))0x53b070)(0xda);
             tw = tw ? TimerWidget_Construct(tw, 0, def) : nullptr;
-            Window_AddChild(g_6d19f0, 0, tw, 0);
+            Window_AddChild(g_stockWindow, 0, tw, 0);
             Free(F<void*>(def, 0x3f));
             continue;
         }
@@ -498,7 +498,7 @@ void __fastcall StockList_DrawRow(void*, uint32_t id, float x, float y, int32_t,
             }
         }
         float w = (float)((C(k + 1) - C(k)) - D(0x5d0250));
-        TextLink_Draw(g_6d19f0, font, num, (float)((double)x + C(k)), y, w, h, 3, 0, 1, text, (k + 0x98) * 0x64 + (int32_t)id, 0, 0);
+        TextLink_Draw(g_stockWindow, font, num, (float)((double)x + C(k)), y, w, h, 3, 0, 1, text, (k + 0x98) * 0x64 + (int32_t)id, 0, 0);
     }
 }
 RT3_REPLACE(0x50ae50, StockList_DrawRow);
@@ -555,9 +555,9 @@ void __fastcall StockBuy_Destruct(uint8_t* w) {
         uint8_t* rec = (uint8_t*)Collection_Get(c, 0, Collection_IdAt(c, 0, (uint32_t)i, 0));
         Pack_Release(g_pack, 0, rec + 0x20);
     }
-    Window_DeleteChildren(g_6d19f0, 0, 0x3b60, 0x3e7f, 0);
-    Window_DeleteChildren(g_6d19f0, 0, 0x3e4e, 0x3e7f, 0);
-    g_6d19f0 = nullptr;
+    Window_DeleteChildren(g_stockWindow, 0, 0x3b60, 0x3e7f, 0);
+    Window_DeleteChildren(g_stockWindow, 0, 0x3e4e, 0x3e7f, 0);
+    g_stockWindow = nullptr;
     Widget_SetVtbl(w);
 }
 RT3_REPLACE(0x50bac0, StockBuy_Destruct);
@@ -651,7 +651,7 @@ int32_t __fastcall StockWindow_HandleEvent(uint8_t* d, int, uint32_t* msg) {
             F<int32_t>(Obj_Ref25(g_world), 0x1e1) = 1;
         }
         Reset_625a94();
-        Window_DeleteChildren(g_6d19f0, 0, 0x3b60, 0x3e7f, 0);
+        Window_DeleteChildren(g_stockWindow, 0, 0x3b60, 0x3e7f, 0);
         return 0;
     }
     if (id >= 0x3aad && id < 0x3ab3) {

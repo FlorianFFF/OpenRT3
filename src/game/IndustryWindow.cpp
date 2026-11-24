@@ -457,7 +457,7 @@ static inline float Prod_Bits(uint32_t b) { return *(const float*)&b; }
 // back, and an open industry window 0x6cfd04 is refreshed.
 static void BuildingPacket_Done(uint32_t player) {
     if (Obj_Get25(g_world) == (int32_t)player) Cursor_Set(g_cursorManager, 0, 1, 0, 0);
-    if (uint8_t* w = g_6cfd04) IndustryWindow_Refresh(w);
+    if (uint8_t* w = g_industryWindow) IndustryWindow_Refresh(w);
 }
 
 // (int)(v + 0.5) with the x87 sum and the exe's _ftol.
@@ -542,7 +542,7 @@ inline uint32_t IndMsg(const char* text, int32_t type) {
 template <typename Fn> void IndDeal(uint8_t* w, uint32_t id, float amount, uint32_t msg, Fn local) {
     if (!IsMultiplayer()) {
         local(Obj_Company21(hook::As<void*>(g_world)), 0, id, amount);
-        if (hook::As<int32_t>(g_6cfd04)) IndustryWindow_Refresh(w);
+        if (hook::As<int32_t>(g_industryWindow)) IndustryWindow_Refresh(w);
         return;
     }
     uint32_t data[4];
@@ -609,7 +609,7 @@ RT3_NOINLINE void __fastcall IndustryFinance_Draw(uint8_t* ind, int, float x, fl
     int32_t kind = Obj_StateB9(ind);
     char buf[0x200];
     if (!g_6cfd08) {
-        Window_DeleteChildren(g_6cfd04, 0, 0xbd24, 0xbd2d, 0);
+        Window_DeleteChildren(g_industryWindow, 0, 0xbd24, 0xbd2d, 0);
         float cx = x;
         int32_t n = 0;
         Collection* sts = g_stations;
@@ -648,7 +648,7 @@ RT3_NOINLINE void __fastcall IndustryFinance_Draw(uint8_t* ind, int, float x, fl
             String_Assign(&F<char*>(def, 0x3f), buf);
             uint8_t* s = (uint8_t*)ExeNew(0x111);
             s = s ? Scrollbar_Construct(s, 0, def) : nullptr;
-            Window_AddChild(g_6cfd04, 0, s, 0);
+            Window_AddChild(g_industryWindow, 0, s, 0);
             Free(F<void*>(def, 0x43));
             Free(F<void*>(def, 0x3f));
             int32_t img2 = hook::Global<int32_t>(0x621cac + c * 4) + sub * 6;
@@ -1387,7 +1387,7 @@ RT3_REPLACE(0x4b74e0, IndustryWindow_HandleEvent);
 uint8_t* __fastcall IndustryWindow_Construct(uint8_t* w) {
     Widget_SetVtblRet(w);
     F<uint32_t>(w, 0) = 0x5d00dc;
-    g_6cfd04 = w;
+    g_industryWindow = w;
     F<uint32_t>(w, 0x78) = 0;
     g_6cfcf4 = Pack_AcquireNamed(g_pack, 0, (const char*)0x5c9f98);
     g_6cfd18 = Pack_AcquireNamed(g_pack, 0, (const char*)0x5d0258);

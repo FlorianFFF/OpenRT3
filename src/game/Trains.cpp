@@ -220,7 +220,7 @@ static inline double Fl_207(uint32_t a) { return *(const float*)a; }
 
 static inline float Prod_Bits(uint32_t b) { return *(const float*)&b; }
 
-static inline uint8_t* Prod_Win() { return g_6cfd04; }
+static inline uint8_t* Prod_Win() { return g_industryWindow; }
 
 static inline void Prod_Text(const char* text, float x, float y, float w, int32_t align) {
     Font_DrawTextBox(g_6cfcf8, 0, text, x, y, w, Prod_Bits(0x3ccccccd), 0xffffffff, align, 0, 0, 1.0f);
@@ -860,7 +860,7 @@ void __fastcall IndustryWindow_Destruct(uint8_t* w) {
     static const uint32_t images[] = { 0x6cfcf4, 0x6cfcf8, 0x6cfcfc, 0x6cfd00, 0x6cfd18 };
     for (uint32_t a : images) Pack_Release(g_pack, 0, hook::Global<void*>(a));
     Overview_Close(g_map);
-    hook::As<uint32_t>(g_6cfd04) = 0;
+    hook::As<uint32_t>(g_industryWindow) = 0;
     Widget_SetVtbl(w);
 }
 RT3_REPLACE(0x4b3520, IndustryWindow_Destruct);
@@ -905,8 +905,8 @@ void __fastcall CargoList_ClickCb(int32_t id, int, int32_t down, int32_t, int32_
     if (!(Distance2D(hook::As<float>(g_6cfd0c), hook::As<float>(g_6cfd10), F<float>(in, 0xa94), F<float>(in, 0xa98)) >= D(0x5d00e8))) return;
     g_6cfd10 = 0xbf800000;
     g_6cfd0c = 0xbf800000;
-    uint8_t* row = Widget_FindChild(g_6cfd04, 0, id);
-    uint8_t* old = g_6cfd14 ? Widget_FindChild(g_6cfd04, 0, g_6cfd14) : row;
+    uint8_t* row = Widget_FindChild(g_industryWindow, 0, id);
+    uint8_t* old = g_6cfd14 ? Widget_FindChild(g_industryWindow, 0, g_6cfd14) : row;
     uint8_t* cargo = (uint8_t*)Collection_Get(g_cargoTypes, 0, F<uint32_t>(row, 0x4f));
     if (g_6cfd14) cargo = (uint8_t*)Collection_Get(g_cargoTypes, 0, F<uint32_t>(old, 0x4f));
     const char* name = (const char*)cargo + 4;
@@ -915,15 +915,15 @@ void __fastcall CargoList_ClickCb(int32_t id, int, int32_t down, int32_t, int32_
         const char* shown = LocalizeName(name);
         FormatText(text, GetString(0xb8b), shown, 0, 0, 0, 0, 0, 0, 0);
     }
-    Window_SendEvent5(g_6cfd04, 0, 0x6e, hook::As<uint32_t>(g_6cfd14), (uint32_t)(uintptr_t)text, 0, 0);
+    Window_SendEvent5(g_industryWindow, 0, 0x6e, hook::As<uint32_t>(g_6cfd14), (uint32_t)(uintptr_t)text, 0, 0);
     {
         const char* shown = LocalizeName(name);
         FormatText(text, GetString(0xb8c), shown, 0, 0, 0, 0, 0, 0, 0);
     }
-    Window_SendEvent5(g_6cfd04, 0, 0x6e, (uint32_t)id, (uint32_t)(uintptr_t)text, 0, 0);
+    Window_SendEvent5(g_industryWindow, 0, 0x6e, (uint32_t)id, (uint32_t)(uintptr_t)text, 0, 0);
     Widget_ClearFlags(old, 0, 1);
     Widget_SetFlags(row, 0, 1, 0, 0);
-    uint8_t* sel = Widget_FindChild(g_6cfd04, 0, id);
+    uint8_t* sel = Widget_FindChild(g_industryWindow, 0, id);
     Overview_SetMode(g_map, 0, 3, F<int32_t>(sel, 0x4f), 0, 0, nullptr, 0, 0, 0x1869f, 0x1869f);
     g_6cfd14 = id;
 }

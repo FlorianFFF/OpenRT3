@@ -326,7 +326,7 @@ static uint32_t Message_Show(const char* text, int32_t type, int32_t timeout) {
 
 namespace {
 uint8_t* ShownChild466(int32_t id) {
-    uint8_t* g = Widget_FindChild(g_6d3b20, 0, id);
+    uint8_t* g = Widget_FindChild(g_trainWindow, 0, id);
     if (!Widget_IsVisible(g)) Widget_SetFlags(g, 0, 1, 0, 0);
     return g;
 }
@@ -1098,7 +1098,7 @@ void __fastcall TrainDetail_Destruct(uint8_t* w) {
     Pack_Release(g_pack, 0, hook::As<void*>(g_6d3b14));
     Pack_Release(g_pack, 0, g_6d3b18);
     Pack_Release(g_pack, 0, g_6d3b1c);
-    hook::As<int32_t>(g_6d3b20) = 0;
+    hook::As<int32_t>(g_trainWindow) = 0;
     Widget_SetVtbl(w);
 }
 RT3_REPLACE(0x512f10, TrainDetail_Destruct);
@@ -1366,7 +1366,7 @@ void __fastcall TrainGauges_DrawCb(void*, int, float x, float y, float w, float 
     cost = (float)(((double)cost + Fl(0x5c8568)) / Fl(0x5ca198));
     Widget_SetClip(bar, 0, 0x3f5ee148, 0x3f281b4f, Bits(cost), 0x3f2aaaab);
     F<float>(ShownChild466(0x65b2), 0xb) = cost;
-    uint8_t* g = Widget_FindChild(g_6d3b20, 0, 0x65b4);
+    uint8_t* g = Widget_FindChild(g_trainWindow, 0, 0x65b4);
     if (F<float>(t, 0xdc) != Fl(0x5c8598)) {
         if (!Widget_IsVisible(g)) Widget_SetFlags(g, 0, 1, 0, 0);
         const float top = (float)(Fl(0x5d19a8) - (double)F<float>(t, 0xdc) * Fl(0x5d19ac));
@@ -1374,10 +1374,10 @@ void __fastcall TrainGauges_DrawCb(void*, int, float x, float y, float w, float 
         F<float>(ShownChild466(0x65b5), 0xf) = (float)(((double)top - Fl(0x5c8554)) / Fl(0x5ca164));
     } else {
         Widget_ClearFlags(g, 0, 1);
-        Window_SendEvent5(g_6d3b20, 0, 0x87, 0x65b5, 1, 0, 0);
+        Window_SendEvent5(g_trainWindow, 0, 0x87, 0x65b5, 1, 0, 0);
     }
     uint8_t* cls = (uint8_t*)Collection_Get(g_6ada84, 0, F<uint32_t>(Obj_Ref388(Obj_City41(t)), 0x126));
-    g = Widget_FindChild(g_6d3b20, 0, 0x65b7);
+    g = Widget_FindChild(g_trainWindow, 0, 0x65b7);
     bool swapped = false;
     if (F<float>(t, 0xe0) != Fl(0x5c8598) && !F<uint32_t>(cls, 0x10)) {
         if (!Widget_IsVisible(g)) Widget_SetFlags(g, 0, 1, 0, 0);
@@ -1386,17 +1386,17 @@ void __fastcall TrainGauges_DrawCb(void*, int, float x, float y, float w, float 
         F<float>(ShownChild466(0x65b8), 0xf) = (float)(((double)top - Fl(0x5c8554)) / Fl(0x5ca164));
     } else {
         Widget_ClearFlags(g, 0, 1);
-        Window_SendEvent5(g_6d3b20, 0, 0x87, 0x65b8, 1, 0, 0);
+        Window_SendEvent5(g_trainWindow, 0, 0x87, 0x65b8, 1, 0, 0);
         swapped = F<uint32_t>(cls, 0x10) != 0;
     }
     if (swapped) {
-        Window_SendEvent5(g_6d3b20, 0, 0x87, 0x65b9, 1, 0, 0);
-        Window_SendEvent5(g_6d3b20, 0, 0x65, 0x65bd, 3, 0, 0);
+        Window_SendEvent5(g_trainWindow, 0, 0x87, 0x65b9, 1, 0, 0);
+        Window_SendEvent5(g_trainWindow, 0, 0x65, 0x65bd, 3, 0, 0);
     } else {
-        Window_SendEvent5(g_6d3b20, 0, 0x65, 0x65b9, 1, 0, 0);
-        Window_SendEvent5(g_6d3b20, 0, 0x87, 0x65bd, 3, 0, 0);
+        Window_SendEvent5(g_trainWindow, 0, 0x65, 0x65b9, 1, 0, 0);
+        Window_SendEvent5(g_trainWindow, 0, 0x87, 0x65bd, 3, 0, 0);
     }
-    g = Widget_FindChild(g_6d3b20, 0, 0x65ba);
+    g = Widget_FindChild(g_trainWindow, 0, 0x65ba);
     if (F<float>(t, 0xe4) != Fl(0x5c8598)) {
         if (!Widget_IsVisible(g)) Widget_SetFlags(g, 0, 1, 0, 0);
         const float top = (float)(Fl(0x5d19a8) - (double)F<float>(t, 0xe4) * Fl(0x5d19ac));
@@ -1404,7 +1404,7 @@ void __fastcall TrainGauges_DrawCb(void*, int, float x, float y, float w, float 
         F<float>(ShownChild466(0x65bb), 0xf) = (float)(((double)top - Fl(0x5c8554)) / Fl(0x5ca164));
     } else {
         Widget_ClearFlags(g, 0, 1);
-        Window_SendEvent5(g_6d3b20, 0, 0x87, 0x65bb, 1, 0, 0);
+        Window_SendEvent5(g_trainWindow, 0, 0x87, 0x65bb, 1, 0, 0);
     }
 }
 RT3_REPLACE(0x513b50, TrainGauges_DrawCb);
@@ -1415,7 +1415,7 @@ void __fastcall Train_PickTooltipCb(void*, int, int32_t on, int32_t, int32_t, in
     uint8_t* v = g_gameWindow;
     if (!v || F<int32_t>(v, 0x90) <= 0) return;
     if (!Collection_IsValid(g_trains, 0, F<uint32_t>(v, 0x90)) || !on) return;
-    Map_ShowPickTooltip(Widget_FindChild(g_6d3b20, 0, 0x659d));
+    Map_ShowPickTooltip(Widget_FindChild(g_trainWindow, 0, 0x659d));
 }
 RT3_REPLACE(0x514110, Train_PickTooltipCb);
 
@@ -1464,7 +1464,7 @@ RT3_REPLACE(0x514160, TrainWindow_Refresh);
 
 // 0x514410. Refreshes the train window when it is open.
 RT3_NOINLINE void TrainWindow_RefreshOpen() {
-    if (g_6d3b20) TrainWindow_Refresh(g_6d3b20);
+    if (g_trainWindow) TrainWindow_Refresh(g_trainWindow);
 }
 RT3_REPLACE(0x514410, TrainWindow_RefreshOpen);
 
@@ -1476,7 +1476,7 @@ RT3_REPLACE(0x514410, TrainWindow_RefreshOpen);
 RT3_NOINLINE uint8_t* __fastcall TrainWindow_Construct(uint8_t* w) {
     Widget_SetVtblRet(w);
     F<uint32_t>(w, 0) = 0x5d1990;
-    g_6d3b20 = w;
+    g_trainWindow = w;
     g_6d3b14 = Pack_AcquireFont(g_pack, 0, 2);
     hook::As<uint8_t*>(g_6d3b18) = Pack_AcquireFont(g_pack, 0, 1);
     hook::As<uint8_t*>(g_6d3b1c) = Pack_AcquireNamed(g_pack, 0, (const char*)0x5c9ee8);
@@ -1506,8 +1506,8 @@ RT3_NOINLINE int32_t __fastcall TrainCmd_Apply(uint32_t* cmd) {
         Train_SetBuffer1c6((uint8_t*)Collection_Get(g_trains, 0, cmd[1]), 0, (const uint8_t*)cmd);
         ok = 1;
     }
-    if (g_6d3b20 && Global6d40e4() == (int32_t)cmd[0]) {
-        TrainWindow_Refresh(g_6d3b20);
+    if (g_trainWindow && Global6d40e4() == (int32_t)cmd[0]) {
+        TrainWindow_Refresh(g_trainWindow);
         Cursor_Set(g_cursorManager, 0, 1, 0, 0);
     }
     return ok;
@@ -1548,7 +1548,7 @@ RT3_NOINLINE void __fastcall Vehicles_SelectNext(int32_t dir) {
     }
     Panel_SetValue90(g_gameWindow, 0, (int32_t)id);
     ModelPreview_Close();
-    if (uint8_t* w = g_6d3b20) TrainWindow_Refresh(w);
+    if (uint8_t* w = g_trainWindow) TrainWindow_Refresh(w);
     if (follow) {
         uint8_t* tr = (uint8_t*)SelectedTrain();
         if (Obj_City41(tr)) World_FollowEntity(g_world, 0, 1, 1, F<int32_t>(Obj_City41(tr), 0x34a));
@@ -1621,7 +1621,7 @@ int32_t __fastcall TrainWindow_HandleEvent(uint8_t* w, int, uint32_t* msg) {
                 IndustryEditor_Run((uint32_t)(uintptr_t)Identity(Train496()), stop, (uint32_t)row);
             }
         }
-        if (hook::As<int32_t>(g_6d3b20)) TrainWindow_Refresh(w);
+        if (hook::As<int32_t>(g_trainWindow)) TrainWindow_Refresh(w);
         return 0;
     };
     const int32_t id = (int32_t)msg[1];

@@ -428,7 +428,7 @@ uint8_t* __fastcall Sound_Construct(uint8_t* snd, int, int32_t provider) {
     F<int32_t>(snd, 4) = 0;
     hook::As<void*>(g_ccb9f8) = nullptr;
     hook::As<void*>(g_ccb9fc) = nullptr;
-    hook::As<void*>(g_ccba00) = nullptr;
+    hook::As<void*>(g_music) = nullptr;
     F<void*>(snd, 0) = nullptr;
     hook::As<uint32_t>(g_624d5c) = 0x3f800000;
     F<int32_t>(snd, 0x4c) = -1;
@@ -485,7 +485,7 @@ void __fastcall Sound_StartFadeTimer(uint8_t* s, int, int32_t mode) {
     hook::As<uint32_t>(g_624d60) = 0xbf800000;
     uint32_t user = 1;
     if (!mode) {
-        Music_SetVolume(g_ccba00, 0, 0.0f);
+        Music_SetVolume(g_music, 0, 0.0f);
         t = F<int32_t>(s, 0x4c);
         user = 2;
     }

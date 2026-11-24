@@ -1065,7 +1065,7 @@ RT3_NOINLINE void __fastcall TerritoryEditor_Show(uint8_t* w, int, int32_t id) {
     if (id <= 0) id = g_621f4c;
     int32_t shown = id;
     if (id < 1) id = 1;
-    g_621f48 = id;
+    g_selectedTerritory = id;
     g_621f4c = id;
     // (The original's branch for id 0 here can't be reached after the clamp.)
     uint8_t* t = (uint8_t*)Collection_Get(g_territories, 0, (uint32_t)id);
@@ -1094,13 +1094,13 @@ RT3_NOINLINE void __fastcall TerritoryEditor_Show(uint8_t* w, int, int32_t id) {
         Collection* c = g_territories;
         uint8_t* e = (uint8_t*)Collection_Get(c, 0, Collection_IdAt(c, 0, best, 0));
         Window_SendEvent5(w, 0, 0x88, 0x50dc, (uint32_t)(uintptr_t)(e + 4), F<uint32_t>(e, 0), 0);
-        if (F<int32_t>(e, 0x31) && F<int32_t>(e, 0) != g_621f48) {
+        if (F<int32_t>(e, 0x31) && F<int32_t>(e, 0) != g_selectedTerritory) {
             Window_SendEvent5(w, 0, 0x88, 0x50e5, (uint32_t)(uintptr_t)(e + 4), F<uint32_t>(e, 0), 0);
             if (F<int32_t>(e, 0) == F<int32_t>(t, 0x35) || !leaders) Window_SendEvent5(w, 0, 0x66, 0x50e5, (uint32_t)leaders, 0, 0);
             ++leaders;
         }
         used[best] = 1;
-        if (F<int32_t>(e, 0) == g_621f48) Window_SendEvent5(w, 0, 0x66, 0x50dc, (uint32_t)row, 0, 0);
+        if (F<int32_t>(e, 0) == g_selectedTerritory) Window_SendEvent5(w, 0, 0x66, 0x50dc, (uint32_t)row, 0, 0);
         Window_SendEvent5(w, 0, 0xaf, 0x50dc, (uint32_t)row, 0xffffffff, 0);
     }
     Window_SendEvent5(w, 0, 0x74, 0x50e0, F<uint32_t>(t, 0x31), 0, 0);
@@ -1427,14 +1427,14 @@ RT3_REPLACE(0x4ce380, CityEditor_HandleEvent);
 // +0x2d (0x50e1), the value +0x39 from a text box (0x50e2, absolute) and the
 // owner +0x35 (0x50e5). Returns 1 for unhandled events.
 RT3_NOINLINE uint32_t __fastcall TerritoryEditor_HandleEvent(uint8_t* w, int, uint32_t* ev) {
-    uint8_t* rec = hook::As<uint32_t>(g_621f48) ? (uint8_t*)Collection_Get(g_territories, 0, hook::As<uint32_t>(g_621f48)) : nullptr;
+    uint8_t* rec = hook::As<uint32_t>(g_selectedTerritory) ? (uint8_t*)Collection_Get(g_territories, 0, hook::As<uint32_t>(g_selectedTerritory)) : nullptr;
     if (ev[0] == 0xcb) {
         uint32_t id = ev[1];
         if (id == 0x50dd) {
-            if (hook::As<uint32_t>(g_621f48)) {
+            if (hook::As<uint32_t>(g_selectedTerritory)) {
                 Dialog_RunMessage(GetString(0x41e), 9, 0xbf800000, 0xbf800000, 0, nullptr, 0, 0.0f, (uint32_t)(uintptr_t)(rec + 4), 0x28, 0, nullptr, nullptr, 0, 0,
                                   nullptr, 0);
-                TerritoryEditor_Show(w, 0, g_621f48);
+                TerritoryEditor_Show(w, 0, g_selectedTerritory);
             }
             return 0;
         }
@@ -1460,7 +1460,7 @@ RT3_NOINLINE uint32_t __fastcall TerritoryEditor_HandleEvent(uint8_t* w, int, ui
             char first[0x1b0];
             for (int32_t i = 0; i < Collection_Count(g_territories); ++i) {
                 uint8_t* t = (uint8_t*)Table_At(g_territories, 0, i);
-                if (F<int32_t>(t, 0x31) || F<uint32_t>(t, 0) == hook::As<uint32_t>(g_621f48) || F<uint32_t>(t, 0x35) != hook::As<uint32_t>(g_621f48))
+                if (F<int32_t>(t, 0x31) || F<uint32_t>(t, 0) == hook::As<uint32_t>(g_selectedTerritory) || F<uint32_t>(t, 0x35) != hook::As<uint32_t>(g_selectedTerritory))
                     continue;
                 if (!count) strcpy(first, (const char*)t + 4);
                 ++count;
@@ -1479,23 +1479,23 @@ RT3_NOINLINE uint32_t __fastcall TerritoryEditor_HandleEvent(uint8_t* w, int, ui
             }
         }
         Region_PickOther(rec);
-        TerritoryEditor_Show(w, 0, g_621f48);
+        TerritoryEditor_Show(w, 0, g_selectedTerritory);
         return 0;
     }
     case 0x50e1:
         if (!rec) return 0;
         F<int32_t>(rec, 0x2d) = F<int32_t>(rec, 0x2d) == 0;
-        TerritoryEditor_Show(w, 0, g_621f48);
+        TerritoryEditor_Show(w, 0, g_selectedTerritory);
         return 0;
     case 0x50e2: {
         int32_t v = ((int(__cdecl*)(const char*))0x5a1ea5)(F<const char*>((uint8_t*)(uintptr_t)ev[11], 0xba));
         F<int32_t>(rec, 0x39) = v < 0 ? -v : v;
-        TerritoryEditor_Show(w, 0, g_621f48);
+        TerritoryEditor_Show(w, 0, g_selectedTerritory);
         return 0;
     }
     case 0x50e5:
         F<uint32_t>(rec, 0x35) = ev[3];
-        TerritoryEditor_Show(w, 0, g_621f48);
+        TerritoryEditor_Show(w, 0, g_selectedTerritory);
         return 0;
     }
     return 1;

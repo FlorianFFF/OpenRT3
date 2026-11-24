@@ -521,7 +521,7 @@ int32_t __fastcall City_Tooltip(uint8_t* c, int, char* dst, int32_t n, uint32_t*
     const int32_t fx = Ftol(Obj_CellX(c));
     const int32_t fog = Camera_FogAlpha(g_62be68, 0, fx, fy);
     uint8_t* b = nullptr;
-    if (uint8_t* panel = g_6d1720) {
+    if (uint8_t* panel = g_buildingDialog) {
         const uint32_t id = F<uint32_t>(panel, 0x7c);
         if (Collection_IsValid(g_buildings, 0, id)) b = (uint8_t*)Collection_Get(g_buildings, 0, id);
     }

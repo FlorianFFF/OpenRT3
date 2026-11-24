@@ -104,7 +104,7 @@ namespace rt3 { struct Collection; struct HashMap; struct MaxHeap; struct MaxLis
 #define g_621ec4 (::hook::Global<uint32_t>(0x621ec4))
 #define g_621ec8 (::hook::Global<uint32_t>(0x621ec8))
 #define g_621f40 (::hook::Global<int32_t>(0x621f40))
-#define g_621f48 (::hook::Global<int32_t>(0x621f48))
+#define g_selectedTerritory (::hook::Global<int32_t>(0x621f48))  // selected territory
 #define g_621f4c (::hook::Global<int32_t>(0x621f4c))
 #define g_621f50 (::hook::Global<int32_t>(0x621f50))
 #define g_622070 (::hook::Global<int32_t>(0x622070))
@@ -220,7 +220,7 @@ namespace rt3 { struct Collection; struct HashMap; struct MaxHeap; struct MaxLis
 #define g_62b2f4 (::hook::Global<void*>(0x62b2f4))
 #define g_62b2f8 (::hook::Global<void*>(0x62b2f8))
 #define g_buildingTypes (::hook::Global<::rt3::Collection*>(0x62b2fc))  // building types (.bty)
-#define g_62b300 (::hook::Global<int32_t*>(0x62b300))
+#define g_cellOwners (::hook::Global<int32_t*>(0x62b300))  // cell-owner map
 #define g_62b304 (::hook::Global<int32_t>(0x62b304))
 #define g_62b308 (::hook::Global<uint32_t>(0x62b308))
 #define g_62b30c (::hook::Global<uint32_t>(0x62b30c))
@@ -298,7 +298,7 @@ namespace rt3 { struct Collection; struct HashMap; struct MaxHeap; struct MaxLis
 #define g_messageLog (::hook::Global<::rt3::Collection*>(0x6acd34))  // message / news log
 #define g_6acd38 (::hook::Global<uint32_t*>(0x6acd38))
 #define g_6acd3c (::hook::Global<uint8_t*>(0x6acd3c))
-#define g_6acd40 (::hook::Global<uint8_t*>(0x6acd40))
+#define g_previewModel (::hook::Global<uint8_t*>(0x6acd40))  // preview model
 #define g_6acd44 (::hook::Global<int32_t>(0x6acd44))
 #define g_6acd48 (::hook::Global<int32_t>(0x6acd48))
 #define g_6acd4c (::hook::Global<uint8_t*>(0x6acd4c))
@@ -415,12 +415,12 @@ namespace rt3 { struct Collection; struct HashMap; struct MaxHeap; struct MaxLis
 #define g_6cea3d (::hook::Global<int32_t>(0x6cea3d))
 #define g_6cea41 (::hook::Global<int32_t>(0x6cea41))
 #define g_6cea48 (::hook::Global<int32_t>(0x6cea48))
-#define g_6cea4c (::hook::Global<::rt3::Collection*>(0x6cea4c))
+#define g_news (::hook::Global<::rt3::Collection*>(0x6cea4c))  // news list
 #define g_6cea50 (::hook::Global<::rt3::Collection*>(0x6cea50))
 #define g_6cea54 (::hook::Global<void*>(0x6cea54))
 #define g_6cea58 (::hook::Global<uint32_t*>(0x6cea58))
 #define g_6cea5c (::hook::Global<void*>(0x6cea5c))
-#define g_6cea60 (::hook::Global<uint8_t*>(0x6cea60))
+#define g_effects (::hook::Global<uint8_t*>(0x6cea60))  // effect (emitter) table
 #define g_6cea64 (::hook::Global<int32_t>(0x6cea64))
 #define g_6cea68 (::hook::Global<int32_t>(0x6cea68))
 #define g_6cea6c (::hook::Global<int32_t>(0x6cea6c))
@@ -477,7 +477,7 @@ namespace rt3 { struct Collection; struct HashMap; struct MaxHeap; struct MaxLis
 #define g_6cfcf8 (::hook::Global<uint8_t*>(0x6cfcf8))
 #define g_6cfcfc (::hook::Global<uint8_t*>(0x6cfcfc))
 #define g_6cfd00 (::hook::Global<uint8_t*>(0x6cfd00))
-#define g_6cfd04 (::hook::Global<uint8_t*>(0x6cfd04))
+#define g_industryWindow (::hook::Global<uint8_t*>(0x6cfd04))  // industry window
 #define g_6cfd08 (::hook::Global<uint8_t>(0x6cfd08))
 #define g_6cfd09 (::hook::Global<uint8_t>(0x6cfd09))
 #define g_6cfd0a (::hook::Global<uint8_t>(0x6cfd0a))
@@ -504,15 +504,15 @@ namespace rt3 { struct Collection; struct HashMap; struct MaxHeap; struct MaxLis
 #define g_6cfe24 (::hook::Global<int32_t>(0x6cfe24))
 #define g_6cfe40 (::hook::Global<float>(0x6cfe40))
 #define g_6cfe44 (::hook::Global<float>(0x6cfe44))
-#define g_6cfe48 (::hook::Global<float>(0x6cfe48))
+#define g_dividendPerShare (::hook::Global<float>(0x6cfe48))  // dividend per share
 #define g_6cfe4c (::hook::Global<uint8_t*>(0x6cfe4c))
 #define g_6cfe50 (::hook::Global<uint8_t*>(0x6cfe50))
 #define g_6cfe54 (::hook::Global<uint8_t*>(0x6cfe54))
 #define g_6cfe58 (::hook::Global<uint8_t*>(0x6cfe58))
 #define g_6cfe5c (::hook::Global<int32_t>(0x6cfe5c))
 #define g_6cfe60 (::hook::Global<int32_t>(0x6cfe60))
-#define g_6cfe64 (::hook::Global<int32_t>(0x6cfe64))
-#define g_6cfe68 (::hook::Global<int32_t>(0x6cfe68))
+#define g_issueShareCount (::hook::Global<int32_t>(0x6cfe64))  // shares to issue
+#define g_issueSharePrice (::hook::Global<int32_t>(0x6cfe68))  // price of the shares to issue
 #define g_6cfe6c (::hook::Global<uint32_t>(0x6cfe6c))
 #define g_6cfe70 (::hook::Global<uint8_t*>(0x6cfe70))
 #define g_6cfe74 (::hook::Global<void*>(0x6cfe74))
@@ -583,7 +583,7 @@ namespace rt3 { struct Collection; struct HashMap; struct MaxHeap; struct MaxLis
 #define g_6d0814 (::hook::Global<uint8_t*>(0x6d0814))
 #define g_gameWindow (::hook::Global<uint8_t*>(0x6d0818))  // the game window (selected company +0x90)
 #define g_6d081c (::hook::Global<uint8_t*>(0x6d081c))
-#define g_6d0820 (::hook::Global<uint8_t*>(0x6d0820))
+#define g_setupWindow (::hook::Global<uint8_t*>(0x6d0820))  // setup window
 #define g_6d1078 (::hook::Global<void*>(0x6d1078))
 #define g_6d107c (::hook::Global<uint8_t*>(0x6d107c))
 #define g_6d1080 (::hook::Global<uint8_t*>(0x6d1080))
@@ -606,7 +606,7 @@ namespace rt3 { struct Collection; struct HashMap; struct MaxHeap; struct MaxLis
 #define g_6d10c4 (::hook::Global<int32_t>(0x6d10c4))
 #define g_6d10c8 (::hook::Global<int32_t>(0x6d10c8))
 #define g_6d10cc (::hook::Global<int32_t>(0x6d10cc))
-#define g_6d10d0 (::hook::Global<uint32_t>(0x6d10d0))
+#define g_companyOverview (::hook::Global<uint32_t>(0x6d10d0))  // company overview dialog
 #define g_6d10d4 (::hook::Global<uint32_t>(0x6d10d4))
 #define g_6d10dc (::hook::Global<uint16_t>(0x6d10dc))
 #define g_6d10de (::hook::Global<uint16_t>(0x6d10de))
@@ -622,13 +622,13 @@ namespace rt3 { struct Collection; struct HashMap; struct MaxHeap; struct MaxLis
 #define g_6d1228 (::hook::Global<char>(0x6d1228))
 #define g_6d1268 (::hook::Global<uint8_t*>(0x6d1268))
 #define g_6d126c (::hook::Global<uint8_t*>(0x6d126c))
-#define g_6d1270 (::hook::Global<uint8_t*>(0x6d1270))
+#define g_lobbyBuffer (::hook::Global<uint8_t*>(0x6d1270))  // lobby buffer
 #define g_6d1274 (::hook::Global<int32_t>(0x6d1274))
 #define g_6d1278 (::hook::Global<int32_t>(0x6d1278))
 #define g_6d127c (::hook::Global<int32_t>(0x6d127c))
 #define g_6d1280 (::hook::Global<int32_t>(0x6d1280))
 #define g_6d1284 (::hook::Global<int32_t>(0x6d1284))
-#define g_6d1288 (::hook::Global<int32_t>(0x6d1288))
+#define g_lobbyMode (::hook::Global<int32_t>(0x6d1288))  // lobby mode
 #define g_6d128c (::hook::Global<int32_t>(0x6d128c))
 #define g_6d1290 (::hook::Global<uint8_t>(0x6d1290))
 #define g_6d1291 (::hook::Global<uint8_t>(0x6d1291))
@@ -710,7 +710,7 @@ namespace rt3 { struct Collection; struct HashMap; struct MaxHeap; struct MaxLis
 #define g_6d1714 (::hook::Global<int32_t>(0x6d1714))
 #define g_6d1718 (::hook::Global<uint8_t*>(0x6d1718))
 #define g_6d171c (::hook::Global<int32_t>(0x6d171c))
-#define g_6d1720 (::hook::Global<uint8_t*>(0x6d1720))
+#define g_buildingDialog (::hook::Global<uint8_t*>(0x6d1720))  // building being placed / building dialog
 #define g_6d1724 (::hook::Global<uint8_t*>(0x6d1724))
 #define g_6d1728 (::hook::Global<int32_t>(0x6d1728))
 #define g_6d172c (::hook::Global<uint32_t>(0x6d172c))
@@ -726,7 +726,7 @@ namespace rt3 { struct Collection; struct HashMap; struct MaxHeap; struct MaxLis
 #define g_6d19e4 (::hook::Global<uint8_t*>(0x6d19e4))
 #define g_6d19e8 (::hook::Global<uint8_t*>(0x6d19e8))
 #define g_6d19ec (::hook::Global<uint8_t*>(0x6d19ec))
-#define g_6d19f0 (::hook::Global<uint8_t*>(0x6d19f0))
+#define g_stockWindow (::hook::Global<uint8_t*>(0x6d19f0))  // stock market list window
 #define g_6d19f4 (::hook::Global<int32_t>(0x6d19f4))
 #define g_6d19f8 (::hook::Global<int32_t>(0x6d19f8))
 #define g_6d19fc (::hook::Global<int32_t>(0x6d19fc))
@@ -752,7 +752,7 @@ namespace rt3 { struct Collection; struct HashMap; struct MaxHeap; struct MaxLis
 #define g_6d1a88 (::hook::Global<uint8_t>(0x6d1a88))
 #define g_6d1a89 (::hook::Global<uint8_t>(0x6d1a89))
 #define g_6d1a8a (::hook::Global<uint8_t>(0x6d1a8a))
-#define g_6d1a8c (::hook::Global<uint8_t*>(0x6d1a8c))
+#define g_trackTool (::hook::Global<uint8_t*>(0x6d1a8c))  // the track tool
 #define g_6d1a90 (::hook::Global<uint32_t>(0x6d1a90))
 #define g_6d1a94 (::hook::Global<uint32_t>(0x6d1a94))
 #define g_6d1a98 (::hook::Global<int32_t>(0x6d1a98))
@@ -783,7 +783,7 @@ namespace rt3 { struct Collection; struct HashMap; struct MaxHeap; struct MaxLis
 #define g_6d3b14 (::hook::Global<uint8_t*>(0x6d3b14))
 #define g_6d3b18 (::hook::Global<void*>(0x6d3b18))
 #define g_6d3b1c (::hook::Global<void*>(0x6d3b1c))
-#define g_6d3b20 (::hook::Global<uint8_t*>(0x6d3b20))
+#define g_trainWindow (::hook::Global<uint8_t*>(0x6d3b20))  // train window
 #define g_6d3b24 (::hook::Global<int32_t>(0x6d3b24))
 #define g_6d3b28 (::hook::Global<int32_t>(0x6d3b28))
 #define g_6d3b2c (::hook::Global<int32_t>(0x6d3b2c))
@@ -792,7 +792,7 @@ namespace rt3 { struct Collection; struct HashMap; struct MaxHeap; struct MaxLis
 #define g_6d3b38 (::hook::Global<int32_t>(0x6d3b38))
 #define g_6d3b3c (::hook::Global<uint8_t*>(0x6d3b3c))
 #define g_6d3b40 (::hook::Global<uint8_t*>(0x6d3b40))
-#define g_6d3b44 (::hook::Global<uint8_t*>(0x6d3b44))
+#define g_dialogWindow (::hook::Global<uint8_t*>(0x6d3b44))  // the open dialog window
 #define g_6d3b48 (::hook::Global<const char*>(0x6d3b48))
 #define g_6d3b4c (::hook::Global<int32_t>(0x6d3b4c))
 #define g_6d3b50 (::hook::Global<int32_t>(0x6d3b50))
@@ -895,7 +895,7 @@ namespace rt3 { struct Collection; struct HashMap; struct MaxHeap; struct MaxLis
 #define g_ccb9f4 (::hook::Global<int32_t>(0xccb9f4))
 #define g_ccb9f8 (::hook::Global<uint8_t*>(0xccb9f8))
 #define g_ccb9fc (::hook::Global<uint8_t*>(0xccb9fc))
-#define g_ccba00 (::hook::Global<uint8_t*>(0xccba00))
+#define g_music (::hook::Global<uint8_t*>(0xccba00))  // game music
 #define g_ccba04 (::hook::Global<int32_t>(0xccba04))
 #define g_ccba08 (::hook::Global<uint32_t>(0xccba08))
 #define g_ccba10 (::hook::Global<int32_t>(0xccba10))

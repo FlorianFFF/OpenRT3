@@ -228,7 +228,7 @@ void __fastcall TutorialPanel_DrawCb(void*, int, float x, float y, float w, floa
         const char* tip = GetString(0xe07);
         const float lw = (float)((double)w - D(0x5d1528));
         const float ly = (float)((double)y + h - D(0x5d19f0));
-        TextLink_Draw(g_6d3b44, g_6d3b40, next, x, ly, lw, BitsF(0x3d2aaaab), 3, 0, 1, tip, 0xc79e, 0xff4fd54f,
+        TextLink_Draw(g_dialogWindow, g_6d3b40, next, x, ly, lw, BitsF(0x3d2aaaab), 3, 0, 1, tip, 0xc79e, 0xff4fd54f,
                       0xff7fff7f);
     }
     const int32_t kind = *(const int32_t*)(0x622b48 + g_6d3b50 * 0x40);
@@ -237,12 +237,12 @@ void __fastcall TutorialPanel_DrawCb(void*, int, float x, float y, float w, floa
         const float ly = (float)((double)y + h - D(0x5d19f0));
         const char* tip = GetString(0xe09);
         const char* exit = GetString(0xe08);
-        TextLink_Draw(g_6d3b44, g_6d3b40, exit, x, ly, lw, BitsF(0x3d2aaaab), 3, 0, 1, tip, 0xc7a1,
+        TextLink_Draw(g_dialogWindow, g_6d3b40, exit, x, ly, lw, BitsF(0x3d2aaaab), 3, 0, 1, tip, 0xc7a1,
                       0xff4fd54f, 0xff7fff7f);
         const char* tip2 = GetString(0xe04);
         const float bx = (float)((double)x + D(0x5d1528));
         const char* back = GetString(0xe05);
-        TextLink_Draw(g_6d3b44, g_6d3b40, back, bx, ly, lw, BitsF(0x3d2aaaab), 2, 0, 1, tip2, 0xc7a0,
+        TextLink_Draw(g_dialogWindow, g_6d3b40, back, bx, ly, lw, BitsF(0x3d2aaaab), 2, 0, 1, tip2, 0xc7a0,
                       0xff4fd54f, 0xff7fff7f);
     } else if (kind == 0x38e) {
         const char* tip = GetString(0xe04);
@@ -250,7 +250,7 @@ void __fastcall TutorialPanel_DrawCb(void*, int, float x, float y, float w, floa
         const float ly = (float)((double)y + h - D(0x5d19f0));
         const float bx = (float)((double)x + D(0x5d1528));
         const char* back = GetString(0xe05);
-        TextLink_Draw(g_6d3b44, g_6d3b40, back, bx, ly, lw, BitsF(0x3d2aaaab), 2, 0, 1, tip, 0xc7a0,
+        TextLink_Draw(g_dialogWindow, g_6d3b40, back, bx, ly, lw, BitsF(0x3d2aaaab), 2, 0, 1, tip, 0xc7a0,
                       0xff4fd54f, 0xff7fff7f);
     }
 }
@@ -276,7 +276,7 @@ RT3_REPLACE(0x5163b0, Tutorial_IndexOf);
 // one; the page is kept in 0x622b30.
 RT3_NOINLINE void __fastcall Tutorial_ShowPicture(int32_t page, int, float x, float y) {
     g_622b30 = -1;
-    Window_DeleteChildren(g_6d3b44, 0, 0xc79f, 0xc79f, 0);
+    Window_DeleteChildren(g_dialogWindow, 0, 0xc79f, 0xc79f, 0);
     uint8_t def[0x89];
     memset(def, 0, sizeof def);
     char name[0x80];
@@ -290,14 +290,14 @@ RT3_NOINLINE void __fastcall Tutorial_ShowPicture(int32_t page, int, float x, fl
     F<uint16_t>(def, 0x5f) = 0;
     uint8_t* s = (uint8_t*)ExeNew(0x111);
     if (s) s = Scrollbar_Construct(s, 0, def);
-    Window_AddChild(g_6d3b44, 0, s, 0);
+    Window_AddChild(g_dialogWindow, 0, s, 0);
     Free(F<void*>(def, 0x43));
 }
 RT3_REPLACE(0x5163f0, Tutorial_ShowPicture);
 
 // 0x5164d0. Passes an event to the open dialog window (0x6d3b44); 1 without one.
 int32_t __fastcall Dialog_HandleEvent(uint32_t* ev) {
-    uint8_t* dlg = g_6d3b44;
+    uint8_t* dlg = g_dialogWindow;
     if (!dlg) return 1;
     return Window_HandleEvent(dlg, 0, ev);
 }
@@ -336,10 +336,10 @@ RT3_REPLACE(0x516640, Scenario_GoalIs3c);
 RT3_NOINLINE void MapPointers_Close() {
     if (!g_6d3b64) return;
     --g_6d3b64;
-    Window_DeleteChildren(g_6d3b44, 0, 0xc79f, 0xc79f, 0);
+    Window_DeleteChildren(g_dialogWindow, 0, 0xc79f, 0xc79f, 0);
     g_622b30 = -1;
-    Window_DeleteChildren(g_6d3b44, 0, 0xc79f, 0xc79f, 0);
-    Window_DeleteChildren(g_6d3b44, 0, 0xc79c, 0xc7ff, 0);
+    Window_DeleteChildren(g_dialogWindow, 0, 0xc79f, 0xc79f, 0);
+    Window_DeleteChildren(g_dialogWindow, 0, 0xc79c, 0xc7ff, 0);
     FreeAndNull((void**)0x6d3b48);
     PreviewModels_Free();
 }
@@ -422,8 +422,8 @@ RT3_NOINLINE void __fastcall Tutorial_ShowStep(int32_t step) {
     *(uint32_t*)(def + 0x2f) = 0x40b0;
     uint8_t* box = (uint8_t*)((void*(__cdecl*)(size_t))0x53b070)(0x111);
     if (box) box = Scrollbar_Construct(box, 0, def);
-    Window_AddChild(g_6d3b44, 0, box, 0);
-    Window_SendEvent5(g_6d3b44, 0, 0x7a, 0xc79d, 0x516010, 0, 0);
+    Window_AddChild(g_dialogWindow, 0, box, 0);
+    Window_SendEvent5(g_dialogWindow, 0, 0x7a, 0xc79d, 0x516010, 0, 0);
 }
 RT3_REPLACE(0x5166e0, Tutorial_ShowStep);
 
@@ -447,7 +447,7 @@ RT3_NOINLINE void __fastcall MapPointers_Destruct(uint8_t* w) {
     Pack_Release(g_pack, 0, hook::As<void*>(g_6d3b3c));
     void* second = hook::As<void*>(g_6d3b40);
     hook::As<uint32_t>(g_6d3b3c) = 0;
-    hook::As<uint32_t>(g_6d3b44) = 0;
+    hook::As<uint32_t>(g_dialogWindow) = 0;
     Pack_Release(g_pack, 0, second);
     hook::As<uint32_t>(g_6d3b40) = 0;
     hook::As<uint32_t>(g_6d3b4c) = 0;
@@ -458,9 +458,9 @@ RT3_REPLACE(0x516b40, MapPointers_Destruct);
 // 0x516ba0. Removes and deletes the map pointer overlay window (0x6d3b44),
 // unless it is pinned (0x6d3b60).
 RT3_NOINLINE void MapPointers_Delete() {
-    if (!g_6d3b44 || g_6d3b60) return;
-    Windows_Remove(g_windowManager, 0, g_6d3b44);
-    if (uint8_t* w = g_6d3b44) {
+    if (!g_dialogWindow || g_6d3b60) return;
+    Windows_Remove(g_windowManager, 0, g_dialogWindow);
+    if (uint8_t* w = g_dialogWindow) {
         MapPointers_Destruct(w);
         ((void(__cdecl*)(void*))0x53b080)(w);
     }
@@ -610,7 +610,7 @@ RT3_REPLACE(0x516d90, TutorialWindow_HandleEvent);
 // reapplies the weather, opens the tutorial window with font 3 (0x6d3b40)
 // and shows the first step.
 RT3_NOINLINE void Tutorial_Start() {
-    if (g_6d3b44) return;
+    if (g_dialogWindow) return;
     g_6d3b60 = 0;
     g_622af4 = 0;
     g_6d3b5c = 0;
@@ -637,7 +637,7 @@ RT3_NOINLINE void Tutorial_Start() {
     g_6d3b40 = Pack_AcquireFont(g_pack, 0, 3);
     uint8_t* w = (uint8_t*)((void*(__cdecl*)(size_t))0x53b070)(0x78);
     if (w) w = TutorialWindow_Construct(w);
-    g_6d3b44 = w;
+    g_dialogWindow = w;
     WidgetList_Insert(hook::As<uint8_t**>(g_windowManager), 0, w, 1);
     Tutorial_Advance();
 }

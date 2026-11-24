@@ -316,12 +316,12 @@ RT3_NOINLINE void __fastcall World_SaveGame(uint8_t* w, int, const char* name, u
     const int32_t cursor = F<int32_t>(g_cursorManager, 4);
     Cursor_Set(g_cursorManager, 0, 0, 0, 0);
     AppendOptionHistory();
-    if (uint8_t* tool = g_6d1a8c) TrackTool_Suspend(tool);
-    if (uint8_t* dlg = g_6d1720) InfoWindow_ClearHighlights(dlg);
+    if (uint8_t* tool = g_trackTool) TrackTool_Suspend(tool);
+    if (uint8_t* dlg = g_buildingDialog) InfoWindow_ClearHighlights(dlg);
     auto restoreUi = [&] {
         PopOptionHistory();
-        if (uint8_t* dlg = g_6d1720) BuildingDialog_Retrack(dlg);
-        if (uint8_t* tool = g_6d1a8c) TrackTool_Resume(tool);
+        if (uint8_t* dlg = g_buildingDialog) BuildingDialog_Retrack(dlg);
+        if (uint8_t* tool = g_trackTool) TrackTool_Resume(tool);
         Cursor_Set(g_cursorManager, 0, cursor, 0, 0);
         Ui_ShowTooltip(g_windowManager, 0, (const char*)0x5c87a8, 3, 0, -1);
         g_62bec8 = 0;

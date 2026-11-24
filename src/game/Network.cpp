@@ -813,13 +813,13 @@ static inline SprintfFn ExeSprintf() { return (SprintfFn)0x5a19c4; }
 // the panel 0x6d1720; for the local player (0x6d40e4 = +0x18) it also plays sound
 // 0x2f.
 static void __cdecl Player_OnLeft_Impl(uint8_t* p) {
-    uint8_t* panel = g_6d1720;
+    uint8_t* panel = g_buildingDialog;
     if (!p) {
         if (panel && F<int32_t>(panel, 0x94) == 1) Panel_SetDragging(panel, 0, 0);
         return;
     }
     if (Global6d40e4() != F<int32_t>(p, 0x18)) return;
-    panel = g_6d1720;
+    panel = g_buildingDialog;
     if (panel && F<int32_t>(panel, 0x94) == 1) Panel_SetDragging(panel, 0, 0);
     Ui_PlaySound(0x2f, 0, 0x3f000000);
 }
@@ -4187,7 +4187,7 @@ uint8_t* Net_BuildTrackPacket() {
     g_6cea31 = 0;
     g_6cea35 = DateToMinutes((const GameDate*)(g_world + 0xd));
     int32_t sum = 0;
-    if (!g_6d1a8c || g_6ce9a4) {
+    if (!g_trackTool || g_6ce9a4) {
         for (int32_t i = 0; i + 1 < Collection_Count(g_tracks) + 1; ++i) {
             Collection* c = g_tracks;
             uint8_t* o = (uint8_t*)Collection_Get(c, 0, Collection_IdAt(c, 0, (uint32_t)i, 0));
@@ -4501,7 +4501,7 @@ RT3_NOINLINE int32_t __fastcall TrackMsg_ApplyImpl(uint8_t* m, int32_t phase) {
         }
         F<int32_t>(tracks(), 0x125) = F<int32_t>(m, 0x12);
     }
-    if (F<int32_t>(tracks(), 0x125) == -1 && g_6d1a8c) F<int32_t>(tracks(), 0x125) = F<int32_t>(g_6d1a8c, 0x78);
+    if (F<int32_t>(tracks(), 0x125) == -1 && g_trackTool) F<int32_t>(tracks(), 0x125) = F<int32_t>(g_trackTool, 0x78);
     if (F<int32_t>(tracks(), 0x125) != -1 && valid(F<int32_t>(tracks(), 0x125)))
         Track_UpdateColor((uint8_t*)Collection_Get((Collection*)tracks(), 0, F<uint32_t>(tracks(), 0x125)));
     if (F<int32_t>(tracks(), 0x125) != -1 && !valid(F<int32_t>(tracks(), 0x125))) {
@@ -4544,7 +4544,7 @@ RT3_REPLACE(0x46f0a0, TrackMsg_Apply);
 // 0x6d1a8c (+0x83; cursor 4), a pick in panel 0x6d3ac8 (+0x78; 0x6d1aa4 = -1), or
 // a drag of panel 0x6d1720 (+0x94); the cursor goes back to 1.
 RT3_NOINLINE void CancelMouseAction() {
-    if (uint8_t* d = g_6d1a8c) {
+    if (uint8_t* d = g_trackTool) {
         if (!F<int32_t>(d, 0x83)) return;
         F<int32_t>(d, 0x83) = 0;
         Cursor_Set(g_cursorManager, 0, 4, 0, 0);
@@ -4556,7 +4556,7 @@ RT3_NOINLINE void CancelMouseAction() {
         Cursor_Set(g_cursorManager, 0, 1, 0, 0);
         return;
     }
-    if (uint8_t* p = g_6d1720) {
+    if (uint8_t* p = g_buildingDialog) {
         if (!F<int32_t>(p, 0x94)) return;
         Panel_SetDragging(p, 0, 0);
     }
@@ -5008,7 +5008,7 @@ int32_t __fastcall NetMsg_TrackBuildResult(uint8_t* m) {
     }
     if ((uint32_t)Global6d40e4() != F<uint32_t>(d, 0)) return 1;
 reset:
-    F<uint32_t>(g_6d1a8c, 0x83) = 0;
+    F<uint32_t>(g_trackTool, 0x83) = 0;
     Cursor_Set(g_cursorManager, 0, 4, 0, 0);
     return 1;
 }
@@ -5804,7 +5804,7 @@ int32_t __fastcall NetMsg_Bulldoze(uint8_t* m) {
             Ui_SendEvent5(hook::As<uint8_t**>(g_windowManager), 0, 0xba, 0x808, 0, 0, 0);
     }
     if ((uint32_t)Global6d40e4() == d[0]) {
-        F<int32_t>(g_6d1a8c, 0x83) = 0;
+        F<int32_t>(g_trackTool, 0x83) = 0;
         Cursor_Set(g_cursorManager, 0, 0x15, 0, 0);
         Ui_PlaySound(0x39, 0, 0x3f000000);
     }

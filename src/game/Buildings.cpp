@@ -1211,7 +1211,7 @@ void __fastcall StationBuilding_Hover(uint8_t* o) {
     char frame[0x1f8];
     char* text = frame;
     text[0] = 0;
-    auto toolActive = []() { return g_6d1a8c && Global622b0cIs64(); };
+    auto toolActive = []() { return g_trackTool && Global622b0cIs64(); };
     const bool selectable = ((int32_t(__thiscall*)(uint8_t*))(*(void***)o)[0x70 / 4])(o) != 0 && !toolActive();
     if (selectable) {
         if (o[0x3d4] == 1) {
@@ -1303,7 +1303,7 @@ void __fastcall Station_OnStateChanged(uint8_t* b) {
         Overview_SetHighlight(map, 0, 0);
         map = g_map;
     }
-    if (F<int32_t>(g_app, 0x2cc) && hook::As<uint32_t>(g_6d1a8c) && !F<int32_t>(map, 0x2175))
+    if (F<int32_t>(g_app, 0x2cc) && hook::As<uint32_t>(g_trackTool) && !F<int32_t>(map, 0x2175))
         Overview_SetMode(map, 0, 0x15, 0, 0, 0, nullptr, 0, 0, 99999, 99999);
 }
 RT3_REPLACE(0x40e880, Station_OnStateChanged);

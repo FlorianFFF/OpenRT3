@@ -206,7 +206,7 @@ void __fastcall CarTypes_AnnounceNew(Collection* c) {
     if (F<int32_t>(w, 0x46c38)) return;
     if (F<uint16_t>(w, 0xd) == 0x770 && F<uint16_t>(w, 5) < 0x770) {
         const char* text = GetString(0xcc);
-        News_Add(g_6cea4c, 0, GetString(0xcb), text, 0, 0);
+        News_Add(g_news, 0, GetString(0xcb), text, 0, 0);
         w = World();
     }
     if (F<uint16_t>(w, 0xd) < 0x726) return;

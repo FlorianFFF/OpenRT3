@@ -1652,11 +1652,11 @@ void __fastcall StockIssuePanel_DrawCb(void*, int, float x, float y, float w, fl
     char frame[0x208];
     char* num = frame + 0x14;
     Font_DrawTextBox(g_6cfe50, 0, GetString(0x3d0), rx, ry, rw, rh, 0xffffffff, 2, 1, 0, 1.0f);
-    Num_Format(num, 1, (double)g_6cfe64, 10, 1, 0, 0);
+    Num_Format(num, 1, (double)g_issueShareCount, 10, 1, 0, 0);
     Font_DrawTextBox(g_6cfe50, 0, num, rx, ry, rw, rh, 0xffffffff, 3, 1, 0, 1.0f);
     ry = (float)((double)ry + Fl(0x5d0898));
     Font_DrawTextBox(g_6cfe50, 0, GetString(0x2d3), rx, ry, rw, rh, 0xffffffff, 2, 1, 0, 1.0f);
-    Num_FormatSimple(num, 9, (double)g_6cfe68, 0xb);
+    Num_FormatSimple(num, 9, (double)g_issueSharePrice, 0xb);
     Font_DrawTextBox(g_6cfe50, 0, num, rx, ry, rw, rh, 0xffffffff, 3, 1, 0, 1.0f);
     ry = (float)((double)ry + Fl(0x5d0898));
     Font_DrawTextBox(g_6cfe50, 0, GetString(0x3cb), rx, ry, rw, rh, 0xffffffff, 2, 1, 0, 1.0f);
@@ -1665,7 +1665,7 @@ void __fastcall StockIssuePanel_DrawCb(void*, int, float x, float y, float w, fl
     Font_DrawTextBox(g_6cfe50, 0, num, rx, ry, rw, rh, 0xffffffff, 3, 1, 0, 1.0f);
     ry = (float)((double)ry + Fl(0x5d0898));
     ry = (float)((double)ry + D(0x5d08b0));
-    const int32_t cost = Ftol((double)(g_6cfe68 * g_6cfe64) * D(0x5c8650));
+    const int32_t cost = Ftol((double)(g_issueSharePrice * g_issueShareCount) * D(0x5c8650));
     Font_DrawTextBox(g_6cfe50, 0, GetString(0x3d1), rx, ry, rw, rh, 0xffffffff, 2, 1, 0, 1.0f);
     const int32_t rounded = (cost + 500) / 1000 * 1000;
     Num_FormatSimple2(num, 0xb, (double)rounded, 0xb);
@@ -1695,13 +1695,13 @@ RT3_NOINLINE void __fastcall CompanyWindow_IssueStock(uint8_t* w) {
     if (!company()) return;
     int32_t block = F<int32_t>(company(), 0x47) / 20 / 1000 * 1000;
     if (block < 1000) block = 1000;
-    g_6cfe64 = block;
+    g_issueShareCount = block;
     uint8_t* co = company();
-    int32_t issued = Ftol((double)-g_6cfe64 * D(0x5c8680));
-    g_6cfe68 = Ftol(Company_SharePrice(co, 0, issued, 0));
+    int32_t issued = Ftol((double)-g_issueShareCount * D(0x5c8680));
+    g_issueSharePrice = Ftol(Company_SharePrice(co, 0, issued, 0));
     char num[0x100], text[0x200];
-    Num_FormatSimple2(num, 0xb, (double)g_6cfe68, 0xb);
-    if (g_6cfe68 < 5 && !Global6d07b4Set2()) {
+    Num_FormatSimple2(num, 0xb, (double)g_issueSharePrice, 0xb);
+    if (g_issueSharePrice < 5 && !Global6d07b4Set2()) {
         FormatText(text, GetString(0x3d3), num, 0, 0, 0, 0, 0, 0, 0);
         Message_Show(text, 1, 0);
         return;
@@ -1719,16 +1719,16 @@ RT3_NOINLINE void __fastcall CompanyWindow_IssueStock(uint8_t* w) {
                                    0, nullptr, 0);
     if (r != 0x3f2 || !SelectedCompany()) return;
     if (!IsMultiplayer()) {
-        int32_t price = g_6cfe68, n = g_6cfe64;
+        int32_t price = g_issueSharePrice, n = g_issueShareCount;
         Company_IssueShares((uint8_t*)SelectedCompany(), 0, n, 0, price);
         CompanyWindow_Refresh(w);
         return;
     }
     uint32_t pkt[4];
     pkt[0] = (uint32_t)Obj_Get25(g_world);
-    pkt[2] = hook::As<uint32_t>(g_6cfe64);
+    pkt[2] = hook::As<uint32_t>(g_issueShareCount);
     pkt[1] = F<uint32_t>(g_gameWindow, 0x90);
-    pkt[3] = hook::As<uint32_t>(g_6cfe68);
+    pkt[3] = hook::As<uint32_t>(g_issueSharePrice);
     Cursor_Set(g_cursorManager, 0, 6, 0, 0);
     uint8_t* session = g_session;
     Net_Send(session, 0, (const char*)(session + 0x8f48), 0x29, 0x10, (const uint8_t*)pkt, 5, 0);
@@ -1756,12 +1756,12 @@ void __fastcall CompanyView_DrawTerms(void*, int, float x, float y, float w, flo
     {
         const char* label = GetString(0x3d0);
         Font_DrawTextBox(g_6cfe50, 0, label, cx, cy, cw, rowH, 0xffffffff, 2, 1, 0, 1.0f);
-        Num_Format(num, 1, (double)g_6cfe64, 10, 1, 0, 0);
+        Num_Format(num, 1, (double)g_issueShareCount, 10, 1, 0, 0);
         Font_DrawTextBox(g_6cfe50, 0, num, cx, cy, cw, rowH, 0xffffffff, 3, 1, 0, 1.0f);
     }
     cy = (float)((double)cy + Fl(0x5d0898));
     Font_DrawTextBox(g_6cfe50, 0, GetString(0x2d3), cx, cy, cw, rowH, 0xffffffff, 2, 1, 0, 1.0f);
-    Num_FormatSimple(num, 9, (double)g_6cfe68, 0xb);
+    Num_FormatSimple(num, 9, (double)g_issueSharePrice, 0xb);
     Font_DrawTextBox(g_6cfe50, 0, num, cx, cy, cw, rowH, 0xffffffff, 3, 1, 0, 1.0f);
     cy = (float)((double)cy + Fl(0x5d0898));
     Font_DrawTextBox(g_6cfe50, 0, GetString(0x3d6), cx, cy, cw, rowH, 0xffffffff, 2, 1, 0, 1.0f);
@@ -1769,7 +1769,7 @@ void __fastcall CompanyView_DrawTerms(void*, int, float x, float y, float w, flo
     Font_DrawTextBox(g_6cfe50, 0, num, cx, cy, cw, rowH, 0xffffffff, 3, 1, 0, 1.0f);
     cy = (float)((double)cy + Fl(0x5d0898));
     cy = (float)((double)cy + D(0x5d08b0));
-    double v = (double)g_6cfe68 * (double)g_6cfe64;
+    double v = (double)g_issueSharePrice * (double)g_issueShareCount;
     v = v * D(0x5c8930);
     int32_t total = Ftol((v + D(0x5d0298)) / D(0x5c87f8)) * 1000;
     Font_DrawTextBox(g_6cfe50, 0, GetString(0x3d7), cx, cy, cw, rowH, 0xffffffff, 2, 1, 0, 1.0f);
@@ -1800,23 +1800,23 @@ RT3_NOINLINE void __fastcall CompanyWindow_BuyBackStock(uint8_t* w) {
         return (uint8_t*)Collection_Get(g_companies, 0, F<uint32_t>(g_gameWindow, 0x90));
     };
     if (!company()) return;
-    g_6cfe64 = F<int32_t>(company(), 0x47) / 20 / 1000 * 1000;
+    g_issueShareCount = F<int32_t>(company(), 0x47) / 20 / 1000 * 1000;
     uint8_t* co = company();
-    int32_t issued = Ftol((double)g_6cfe64 * D(0x5c8680));
-    g_6cfe68 = Ftol(Company_SharePrice(co, 0, issued, 0));
-    double per = (double)g_6cfe68 * D(0x5c8698);
+    int32_t issued = Ftol((double)g_issueShareCount * D(0x5c8680));
+    g_issueSharePrice = Ftol(Company_SharePrice(co, 0, issued, 0));
+    double per = (double)g_issueSharePrice * D(0x5c8698);
     if (D(0x5c8770) > per) per = 1.0;
     int32_t afford = Ftol(Company_Stat(company(), 0, 0xd, 0x2329) / per);
-    if (afford < g_6cfe64) g_6cfe64 = afford / 1000 * 1000;
-    if (g_6cfe64 < 1000) g_6cfe64 = 1000;
-    if (g_6cfe64 > Company_FreeShares(company())) g_6cfe64 = Company_FreeShares(SelectedCompany());
+    if (afford < g_issueShareCount) g_issueShareCount = afford / 1000 * 1000;
+    if (g_issueShareCount < 1000) g_issueShareCount = 1000;
+    if (g_issueShareCount > Company_FreeShares(company())) g_issueShareCount = Company_FreeShares(SelectedCompany());
     char text[0x1f8];
-    if (!g_6cfe64) {
+    if (!g_issueShareCount) {
         FormatText(text, GetString(0x3d9), 0, 0, 0, 0, 0, 0, 0, 0);
         Message_Show(text, 1, 0);
         return;
     }
-    if (g_6cfe64 >= F<int32_t>((uint8_t*)SelectedCompany(), 0x47)) {
+    if (g_issueShareCount >= F<int32_t>((uint8_t*)SelectedCompany(), 0x47)) {
         int32_t shares = F<int32_t>((uint8_t*)SelectedCompany(), 0x47);
         char num[0x1f0];
         const char* s = Num_Format(num, 1, (double)shares, 10, 1, 0, 0);
@@ -1824,12 +1824,12 @@ RT3_NOINLINE void __fastcall CompanyWindow_BuyBackStock(uint8_t* w) {
         Message_Show(text, 1, 0);
         return;
     }
-    issued = Ftol((double)g_6cfe64 * D(0x5c8680));
-    g_6cfe68 = Ftol(Company_SharePrice((uint8_t*)SelectedCompany(), 0, issued, 0));
-    double cost = (double)g_6cfe68 * (double)g_6cfe64 * D(0x5c8930);
-    while (Company_Stat(company(), 0, 0xd, 0x2329) < cost && g_6cfe64 > 1000) {
-        g_6cfe64 -= 1000;
-        cost = (double)g_6cfe68 * (double)g_6cfe64 * D(0x5c8930);
+    issued = Ftol((double)g_issueShareCount * D(0x5c8680));
+    g_issueSharePrice = Ftol(Company_SharePrice((uint8_t*)SelectedCompany(), 0, issued, 0));
+    double cost = (double)g_issueSharePrice * (double)g_issueShareCount * D(0x5c8930);
+    while (Company_Stat(company(), 0, 0xd, 0x2329) < cost && g_issueShareCount > 1000) {
+        g_issueShareCount -= 1000;
+        cost = (double)g_issueSharePrice * (double)g_issueShareCount * D(0x5c8930);
     }
     if (Company_Stat((uint8_t*)SelectedCompany(), 0, 0xd, 0x2329) < cost && !Global6d07b4Set2()) {
         Message_Show(GetString(0x3db), 1, 0);
@@ -1839,14 +1839,14 @@ RT3_NOINLINE void __fastcall CompanyWindow_BuyBackStock(uint8_t* w) {
                                    0, 0, nullptr, 0);
     if (r != 0x3f2 || !SelectedCompany()) return;
     if (!IsMultiplayer()) {
-        int32_t n = g_6cfe64;
+        int32_t n = g_issueShareCount;
         Company_BuyBackShares((uint8_t*)SelectedCompany(), 0, n);
         CompanyWindow_Refresh(w);
         return;
     }
     uint32_t pkt[3];
     pkt[0] = (uint32_t)Obj_Get25(g_world);
-    pkt[2] = hook::As<uint32_t>(g_6cfe64);
+    pkt[2] = hook::As<uint32_t>(g_issueShareCount);
     pkt[1] = F<uint32_t>(g_gameWindow, 0x90);
     Cursor_Set(g_cursorManager, 0, 6, 0, 0);
     Net_SendToHost(g_session, 0, 0x2b, 0xc, (const uint8_t*)pkt);
@@ -1918,12 +1918,12 @@ void __fastcall DividendPanel_DrawCb(void*, int, float x, float y, float w, floa
     Font_DrawTextBox(g_6cfe50, 0, num, rx, ry, rw, rh, 0xffffffff, 3, 1, 0, 1.0f);
     ry = (float)((double)ry + Fl(0x5d08e0));
     Font_DrawTextBox(g_6cfe50, 0, GetString(0x3dd), rx, ry, rw, rh, 0xffffffff, 2, 1, 0, 1.0f);
-    Num_FormatSimple2(num, 0xa, (double)g_6cfe48, 0xb);
+    Num_FormatSimple2(num, 0xa, (double)g_dividendPerShare, 0xb);
     Font_DrawTextBox(g_6cfe50, 0, num, rx, ry, rw, rh, 0xffffffff, 3, 1, 0, 1.0f);
     ry = (float)((double)ry + Fl(0x5d08e0));
     Font_DrawTextBox(g_6cfe50, 0, GetString(0x3de), rx, ry, rw, rh, 0xffffffff, 2, 1, 0, 1.0f);
     const float shares = (float)F<int32_t>(company(), 0x47);
-    const float payout = (float)((double)shares * g_6cfe48);
+    const float payout = (float)((double)shares * g_dividendPerShare);
     Num_FormatSimple2(num, 0xb, (double)payout, 0xb);
     Font_DrawTextBox(g_6cfe50, 0, num, rx, ry, rw, rh, 0xffffffff, 3, 1, 0, 1.0f);
 }
@@ -1941,25 +1941,25 @@ int32_t __fastcall DividendDialog_HandleEvent(void*, uint32_t* msg) {
     if (!Collection_Get(g_companies, 0, F<uint32_t>(g_gameWindow, 0x90))) return 1;
     if (msg[0] != 0xcb) return 1;
     SelectedCompany();
-    float step = (float)((double)g_6cfe48 * Fl(0x5c8c28) / D(0x5c8610));
+    float step = (float)((double)g_dividendPerShare * Fl(0x5c8c28) / D(0x5c8610));
     step = (float)(Ftol(((double)step + D(0x5c87d8)) / D(0x5c8d68)) * 5);
     if (!(step > Fl(0x5c8554))) step = 5.0f;
     float cap = Company_MaxDividend((uint8_t*)SelectedCompany());
     if (!(cap > F<float>(SelectedCompany(), 0x4b))) cap = F<float>(SelectedCompany(), 0x4b);
     if (msg[1] == 0x99e8) {
-        if (!(cap > (double)g_6cfe48 + D(0x5d08f8))) {
+        if (!(cap > (double)g_dividendPerShare + D(0x5d08f8))) {
             Message451(GetString(0x3df), 0xbf800000, 0xbf800000);
             return 0;
         }
-        const int32_t v = Ftol((double)g_6cfe48 * D(0x5c85d8) + step + D(0x5c8628));
-        g_6cfe48 = (float)((double)v / D(0x5c85d8));
-        if (!(g_6cfe48 < cap)) g_6cfe48 = cap;
+        const int32_t v = Ftol((double)g_dividendPerShare * D(0x5c85d8) + step + D(0x5c8628));
+        g_dividendPerShare = (float)((double)v / D(0x5c85d8));
+        if (!(g_dividendPerShare < cap)) g_dividendPerShare = cap;
         return 0;
     }
     if (msg[1] == 0xc0f9) {
-        const int32_t v = Ftol((double)g_6cfe48 * D(0x5c85d8) - step + D(0x5c8628));
-        g_6cfe48 = (float)((double)v / D(0x5c85d8));
-        if (g_6cfe48 < Fl(0x5c8598)) hook::As<uint32_t>(g_6cfe48) = 0;
+        const int32_t v = Ftol((double)g_dividendPerShare * D(0x5c85d8) - step + D(0x5c8628));
+        g_dividendPerShare = (float)((double)v / D(0x5c85d8));
+        if (g_dividendPerShare < Fl(0x5c8598)) hook::As<uint32_t>(g_dividendPerShare) = 0;
         return 0;
     }
     return 1;
@@ -1980,7 +1980,7 @@ RT3_NOINLINE void __fastcall CompanyWindow_EditDividend(uint8_t* w) {
     };
     if (!company()) return;
     uint32_t old = F<uint32_t>(company(), 0x4b);
-    hook::As<uint32_t>(g_6cfe48) = old;
+    hook::As<uint32_t>(g_dividendPerShare) = old;
     g_6cfe6c = 1;
     Dialog_RunMessage((const char*)0x5c87a8, 1, 0xbf800000, 0xbf800000, 0x4c5140,
                       (void(__fastcall*)(uint8_t*, int, uint32_t, uint32_t, uint32_t, float))0x4c4c70, 0x4c4e30, Prod_Bits(0x3e333333), 0, 0x1e, 0, nullptr,
@@ -1988,17 +1988,17 @@ RT3_NOINLINE void __fastcall CompanyWindow_EditDividend(uint8_t* w) {
     g_6cfe6c = 0;
     if (!company()) return;
     if (!IsMultiplayer()) {
-        uint32_t v = hook::As<uint32_t>(g_6cfe48);
+        uint32_t v = hook::As<uint32_t>(g_dividendPerShare);
         Obj_Set4b(SelectedCompany(), 0, (int32_t)v);
         CompanyWindow_Refresh(w);
         return;
     }
-    if (Prod_Bits(old) == g_6cfe48) return;
+    if (Prod_Bits(old) == g_dividendPerShare) return;
     uint32_t pkt[3];
     pkt[0] = (uint32_t)Obj_Get25(g_world);
     Cursor_Set(g_cursorManager, 0, 6, 0, 0);
     pkt[1] = F<uint32_t>(g_gameWindow, 0x90);
-    pkt[2] = hook::As<uint32_t>(g_6cfe48);
+    pkt[2] = hook::As<uint32_t>(g_dividendPerShare);
     uint8_t* session = g_session;
     Net_Send(session, 0, (const char*)(session + 0x8f48), 0x2d, 0xc, (const uint8_t*)pkt, 5, 0);
 }

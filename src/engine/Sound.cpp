@@ -202,7 +202,7 @@ static inline uint8_t*& Snd2D() { return g_ccb9f8; }
 
 static inline uint8_t*& Snd3D() { return g_ccb9fc; }
 
-static inline uint8_t*& Music() { return g_ccba00; }
+static inline uint8_t*& Music() { return g_music; }
 
 static inline void Sleep_(uint32_t ms) { Import<void(__stdcall*)(uint32_t)>(0x5c81f0)(ms); }
 
@@ -813,9 +813,9 @@ RT3_REPLACE(0x531500, Sound_Is3D);
 // 0x531520. Stops the game music (0xccba00) when it is playing or paused.
 void __fastcall Sound_StopMusic(uint8_t* s, int, uint32_t notify) {
     if (F<int32_t>(s, 4) != 1 || g_ccb9f4) return;
-    uint8_t* m = g_ccba00;
-    if (Music_IsPlaying(m) == 1 || Music_IsPaused(g_ccba00) == 1)
-        Music_Stop(g_ccba00, 0, notify);
+    uint8_t* m = g_music;
+    if (Music_IsPlaying(m) == 1 || Music_IsPaused(g_music) == 1)
+        Music_Stop(g_music, 0, notify);
 }
 RT3_REPLACE(0x531520, Sound_StopMusic);
 
@@ -823,7 +823,7 @@ RT3_REPLACE(0x531520, Sound_StopMusic);
 RT3_NOINLINE void __fastcall Sound_SetVolume(uint8_t* s, int, float vol, int32_t kind) {
     if (!Is3D(s)) return;
     if (kind == 0) {
-        Music_SetVolume(g_ccba00, 0, vol);
+        Music_SetVolume(g_music, 0, vol);
     } else if (kind == 2) {
         Sound2D_SetVolume(g_ccb9f8, 0, vol);
         Sound_SetEffectsVolume(g_ccb9fc, 0, vol);
@@ -1011,7 +1011,7 @@ RT3_NOINLINE int32_t __fastcall Sound_Restart(uint8_t* snd, int, const char* nam
     if (SoundUp(snd)) Sound_SetListenerPos(g_ccb9fc, 0, 0.0f, 0.0f, 0.0f);
     uint8_t* e = g_engine;
     float mv = (float)((double)F<float>(e, 0x1146fe) * *(const double*)0x5c9c80);
-    if (SoundUp(snd)) Music_SetVolume(g_ccba00, 0, mv);
+    if (SoundUp(snd)) Music_SetVolume(g_music, 0, mv);
     float sv = F<float>(g_engine, 0x1146fa);
     if (SoundUp(snd)) {
         Sound2D_SetVolume(g_ccb9f8, 0, sv);
@@ -1025,11 +1025,11 @@ RT3_REPLACE(0x531c00, Sound_Restart);
 int32_t __fastcall Sound_PlayMusic(uint8_t* s, int, const char* file, void* onEnd) {
     if (F<int32_t>(s, 4) != 1 || g_ccb9f4) return 0;
     float vol = (float)((double)F<float>(g_engine, 0x1146fe) * *(const double*)0x5c9c80);
-    Music_SetVolume(g_ccba00, 0, vol);
-    uint8_t* m = g_ccba00;
+    Music_SetVolume(g_music, 0, vol);
+    uint8_t* m = g_music;
     if (!(F<float>(m, 0x104) > *(const float*)0x5c8598)) return 0;
-    if (Music_IsPlaying(m) == 1) Music_Stop(g_ccba00, 0, 0);
-    return Music_Play(g_ccba00, 0, file,
+    if (Music_IsPlaying(m) == 1) Music_Stop(g_music, 0, 0);
+    return Music_Play(g_music, 0, file,
                       F<void*>(g_ccb9f8, 0x2c), onEnd);
 }
 RT3_REPLACE(0x531d30, Sound_PlayMusic);
@@ -1110,10 +1110,10 @@ RT3_REPLACE(0x531f90, Sound_RegisterEos);
 void __stdcall Music_FadeStep(int32_t mode) {
     if (g_ccb9f4) return;
     ++g_ccb9f0;
-    uint8_t* mus = g_ccba00;
+    uint8_t* mus = g_music;
     uint8_t* eng = g_engine;
     auto finish = [&](double vol) {
-        Music_SetVolume(g_ccba00, 0, (float)vol);
+        Music_SetVolume(g_music, 0, (float)vol);
         hook::As<uint32_t>(g_624d60) = 0xbf800000;
         g_624d58 = 1;
     };
@@ -1122,16 +1122,16 @@ void __stdcall Music_FadeStep(int32_t mode) {
         if (Fl(0x5c9b08) == (double)g_624d60) g_624d60 = (float)((double)F<float>(eng, 0x1146fe) * D(0x5dd250));
         const float v = (float)((double)g_624d60 + base);
         const double lim = (double)F<float>(g_engine, 0x1146fe) * D(0x5c9c80);
-        if ((double)v < lim) Music_SetVolume(g_ccba00, 0, v);
+        if ((double)v < lim) Music_SetVolume(g_music, 0, v);
         else finish(lim);
     } else if (mode == 1) {
         const double base = F<float>(mus, 0x104);
         if (Fl(0x5c9b08) == (double)g_624d60) g_624d60 = (float)(Fl(0x5dd24c) * base);
         if ((double)g_624d60 < base) {
-            Music_SetVolume(g_ccba00, 0, (float)(base - (double)g_624d60));
+            Music_SetVolume(g_music, 0, (float)(base - (double)g_624d60));
         } else {
-            if (Music_IsPlaying(g_ccba00) == 1 || Music_IsPaused(g_ccba00) == 1)
-                Music_Stop(g_ccba00, 0, 1);
+            if (Music_IsPlaying(g_music) == 1 || Music_IsPaused(g_music) == 1)
+                Music_Stop(g_music, 0, 1);
             finish((double)F<float>(g_engine, 0x1146fe) * D(0x5c9c80));
         }
     }
