@@ -9,6 +9,9 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
+from fragments import FRAGMENTS
+from replacements import ORIGINAL_ONLY, REPLACEMENT_RE
+
 ROOT = Path(__file__).resolve().parents[1]
 GAME_LO, GAME_HI = 0x401000, 0x56c850
 
@@ -22,12 +25,13 @@ def load():
         callees[a] = [int(c, 16) for c in cs.split(",") if c]
     done = set()
     for p in (ROOT / "src").rglob("*.cpp"):
-        for m in re.finditer(r"RT3_REPLACE\(\s*0x([0-9a-fA-F]+)", p.read_text(encoding="utf-8")):
+        for m in REPLACEMENT_RE.finditer(p.read_text(encoding="utf-8")):
             done.add(int(m.group(1), 16))
     callers = defaultdict(set)
     for a, cs in callees.items():
         for c in cs:
             callers[c].add(a)
+    done |= {f for f, parent in FRAGMENTS.items() if parent in done}
     return funcs, callees, callers, done
 
 
@@ -41,14 +45,14 @@ def main():
     game = lambda a: GAME_LO <= a < GAME_HI
     ready = []
     for a in funcs:
-        if not game(a) or a in done or not re.match(r"(thunk_)?FUN_", funcs[a][0]):
+        if not game(a) or a in done or a in ORIGINAL_ONLY or not re.match(r"(thunk_)?FUN_", funcs[a][0]):
             continue
         if block is not None and a >> 16 != block:
             continue
-        if all(c in done or not game(c) or not re.match(r"(thunk_)?FUN_", funcs.get(c, ("FUN_",))[0]) for c in callees[a]):
+        if all(c in done or c in ORIGINAL_ONLY or not game(c) or not re.match(r"(thunk_)?FUN_", funcs.get(c, ("FUN_",))[0]) for c in callees[a]):
             ready.append((len(callers[a]), a))
     ready.sort(key=lambda t: (-t[0], t[1]))
-    print(f"{len(ready)} ready (all callees done or library)")
+    print(f"{len(ready)} ready (callees replaced, library, or kept original)")
     for n, a in ready[:count]:
         print(f"{a:08x} size={funcs[a][1]:5} callers={n}")
 

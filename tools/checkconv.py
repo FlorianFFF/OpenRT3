@@ -9,6 +9,7 @@ original (decomp/conv.tsv).
 """
 import re
 from pathlib import Path
+from replacements import REPLACEMENT_RE
 
 ROOT = Path(__file__).resolve().parents[1]
 EIGHT = ("double", "uint64_t", "int64_t", "GameDate", "LONGLONG", "ULONGLONG")
@@ -26,7 +27,8 @@ def size_of(param):
     for name, size in STRUCTS.items():
         if p.split()[0] == name:
             return size
-    return 8 if any(p.startswith(t) or (" " + t) in " " + p for t in EIGHT) else 4
+    words = re.findall(r"\w+", p)  # whole words: "int32_t doubleKind" is 4 bytes
+    return 8 if any(t in words for t in EIGHT) else 4
 
 
 def is_float(param):
@@ -71,14 +73,14 @@ def main():
     bad = 0
     seen = {}
     for path, text in texts.items():
-        for m in re.finditer(r"RT3_REPLACE\(\s*0x([0-9a-fA-F]+)", text):
+        for m in REPLACEMENT_RE.finditer(text):
             a = int(m.group(1), 16)
             if a in seen:
                 print(f"DUP {a:08x}: replaced in {seen[a]} and {path.name}")
                 bad += 1
             seen[a] = path.name
     for path, text in texts.items():
-        for m in re.finditer(r"RT3_REPLACE\(\s*0x([0-9a-fA-F]+)\s*,\s*(\w+)\s*\)", text):
+        for m in REPLACEMENT_RE.finditer(text):
             addr, name = int(m.group(1), 16), m.group(2)
             want = purge.get(addr)
             d, t = find_def(name, text, texts)

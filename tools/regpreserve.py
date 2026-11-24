@@ -14,6 +14,7 @@ register on entry; CRT calls (>= 0x5a1000) and malloc/free copies never do.
 """
 import re, sys
 from pathlib import Path
+from replacements import REPLACEMENT_RE
 
 ROOT = Path(__file__).resolve().parents[1]
 SUB = {"ECX": ("ECX", "CX", "CL", "CH"), "EDX": ("EDX", "DX", "DL", "DH")}
@@ -130,7 +131,7 @@ def main():
     replaced = {}
     for path in (ROOT / "src").rglob("*.cpp"):
         text = path.read_text(encoding="utf-8")
-        for m in re.finditer(r"RT3_REPLACE\(\s*0x([0-9a-fA-F]+)\s*,\s*(\w+)", text):
+        for m in REPLACEMENT_RE.finditer(text):
             if re.search(r"naked\)[^\n]*\b" + m.group(2) + r"\(", text):
                 continue  # already wrapped with RT3_KEEP_ECX_EDX
             replaced[int(m.group(1), 16)] = m.group(2)
@@ -166,6 +167,7 @@ def main():
 REVIEWED = {(r, a) for r, a in [
     ("ECX", "00458afa"),  # PUSH ECX at 0x458b20 only reserves a slot (FSTP [ESP] overwrites it)
     ("EDX", "0056189c"),  # OR EDX,ECX with ECX == -1: result does not depend on EDX
+    ("EDX", "004bf9ff"),  # XOR DL,DL: CompanyReport_Show (0x4f29c0) reads only DL
     ("ECX", "004803b8"), ("ECX", "0050de1a"), ("ECX", "004e38c5"), ("ECX", "0041b6a5"), ("ECX", "0041b6dc"),
     ("ECX", "0046f2b9"), ("ECX", "0041b82c"), ("ECX", "0042797b"), ("ECX", "00427815"), ("ECX", "00427893"),
     ("ECX", "00426a6a"), ("ECX", "00426ae9"), ("ECX", "0046ea38"), ("ECX", "00427413"), ("ECX", "004e71ea"),

@@ -10,6 +10,7 @@ EAX last before each RET (via the GhidraMCP HTTP server on 127.0.0.1:8080).
 import re
 import urllib.request
 from pathlib import Path
+from replacements import REPLACEMENT_RE
 
 ROOT = Path(__file__).resolve().parents[1]
 EAX_WRITE = re.compile(r"^(MOV|XOR|LEA|POP|MOVZX|MOVSX|OR|AND|SUB|ADD|INC|DEC|SETNZ|SETZ|IMUL|SAR|SHL|SHR|NEG)\s+(EAX|AX|AL),|^CALL\b")
@@ -30,7 +31,7 @@ def void_replacements():
     found = []
     for p in sorted((ROOT / "src").rglob("*.cpp")):
         text = p.read_text(encoding="utf-8")
-        for m in re.finditer(r"RT3_REPLACE\(\s*0x([0-9a-fA-F]+)\s*,\s*(\w+)\s*\)", text):
+        for m in REPLACEMENT_RE.finditer(text):
             addr, name = int(m.group(1), 16), m.group(2)
             d = re.search(r"\n\s*(?:static\s+)?void\s+(?:__\w+\s+)?" + name + r"\s*\(", text)
             if d:
@@ -59,7 +60,20 @@ def uses_after_call(addr):
         for i, (a, op) in enumerate(ins):
             if op != target:
                 continue
-            for a2, op2 in ins[i + 1: i + 6]:
+            # Follow the straight-line path after the call, through unconditional
+            # jumps (to an epilogue, say), for a few instructions.
+            index = {int(x, 16): k for k, (x, _) in enumerate(ins)}
+            path, k, seen = [], i + 1, set()
+            while k < len(ins) and len(path) < 8 and k not in seen:
+                seen.add(k)
+                a2, op2 = ins[k]
+                m = re.fullmatch(r"JMP 0x([0-9a-fA-F]+)", op2)
+                if m and int(m.group(1), 16) in index:
+                    k = index[int(m.group(1), 16)]
+                    continue
+                path.append((a2, op2))
+                k += 1
+            for a2, op2 in path:
                 dst_src = op2.split(None, 1)
                 if len(dst_src) < 2:
                     if op2.startswith(("RET", "LEAVE")):

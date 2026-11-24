@@ -50,9 +50,10 @@ sense inside a running game (rendering, UI, networking), after a recorded in-gam
 | Path | What |
 |---|---|
 | `src/hook/` | replacement registry + JMP patching |
-| `src/core/` | logging, shared helpers |
+| `src/core/` | logging, and headers for the shared engine types (streams, lists, containers, CRT bridges) |
 | `src/assets/` | file-format readers (PK4, …) — see `docs/formats.md` |
-| `src/game/` | the rewritten game, one file per subsystem |
+| `src/game/` | the rewritten game code (RT3_mp.exe below 0x517c00), one file per original object file (`Train.cpp`, `MapEditor.cpp`, …) |
+| `src/engine/` | the rewritten engine (0x517c00 on: `Misc.cpp`, `MouseCursor.cpp`, `Render.cpp`, …) |
 | `src/launcher/` | `rt3re.exe` |
 | `tests/` | differential tests |
 | `tools/` | Python format tools, progress report, `vc.bat` (run anything in the MSVC x86 env) |
@@ -71,6 +72,36 @@ game folder) and then `python tools/gen_builtin_strings.py`.
 `build.bat` builds and copies `rt3re.dll`,
 `rt3re_test.dll` and `rt3re.exe` into `Railroad Tycoon 3 Full Game\`. `build.bat test` also
 runs the tests. Play with the rewrite by starting `rt3re.exe` from the game folder.
+
+## Original developer menu
+
+Start `LaunchDeveloperMenu.bat` in the game folder, or run:
+
+```
+rt3re.exe --dev-menu
+```
+
+This loads the original `MNUDFLT` menu resource from `RT3_mp.exe` and attaches it
+to the window. Its original command IDs use the game's existing command handler.
+The launcher adds the game's `-s2` windowed safe-mode preset (with sound), which
+resets display settings to that preset. Normal `rt3re.exe` launches are unchanged.
+The original EXE is not modified on disk.
+
+For a windowed game using your current settings, enable the menu without the
+safe-mode preset by adding this to `rt3re.ini` beside the launcher:
+
+```ini
+[developer]
+menu=1
+```
+
+The menu is attached on the game's UI thread and reattached after window
+recreation. Its height is added to the outer window so the rendering/input area
+keeps its size. Some entries need a loaded map or refer to unfinished developer
+features. Use a test save when experimenting with commands that change game state.
+
+The opt-in extension is in `src/developer_menu.cpp`; it is separate from the
+function-for-function rewrites and disabled during ordinary differential tests.
 
 Regenerate the decompile (Ghidra 11.3.2 headless, ~10 min):
 ```

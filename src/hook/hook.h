@@ -50,5 +50,9 @@ template <typename T> inline T& Global(uint32_t addr) { return *reinterpret_cast
 // it (tests/test_ui.cpp patches the entry point).
 #define RT3_NOINLINE __declspec(noinline)
 
+// The registrar's name carries the line: one function may be registered at
+// two addresses (an exe duplicate) in the same file.
+#define RT3_CAT2(a, b) a##b
+#define RT3_CAT(a, b) RT3_CAT2(a, b)
 #define RT3_REPLACE(addr, fn) \
-    static hook::Registrar rt3_reg_##fn(addr, (void*)&fn, #fn)
+    static hook::Registrar RT3_CAT(rt3_reg_##fn##_, __LINE__)(addr, (void*)&fn, #fn)

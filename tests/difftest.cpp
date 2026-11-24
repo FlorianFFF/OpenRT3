@@ -63,6 +63,8 @@ static int __stdcall RunTests(HINSTANCE, HINSTANCE, char* cmdLine, int) {
     const char* filter = strstr(cmdLine, "--filter=");
     char want[2048] = "";
     if (filter) sscanf(filter + 9, "%2047s", want);
+    // The launcher quotes each argument: drop the closing quote.
+    for (size_t n = strlen(want); n && want[n - 1] == '"'; --n) want[n - 1] = 0;
     for (TestCase* t = g_tests; t; t = t->next) {
         if (want[0] && !Wanted(t->name, want)) continue;
         if (!want[0] && strncmp(t->name, "dump_", 5) == 0) continue; // extraction runs only on request

@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include "hook/hook.h"
 #include "core/log.h"
+#include "developer_menu.h"
 
 // Logs the first few hardware exceptions (first chance) with module + offset,
 // so a crash in a rewritten function can be traced to it.
@@ -37,6 +38,7 @@ static void Startup(HMODULE self) {
     rt3::LogOpen("rt3re.log");
     int n = hook::InstallAll(ini);
     rt3::Log("rt3re: %d functions replaced", n);
+    developer_menu::Install(ini);
     harness::Install();
 }
 

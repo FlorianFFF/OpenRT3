@@ -10,6 +10,7 @@ import os
 import re
 import sys
 from pathlib import Path
+from replacements import REPLACEMENT_RE
 
 ROOT = Path(__file__).resolve().parents[1]
 DSW = ROOT.parent / "reversing_notes" / "tools" / "desyncwatch" / "desyncwatch.c"
@@ -24,7 +25,7 @@ def main():
     rep = {}
     for f in glob.glob(str(ROOT / "src" / "**" / "*.cpp"), recursive=True):
         text = open(f, encoding="utf-8", errors="replace").read()
-        for m in re.finditer(r"RT3_REPLACE\(0x([0-9a-fA-F]+),\s*(\w+)", text):
+        for m in REPLACEMENT_RE.finditer(text):
             rep[int(m.group(1), 16)] = (m.group(2), f, text)
     bad = 0
     for s in sorted(set(sites)):

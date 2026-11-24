@@ -12,6 +12,7 @@ import re
 import sys
 from collections import defaultdict
 from pathlib import Path
+from replacements import REPLACEMENT_RE
 
 ROOT = Path(__file__).resolve().parents[1]
 DEC = ROOT / "decomp"
@@ -36,7 +37,7 @@ def main():
             callers[c].append(a)
     done = set()
     for p in (ROOT / "src").rglob("*.cpp"):
-        for m in re.finditer(r"RT3_REPLACE\(\s*0x([0-9a-fA-F]+)", p.read_text(encoding="utf-8")):
+        for m in REPLACEMENT_RE.finditer(p.read_text(encoding="utf-8")):
             done.add(int(m.group(1), 16))
     note_text = ""
     if notes:

@@ -5,11 +5,11 @@ rt3re.ini and checks rt3re.log for an exception. Prints the culprit(s).
 
     python tools/find_crash.py [seconds_per_run]
 """
-import re
 import subprocess
 import sys
 import time
 from pathlib import Path
+from replacements import REPLACEMENT_RE
 
 ROOT = Path(__file__).resolve().parents[1]
 GAME = ROOT.parent / "Railroad Tycoon 3 Full Game"
@@ -20,7 +20,7 @@ LOG = GAME / "rt3re.log"
 def names():
     out = []
     for p in sorted((ROOT / "src").rglob("*.cpp")):
-        out += re.findall(r"RT3_REPLACE\(\s*0x[0-9a-fA-F]+\s*,\s*(\w+)", p.read_text(encoding="utf-8"))
+        out += [m.group(2) for m in REPLACEMENT_RE.finditer(p.read_text(encoding="utf-8"))]
     return out
 
 

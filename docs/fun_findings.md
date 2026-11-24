@@ -382,13 +382,6 @@ the original exe's; the rewrite's name is in parentheses.
   below -1,000,000 qualifies, so the list normally stays empty. The industry and
   cargo lists keep a separate lower bound and sort correctly.
 
-- **The track-laying hint checks the wrong spot.** The status line shown while
-  building track (0x49b180) asks the scene for the map cell under the mouse,
-  which fills in x and y. The "can't build on water" check (0x449980), the
-  early-era terrain check (0x534e10) and the cell-flag check (0x448af0) then
-  read y correctly but take x from a stack slot next to it that nothing ever
-  writes. So the result depends on whatever an earlier call left there. The
-  rebuild keeps 0x49b180 original.
 - **Map cell labels can print stack garbage (0x452100).** The label drawn
   over a map cell only fills its text buffer in overlay modes 1 to 6. In any
   other mode, and in the station-name case when the station id is stale, it
@@ -398,3 +391,55 @@ the original exe's; the rewrite's name is in parentheses.
   the file twice. Errors found in the first pass always report line 0 (or -1).
   The second pass starts counting where the first stopped, so for a file that
   ends in CRLF every reported line number is one too low.
+
+- **A whole developer menu survives (found by the project owner).** The
+  MNUDFLT menu resource is identical in RT3.exe and RT3_mp.exe: 631 labelled
+  commands in 64 submenus.
+  - "Fun Stuff" adds a tank, geese, and biplanes, propeller planes and jets you
+    can fly by hand. The tank command reaches code that still builds a
+    TigerTank with turret, cannon, muzzle flash, tracks, wheels and smoke; its
+    models and textures still ship with the game.
+  - Debug-message filters are named after developers: Andrea, Brent,
+    Guillermo, Jeff and Phil. One camera mode is "Guillermo's custom
+    settings", and another option admits mouse-relative rotation is "sorta
+    broken".
+  - Build presets GOLD MASTER, DEBUG WITH ECONOMY and DEBUG WITHOUT ECONOMY,
+    plus "Enable Debug-only Hot Keys".
+  - Test switches: fake a 1 MB graphics card, turn off single AI activities,
+    force medals, cut loading time to 5%, grow cities to target size in one
+    month, and testing-only ruler and smoke buildings (their files still
+    exist).
+  - src/launcher/LaunchDeveloperMenu.bat brings it up.
+- **More original build paths.** The bundled skinning tools name
+  `C:\RT3\Build\UserSkinningTools\CompanyLogo\CompanyLogo.pdb`,
+  `c:\RT3\UtilSrc\PlayerPortrait\Release\PlayerPortrait.pdb` and
+  `c:\RT3\UtilSrc\TrainSkin\Release\TrainSkin.pdb`, next to the exe's own
+  `\RT3\exe\Src\Engine\` paths. A 48-byte vssver.scc in Data\TreeTypes is
+  leftover Visual SourceSafe metadata.
+
+## The cheat codes, from the inside
+
+The cheat prompt is `World_CheatPrompt` (0x437d70). It works only with at most
+one human player. It asks "Do I detect a cheater in the house?" (string 2922)
+and checks the typed text, case-insensitively, against a 26-entry table at
+0x5ee2c8. Each entry has a string id or literal, a kind, a value, and an
+engine name.
+
+| Code | Kind | Effect |
+|---|---|---|
+| We have a winner Gold / Silver / Bronze | 0 | End the scenario with that medal |
+| We have a winner | 0 | End the scenario as won |
+| All is lost | 1 | End the scenario as lost |
+| Big dog / Fat cat | 3 | +$10,000,000 / +$1,000,000 to the player's own cash |
+| Bailout / Subsidy | 2 | +$10,000,000 / +$1,000,000 to the player company (stat 4) |
+| Passport | 5 | Open every territory to the player company |
+| Go go go | 6 | World flag +0x4c8f |
+| Oops | 7 | Crash every train on the map |
+| Trains are in my blood | 10 | World flag +0x4c8c |
+| Double shift | 9 | World flag +0x4c8d |
+| Safety first | 8 | World flag +0x4c8e |
+| Upgrade / Orca | 4 | Every player train gets an HST125 / a Whale |
+| Katie, Danny, Slater, Evan, Teddy, Alec, Sage, Kelsey, Seymour | 4 | Every player train gets an RE66, Shinkansen Series 0, GG1, Mallard, Big Boy, Ge 6/6 Crocodile, C132, Northern 4-8-4 or F3 |
+
+The nine first names are literals in the exe, not language-file strings. They
+look like the developers' children, each with a favourite engine.

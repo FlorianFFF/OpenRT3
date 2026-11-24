@@ -1,4 +1,8 @@
 @echo off
+if not defined RT3_BUILD_LOCKED (
+    python "%~dp0tools\runlock.py" --build %*
+    exit /b
+)
 rem Builds (32-bit, the game is a 32-bit exe; needs Visual Studio 2019 C++ build tools):
 rem   out\rt3re.dll       the reimplementation, loaded into RT3_mp.exe
 rem   out\rt3re_test.dll  same code + differential tests (replaces WinMain with the test runner)
@@ -13,17 +17,22 @@ set GAME=..\Railroad Tycoon 3 Full Game
 if not exist out\obj mkdir out\obj
 if not exist out\objt mkdir out\objt
 set CFLAGS=/nologo /O2 /MT /W3 /EHsc /std:c++17 /Zi /Isrc /D_CRT_SECURE_NO_WARNINGS /MP /arch:IA32 /fp:precise
-set LIB_SRC=src\hook\*.cpp src\core\*.cpp src\engine\*.cpp src\game\*.cpp src\assets\*.cpp
+set LIB_SRC=src\developer_menu.cpp src\hook\*.cpp src\core\*.cpp src\engine\*.cpp src\game\*.cpp src\assets\*.cpp
 cl %CFLAGS% /LD src\dllmain.cpp src\harness.cpp %LIB_SRC% /Foout\obj\ /Fdout\rt3re.pdb /Fe:out\rt3re.dll /link /MAP:out\rt3re.map user32.lib || exit /b 1
 cl %CFLAGS% /LD tests\*.cpp %LIB_SRC% /Foout\objt\ /Fdout\rt3re_test.pdb /Fe:out\rt3re_test.dll /link /MAP:out\rt3re_test.map user32.lib || exit /b 1
 cl %CFLAGS% src\launcher\launcher.cpp /Foout\obj\ /Fe:out\rt3re.exe || exit /b 1
 copy /y out\rt3re.dll "%GAME%" >nul
 copy /y out\rt3re_test.dll "%GAME%" >nul
 copy /y out\rt3re.exe "%GAME%" >nul
+copy /y src\launcher\LaunchDeveloperMenu.bat "%GAME%" >nul
 echo built and installed rt3re.dll rt3re_test.dll rt3re.exe
 if /i not "%1"=="test" exit /b 0
 python tools\checkconv.py || exit /b 1
-pushd "%GAME%"
+rem The tests run in the unmodded game: a mirror without mods (tools\stockgame.py).
+set STOCK=
+for /f "delims=" %%m in ('python tools\stockgame.py') do set STOCK=%%m
+if not defined STOCK exit /b 1
+pushd "%STOCK%"
 "%CD%\rt3re.exe" --test %2
 set RC=%ERRORLEVEL%
 popd

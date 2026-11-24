@@ -15,15 +15,21 @@ import sys
 import time
 from pathlib import Path
 
+import stockgame
+from replacements import REPLACEMENT_RE
+from runlock import shared_run
+
 ROOT = Path(__file__).resolve().parents[1]
-GAME = ROOT.parent / "Railroad Tycoon 3 Full Game"
+# The game without mods (tools/stockgame.py): the rewrite follows the unmodded
+# exe, so a mod's patches would show up as differences.
+GAME = stockgame.MIRROR
 SAVES = GAME / "Saved Games"
 
 
 def names():
     out = []
     for p in sorted((ROOT / "src").rglob("*.cpp")):
-        out += re.findall(r"RT3_REPLACE\(\s*0x[0-9a-fA-F]+\s*,\s*(\w+)", p.read_text(encoding="utf-8"))
+        out += [m.group(2) for m in REPLACEMENT_RE.finditer(p.read_text(encoding="utf-8"))]
     return out
 
 
@@ -63,6 +69,7 @@ def run(tag, enabled, save, days, timeout=None):
 
 
 def main():
+    stockgame.build()
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
     save = args[0] if len(args) > 0 else "mature.gmc"
     frames = args[1] if len(args) > 1 else "2000"
@@ -106,4 +113,5 @@ def main():
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    with shared_run("simcheck"):
+        sys.exit(main())
