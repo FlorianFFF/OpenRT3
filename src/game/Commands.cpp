@@ -9,6 +9,7 @@
 #include <windows.h>
 #include <initializer_list>
 #include "hook/hook.h"
+#include "core/globals.h"
 #include "game/collection.h"
 #include "core/stream.h"
 #include "core/crt.h"
@@ -225,7 +226,7 @@ void* __fastcall Table_Oldest(Collection* t, int, uint8_t all);
 // Dev commands opening a ledger page (with a world). Return 0.
 #define RT3_LEDGER(addr, page) \
     int32_t Cmd_Ledger##page() { \
-        if (hook::Global<uint8_t*>(0x6cec78)) Ledger_Open(page); \
+        if (g_world) Ledger_Open(page); \
         return 0; \
     } \
     RT3_REPLACE(addr, Cmd_Ledger##page);
@@ -244,7 +245,7 @@ int32_t __fastcall Camera_FlagA0(uint8_t* o, int, int32_t);
 
 #define RT3_TOOL9(addr, name, sub) \
     int32_t name() { \
-        if (uint8_t* v = hook::Global<uint8_t*>(0x6d0818)) { \
+        if (uint8_t* v = g_gameWindow) { \
             if (F<int32_t>(v, 0x8c) == 9 && F<int32_t>(v, 0x90) == sub) View_SetToolMode(v, 0, 0, -1); \
             else View_SetToolMode(v, 0, 9, sub); \
         } \
@@ -275,16 +276,16 @@ int32_t __fastcall Models_DisplayName(const char* name, char* out);
 // 0x179) when nothing is placed.
 #define RT3_ROTATE_HOTKEY(addr, name, steps, keyName, msg) \
     int32_t name() { \
-        if (!hook::Global<uint8_t*>(0x6cec78)) return 0; \
-        if (hook::Global<uint8_t*>(0x6d1720)) { \
-            Placement_RotateSteps(hook::Global<void*>(0x6d1720), 0, steps); \
+        if (!g_world) return 0; \
+        if (g_6d1720) { \
+            Placement_RotateSteps(hook::As<void*>(g_6d1720), 0, steps); \
             return 0; \
         } \
         char key[0x190], shown[0x190], text[0x190]; \
         FormatText(key, GetString(keyName), 0, 0, 0, 0, 0, 0, 0, 0); \
         if (Models_DisplayName(key, shown)) { \
             FormatText(text, GetString(msg), shown, 0, 0, 0, 0, 0, 0, 0); \
-            Log_Add(hook::Global<Collection*>(0x6acd34), 0, text, 4, 0, 0); \
+            Log_Add(g_messageLog, 0, text, 4, 0, 0); \
         } \
         return 0; \
     } \
@@ -305,14 +306,14 @@ void Vehicles_SelectNextBack();
 // log the key's name (0x17a / 0x17b, 0x17c / 0x17d).
 #define RT3_SELECT_HOTKEY(addr, name, buildings, trains, company, vehicles, key, msg) \
     int32_t name() { \
-        if (hook::Global<int32_t>(0x6d16d8)) return buildings(), 0; \
-        if (hook::Global<int32_t>(0x6cfd04)) return trains(), 0; \
-        if (hook::Global<int32_t>(0x6cfe4c)) { \
-            if (!hook::Global<int32_t>(0x6cfe6c) && !Global6cfeb4Positive()) company(); \
+        if (hook::As<int32_t>(g_stationWindow)) return buildings(), 0; \
+        if (hook::As<int32_t>(g_6cfd04)) return trains(), 0; \
+        if (hook::As<int32_t>(g_6cfe4c)) { \
+            if (!hook::As<int32_t>(g_6cfe6c) && !Global6cfeb4Positive()) company(); \
             return 0; \
         } \
-        if (hook::Global<int32_t>(0x6d3b20)) return vehicles(), 0; \
-        if (hook::Global<uint8_t*>(0x6cec78)) Log_KeyName(key, msg); \
+        if (hook::As<int32_t>(g_6d3b20)) return vehicles(), 0; \
+        if (g_world) Log_KeyName(key, msg); \
         return 0; \
     } \
     RT3_REPLACE(addr, name);
@@ -459,7 +460,7 @@ RT3_NOINLINE uint8_t* __fastcall Texture_InitMemory(uint8_t* t, int, void* pixel
 
 static inline int ExeSprintf(char* d, const char* f, int32_t v) { return ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)(d, f, v); }
 
-static inline bool OwnTrain(uint8_t* t) { return F<int32_t>(t, 0x51) == Obj_Get21(hook::Global<void*>(0x6cec78)); }
+static inline bool OwnTrain(uint8_t* t) { return F<int32_t>(t, 0x51) == Obj_Get21(hook::As<void*>(g_world)); }
 
 static inline double D(uint32_t a) { return *(const double*)a; }
 
@@ -526,12 +527,12 @@ void Log_KeyName(int32_t key, int32_t msg) {
     FormatText(name, GetString(key), 0, 0, 0, 0, 0, 0, 0, 0);
     if (!Models_DisplayName(name, shown)) return;
     FormatText(text, GetString(msg), shown, 0, 0, 0, 0, 0, 0, 0);
-    Log_Add(hook::Global<Collection*>(0x6acd34), 0, text, 4, 0, 0);
+    Log_Add(g_messageLog, 0, text, 4, 0, 0);
 }
 // The session's minute follows the next queued part (0 without one).
 void Session_StampNextPart() {
-    uint8_t* part = Net_CountMessagePart(hook::Global<uint8_t*>(0x6cd8d8), 0, 1);
-    uint8_t* s = hook::Global<uint8_t*>(0x6cd8d8);
+    uint8_t* part = Net_CountMessagePart(g_session, 0, 1);
+    uint8_t* s = g_session;
     F<int32_t>(s, 0x8f38) = part ? DateToMinutes((const GameDate*)part) : 0;
 }
 }
@@ -546,7 +547,7 @@ uint32_t Message449(const char* text, int32_t type) {
 // 0x2ee0, the block, marker 0x2ee1 - to file f from its start, or to stream s
 // when f is null.
 static void __cdecl Block3c2_SaveImpl(void* f, const uint8_t* data, int32_t s) {
-    uint32_t v = hook::Global<uint32_t>(0x620e94);
+    uint32_t v = g_620e94;
     if (f) {
         typedef size_t(__cdecl * FwriteFn)(const void*, size_t, size_t, void*);
         FwriteFn fwrite_ = (FwriteFn)0x5a276f;
@@ -603,16 +604,16 @@ static void __cdecl Block_ExtractImageImpl(const char* path, uint8_t* block, cha
     void* o = ((B49Fopen)0x5a1887)(name, (const char*)0x5ca334);
     uint8_t buf[0x200];
     if (!o) {
-        if (void* old = hook::Global<void*>(0x62bed4)) ((void(__cdecl*)(void*))0x5a1145)(old);
-        hook::Global<int32_t>(0x62bed8) = 0x402ee0;
-        hook::Global<uint8_t*>(0x62bed4) = ((uint8_t*(__cdecl*)(size_t))0x5a125d)(0x402ee0);
+        if (void* old = hook::As<void*>(g_62bed4)) ((void(__cdecl*)(void*))0x5a1145)(old);
+        g_62bed8 = 0x402ee0;
+        g_62bed4 = ((uint8_t*(__cdecl*)(size_t))0x5a125d)(0x402ee0);
         int32_t used = 0;
         for (int32_t n = (int32_t)((B49Fio)0x5a1b05)(buf, 1, 0x200, f); n > 0; n = (int32_t)((B49Fio)0x5a1b05)(buf, 1, 0x200, f)) {
-            if (used + 0x200 >= hook::Global<int32_t>(0x62bed8)) break;
-            memcpy(hook::Global<uint8_t*>(0x62bed4) + used, buf, (size_t)n);
+            if (used + 0x200 >= g_62bed8) break;
+            memcpy(g_62bed4 + used, buf, (size_t)n);
             used += n;
         }
-        hook::Global<int32_t>(0x62bed8) = used;
+        g_62bed8 = used;
         ((int(__cdecl*)(void*))0x5a1740)(f);
         return;
     }
@@ -620,7 +621,7 @@ static void __cdecl Block_ExtractImageImpl(const char* path, uint8_t* block, cha
     ((int(__cdecl*)(void*))0x5a2945)(o);
     ((int(__cdecl*)(void*))0x5a1740)(o);
     ((int(__cdecl*)(void*))0x5a1740)(f);
-    NameTable_Rescan(hook::Global<uint8_t*>(0x6d4020));
+    NameTable_Rescan(g_pack);
     strcpy(out, name);
 }
 
@@ -646,7 +647,7 @@ static void __cdecl Save_PackImpl(uint8_t* block, const char* path) {
     uint8_t* out;
     int32_t outSize;
     int32_t packer[3] = { 0x91, 0, 0 };
-    hook::Global<uint32_t>(0xd93988) = 0x441e20;
+    g_d93988 = 0x441e20;
     Pack_Compress(packer, 0, buf + 0x3ce, F<int32_t>(block, 0x18) - 0x3ce, &out, &outSize);
     void* f = ((B49Fopen)0x5a1887)(path, (const char*)0x5ca334);
     ((B49Fio)0x5a276f)(buf, 1, 0x3ce, f);
@@ -659,32 +660,32 @@ static void __cdecl Save_PackImpl(uint8_t* block, const char* path) {
     ((int(__cdecl*)(void*))0x5a1740)(f);
     ((void(__cdecl*)(void*))0x5a1145)(buf);
     ((void(__cdecl*)(void*))0x5a1145)(out);
-    hook::Global<uint32_t>(0xd93988) = 0;
+    g_d93988 = 0;
     ((void(__fastcall*)(int32_t*))&Nop552ff0)(packer);
 }
 
 // Dev commands switching the view's tool mode when allowed.
 int32_t Cmd_ToolModeStock() {
-    if (hook::Global<uint8_t*>(0x6d0818) && hook::Global<uint8_t*>(0x6cec78) && StockMarket_IsAllowed()) View_SetToolMode(hook::Global<uint8_t*>(0x6d0818), 0, 0xb, -1);
+    if (g_gameWindow && g_world && StockMarket_IsAllowed()) View_SetToolMode(g_gameWindow, 0, 0xb, -1);
     return 0;
 }
 RT3_REPLACE(0x440530, Cmd_ToolModeStock);
 
 // 0x440560 / 0x440580 (dev commands). Tool modes 1 / 4.
 int32_t Cmd_ToolMode1() {
-    if (uint8_t* v = hook::Global<uint8_t*>(0x6d0818)) View_SetToolMode(v, 0, 1, -1);
+    if (uint8_t* v = g_gameWindow) View_SetToolMode(v, 0, 1, -1);
     return 0;
 }
 RT3_REPLACE(0x440560, Cmd_ToolMode1);
 
 int32_t Cmd_ToolMode4() {
-    if (uint8_t* v = hook::Global<uint8_t*>(0x6d0818)) View_SetToolMode(v, 0, 4, -1);
+    if (uint8_t* v = g_gameWindow) View_SetToolMode(v, 0, 4, -1);
     return 0;
 }
 RT3_REPLACE(0x440580, Cmd_ToolMode4);
 
 int32_t Cmd_ToolModeEditor() {
-    if (hook::Global<uint8_t*>(0x6d0818) && hook::Global<uint8_t*>(0x6cec78) && Scenario_CheckEditable()) View_SetToolMode(hook::Global<uint8_t*>(0x6d0818), 0, 7, -1);
+    if (g_gameWindow && g_world && Scenario_CheckEditable()) View_SetToolMode(g_gameWindow, 0, 7, -1);
     return 0;
 }
 RT3_REPLACE(0x4405a0, Cmd_ToolModeEditor);
@@ -692,27 +693,27 @@ RT3_REPLACE(0x4405a0, Cmd_ToolModeEditor);
 // 0x4405d0 (dev command). Editor tool mode 8 for the player's company
 // (string 0x170 without one).
 int32_t Cmd_ToolModeCompanyEditor() {
-    if (!hook::Global<uint8_t*>(0x6d0818)) return 0;
-    if (!Obj_Get21(hook::Global<uint8_t*>(0x6cec78))) {
+    if (!g_gameWindow) return 0;
+    if (!Obj_Get21(g_world)) {
         Message_Dialog444(GetString(0x170));
         return 0;
     }
-    if (hook::Global<uint8_t*>(0x6d0818) && hook::Global<uint8_t*>(0x6cec78) && Scenario_CheckEditable())
-        View_SetToolMode(hook::Global<uint8_t*>(0x6d0818), 0, 8, Obj_Get21(hook::Global<uint8_t*>(0x6cec78)));
+    if (g_gameWindow && g_world && Scenario_CheckEditable())
+        View_SetToolMode(g_gameWindow, 0, 8, Obj_Get21(g_world));
     return 0;
 }
 RT3_REPLACE(0x4405d0, Cmd_ToolModeCompanyEditor);
 
 int32_t Cmd_ToolModeCompany() {
-    if (hook::Global<uint8_t*>(0x6d0818) && hook::Global<uint8_t*>(0x6cec78) && Player_CheckHasCompany(hook::Global<uint8_t*>(0x6cec78)))
-        View_SetToolMode(hook::Global<uint8_t*>(0x6d0818), 0, 0xc, -1);
+    if (g_gameWindow && g_world && Player_CheckHasCompany(g_world))
+        View_SetToolMode(g_gameWindow, 0, 0xc, -1);
     return 0;
 }
 RT3_REPLACE(0x440660, Cmd_ToolModeCompany);
 
 int32_t Cmd_ToolModeStockPlayer() {
-    if (hook::Global<uint8_t*>(0x6d0818) && hook::Global<uint8_t*>(0x6cec78) && Player_CheckStockAllowed(hook::Global<uint8_t*>(0x6cec78)))
-        View_SetToolMode(hook::Global<uint8_t*>(0x6d0818), 0, 6, -1);
+    if (g_gameWindow && g_world && Player_CheckStockAllowed(g_world))
+        View_SetToolMode(g_gameWindow, 0, 6, -1);
     return 0;
 }
 RT3_REPLACE(0x440690, Cmd_ToolModeStockPlayer);
@@ -720,7 +721,7 @@ RT3_REPLACE(0x440690, Cmd_ToolModeStockPlayer);
 // 0x4406c0 (dev command). Opens the consist editor for a new train when the
 // player can run trains.
 int32_t Cmd_ConsistEditor() {
-    if (hook::Global<uint8_t*>(0x6d0818) && hook::Global<uint8_t*>(0x6cec78) && Player_CheckCanRunTrains(hook::Global<uint8_t*>(0x6cec78)))
+    if (g_gameWindow && g_world && Player_CheckCanRunTrains(g_world))
         ConsistEditor_Run(nullptr, nullptr, nullptr, 0xffffffff, 0xffffffff, 0, 0, 0, 0xffffffff);
     return 0;
 }
@@ -752,7 +753,7 @@ RT3_LEDGER(0x440860, 9)
 
 // 0x440880 (dev command). Toggles the pause (announced) with sound 0x2c.
 int32_t Cmd_TogglePause() {
-    if (uint8_t* w = hook::Global<uint8_t*>(0x6cec78)) {
+    if (uint8_t* w = g_world) {
         World_TogglePause(w, 0, 1);
         Ui_PlaySound(0x2c, 0, 0x3f000000);
     }
@@ -762,13 +763,13 @@ RT3_REPLACE(0x440880, Cmd_TogglePause);
 
 // 0x4408b0 / 0x4408d0 (dev commands). Save the world (quick / flag 1).
 int32_t Cmd_SaveWorld() {
-    if (uint8_t* w = hook::Global<uint8_t*>(0x6cec78)) World_Save(w, 0, nullptr, 0, nullptr);
+    if (uint8_t* w = g_world) World_Save(w, 0, nullptr, 0, nullptr);
     return 0;
 }
 RT3_REPLACE(0x4408b0, Cmd_SaveWorld);
 
 int32_t Cmd_SaveWorld1() {
-    if (uint8_t* w = hook::Global<uint8_t*>(0x6cec78)) World_Save(w, 0, nullptr, 1, nullptr);
+    if (uint8_t* w = g_world) World_Save(w, 0, nullptr, 1, nullptr);
     return 0;
 }
 RT3_REPLACE(0x4408d0, Cmd_SaveWorld1);
@@ -777,14 +778,14 @@ RT3_REPLACE(0x4408d0, Cmd_SaveWorld1);
 // logs it (0x172) under the display name of string 0x171 with the slot
 // number. The second register argument is unused. Returns 0.
 RT3_NOINLINE int32_t __fastcall Camera_SaveBookmarkCmd(int32_t slot, void*) {
-    if (!hook::Global<uint8_t*>(0x62be68)) return 0;
-    Obj_FillEntry10e(hook::Global<uint8_t*>(0x62be68), 0, slot);
+    if (!g_62be68) return 0;
+    Obj_FillEntry10e(g_62be68, 0, slot);
     char text[0x190], name[0x190], shown[0x190];
     const char* num = Num_Format(text, 1, (double)slot, 10, 1, 0, 0);
     FormatText(name, GetString(0x171), num, 0, 0, 0, 0, 0, 0, 0);
     if (Models_DisplayName(name, shown)) {
         FormatText(text, GetString(0x172), shown, 0, 0, 0, 0, 0, 0, 0);
-        Log_Add(hook::Global<Collection*>(0x6acd34), 0, text, 4, 0, 0);
+        Log_Add(g_messageLog, 0, text, 4, 0, 0);
     }
     return 0;
 }
@@ -795,8 +796,8 @@ RT3_REPLACE(0x4408f0, Camera_SaveBookmarkCmd);
 // number) are known, logs 0x175. Returns 0.
 // QUIRK: the message gets the second name twice and the first one third.
 RT3_NOINLINE int32_t __fastcall Camera_LoadBookmarkCmd(int32_t slot, void*) {
-    if (!hook::Global<uint8_t*>(0x62be68)) return 0;
-    if (Camera_RecallBookmark(hook::Global<uint8_t*>(0x62be68), 0, slot)) return 0;
+    if (!g_62be68) return 0;
+    if (Camera_RecallBookmark(g_62be68, 0, slot)) return 0;
     char text[0x190], first[0x190], second[0x190], shownFirst[0x190], shownSecond[0x190];
     const char* num = Num_Format(text, 1, (double)slot, 10, 1, 0, 0);
     FormatText(first, GetString(0x173), num, 0, 0, 0, 0, 0, 0, 0);
@@ -806,7 +807,7 @@ RT3_NOINLINE int32_t __fastcall Camera_LoadBookmarkCmd(int32_t slot, void*) {
     const int32_t b = Models_DisplayName(second, shownSecond);
     if (!a || !b) return 0;
     FormatText(text, GetString(0x175), shownSecond, shownSecond, shownFirst, 0, 0, 0, 0, 0);
-    Log_Add(hook::Global<Collection*>(0x6acd34), 0, text, 4, 0, 0);
+    Log_Add(g_messageLog, 0, text, 4, 0, 0);
     return 0;
 }
 RT3_REPLACE(0x4409c0, Camera_LoadBookmarkCmd);
@@ -853,8 +854,8 @@ RT3_BOOKMARK(0x440c30, Load, 0)
 
 // 0x440c40 (dev command). Display mode +0x1bb / +0x1b7 by option 0x10c.
 int32_t Cmd_DisplayModeByOption() {
-    if (hook::Global<uint8_t*>(0x62be68)) {
-        uint8_t* app = hook::Global<uint8_t*>(0x6cec74);
+    if (g_62be68) {
+        uint8_t* app = g_app;
         if (OptionTable10c()) Options_SetDisplayMode(app, 0, F<int32_t>(app, 0x1bb));
         else Options_SetDisplayMode(app, 0, F<int32_t>(app, 0x1b7));
     }
@@ -873,32 +874,32 @@ RT3_SELECT_HOTKEY(0x440f20, Hotkey_SelectPrev, Buildings_SelectNextBack, Trains_
 // 0x441040 / 0x4410d0 (hotkeys). Open the train (+0x78) / station (+0x80)
 // view, or the company's first one when that is gone.
 int32_t Hotkey_ShowTrain() {
-    if (!hook::Global<uint8_t*>(0x6cec78) || !hook::Global<uint8_t*>(0x6d0818)) return 0;
-    uint32_t id = F<uint32_t>(hook::Global<uint8_t*>(0x6d0818), 0x78);
-    if (!Collection_IsValid(hook::Global<Collection*>(0x6cfcbc), 0, id) && Obj_Company21(hook::Global<uint8_t*>(0x6cec78)) &&
-        Company_TrainCount(Obj_Company21(hook::Global<uint8_t*>(0x6cec78))) > 0)
-        id = Company_NthTrain((int32_t*)Obj_Company21(hook::Global<uint8_t*>(0x6cec78)), 0, 1);
-    if (Collection_IsValid(hook::Global<Collection*>(0x6cfcbc), 0, id)) View_SetToolMode(hook::Global<uint8_t*>(0x6d0818), 0, 2, (int32_t)id);
+    if (!g_world || !g_gameWindow) return 0;
+    uint32_t id = F<uint32_t>(g_gameWindow, 0x78);
+    if (!Collection_IsValid(g_trains, 0, id) && Obj_Company21(g_world) &&
+        Company_TrainCount(Obj_Company21(g_world)) > 0)
+        id = Company_NthTrain((int32_t*)Obj_Company21(g_world), 0, 1);
+    if (Collection_IsValid(g_trains, 0, id)) View_SetToolMode(g_gameWindow, 0, 2, (int32_t)id);
     return 0;
 }
 RT3_REPLACE(0x441040, Hotkey_ShowTrain);
 
 int32_t Hotkey_ShowStation() {
-    if (!hook::Global<uint8_t*>(0x6cec78) || !hook::Global<uint8_t*>(0x6d0818)) return 0;
-    uint32_t id = F<uint32_t>(hook::Global<uint8_t*>(0x6d0818), 0x80);
-    if (!Collection_IsValid(hook::Global<Collection*>(0x6cec20), 0, id) && Obj_Company21(hook::Global<uint8_t*>(0x6cec78)) &&
-        Company_CountCargoSites(Obj_Company21(hook::Global<uint8_t*>(0x6cec78)), 0, 0) > 0)
-        id = Company_NthSite((int32_t*)Obj_Company21(hook::Global<uint8_t*>(0x6cec78)), 0, 1, 0);
-    if (Collection_IsValid(hook::Global<Collection*>(0x6cec20), 0, id)) View_SetToolMode(hook::Global<uint8_t*>(0x6d0818), 0, 5, (int32_t)id);
+    if (!g_world || !g_gameWindow) return 0;
+    uint32_t id = F<uint32_t>(g_gameWindow, 0x80);
+    if (!Collection_IsValid(g_stations, 0, id) && Obj_Company21(g_world) &&
+        Company_CountCargoSites(Obj_Company21(g_world), 0, 0) > 0)
+        id = Company_NthSite((int32_t*)Obj_Company21(g_world), 0, 1, 0);
+    if (Collection_IsValid(g_stations, 0, id)) View_SetToolMode(g_gameWindow, 0, 5, (int32_t)id);
     return 0;
 }
 RT3_REPLACE(0x4410d0, Hotkey_ShowStation);
 
 // 0x441160 (dev command). Toggles the overview's plain mode.
 int32_t Cmd_TogglePlainOverview() {
-    if (hook::Global<uint8_t*>(0x6cec78) && hook::Global<uint8_t*>(0x62c120)) {
-        if (!Obj_Byte21c5(hook::Global<uint8_t*>(0x62c120))) Overview_ShowPlainOnce(hook::Global<uint8_t*>(0x62c120));
-        else Overview_EndPlain(hook::Global<uint8_t*>(0x62c120));
+    if (g_world && g_map) {
+        if (!Obj_Byte21c5(g_map)) Overview_ShowPlainOnce(g_map);
+        else Overview_EndPlain(g_map);
     }
     return 0;
 }
@@ -906,47 +907,47 @@ RT3_REPLACE(0x441160, Cmd_TogglePlainOverview);
 
 // 0x4411a0 (dev command). Toggles the track network's A0 state.
 int32_t Cmd_ToggleTrackA0() {
-    if (hook::Global<uint8_t*>(0x6cec78) && hook::Global<uint8_t*>(0x6cfca8)) {
-        if (Camera_FlagA0(hook::Global<uint8_t*>(0x6cfca8), 0, 0)) Obj_DecA0(hook::Global<uint8_t*>(0x6cfca8));
-        else Camera_BeginA0(hook::Global<uint8_t*>(0x6cfca8));
+    if (g_world && hook::As<uint8_t*>(g_tracks)) {
+        if (Camera_FlagA0(hook::As<uint8_t*>(g_tracks), 0, 0)) Obj_DecA0(hook::As<uint8_t*>(g_tracks));
+        else Camera_BeginA0(hook::As<uint8_t*>(g_tracks));
     }
     return 0;
 }
 RT3_REPLACE(0x4411a0, Cmd_ToggleTrackA0);
 
 int32_t Cmd_ToggleEngine114276() {
-    if (uint8_t* e = hook::Global<uint8_t*>(0x6d4024)) F<int32_t>(e, 0x114276) = !F<int32_t>(e, 0x114276);
+    if (uint8_t* e = g_engine) F<int32_t>(e, 0x114276) = !F<int32_t>(e, 0x114276);
     return 0;
 }
 RT3_REPLACE(0x4411e0, Cmd_ToggleEngine114276);
 
 // 0x441200 (dev command). In single player, the UI gets release 0x9858.
 int32_t Cmd_Release9858() {
-    if (hook::Global<uint8_t*>(0x6cec78) && CountHumanPlayers() <= 1) Ui_SendEvent5(hook::Global<uint8_t**>(0x6d401c), 0, 0xcb, 0x9858, 0, 0, 0);
+    if (g_world && CountHumanPlayers() <= 1) Ui_SendEvent5(hook::As<uint8_t**>(g_windowManager), 0, 0xcb, 0x9858, 0, 0, 0);
     return 0;
 }
 RT3_REPLACE(0x441200, Cmd_Release9858);
 
 // Dev commands toggling a flag. Return 0.
-int32_t Cmd_Toggle62be84() { return hook::Global<int32_t>(0x62be84) = !hook::Global<int32_t>(0x62be84), 0; }
+int32_t Cmd_Toggle62be84() { return g_62be84 = !g_62be84, 0; }
 RT3_REPLACE(0x441240, Cmd_Toggle62be84);
 
 // 0x441260 / 0x4412a0 (dev commands). Editor buttons (enabled / disabled)
 // outside scenarios, mode from the engine's +0x114216.
 int32_t Cmd_EditorButtons() {
-    if (!hook::Global<int32_t>(0x6d3b4c) && hook::Global<uint8_t*>(0x6cec78) && hook::Global<uint8_t*>(0x6d4024))
+    if (!g_6d3b4c && g_world && g_engine)
         // SETZ AL over the engine pointer: the upper bytes go along.
-        World_SetEditorButtons(((uint32_t)(uintptr_t)hook::Global<uint8_t*>(0x6d4024) & 0xffffff00) |
-                                   (F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x114216) == 1), 0);
+        World_SetEditorButtons(((uint32_t)(uintptr_t)g_engine & 0xffffff00) |
+                                   (F<int32_t>(g_engine, 0x114216) == 1), 0);
     return 0;
 }
 RT3_REPLACE(0x441260, Cmd_EditorButtons);
 
 int32_t Cmd_EditorButtonsDisabled() {
-    if (!hook::Global<int32_t>(0x6d3b4c) && hook::Global<uint8_t*>(0x6cec78) && hook::Global<uint8_t*>(0x6d4024))
+    if (!g_6d3b4c && g_world && g_engine)
         // SETZ AL over the engine pointer: the upper bytes go along.
-        World_SetEditorButtons(((uint32_t)(uintptr_t)hook::Global<uint8_t*>(0x6d4024) & 0xffffff00) |
-                                   (F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x114216) == 1), 1);
+        World_SetEditorButtons(((uint32_t)(uintptr_t)g_engine & 0xffffff00) |
+                                   (F<int32_t>(g_engine, 0x114216) == 1), 1);
     return 0;
 }
 RT3_REPLACE(0x4412a0, Cmd_EditorButtonsDisabled);
@@ -954,9 +955,9 @@ RT3_REPLACE(0x4412a0, Cmd_EditorButtonsDisabled);
 // 0x4412e0 (dev command). In single player, schedules the next weather
 // change and clears the weather override.
 int32_t Cmd_NextWeather() {
-    if (!hook::Global<uint8_t*>(0x6cec78) || CountHumanPlayers() > 1 || !hook::Global<uint8_t*>(0x6cec78)) return 0;
+    if (!g_world || CountHumanPlayers() > 1 || !g_world) return 0;
     if (!RendererMode15Zero() && !Option1df()) return 0;
-    Weather_ScheduleNext(hook::Global<uint8_t*>(0x6cec78), 0, 1);
+    Weather_ScheduleNext(g_world, 0, 1);
     Options_SetWeatherOverride(0, 0);
     return 0;
 }
@@ -964,7 +965,7 @@ RT3_REPLACE(0x4412e0, Cmd_NextWeather);
 
 // 0x441340 / 0x4414d0 / 0x441460 / 0x441870 (dev commands, return 0).
 int32_t Cmd_CheatPrompt() {
-    if (uint8_t* w = hook::Global<uint8_t*>(0x6cec78)) World_CheatPrompt(w);
+    if (uint8_t* w = g_world) World_CheatPrompt(w);
     return 0;
 }
 RT3_REPLACE(0x441340, Cmd_CheatPrompt);
@@ -972,9 +973,9 @@ RT3_REPLACE(0x441340, Cmd_CheatPrompt);
 // 0x441360 (dev command). In single player, spawns a flight (0x62b244) and
 // follows it.
 int32_t Cmd_SpawnFlight() {
-    if (!hook::Global<uint8_t*>(0x6cec78) || CountHumanPlayers() > 1 || !hook::Global<Collection*>(0x62b244) || !hook::Global<uint8_t*>(0x6cec78)) return 0;
-    if (const uint32_t id = Vehicles_MaybeSpawnFlight(hook::Global<Collection*>(0x62b244), 0, 0.0f, 1))
-        World_FollowEntity(hook::Global<uint8_t*>(0x6cec78), 0, 1, 3, (int32_t)id);
+    if (!g_world || CountHumanPlayers() > 1 || !g_62b244 || !g_world) return 0;
+    if (const uint32_t id = Vehicles_MaybeSpawnFlight(g_62b244, 0, 0.0f, 1))
+        World_FollowEntity(g_world, 0, 1, 3, (int32_t)id);
     return 0;
 }
 RT3_REPLACE(0x441360, Cmd_SpawnFlight);
@@ -982,13 +983,13 @@ RT3_REPLACE(0x441360, Cmd_SpawnFlight);
 // 0x4413b0 (dev command). With at most one human player, adds and follows
 // train "0x5ca310".
 int32_t Cmd_AddTrain() {
-    if (hook::Global<uint8_t*>(0x6cec78) && CountHumanPlayers() <= 1 && hook::Global<uint8_t*>(0x6cec78)) Trains_AddAndShow((const char*)0x5ca310, 1);
+    if (g_world && CountHumanPlayers() <= 1 && g_world) Trains_AddAndShow((const char*)0x5ca310, 1);
     return 0;
 }
 RT3_REPLACE(0x4413b0, Cmd_AddTrain);
 
 int32_t Cmd_ToggleEngine1146be() {
-    if (uint8_t* e = hook::Global<uint8_t*>(0x6d4024)) F<int32_t>(e, 0x1146be) = F<int32_t>(e, 0x1146be) != 1;
+    if (uint8_t* e = g_engine) F<int32_t>(e, 0x1146be) = F<int32_t>(e, 0x1146be) != 1;
     return 0;
 }
 RT3_REPLACE(0x4413e0, Cmd_ToggleEngine1146be);
@@ -996,19 +997,19 @@ RT3_REPLACE(0x4413e0, Cmd_ToggleEngine1146be);
 // 0x441400 (dev command). Resets the log entries (0x6acd34) from the one
 // before the oldest unread (or the newest) onwards.
 int32_t Cmd_ResetLogEntries() {
-    if (hook::Global<uint8_t*>(0x6cec78)) {
-        uint8_t* e = (uint8_t*)Table_Oldest(hook::Global<Collection*>(0x6acd34), 0, 0);
-        uint8_t* r = e ? (uint8_t*)Table_FindField4Prev(hook::Global<Collection*>(0x6acd34), 0, F<int32_t>(e, 4))
-                       : (uint8_t*)Table_Newest(hook::Global<Collection*>(0x6acd34));
-        for (; r; r = (uint8_t*)Table_FindField4Next(hook::Global<Collection*>(0x6acd34), 0, F<int32_t>(r, 4))) Obj_Reset455310(r);
+    if (g_world) {
+        uint8_t* e = (uint8_t*)Table_Oldest(g_messageLog, 0, 0);
+        uint8_t* r = e ? (uint8_t*)Table_FindField4Prev(g_messageLog, 0, F<int32_t>(e, 4))
+                       : (uint8_t*)Table_Newest(g_messageLog);
+        for (; r; r = (uint8_t*)Table_FindField4Next(g_messageLog, 0, F<int32_t>(r, 4))) Obj_Reset455310(r);
     }
     return 0;
 }
 RT3_REPLACE(0x441400, Cmd_ResetLogEntries);
 
 int32_t Cmd_MarkOldestLog() {
-    if (hook::Global<uint8_t*>(0x6cec78))
-        if (uint8_t* e = (uint8_t*)Table_Oldest(hook::Global<Collection*>(0x6acd34), 0, 0)) e[0xc] = 1;
+    if (g_world)
+        if (uint8_t* e = (uint8_t*)Table_Oldest(g_messageLog, 0, 0)) e[0xc] = 1;
     return 0;
 }
 RT3_REPLACE(0x441460, Cmd_MarkOldestLog);
@@ -1016,11 +1017,11 @@ RT3_REPLACE(0x441460, Cmd_MarkOldestLog);
 // 0x441490 (dev command). Shows the newspaper before the oldest unread one
 // (or the newest) of log 0x6cea4c.
 int32_t Cmd_ShowPreviousNewspaper() {
-    if (hook::Global<uint8_t*>(0x6cec78)) {
-        Collection* log = hook::Global<Collection*>(0x6cea4c);
+    if (g_world) {
+        Collection* log = g_6cea4c;
         uint8_t* e = (uint8_t*)Table_Oldest14(log, 0, 0);
-        uint8_t* r = e ? (uint8_t*)Table_FindField14Prev(hook::Global<Collection*>(0x6cea4c), 0, F<int32_t>(e, 0x14))
-                       : (uint8_t*)Table_Newest14(hook::Global<Collection*>(0x6cea4c));
+        uint8_t* r = e ? (uint8_t*)Table_FindField14Prev(g_6cea4c, 0, F<int32_t>(e, 0x14))
+                       : (uint8_t*)Table_Newest14(g_6cea4c);
         if (r) Newspaper_Show(r);
     }
     return 0;
@@ -1028,8 +1029,8 @@ int32_t Cmd_ShowPreviousNewspaper() {
 RT3_REPLACE(0x441490, Cmd_ShowPreviousNewspaper);
 
 int32_t Cmd_ReopenLastEvent() {
-    if (uint8_t* w = hook::Global<uint8_t*>(0x6cec78))
-        if (F<int32_t>(hook::Global<uint8_t*>(0x6d401c), 0xc64) <= 0) World_ReopenLastEvent(w);
+    if (uint8_t* w = g_world)
+        if (F<int32_t>(g_windowManager, 0xc64) <= 0) World_ReopenLastEvent(w);
     return 0;
 }
 RT3_REPLACE(0x4414d0, Cmd_ReopenLastEvent);
@@ -1039,7 +1040,7 @@ RT3_REPLACE(0x4414d0, Cmd_ReopenLastEvent);
 // whose name (+0x356) starts with it, case-insensitively; else says so
 // (string 0x16b).
 int32_t Cities_FindByPrompt() {
-    if (!hook::Global<uint8_t*>(0x6cec78)) return 0;
+    if (!g_world) return 0;
     char frame[0x190];
     char* name = frame;
     char* msg = frame + 0x64;
@@ -1047,15 +1048,15 @@ int32_t Cities_FindByPrompt() {
     Dialog_RunMessage(GetString(0x16a), 5, 0xbf800000, 0xbf800000, 0, nullptr, 0, 0.0f, (uint32_t)(uintptr_t)name, 0x1e, 0, nullptr, nullptr, 0, 0, nullptr, 0);
     const int32_t len = (int32_t)strlen(name);
     if (len <= 0) return 0;
-    for (int32_t i = 0; i < Collection_Count(hook::Global<Collection*>(0x62bae0)); ++i) {
-        Collection* cities = hook::Global<Collection*>(0x62bae0);
+    for (int32_t i = 0; i < Collection_Count(g_cities); ++i) {
+        Collection* cities = g_cities;
         uint8_t* c = (uint8_t*)Collection_Get(cities, 0, Collection_IdAt(cities, 0, (uint32_t)i, 0));
         if (F<int32_t>(c, 0x23e) || Strnicmp(name, (const char*)c + 0x356, (size_t)len)) continue;
-        if (hook::Global<uint8_t*>(0x62be68)) Obj_ClearClock346(hook::Global<uint8_t*>(0x62be68));
-        hook::Global<int32_t>(0x62be70) = 1;
+        if (g_62be68) Obj_ClearClock346(g_62be68);
+        g_62be70 = 1;
         Camera_FollowObject(c, 0);
-        hook::Global<int32_t>(0x62be70) = 0;
-        if (uint8_t* view = hook::Global<uint8_t*>(0x62be68)) ((void(__thiscall*)(uint8_t*))(*(void***)view)[7])(view);
+        g_62be70 = 0;
+        if (uint8_t* view = g_62be68) ((void(__thiscall*)(uint8_t*))(*(void***)view)[7])(view);
         return 0;
     }
     FormatText(msg, GetString(0x16b), name, 0, 0, 0, 0, 0, 0, 0);
@@ -1068,14 +1069,14 @@ RT3_REPLACE(0x441500, Cities_FindByPrompt);
 // characters, 0x62be80 set meanwhile) and sends a non-empty one (message 1).
 // Returns 0, or 1 when not in a running multiplayer game.
 int32_t Hotkey_Chat() {
-    if (!hook::Global<uint8_t*>(0x6cec78) || !IsMultiplayer() || !F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x66ae)) return 1;
+    if (!g_world || !IsMultiplayer() || !F<int32_t>(g_world, 0x66ae)) return 1;
     char line[0x40] = {};
-    Obj_Incc60(hook::Global<uint8_t*>(0x6d401c));
-    hook::Global<int32_t>(0x62be80) = 1;
+    Obj_Incc60(g_windowManager);
+    g_62be80 = 1;
     Message447(GetString(0xb6d), 0xb, (uint32_t)(uintptr_t)line, 0x3f);
-    if (line[0]) Net_Send(hook::Global<uint8_t*>(0x6cd8d8), 0, nullptr, 1, (int32_t)strlen(line) + 1, (const uint8_t*)line, 1, 0);
-    Obj_Decc60(hook::Global<uint8_t*>(0x6d401c));
-    hook::Global<int32_t>(0x62be80) = 0;
+    if (line[0]) Net_Send(g_session, 0, nullptr, 1, (int32_t)strlen(line) + 1, (const uint8_t*)line, 1, 0);
+    Obj_Decc60(g_windowManager);
+    g_62be80 = 0;
     return 0;
 }
 RT3_REPLACE(0x441690, Hotkey_Chat);
@@ -1083,13 +1084,13 @@ RT3_REPLACE(0x441690, Hotkey_Chat);
 // 0x441790. The player's own train under focus: the camera's followed
 // vehicle (+0x60, if virtual slot 27 says so), else the selected train; 0 if not own.
 RT3_NOINLINE void* FocusedOwnTrain() {
-    uint8_t* cam = hook::Global<uint8_t*>(0x62be68);
+    uint8_t* cam = g_62be68;
     if (!cam) return nullptr;
     uint8_t* t = nullptr;
     if (void* v = F<void*>(cam, 0x60)) {
         if (((int32_t(__thiscall*)(void*))(*(void***)v)[0x6c / 4])(v)) {
-            t = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfcbc), 0,
-                                         F<uint32_t>(F<uint8_t*>(hook::Global<uint8_t*>(0x62be68), 0x60), 0x390));
+            t = (uint8_t*)Collection_Get(g_trains, 0,
+                                         F<uint32_t>(F<uint8_t*>(g_62be68, 0x60), 0x390));
             if (t && OwnTrain(t)) return t;
         }
     }
@@ -1102,7 +1103,7 @@ RT3_REPLACE(0x441790, FocusedOwnTrain);
 // 0x441810 / 0x4418a0 (dev commands). Crash / break down the focused own
 // train in single player (string 0x16d / 0x16e without one).
 int32_t Cmd_CrashTrain() {
-    if (!hook::Global<uint8_t*>(0x6cec78) || CountHumanPlayers() > 1) return 0;
+    if (!g_world || CountHumanPlayers() > 1) return 0;
     if (!FocusedOwnTrain()) {
         Message_Dialog(GetString(0x16d), 0xbf800000);
         return 0;
@@ -1119,7 +1120,7 @@ int32_t Cmd_FlagTrainCity() {
 RT3_REPLACE(0x441870, Cmd_FlagTrainCity);
 
 int32_t Cmd_BreakDownTrain() {
-    if (!hook::Global<uint8_t*>(0x6cec78) || CountHumanPlayers() > 1) return 0;
+    if (!g_world || CountHumanPlayers() > 1) return 0;
     if (!FocusedOwnTrain()) {
         Message_Dialog(GetString(0x16e), 0xbf800000);
         return 0;
@@ -1142,20 +1143,20 @@ RT3_TOOL9(0x441a00, Cmd_ToolMode9_4, 4)
 // 0x441a40 / 0x441a80 (hotkeys). Game speed up / down, with sound 0x2c when
 // it changed.
 int32_t Hotkey_SpeedUp() {
-    if (uint8_t* w = hook::Global<uint8_t*>(0x6cec78)) {
+    if (uint8_t* w = g_world) {
         const int32_t was = F<int32_t>(w, 0x19);
         World_StepSpeed(w, 0, 1);
-        if (F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x19) != was) Ui_PlaySound(0x2c, 0, 0x3f000000);
+        if (F<int32_t>(g_world, 0x19) != was) Ui_PlaySound(0x2c, 0, 0x3f000000);
     }
     return 0;
 }
 RT3_REPLACE(0x441a40, Hotkey_SpeedUp);
 
 int32_t Hotkey_SpeedDown() {
-    if (uint8_t* w = hook::Global<uint8_t*>(0x6cec78)) {
+    if (uint8_t* w = g_world) {
         const int32_t was = F<int32_t>(w, 0x19);
         World_StepSpeed(w, 0, -1);
-        if (F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x19) != was) Ui_PlaySound(0x2c, 0, 0x3f000000);
+        if (F<int32_t>(g_world, 0x19) != was) Ui_PlaySound(0x2c, 0, 0x3f000000);
     }
     return 0;
 }
@@ -1164,15 +1165,15 @@ RT3_REPLACE(0x441a80, Hotkey_SpeedDown);
 // 0x441ac0 / 0x441af0 (hotkeys). Quick load (flags 0 / 1) in a game unless
 // a modal window is up (0x6d401c +0xc64).
 int32_t Hotkey_QuickLoad() {
-    if (hook::Global<uint8_t*>(0x6cec78) && F<int32_t>(hook::Global<uint8_t*>(0x6d401c), 0xc64) <= 0)
-        World_Load(hook::Global<uint8_t*>(0x6cec78), 0, nullptr, 0, nullptr);
+    if (g_world && F<int32_t>(g_windowManager, 0xc64) <= 0)
+        World_Load(g_world, 0, nullptr, 0, nullptr);
     return 0;
 }
 RT3_REPLACE(0x441ac0, Hotkey_QuickLoad);
 
 int32_t Hotkey_QuickLoadAlt() {
-    if (hook::Global<uint8_t*>(0x6cec78) && F<int32_t>(hook::Global<uint8_t*>(0x6d401c), 0xc64) <= 0)
-        World_Load(hook::Global<uint8_t*>(0x6cec78), 0, nullptr, 1, nullptr);
+    if (g_world && F<int32_t>(g_windowManager, 0xc64) <= 0)
+        World_Load(g_world, 0, nullptr, 1, nullptr);
     return 0;
 }
 RT3_REPLACE(0x441af0, Hotkey_QuickLoadAlt);
@@ -1180,7 +1181,7 @@ RT3_REPLACE(0x441af0, Hotkey_QuickLoadAlt);
 // 0x441b20 (dev command). Toggles the map's +0x168d between +0x1689 and one
 // more.
 int32_t Cmd_ToggleMap168d() {
-    if (uint8_t* m = hook::Global<uint8_t*>(0x62c120)) {
+    if (uint8_t* m = g_map) {
         const int32_t base = F<int32_t>(m, 0x1689);
         F<int32_t>(m, 0x168d) = base + (F<int32_t>(m, 0x168d) == base ? 1 : 0);
     }
@@ -1193,25 +1194,25 @@ RT3_REPLACE(0x441b20, Cmd_ToggleMap168d);
 // multiplayer (string 0xb6e) and asks once (0x62be8c, string 0xb24). Only a
 // confirmed 0x3f2 or an earlier confirmation switches the view mode.
 int32_t Editor_ToggleCb() {
-    if (!hook::Global<uint8_t*>(0x6cec78) || !hook::Global<uint8_t*>(0x6d0818)) return 0;
-    if (F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x68)) {
-        if (!hook::Global<int32_t>(0x62be88)) {
-            hook::Global<int32_t>(0x62be88) = 1;
+    if (!g_world || !g_gameWindow) return 0;
+    if (F<int32_t>(g_app, 0x68)) {
+        if (!g_62be88) {
+            g_62be88 = 1;
             if (Message449(GetString(0x17e), 2) != 0x3f2) return 0;
         }
-        if (!F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x68)) goto entering;
+        if (!F<int32_t>(g_app, 0x68)) goto entering;
     } else {
     entering:
         if (CountHumanPlayers() > 1) {
             Message449(GetString(0xb6e), 1);
             return 0;
         }
-        if (!F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x68) && !hook::Global<int32_t>(0x62be8c)) {
-            hook::Global<int32_t>(0x62be8c) = 1;
+        if (!F<int32_t>(g_app, 0x68) && !g_62be8c) {
+            g_62be8c = 1;
             if (Message449(GetString(0xb24), 2) != 0x3f2) return 0;
         }
     }
-    uint8_t* app = hook::Global<uint8_t*>(0x6cec74);
+    uint8_t* app = g_app;
     App_SetViewMode(app, 0, F<int32_t>(app, 0x68) == 0 ? 1 : 0);
     return 0;
 }
@@ -1220,25 +1221,25 @@ RT3_REPLACE(0x441b50, Editor_ToggleCb);
 // 0x441cb0 / 0x441d20 (dev commands). In single player, move the world's
 // time of day (+0xbfa) by 0x5c8628 (with the clock options off).
 int32_t Cmd_TimeOfDayUp() {
-    if (!hook::Global<uint8_t*>(0x6cec78) || CountHumanPlayers() > 1 || !hook::Global<uint8_t*>(0x6cec78)) return 0;
-    F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x233) = 0;
-    F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x124) = 0;
-    uint8_t* w = hook::Global<uint8_t*>(0x6cec78);
+    if (!g_world || CountHumanPlayers() > 1 || !g_world) return 0;
+    F<int32_t>(g_app, 0x233) = 0;
+    F<int32_t>(g_app, 0x124) = 0;
+    uint8_t* w = g_world;
     F<float>(w, 0xbfa) = (float)((double)F<float>(w, 0xbfa) + D(0x5c8628));
-    World_SetTime(hook::Global<uint8_t*>(0x6cec78), 0, F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x15));
-    Obj_Set65(hook::Global<uint8_t*>(0x62be68));
+    World_SetTime(g_world, 0, F<int32_t>(g_world, 0x15));
+    Obj_Set65(g_62be68);
     return 0;
 }
 RT3_REPLACE(0x441cb0, Cmd_TimeOfDayUp);
 
 int32_t Cmd_TimeOfDayDown() {
-    if (!hook::Global<uint8_t*>(0x6cec78) || CountHumanPlayers() > 1 || !hook::Global<uint8_t*>(0x6cec78)) return 0;
-    F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x233) = 0;
-    F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x124) = 0;
-    uint8_t* w = hook::Global<uint8_t*>(0x6cec78);
+    if (!g_world || CountHumanPlayers() > 1 || !g_world) return 0;
+    F<int32_t>(g_app, 0x233) = 0;
+    F<int32_t>(g_app, 0x124) = 0;
+    uint8_t* w = g_world;
     F<float>(w, 0xbfa) = (float)((double)F<float>(w, 0xbfa) - D(0x5c8628));
-    World_SetTime(hook::Global<uint8_t*>(0x6cec78), 0, F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x15));
-    Obj_Set65(hook::Global<uint8_t*>(0x62be68));
+    World_SetTime(g_world, 0, F<int32_t>(g_world, 0x15));
+    Obj_Set65(g_62be68);
     return 0;
 }
 RT3_REPLACE(0x441d20, Cmd_TimeOfDayDown);
@@ -1296,28 +1297,28 @@ RT3_REPLACE(0x4420f0, Block_ExtractImage);
 // 0x4422d0. Appends the current option bytes (+0x140, +0x13c, +0x138,
 // +0x144) and world byte +0x4c74 to the 5-byte history 0x62be90.
 RT3_NOINLINE void AppendOptionHistory() {
-    int32_t n = hook::Global<int32_t>(0x62bedc);
-    uint8_t* opt = hook::Global<uint8_t*>(0x6cec74);
+    int32_t n = g_62bedc;
+    uint8_t* opt = g_app;
     uint8_t* d = (uint8_t*)0x62be90 + n * 5;
     d[0] = opt[0x140];
     d[1] = opt[0x13c];
     d[2] = opt[0x138];
     d[3] = opt[0x144];
-    d[4] = hook::Global<uint8_t*>(0x6cec78)[0x4c74];
-    hook::Global<int32_t>(0x62bedc) = n + 1;
+    d[4] = g_world[0x4c74];
+    g_62bedc = n + 1;
 }
 RT3_REPLACE(0x4422d0, AppendOptionHistory);
 
 // 0x442330. Pops the last option history entry (see 0x4422d0) back into the options.
 RT3_NOINLINE void PopOptionHistory() {
-    int32_t n = --hook::Global<int32_t>(0x62bedc);
+    int32_t n = --g_62bedc;
     const uint8_t* d = (const uint8_t*)0x62be90 + n * 5;
-    uint8_t* opt = hook::Global<uint8_t*>(0x6cec74);
+    uint8_t* opt = g_app;
     F<int32_t>(opt, 0x140) = (int8_t)d[0];
-    F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x13c) = (int8_t)d[1];
-    F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x138) = (int8_t)d[2];
-    F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x144) = d[3];
-    F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4c74) = d[4];
+    F<int32_t>(g_app, 0x13c) = (int8_t)d[1];
+    F<int32_t>(g_app, 0x138) = (int8_t)d[2];
+    F<int32_t>(g_app, 0x144) = d[3];
+    F<int32_t>(g_world, 0x4c74) = d[4];
 }
 RT3_REPLACE(0x442330, PopOptionHistory);
 
@@ -1326,8 +1327,8 @@ RT3_REPLACE(0x442330, PopOptionHistory);
 // (0x6d1720) when open.
 RT3_NOINLINE void Game_PauseTools() {
     AppendOptionHistory();
-    if (hook::Global<uint8_t*>(0x6d1a8c)) TrackTool_Suspend(hook::Global<uint8_t*>(0x6d1a8c));
-    if (hook::Global<uint8_t*>(0x6d1720)) InfoWindow_ClearHighlights(hook::Global<uint8_t*>(0x6d1720));
+    if (g_6d1a8c) TrackTool_Suspend(g_6d1a8c);
+    if (g_6d1720) InfoWindow_ClearHighlights(g_6d1720);
 }
 RT3_REPLACE(0x4423a0, Game_PauseTools);
 
@@ -1335,8 +1336,8 @@ RT3_REPLACE(0x4423a0, Game_PauseTools);
 // an open building dialog (0x6d1720) and the track tool (0x6d1a8c) resume.
 RT3_NOINLINE void Options_Restore() {
     PopOptionHistory();
-    if (uint8_t* dlg = hook::Global<uint8_t*>(0x6d1720)) BuildingDialog_Retrack(dlg);
-    if (uint8_t* tool = hook::Global<uint8_t*>(0x6d1a8c)) TrackTool_Resume(tool);
+    if (uint8_t* dlg = g_6d1720) BuildingDialog_Retrack(dlg);
+    if (uint8_t* tool = g_6d1a8c) TrackTool_Resume(tool);
 }
 RT3_REPLACE(0x4423d0, Options_Restore);
 
@@ -1348,11 +1349,11 @@ RT3_REPLACE(0x4423d0, Options_Restore);
 RT3_NOINLINE void __fastcall Block_Load(const char* name, uint8_t* block, int32_t tutorial) {
     memset(block, 0, 0x403c2);
     char path[0x120];
-    const char* folder = tutorial ? (const char*)0x5ca338 : Options_SaveFolder(hook::Global<void*>(0x6cec74));
+    const char* folder = tutorial ? (const char*)0x5ca338 : Options_SaveFolder(hook::As<void*>(g_app));
     FormatText(path, (const char*)0x5c9d00, folder, name, 0, 0, 0, 0, 0, 0);
     int32_t s = StreamOpen(path, 1, 0x30d40, 1);
     int32_t version;
-    if (Options_Check1bf(hook::Global<void*>(0x6cec74))) {
+    if (Options_Check1bf(hook::As<void*>(g_app))) {
         StreamRead(s, &version, 4, 0, 1);
         if (version >= 0x3f1) {
             StreamSkip4(s, 0x2ee0, 0, 0);
@@ -1392,11 +1393,11 @@ RT3_NOINLINE int32_t __fastcall Save_LoadOptions(const char* name) {
     uint8_t block[0x403c4];
     Block_Load(name, block, 0);
     if (!block[0x21]) return 0;
-    F<uint8_t>(hook::Global<uint8_t*>(0x6cec7c), 0xc5) = 1;
-    F<uint8_t>(hook::Global<uint8_t*>(0x6cec7c), 0xc4) = block[0x22];
-    F<uint8_t>(hook::Global<uint8_t*>(0x6cec7c), 0x7d) = block[0x33];
-    for (int32_t i = 0; i < 0x10; ++i) F<uint8_t>(hook::Global<uint8_t*>(0x6cec7c), 0xc6 + i) = block[0x23 + i];
-    Input_RemoveHandler(hook::Global<uint8_t*>(0x6d4018), 0, 0xcc);
+    F<uint8_t>(g_newGame, 0xc5) = 1;
+    F<uint8_t>(g_newGame, 0xc4) = block[0x22];
+    F<uint8_t>(g_newGame, 0x7d) = block[0x33];
+    for (int32_t i = 0; i < 0x10; ++i) F<uint8_t>(g_newGame, 0xc6 + i) = block[0x23 + i];
+    Input_RemoveHandler(g_input, 0, 0xcc);
     return 1;
 }
 RT3_REPLACE(0x4425d0, Save_LoadOptions);
@@ -1407,11 +1408,11 @@ RT3_NOINLINE void __fastcall Save_LogProgress(Stream s, const char* label) {
     if (!s && !label) return;
     char kb[0x20], ms[0x20], line[0x1ec];
     int32_t pos = StreamTell(s);
-    ExeSprintf(kb, (const char*)0x5ca350, (pos - hook::Global<int32_t>(0x62c11c)) / 1024);
-    ExeSprintf(ms, (const char*)0x5ca348, ClockMs() - hook::Global<int32_t>(0x62bed0));
+    ExeSprintf(kb, (const char*)0x5ca350, (pos - g_62c11c) / 1024);
+    ExeSprintf(ms, (const char*)0x5ca348, ClockMs() - g_62bed0);
     FormatText(line, GetString(0x198), kb, ms, label, nullptr, nullptr, nullptr, nullptr, nullptr);
     DebugLog(line, -1234, -1234, -1234, -1234, -1234, -1234, -1234, -1234, -1234);
-    hook::Global<int32_t>(0x62c11c) = pos;
+    g_62c11c = pos;
 }
 RT3_REPLACE(0x442660, Save_LogProgress);
 
@@ -1473,8 +1474,8 @@ RT3_REPLACE(0x442900, Save_Pack);
 // +0x82) to one of eight fixed names.
 RT3_NOINLINE int32_t __cdecl AnyHasFixedName() {
     static const uint32_t names[8] = { 0x5ca3a4, 0x5ca39c, 0x5ca390, 0x5ca384, 0x5ca378, 0x5ca36c, 0x5ca364, 0x5ca35c };
-    for (int32_t i = 0; i < Collection_Count(hook::Global<Collection*>(0x6cfcbc)); ++i) {
-        Collection* c = hook::Global<Collection*>(0x6cfcbc);
+    for (int32_t i = 0; i < Collection_Count(g_trains); ++i) {
+        Collection* c = g_trains;
         void* x = Obj_City41(Collection_Get(c, 0, Collection_IdAt(c, 0, i, 0)));
         for (int k = 0; k < 8; ++k)
             if (!Stricmp((const char*)Obj_Ref388(x) + 0x82, (const char*)names[k])) return 1;
@@ -1489,11 +1490,11 @@ RT3_REPLACE(0x442a40, AnyHasFixedName);
 RT3_NOINLINE void __fastcall Map_WritePreview(uint8_t* m, int, uint8_t* dst) {
     memcpy(dst, m + 0x66be, 0x100f0 * 4 + 2);
     dst[0] = 1;
-    F<int32_t>(dst, 1) = F<int32_t>(hook::Global<uint8_t*>(0x62c120), 0x2155);
-    F<int32_t>(dst, 5) = F<int32_t>(hook::Global<uint8_t*>(0x62c120), 0x2159);
-    dst[9] = hook::Global<uint8_t*>(0x6d4024)[0x11471a];
-    dst[0xa] = hook::Global<uint8_t*>(0x6d4024)[0x11471e];
-    dst[0xb] = hook::Global<uint8_t>(0x62bec4);
+    F<int32_t>(dst, 1) = F<int32_t>(g_map, 0x2155);
+    F<int32_t>(dst, 5) = F<int32_t>(g_map, 0x2159);
+    dst[9] = g_engine[0x11471a];
+    dst[0xa] = g_engine[0x11471e];
+    dst[0xb] = hook::As<uint8_t>(g_62bec4);
     Minimap_Render((uint32_t*)(dst + 0x3c2), 0x100, 0x100, 0, 0, 0, nullptr, 0, 0, nullptr, nullptr, nullptr, nullptr);
 }
 RT3_REPLACE(0x442ba0, Map_WritePreview);
@@ -1507,8 +1508,8 @@ RT3_REPLACE(0x442ba0, Map_WritePreview);
 // effect in the state they check for; one ("Setup P3 Welcome") writes back the value
 // it just compared against.
 RT3_NOINLINE void __fastcall Scenario_ApplyFixes(uint8_t* scn, int, const char* name) {
-    auto rule = [](uint32_t id) { return (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be18), 0, id); };
-    auto city = [](uint32_t id) { return (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62bae0), 0, id); };
+    auto rule = [](uint32_t id) { return (uint8_t*)Collection_Get(g_events, 0, id); };
+    auto city = [](uint32_t id) { return (uint8_t*)Collection_Get(g_cities, 0, id); };
     auto named = [](uint8_t* r, uint32_t str) { return !Stricmp((const char*)(r + 0x18), (const char*)str); };
     auto is = [&](uint32_t str) { return !Stricmp(name, (const char*)str); };
     auto cond = [](uint8_t* r) { return F<uint8_t*>(r, 0); };
@@ -1559,25 +1560,25 @@ RT3_NOINLINE void __fastcall Scenario_ApplyFixes(uint8_t* scn, int, const char* 
         if (Game_EffectiveVersion() >= 0x67 && c && Ftol(Obj_CellX(c)) == 0xd0 && Ftol(Obj_CellY(c)) == 0xd6) {
             Obj_MoveTo(c, 0, F<float>(c, 0x1e2), F<float>(c, 0x1e6), BitsF(0x468d9800));
             City_LayStreets(c);
-            Cities_AssignBlocks(hook::Global<Collection*>(0x62bae0));
+            Cities_AssignBlocks(g_cities);
         }
-        uint8_t* o = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6ada80), 0, 0xa);
+        uint8_t* o = (uint8_t*)Collection_Get(g_6ada80, 0, 0xa);
         if (Game_EffectiveVersion() >= 0x67 && o && Ftol(Obj_CellX(o)) == 0xcb && Ftol(Obj_CellY(o)) == 0xc2)
             Obj_MoveTo(o, 0, BitsF(0x4684f800), F<float>(o, 0x1e6), BitsF(0x468e5000));
     }
     if (is(0x5ca5d0) && !scn[0x66de]) { // France
         uint8_t* r = rule(0x1b);
-        uint8_t* m = hook::Global<uint8_t*>(0x62c120);
+        uint8_t* m = g_map;
         if (Game_EffectiveVersion() >= 0x67 && r && named(r, 0x5ca5bc) && F<int32_t>(m, 0x2155) == 0x1c0 &&
             F<int32_t>(m, 0x2159) == 0x1c0) {
             const uint16_t* ends = (const uint16_t*)0x5ee508;
             for (int32_t row = 0; ends + row < (const uint16_t*)0x5ee5cc; ++row)
                 for (int32_t col = 0x15e; col <= (int32_t)ends[row]; ++col) {
-                    m = hook::Global<uint8_t*>(0x62c120);
+                    m = g_map;
                     uint8_t& cell = F<uint8_t*>(m, 0x2131)[F<int32_t>(m, 0x2155) * (row + 0x115) + col];
                     if ((cell & 0xf8) == 0x28) cell = (uint8_t)((cell & 7) | 8);
                 }
-            Territories_Recount(hook::Global<Collection*>(0x6cfc9c));
+            Territories_Recount(g_territories);
         }
     }
     if (is(0x5ca5a8) && scn[0x66de]) { // State of Germany
@@ -1700,8 +1701,8 @@ RT3_NOINLINE void __fastcall Scenario_ApplyFixes(uint8_t* scn, int, const char* 
         }
     }
     if (Game_EffectiveVersion() >= 0x67) {
-        for (int32_t i = 0; i < Collection_Count(hook::Global<Collection*>(0x62b268)); ++i) {
-            Collection* types = hook::Global<Collection*>(0x62b268);
+        for (int32_t i = 0; i < Collection_Count(g_62b268); ++i) {
+            Collection* types = g_62b268;
             uint8_t* t = (uint8_t*)Collection_Get(types, 0, Collection_IdAt(types, 0, i, 0));
             if (!Stricmp((const char*)(t + 4), (const char*)0x5c8f88) && F<int32_t>(t, 0x22) == 25000) F<int32_t>(t, 0x22) = 40000;
         }
@@ -1733,8 +1734,8 @@ RT3_REPLACE(0x442c30, Scenario_ApplyFixes);
 // a fresh single-player scenario shows its intro text (+0x5ae9 in
 // multiplayer, else +0x4f30) and fires trigger 8.
 RT3_NOINLINE void __fastcall World_LoadGame(uint8_t* w, int, const char* name, int32_t show) {
-    auto ed = [] { return hook::Global<uint8_t*>(0x6cec74); };
-    auto lobby = [] { return hook::Global<uint8_t*>(0x6cec7c); };
+    auto ed = [] { return g_app; };
+    auto lobby = [] { return g_newGame; };
     auto status = [&](int32_t id) {
         uint8_t* win = F<uint8_t*>(ed(), 0xc);
         Window_SendEvent5(win, 0, 0x6f, 0x84d2, (uint32_t)(uintptr_t)GetString(id), 0, 0);
@@ -1743,15 +1744,15 @@ RT3_NOINLINE void __fastcall World_LoadGame(uint8_t* w, int, const char* name, i
     char* const base = (char*)0x62bee0;
     strcpy(base, name);
     if (strlen(base) > 4) base[strlen(base) - 4] = 0;
-    hook::Global<int32_t>(0x62bed0) = ClockMs();
-    if (uint8_t* view = hook::Global<uint8_t*>(0x6d0818)) View_SetToolMode(view, 0, 0, -1);
-    if (show) hook::Global<int32_t>(0xccb9e8) = 0;
+    g_62bed0 = ClockMs();
+    if (uint8_t* view = g_gameWindow) View_SetToolMode(view, 0, 0, -1);
+    if (show) g_skipCount = 0;
     App_SetScreen(ed(), 0, 4, 0);
     if (show) {
         Obj_Set78(F<uint8_t*>(ed(), 0xc), 0, 0x42ce0000);
-        Cursor_PushBusy(hook::Global<uint8_t*>(0xccbb20));
+        Cursor_PushBusy(g_cursorManager);
         App_Redraw(ed());
-        Engine_ClearRenderLists(hook::Global<uint8_t*>(0x6d4024));
+        Engine_ClearRenderLists(g_engine);
         App_Redraw(ed());
     }
     F<int32_t>(ed(), 0x4fd) = 1;
@@ -1759,12 +1760,12 @@ RT3_NOINLINE void __fastcall World_LoadGame(uint8_t* w, int, const char* name, i
     Loading_Pump(ed(), 0, 0, 0);
     World_Startup(w, 0, 0, 0);
     F<int32_t>(ed(), 0x4fd) = 1;
-    if (hook::Global<int32_t>(0x6ce9c8) && CountUsedSlots6ce2d8())
+    if (g_6ce9c8 && CountUsedSlots6ce2d8())
         do Loading_Pump(ed(), 0, 0, 0);
         while (CountUsedSlots6ce2d8());
     Loading_Pump(ed(), 0, 0, 0);
     World_Reset(w, 0, 0);
-    hook::Global<int32_t>(0xccb9e8) += 2;
+    g_skipCount += 2;
     Loading_Pump(ed(), 0, 0, 0);
     char path[0x12c];
     {
@@ -1772,7 +1773,7 @@ RT3_NOINLINE void __fastcall World_LoadGame(uint8_t* w, int, const char* name, i
         FormatText(path, (const char*)0x5c9d00, folder, name, 0, 0, 0, 0, 0, 0);
     }
     Stream s = StreamOpen(path, 1, 0x30d40, 1);
-    hook::Global<int32_t>(0xccb9e8) += 2;
+    g_skipCount += 2;
     Loading_Pump(ed(), 0, 0, 0);
     StreamRead(s, w + 0x46c34, 4, 0, 1);
     Loading_Pump(ed(), 0, 0, 0);
@@ -1819,8 +1820,8 @@ RT3_NOINLINE void __fastcall World_LoadGame(uint8_t* w, int, const char* name, i
     status(0x184);
     Collection_Load(F<Collection*>(w, 0x66b2), 0, s, 0);
     Templates_Normalize(w);
-    if (Collection* bt = hook::Global<Collection*>(0x62b268)) Types_RefreshAvailable(bt);
-    Industries_BuildCargoLists(hook::Global<Collection*>(0x62b268));
+    if (Collection* bt = g_62b268) Types_RefreshAvailable(bt);
+    Industries_BuildCargoLists(g_62b268);
     ((void(__fastcall*)(uint8_t*))&World_UpdateEraFactor)(w);
     World_UpdateSpeedScale(w);
     StreamSkip4(s, 0x32dc, 1, 1);
@@ -1849,15 +1850,15 @@ RT3_NOINLINE void __fastcall World_LoadGame(uint8_t* w, int, const char* name, i
             if (!F<int32_t>(ed(), 0x68)) {
                 const int32_t opt = F<int32_t>(ed(), 0x178);
                 if (opt == 1) --year;
-                else if (F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4af7)) --year;
+                else if (F<int32_t>(g_world, 0x4af7)) --year;
                 else if (opt == 2) year -= 3;
             }
             World_SetTime(w, 0, MinutesFromParts(year, 1, 1, 0, 0));
             Economy_UpdateEraFactors(w);
             Weather_ScheduleNext(w, 0, 0);
             memcpy(w + 0x35, w + 0xd, 8);
-            if (Collection* cargo = hook::Global<Collection*>(0x62ba8c)) CargoTypes_Recount(cargo);
-            if (Collection* bt = hook::Global<Collection*>(0x62b268)) Industries_BuildCargoLists(bt);
+            if (Collection* cargo = g_cargoTypes) CargoTypes_Recount(cargo);
+            if (Collection* bt = g_62b268) Industries_BuildCargoLists(bt);
             ((void(__fastcall*)(uint8_t*))&World_UpdateEraFactor)(w);
             World_UpdateSpeedScale(w);
             if (lobby()[0x82]) {
@@ -1889,12 +1890,12 @@ RT3_NOINLINE void __fastcall World_LoadGame(uint8_t* w, int, const char* name, i
         uint8_t* r = (uint8_t*)Collection_Get(names, 0, Collection_IdAt(names, 0, (uint32_t)i, 0));
         if (!memcmp((const void*)0x5ca84c, r, 0xb)) memcpy(r, (const void*)0x5ca840, 10);
     }
-    if (Collection* engines = hook::Global<Collection*>(0x6ada84)) Table_RefreshNamedFlags(engines);
+    if (Collection* engines = g_6ada84) Table_RefreshNamedFlags(engines);
     Loading_Pump(ed(), 0, 0, 0);
     StreamSkip4(s, 0x32dd, 1, 1);
-    ++hook::Global<int32_t>(0xccb9e8);
+    ++g_skipCount;
     World_SetTime(w, 0, F<int32_t>(w, 0x15));
-    CargoTypes_Recount(hook::Global<Collection*>(0x62ba8c));
+    CargoTypes_Recount(g_cargoTypes);
     Loading_Pump(ed(), 0, 0, 0);
     char mapName[0x114];
     ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)(mapName, name);
@@ -1902,84 +1903,84 @@ RT3_NOINLINE void __fastcall World_LoadGame(uint8_t* w, int, const char* name, i
     status(0x185);
     {
         uint8_t* m = ((uint8_t*(__cdecl*)(size_t))0x53b070)(0x2209);
-        hook::Global<uint8_t*>(0x62c120) = m ? Map_ConstructLoad(m, 0, s, mapName) : nullptr;
+        g_map = m ? Map_ConstructLoad(m, 0, s, mapName) : nullptr;
     }
     StreamSkip4(s, 0x32ca, 1, 1);
     status(0x186);
     {
-        void* cam = hook::Global<void*>(0x62be68);
+        void* cam = hook::As<void*>(g_62be68);
         ((void(__fastcall*)(void*, int, Stream))(*(void***)cam)[1])(cam, 0, s);
     }
     StreamSkip4(s, 0x32cb, 1, 1);
     auto fresh = [&] { return lobby()[0x97] || F<int32_t>(ed(), 0x68); };
     status(0x187);
-    Collection_LoadTagged6979(hook::Global<Collection*>(0x62ba8c), 0, s, 0);
-    if (fresh()) CargoTypes_Reload(hook::Global<Collection*>(0x62ba8c));
+    Collection_LoadTagged6979(g_cargoTypes, 0, s, 0);
+    if (fresh()) CargoTypes_Reload(g_cargoTypes);
     StreamSkip4(s, 0x332b, 1, 1);
     status(0x188);
     Sites_LoadTable(s);
-    if (fresh()) BtyTable_Reload(hook::Global<Collection*>(0x62b2fc));
+    if (fresh()) BtyTable_Reload(g_buildingTypes);
     StreamSkip4(s, 0x3315, 1, 1);
     status(0x189);
-    Buildings_Load(hook::Global<Collection*>(0x62b26c), 0, s, 0);
+    Buildings_Load(g_buildings, 0, s, 0);
     StreamSkip4(s, 0x32cc, 1, 1);
-    Collection_Load(hook::Global<Collection*>(0x6ada90), 0, s, 0);
+    Collection_Load(g_6ada90, 0, s, 0);
     StreamSkip4(s, 0x332a, 1, 1);
     status(0x18a);
-    Collection_LoadWithArrays(hook::Global<Collection*>(0x6cec20), 0, s, 0);
+    Collection_LoadWithArrays(g_stations, 0, s, 0);
     StreamSkip4(s, 0x332b, 1, 1);
     status(0x18b);
-    PartModels41aae0_Load(hook::Global<Collection*>(0x62ba84), 0, s, 0);
+    PartModels41aae0_Load(g_62ba84, 0, s, 0);
     StreamSkip4(s, 0x32cd, 1, 1);
     status(0x18c);
-    Trains_Load(hook::Global<Collection*>(0x6cfcbc), 0, s, 0);
+    Trains_Load(g_trains, 0, s, 0);
     StreamSkip4(s, 0x32ce, 1, 1);
     status(0x18d);
-    Companies_Load(hook::Global<Collection*>(0x62be10), 0, s, 0);
+    Companies_Load(g_companies, 0, s, 0);
     StreamSkip4(s, 0x32cf, 1, 1);
     status(0x18e);
-    TrackNet_Load(hook::Global<Collection*>(0x6cfca8), 0, s, 0);
+    TrackNet_Load(g_tracks, 0, s, 0);
     StreamSkip4(s, 0x32d3, 1, 1);
     status(0x18f);
-    Routes_Load(hook::Global<Collection*>(0x6cfcb4), 0, s, 0x24);
+    Routes_Load(g_routes, 0, s, 0x24);
     StreamSkip4(s, 0x32d0, 1, 1);
-    Buildings_RestoreQueued(hook::Global<Collection*>(0x62b26c));
+    Buildings_RestoreQueued(g_buildings);
     status(0x190);
     {
-        uint8_t* map = hook::Global<uint8_t*>(0x62c120);
+        uint8_t* map = g_map;
         for (int32_t y = 0; y < F<int32_t>(map, 0x2161); ++y) {
             for (int32_t x = 0; x < F<int32_t>(map, 0x215d); ++x) {
-                if (Map_CellFlag(map, 0, x, y, 0) == 1) Terrain_SetFlag(hook::Global<uint8_t*>(0x62c120), 0, x >> 2, y >> 2, 0xf);
-                map = hook::Global<uint8_t*>(0x62c120);
+                if (Map_CellFlag(map, 0, x, y, 0) == 1) Terrain_SetFlag(g_map, 0, x >> 2, y >> 2, 0xf);
+                map = g_map;
             }
         }
     }
-    Tracks_RebuildGeometry(hook::Global<Collection*>(0x6cfca8));
+    Tracks_RebuildGeometry(g_tracks);
     status(0x191);
-    Players_Load(hook::Global<Collection*>(0x6ceb9c), 0, s, 0);
+    Players_Load(g_players, 0, s, 0);
     StreamSkip4(s, 0x32d1, 1, 1);
     status(0x192);
-    NamedObjs4611e0_Load(hook::Global<Collection*>(0x6ada80), 0, s, 0);
+    NamedObjs4611e0_Load(g_6ada80, 0, s, 0);
     StreamSkip4(s, 0x332c, 1, 1);
-    Names_ApplyRegionVariants(hook::Global<Collection*>(0x6ada80), 0, (char*)name);
+    Names_ApplyRegionVariants(g_6ada80, 0, (char*)name);
     status(0x193);
-    NamedObjs474110_Load(hook::Global<Collection*>(0x6cea50), 0, s, 0);
+    NamedObjs474110_Load(g_6cea50, 0, s, 0);
     StreamSkip4(s, 0x332d, 1, 1);
     status(0x194);
-    NamedObjs41f590_Load(hook::Global<Collection*>(0x62bae0), 0, s, 0);
+    NamedObjs41f590_Load(g_cities, 0, s, 0);
     StreamSkip4(s, 0x32d2, 1, 1);
     Loading_Pump(ed(), 0, 0, 1);
-    Stations_Load(hook::Global<Collection*>(0x6cfc9c), 0, s, 0);
+    Stations_Load(g_territories, 0, s, 0);
     StreamSkip4(s, 0x32d3, 1, 1);
     status(0x195);
-    NamedObjs456900_Load(hook::Global<Collection*>(0x62b244), 0, s, 0);
+    NamedObjs456900_Load(g_62b244, 0, s, 0);
     StreamSkip4(s, 0x32dc, 1, 1);
     status(0x196);
-    RuleSets_Load(hook::Global<Collection*>(0x62be18), 0, s, 0);
+    RuleSets_Load(g_events, 0, s, 0);
     StreamSkip4(s, 0x32e6, 1, 1);
     StreamRead(s, w + 0x19, 4, 0, 1);
-    if (hook::Global<int32_t>(0x6d40d0)) F<int32_t>(w, 0x19) = 0;
-    if (uint8_t* view = hook::Global<uint8_t*>(0x6d0818)) Window_SendEvent5(view, 0, 0x74, F<int32_t>(w, 0x19) + 0x80c, 1, 0, 0);
+    if (hook::As<int32_t>(g_6d40d0)) F<int32_t>(w, 0x19) = 0;
+    if (uint8_t* view = g_gameWindow) Window_SendEvent5(view, 0, 0x74, F<int32_t>(w, 0x19) + 0x80c, 1, 0, 0);
     Loading_Pump(ed(), 0, 0, 0);
     {
         uint8_t tail[0x1f4];
@@ -1987,52 +1988,52 @@ RT3_NOINLINE void __fastcall World_LoadGame(uint8_t* w, int, const char* name, i
     }
     StreamSkip4(s, 0x32cf, 1, 1);
     StreamClose(s);
-    Ui_SendEvent5(hook::Global<uint8_t**>(0x6d401c), 0, 0xba, 0x808, 0, 0, 0);
+    Ui_SendEvent5(hook::As<uint8_t**>(g_windowManager), 0, 0xba, 0x808, 0, 0, 0);
     {
-        uint8_t* map = hook::Global<uint8_t*>(0x62c120);
-        if ((!F<int32_t>(map, 0x21a5) && !hook::Global<uint8_t*>(0x6d4024)[0x1146eb]) || version() <= 0x2584) Map_RebuildCoast(map, 0, 0, 0, 0x270f, 0x270f, nullptr);
+        uint8_t* map = g_map;
+        if ((!F<int32_t>(map, 0x21a5) && !g_engine[0x1146eb]) || version() <= 0x2584) Map_RebuildCoast(map, 0, 0, 0, 0x270f, 0x270f, nullptr);
     }
     if (unpacked[0]) ((int(__cdecl*)(const char*))0x5a27bb)(unpacked);
     if (w[0x66c9]) ((int(__cdecl*)(const char*))0x5a27bb)(image);
     status(0x197);
     Weather_ApplyIntensity(w);
-    Territories_BuildBorders(hook::Global<Collection*>(0x6cfc9c));
+    Territories_BuildBorders(g_territories);
     Templates_Normalize(w);
-    CargoTypes_MarkAvailable(hook::Global<Collection*>(0x62ba8c));
-    Types_RefreshAvailable(hook::Global<Collection*>(0x62b268));
+    CargoTypes_MarkAvailable(g_cargoTypes);
+    Types_RefreshAvailable(g_62b268);
     MarkKind2Buildings();
-    ++hook::Global<int32_t>(0xccb9e8);
+    ++g_skipCount;
     Loading_Pump(ed(), 0, 0, 0);
     World_SetTime(w, 0, F<int32_t>(w, 0x15));
-    Cities_LayStreets(hook::Global<Collection*>(0x62bae0));
-    Map_MarkUntypedRegions(hook::Global<uint8_t*>(0x62c120));
-    Map_UpdateCargoFlags(hook::Global<uint8_t*>(0x62c120));
-    Lots_RebuildDemand(hook::Global<Collection*>(0x6ada90));
-    Terrain_RefreshPointGrids(hook::Global<uint8_t*>(0x62c120), 0, 0, 0, 0x270f, 0x270f);
+    Cities_LayStreets(g_cities);
+    Map_MarkUntypedRegions(g_map);
+    Map_UpdateCargoFlags(g_map);
+    Lots_RebuildDemand(g_6ada90);
+    Terrain_RefreshPointGrids(g_map, 0, 0, 0, 0x270f, 0x270f);
     Scenario_ApplyFixes(w, 0, name);
     if (lobby()[0x97]) World_PrepareNewGame(w);
-    else if (hook::Global<int32_t>(0x6ce9bc)) World_SetupPlayers(w);
-    for (int32_t i = 0; i < Collection_Count(hook::Global<Collection*>(0x62bae0)); ++i) {
-        Collection* cities = hook::Global<Collection*>(0x62bae0);
+    else if (g_6ce9bc) World_SetupPlayers(w);
+    for (int32_t i = 0; i < Collection_Count(g_cities); ++i) {
+        Collection* cities = g_cities;
         Obj_SumBuildingWeights(Collection_Get(cities, 0, Collection_IdAt(cities, 0, (uint32_t)i, 0)));
     }
-    if (lobby()[0x97]) Camera_RecallBookmark(hook::Global<uint8_t*>(0x62be68), 0, 1);
+    if (lobby()[0x97]) Camera_RecallBookmark(g_62be68, 0, 1);
     if (show) {
-        Ui_ShowTooltip(hook::Global<uint8_t*>(0x6d401c), 0, (const char*)0x5c87a8, 3, 0, -1);
-        Cursor_PopBusy(hook::Global<uint8_t*>(0xccbb20));
+        Ui_ShowTooltip(g_windowManager, 0, (const char*)0x5c87a8, 3, 0, -1);
+        Cursor_PopBusy(g_cursorManager);
     }
     Loading_Pump(ed(), 0, 0, 1);
-    hook::Global<int32_t>(0x622ae4) = -1;
-    hook::Global<int32_t>(0x622b2c) = -1;
+    g_622ae4 = -1;
+    g_622b2c = -1;
     FreeBuffer62b2f8();
-    Map_FeatureBounds(hook::Global<uint8_t*>(0x62c120));
+    Map_FeatureBounds(g_map);
     App_SetScreen(ed(), 0, 1, 0);
     if (F<int32_t>(w, 0x45)) World_FollowEntity(w, 0, 1, F<int32_t>(w, 0x45), F<int32_t>(w, 0x49));
-    ((uint8_t*)Engine_Renderer(hook::Global<void*>(0x6d4024)))[0x3748] = 1;
-    ((uint8_t*)Engine_Renderer(hook::Global<void*>(0x6d4024)))[0x3747] = 1;
+    ((uint8_t*)Engine_Renderer(hook::As<void*>(g_engine)))[0x3748] = 1;
+    ((uint8_t*)Engine_Renderer(hook::As<void*>(g_engine)))[0x3747] = 1;
     F<int32_t>(ed(), 0x4fd) = 0;
     F<int32_t>(ed(), 0x6c) = 0;
-    Companies_BuildStationLinks(hook::Global<Collection*>(0x62be10));
+    Companies_BuildStationLinks(g_companies);
     if (F<int32_t>(lobby(), 1) == 1 || F<int32_t>(lobby(), 1) == 7) {
         Tutorial_Start();
     } else if (!Global6d07b4Set2() && !lobby()[0x82] && lobby()[0x97]) {
@@ -2043,7 +2044,7 @@ RT3_NOINLINE void __fastcall World_LoadGame(uint8_t* w, int, const char* name, i
         else if (strlen((const char*)w + 0x4f30) > 1)
             World_AddNamedEntry(w, 0, (const char*)w + 0x4f30, 0, 0, -1, -1, -1, -1);
     }
-    if (lobby()[0x97]) Events_Fire(hook::Global<Collection*>(0x62be18), 0, 8, nullptr, 0);
+    if (lobby()[0x97]) Events_Fire(g_events, 0, 8, nullptr, 0);
     lobby()[0x97] = 0;
 }
 RT3_REPLACE(0x443a50, World_LoadGame);

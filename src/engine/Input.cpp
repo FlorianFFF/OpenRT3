@@ -8,6 +8,7 @@
 #include <windows.h>
 #include <initializer_list>
 #include "hook/hook.h"
+#include "core/globals.h"
 #include "core/ptrlist.h"
 #include "core/crt.h"
 #include "hook/keepregs.h"
@@ -114,7 +115,7 @@ static inline int32_t Ftol(double v) {
     return r;
 }
 
-static inline uint8_t* Engine() { return hook::Global<uint8_t*>(0x6d4024); }
+static inline uint8_t* Engine() { return g_engine; }
 
 static inline void KeyboardState(uint8_t* buf) { Import<int32_t(__stdcall*)(uint8_t*)>(0x5c8280)(buf); }
 
@@ -131,12 +132,12 @@ namespace {
 // Button capture follows the buttons in a window unless a button of the
 // global input (0x6d4018) is already down or the game is full screen.
 inline bool InputMayCapture(uint8_t* e) {
-    uint8_t* g = hook::Global<uint8_t*>(0x6d4018);
+    uint8_t* g = g_input;
     return e && g && !(F<uint32_t>(g, 0xa8c) & 0x2c00) && !Engine_IsFullscreen(e);
 }
 }
 
-static inline void* Engine_103() { return hook::Global<void*>(0x6d4024); }
+static inline void* Engine_103() { return hook::As<void*>(g_engine); }
 
 static inline uint32_t Bits(float f) { return *(uint32_t*)&f; }
 
@@ -147,14 +148,14 @@ static inline double Fl(uint32_t a) { return *(const float*)a; }
 static inline uint32_t FBits(float f) { return *(uint32_t*)&f; }
 
 static inline const int32_t* ScreenMode() {
-    uint8_t* e = hook::Global<uint8_t*>(0x6d4024);
+    uint8_t* e = g_engine;
     return (const int32_t*)(F<uint8_t*>(e, 0x34) + F<int32_t>(e, 0x11421e) * 0x15);
 }
 
 // An untextured, white-tinted screen rectangle at the next UI depth.
 static void Ui_QueueRect(float x1, float y1, float x2, float y2, uint32_t color) {
     float depth = Fade_Step_Impl();
-    Engine_QueueSprite(hook::Global<void*>(0x6d4024), 0, FBits(x1), FBits(y1), FBits(x2), FBits(y2), FBits(depth), color, 0, 0, 0,
+    Engine_QueueSprite(hook::As<void*>(g_engine), 0, FBits(x1), FBits(y1), FBits(x2), FBits(y2), FBits(depth), color, 0, 0, 0,
                        0x3f800000, 0x3f800000, 0x3f800000);
 }
 
@@ -166,10 +167,10 @@ static void Ui_QueueRect(float x1, float y1, float x2, float y2, uint32_t color)
 // screen saver / monitor power commands are dropped. Everything else goes to
 // DefWindowProc.
 int32_t __stdcall Game_WndProc(uint32_t hwnd, uint32_t msg, uint32_t wparam, uint32_t lparam) {
-    uint8_t* in = hook::Global<uint8_t*>(0x6d4018);
+    uint8_t* in = g_input;
     switch (msg) {
     case 3:
-        if (uint8_t* e = hook::Global<uint8_t*>(0x6d4024)) Engine_PlaceWindow(e, 0, lparam & 0xffff, lparam >> 16);
+        if (uint8_t* e = g_engine) Engine_PlaceWindow(e, 0, lparam & 0xffff, lparam >> 16);
         return 0;
     case 5:
         return 0;
@@ -186,10 +187,10 @@ int32_t __stdcall Game_WndProc(uint32_t hwnd, uint32_t msg, uint32_t wparam, uin
         return 0;
     case 0x100:
     case 0x101:
-        if (hook::Global<int32_t>(0xd93840) && wparam == 0x91) return 0;
-        if (msg == 0x100) Engine_KeyDown(hook::Global<uint8_t*>(0x6d4024), 0, (uint8_t)wparam);
-        else Engine_KeyUp(hook::Global<uint8_t*>(0x6d4024), 0, (uint8_t)wparam);
-        if (uint8_t* i = hook::Global<uint8_t*>(0x6d4018)) Input_OnKey(i, 0, hwnd, msg, wparam, lparam);
+        if (g_d93840 && wparam == 0x91) return 0;
+        if (msg == 0x100) Engine_KeyDown(g_engine, 0, (uint8_t)wparam);
+        else Engine_KeyUp(g_engine, 0, (uint8_t)wparam);
+        if (uint8_t* i = g_input) Input_OnKey(i, 0, hwnd, msg, wparam, lparam);
         return 0;
     case 0x111:
         if (in && Input_PostChar(in, 0, wparam & 0xffff)) return 0;
@@ -197,7 +198,7 @@ int32_t __stdcall Game_WndProc(uint32_t hwnd, uint32_t msg, uint32_t wparam, uin
     case 0x112:
         if (wparam == 0xf030 || wparam == 0xf032) {
             if (!Global6d10b0Set())
-                if (uint8_t* e = hook::Global<uint8_t*>(0x6d4024)) Engine_ResetDisplay(e, 0, e[0x114226] == 0, -1);
+                if (uint8_t* e = g_engine) Engine_ResetDisplay(e, 0, e[0x114226] == 0, -1);
             return 0;
         }
         if (wparam == 0xf140 || wparam == 0xf170) return 0;
@@ -239,12 +240,12 @@ RT3_NOINLINE void __fastcall Keyboard_SetScrollLock(int32_t on) {
     uint8_t keys[0x100];
     KeyboardState(keys);
     if ((int32_t)(keys[0x91] & 1) == on) return;
-    hook::Global<int32_t>(0xd93840)++;
+    g_d93840++;
     auto keybd = Import<void(__stdcall*)(uint8_t, uint8_t, uint32_t, uint32_t)>(0x5c827c);
     keybd(0x91, 0x45, 1, 0);
     keybd(0x91, 0x45, 3, 0);
     PumpMessages();
-    hook::Global<int32_t>(0xd93840)--;
+    g_d93840--;
 }
 RT3_REPLACE(0x54e660, Keyboard_SetScrollLock);
 
@@ -252,11 +253,11 @@ RT3_REPLACE(0x54e660, Keyboard_SetScrollLock);
 void __fastcall Keyboard_SaveScrollLock() {
     uint8_t keys[0x100];
     KeyboardState(keys);
-    hook::Global<uint32_t>(0xd93844) = keys[0x91] & 1;
+    g_d93844 = keys[0x91] & 1;
 }
 RT3_REPLACE(0x54e6d0, Keyboard_SaveScrollLock);
 
-void __fastcall Keyboard_RestoreScrollLock() { Keyboard_SetScrollLock(hook::Global<int32_t>(0xd93844)); }
+void __fastcall Keyboard_RestoreScrollLock() { Keyboard_SetScrollLock(hook::As<int32_t>(g_d93844)); }
 RT3_REPLACE(0x54e700, Keyboard_RestoreScrollLock);
 
 // 0x54e710. Input object constructor: key table, buttons swapped (SM_SWAPBUTTON),
@@ -326,7 +327,7 @@ RT3_NOINLINE void __fastcall Input_DetectDoubleClick(uint8_t* in, int, const uin
     case 10: b = 1; break;
     default: return;
     }
-    uint8_t* e = hook::Global<uint8_t*>(0x6d4024);
+    uint8_t* e = g_engine;
     if (!e) return;
     const int32_t* metric = (const int32_t*)(F<uint8_t*>(e, 0x34) + F<int32_t>(e, 0x11421e) * 0x15);
     double dx = fabs((double)*(const float*)&ev[9] - F<float>(in, 0x104 + b * 0xc)) * metric[0];
@@ -416,9 +417,9 @@ RT3_NOINLINE void __fastcall Input_OnMouse(uint8_t* in, int, float x, float y, f
         uint32_t& st = F<uint32_t>(in, 0xa8c);
         switch (i) {
         case 0:
-            if (x == hook::Global<float>(0x625458) && y == hook::Global<float>(0x625454)) continue;
-            hook::Global<float>(0x625458) = x;
-            hook::Global<float>(0x625454) = y;
+            if (x == g_625458 && y == g_625454) continue;
+            g_625458 = x;
+            g_625454 = y;
             type = 2;
             break;
         case 1:
@@ -478,23 +479,23 @@ RT3_REPLACE(0x54eb90, Input_OnMouse);
 // 7, 8 / 9, 10 / 11, with button capture and state bits 0x400 / 0x800 /
 // 0x2000) or wheel (5, ticks of 120, sum +0xa9c x 0.24) event; 1 then.
 RT3_NOINLINE int32_t __fastcall Input_OnMouseMessage(uint8_t* in, int, uint32_t, uint32_t msg, uint32_t wparam, uint32_t lparam) {
-    if (msg == 0x200 && wparam == hook::Global<uint32_t>(0x625460) && lparam == hook::Global<uint32_t>(0x62545c)) return 1;
+    if (msg == 0x200 && wparam == g_625460 && lparam == g_62545c) return 1;
     uint32_t ev[12] = {};
     int32_t x = (int16_t)lparam, y = (int16_t)(lparam >> 16);
     if (msg == 0x20a) {
-        x = hook::Global<int32_t>(0xd9384c);
-        y = hook::Global<int32_t>(0xd93848);
+        x = g_d9384c;
+        y = g_d93848;
     }
-    uint8_t* e = hook::Global<uint8_t*>(0x6d4024);
+    uint8_t* e = g_engine;
     if (e && Engine_IsFullscreen(e)) {
         int32_t pt[2];
         Import<int32_t(__stdcall*)(int32_t*)>(0x5c8270)(pt);
         x = pt[0];
         y = pt[1];
     }
-    e = hook::Global<uint8_t*>(0x6d4024);
-    hook::Global<int32_t>(0xd9384c) = x;
-    hook::Global<int32_t>(0xd93848) = y;
+    e = g_engine;
+    g_d9384c = x;
+    g_d93848 = y;
     const int32_t* metric = e ? (const int32_t*)(F<uint8_t*>(e, 0x34) + F<int32_t>(e, 0x11421e) * 0x15) : nullptr;
     float fx = (float)((double)x / (e ? metric[0] : 1));
     float fy = (float)((double)y / (e ? metric[1] : 1));
@@ -514,15 +515,15 @@ RT3_NOINLINE int32_t __fastcall Input_OnMouseMessage(uint8_t* in, int, uint32_t,
     switch (msg) {
     case 0x200:
         ev[0] = 2;
-        hook::Global<uint32_t>(0x625460) = wparam;
-        hook::Global<uint32_t>(0x62545c) = lparam;
+        g_625460 = wparam;
+        g_62545c = lparam;
         break;
     case 0x201:
     case 0x204:
     case 0x207: {
         ev[0] = msg == 0x201 ? 6 : msg == 0x204 ? 8 : 0xa;
-        if (InputMayCapture(hook::Global<uint8_t*>(0x6d4024)))
-            Import<void*(__stdcall*)(void*)>(0x5c82ac)((void*)Engine_Window(hook::Global<void*>(0x6d4024)));
+        if (InputMayCapture(g_engine))
+            Import<void*(__stdcall*)(void*)>(0x5c82ac)((void*)Engine_Window(hook::As<void*>(g_engine)));
         st |= msg == 0x201 ? 0x400 : msg == 0x204 ? 0x800 : 0x2000;
         break;
     }
@@ -531,7 +532,7 @@ RT3_NOINLINE int32_t __fastcall Input_OnMouseMessage(uint8_t* in, int, uint32_t,
     case 0x208:
         st &= ~(msg == 0x202 ? 0x400u : msg == 0x205 ? 0x800u : 0x2000u);
         ev[0] = msg == 0x202 ? 7 : msg == 0x205 ? 9 : 0xb;
-        if (InputMayCapture(hook::Global<uint8_t*>(0x6d4024))) Import<int32_t(__stdcall*)()>(0x5c82a8)();
+        if (InputMayCapture(g_engine)) Import<int32_t(__stdcall*)()>(0x5c82a8)();
         break;
     case 0x20a: {
         int32_t ticks = (int16_t)(wparam >> 16) / 120;
@@ -593,7 +594,7 @@ InputEvent* __fastcall Input_NextEvent(uint8_t* q, int, InputEvent* out) {
     for (;;) {
         InputEvent tmp;
         e = *Input_PopEvent(q, 0, &tmp);
-        void* filter = hook::Global<void*>(0x6d4008);
+        void* filter = g_6d4008;
         if (!filter || ((int32_t(__fastcall*)(InputEvent*))filter)(&e)) break;
     }
     F<int32_t>(q, 0xa90) = locked;
@@ -630,7 +631,7 @@ RT3_REPLACE(0x54f5b0, Input_PostEvent);
 // 0x54f640. Steps the fade value 0xd93850 down by 0x5ddb80; returns it, or
 // 0x5ddb78 once it is negative (or above 0x5c85b8 when 0x625464 is unset).
 RT3_NOINLINE float __fastcall Fade_Step_Impl() {
-    float& g = hook::Global<float>(0xd93850);
+    float& g = hook::As<float>(g_d93850);
     double d = (double)g - *(const double*)0x5ddb80;
     g = (float)d;
     if (!(d >= *(const float*)0x5c8598)) return *(const float*)0x5ddb78;
@@ -643,26 +644,26 @@ RT3_NOINLINE float __fastcall Fade_Step_Impl() {
 __declspec(naked) void Fade_Step() { RT3_KEEP_ECX_EDX(Fade_Step_Impl, 0) }
 RT3_REPLACE(0x54f640, Fade_Step);
 
-void __fastcall Fade_StartSlow() { hook::Global<uint32_t>(0xd93850) = 0x3b30f27c; }
+void __fastcall Fade_StartSlow() { g_d93850 = 0x3b30f27c; }
 RT3_REPLACE(0x54f6a0, Fade_StartSlow);
 
-void __fastcall Fade_StartFast() { hook::Global<uint32_t>(0xd93850) = 0x3baa64c3; }
+void __fastcall Fade_StartFast() { g_d93850 = 0x3baa64c3; }
 RT3_REPLACE(0x54f6b0, Fade_StartFast);
 
 // Fade value 0xd93850 and its saved copy 0x625464 (-1 = none).
-void __fastcall Fade_StartVerySlow() { hook::Global<uint32_t>(0xd93850) = 0x3951b717; }
+void __fastcall Fade_StartVerySlow() { g_d93850 = 0x3951b717; }
 RT3_REPLACE(0x54f6c0, Fade_StartVerySlow);
 
-void __fastcall Fade_Save() { hook::Global<uint32_t>(0x625464) = hook::Global<uint32_t>(0xd93850); }
+void __fastcall Fade_Save() { g_625464 = g_d93850; }
 RT3_REPLACE(0x54f6d0, Fade_Save);
 
 void __fastcall Fade_Restore() {
-    hook::Global<uint32_t>(0xd93850) = hook::Global<uint32_t>(0x625464);
-    hook::Global<uint32_t>(0x625464) = 0xbf800000;
+    g_d93850 = g_625464;
+    g_625464 = 0xbf800000;
 }
 RT3_REPLACE(0x54f6e0, Fade_Restore);
 
-void __stdcall Fade_Set(uint32_t v) { hook::Global<uint32_t>(0xd93850) = v; }
+void __stdcall Fade_Set(uint32_t v) { g_d93850 = v; }
 RT3_REPLACE(0x54f700, Fade_Set);
 
 // 0x54f710. Fills screen rectangle (x, y, w, h) (fractions of the screen) with
@@ -788,11 +789,11 @@ RT3_NOINLINE void __fastcall Ui_Line(uint32_t color, int32_t glow, float x1, flo
                 fstp st(0)
             }
             float d1 = Fade_Step_Impl();
-            Engine_QueueQuad(hook::Global<void*>(0x6d4024), 0, FBits((float)(x1 + ox)), FBits((float)(y1 + oy)), FBits(ax1), FBits(ay1), FBits(bx2),
+            Engine_QueueQuad(hook::As<void*>(g_engine), 0, FBits((float)(x1 + ox)), FBits((float)(y1 + oy)), FBits(ax1), FBits(ay1), FBits(bx2),
                              FBits(by2), FBits(d1), color, color, color, 0, 0, 0, 0x3f800000, 0x3f800000, 0x3f800000, 0, 0x3f800000,
                              0x3f800000, 0x3f800000);
             float d2 = Fade_Step_Impl();
-            Engine_QueueQuad(hook::Global<void*>(0x6d4024), 0, FBits(ax1), FBits(ay1), FBits((float)(x2 - ox)), FBits((float)(y2 - oy)), FBits(bx2),
+            Engine_QueueQuad(hook::As<void*>(g_engine), 0, FBits(ax1), FBits(ay1), FBits((float)(x2 - ox)), FBits((float)(y2 - oy)), FBits(bx2),
                              FBits(by2), FBits(d2), color, color, color, 0, 0, 0, 0x3f800000, 0x3f800000, 0x3f800000, 0, 0x3f800000,
                              0x3f800000, 0x3f800000);
             return;
@@ -827,14 +828,14 @@ RT3_NOINLINE void __fastcall Engine_QueueGradientQuad(uint32_t c0, uint32_t c1, 
                                          uint32_t c2, uint32_t c3, int32_t clip, uint32_t cx0, uint32_t cy0,
                                          uint32_t cx1, uint32_t cy1) {
     const uint32_t one = 0x3f800000;
-    if (clip) Engine_QueueType5(hook::Global<void*>(0x6d4024), 0, cx0, cy0, cx1, cy1);
+    if (clip) Engine_QueueType5(hook::As<void*>(g_engine), 0, cx0, cy0, cx1, cy1);
     float f = Fade_Step_Impl();
-    Engine_QueueQuad(hook::Global<void*>(0x6d4024), 0, x0, y0, x1, y1, x2, y2, Bits(f), c0, c1, c2, 0, 0, 0, one,
+    Engine_QueueQuad(hook::As<void*>(g_engine), 0, x0, y0, x1, y1, x2, y2, Bits(f), c0, c1, c2, 0, 0, 0, one,
                      one, one, 0, one, one, one);
     f = Fade_Step_Impl();
-    Engine_QueueQuad(hook::Global<void*>(0x6d4024), 0, x2, y2, x3, y3, x0, y0, Bits(f), c2, c3, c0, 0, 0, 0, one,
+    Engine_QueueQuad(hook::As<void*>(g_engine), 0, x2, y2, x3, y3, x0, y0, Bits(f), c2, c3, c0, 0, 0, 0, one,
                      one, one, 0, one, one, one);
-    if (clip) Engine_QueueType6(hook::Global<void*>(0x6d4024));
+    if (clip) Engine_QueueType6(hook::As<void*>(g_engine));
 }
 RT3_REPLACE(0x54fed0, Engine_QueueGradientQuad);
 

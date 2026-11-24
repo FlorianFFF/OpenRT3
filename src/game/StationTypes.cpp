@@ -6,6 +6,7 @@
 #include <string.h>
 #include <math.h>
 #include "hook/hook.h"
+#include "core/globals.h"
 #include "hook/keepregs.h"
 #include "game/collection.h"
 #include "core/crt.h"
@@ -103,7 +104,7 @@ static inline void AddF(uint8_t* p, uint32_t off, float a) { F<float>(p, off) = 
 
 namespace {
 inline void* ExeNew(size_t n) { return ((void*(__cdecl*)(size_t))0x53b070)(n); }
-inline int32_t PackHas(const char* path) { return NameTable_ContainsName(hook::Global<uint8_t*>(0x6d4020), 0, path, 0, nullptr); }
+inline int32_t PackHas(const char* path) { return NameTable_ContainsName(g_pack, 0, path, 0, nullptr); }
 // A scene object of model `path` (texture `tex`), or none when out of memory.
 inline uint8_t* NewSceneObj(const char* path, const char* tex) {
     uint8_t* m = (uint8_t*)ExeNew(0x206);
@@ -118,7 +119,7 @@ inline uint8_t* NewLight(const char* path, uint8_t* owner) {
 inline void ShowLight(uint8_t* c) { c[0x24] = (uint8_t)((c[0x24] & 0xf) | 0x10); }
 inline uint8_t* NewSound(const char* path, uint8_t* v, float vol) {
     uint8_t* m = (uint8_t*)ExeNew(0x141);
-    return m ? Channel_Setup(m, 0, path, hook::Global<uint8_t*>(0x62c120), F<float>(v, 0x1e2), F<float>(v, 0x1e6), F<float>(v, 0x1ea), -1,
+    return m ? Channel_Setup(m, 0, path, g_map, F<float>(v, 0x1e2), F<float>(v, 0x1e6), F<float>(v, 0x1ea), -1,
                              0, vol)
              : nullptr;
 }
@@ -138,9 +139,9 @@ inline uint8_t* NewExhaust(const char* path, uint32_t color, int32_t perPoint, c
 
 static inline double D(uint32_t a) { return *(const double*)a; }
 
-static inline uint8_t* Map() { return hook::Global<uint8_t*>(0x62c120); }
+static inline uint8_t* Map() { return g_map; }
 
-static inline Collection* Stations() { return hook::Global<Collection*>(0x6cec20); }
+static inline Collection* Stations() { return g_stations; }
 
 static inline bool Usable(uint8_t* s, int32_t company) {
     return Obj_BuildingStateActive(s) && Obj_Flag3d4(Obj_Building(s)) == 1 &&
@@ -158,31 +159,31 @@ RT3_REPLACE(0x486230, Return0_486230);
 // 0x487450. Spawns the demo tank ("TigerTank", 0x6cfc8c) 32 above the camera's
 // point when there is none yet.
 RT3_NOINLINE void Tank_SpawnDemo() {
-    if (hook::Global<uint8_t*>(0x6cfc8c)) return;
-    Engine_Get1C(hook::Global<void*>(0x6d4024));
+    if (g_6cfc8c) return;
+    Engine_Get1C(hook::As<void*>(g_engine));
     float p[3];
-    Obj_GetXYZ4(F<uint8_t*>(hook::Global<uint8_t*>(0x6d4024), 0x28), 0, (uint32_t*)&p[2], (uint32_t*)&p[0], (uint32_t*)&p[1]);
+    Obj_GetXYZ4(F<uint8_t*>(g_engine, 0x28), 0, (uint32_t*)&p[2], (uint32_t*)&p[0], (uint32_t*)&p[1]);
     p[0] = (float)((double)p[0] + *(const float*)0x5c8c40);
     uint8_t* m = (uint8_t*)ExeNew(0x434);
     if (!m) {
-        hook::Global<uint8_t*>(0x6cfc8c) = nullptr;
+        g_6cfc8c = nullptr;
         return;
     }
-    hook::Global<uint8_t*>(0x6cfc8c) =
-        Tank_Construct(m, 0, (const char*)0x5cf100, (uint8_t*)Engine_Get1C(hook::Global<void*>(0x6d4024)), p[2], p[0], p[1]);
+    g_6cfc8c =
+        Tank_Construct(m, 0, (const char*)0x5cf100, (uint8_t*)Engine_Get1C(hook::As<void*>(g_engine)), p[2], p[0], p[1]);
 }
 RT3_REPLACE(0x487450, Tank_SpawnDemo);
 
 // 0x4874f0. Deletes the cursor marker object (0x6cfc8c): back to the scene
 // object vtable, unfollowed by the camera when it was the target.
 RT3_NOINLINE void CursorMarker_Free() {
-    uint8_t* o = hook::Global<uint8_t*>(0x6cfc8c);
+    uint8_t* o = g_6cfc8c;
     if (!o) return;
     F<uint32_t>(o, 0) = 0x5cf048;
-    if (F<uint8_t*>(hook::Global<uint8_t*>(0x62be68), 0x60) == o) World_SetFollow(hook::Global<uint8_t*>(0x6cec78), 0, 0, nullptr);
+    if (F<uint8_t*>(g_62be68, 0x60) == o) World_SetFollow(g_world, 0, 0, nullptr);
     SceneObj_Destructor(o);
     ((void(__cdecl*)(void*))0x53b080)(o);
-    hook::Global<uint32_t>(0x6cfc8c) = 0;
+    hook::As<uint32_t>(g_6cfc8c) = 0;
 }
 RT3_REPLACE(0x4874f0, CursorMarker_Free);
 
@@ -266,7 +267,7 @@ RT3_REPLACE(0x487730, Obj_SetSlot3b5);
 // (keeps the current one if still valid); 1 if none. Only while own +0x31 is 0.
 void __fastcall Region_PickOther(uint8_t* o) {
     if (F<int32_t>(o, 0x31)) return;
-    Collection* regions = hook::Global<Collection*>(0x6cfc9c);
+    Collection* regions = g_territories;
     int32_t cur = F<int32_t>(o, 0x35);
     if (cur != F<int32_t>(o, 0) && Collection_IsValid(regions, 0, cur) &&
         F<int32_t>(Collection_Get(regions, 0, F<uint32_t>(o, 0x35)), 0x31))
@@ -331,7 +332,7 @@ RT3_REPLACE(0x487960, World_CountTrack);
 // 0x4879f0. o's cost (+0x39) scaled by effect 0x1c5 for company and o's region
 // (+0), rounded to the nearest 1000.
 RT3_NOINLINE float __fastcall Obj_RoundedCost(uint8_t* o, int, uint32_t company) {
-    float m = Effects_Multiplier(hook::Global<uint8_t*>(0x6cec78), 0, 0x1c5, company, 0, F<uint32_t>(o, 0));
+    float m = Effects_Multiplier(g_world, 0, 0x1c5, company, 0, F<uint32_t>(o, 0));
     float base = (float)F<int32_t>(o, 0x39);
     int32_t v;
     __asm {

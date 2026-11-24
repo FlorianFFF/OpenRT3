@@ -7,6 +7,7 @@
 #include <string.h>
 #include <math.h>
 #include "hook/hook.h"
+#include "core/globals.h"
 #include "core/ptrlist.h"
 #include "core/crt.h"
 
@@ -127,8 +128,8 @@ static inline double Fw_Cos(float a) {
 }
 
 static inline uint32_t Fw_Rand() {
-    uint32_t s = hook::Global<uint32_t>(0x624324) * 0x19660d + 0x3c6ef35f;
-    hook::Global<uint32_t>(0x624324) = s;
+    uint32_t s = g_lcg * 0x19660d + 0x3c6ef35f;
+    g_lcg = s;
     return s;
 }
 
@@ -170,7 +171,7 @@ double __fastcall Render_Benchmark(uint8_t* r) {
     DevSlot<Plain>(dev, 0x8c)(dev);
     dev = F<void*>(r, 0x25df);
     DevSlot<Present>(dev, 0x3c)(dev, nullptr, nullptr, nullptr, nullptr);
-    uint8_t* tex = TextureCache_Get(hook::Global<uint8_t*>(0x6d4020), 0, (const char*)0x5dda48, 0, 0, 0x7f);
+    uint8_t* tex = TextureCache_Get(g_pack, 0, (const char*)0x5dda48, 0, 0, 0x7f);
     uint32_t tris = 0;
     Render_ScreenSpaceAll(r);
     if (r[0x254a]) {
@@ -195,7 +196,7 @@ double __fastcall Render_Benchmark(uint8_t* r) {
     void* vb = F<void*>(r, 0x2647);
     uint32_t* v = nullptr;
     DevSlot<int32_t(__stdcall*)(void*, uint32_t, uint32_t, uint32_t**, uint32_t)>(vb, 0x2c)(vb, 0, 0, &v, 0x2800);
-    ++hook::Global<int32_t>(0xccd824);
+    ++g_ccd824;
     double c = Fl(0x5d0100);
     for (int32_t row = 0; row < 0x28; ++row) {
         double y0 = row * c, y1 = c + y0;
@@ -213,7 +214,7 @@ double __fastcall Render_Benchmark(uint8_t* r) {
             }
         }
     }
-    --hook::Global<int32_t>(0xccd824);
+    --g_ccd824;
     vb = F<void*>(r, 0x2647);
     DevSlot<Plain>(vb, 0x30)(vb);
     typedef uint32_t(__stdcall * Ticks)();
@@ -257,7 +258,7 @@ double __fastcall Render_Benchmark(uint8_t* r) {
     r[0x254c] = 1;
     DevRenderState(r, 0x89, F<uint8_t*>(r, 0x83c)[0x22]);
     DevRenderState(r, 7, 1);
-    Pack_Release(hook::Global<uint8_t*>(0x6d4020), 0, tex);
+    Pack_Release(g_pack, 0, tex);
     return rate;
 }
 RT3_REPLACE(0x54c420, Render_Benchmark);
@@ -306,17 +307,17 @@ RT3_NOINLINE void __fastcall Fireworks_Update(uint8_t* s, int, uint8_t* sounds) 
     float intensity = (float)(((double)F<int32_t>(s, 0x19) - Fl(0x5ddb38)) * Fl(0x5dd3d4));
     typedef uint32_t(__stdcall * Ticks)();
     Ticks ticks = *(Ticks*)0x5c8068;
-    if (!(hook::Global<uint32_t>(0xd93834) & 1)) {
-        hook::Global<uint32_t>(0xd93834) |= 1;
-        hook::Global<uint32_t>(0xd93830) = ticks();
+    if (!(g_d93834 & 1)) {
+        g_d93834 |= 1;
+        g_d93830 = ticks();
     }
-    if (!(hook::Global<uint8_t>(0xd93834) & 2)) {
-        hook::Global<uint32_t>(0xd93834) |= 2;
-        hook::Global<uint32_t>(0xd9382c) = ticks();
+    if (!(hook::As<uint8_t>(g_d93834) & 2)) {
+        g_d93834 |= 2;
+        g_d9382c = ticks();
     }
-    int32_t elapsed = (int32_t)(ticks() - hook::Global<uint32_t>(0xd93830));
+    int32_t elapsed = (int32_t)(ticks() - g_d93830);
     int32_t request = F<int32_t>(s, 0x22b57);
-    int32_t since = (int32_t)(ticks() + (1 - hook::Global<uint32_t>(0xd9382c)));
+    int32_t since = (int32_t)(ticks() + (1 - g_d9382c));
     if (!s[0x3692]) {
         bool launch = false;
         if (!F<int32_t>(s, 0x22b57)) {
@@ -333,12 +334,12 @@ RT3_NOINLINE void __fastcall Fireworks_Update(uint8_t* s, int, uint8_t* sounds) 
         }
         if (launch) {
             F<int32_t>(s, 0x22b57) = 0;
-            hook::Global<uint32_t>(0xd9382c) = ticks();
+            g_d9382c = ticks();
             for (int32_t k = 0; k < 0x10; ++k) {
                 uint8_t* r = s + 0x4ad + k * 0x31a;
                 if (F<int32_t>(r, 0xa)) continue;
-                F<int32_t>(r, 6) = hook::Global<int32_t>(0xd93828) + 1;
-                hook::Global<int32_t>(0xd93828) = (hook::Global<int32_t>(0xd93828) + 1) % 6;
+                F<int32_t>(r, 6) = g_d93828 + 1;
+                g_d93828 = (g_d93828 + 1) % 6;
                 r[5] = 0xff;
                 F<int32_t>(r, 0xa) = 0x41;
                 int32_t v = (int32_t)(Fw_Rand() & 0x7fff) & 0xf;
@@ -351,29 +352,29 @@ RT3_NOINLINE void __fastcall Fireworks_Update(uint8_t* s, int, uint8_t* sounds) 
         uint8_t* r = s + 0x4ad + k * 0x31a;
         if (!s[0x3692] && (elapsed > 0xc || F<int32_t>(s, 0x22b57))) {
             int32_t steps = elapsed / 12 + 1;
-            hook::Global<uint32_t>(0xd93830) = ticks();
+            g_d93830 = ticks();
             for (; steps; --steps) {
                 int32_t life = F<int32_t>(r, 0xa);
                 if (life > 0x3f) {
                     F<int32_t>(r, 0xa) = 0x3f;
-                    uint32_t s1 = hook::Global<uint32_t>(0x624324) * 0x19660d + 0x3c6ef35f;
+                    uint32_t s1 = g_lcg * 0x19660d + 0x3c6ef35f;
                     int32_t a = (int32_t)(s1 & 0x7fff) % 0x31df;
-                    hook::Global<uint32_t>(0x624324) = s1;
+                    g_lcg = s1;
                     uint32_t s2 = s1 * 0x19660d + 0x3c6ef35f;
                     int32_t b = (int32_t)(s2 & 0x7fff) % 0x31df;
                     float px = (float)((double)F<float>(s, 0x369c) - a + Fl(0x5ddb2c));
-                    hook::Global<uint32_t>(0x624324) = s2;
+                    g_lcg = s2;
                     float pz = (float)((double)b + F<float>(s, 0x36a4) - Fl(0x5ddb2c));
                     if (request) {
                         request = 0;
-                        float head = F<float>(F<uint8_t*>(hook::Global<uint8_t*>(0x6d4024), 0x28), 0x10);
+                        float head = F<float>(F<uint8_t*>(g_engine, 0x28), 0x10);
                         head = (float)(Rand(-0x32, 0x32) * D(0x5c85b8) * D(0x5c88e8) + head);
                         int32_t d = Rand(0x14, 0x3c) * 0x5c;
                         px = (float)((double)F<float>(s, 0x369c) - Fw_MulSin(d, head));
                         pz = (float)((double)F<float>(s, 0x36a4) - Fw_MulCos(d, head));
                     }
-                    uint32_t s3 = 0xd1ccf6e9 - hook::Global<uint32_t>(0x624324) * 0x50b6f56b;
-                    hook::Global<uint32_t>(0x624324) = s3;
+                    uint32_t s3 = 0xd1ccf6e9 - g_lcg * 0x50b6f56b;
+                    g_lcg = s3;
                     uint32_t v = s3 & 0x7fff;
                     float vx = (float)(int32_t)((v & 0x7f) - 0x40);
                     float vy = (float)(int32_t)(-0x40 - (int32_t)(v & 0x1f));
@@ -587,9 +588,9 @@ void __fastcall Rain_Update(uint8_t* s, int, uint8_t* w) {
     }
     float level = (float)(((double)F<int32_t>(s, 0x19) - Fl(0x5ddb68)) * Fl(0x5ddb28));
     float* drops = (float*)0xd8d828;
-    if (!hook::Global<uint8_t>(0xd8d820)) {
-        hook::Global<uint8_t>(0xd8d820) = 1;
-        uint32_t seed = hook::Global<uint32_t>(0x624324);
+    if (!g_d8d820) {
+        g_d8d820 = 1;
+        uint32_t seed = g_lcg;
         for (float* d = drops; d < (float*)0xd93828; d += 3) {
             seed = seed * 0x19660d + 0x3c6ef35f;
             d[0] = (float)((int32_t)(seed & 0xff) - 0x7f);
@@ -598,7 +599,7 @@ void __fastcall Rain_Update(uint8_t* s, int, uint8_t* w) {
             seed = seed * 0x19660d + 0x3c6ef35f;
             d[1] = (float)(int32_t)((seed & 0x1f) + 0x1f);
         }
-        hook::Global<uint32_t>(0x624324) = seed;
+        g_lcg = seed;
     }
     uint8_t* r = F<uint8_t*>(s, 0x2d);
     Render_BindVb2647(r);
@@ -611,15 +612,15 @@ void __fastcall Rain_Update(uint8_t* s, int, uint8_t* w) {
         float* v = (float*)Scene_BeginBatch(s, 0, 0x3424);
         typedef uint32_t(__stdcall * Ticks)();
         Ticks ticks = *(Ticks*)0x5c8068;
-        if (!(hook::Global<uint8_t>(0xd9383c) & 1)) {
-            hook::Global<uint32_t>(0xd9383c) |= 1;
-            hook::Global<uint32_t>(0xd93838) = ticks();
+        if (!(g_d9383c & 1)) {
+            hook::As<uint32_t>(g_d9383c) |= 1;
+            g_d93838 = ticks();
         }
-        int32_t elapsed = (int32_t)(ticks() - hook::Global<uint32_t>(0xd93838));
+        int32_t elapsed = (int32_t)(ticks() - g_d93838);
         double fe = (double)elapsed;
         if (elapsed < 0) fe += Fl(0x5c872c);
         float dt = (float)(fe * Fl(0x5cb5c0));
-        hook::Global<uint32_t>(0xd93838) = ticks();
+        g_d93838 = ticks();
         double t = dt;
         if (dt > Fl(0x5c8554)) t = Fl(0x5c8554);
         float vx = (float)(D(0x5c8578) * t);

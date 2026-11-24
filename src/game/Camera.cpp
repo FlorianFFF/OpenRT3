@@ -9,6 +9,7 @@
 #include <math.h>
 #include <initializer_list>
 #include "hook/hook.h"
+#include "core/globals.h"
 #include "game/collection.h"
 #include "core/crt.h"
 #include "game/calendar.h"
@@ -25,7 +26,6 @@ namespace rt3 {
 
 template <typename T> static inline T& F(void* o, uint32_t off) { return *(T*)((uint8_t*)o + off); }
 int32_t ClockMs();
-static uint8_t*& g_world = hook::Global<uint8_t*>(0x6cec78);
 void* __fastcall Engine_Renderer(void* e);
 double __fastcall Obj_Scene36f9(uint8_t* o);
 void __fastcall Camera_SetBounds(uint8_t* c, int, uint32_t a, uint32_t b, uint32_t d, uint32_t e);
@@ -394,11 +394,11 @@ RT3_NOINLINE double __fastcall Font_TextHeight(uint8_t* f, int, const char* text
 RT3_NOINLINE void __fastcall Font_DrawTextBox(uint8_t* f, int, const char* text, float x, float y, float w, float h, uint32_t color, int32_t align, int32_t valign, uint32_t flags, float scale);
 RT3_NOINLINE void __fastcall Glyph_Queue(uint8_t* g, int, float x, float y, uint32_t tint, float sx, float sy, uint32_t color, int32_t, int32_t snap, int32_t clip, float left, float top, float right, float bottom);
 
-static inline uint8_t* Renderer() { return (uint8_t*)Engine_Renderer(hook::Global<void*>(0x6d4024)); }
+static inline uint8_t* Renderer() { return (uint8_t*)Engine_Renderer(hook::As<void*>(g_engine)); }
 
 static inline double ExeFabs(double v) { return ((double(__cdecl*)(double))0x5a152e)(v); }
 
-static inline uint8_t* Engine() { return hook::Global<uint8_t*>(0x6d4024); }
+static inline uint8_t* Engine() { return g_engine; }
 
 // The flag getters ignore their `this` (the engine's input object); the original
 // still fetches it before each call.
@@ -408,11 +408,11 @@ static inline uint32_t Flag2000() { Engine_Input(Engine()); return Input_Flag200
 
 static inline uint32_t Flag800() { Engine_Input(Engine()); return Input_Flag800(); }
 
-static inline uint32_t InputButtons() { return F<uint32_t>(hook::Global<uint8_t*>(0x6d4018), 0xa8c); }
+static inline uint32_t InputButtons() { return F<uint32_t>(g_input, 0xa8c); }
 
-static inline int32_t SwapModifiers() { return F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x120); }
+static inline int32_t SwapModifiers() { return F<int32_t>(g_app, 0x120); }
 
-static inline uint8_t* SoundSys() { return hook::Global<uint8_t*>(0x6d402c); }
+static inline uint8_t* SoundSys() { return g_sound; }
 
 static inline double D(uint32_t a) { return *(const double*)a; }
 
@@ -546,23 +546,23 @@ bool World_NudgeOpenDialog() {
 // company is reset (0x4241c0), the loading screen shows 0x142 and the whole
 // map is refreshed.
 RT3_NOINLINE void __fastcall World_PrepareNewGame(uint8_t* w) {
-    ++F<int32_t>(hook::Global<uint8_t*>(0x62c120), 0x2205);
+    ++F<int32_t>(g_map, 0x2205);
     auto status = [](int32_t id, int32_t step) {
-        uint8_t* win = F<uint8_t*>(hook::Global<uint8_t*>(0x6cec74), 0xc);
+        uint8_t* win = F<uint8_t*>(g_app, 0xc);
         Window_SendEvent5(win, 0, 0x6f, 0x84d2, (uint32_t)(uintptr_t)GetString(id), 0, 0);
-        Loading_Pump(hook::Global<uint8_t*>(0x6cec74), 0, step, 1);
+        Loading_Pump(g_app, 0, step, 1);
     };
-    if (!F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x68)) {
-        if (F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x174)) {
-            if (!hook::Global<uint8_t*>(0x6cd8d8)) SetSeed(Rand(0x64, 0x1388));
+    if (!F<int32_t>(g_app, 0x68)) {
+        if (F<int32_t>(g_app, 0x174)) {
+            if (!g_session) SetSeed(Rand(0x64, 0x1388));
             F<int32_t>(w, 0x46c3c) = 1;
             status(0x140, 0);
-            for (int32_t i = 0; i < Collection_Count(hook::Global<Collection*>(0x62bae0)); ++i) {
-                Collection* cities = hook::Global<Collection*>(0x62bae0);
+            for (int32_t i = 0; i < Collection_Count(g_cities); ++i) {
+                Collection* cities = g_cities;
                 uint8_t* c = (uint8_t*)Collection_Get(cities, 0, Collection_IdAt(cities, 0, (uint32_t)i, 0));
                 if (F<int32_t>(c, 0x23e)) continue;
                 float spread = w[0x66de] ? 9.9f : 22.0f;
-                if (hook::Global<uint8_t*>(0x6cd8d8)) spread = (float)((double)spread * *(const double*)0x5c8578);
+                if (g_session) spread = (float)((double)spread * *(const double*)0x5c8578);
                 const float size = F<float>(c, 0x25a);
                 if (size > *(const float*)0x5c9f84) spread = (float)((double)spread * *(const double*)0x5c8988);
                 else if (size > *(const float*)0x5c8904) spread = (float)((double)spread * *(const double*)0x5c8618);
@@ -589,36 +589,36 @@ RT3_NOINLINE void __fastcall World_PrepareNewGame(uint8_t* w) {
                 F<float>(c, 0x25a) = v;
                 F<float>(c, 0x25e) = v;
             }
-            Cities_UpdateAll(hook::Global<Collection*>(0x62bae0), 0, 0x3f800000, 1);
+            Cities_UpdateAll(g_cities, 0, 0x3f800000, 1);
             F<int32_t>(w, 0x46c3c) = 0;
         }
-        if (!F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x68) && F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x178) > 0) {
+        if (!F<int32_t>(g_app, 0x68) && F<int32_t>(g_app, 0x178) > 0) {
             status(0x141, 0);
             World_RunAhead(w);
         }
     }
     World_SetupPlayers(w);
-    if (!hook::Global<uint8_t*>(0x6cd8d8)) {
-        if (hook::Global<uint8_t*>(0x6cec7c)[0x82] ||
-            (F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x14c) && !F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x68)))
+    if (!g_session) {
+        if (g_newGame[0x82] ||
+            (F<int32_t>(g_app, 0x14c) && !F<int32_t>(g_app, 0x68)))
             hook::Orig<void (*)()>(0x47d440)();
-        if (hook::Global<uint8_t*>(0x6cec7c)[0x82])
-            for (int32_t off = 0; off < 0xc4; off += 4) F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4a7f + off) = 0;
-        if (hook::Global<uint8_t*>(0x6cec7c)[0x82] && F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x21) > 0 &&
-            Collection_Get(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(hook::Global<uint8_t*>(0x6cec78), 0x21))) {
-            for (int32_t i = 0; i < Collection_Count(hook::Global<Collection*>(0x6cfc9c)); ++i) {
-                int32_t mine = F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x21);
-                void* co = mine > 0 ? Collection_Get(hook::Global<Collection*>(0x62be10), 0, (uint32_t)mine) : nullptr;
-                Company_SetEntryFlag(co, 0, (int32_t)Collection_IdAt(hook::Global<Collection*>(0x6cfc9c), 0, (uint32_t)i, 0), 1);
+        if (g_newGame[0x82])
+            for (int32_t off = 0; off < 0xc4; off += 4) F<int32_t>(g_world, 0x4a7f + off) = 0;
+        if (g_newGame[0x82] && F<int32_t>(g_world, 0x21) > 0 &&
+            Collection_Get(g_companies, 0, F<uint32_t>(g_world, 0x21))) {
+            for (int32_t i = 0; i < Collection_Count(g_territories); ++i) {
+                int32_t mine = F<int32_t>(g_world, 0x21);
+                void* co = mine > 0 ? Collection_Get(g_companies, 0, (uint32_t)mine) : nullptr;
+                Company_SetEntryFlag(co, 0, (int32_t)Collection_IdAt(g_territories, 0, (uint32_t)i, 0), 1);
             }
         }
     }
-    for (int32_t i = 0; i < Table_CountField3f(hook::Global<Collection*>(0x62be10)); ++i)
-        Obj_Clear1c4f(Table_NthField3f(hook::Global<Collection*>(0x62be10), 0, i));
+    for (int32_t i = 0; i < Table_CountField3f(g_companies); ++i)
+        Obj_Clear1c4f(Table_NthField3f(g_companies, 0, i));
     status(0x142, 1);
-    --F<int32_t>(hook::Global<uint8_t*>(0x62c120), 0x2205);
-    Map_CellsChangedImpl(hook::Global<uint8_t*>(0x62c120), 0, -1, -1, 0x1869f, 0x1869f);
-    Loading_Pump(hook::Global<uint8_t*>(0x6cec74), 0, 1, 1);
+    --F<int32_t>(g_map, 0x2205);
+    Map_CellsChangedImpl(g_map, 0, -1, -1, 0x1869f, 0x1869f);
+    Loading_Pump(g_app, 0, 1, 1);
 }
 RT3_REPLACE(0x438080, World_PrepareNewGame);
 
@@ -631,42 +631,42 @@ RT3_REPLACE(0x438080, World_PrepareNewGame);
 // least one year in +0x6a6c, scenario slot 0 in use, the players created
 // (World_CreatePlayers) and the whole map refreshed.
 RT3_NOINLINE void __fastcall World_PrepareTestGame(uint8_t* w, int, int32_t fill) {
-    ++F<int32_t>(hook::Global<uint8_t*>(0x62c120), 0x2205);
+    ++F<int32_t>(g_map, 0x2205);
     F<int32_t>(w, 0xbde) = F<int32_t>(w, 0xbe2);
     if (fill) World_MarkKind2Types();
     auto status = [](int32_t id, int32_t step) {
-        uint8_t* win = F<uint8_t*>(hook::Global<uint8_t*>(0x6cec74), 0xc);
+        uint8_t* win = F<uint8_t*>(g_app, 0xc);
         Window_SendEvent5(win, 0, 0x6f, 0x84d2, (uint32_t)(uintptr_t)GetString(id), 0, 0);
-        Loading_Pump(hook::Global<uint8_t*>(0x6cec74), 0, step, 1);
+        Loading_Pump(g_app, 0, step, 1);
     };
     status(0x13e, 0);
-    Routes_BuildCosts(hook::Global<uint8_t*>(0x62c120));
-    CargoTypes_UpdateAverages(hook::Global<Collection*>(0x62ba8c), 0, 1);
+    Routes_BuildCosts(g_map);
+    CargoTypes_UpdateAverages(g_cargoTypes, 0, 1);
     if (fill) {
-        Cities_AddTestRow(hook::Global<Collection*>(0x62bae0));
-        Territories_AddTestSet(hook::Global<Collection*>(0x6cfc9c));
+        Cities_AddTestRow(g_cities);
+        Territories_AddTestSet(g_territories);
     }
     status(0x13f, 0);
-    if (!F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x68)) {
-        if (F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x174)) {
+    if (!F<int32_t>(g_app, 0x68)) {
+        if (F<int32_t>(g_app, 0x174)) {
             F<int32_t>(w, 0x46c3c) = 1;
             status(0x140, 0);
-            Cities_UpdateAll(hook::Global<Collection*>(0x62bae0), 0, 0x3f800000, 1);
+            Cities_UpdateAll(g_cities, 0, 0x3f800000, 1);
             F<int32_t>(w, 0x46c3c) = 0;
         }
-        if (!F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x68) && F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x178) > 0) {
+        if (!F<int32_t>(g_app, 0x68) && F<int32_t>(g_app, 0x178) > 0) {
             status(0x141, 0);
             World_RunAhead(w);
         }
     }
-    if (!hook::Global<uint8_t*>(0x6cd8d8)) F<uint16_t>(hook::Global<uint8_t*>(0x6cec7c), 0x79) = 1;
+    if (!g_session) F<uint16_t>(g_newGame, 0x79) = 1;
     if (F<int32_t>(w, 0x6a6c) < 1) F<int32_t>(w, 0x6a6c) = 1;
     w[0x69db] = 1;
     World_CreatePlayers(w);
     status(0x142, 1);
-    --F<int32_t>(hook::Global<uint8_t*>(0x62c120), 0x2205);
-    Map_CellsChangedImpl(hook::Global<uint8_t*>(0x62c120), 0, -1, -1, 0x1869f, 0x1869f);
-    Loading_Pump(hook::Global<uint8_t*>(0x6cec74), 0, 1, 1);
+    --F<int32_t>(g_map, 0x2205);
+    Map_CellsChangedImpl(g_map, 0, -1, -1, 0x1869f, 0x1869f);
+    Loading_Pump(g_app, 0, 1, 1);
 }
 RT3_REPLACE(0x4384d0, World_PrepareTestGame);
 
@@ -682,12 +682,12 @@ RT3_REPLACE(0x4384d0, World_PrepareTestGame);
 RT3_NOINLINE void __fastcall World_ProcessEvents(uint8_t* w) {
     // QUIRK: the loop meant to find an urgent item rereads only the first
     // item's flag, so only the head counts.
-    if (Global6cfeb4Positive() && F<uint8_t*>(w, 0x66a6) && F<int32_t>(F<uint8_t*>(w, 0x66a6), 0xc) == 1 && hook::Global<int32_t>(0x62be80)) {
+    if (Global6cfeb4Positive() && F<uint8_t*>(w, 0x66a6) && F<int32_t>(F<uint8_t*>(w, 0x66a6), 0xc) == 1 && g_62be80) {
         SetGlobal6cfeac();
         return;
     }
-    if (hook::Global<int32_t>(0x62be3c)) return;
-    hook::Global<int32_t>(0x62be3c) = 1;
+    if (g_62be3c) return;
+    g_62be3c = 1;
     int32_t busy = UiBusy();
     uint8_t** head = &F<uint8_t*>(w, 0x66a6);
     uint8_t *kept = nullptr, *last = nullptr;
@@ -697,7 +697,7 @@ RT3_NOINLINE void __fastcall World_ProcessEvents(uint8_t* w) {
             uint8_t* e = *head;
             next = F<uint8_t*>(e, 0);
             bool wait = busy && !F<int32_t>(e, 0xc);
-            if ((F<int32_t>(e, 8) == 6 && hook::Global<int32_t>(0x6d3ac8)) || wait) {
+            if ((F<int32_t>(e, 8) == 6 && hook::As<int32_t>(g_6d3ac8)) || wait) {
                 if (last) F<uint8_t*>(last, 0) = e;
                 if (!kept) kept = *head;
                 last = *head;
@@ -716,7 +716,7 @@ RT3_NOINLINE void __fastcall World_ProcessEvents(uint8_t* w) {
         } while (next);
         if (kept) *head = kept;
     }
-    --hook::Global<int32_t>(0x62be3c);
+    --g_62be3c;
 }
 RT3_REPLACE(0x438710, World_ProcessEvents);
 
@@ -746,12 +746,12 @@ RT3_REPLACE(0x438840, World_ReopenLastEvent);
 // maps); w is marked ready (+0).
 // QUIRK: a file name without a folder loses its first character.
 RT3_NOINLINE void __fastcall World_Startup(uint8_t* w, int, int32_t setup, int32_t withMap) {
-    auto ed = [] { return hook::Global<uint8_t*>(0x6cec74); };
+    auto ed = [] { return g_app; };
     auto status = [&](int32_t id) {
         uint8_t* win = F<uint8_t*>(ed(), 0xc);
         Window_SendEvent5(win, 0, 0x6f, 0x84d2, (uint32_t)(uintptr_t)GetString(id), 0, 0);
     };
-    auto pack = [] { return hook::Global<uint8_t*>(0x6d4020); };
+    auto pack = [] { return g_pack; };
     auto alloc = [](size_t n) { return ((uint8_t*(__cdecl*)(size_t))0x53b070)(n); };
     F<int32_t>(w, 0) = 0;
     F<int32_t>(w, 0x4c80) = 0;
@@ -779,8 +779,8 @@ RT3_NOINLINE void __fastcall World_Startup(uint8_t* w, int, int32_t setup, int32
     int32_t smooth = 1;
     char name[0x80];
     memcpy(name, "XXX", 4);
-    ++hook::Global<int32_t>(0xccb9e8);
-    if (F<int32_t>(hook::Global<uint8_t*>(0x6cec7c), 1) == 2) {
+    ++g_skipCount;
+    if (F<int32_t>(g_newGame, 1) == 2) {
         NameTable_AddPath(pack(), 0, (const char*)0x6d1370);
         strcpy(name, (const char*)0x6d1370);
         const int32_t n = (int32_t)strlen(name);
@@ -795,7 +795,7 @@ RT3_NOINLINE void __fastcall World_Startup(uint8_t* w, int, int32_t setup, int32
         }
         const int32_t len = (int32_t)strlen(name);
         if (len >= 4 && name[len - 4] == '.') name[len - 4] = 0;
-        Cursor_PopBusy(hook::Global<uint8_t*>(0xccbb20));
+        Cursor_PopBusy(g_cursorManager);
         char text[0x12c];
         auto ask = [&](int32_t id) {
             Dialog_RunMessage(GetString(id), 9, 0xbf800000, 0xbf800000, 0, nullptr, 0, 0.0f, (uint32_t)(uintptr_t)text, 0x1e, 0, nullptr, nullptr, 0, 0, nullptr, 0);
@@ -809,42 +809,42 @@ RT3_NOINLINE void __fastcall World_Startup(uint8_t* w, int, int32_t setup, int32
         memcpy(text, "1", 2);
         ask(0x13a);
         smooth = ((int(__cdecl*)(const char*))0x5a1ea5)(text);
-        Cursor_PushBusy(hook::Global<uint8_t*>(0xccbb20));
+        Cursor_PushBusy(g_cursorManager);
     }
     Loading_Pump(ed(), 0, 1, 0);
-    Cursor_PushBusy(hook::Global<uint8_t*>(0xccbb20));
+    Cursor_PushBusy(g_cursorManager);
     status(0x13b);
     Loading_Pump(ed(), 0, 0, 1);
     {
         uint8_t* m = alloc(0x31e);
-        hook::Global<Collection*>(0x62ba8c) = m ? CargoTypes_Construct((Collection*)m) : nullptr;
+        g_cargoTypes = m ? CargoTypes_Construct((Collection*)m) : nullptr;
     }
     Loading_Pump(ed(), 0, 1, 0);
     {
         uint8_t* m = alloc(0xa0);
-        hook::Global<Collection*>(0x62b268) = m ? BuildingTypes_Construct((Collection*)m) : nullptr;
+        g_62b268 = m ? BuildingTypes_Construct((Collection*)m) : nullptr;
     }
     Obj_Nop411d90(nullptr);
     Loading_Pump(ed(), 0, 1, 0);
     {
         uint8_t* m = alloc(0xb8);
-        hook::Global<Collection*>(0x62b2fc) = m ? BtyTable_Construct((Collection*)m) : nullptr;
+        g_buildingTypes = m ? BtyTable_Construct((Collection*)m) : nullptr;
     }
     Loading_Pump(ed(), 0, 1, 0);
     {
         uint8_t* m = alloc(0x8c);
-        hook::Global<uint8_t*>(0x62ba88) = m ? CarTypes_ConstructRuntime(m) : nullptr;
+        hook::As<uint8_t*>(g_carTypes) = m ? CarTypes_ConstructRuntime(m) : nullptr;
     }
     Loading_Pump(ed(), 0, 1, 0);
     {
         uint8_t* m = alloc(0x8c);
         Collection* engines = m ? EngineTypes_Construct((Collection*)m) : nullptr;
-        hook::Global<Collection*>(0x6ada84) = engines;
+        g_6ada84 = engines;
         for (int32_t i = 0; i < Collection_Count(engines); ++i) {
-            Collection* all = hook::Global<Collection*>(0x6ada84);
+            Collection* all = g_6ada84;
             void* e = Collection_Get(all, 0, Collection_IdAt(all, 0, (uint32_t)i, 0));
-            World_SetNamedFlag(hook::Global<uint8_t*>(0x6cec78), 0, (const char*)Obj_Ref72Plus45(e), 1);
-            engines = hook::Global<Collection*>(0x6ada84);
+            World_SetNamedFlag(g_world, 0, (const char*)Obj_Ref72Plus45(e), 1);
+            engines = g_6ada84;
         }
     }
     Loading_Pump(ed(), 0, 1, 0);
@@ -852,72 +852,72 @@ RT3_NOINLINE void __fastcall World_Startup(uint8_t* w, int, int32_t setup, int32
     Loading_Pump(ed(), 0, 0, 1);
     if (withMap) {
         uint8_t* m = alloc(0x2209);
-        hook::Global<uint8_t*>(0x62c120) = m ? Map_Construct(m, 0, 0x21, 0x21, nullptr) : nullptr;
+        g_map = m ? Map_Construct(m, 0, 0x21, 0x21, nullptr) : nullptr;
     }
     Loading_Pump(ed(), 0, 1, 0);
     status(0x13d);
     Loading_Pump(ed(), 0, 0, 1);
     {
         uint8_t* m = alloc(0x8c);
-        hook::Global<Collection*>(0x6cfcbc) = m ? Collection5d00c8_Construct((Collection*)m) : nullptr;
+        g_trains = m ? Collection5d00c8_Construct((Collection*)m) : nullptr;
     }
     Loading_Pump(ed(), 0, 1, 0);
     {
         uint8_t* m = alloc(0x8c);
-        hook::Global<Collection*>(0x62be10) = m ? Companies_Construct((Collection*)m) : nullptr;
+        g_companies = m ? Companies_Construct((Collection*)m) : nullptr;
     }
     Loading_Pump(ed(), 0, 1, 0);
     {
         uint8_t* m = alloc(0x8c);
-        hook::Global<Collection*>(0x6ceb9c) = m ? Players_Construct((Collection*)m) : nullptr;
+        g_players = m ? Players_Construct((Collection*)m) : nullptr;
     }
     Loading_Pump(ed(), 0, 1, 0);
     {
         uint8_t* m = alloc(0x8c);
-        hook::Global<Collection*>(0x6cea4c) = m ? Collection5ce418_Construct((Collection*)m) : nullptr;
+        g_6cea4c = m ? Collection5ce418_Construct((Collection*)m) : nullptr;
     }
     {
         uint8_t* m = alloc(0x8c);
-        hook::Global<Collection*>(0x6acd34) = m ? Collection5cae10_Construct((Collection*)m) : nullptr;
+        g_messageLog = m ? Collection5cae10_Construct((Collection*)m) : nullptr;
     }
     {
         uint8_t* m = alloc(0xc10);
-        hook::Global<uint8_t*>(0x62b244) = m ? Airplanes_Construct(m) : nullptr;
+        hook::As<uint8_t*>(g_62b244) = m ? Airplanes_Construct(m) : nullptr;
     }
     int32_t fresh = 0, loaded = 0;
     if (setup) {
-        const int32_t mode = F<int32_t>(hook::Global<uint8_t*>(0x6cec7c), 1);
+        const int32_t mode = F<int32_t>(g_newGame, 1);
         switch (mode) {
         case 1:
         case 7:
             F<int32_t>(ed(), 0x6c) = 2;
-            World_Load(w, 0, (const char*)(F<int32_t>(hook::Global<uint8_t*>(0x6cec7c), 1) == 1 ? 0x5c9f68 : 0x5c9f58), 4, &loaded);
+            World_Load(w, 0, (const char*)(F<int32_t>(g_newGame, 1) == 1 ? 0x5c9f68 : 0x5c9f58), 4, &loaded);
             F<int32_t>(ed(), 0x6c) = 0;
             break;
         case 2: {
-            if (!hook::Global<uint8_t*>(0x62c120)) {
+            if (!g_map) {
                 uint8_t* m = alloc(0x2209);
-                hook::Global<uint8_t*>(0x62c120) = m ? Map_Construct(m, 0, 0x21, 0x21, nullptr) : nullptr;
+                g_map = m ? Map_Construct(m, 0, 0x21, 0x21, nullptr) : nullptr;
             }
             scale = (float)(scale * D(0x5c8680));
-            hook::Global<int32_t>(0xccbb58) = 1;
-            Map_ImportHeightmap(hook::Global<uint8_t*>(0x62c120), 0, name, scale, curve, smooth);
-            hook::Global<int32_t>(0xccbb58) = 0;
-            F<int32_t>(hook::Global<uint8_t*>(0x6cec7c), 1) = 3;
+            g_ccbb58 = 1;
+            Map_ImportHeightmap(g_map, 0, name, scale, curve, smooth);
+            g_ccbb58 = 0;
+            F<int32_t>(g_newGame, 1) = 3;
             fresh = 1;
             break;
         }
         case 4: {
-            if (uint8_t* old = hook::Global<uint8_t*>(0x62c120)) {
+            if (uint8_t* old = g_map) {
                 Map_UnloadWorld(old);
-                if (uint8_t* again = hook::Global<uint8_t*>(0x62c120)) {
+                if (uint8_t* again = g_map) {
                     Map_RuntimeDestructor(again);
                     ((void(__cdecl*)(void*))0x53b080)(again);
                 }
             }
             uint8_t* m = alloc(0x2209);
-            uint8_t* map = m ? Map_Construct(m, 0, hook::Global<int32_t>(0x6d14cc) + 1, hook::Global<int32_t>(0x6d14d0) + 1, nullptr) : nullptr;
-            hook::Global<uint8_t*>(0x62c120) = map;
+            uint8_t* map = m ? Map_Construct(m, 0, g_6d14cc + 1, g_6d14d0 + 1, nullptr) : nullptr;
+            g_map = map;
             Terrain_BuildTiles(map, 0, 0x270f, 0x270f, nullptr);
             Ambient_Start(w);
             fresh = 1;
@@ -925,17 +925,17 @@ RT3_NOINLINE void __fastcall World_Startup(uint8_t* w, int, int32_t setup, int32
         }
         case 6:
             F<int32_t>(ed(), 0x6c) = 1;
-            World_Load(w, 0, (const char*)hook::Global<uint8_t*>(0x6cec7c) + 0x11, 4, &loaded);
+            World_Load(w, 0, (const char*)g_newGame + 0x11, 4, &loaded);
             break;
         case 3:
         case 5:
-            World_Load(w, 0, (const char*)hook::Global<uint8_t*>(0x6cec7c) + 0x11, 4, &loaded);
+            World_Load(w, 0, (const char*)g_newGame + 0x11, 4, &loaded);
             break;
         }
     }
     Loading_Pump(ed(), 0, 1, 0);
     if (loaded || fresh) World_PrepareTestGame(w, 0, fresh);
-    Cursor_PopBusy(hook::Global<uint8_t*>(0xccbb20));
+    Cursor_PopBusy(g_cursorManager);
     F<int32_t>(w, 0) = 1;
     Loading_Pump(ed(), 0, 1, 0);
 }
@@ -965,41 +965,41 @@ RT3_REPLACE(0x438890, World_Startup);
 RT3_NOINLINE int32_t __fastcall World_Frame(uint8_t* w) {
     if (!F<int32_t>(w, 0)) return 1;
     Ambient_Update();
-    if (uint8_t* cam = hook::Global<uint8_t*>(0x62be68)) Camera_UpdateShake(cam);
-    void* const engine = hook::Global<void*>(0x6d4024);
+    if (uint8_t* cam = g_62be68) Camera_UpdateShake(cam);
+    void* const engine = hook::As<void*>(g_engine);
     Scene_Set372c((uint8_t*)Engine_Renderer(engine), 0, 0);
     uint32_t mx, my;
-    Mouse_GetPos((uint8_t*)Engine_Input(hook::Global<void*>(0x6d4024)), 0, &mx, &my);
-    Scene_Set3720((uint8_t*)Engine_Renderer(hook::Global<void*>(0x6d4024)), 0, mx, my);
-    if (uint8_t* view = hook::Global<uint8_t*>(0x6d0818)) {
+    Mouse_GetPos((uint8_t*)Engine_Input(hook::As<void*>(g_engine)), 0, &mx, &my);
+    Scene_Set3720((uint8_t*)Engine_Renderer(hook::As<void*>(g_engine)), 0, mx, my);
+    if (uint8_t* view = g_gameWindow) {
         StatusBar_ShowCash(view);
-        StatusBar_ShowDate(hook::Global<uint8_t*>(0x6d0818));
+        StatusBar_ShowDate(g_gameWindow);
     }
-    int32_t ms = ClockMs() - hook::Global<int32_t>(0x62be48);
-    if (!hook::Global<int32_t>(0x62be48)) ms = 0;
-    hook::Global<int32_t>(0x62be48) = ClockMs();
+    int32_t ms = ClockMs() - g_62be48;
+    if (!g_62be48) ms = 0;
+    g_62be48 = ClockMs();
     if (ms >= 0x1f4) ms = 0x1f4;
     float rate = hook::Global<float>(0x5ee2a0 + 4 * F<int32_t>(w, 0x19));
-    if (F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4af3) && F<int32_t>(w, 0x19) > 3)
+    if (F<int32_t>(g_world, 0x4af3) && F<int32_t>(w, 0x19) > 3)
         rate = (float)(Fl_207(0x5ee2ac) * D(0x5c88e8) + rate * D(0x5c8880));
     float minutes = (float)((double)rate * (double)ms * 2.0);
-    if (F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x110)) minutes = (float)(minutes * D(0x5c86b8));
+    if (F<int32_t>(g_app, 0x110)) minutes = (float)(minutes * D(0x5c86b8));
     int32_t run = 1;
-    uint8_t* const session = hook::Global<uint8_t*>(0x6cd8d8);
+    uint8_t* const session = g_session;
     if (session && F<int32_t>(w, 0x66ae)) {
-        if (!hook::Global<int32_t>(0x6d40dc)) {
+        if (!g_6d40dc) {
             const uint32_t now = F<uint32_t>(w, 0x15);
             uint8_t* first = (uint8_t*)Engine_FirstListEntry();
             const uint32_t host = first ? F<uint32_t>(first, 0x2584) : 0;
             const int32_t t = ClockMs();
-            if (const int32_t held = hook::Global<int32_t>(0x6cd8fc)) {
+            if (const int32_t held = g_6cd8fc) {
                 run = 0;
-                if ((uint32_t)(t - held) > 0xfa) hook::Global<int32_t>(0x6cd8fc) = 0;
+                if ((uint32_t)(t - held) > 0xfa) g_6cd8fc = 0;
             } else if (now > host) {
-                hook::Global<int32_t>(0x6cd8fc) = t;
+                g_6cd8fc = t;
                 run = 0;
-            } else if (host - now > 0xb40 && t - hook::Global<int32_t>(0x6cd8f8) > 0x64) {
-                hook::Global<int32_t>(0x6cd8f8) = t;
+            } else if (host - now > 0xb40 && t - g_6cd8f8 > 0x64) {
+                g_6cd8f8 = t;
                 F<int32_t>(w, 0x4c80) += 0x5a0;
             }
         } else if (F<int32_t>(session, 0x9054)) {
@@ -1007,40 +1007,40 @@ RT3_NOINLINE int32_t __fastcall World_Frame(uint8_t* w) {
         } else {
             const int32_t m = Ftol(minutes);
             const uint64_t to = DateAddMinutes(m + F<int32_t>(w, 0x4c80), *(GameDate*)(w + 0xd));
-            if ((uint8_t)(to >> 32) != w[0x11] && !Net_MessageComplete(hook::Global<uint8_t*>(0x6cd8d8))) run = 0;
+            if ((uint8_t)(to >> 32) != w[0x11] && !Net_MessageComplete(g_session)) run = 0;
         }
     }
-    if (F<int32_t>(w, 0x19) > 0) minutes = (float)((double)hook::Global<float>(0x62be28) + minutes);
+    if (F<int32_t>(w, 0x19) > 0) minutes = (float)((double)g_62be28 + minutes);
     const int32_t whole = Ftol(minutes);
-    hook::Global<float>(0x62be28) = (float)((double)minutes - (float)whole);
+    g_62be28 = (float)((double)minutes - (float)whole);
     if (run == 1) {
-        if (hook::Global<uint8_t*>(0x6cd8d8) && F<int32_t>(w, 0x66ae)) {
-            const int32_t step = hook::Global<int32_t>(0x5f2b38);
+        if (g_session && F<int32_t>(w, 0x66ae)) {
+            const int32_t step = g_5f2b38;
             uint8_t* first = (uint8_t*)Engine_FirstListEntry();
             const uint32_t host = first ? F<uint32_t>(first, 0x2584) : 0;
-            hook::Global<int32_t>(0x6cd8f4) = 0;
+            g_6cd8f4 = 0;
             int32_t pending = F<int32_t>(w, 0x4c80) + whole;
-            if (pending < hook::Global<int32_t>(0x5f2b38)) {
+            if (pending < g_5f2b38) {
                 F<int32_t>(w, 0x4c80) = pending;
             } else {
                 for (;;) {
-                    if (!hook::Global<int32_t>(0x6d40dc) && (uint32_t)(hook::Global<int32_t>(0x5f2b38) + F<int32_t>(w, 0x15)) > host) {
+                    if (!g_6d40dc && (uint32_t)(g_5f2b38 + F<int32_t>(w, 0x15)) > host) {
                         char note[0x100];
                         ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)(note, (const char*)0x5c9fdc, F<int32_t>(w, 0x15), host,
-                                                                           hook::Global<int32_t>(0x5f2b38));
-                        hook::Global<int32_t>(0x6cd8fc) = ClockMs();
+                                                                           g_5f2b38);
+                        g_6cd8fc = ClockMs();
                         F<int32_t>(w, 0x4c80) = 0;
                         break;
                     }
-                    World_Advance(w, 0, hook::Global<int32_t>(0x5f2b38), 0);
-                    ++hook::Global<int32_t>(0x6cd8f4);
-                    ++hook::Global<int32_t>(0x6cd92c);
-                    if (step != hook::Global<int32_t>(0x5f2b38)) {
+                    World_Advance(w, 0, g_5f2b38, 0);
+                    ++g_6cd8f4;
+                    ++g_6cd92c;
+                    if (step != g_5f2b38) {
                         F<int32_t>(w, 0x4c80) = pending - step;
                         break;
                     }
-                    pending -= hook::Global<int32_t>(0x5f2b38);
-                    if (pending < hook::Global<int32_t>(0x5f2b38)) {
+                    pending -= g_5f2b38;
+                    if (pending < g_5f2b38) {
                         F<int32_t>(w, 0x4c80) = pending;
                         break;
                     }
@@ -1050,18 +1050,18 @@ RT3_NOINLINE int32_t __fastcall World_Frame(uint8_t* w) {
             World_Advance(w, 0, whole, 0);
         }
     }
-    for (int32_t i = 0; i < Collection_Count(hook::Global<Collection*>(0x6cfcbc)); ++i) {
-        Collection* trains = hook::Global<Collection*>(0x6cfcbc);
+    for (int32_t i = 0; i < Collection_Count(g_trains); ++i) {
+        Collection* trains = g_trains;
         Train_UpdateSound((uint8_t*)Collection_Get(trains, 0, Collection_IdAt(trains, 0, (uint32_t)i, 0)));
     }
     MessagePanel_RefreshOpen();
-    if (hook::Global<int32_t>(0x6d4114)) {
+    if (g_6d4114) {
         World_NudgeOpenDialog();
-        --hook::Global<int32_t>(0x6d4114);
+        --g_6d4114;
     }
     if (F<int32_t>(w, 0x4a73) && !F<int32_t>(w, 0x4a77)) {
-        if (++hook::Global<int32_t>(0x62be34) >= 0x32 || !World_NudgeOpenDialog()) {
-            hook::Global<int32_t>(0x62be34) = 0;
+        if (++g_62be34 >= 0x32 || !World_NudgeOpenDialog()) {
+            g_62be34 = 0;
             Scenario_End(w);
         }
     }
@@ -1069,39 +1069,39 @@ RT3_NOINLINE int32_t __fastcall World_Frame(uint8_t* w) {
     World_ProcessEvents(w);
     if (!Global6d12bcSet()) {
         bool show = true;
-        if (F<int32_t>(hook::Global<uint8_t*>(0x6d0818), 0x8c) == 0xc && (F<uint32_t>(hook::Global<uint8_t*>(0x6d4018), 0xa8c) & 0x400))
-            show = F<int32_t>(w, 0x4a73) && !F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4a77);
-        if (show && (!UiBusy() || Table_AnyPending(hook::Global<Collection*>(0x6cea4c)))) {
-            if (uint8_t* rec = (uint8_t*)Table_Oldest14(hook::Global<Collection*>(0x6cea4c), 0, 0)) Newspaper_Show(rec);
+        if (F<int32_t>(g_gameWindow, 0x8c) == 0xc && (F<uint32_t>(g_input, 0xa8c) & 0x400))
+            show = F<int32_t>(w, 0x4a73) && !F<int32_t>(g_world, 0x4a77);
+        if (show && (!UiBusy() || Table_AnyPending(g_6cea4c))) {
+            if (uint8_t* rec = (uint8_t*)Table_Oldest14(g_6cea4c, 0, 0)) Newspaper_Show(rec);
         }
     }
-    if (!Global6d12bcSet() && !Global6d10a8Set() && !hook::Global<int32_t>(0x6d4000) && F<int32_t>(w, 0x4d) &&
-        (!UiBusy() || Table_AnyPending(hook::Global<Collection*>(0x6cea4c)))) {
+    if (!Global6d12bcSet() && !Global6d10a8Set() && !g_6d4000 && F<int32_t>(w, 0x4d) &&
+        (!UiBusy() || Table_AnyPending(g_6cea4c))) {
         F<int32_t>(w, 0x4d) = 0;
         if (!Global6d10a8Set()) {
-            if (F<int32_t>(w, 0x19) && !hook::Global<uint8_t*>(0x6cd8d8)) World_TogglePause(w, 0, 0);
+            if (F<int32_t>(w, 0x19) && !g_session) World_TogglePause(w, 0, 0);
             Ledger_Open(0);
-            if (!F<int32_t>(w, 0x19) && !hook::Global<uint8_t*>(0x6cd8d8)) World_TogglePause(w, 0, 0);
+            if (!F<int32_t>(w, 0x19) && !g_session) World_TogglePause(w, 0, 0);
         }
     }
-    Camera_MouseUpdate(hook::Global<uint8_t*>(0x62be68), 0, 0);
+    Camera_MouseUpdate(g_62be68, 0, 0);
     int32_t moved = 0;
     {
-        uint8_t* o = hook::Global<uint8_t*>(0x6d4018);
-        if (!(hook::Global<float>(0x62be2c) == F<float>(o, 0xa94)) || !(hook::Global<float>(0x62be30) == F<float>(o, 0xa98))) {
-            hook::Global<uint32_t>(0x62be2c) = F<uint32_t>(o, 0xa94);
-            hook::Global<uint32_t>(0x62be30) = F<uint32_t>(o, 0xa98);
+        uint8_t* o = g_input;
+        if (!(g_62be2c == F<float>(o, 0xa94)) || !(g_62be30 == F<float>(o, 0xa98))) {
+            hook::As<uint32_t>(g_62be2c) = F<uint32_t>(o, 0xa94);
+            hook::As<uint32_t>(g_62be30) = F<uint32_t>(o, 0xa98);
             moved = 1;
         }
     }
-    uint8_t* const under = F<uint8_t*>(Engine_Renderer(hook::Global<void*>(0x6d4024)), 0x366e);
+    uint8_t* const under = F<uint8_t*>(Engine_Renderer(hook::As<void*>(g_engine)), 0x366e);
     uint8_t* const lit = F<uint8_t*>(w, 0x66a2);
     if (under != lit && (moved || lit)) {
         if (lit) ((void(__fastcall*)(uint8_t*))(*(void***)lit)[0x64 / 4])(lit);
         F<uint8_t*>(w, 0x66a2) = nullptr;
         w[0x89] = 0;
         if (under && ((int32_t(__fastcall*)(uint8_t*))(*(void***)under)[0x1c / 4])(under)) {
-            if (uint8_t* view = hook::Global<uint8_t*>(0x6d0818)) {
+            if (uint8_t* view = g_gameWindow) {
                 uint8_t* c = Widget_FindChild(view, 0, 0x7d6);
                 if (c && (c[0x6a] & 4)) {
                     F<uint8_t*>(w, 0x66a2) = under;
@@ -1142,7 +1142,7 @@ RT3_NOINLINE void __fastcall Camera_ClampToGround(uint8_t* c) {
         F<uint32_t>(c, 0x34e) = 0;
     } else {
         float g2 = (float)(((double)g - m) * F<float>(c, 0x34e) + m);
-        if (hook::Global<uint8_t*>(0x6d4024)[0x1146d8]) g2 = m;
+        if (g_engine[0x1146d8]) g2 = m;
         if (t < g2) {
             float d = (float)((double)g2 - t);
             float s = (float)((double)d * F<float>(c, 0x34e) + F<float>(c, 8));
@@ -1183,7 +1183,7 @@ RT3_NOINLINE int32_t __stdcall Map_TileToScreen(float tx, float ty, float h, flo
     const float k = *(const float*)0x5c8700;
     float wz = (float)((double)ty * k);
     float wx = (float)((double)tx * k);
-    return Scene_ProjectNormalised((uint8_t*)Engine_Renderer(hook::Global<void*>(0x6d4024)), 0, wx, h, wz, ox, oy, nullptr);
+    return Scene_ProjectNormalised((uint8_t*)Engine_Renderer(hook::As<void*>(g_engine)), 0, wx, h, wz, ox, oy, nullptr);
 }
 RT3_REPLACE(0x439b20, Map_TileToScreen);
 
@@ -1194,11 +1194,11 @@ RT3_NOINLINE void __fastcall Obj_Nudge92(void* o) {
 }
 RT3_REPLACE(0x439b70, Obj_Nudge92);
 
-RT3_NOINLINE int32_t Options_Get10c() { return F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x10c); }
+RT3_NOINLINE int32_t Options_Get10c() { return F<int32_t>(g_app, 0x10c); }
 RT3_REPLACE(0x439ba0, Options_Get10c);
 
 // 0x439bb0. Byte of table 0x5ee4d0 for option +0x10c.
-RT3_NOINLINE int32_t OptionTable10c() { return ((const uint8_t*)0x5ee4d0)[F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x10c)]; }
+RT3_NOINLINE int32_t OptionTable10c() { return ((const uint8_t*)0x5ee4d0)[F<int32_t>(g_app, 0x10c)]; }
 RT3_REPLACE(0x439bb0, OptionTable10c);
 
 RT3_NOINLINE double __fastcall Obj_Float18(void* o) { return F<float>(o, 0x18); }
@@ -1238,7 +1238,7 @@ RT3_REPLACE(0x439d30, Camera_TargetAboveGround);
 // a fixed distance (0x5ee4d0, not mode 2), else scaled down with the zoom
 // (+0x14) and kept at least ground height + 0x5c88e0 when zoomed in.
 int32_t __fastcall Camera_DrawDistance(uint8_t* c) {
-    const int32_t mode = F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x10c);
+    const int32_t mode = F<int32_t>(g_app, 0x10c);
     if (mode != 2 && *(const uint8_t*)(0x5ee4d0 + mode)) return F<int32_t>(c, 0x28);
     float t = (float)((D(0x5ca028) - (double)F<float>(c, 0x14)) / D(0x5c8660));
     if ((double)t > D(0x5c8888)) t = BitsF(0x3f666666);
@@ -1278,11 +1278,11 @@ RT3_REPLACE(0x43a070, Obj_SetEntry10e);
 // 0x43a0a0. Switches the camera between full and 70% height bounds;
 // engine +0x114216 = !full; refreshes the main camera (virtual slot 0) and flags it.
 void __fastcall Camera_SetFullView(uint8_t* c, int, int32_t full) {
-    F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x114216) = full == 0;
+    F<int32_t>(g_engine, 0x114216) = full == 0;
     Camera_SetBounds(c, 0, 0, 0, 0x3f800000, full ? 0x3f800000 : 0x3f333333);
-    void* cam = hook::Global<void*>(0x62be68);
+    void* cam = hook::As<void*>(g_62be68);
     ((void(__thiscall*)(void*))(*(void***)cam)[0])(cam);
-    hook::Global<uint8_t*>(0x62be68)[0x65] = 1;
+    g_62be68[0x65] = 1;
 }
 RT3_REPLACE(0x43a0a0, Camera_SetFullView);
 
@@ -1403,8 +1403,8 @@ RT3_REPLACE(0x43a5a0, Camera_Reset);
 RT3_NOINLINE float __fastcall Camera_PitchForZoom(uint8_t* c, int, float zoom) {
     if (zoom < D(0x5ca0d0)) zoom = 37.5f;
     float pitch = F<float>(c, 0x14);
-    int32_t mode = F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x10c);
-    if (!hook::Global<uint8_t>(0x5ee4d0 + mode) && hook::Global<uint8_t*>(0x6d4024)[0x11422e]) {
+    int32_t mode = F<int32_t>(g_app, 0x10c);
+    if (!hook::Global<uint8_t>(0x5ee4d0 + mode) && g_engine[0x11422e]) {
         if (pitch < D(0x5ca0c8)) pitch = FromBits(0xbecccccd);
         if ((double)pitch > D(0x5ca028)) pitch = FromBits(0x3fbc4303);
         return pitch;
@@ -1423,12 +1423,12 @@ RT3_NOINLINE void __fastcall Camera_UpdateHaze(uint8_t* cam, int, float h) {
         h = (float)((double)F<float>(cam, 0x20) -
                     Terrain_HeightAt(F<uint8_t*>(cam, 0x6e), 0, F<float>(cam, 0x1c), F<float>(cam, 0x24)));
     int32_t hh, mm, ss;
-    Clock_SplitD((uint8_t*)Engine_Renderer(hook::Global<void*>(0x6d4024)), 0, &hh, &mm, &ss);
+    Clock_SplitD((uint8_t*)Engine_Renderer(hook::As<void*>(g_engine)), 0, &hh, &mm, &ss);
     float t = (float)((double)mm / D(0x5c88a8) + (double)ss / D(0x5c9f30) + (double)hh);
     int32_t idx = Ftol((double)t / D(0x5c9ab8) * D(0x5ca0e0));
     if (idx < 0) idx = 0;
     else if (idx > 0x8f) idx = 0x8f;
-    auto light = [](int32_t i) { return Scene_GetLightValue0((uint8_t*)Engine_Renderer(hook::Global<void*>(0x6d4024)), 0, i); };
+    auto light = [](int32_t i) { return Scene_GetLightValue0((uint8_t*)Engine_Renderer(hook::As<void*>(g_engine)), 0, i); };
     float now = light(idx);
     float lo = light(0);
     float span = light(0x48);
@@ -1446,13 +1446,13 @@ RT3_NOINLINE void __fastcall Camera_UpdateHaze(uint8_t* cam, int, float h) {
     if (q < D(0x5c85b8)) q = 0.0f;
     else if (q > Fl_203(0x5c85b4)) q = 1.0f;
     float v = (float)((double)q * dusk);
-    float& cache = hook::Global<float>(0x5ee4d8);
+    float& cache = g_5ee4d8;
     if (!(ExeFabs((double)cache - v) > D(0x5c85b8))) return;
     cache = v;
     float w = (float)((double)v * D(0x5ca0d8) + D(0x5c8770));
-    Scene_SetPair0((uint8_t*)Engine_Renderer(hook::Global<void*>(0x6d4024)), 0, w, 1.0f);
-    Scene_SetPair1((uint8_t*)Engine_Renderer(hook::Global<void*>(0x6d4024)), 0, w, 1.0f);
-    uint8_t* s = (uint8_t*)Engine_Renderer(hook::Global<void*>(0x6d4024));
+    Scene_SetPair0((uint8_t*)Engine_Renderer(hook::As<void*>(g_engine)), 0, w, 1.0f);
+    Scene_SetPair1((uint8_t*)Engine_Renderer(hook::As<void*>(g_engine)), 0, w, 1.0f);
+    uint8_t* s = (uint8_t*)Engine_Renderer(hook::As<void*>(g_engine));
     int32_t night = Fx_Intensity(s);
     Renderer_SetTimeOfDay(F<uint8_t*>(s, 0x2d), 0, F<int32_t>(s, 0xd), night);
 }
@@ -1463,12 +1463,12 @@ RT3_REPLACE(0x43a940, Camera_UpdateHaze);
 // version 0x252e on, world +0x46c34) and 20 more bytes; sets the bounds and
 // wraps the heading (+0x10) plus 0x5ca0e8. Returns the bytes read.
 int32_t __fastcall Camera_LoadWithBookmarks(uint8_t* c, int, Stream s) {
-    if (const uint32_t snd = F<uint32_t>(c, 0x3b2)) Sound_Stop(hook::Global<uint8_t*>(0x6d402c), 0, snd, 0);
+    if (const uint32_t snd = F<uint32_t>(c, 0x3b2)) Sound_Stop(g_sound, 0, snd, 0);
     F<uint32_t>(c, 0x3b2) = 0;
     Camera_Detach(c);
     Camera_Reset(c);
     int32_t r = Camera_Load(c, 0, s);
-    const int32_t n = (F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x46c34) > 0x252d ? 1 : 0) * 2 + 8;
+    const int32_t n = (F<int32_t>(g_world, 0x46c34) > 0x252d ? 1 : 0) * 2 + 8;
     for (int32_t k = 0; k < n; ++k) r += StreamRead(s, c + 0x10e + k * 0x30, 0x30, 0, 1);
     uint8_t pad[0x14];
     r += StreamRead(s, pad, 0x14, 0, 1);
@@ -1577,7 +1577,7 @@ RT3_REPLACE(0x43aef0, Obj_ScaledSpanOffset);
 RT3_NOINLINE int32_t __fastcall Tool_AddModifier(uint8_t* t) {
     if (F<int32_t>(t, 0xa2)) return 1;
     uint32_t shift = Flag400();
-    if (uint8_t* g = hook::Global<uint8_t*>(0x6d1a8c))
+    if (uint8_t* g = g_6d1a8c)
         if (Obj_Flag7dOrTracks118(g)) shift = 0;
     int32_t alt;
     if (SwapModifiers() && Flag2000()) alt = 1;
@@ -1596,7 +1596,7 @@ RT3_NOINLINE int32_t __fastcall Tool_RemoveModifier() {
     uint32_t shift = Flag400();
     Flag2000();
     uint32_t ctrl = Flag800();
-    if (uint8_t* g = hook::Global<uint8_t*>(0x6d1a8c))
+    if (uint8_t* g = g_6d1a8c)
         if (Obj_Flag7dOrTracks118(g)) shift = 0;
     if (ctrl && (InputButtons() & 3)) return 0;
     if (SwapModifiers()) return ctrl && !shift ? 1 : 0;
@@ -1662,12 +1662,12 @@ RT3_REPLACE(0x43b2c0, Obj_FillEntry10e);
 // grown with altitude or by pitch) and the far plane by pitch (renderer +0x1534
 // / +0x1544); the scene's +0x22b8b by pitch and option 8.
 RT3_NOINLINE void __fastcall Camera_UpdateViewSettings(uint8_t* c) {
-    uint8_t* dev = hook::Global<uint8_t*>(0x62c120);
-    uint8_t* opts = hook::Global<uint8_t*>(0x6cec74);
+    uint8_t* dev = g_map;
+    uint8_t* opts = g_app;
     float alt = (float)((double)F<float>(c, 0x20) -
                         ((double(__fastcall*)(uint8_t*, int, uint32_t, uint32_t))&Terrain_HeightAt)(F<uint8_t*>(c, 0x6e), 0, F<uint32_t>(c, 0x1c), F<uint32_t>(c, 0x24)));
     F<float>(c, 0x38a) = alt;
-    uint8_t* s = (uint8_t*)Engine_Renderer(hook::Global<void*>(0x6d4024));
+    uint8_t* s = (uint8_t*)Engine_Renderer(hook::As<void*>(g_engine));
     float fog = (float)Scene_FogFactor(s, 0, dev);
     float level;
     if (fog < D(0x5ca188)) level = FromBits(0x3e19999a);
@@ -1676,7 +1676,7 @@ RT3_NOINLINE void __fastcall Camera_UpdateViewSettings(uint8_t* c) {
     else if (fog < D(0x5c9cb8)) level = FromBits(0x3f0ccccd);
     else if (fog < D(0x5ca178)) level = FromBits(0x3f266666);
     else level = fog < D(0x5ca170) ? 0.75f : 1.0f;
-    if (!hook::Global<uint8_t*>(0x6d4024)[0x1146eb]) level = 1.0f;
+    if (!g_engine[0x1146eb]) level = 1.0f;
     if ((double)Render_Get14e0(dev) >= D(0x5ca168)) level = 1.0f;
     else if ((double)Render_Get14e0(dev) >= D(0x5c9ed8)) level = (float)(((double)level + D(0x5c8770)) / D(0x5c85d0));
     F<float>(s, 0x22b5b) = level;
@@ -1704,7 +1704,7 @@ RT3_NOINLINE void __fastcall Camera_UpdateViewSettings(uint8_t* c) {
         d = (float)((double)d * D(0x5c8698));
     }
     d = (float)-(double)d;
-    F<float>((uint8_t*)Engine_Renderer(hook::Global<void*>(0x6d4024)), 0x25) = d;
+    F<float>((uint8_t*)Engine_Renderer(hook::As<void*>(g_engine)), 0x25) = d;
     float dist = hook::Global<float>(0x6218a0 + Obj_ArrayAc2(opts, 0, 7) * 4);
     if (fog <= D(0x5c8608)) {
         float t = (float)((double)alt - Render_Scaled1540(dev));
@@ -1730,7 +1730,7 @@ RT3_NOINLINE void __fastcall Camera_UpdateViewSettings(uint8_t* c) {
     int32_t q = Obj_ArrayAc2(opts, 0, 8);
     if (q < 10) e += 8;
     else if (q < 14) e += 4;
-    F<int32_t>((uint8_t*)Engine_Renderer(hook::Global<void*>(0x6d4024)), 0x22b8b) = e;
+    F<int32_t>((uint8_t*)Engine_Renderer(hook::As<void*>(g_engine)), 0x22b8b) = e;
 }
 RT3_REPLACE(0x43b350, Camera_UpdateViewSettings);
 
@@ -1786,10 +1786,10 @@ void __fastcall Camera_UpdateDetail(uint8_t* c) {
             level = 1;
             F<int32_t>(c, 0x386) = 0;
             F<int32_t>(c, 0x36a) = 1;
-            ((uint8_t*)Engine_Renderer(hook::Global<void*>(0x6d4024)))[0x3748] = 1;
+            ((uint8_t*)Engine_Renderer(hook::As<void*>(g_engine)))[0x3748] = 1;
         }
     }
-    Scene_SetDetail((uint8_t*)Engine_Renderer(hook::Global<void*>(0x6d4024)), 0, level);
+    Scene_SetDetail((uint8_t*)Engine_Renderer(hook::As<void*>(g_engine)), 0, level);
 }
 RT3_REPLACE(0x43b920, Camera_UpdateDetail);
 
@@ -1807,7 +1807,7 @@ RT3_NOINLINE void __fastcall Camera_StartShake(uint8_t* c, int, float strength) 
     } else {
         F<float>(c, 0x396) = (float)ClockMs();
         F<uint32_t>(c, 0x3b2) =
-            Sound_Play2D(hook::Global<uint8_t*>(0x6d402c), 0, hook::Global<const char*>(0x5f0a2c), 0.001f, 0x3f000000, 1, 0, nullptr);
+            Sound_Play2D(g_sound, 0, g_5f0a2c, 0.001f, 0x3f000000, 1, 0, nullptr);
     }
     F<int32_t>(c, 0x38e) = 1;
     F<float>(c, 0x392) = (float)(strength < *(const double*)0x5c85b8 ? 0.01 : (double)strength);
@@ -1815,15 +1815,15 @@ RT3_NOINLINE void __fastcall Camera_StartShake(uint8_t* c, int, float strength) 
     F<uint32_t>(c, 0x39a) = F<uint32_t>(c, 4);
     F<uint32_t>(c, 0x39e) = F<uint32_t>(c, 8);
     Camera_UpdateShake(c);
-    for (int32_t i = 0; i < Collection_Count(hook::Global<Collection*>(0x62bae0)); ++i) {
-        Collection* t = hook::Global<Collection*>(0x62bae0);
+    for (int32_t i = 0; i < Collection_Count(g_cities); ++i) {
+        Collection* t = g_cities;
         uint8_t* g = (uint8_t*)Collection_Get(t, 0, Collection_IdAt(t, 0, (uint32_t)i, 0));
         if (F<int32_t>(g, 0x23e) || F<int32_t>(g, 0x286) <= 0xf) continue;
         float size = (float)((double)strength * Fl(0x5ca1a0));
         for (uint8_t* b = (uint8_t*)Obj_FirstBuilding(g); b;) {
             Obj_ShowConstructCursor(b, 0, size);
-            if (!Collection_IsValid(hook::Global<Collection*>(0x62b26c), 0, F<uint16_t>(b, 0x270))) break;
-            b = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62b26c), 0, F<uint16_t>(b, 0x270));
+            if (!Collection_IsValid(g_buildings, 0, F<uint16_t>(b, 0x270))) break;
+            b = (uint8_t*)Collection_Get(g_buildings, 0, F<uint16_t>(b, 0x270));
         }
     }
 }
@@ -1886,7 +1886,7 @@ RT3_NOINLINE void __fastcall Camera_Update(uint8_t* c) {
     steps = (float)(CamFabs((double)F<float>(c, 0x44) - F<float>(c, 0x10)) / rateD + steps);
     steps = (float)(CamFabs((double)F<float>(c, 0x48) - F<float>(c, 0x14)) / pitchRate + steps);
     steps = (float)(CamFabs((double)F<float>(c, 0x4c) - F<float>(c, 0x18)) / zoomSpeed + steps);
-    int32_t mode = F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x10c);
+    int32_t mode = F<int32_t>(g_app, 0x10c);
     if (!hook::Global<uint8_t>(0x5ee4d0 + mode) && F<float>(c, 0x14) > D(0x5c8628) && F<float>(c, 0x18) < Fl(0x5c86a0)) {
         float q = (float)((double)F<float>(c, 0x18) / (((double)F<float>(c, 0x14) - D(0x5c8628)) * D(0x5c85c8) + D(0x5c8770)));
         steps = (float)((Fl(0x5ca1a4) - (double)q) / Fl(0x5ca06c) * steps);
@@ -1900,20 +1900,20 @@ RT3_NOINLINE void __fastcall Camera_Update(uint8_t* c) {
     float z = (float)(((double(__cdecl*)(double, double))0x5a1b60)(alt, CamBitsD(0x3fd99999a0000000ull)) / D(0x5c87e0));
     z = (float)(z < D(0x5c8d68) ? (double)z : 5.0);
     z = (float)(z > D(0x5c8770) ? (double)z : 1.0);
-    uint8_t* opts = hook::Global<uint8_t*>(0x6cec74);
+    uint8_t* opts = g_app;
     float far1 = (float)((double)hook::Global<float>(0x621960 + Obj_ArrayAc2(opts, 0, 4) * 4) * z * D(0x5c8578));
-    Render_SetLayerValue(hook::Global<uint8_t*>(0x62c120), 0, 0, far1);
-    float far2 = (float)((double)hook::Global<float>(0x621960 + Obj_ArrayAc2(hook::Global<uint8_t*>(0x6cec74), 0, 5) * 4) * z * D(0x5c8578));
-    Render_SetLayerValue(hook::Global<uint8_t*>(0x62c120), 0, 0xa, far2);
+    Render_SetLayerValue(g_map, 0, 0, far1);
+    float far2 = (float)((double)hook::Global<float>(0x621960 + Obj_ArrayAc2(g_app, 0, 5) * 4) * z * D(0x5c8578));
+    Render_SetLayerValue(g_map, 0, 0xa, far2);
     Camera_UpdateHaze(c, 0, FromBits(0xc479c000));
     if (!(steps > D(0x5c9ba0))) return;
     int32_t ix = CamFtol((double)F<float>(c, 0x1c) / Fl(0x5c8700));
     int32_t iy = CamFtol((double)F<float>(c, 0x24) / Fl(0x5c8700));
     int32_t jx = CamFtol((double)F<float>(c, 4) / Fl(0x5c8700));
     int32_t jy = CamFtol((double)F<float>(c, 0xc) / Fl(0x5c8700));
-    uint8_t* map = hook::Global<uint8_t*>(0x62c120);
+    uint8_t* map = g_map;
     if (ix >= 0 && ix < F<int32_t>(map, 0x2155) && iy >= 0 && iy < F<int32_t>(map, 0x2159) && !Terrain_KindIs1Or4(map, 0, ix, iy)) {
-        map = hook::Global<uint8_t*>(0x62c120);
+        map = g_map;
         if (jx >= 0 && jx < F<int32_t>(map, 0x2155) && jy >= 0 && jy < F<int32_t>(map, 0x2159) && !Terrain_KindIs1Or4(map, 0, jx, jy)) return;
     }
     // The original also computes these distances and drops them.
@@ -1931,8 +1931,8 @@ RT3_REPLACE(0x43bde0, Camera_Update);
 // 0x43c5e0 (vtable). Camera c refreshes its view settings (and the map's
 // threshold) unless 0x62be6c, then marks +0x65 and 0x52ce60.
 void __fastcall Camera_RefreshView(uint8_t* c) {
-    if (hook::Global<int32_t>(0x62be6c)) return;
-    if (uint8_t* m = hook::Global<uint8_t*>(0x62c120)) Obj_UpdateThreshold(m);
+    if (g_62be6c) return;
+    if (uint8_t* m = g_map) Obj_UpdateThreshold(m);
     Camera_UpdateViewSettings(c);
     c[0x65] = 1;
     Obj_SetByte64_52ce60(c);
@@ -2038,7 +2038,7 @@ RT3_REPLACE(0x43c9a0, Camera_SetModeClampZoom);
 RT3_NOINLINE int32_t __fastcall Camera_RecallBookmark(uint8_t* c, int, int32_t slot) {
     uint8_t* b = c + slot * 48;
     if (!F<int32_t>(b, 0x10e)) return 0;
-    World_SetFollow(hook::Global<uint8_t*>(0x6cec78), 0, 0, nullptr);
+    World_SetFollow(g_world, 0, 0, nullptr);
     F<uint32_t>(c, 4) = F<uint32_t>(b, 0x11a);
     F<uint32_t>(c, 8) = F<uint32_t>(b, 0x11e);
     F<uint32_t>(c, 0xc) = F<uint32_t>(b, 0x122);
@@ -2050,7 +2050,7 @@ RT3_NOINLINE int32_t __fastcall Camera_RecallBookmark(uint8_t* c, int, int32_t s
     F<uint32_t>(c, 0x24) = F<uint32_t>(b, 0x13a);
     const uint64_t twoPi = 0x401921fb60000000ull;
     F<float>(c, 0x10) = (float)((double(__cdecl*)(double, double))0x5a1390)(F<float>(c, 0x10) + Fl_207(0x5ca0e8), *(const double*)&twoPi);
-    if (int32_t kind = F<int32_t>(b, 0x112)) World_FollowEntity(hook::Global<uint8_t*>(0x6cec78), 0, 1, kind, F<int32_t>(b, 0x116));
+    if (int32_t kind = F<int32_t>(b, 0x112)) World_FollowEntity(g_world, 0, 1, kind, F<int32_t>(b, 0x116));
     Camera_MouseUpdate(c, 0, 1);
     Camera_Update(c);
     return 1;
@@ -2130,7 +2130,7 @@ void __fastcall Camera_UpdateGround(uint8_t* c) {
         Camera_ClampToGround(c);
         return;
     }
-    if (!((const uint8_t*)0x5ee4d0)[F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x10c)]) return;
+    if (!((const uint8_t*)0x5ee4d0)[F<int32_t>(g_app, 0x10c)]) return;
     Camera_FollowGround(c);
     F<uint32_t>(c, 0x2ee) = F<uint32_t>(c, 8);
 }
@@ -2142,7 +2142,7 @@ RT3_REPLACE(0x43ce80, Camera_UpdateGround);
 // 1250 blends the eye height between them (fully the eye's below zoom 1000).
 RT3_NOINLINE void __fastcall Camera_SmoothHeight(uint8_t* c) {
     if (F<int32_t>(c, 0x60)) return;
-    if (!((const uint8_t*)0x5ee4d0)[F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x10c)]) return;
+    if (!((const uint8_t*)0x5ee4d0)[F<int32_t>(g_app, 0x10c)]) return;
     Camera_TargetGround(c);
     float reach = (float)(((double(__cdecl*)(double))0x5a13e4)(F<float>(c, 0x14)) * F<float>(c, 0x18));
     Camera_FollowGround(c);
@@ -2285,16 +2285,16 @@ RT3_NOINLINE int32_t __fastcall Camera_PickGround(uint8_t* cam, int, float sx, f
     }
     if (!(eased == off)) {
         double d = (double)eased - off;
-        float s = (float)(d / (Obj_Scene36f9((uint8_t*)Engine_Renderer(hook::Global<void*>(0x6d4024))) * 2));
+        float s = (float)(d / (Obj_Scene36f9((uint8_t*)Engine_Renderer(hook::As<void*>(g_engine))) * 2));
         float shift = (float)((double)s * tilt);
         sy = (float)((double)shift + sy);
     }
     *cz = 0.0f;
     *cx = 0.0f;
-    void* e = hook::Global<void*>(0x6d4024);
-    if (!e || !Engine_Renderer(e) || !hook::Global<uint8_t*>(0x62be68)) return 0;
+    void* e = hook::As<void*>(g_engine);
+    if (!e || !Engine_Renderer(e) || !g_62be68) return 0;
     float out[3];
-    if (!Scene_RayToHeight((uint8_t*)Engine_Renderer(hook::Global<void*>(0x6d4024)), 0, hook::Global<uint8_t*>(0x62be68), sx, sy, height, out)) return 0;
+    if (!Scene_RayToHeight((uint8_t*)Engine_Renderer(hook::As<void*>(g_engine)), 0, g_62be68, sx, sy, height, out)) return 0;
     *cx = (float)(out[0] / Fl_205(0x5c8700));
     *cz = (float)(out[2] / Fl_205(0x5c8700));
     return 1;
@@ -2307,8 +2307,8 @@ RT3_REPLACE(0x43d320, Camera_PickGround);
 // relative to the camera yaw (+0x10a).
 RT3_NOINLINE void __fastcall Camera_UpdateFocus(uint8_t* c) {
     F<int32_t>(c, 0xea) = 0;
-    F<uint32_t>(c, 0xfe) = F<uint32_t>(hook::Global<uint8_t*>(0x6d4018), 0xa94);
-    F<uint32_t>(c, 0x102) = F<uint32_t>(hook::Global<uint8_t*>(0x6d4018), 0xa98);
+    F<uint32_t>(c, 0xfe) = F<uint32_t>(g_input, 0xa94);
+    F<uint32_t>(c, 0x102) = F<uint32_t>(g_input, 0xa98);
     float x = 0.0f, y = 0.0f;
     if (F<void*>(Renderer(), 0x366e)) {
         F<int32_t>(c, 0xea) = 1;
@@ -2319,13 +2319,13 @@ RT3_NOINLINE void __fastcall Camera_UpdateFocus(uint8_t* c) {
     if (!height) {
         int32_t ok = 0;
         if (Scene_FocusCell(Renderer(), 0, &x, &y) == 1 && !(x < Fl(0x5c8598)) && !(y < Fl(0x5c8598))) {
-            uint8_t* m = hook::Global<uint8_t*>(0x62c120);
+            uint8_t* m = g_map;
             if (x < (float)F<int32_t>(m, 0x2155) && y < (float)F<int32_t>(m, 0x2159)) ok = 1;
         }
         F<int32_t>(c, 0xea) = ok;
         height = ok != 0;
     }
-    if (height) F<float>(c, 0xf2) = (float)Terrain_HeightAtTile(hook::Global<uint8_t*>(0x62c120), 0, x, y);
+    if (height) F<float>(c, 0xf2) = (float)Terrain_HeightAtTile(g_map, 0, x, y);
     float k = Fl(0x5c8700);
     F<float>(c, 0xee) = (float)((double)x * k);
     F<float>(c, 0xf6) = (float)((double)y * k);
@@ -2365,25 +2365,25 @@ RT3_REPLACE(0x43d480, Camera_UpdateFocus);
 // moves while the game is in front. Nothing while the window manager is
 // busy.
 RT3_NOINLINE void __fastcall Camera_KeyControl(uint8_t* c, int, uint32_t* zoom) {
-    if (hook::Global<uint8_t*>(0x6d401c) && !Obj_Idlec60(hook::Global<uint8_t*>(0x6d401c))) return;
+    if (g_windowManager && !Obj_Idlec60(g_windowManager)) return;
     int32_t zooming = 0, turning = 0;
     *zoom = 0;
     int32_t now = ClockMs();
-    int32_t dt = now - hook::Global<int32_t>(0x62be74);
+    int32_t dt = now - g_62be74;
     if (dt < 8) return;
     if (dt > 200) dt = 200;
-    hook::Global<int32_t>(0x62be74) = now;
+    g_62be74 = now;
     float dx = 0.0f, dz = 0.0f;
     auto held = [&](uint32_t key, uint32_t mod) {
-        if (!Input_Key(hook::Global<uint8_t*>(0x6d4018), 0, F<int32_t>(c, key))) return -1;
-        return !F<int32_t>(c, mod) || Input_Key(hook::Global<uint8_t*>(0x6d4018), 0, F<int32_t>(c, mod)) ? 1 : 0;
+        if (!Input_Key(g_input, 0, F<int32_t>(c, key))) return -1;
+        return !F<int32_t>(c, mod) || Input_Key(g_input, 0, F<int32_t>(c, mod)) ? 1 : 0;
     };
     int32_t k = held(0xb6, 0xba);
-    if (k == 1) dx = (float)((double)((const float*)0x5f34b0)[F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x11c)] * D(0x5c9bf0));
-    else if (k < 0 && held(0xbe, 0xc2) == 1) dx = ((const float*)0x5f34b0)[F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x11c)];
+    if (k == 1) dx = (float)((double)((const float*)0x5f34b0)[F<int32_t>(g_app, 0x11c)] * D(0x5c9bf0));
+    else if (k < 0 && held(0xbe, 0xc2) == 1) dx = ((const float*)0x5f34b0)[F<int32_t>(g_app, 0x11c)];
     k = held(0xa6, 0xaa);
-    if (k == 1) dz = (float)((double)((const float*)0x5f34b0)[F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x11c)] * D(0x5c9bf0));
-    else if (k < 0 && held(0xae, 0xb2) == 1) dz = ((const float*)0x5f34b0)[F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x11c)];
+    if (k == 1) dz = (float)((double)((const float*)0x5f34b0)[F<int32_t>(g_app, 0x11c)] * D(0x5c9bf0));
+    else if (k < 0 && held(0xae, 0xb2) == 1) dz = ((const float*)0x5f34b0)[F<int32_t>(g_app, 0x11c)];
     k = held(0xd6, 0xda);
     if (k == 1) {
         dx = -1.0f;
@@ -2412,11 +2412,11 @@ RT3_NOINLINE void __fastcall Camera_KeyControl(uint8_t* c, int, uint32_t* zoom) 
         *(float*)zoom = step;
         if (!(step < 0.0f)) return;
         if (!((double)F<float>(c, 0x18) <= D(0x5ca238))) return;
-        if (F<void*>(hook::Global<uint8_t*>(0x62be68), 0x60)) return;
+        if (F<void*>(g_62be68, 0x60)) return;
         dz = -1.0f;
         *zoom = 0;
     }
-    World_SetFollow(hook::Global<uint8_t*>(0x6cec78), 0, 0, nullptr);
+    World_SetFollow(g_world, 0, 0, nullptr);
     float s = (float)((double)dt / D(0x5c87f8) * D(0x5c8628));
     if (Engine_IsForeground()) Camera_Pan(c, 0, (float)((double)s * dx), (float)((double)s * dz));
 }
@@ -2435,13 +2435,13 @@ RT3_REPLACE(0x43d740, Camera_KeyControl);
 // (0x5ee4f8 / 0x62be78); tiny speeds snap to 0. Without any input or speed
 // the grab state is cleared instead. `forced` is held in +0xa2 meanwhile.
 RT3_NOINLINE void __fastcall Camera_MouseUpdate(uint8_t* c, int, int32_t forced) {
-    if (F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 8) != 1 || !*hook::Global<int32_t*>(0x6cec78)) return;
+    if (F<int32_t>(g_app, 8) != 1 || !*hook::As<int32_t*>(g_world)) return;
     F<int32_t>(c, 0xa2) = forced;
     float zoom = 0.0f;
     Camera_KeyControl(c, 0, (uint32_t*)&zoom);
-    Mouse_Poll((uint8_t*)Engine_Input(hook::Global<void*>(0x6d4024)));
+    Mouse_Poll((uint8_t*)Engine_Input(hook::As<void*>(g_engine)));
     float x, y, z;
-    Mouse_GetPos3((uint8_t*)Engine_Input(hook::Global<void*>(0x6d4024)), 0, (uint32_t*)&x, (uint32_t*)&y, (uint32_t*)&z);
+    Mouse_GetPos3((uint8_t*)Engine_Input(hook::As<void*>(g_engine)), 0, (uint32_t*)&x, (uint32_t*)&y, (uint32_t*)&z);
     if (ClockMs() < F<int32_t>(c, 0x346) + 0x2bc) F<float>(c, 0x2fe) = z;
     int32_t first = 0;
     float dx, dy, dz;
@@ -2450,32 +2450,32 @@ RT3_NOINLINE void __fastcall Camera_MouseUpdate(uint8_t* c, int, int32_t forced)
         F<int32_t>(c, 0x2f2) = 1;
         first = 1;
     } else {
-        const float k = hook::Global<float>(0x5ca248);
+        const float k = g_5ca248;
         dx = (x - F<float>(c, 0x2f6)) * k;
         dy = (y - F<float>(c, 0x2fa)) * k;
         dz = (z - F<float>(c, 0x2fe)) * k;
-        if (!F<uint8_t>(hook::Global<uint8_t*>(0x6d4024), 0x1146d7)) dz = dz * hook::Global<float>(0x5c9b08);
-        if (F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x28b) && fabs((double)dz) > hook::Global<double>(0x5c86b8)) {
-            int32_t up = dz > hook::Global<float>(0x5c8598) ? 1 : 0;
-            int32_t steps = Ftol(fabs((double)dz) / hook::Global<double>(0x5c8908));
+        if (!F<uint8_t>(g_engine, 0x1146d7)) dz = dz * g_5c9b08;
+        if (F<int32_t>(g_app, 0x28b) && fabs((double)dz) > g_5c86b8) {
+            int32_t up = dz > g_5c8598 ? 1 : 0;
+            int32_t steps = Ftol(fabs((double)dz) / g_5c8908);
             if (steps <= 1) steps = 1;
             Camera_ZoomStep(c, 0, (up * 2 - 1) * steps);
             dz = 0.0f;
         }
         dz = dz + zoom;
     }
-    if (hook::Global<int32_t>(0x62be70)) dx = 0.0f, dy = 0.0f, dz = 0.0f;
-    const float zero = hook::Global<float>(0x5c8598);
-    if (Tool_AddModifier(c) && (dx != zero || dy != zero || dz != zero)) World_SetFollow(hook::Global<uint8_t*>(0x6cec78), 0, 0, nullptr);
+    if (g_62be70) dx = 0.0f, dy = 0.0f, dz = 0.0f;
+    const float zero = g_5c8598;
+    if (Tool_AddModifier(c) && (dx != zero || dy != zero || dz != zero)) World_SetFollow(g_world, 0, 0, nullptr);
     if (Tool_AddModifier(c) && !F<int32_t>(c, 0x336)) {
         F<int32_t>(c, 0x312) = 0;
         F<int32_t>(c, 0x316) = 0;
         F<int32_t>(c, 0x31a) = 0;
-        F<uint32_t>(c, 0x326) = F<uint32_t>(hook::Global<uint8_t*>(0x6d4018), 0xa94);
-        F<uint32_t>(c, 0x32a) = F<uint32_t>(hook::Global<uint8_t*>(0x6d4018), 0xa98);
+        F<uint32_t>(c, 0x326) = F<uint32_t>(g_input, 0xa94);
+        F<uint32_t>(c, 0x32a) = F<uint32_t>(g_input, 0xa98);
         float fx, fy;
         if (Scene_FocusFlagIs1(&fx, &fy) && fx >= zero && fy >= zero) {
-            uint8_t* m = hook::Global<uint8_t*>(0x62c120);
+            uint8_t* m = g_map;
             float w = (float)F<int32_t>(m, 0x2155);
             if (fx < w) {
                 float h = (float)F<int32_t>(m, 0x2159);
@@ -2491,32 +2491,32 @@ RT3_NOINLINE void __fastcall Camera_MouseUpdate(uint8_t* c, int, int32_t forced)
         }
     }
     if ((!Tool_AddModifier(c) && F<int32_t>(c, 0x336)) || (!Tool_RemoveModifier() && F<int32_t>(c, 0x33a)))
-        if (uint8_t* p = hook::Global<uint8_t*>(0x6d0820)) Obj_TakeListCommand(p);
+        if (uint8_t* p = g_6d0820) Obj_TakeListCommand(p);
     F<int32_t>(c, 0x336) = Tool_AddModifier(c);
     F<int32_t>(c, 0x33a) = Tool_RemoveModifier();
     F<float>(c, 0x2fe) = z;
     F<float>(c, 0x2f6) = x;
     F<float>(c, 0x2fa) = y;
-    if (dx > hook::Global<float>(0x5ca244)) dx = BitsF(0x42be0000);
-    else if (dx < hook::Global<float>(0x5ca240)) dx = BitsF(0xc2be0000);
-    if (dy > hook::Global<float>(0x5ca244)) dy = BitsF(0x42be0000);
-    else if (dy < hook::Global<float>(0x5ca240)) dy = BitsF(0xc2be0000);
-    int32_t elapsed = ClockMs() - hook::Global<int32_t>(0x62be7c);
-    hook::Global<int32_t>(0x62be7c) = ClockMs();
+    if (dx > g_5ca244) dx = BitsF(0x42be0000);
+    else if (dx < g_5ca240) dx = BitsF(0xc2be0000);
+    if (dy > g_5ca244) dy = BitsF(0x42be0000);
+    else if (dy < g_5ca240) dy = BitsF(0xc2be0000);
+    int32_t elapsed = ClockMs() - g_62be7c;
+    g_62be7c = ClockMs();
     if (elapsed > 200) elapsed = 200;
-    hook::Global<float>(0x5ee4f8) = (float)((double)elapsed / hook::Global<double>(0x5c8a20) + hook::Global<float>(0x5ee4f8) * hook::Global<double>(0x5c8928));
-    hook::Global<float>(0x62be78) = hook::Global<float>(0x62be78) + hook::Global<float>(0x5ee4f8);
-    const float slice = hook::Global<float>(0x5c878c);
-    if (hook::Global<float>(0x62be78) < slice) hook::Global<float>(0x62be78) = 2.0f;
+    g_5ee4f8 = (float)((double)elapsed / g_5c8a20 + g_5ee4f8 * g_5c8928);
+    g_62be78 = g_62be78 + g_5ee4f8;
+    const float slice = g_5c878c;
+    if (g_62be78 < slice) g_62be78 = 2.0f;
     bool move;
-    Engine_Input(hook::Global<void*>(0x6d4024));
+    Engine_Input(hook::As<void*>(g_engine));
     bool keys = Input_Flag800();
     if (!keys) {
-        Engine_Input(hook::Global<void*>(0x6d4024));
+        Engine_Input(hook::As<void*>(g_engine));
         keys = Input_Flag400();
     }
     if (!keys) {
-        Engine_Input(hook::Global<void*>(0x6d4024));
+        Engine_Input(hook::As<void*>(g_engine));
         keys = Input_Flag2000();
     }
     if ((keys || dz != zero) && (dx != zero || dy != zero || dz != zero)) move = true;
@@ -2526,30 +2526,30 @@ RT3_NOINLINE void __fastcall Camera_MouseUpdate(uint8_t* c, int, int32_t forced)
     if (!move) {
         if (!Tool_AddModifier(c)) F<int32_t>(c, 0x302) = 0;
         if (!Tool_RemoveModifier()) F<int32_t>(c, 0x306) = 0;
-        hook::Global<int32_t>(0x62be78) = 0;
+        hook::As<int32_t>(g_62be78) = 0;
     } else {
         if (OptionTable10c()) Camera_MouseInput(c, 0, dx, dy, dz);
         else Camera_MouseInputMomentum(c, 0, dx, dy, dz);
-        while (hook::Global<float>(0x62be78) > slice) {
+        while (g_62be78 > slice) {
             float dt = BitsF(0x3dcccccd);
-            hook::Global<float>(0x62be78) = hook::Global<float>(0x62be78) - slice;
-            int32_t last = hook::Global<float>(0x62be78) > slice ? 0 : 1;
+            g_62be78 = g_62be78 - slice;
+            int32_t last = g_62be78 > slice ? 0 : 1;
             if (Options_Get10c() != 4) {
                 F<int32_t>(c, 0x9a) = 0;
                 F<int32_t>(c, 0x96) = 0;
-                hook::Global<int32_t>(0x62be78) = 0;
+                hook::As<int32_t>(g_62be78) = 0;
                 dt = 1.0f;
                 last = 1;
             }
             if (OptionTable10c()) Camera_Step(c, 0, dt, last);
             else Camera_ApplyMomentum(c, 0, dt, last);
         }
-        const double tiny = hook::Global<double>(0x5c8678);
+        const double tiny = g_5c8678;
         for (int32_t off = 0x8a; off <= 0x9a; off += 4)
             if (fabs((double)F<float>(c, off)) < tiny) F<int32_t>(c, off) = 0;
     }
-    F<uint32_t>(c, 0x32e) = F<uint32_t>(hook::Global<uint8_t*>(0x6d4018), 0xa94);
-    F<uint32_t>(c, 0x332) = F<uint32_t>(hook::Global<uint8_t*>(0x6d4018), 0xa98);
+    F<uint32_t>(c, 0x32e) = F<uint32_t>(g_input, 0xa94);
+    F<uint32_t>(c, 0x332) = F<uint32_t>(g_input, 0xa98);
     F<int32_t>(c, 0xe6) = Tool_RemoveModifier();
     F<int32_t>(c, 0xa2) = 0;
     Camera_UpdateShake(c);
@@ -2582,7 +2582,7 @@ RT3_NOINLINE void __fastcall Camera_ApplyMomentum(uint8_t* c, int, float dt, int
     else if (F<float>(c, 0x18) > Fl(0x5ca260)) F<uint32_t>(c, 0x18) = 0x4703a400;
     if (pitch < D(0x5ca258)) F<uint32_t>(c, 0x14) = 0xbf8ccccd;
     else if (pitch > D(0x5ca028)) F<uint32_t>(c, 0x14) = 0x3fbc4303;
-    if (!F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x104) && F<float>(c, 0x14) < D(0x5c86b8)) F<uint32_t>(c, 0x14) = 0x3dcccccd;
+    if (!F<int32_t>(g_app, 0x104) && F<float>(c, 0x14) < D(0x5c86b8)) F<uint32_t>(c, 0x14) = 0x3dcccccd;
     F<float>(c, 4) = (float)((double)dt * F<float>(c, 0x96) + F<float>(c, 4));
     F<float>(c, 0xc) = (float)((double)dt * F<float>(c, 0x9a) + F<float>(c, 0xc));
     if (move) {
@@ -2655,9 +2655,9 @@ RT3_NOINLINE void __fastcall Camera_MouseInputMomentum(uint8_t* c, int, float dx
     if (wheel == Fl(0x5c8598)) return;
     double v;
     if (Options_Get10c() == 4)
-        v = (double)k * D(0x5c86b8) * wheel * hook::Global<float>(0x5f34b0 + F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x118) * 4);
+        v = (double)k * D(0x5c86b8) * wheel * hook::Global<float>(0x5f34b0 + F<int32_t>(g_app, 0x118) * 4);
     else {
-        float s = hook::Global<float>(0x5f34b0 + F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x118) * 4);
+        float s = hook::Global<float>(0x5f34b0 + F<int32_t>(g_app, 0x118) * 4);
         v = s * ((double)wheel * D(0x5c8628));
     }
     F<float>(c, 0x92) = (float)(v + v + F<float>(c, 0x92));
@@ -2697,7 +2697,7 @@ RT3_NOINLINE void __fastcall Camera_Drag(uint8_t* c, int, float dx, float dy, in
     }
     if (F<int32_t>(c, 0x33e)) F<float>(c, 0x8a) = (float)((double)dx / Fl(0x5ca19c) + F<float>(c, 0x8a));
     if (F<int32_t>(c, 0x342)) {
-        float speed = ((const float*)0x5f34b0)[F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x118)];
+        float speed = ((const float*)0x5f34b0)[F<int32_t>(g_app, 0x118)];
         F<float>(c, 0x92) = (float)(F<float>(c, 0x92) - (double)dy * speed * D(0x5ca278));
     }
     F<int32_t>(c, 0x306) = 1;
@@ -2716,7 +2716,7 @@ RT3_REPLACE(0x43e830, Camera_Drag);
 RT3_NOINLINE void __fastcall Camera_DragPick(uint8_t* c, int, uint32_t x0, uint32_t y0, float x1, float y1, int32_t nested) {
     F<uint32_t>(c, 0x32e) = x0;
     F<uint32_t>(c, 0x332) = y0;
-    Obj_Scene36f9((uint8_t*)Engine_Renderer(hook::Global<void*>(0x6d4024)));
+    Obj_Scene36f9((uint8_t*)Engine_Renderer(hook::As<void*>(g_engine)));
     float lowY = F<float>(c, 0x332) < y1 ? F<float>(c, 0x332) : y1;
     float probe = lowY;
     if (F<float>(c, 0x32a) < lowY && F<float>(c, 0x31a) > Fl(0x5c9f80)) probe = F<float>(c, 0x32a);
@@ -2821,7 +2821,7 @@ RT3_NOINLINE void __fastcall Camera_Step(uint8_t* c, int, float dt, int32_t move
     F<float>(c, 0x2c) = (float)((double)F<float>(c, 0x2c) * D(0x5c8680));
     F<float>(c, 0x34) = (float)((double)F<float>(c, 0x34) * D(0x5c8680));
     double turn = (double)dt * F<float>(c, 0x8a);
-    if (F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x108)) Camera_Orbit(c, 0, (float)turn);
+    if (F<int32_t>(g_app, 0x108)) Camera_Orbit(c, 0, (float)turn);
     else F<float>(c, 0x10) = (float)(turn + F<float>(c, 0x10));
     double pitch = (double)dt * F<float>(c, 0x8e);
     F<uint32_t>(c, 0x8e) = 0;
@@ -2875,7 +2875,7 @@ RT3_REPLACE(0x43f050, Camera_Step);
 // 0x43f4c0. Continues a map drag to the current mouse position (0x6d4018
 // +0xa94 / +0xa98).
 RT3_NOINLINE void __fastcall Camera_DragToMouse(uint8_t* c) {
-    uint8_t* m = hook::Global<uint8_t*>(0x6d4018);
+    uint8_t* m = g_input;
     Camera_DragPick(c, 0, F<uint32_t>(c, 0x32e), F<uint32_t>(c, 0x332), F<float>(m, 0xa94), F<float>(m, 0xa98), 0);
 }
 RT3_REPLACE(0x43f4c0, Camera_DragToMouse);
@@ -2895,31 +2895,31 @@ RT3_NOINLINE void __fastcall Camera_MouseInput(uint8_t* c, int, float dx, float 
         F<int32_t>(c, 0x306) = 0;
     } else {
         if (!F<int32_t>(c, 0xe6)) Camera_UpdateFocus(c);
-        if (!hook::Global<uint8_t*>(0x6d4024)[0x1146d7]) dy = (float)((double)dy * Fl(0x5c9b08));
+        if (!g_engine[0x1146d7]) dy = (float)((double)dy * Fl(0x5c9b08));
         Camera_Drag(c, 0, dx, dy, *(int32_t*)&wheel);
     }
     F<int32_t>(c, 0xe6) = freeDrag;
     if (grab) {
-        uint8_t* m = hook::Global<uint8_t*>(0x6d4018);
+        uint8_t* m = g_input;
         Camera_DragPick(c, 0, F<uint32_t>(c, 0x32e), F<uint32_t>(c, 0x332), F<float>(m, 0xa94), F<float>(m, 0xa98), 0);
     } else
         F<int32_t>(c, 0x302) = 0;
     if (wheel == Fl(0x5c8598)) return;
-    float k = hook::Global<float>(0x5f34b0 + F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x118) * 4);
+    float k = hook::Global<float>(0x5f34b0 + F<int32_t>(g_app, 0x118) * 4);
     double v = k * ((double)wheel * D(0x5c8628));
     F<float>(c, 0x92) = (float)(v + v + F<float>(c, 0x92));
 }
 RT3_REPLACE(0x43f4f0, Camera_MouseInput);
 
 void ResetPair5ee4fc() {
-    hook::Global<int32_t>(0x5ee4fc) = -1;
-    hook::Global<int32_t>(0x5ee500) = -1;
+    hook::As<int32_t>(g_5ee4fc) = -1;
+    g_5ee500 = -1;
 }
 RT3_REPLACE(0x43f610, ResetPair5ee4fc);
 
 void __stdcall SetGlobals5ee4fc(int32_t a, int32_t b) {
-    hook::Global<int32_t>(0x5ee4fc) = a;
-    hook::Global<int32_t>(0x5ee500) = b;
+    hook::As<int32_t>(g_5ee4fc) = a;
+    g_5ee500 = b;
 }
 RT3_REPLACE(0x43f620, SetGlobals5ee4fc);
 
@@ -2932,24 +2932,24 @@ RT3_REPLACE(0x43f620, SetGlobals5ee4fc);
 // both ways). Pass 0 counts the rows, pass 1 measures the text to size the
 // backdrop, and pass 2 draws the backdrop, frame and text.
 RT3_NOINLINE void __fastcall StationCargo_DrawCompare(void*, int, float, float, float, float, int32_t) {
-    if (!hook::Global<uint8_t*>(0x6cec78) || !hook::Global<int32_t>(0x6d0818)) return;
-    Collection* stations = hook::Global<Collection*>(0x6cec20);
-    if (!stations || !hook::Global<Collection*>(0x62ba8c)) return;
-    if (!Collection_IsValid(stations, 0, hook::Global<uint32_t>(0x5ee4fc))) return;
-    if (hook::Global<uint32_t>(0x5ee500) && !Collection_IsValid(hook::Global<Collection*>(0x62ba8c), 0, hook::Global<uint32_t>(0x5ee500))) return;
+    if (!g_world || !hook::As<int32_t>(g_gameWindow)) return;
+    Collection* stations = g_stations;
+    if (!stations || !g_cargoTypes) return;
+    if (!Collection_IsValid(stations, 0, g_5ee4fc)) return;
+    if (hook::As<uint32_t>(g_5ee500) && !Collection_IsValid(g_cargoTypes, 0, hook::As<uint32_t>(g_5ee500))) return;
     if (Global6d07b4Set2()) return;
-    if (hook::Global<uint8_t*>(0x6cec7c)[0x82]) return;
-    if (F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4aef)) return;
-    if (!hook::Global<uint32_t>(0x5ee500)) return;
+    if (g_newGame[0x82]) return;
+    if (F<int32_t>(g_world, 0x4aef)) return;
+    if (!hook::As<uint32_t>(g_5ee500)) return;
     Fade_Save();
-    uint8_t* ref = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cec20), 0, hook::Global<uint32_t>(0x5ee4fc));
+    uint8_t* ref = (uint8_t*)Collection_Get(g_stations, 0, g_5ee4fc);
     float refStock, refPrice;
-    Obj_CargoStockAndQuota(ref, 0, hook::Global<int32_t>(0x5ee500), &refStock, &refPrice);
+    Obj_CargoStockAndQuota(ref, 0, g_5ee500, &refStock, &refPrice);
     refPrice = (float)(refPrice / D(0x5c87f8));
     uint8_t* cargo = nullptr;
     int32_t carried = 0;
-    if (hook::Global<uint32_t>(0x5ee500)) {
-        cargo = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba8c), 0, hook::Global<uint32_t>(0x5ee500));
+    if (hook::As<uint32_t>(g_5ee500)) {
+        cargo = (uint8_t*)Collection_Get(g_cargoTypes, 0, hook::As<uint32_t>(g_5ee500));
         if (cargo) {
             carried = cargo[0x46];
             if (carried) refPrice = 0.0f;
@@ -2964,21 +2964,21 @@ RT3_NOINLINE void __fastcall StationCargo_DrawCompare(void*, int, float, float, 
     static uint8_t* list[500];
     static float price[500], amount[500], back[500], backAmount[500];
     memset(skip, 0, sizeof skip);
-    int32_t count = Collection_Count(hook::Global<Collection*>(0x6cec20)) > 500 ? 500 : Collection_Count(hook::Global<Collection*>(0x6cec20));
+    int32_t count = Collection_Count(g_stations) > 500 ? 500 : Collection_Count(g_stations);
     for (int32_t i = 0; i < count; ++i) {
-        uint8_t* st = (uint8_t*)Collection_RecordAt(hook::Global<Collection*>(0x6cec20), 0, i);
+        uint8_t* st = (uint8_t*)Collection_RecordAt(g_stations, 0, i);
         list[i] = st;
         if (!Obj_BuildingStateActive(st))
             skip[i] = 1;
         else if (carried && st != ref) {
-            Train_GatherLoads(ref, 0, 1, nullptr, st, hook::Global<int32_t>(0x5ee500), BitsF(0x4479c000u), &amount[i], &price[i], nullptr);
+            Train_GatherLoads(ref, 0, 1, nullptr, st, g_5ee500, BitsF(0x4479c000u), &amount[i], &price[i], nullptr);
             if (!(amount[i] == Fl_205(0x5c8598))) price[i] = price[i] / amount[i];
             price[i] = (float)(((double)price[i] + Fl_205(0x5ca06c)) / D(0x5c87f8));
-            Train_GatherLoads(st, 0, 1, nullptr, ref, hook::Global<int32_t>(0x5ee500), BitsF(0x4479c000u), &backAmount[i], &back[i], nullptr);
+            Train_GatherLoads(st, 0, 1, nullptr, ref, g_5ee500, BitsF(0x4479c000u), &backAmount[i], &back[i], nullptr);
             if (!(backAmount[i] == Fl_205(0x5c8598))) back[i] = back[i] / backAmount[i];
             back[i] = (float)(((double)back[i] + Fl_205(0x5ca06c)) / D(0x5c87f8));
         } else {
-            Obj_CargoStockAndQuota(st, 0, hook::Global<int32_t>(0x5ee500), &amount[i], &price[i]);
+            Obj_CargoStockAndQuota(st, 0, g_5ee500, &amount[i], &price[i]);
             price[i] = (float)(price[i] / D(0x5c87f8));
         }
     }
@@ -2989,7 +2989,7 @@ RT3_NOINLINE void __fastcall StationCargo_DrawCompare(void*, int, float, float, 
     char text[0x1f8], num[0x68];
     for (int32_t pass = 0; pass < 3; ++pass) {
         if (pass == 2) {
-            if (F<int32_t>(hook::Global<uint8_t*>(0x6d401c), 0xc64) <= 0) Fade_Set(0x3a378034);
+            if (F<int32_t>(g_windowManager, 0xc64) <= 0) Fade_Set(0x3a378034);
             memcpy(skip, skipSave, sizeof skip);
             if (right > left && bottom > top) {
                 bottom = BitsF(0x3f2bbbbcu);
@@ -3001,7 +3001,7 @@ RT3_NOINLINE void __fastcall StationCargo_DrawCompare(void*, int, float, float, 
                 float h = (float)(((double)Fl_205(0x5ca2e8) - top) + D(0x5ca2e0));
                 float sx = (float)(w / D(0x5c9bc0));
                 float sy = (float)(h / D(0x5ca2d8));
-                Glyph_Queue((uint8_t*)Table_Entry(F<uint8_t*>(hook::Global<uint8_t*>(0x6cec78), 0x46a8c), 0, hook::Global<int32_t>(0x6d3e34)), 0, x, y,
+                Glyph_Queue((uint8_t*)Table_Entry(F<uint8_t*>(g_world, 0x46a8c), 0, g_6d3e34), 0, x, y,
                             0x3f800000, sx, sy, 0xffffffff, 0, 1, 0, 0.0f, 0.0f, 1.0f, 1.0f);
                 Ui_FrameRect(0xff000000, 0, x, y, w, h, 2.5f, 3);
             }
@@ -3015,7 +3015,7 @@ RT3_NOINLINE void __fastcall StationCargo_DrawCompare(void*, int, float, float, 
                 int32_t idx = -1;
                 if (row >= 0) {
                     if (sec == 0) {
-                        idx = (int32_t)Collection_PositionOf(hook::Global<Collection*>(0x6cec20), 0, hook::Global<uint32_t>(0x5ee4fc), 0);
+                        idx = (int32_t)Collection_PositionOf(g_stations, 0, g_5ee4fc, 0);
                         if (idx >= 500) idx = -1;
                     } else {
                         float best = 0.0f;
@@ -3054,7 +3054,7 @@ RT3_NOINLINE void __fastcall StationCargo_DrawCompare(void*, int, float, float, 
                 bool nextRow = false;
                 for (int32_t col = 0; col < 4 && !nextRow; ++col) {
                     float x = (float)(colX[col] / D(0x5ca2c8));
-                    uint8_t* font = F<uint8_t*>(hook::Global<uint8_t*>(0x6cec78), 0x46a94);
+                    uint8_t* font = F<uint8_t*>(g_world, 0x46a94);
                     int32_t al = align[col];
                     uint32_t color = 0xffffffff;
                     float w = (float)((((double)colX[col + 1] - colX[col]) - Fl_205(0x5c8554)) / D(0x5ca2c8));
@@ -3081,7 +3081,7 @@ RT3_NOINLINE void __fastcall StationCargo_DrawCompare(void*, int, float, float, 
                                 fmt = sec == 1 ? 0xf24 : 0xf25;
                             }
                             FormatText(text, GetString(fmt), a1, 0, 0, 0, 0, 0, 0, 0);
-                            font = F<uint8_t*>(hook::Global<uint8_t*>(0x6cec78), 0x46a98);
+                            font = F<uint8_t*>(g_world, 0x46a98);
                         } else if (sec == 1) {
                             if (cheaperRows) {
                                 nextRow = true;
@@ -3098,7 +3098,7 @@ RT3_NOINLINE void __fastcall StationCargo_DrawCompare(void*, int, float, float, 
                     } else {
                         uint8_t* st = list[idx];
                         int32_t value = Obj_BuildingValue(st);
-                        bool differs = value != Obj_Get21(hook::Global<uint8_t*>(0x6cec78));
+                        bool differs = value != Obj_Get21(g_world);
                         switch (col) {
                         case 0:
                             FormatText(text, (const char*)st + 0x46b, 0, 0, 0, 0, 0, 0, 0, 0);

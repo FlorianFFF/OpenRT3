@@ -10,6 +10,7 @@
 #include <math.h>
 #include <initializer_list>
 #include "hook/hook.h"
+#include "core/globals.h"
 #include "hook/keepregs.h"
 #include "game/collection.h"
 #include "core/crt.h"
@@ -25,12 +26,10 @@
 namespace rt3 {
 
 template <typename T> static inline T& F(void* o, uint32_t off) { return *(T*)((uint8_t*)o + off); }
-static Collection*& g_table6cec20 = hook::Global<Collection*>(0x6cec20);
 int32_t __fastcall Obj_BuildingValue(void* o);
 double __fastcall Obj_BuildingCellX(void* o);
 double __fastcall Obj_BuildingCellY(void* o);
 int32_t __fastcall DistanceSqInt(int32_t x1, int32_t y1, int32_t x2, int32_t y2);
-static Collection*& g_trackNodes = hook::Global<Collection*>(0x6cfca8);
 double __fastcall Obj_CellX(void* o);
 double __fastcall Obj_CellY(void* o);
 double __fastcall Terrain_HeightAtTile(uint8_t* r, int, float x, float z);
@@ -314,7 +313,7 @@ RT3_NOINLINE char* __fastcall Num_FormatSimple2(char* buf, int32_t style, double
 
 static inline double ExeSqrt(double v) { return ((double(__cdecl*)(double))0x5a1634)(v); }
 
-static inline uint8_t* Map() { return hook::Global<uint8_t*>(0x62c120); }
+static inline uint8_t* Map() { return g_map; }
 
 static inline double D(uint32_t a) { return *(const double*)a; }
 
@@ -322,16 +321,16 @@ static inline float Fl(uint32_t a) { return *(const float*)a; }
 
 static inline double Sqrt(double x) { return ((double(__cdecl*)(double))0x5a1634)(x); }
 
-static inline Collection* Engines() { return hook::Global<Collection*>(0x6ada84); }
+static inline Collection* Engines() { return g_6ada84; }
 
 static inline uint8_t* CarTypeOf(uint8_t* e) {
-    return F<uint32_t>(e, 0x72) ? (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba88), 0, F<uint32_t>(e, 0x72))
+    return F<uint32_t>(e, 0x72) ? (uint8_t*)Collection_Get(g_carTypes, 0, F<uint32_t>(e, 0x72))
                                 : nullptr;
 }
 
-static inline Collection* Stations() { return hook::Global<Collection*>(0x6cec20); }
+static inline Collection* Stations() { return g_stations; }
 
-static inline Collection* Players() { return hook::Global<Collection*>(0x62be10); }
+static inline Collection* Players() { return g_companies; }
 
 static inline int32_t Ftol(double v) {
     int32_t r;
@@ -371,7 +370,7 @@ static inline double BitsD(uint64_t b) { return *(double*)&b; }
 
 // Cars a train can carry in the current year (0x6cec78 +0xd).
 static int32_t TrainCarsForYear() {
-    uint32_t y = F<uint16_t>(hook::Global<uint8_t*>(0x6cec78), 0xd);
+    uint32_t y = F<uint16_t>(g_world, 0xd);
     if (y < 0x749) return 4;
     if (y < 0x758) return 5;
     if (y < 0x76c) return 6;
@@ -412,7 +411,7 @@ inline double RtMod(double x, double y) { return ((double(__cdecl*)(double, doub
 inline int RtStricmp(const char* a, const char* b) { return ((int(__cdecl*)(const char*, const char*))0x5a57cf)(a, b); }
 inline float RtBits(uint32_t v) { return *(const float*)&v; }
 inline uint8_t* RtGet(uint32_t global, int32_t id) { return (uint8_t*)Collection_Get(hook::Global<Collection*>(global), 0, (uint32_t)id); }
-inline uint8_t* RtMap() { return hook::Global<uint8_t*>(0x62c120); }
+inline uint8_t* RtMap() { return g_map; }
 }
 
 namespace {
@@ -477,7 +476,7 @@ RT3_NOINLINE float __fastcall City_ServiceValue(uint8_t* o, int, uint32_t compan
     int32_t v = Ftol(((double)F<float>(o, 0x30e) * D(0x5c8590) + s) / D(0x5c8588) * D(0x5c8580));
     if (company) {
         float y = (float)Obj_CellY(o);
-        uint32_t region = Map_RegionTypeAt(hook::Global<void*>(0x62c120), 0, (float)Obj_CellX(o), y);
+        uint32_t region = Map_RegionTypeAt(hook::As<void*>(g_map), 0, (float)Obj_CellX(o), y);
         if (!Company_EntryFlag(Collection_Get(Players(), 0, company), 0, region)) return Fl(0x5c8598);
     }
     int32_t rival = 0, n = 0;
@@ -525,17 +524,17 @@ RT3_REPLACE(0x401300, Obj_PlatformOffset);
 // are lifted for a test run of AI_PlanFirstRoute(1, 0, 0), then restored.
 RT3_NOINLINE int32_t AI_TestFirstRoute() {
     int32_t closed[0x18] = {};
-    if (F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4b07)) {
+    if (F<int32_t>(g_world, 0x4b07)) {
         for (uint32_t i = 0; i < 0x18; ++i) {
-            if (!Collection_IsValid(hook::Global<Collection*>(0x6cfc9c), 0, i)) continue;
-            closed[i] = F<int32_t>(Collection_Get(hook::Global<Collection*>(0x6cfc9c), 0, i), 0x2d);
-            F<int32_t>(Collection_Get(hook::Global<Collection*>(0x6cfc9c), 0, i), 0x2d) = 0;
+            if (!Collection_IsValid(g_territories, 0, i)) continue;
+            closed[i] = F<int32_t>(Collection_Get(g_territories, 0, i), 0x2d);
+            F<int32_t>(Collection_Get(g_territories, 0, i), 0x2d) = 0;
         }
     }
     const int32_t ok = AI_PlanFirstRoute(1, 0, 0);
-    if (F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4b07)) {
+    if (F<int32_t>(g_world, 0x4b07)) {
         for (uint32_t i = 0; i < 0x18; ++i)
-            if (Collection_IsValid(hook::Global<Collection*>(0x6cfc9c), 0, i)) F<int32_t>(Collection_Get(hook::Global<Collection*>(0x6cfc9c), 0, i), 0x2d) = closed[i];
+            if (Collection_IsValid(g_territories, 0, i)) F<int32_t>(Collection_Get(g_territories, 0, i), 0x2d) = closed[i];
     }
     return ok;
 }
@@ -552,7 +551,7 @@ RT3_REPLACE(0x4013f0, AI_TestFirstRoute);
 // log kind 0x11).
 RT3_NOINLINE void __fastcall Company_AiBuyIndustry(uint8_t* c) {
     if (Company_CountCargoSites(c, 0, 1) < 2) return;
-    if (F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4abf)) return;
+    if (F<int32_t>(g_world, 0x4abf)) return;
     if (Company_Stat(c, 0, 0xd, 0x2329) < D(0x5c85e0)) return;
     float limit = BitsF(0x3db851ec);
     if (uint8_t* chair = (uint8_t*)Company_Owner(c)) {
@@ -568,8 +567,8 @@ RT3_NOINLINE void __fastcall Company_AiBuyIndustry(uint8_t* c) {
     }
     float best = limit;
     uint32_t bestPrice = 0, bestId = 0;
-    for (int32_t i = 0; i < Collection_Count(hook::Global<Collection*>(0x62b26c)); ++i) {
-        Collection* bs = hook::Global<Collection*>(0x62b26c);
+    for (int32_t i = 0; i < Collection_Count(g_buildings); ++i) {
+        Collection* bs = g_buildings;
         uint8_t* b = (uint8_t*)Collection_Get(bs, 0, Collection_IdAt(bs, 0, (uint32_t)i, 0));
         if (F<int32_t>(b, 0x276)) continue;
         uint8_t* st = ((uint8_t*(__thiscall*)(uint8_t*))(*(void***)b)[0x80 / 4])(b);
@@ -577,7 +576,7 @@ RT3_NOINLINE void __fastcall Company_AiBuyIndustry(uint8_t* c) {
         if (Obj_StateKindIs4(b)) continue;
         float price = Building_Price(b, 0, F<uint32_t>(c, 0));
         if (Company_Stat(c, 0, 0xd, 0x2329) < (double)price) continue;
-        int32_t age = F<uint16_t>(hook::Global<uint8_t*>(0x6cec78), 0xd) - F<int32_t>(b, 0x3d5);
+        int32_t age = F<uint16_t>(g_world, 0xd) - F<int32_t>(b, 0x3d5);
         if (age < 3) continue;
         float sum = 0.0f, weights = 0.0f;
         int32_t w = 5;
@@ -602,15 +601,15 @@ RT3_NOINLINE void __fastcall Company_AiBuyIndustry(uint8_t* c) {
     }
     if (!bestId) return;
     Company_TakeBuilding(c, 0, bestId, *(float*)&bestPrice);
-    uint8_t* b = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62b26c), 0, bestId);
+    uint8_t* b = (uint8_t*)Collection_Get(g_buildings, 0, bestId);
     uint8_t* st = ((uint8_t*(__thiscall*)(uint8_t*))(*(void***)b)[0x80 / 4])(b);
     const char* name = LocalizeName((const char*)st + 0x4f);
     float cy = (float)Obj_CellY(b);
     float cx = (float)Obj_CellX(b);
-    const char* city = Table_NearestName(hook::Global<Collection*>(0x62bae0), 0, cx, cy);
+    const char* city = Table_NearestName(g_cities, 0, cx, cy);
     char text[0x200];
     FormatText(text, GetString(0xb40), (const char*)(c + 4), name, city, 0, 0, 0, 0, 0);
-    Log_Add(hook::Global<Collection*>(0x6acd34), 0, text, 0x11, F<int32_t>(c, 0), F<int32_t>(b, 0x2a4));
+    Log_Add(g_messageLog, 0, text, 0x11, F<int32_t>(c, 0), F<int32_t>(b, 0x2a4));
 }
 RT3_REPLACE(0x4014b0, Company_AiBuyIndustry);
 
@@ -618,14 +617,14 @@ RT3_REPLACE(0x4014b0, Company_AiBuyIndustry);
 // own station piece (+0x216 == 2), else re-found among the track pieces.
 int32_t __fastcall Company_HomeStation(int32_t* c) {
     bool ok = false;
-    if (Collection_IsValid(g_trackNodes, 0, F<uint32_t>(c, 0xd35))) {
-        uint8_t* n = (uint8_t*)Collection_Get(g_trackNodes, 0, F<uint32_t>(c, 0xd35));
+    if (Collection_IsValid(g_tracks, 0, F<uint32_t>(c, 0xd35))) {
+        uint8_t* n = (uint8_t*)Collection_Get(g_tracks, 0, F<uint32_t>(c, 0xd35));
         ok = F<uint16_t>(n, 0x22e) == c[0] && n[0x216] == 2;
     }
     if (!ok) F<int32_t>(c, 0xd35) = -1;
     if (F<int32_t>(c, 0xd35) == -1 && F<int32_t>(c, 0x766c) + F<int32_t>(c, 0x7668) + F<int32_t>(c, 0x7664) > 0) {
-        for (int32_t i = 0; i < Collection_Count(g_trackNodes); ++i) {
-            uint8_t* n = (uint8_t*)Collection_Get(g_trackNodes, 0, Collection_IdAt(g_trackNodes, 0, i, 0));
+        for (int32_t i = 0; i < Collection_Count(g_tracks); ++i) {
+            uint8_t* n = (uint8_t*)Collection_Get(g_tracks, 0, Collection_IdAt(g_tracks, 0, i, 0));
             if (F<uint16_t>(n, 0x22e) == c[0] && n[0x216] == 2) {
                 F<int32_t>(c, 0xd35) = F<int32_t>(n, 0x202);
                 break;
@@ -644,8 +643,8 @@ RT3_NOINLINE void __fastcall AiCompany_ReplanTrains(int32_t* c) {
     F<int32_t>(c, 0xd3e) = 0;
     F<int32_t>(c, 0xd3a) = 0;
     Company_UpdateStationLinks(c);
-    for (int32_t i = Collection_Count(hook::Global<Collection*>(0x6cfcbc)) - 1; i >= 0; --i) {
-        Collection* trains = hook::Global<Collection*>(0x6cfcbc);
+    for (int32_t i = Collection_Count(g_trains) - 1; i >= 0; --i) {
+        Collection* trains = g_trains;
         uint8_t* t = (uint8_t*)Collection_Get(trains, 0, Collection_IdAt(trains, 0, (uint32_t)i, 0));
         if (F<int32_t>(t, 0x51) != c[0]) continue;
         Train_SetRunning(t, 0, 2);
@@ -676,12 +675,12 @@ RT3_NOINLINE void __fastcall AI_CompanyTurn(uint8_t* co) {
     co[0xd18] = (uint8_t)gone, co[0xd17] = (uint8_t)gone, co[0xd56] = (uint8_t)gone;
     const int32_t engine = (int32_t)AI_PickEngineType(*(uint32_t*)co);
     if (engine > 0 && F<int32_t>(RtGet(0x6ada84, engine), 0x10) == 2) co[0xd17] = 1;
-    auto world = [] { return hook::Global<uint8_t*>(0x6cec78); };
+    auto world = [] { return g_world; };
     const int32_t electric = F<int32_t>(world(), 0x4c74);
     F<int32_t>(world(), 0x4c74) = co[0xd17];
     const bool acted = [&] {
         int32_t built = 0;
-        uint8_t* ed = hook::Global<uint8_t*>(0x6cec74);
+        uint8_t* ed = g_app;
         if (!F<int32_t>(ed, 0x29f) && !F<int32_t>(world(), 0x4ab3) && !F<int32_t>(world(), 0x4aa3) && !F<int32_t>(world(), 0x4aa7) &&
             F<int32_t>(co, 0xd1d) < F<int32_t>(world(), 0x15)) {
             const int32_t wait = SimRand(0xb4, 0x168) * 0x5a0;
@@ -704,8 +703,8 @@ RT3_NOINLINE void __fastcall AI_CompanyTurn(uint8_t* co) {
             F<int32_t>(co, 0xd25) = F<int32_t>(world(), 0x15);
             AI_ReviewTrains(co, 0, built);
         }
-        if (world()[0xf] == 0xb) TrackNet_AiDoubleTrack(hook::Global<Collection*>(0x6cfca8), 0, *(uint32_t*)co);
-        if (!F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x2a7) && !F<int32_t>(world(), 0x4ac3) && world()[0xf] >= 0xb &&
+        if (world()[0xf] == 0xb) TrackNet_AiDoubleTrack(g_tracks, 0, *(uint32_t*)co);
+        if (!F<int32_t>(g_app, 0x2a7) && !F<int32_t>(world(), 0x4ac3) && world()[0xf] >= 0xb &&
             (!F<int32_t>(co, 0xd29) || F<int32_t>(co, 0xd29) + 0x3b100 < F<int32_t>(world(), 0x15))) {
             Company_AiBuyIndustry(co);
             F<int32_t>(co, 0xd29) = F<int32_t>(world(), 0x15);
@@ -732,10 +731,10 @@ RT3_REPLACE(0x4019e0, AI_CompanyTurn);
 //  - set the dividend from the last three years' profit;
 // and puts what it did in the news (0x6acd34).
 RT3_NOINLINE void __fastcall Company_YearFinance(uint8_t* c) {
-    auto cur = [] { return (int32_t)F<uint16_t>(hook::Global<uint8_t*>(0x6cec78), 0xd); };
-    auto world = [] { return hook::Global<uint8_t*>(0x6cec78); };
+    auto cur = [] { return (int32_t)F<uint16_t>(g_world, 0xd); };
+    auto world = [] { return g_world; };
     auto stat = [&](int32_t id, int32_t year) { return Company_Stat(c, 0, id, year); };
-    auto news = [&](const char* text) { Log_Add(hook::Global<Collection*>(0x6acd34), 0, text, 0x12, F<int32_t>(c, 0), 0); };
+    auto news = [&](const char* text) { Log_Add(g_messageLog, 0, text, 0x12, F<int32_t>(c, 0), 0); };
     char text[0x1f8], msg[0x3f0], numA[0x1f8], numB[0x1f8];
     int32_t issuedCount = 0;
     float best = 0.0f;
@@ -962,7 +961,7 @@ RT3_NOINLINE void __fastcall Company_YearFinance(uint8_t* c) {
     }
     if (bankrupt) return;
     if (!repaid && !issued && !bought) return;
-    if (hook::Global<uint8_t*>(0x6cfe4c) && Screen90() == F<int32_t>(c, 0)) CompanyWindow_Refresh(hook::Global<uint8_t*>(0x6cfe4c));
+    if (g_6cfe4c && Screen90() == F<int32_t>(c, 0)) CompanyWindow_Refresh(g_6cfe4c);
     text[0] = 0;
     const char* name = (const char*)c + 4;
     if (repaid) {
@@ -999,7 +998,7 @@ RT3_NOINLINE float __stdcall Map_SlopeAngle(float ax, float ay, float bx, float 
 RT3_REPLACE(0x402c00, Map_SlopeAngle);
 
 // 0x402c90 / 0x40cee0 / 0x40ccb0 (vtables). Train-related lookups.
-RT3_NOINLINE void* __fastcall Obj_Station173(uint8_t* o) { return Collection_Get(hook::Global<Collection*>(0x62b268), 0, F<uint32_t>(o, 0x173)); }
+RT3_NOINLINE void* __fastcall Obj_Station173(uint8_t* o) { return Collection_Get(g_62b268, 0, F<uint32_t>(o, 0x173)); }
 RT3_REPLACE(0x402c90, Obj_Station173);
 
  // namespace
@@ -1048,23 +1047,23 @@ RT3_NOINLINE int32_t __fastcall AI_BuildRoute(Collection* net, int, int32_t city
     t[0x10a] = 1;
     Track_Validate(net);
     t[0x10a] = 0;
-    if (F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4c84) == 0) {
-        F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4c84) = 1;
+    if (F<int32_t>(g_world, 0x4c84) == 0) {
+        F<int32_t>(g_world, 0x4c84) = 1;
         Game_PauseTools();
     }
-    F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x140) = 2;
-    F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x13c) = 2;
-    F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x138) = 3;
-    F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x144) = 1;
-    F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4c74) = 0;
+    F<int32_t>(g_app, 0x140) = 2;
+    F<int32_t>(g_app, 0x13c) = 2;
+    F<int32_t>(g_app, 0x138) = 3;
+    F<int32_t>(g_app, 0x144) = 1;
+    F<int32_t>(g_world, 0x4c74) = 0;
     if (Game_EffectiveVersion() >= 0x67) {
         const int32_t engine = (int32_t)AI_PickEngineType((uint32_t)company);
-        if (engine > 0 && F<int32_t>(RtGet(0x6ada84, engine), 0x10) == 2) F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4c74) = 1;
+        if (engine > 0 && F<int32_t>(RtGet(0x6ada84, engine), 0x10) == 2) F<int32_t>(g_world, 0x4c74) = 1;
     }
     Obj_Stash98(t);
     ++F<int32_t>(t, 0xe9);
     if (estimate) {
-        ++F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x114256);
+        ++F<int32_t>(g_engine, 0x114256);
         ++F<int32_t>(t, 0xed);
     }
     F<uint16_t>(t, 0xf6) = 9999;
@@ -1077,10 +1076,10 @@ RT3_NOINLINE int32_t __fastcall AI_BuildRoute(Collection* net, int, int32_t city
     F<uint16_t>(t, 0xfa) = 0;
     F<uint16_t>(t, 0xfc) = 0;
     const int32_t mode = estimate == 0;
-    fr.i(0x7c) = Obj_PushIdNode(hook::Global<Collection*>(0x6cfca8), 0, 0, company);
+    fr.i(0x7c) = Obj_PushIdNode(g_tracks, 0, 0, company);
     for (uint32_t o = 0; o < 8; o += 4) fr.p(0xac + o) = fr.i(0x40 + o) ? RtGet(0x62bae0, fr.i(0x40 + o)) : nullptr;
     auto lay = [&](float x0, float y0, float x1, float y1, int32_t* from, int32_t* to) {
-        return TrackNet_LayLine(hook::Global<Collection*>(0x6cfca8), 0, x0, y0, x1, y1, company, mode, 0, from, to, RtBits(1));
+        return TrackNet_LayLine(g_tracks, 0, x0, y0, x1, y1, company, mode, 0, from, to, RtBits(1));
     };
     // 0: went through the station pass (cost kept at least 1), 1: a line
     // failed (cost 1, then 0).
@@ -1295,10 +1294,10 @@ RT3_NOINLINE int32_t __fastcall AI_BuildRoute(Collection* net, int, int32_t city
                 FormatText(name, (const char*)0x5c8730, hook::Global<const char*>(0x5f3c80 + 4 * style), hook::Global<const char*>(0x5f3c6c + 4 * type), 0, 0, 0, 0,
                            0, 0);
                 int32_t id = -1;
-                for (int32_t i = 0; i < Collection_Count(hook::Global<Collection*>(0x62b2fc)); ++i) {
-                    Collection* types = hook::Global<Collection*>(0x62b2fc);
+                for (int32_t i = 0; i < Collection_Count(g_buildingTypes); ++i) {
+                    Collection* types = g_buildingTypes;
                     const int r = RtStricmp(name, (const char*)Collection_Get(types, 0, Collection_IdAt(types, 0, (uint32_t)i, 0)) + 4);
-                    if (r == 0) id = (int32_t)Collection_IdAt(hook::Global<Collection*>(0x62b2fc), 0, (uint32_t)i, r);
+                    if (r == 0) id = (int32_t)Collection_IdAt(g_buildingTypes, 0, (uint32_t)i, r);
                 }
                 if (id == -1) return fr.i(0x0c) = 0, 0;
                 const int32_t dir = fr.i(0x98 + o), side = fr.i(0xb8 + o);
@@ -1315,15 +1314,15 @@ RT3_NOINLINE int32_t __fastcall AI_BuildRoute(Collection* net, int, int32_t city
                 fr.f(0x18) = fr.f(0x88 + o);
                 fr.f(0x20) = fr.f(0xa4 + o);
                 const int32_t node =
-                    Grid_NearestNodeWithin(hook::Global<Collection*>(0x6cfca8), 0, fr.f(0x88 + o), fr.f(0xa4 + o), -1, RtBits(0x3f395810), 1, 0, 0);
+                    Grid_NearestNodeWithin(g_tracks, 0, fr.f(0x88 + o), fr.f(0xa4 + o), -1, RtBits(0x3f395810), 1, 0, 0);
                 if (node != -1) Obj_CenterCell(RtGet(0x6cfca8, node), 0, &fr.f(0x18), &fr.f(0x20));
-                Type_RotatedCell(hook::Global<Collection*>(0x62b2fc), 0, (uint32_t)id, &fr.f(0x38), &fr.f(0x54), RtBits(angle));
+                Type_RotatedCell(g_buildingTypes, 0, (uint32_t)id, &fr.f(0x38), &fr.f(0x54), RtBits(angle));
                 fr.f(0x18) = (float)((double)fr.f(0x38) + fr.f(0x18));
                 fr.f(0x20) = (float)((double)fr.f(0x20) - fr.f(0x54));
                 if (pass == 0) {
                     const uint32_t region = Map_RegionTypeAt(RtMap(), 0, fr.f(0x18), fr.f(0x20));
                     if (!company && F<int32_t>(RtGet(0x6cfc9c, (int32_t)region), 0x2d)) return fr.i(0x0c) = 0, 0;
-                    fr.i(0x0c) = Sites_CanPlace(hook::Global<Collection*>(0x62b2fc), 0, (uint32_t)id, fr.f(0x18), fr.f(0x20), RtBits(angle), company, 1, nullptr, 0, 1,
+                    fr.i(0x0c) = Sites_CanPlace(g_buildingTypes, 0, (uint32_t)id, fr.f(0x18), fr.f(0x20), RtBits(angle), company, 1, nullptr, 0, 1,
                                                 -1, 1);
                     if (!fr.i(0x0c)) return 0;
                     uint8_t* kind = RtGet(0x62b268, F<int32_t>(rec, 0x173));
@@ -1332,13 +1331,13 @@ RT3_NOINLINE int32_t __fastcall AI_BuildRoute(Collection* net, int, int32_t city
                     fr.f(0x34) = (float)price;
                     const uint32_t cell = Map_GridByte(RtMap(), 0, fr.f(0x18), fr.f(0x20));
                     const uint32_t player = company ? F<uint32_t>(RtGet(0x62be10, company), 0x3b) : 0;
-                    fr.f(0x34) = (float)(Effects_Multiplier(hook::Global<uint8_t*>(0x6cec78), 0, 0x3b, (uint32_t)company, player, cell) * fr.f(0x34));
+                    fr.f(0x34) = (float)(Effects_Multiplier(g_world, 0, 0x3b, (uint32_t)company, player, cell) * fr.f(0x34));
                     fr.f(0x14) = (float)((double)fr.f(0x34) + fr.f(0x14));
                     fr.f(0x1c) = (float)F<int32_t>(fr.p(0xac + o), 0x276);
                     fr.f(0x14) = (float)((double)fr.f(0x14) - fr.f(0x1c));
                 } else {
-                    Sites_CanPlace(hook::Global<Collection*>(0x62b2fc), 0, (uint32_t)id, fr.f(0x18), fr.f(0x20), RtBits(angle), company, 1, nullptr, 0, 1, -1, 1);
-                    const uint32_t b = Buildings_Add(hook::Global<Collection*>(0x62b26c), 0, rec, fr.f(0x18), fr.f(0x20), angle, company, 0);
+                    Sites_CanPlace(g_buildingTypes, 0, (uint32_t)id, fr.f(0x18), fr.f(0x20), RtBits(angle), company, 1, nullptr, 0, 1, -1, 1);
+                    const uint32_t b = Buildings_Add(g_buildings, 0, rec, fr.f(0x18), fr.f(0x20), angle, company, 0);
                     Building_Place(RtGet(0x62b26c, (int32_t)b), 0, fr.f(0x18), fr.f(0x20), (uint32_t)company);
                 }
                 if (!fr.i(0x0c)) return 0;
@@ -1347,12 +1346,12 @@ RT3_NOINLINE int32_t __fastcall AI_BuildRoute(Collection* net, int, int32_t city
         if (!fr.i(0x0c) || estimate) return 0;
         // Maintenance sheds and service towers along the route.
         fr.i(0x48) = 0, fr.i(0x34) = 0;
-        for (int32_t i = 0; i < Collection_Count(hook::Global<Collection*>(0x62b2fc)); ++i) {
-            Collection* types = hook::Global<Collection*>(0x62b2fc);
+        for (int32_t i = 0; i < Collection_Count(g_buildingTypes); ++i) {
+            Collection* types = g_buildingTypes;
             const char* name = (const char*)Collection_Get(types, 0, Collection_IdAt(types, 0, (uint32_t)i, 0)) + 4;
             if ((uint8_t)ToUpper(*name) != 'S' && (uint8_t)ToUpper(*name) != 'M') continue;
-            if (!RtStricmp((const char*)0x5c871c, name)) fr.i(0x48) = (int32_t)Collection_IdAt(hook::Global<Collection*>(0x62b2fc), 0, (uint32_t)i, 0);
-            if (!RtStricmp((const char*)0x5c8710, name)) fr.i(0x34) = (int32_t)Collection_IdAt(hook::Global<Collection*>(0x62b2fc), 0, (uint32_t)i, 0);
+            if (!RtStricmp((const char*)0x5c871c, name)) fr.i(0x48) = (int32_t)Collection_IdAt(g_buildingTypes, 0, (uint32_t)i, 0);
+            if (!RtStricmp((const char*)0x5c8710, name)) fr.i(0x34) = (int32_t)Collection_IdAt(g_buildingTypes, 0, (uint32_t)i, 0);
         }
         if (!fr.i(0x48) || !fr.i(0x34)) return fr.i(0x0c) = 0, 0;
         // Each end moves on to a neighbour laid by this route.
@@ -1388,7 +1387,7 @@ RT3_NOINLINE int32_t __fastcall AI_BuildRoute(Collection* net, int, int32_t city
         }
         fr.d(0x98) = (double)n;
         fr.f(0x28) = (float)(fr.d(0x98) / D(0x5c8708));
-        fr.i(0x1c) = F<uint16_t>(hook::Global<uint8_t*>(0x6cec78), 0xd) < 0x79e ? 0x25 : 0x1e;
+        fr.i(0x1c) = F<uint16_t>(g_world, 0xd) < 0x79e ? 0x25 : 0x1e;
         fr.f(0x1c) = (float)fr.i(0x1c);
         fr.f(0x30) = (float)((double)fr.f(0x28) / fr.f(0x1c));
         if (Fl_207(0x5c85b4) > fr.f(0x30)) fr.i(0x30) = 0x3f800000;
@@ -1424,13 +1423,13 @@ RT3_NOINLINE int32_t __fastcall AI_BuildRoute(Collection* net, int, int32_t city
                         if (flip) fr.f(0x10) = (float)((double)fr.f(0x10) + Fl_207(0x5c8760));
                         while (fr.f(0x10) > Fl_207(0x5c8768)) fr.f(0x10) = (float)((double)fr.f(0x10) - Fl_207(0x5c8768));
                         fr.i(0xac + 4 * k) = flip == 0;
-                        Type_RotatedCell(hook::Global<Collection*>(0x62b2fc), 0, (uint32_t)fr.i(0x60), &fr.f(0xa4), &fr.f(0x88), fr.f(0x10));
+                        Type_RotatedCell(g_buildingTypes, 0, (uint32_t)fr.i(0x60), &fr.f(0xa4), &fr.f(0x88), fr.f(0x10));
                         fr.f(0x24) = (float)((double)fr.f(0xa4) + fr.f(0x24));
                         fr.f(0x20) = (float)((double)fr.f(0x20) - fr.f(0x88));
-                        if (!Sites_CanPlace(hook::Global<Collection*>(0x62b2fc), 0, (uint32_t)fr.i(0x60), fr.f(0x24), fr.f(0x20), fr.f(0x10), company, 1, nullptr, 0, 1, -1,
+                        if (!Sites_CanPlace(g_buildingTypes, 0, (uint32_t)fr.i(0x60), fr.f(0x24), fr.f(0x20), fr.f(0x10), company, 1, nullptr, 0, 1, -1,
                                             1))
                             continue;
-                        const uint32_t b = Buildings_Add(hook::Global<Collection*>(0x62b26c), 0, fr.p(0x68), fr.f(0x24), fr.f(0x20), (uint32_t)fr.i(0x10), company, 0);
+                        const uint32_t b = Buildings_Add(g_buildings, 0, fr.p(0x68), fr.f(0x24), fr.f(0x20), (uint32_t)fr.i(0x10), company, 0);
                         Building_Place(RtGet(0x62b26c, (int32_t)b), 0, fr.f(0x24), fr.f(0x20), (uint32_t)company);
                         for (int32_t c = at - 4; c <= at + 4; ++c)
                             if (c >= 0 && c < 1000) path[c] = -1;
@@ -1448,19 +1447,19 @@ RT3_NOINLINE int32_t __fastcall AI_BuildRoute(Collection* net, int, int32_t city
     if (!ok) fr.i(0x14) = 0;
     t[0xf5] = 0;
     if (ok && !estimate) {
-        TrackList_ResetBuildState(hook::Global<uint8_t*>(0x6cfca8));
+        TrackList_ResetBuildState(hook::As<uint8_t*>(g_tracks));
         if (company) {
             Company_BuildStationLinks((int32_t*)RtGet(0x62be10, company));
             RtGet(0x62be10, company)[0xd56] = 1;
         }
         if (F<uint16_t>(t, 0xf6) != 9999) TrackNet_RelayRect(net, 0, F<uint16_t>(t, 0xf6), F<uint16_t>(t, 0xfa), F<uint16_t>(t, 0xf8), F<uint16_t>(t, 0xfc));
     } else {
-        TrackNet_Undo(hook::Global<Collection*>(0x6cfca8), 0, (uint32_t)fr.i(0x7c));
+        TrackNet_Undo(g_tracks, 0, (uint32_t)fr.i(0x7c));
     }
     if (outCost) *(int32_t*)outCost = fr.i(0x14);
     if (estimate) {
         --F<int32_t>(t, 0xed);
-        --F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x114256);
+        --F<int32_t>(g_engine, 0x114256);
     }
     --F<int32_t>(t, 0xe9);
     Obj_Unstash98(t);
@@ -1475,8 +1474,8 @@ RT3_REPLACE(0x402cb0, AI_BuildRoute);
 // piece `piece` from a new station of the city's size class (0x401000).
 RT3_NOINLINE int32_t __fastcall AI_ConnectCityToPiece(int32_t* ai, int, int32_t city, int32_t piece, int32_t estimate, float* outCost) {
     int32_t size, same;
-    Obj_SizeClass(Collection_Get(hook::Global<Collection*>(0x62bae0), 0, (uint32_t)city), 0, &size, &same);
-    return AI_BuildRoute(hook::Global<Collection*>(0x6cfca8), 0, city, -1, size, 0, piece, -1, estimate, outCost, ai[0]);
+    Obj_SizeClass(Collection_Get(g_cities, 0, (uint32_t)city), 0, &size, &same);
+    return AI_BuildRoute(g_tracks, 0, city, -1, size, 0, piece, -1, estimate, outCost, ai[0]);
 }
 RT3_REPLACE(0x404640, AI_ConnectCityToPiece);
 
@@ -1497,13 +1496,13 @@ RT3_REPLACE(0x404640, AI_ConnectCityToPiece);
 // at most. Returns 1 when built, with *toPiece (and *fromPiece from a
 // building) set.
 RT3_NOINLINE int32_t __fastcall AI_ConnectCity(int32_t* ai, int, int32_t city, int32_t estimate, float* outCost, int32_t* toPiece, int32_t* fromPiece) {
-    Collection* const net = hook::Global<Collection*>(0x6cfca8);
-    uint8_t* const c = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62bae0), 0, (uint32_t)city);
+    Collection* const net = g_tracks;
+    uint8_t* const c = (uint8_t*)Collection_Get(g_cities, 0, (uint32_t)city);
     int32_t cx = Ftol(Obj_CellX(c));
     int32_t cy = Ftol(Obj_CellY(c));
     uint8_t* site = nullptr;
     if (const uint32_t id = Obj_FindRegionSite(c, 0, 1, 1)) {
-        site = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cec20), 0, id);
+        site = (uint8_t*)Collection_Get(g_stations, 0, id);
         if (site) {
             cx = Ftol(Obj_NodeCenterX(site));
             cy = Ftol(Obj_NodeCenterY(site));
@@ -1516,26 +1515,26 @@ RT3_NOINLINE int32_t __fastcall AI_ConnectCity(int32_t* ai, int, int32_t city, i
     }
     RouteTarget cand[0x7d0];
     int32_t n = 0;
-    if (Collection_Count(hook::Global<Collection*>(0x6cfcb4)) > 0) {
+    if (Collection_Count(g_routes) > 0) {
         for (int32_t i = 0;;) {
-            Collection* routes = hook::Global<Collection*>(0x6cfcb4);
+            Collection* routes = g_routes;
             uint8_t* r = (uint8_t*)Collection_Get(routes, 0, Collection_IdAt(routes, 0, (uint32_t)i, 0));
             if (F<int32_t>(r, 4) != -1) cand[n++].id = F<int32_t>(r, 4);
             if (F<int32_t>(r, 8) != -1) cand[n++].id = F<int32_t>(r, 8);
             if (n > 0x7cb) break;
-            if (++i >= Collection_Count(hook::Global<Collection*>(0x6cfcb4))) break;
+            if (++i >= Collection_Count(g_routes)) break;
         }
     }
-    if (Collection_Count(hook::Global<Collection*>(0x6cfca8)) > 0) {
+    if (Collection_Count(g_tracks) > 0) {
         for (int32_t i = 0;;) {
-            cand[n++].id = (int32_t)Collection_IdAt(hook::Global<Collection*>(0x6cfca8), 0, (uint32_t)i, 0);
+            cand[n++].id = (int32_t)Collection_IdAt(g_tracks, 0, (uint32_t)i, 0);
             if (n > 0x7cb) break;
             i += 6;
-            if (i >= Collection_Count(hook::Global<Collection*>(0x6cfca8))) break;
+            if (i >= Collection_Count(g_tracks)) break;
         }
     }
     for (int32_t k = 0; k < n; ++k) {
-        uint8_t* p = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfca8), 0, (uint32_t)cand[k].id);
+        uint8_t* p = (uint8_t*)Collection_Get(g_tracks, 0, (uint32_t)cand[k].id);
         cand[k].foreign = (int32_t)F<uint16_t>(p, 0x22e) != ai[0];
         if (p[0x216] != 2 || F<int32_t>(p, 0x244) || F<int32_t>(p, 0x226) || F<int32_t>(p, 0x20e) != -1 || F<int32_t>(p, 0x222) != -1) {
             cand[k].usable = 0;
@@ -1556,7 +1555,7 @@ RT3_NOINLINE int32_t __fastcall AI_ConnectCity(int32_t* ai, int, int32_t city, i
         if (n <= 0) return 0;
         for (int32_t k = 0; k < n; ++k) {
             if (!cand[k].usable || cand[k].foreign || cand[k].dist >= best) continue;
-            uint8_t* p = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfca8), 0, (uint32_t)cand[k].id);
+            uint8_t* p = (uint8_t*)Collection_Get(g_tracks, 0, (uint32_t)cand[k].id);
             const int32_t px = Ftol(Obj_CenterCellX(p));
             const int32_t py = Ftol(Obj_CenterCellY(p));
             bool excluded = false;
@@ -1572,19 +1571,19 @@ RT3_NOINLINE int32_t __fastcall AI_ConnectCity(int32_t* ai, int, int32_t city, i
             int32_t from = F<int32_t>(site, 8), nearDist = 0x90, nearId = -1;
             for (int32_t k = 0; k < n; ++k) {
                 if (!cand[k].usable || cand[k].id == target || cand[k].dist >= nearDist) continue;
-                if (Node_SameComponent((uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfca8), 0, (uint32_t)cand[k].id), 0, (uint32_t)from))
+                if (Node_SameComponent((uint8_t*)Collection_Get(g_tracks, 0, (uint32_t)cand[k].id), 0, (uint32_t)from))
                     nearDist = cand[k].dist, nearId = cand[k].id;
             }
             if (nearId != -1) from = nearId;
-            if (AI_BuildRoute(hook::Global<Collection*>(0x6cfca8), 0, 0, from, -1, 0, target, -1, estimate, outCost, ai[0])) {
+            if (AI_BuildRoute(g_tracks, 0, 0, from, -1, 0, target, -1, estimate, outCost, ai[0])) {
                 *toPiece = target;
                 *fromPiece = from;
                 return 1;
             }
         } else {
             int32_t size, same;
-            Obj_SizeClass(Collection_Get(hook::Global<Collection*>(0x62bae0), 0, (uint32_t)city), 0, &size, &same);
-            if (AI_BuildRoute(hook::Global<Collection*>(0x6cfca8), 0, city, -1, size, 0, target, -1, estimate, outCost, ai[0])) {
+            Obj_SizeClass(Collection_Get(g_cities, 0, (uint32_t)city), 0, &size, &same);
+            if (AI_BuildRoute(g_tracks, 0, city, -1, size, 0, target, -1, estimate, outCost, ai[0])) {
                 *toPiece = target;
                 return 1;
             }
@@ -1599,10 +1598,10 @@ RT3_REPLACE(0x4046a0, AI_ConnectCity);
 // 0x404c60 (RET 0xc). Links cities a and b, each from a new station of its
 // size class (0x401000).
 RT3_NOINLINE int32_t __fastcall AI_ConnectCities(int32_t cityA, int32_t cityB, int32_t estimate, float* outCost, int32_t company) {
-    void* c[2] = { Collection_Get(hook::Global<Collection*>(0x62bae0), 0, (uint32_t)cityA), Collection_Get(hook::Global<Collection*>(0x62bae0), 0, (uint32_t)cityB) };
+    void* c[2] = { Collection_Get(g_cities, 0, (uint32_t)cityA), Collection_Get(g_cities, 0, (uint32_t)cityB) };
     int32_t size[2], same[2];
     for (int k = 0; k < 2; ++k) Obj_SizeClass(c[k], 0, &same[k], &size[k]);
-    return AI_BuildRoute(hook::Global<Collection*>(0x6cfca8), 0, cityA, -1, size[0], cityB, -1, size[1], estimate, outCost, company);
+    return AI_BuildRoute(g_tracks, 0, cityA, -1, size[0], cityB, -1, size[1], estimate, outCost, company);
 }
 RT3_REPLACE(0x404c60, AI_ConnectCities);
 
@@ -1630,14 +1629,14 @@ RT3_NOINLINE int32_t __fastcall AI_PlanFirstRoute(int32_t test, int32_t rival, i
     memset(fr.b, 0, sizeof fr.b);
     uint8_t* co = nullptr;
     if (company) {
-        co = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be10), 0, (uint32_t)company);
+        co = (uint8_t*)Collection_Get(g_companies, 0, (uint32_t)company);
         if (co && Company_Stat(co, 0, 0xd, 0x2329) < D(0x5c87b0) && Company_QualityRaw(co) < D(0x5c8680)) return 0;
     }
     int32_t result = 0;
-    int32_t count = Collection_Count(hook::Global<Collection*>(0x62bae0));
+    int32_t count = Collection_Count(g_cities);
     if (count >= 0xa0) count = 0xa0;
     for (int32_t i = 0; i < count; ++i) {
-        Collection* cities = hook::Global<Collection*>(0x62bae0);
+        Collection* cities = g_cities;
         uint8_t* c = (uint8_t*)Collection_Get(cities, 0, Collection_IdAt(cities, 0, (uint32_t)i, 0));
         float& score = fr.f(0x4f8 + 4 * i);
         if (!F<int32_t>(c, 0x23e) && !Region_HasConnectedStation(c, 0, 1, 1, 0, 0)) {
@@ -1645,13 +1644,13 @@ RT3_NOINLINE int32_t __fastcall AI_PlanFirstRoute(int32_t test, int32_t rival, i
             const float value = City_ServiceValue(c, 0, (uint32_t)company);
             const float base = (float)((double)r / D(0x5c85d8) * value);
             score = base;
-            float hy = (float)((double)F<int32_t>(hook::Global<uint8_t*>(0x62c120), 0x2159) * D(0x5c8628));
-            float hx = (float)((double)F<int32_t>(hook::Global<uint8_t*>(0x62c120), 0x2155) * D(0x5c8628));
+            float hy = (float)((double)F<int32_t>(g_map, 0x2159) * D(0x5c8628));
+            float hx = (float)((double)F<int32_t>(g_map, 0x2155) * D(0x5c8628));
             const float cy = (float)Obj_CellY(c);
             const float cx = (float)Obj_CellX(c);
             const float centre = (float)Distance2D(cx, cy, hx, hy);
-            hy = (float)((double)F<int32_t>(hook::Global<uint8_t*>(0x62c120), 0x2159) * D(0x5c8628));
-            hx = (float)((double)F<int32_t>(hook::Global<uint8_t*>(0x62c120), 0x2155) * D(0x5c8628));
+            hy = (float)((double)F<int32_t>(g_map, 0x2159) * D(0x5c8628));
+            hx = (float)((double)F<int32_t>(g_map, 0x2155) * D(0x5c8628));
             const float ratio = (float)(centre / Distance2D(0.0f, 0.0f, hx, hy));
             score = (float)((D(0x5c8770) - ratio + D(0x5c87b8)) / D(0x5c87b8) * base);
         } else {
@@ -1660,9 +1659,9 @@ RT3_NOINLINE int32_t __fastcall AI_PlanFirstRoute(int32_t test, int32_t rival, i
         fr.i(0x778 + 4 * i) = Ftol(Obj_CellX(c));
         fr.i(0x9f8 + 4 * i) = Ftol(Obj_CellY(c));
         fr.i(0x278 + 4 * i) = F<int32_t>(c, 0x23a);
-        const uint32_t region = Map_RegionTypeAt(hook::Global<uint8_t*>(0x62c120), 0, (float)fr.i(0x778 + 4 * i), (float)fr.i(0x9f8 + 4 * i));
+        const uint32_t region = Map_RegionTypeAt(g_map, 0, (float)fr.i(0x778 + 4 * i), (float)fr.i(0x9f8 + 4 * i));
         if (!company) {
-            if (F<int32_t>(Collection_Get(hook::Global<Collection*>(0x6cfc9c), 0, region), 0x2d)) score = 0.0f;
+            if (F<int32_t>(Collection_Get(g_territories, 0, region), 0x2d)) score = 0.0f;
         } else if (!Company_EntryFlag(co, 0, (int32_t)region)) {
             score = 0.0f;
         }
@@ -1734,25 +1733,25 @@ RT3_NOINLINE int32_t __fastcall AI_PlanFirstRoute(int32_t test, int32_t rival, i
         if (test) return;
         const int32_t idB = fr.i(0x278 + 4 * fr.i(0x138 + 4 * pick));
         const int32_t idA = fr.i(0x278 + 4 * fr.i(0x188 + 4 * pick));
-        uint8_t* cb = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62bae0), 0, (uint32_t)idB);
-        uint8_t* ca = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62bae0), 0, (uint32_t)idA);
+        uint8_t* cb = (uint8_t*)Collection_Get(g_cities, 0, (uint32_t)idB);
+        uint8_t* ca = (uint8_t*)Collection_Get(g_cities, 0, (uint32_t)idA);
         const int32_t larger = F<float>(ca, 0x25e) > F<float>(cb, 0x25e) ? idA : idB;
         char* text = (char*)fr.b + 0x278;
         const char* coName = (const char*)((uintptr_t)co + 4);
         if (co && co[0xd39]) {
             co[0xd39] = 0;
             if (result) Train_AutoName(co, 0, (uint32_t)idA, (uint32_t)idB);
-            const char* name = rival ? (const char*)Collection_Get(hook::Global<Collection*>(0x6ceb9c), 0, (uint32_t)rival) + 8 : (const char*)0x5c87a8;
+            const char* name = rival ? (const char*)Collection_Get(g_players, 0, (uint32_t)rival) + 8 : (const char*)0x5c87a8;
             const char* fmt = GetString(0xb49);
             FormatText(text, fmt, name, coName, 0, 0, 0, 0, 0, 0);
         } else {
             if (!result) return;
-            uint8_t* nb = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62bae0), 0, (uint32_t)idB);
-            uint8_t* na = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62bae0), 0, (uint32_t)idA);
+            uint8_t* nb = (uint8_t*)Collection_Get(g_cities, 0, (uint32_t)idB);
+            uint8_t* na = (uint8_t*)Collection_Get(g_cities, 0, (uint32_t)idA);
             const char* fmt = GetString(0xb4a);
             FormatText(text, fmt, coName, (const char*)na + 0x356, (const char*)nb + 0x356, 0, 0, 0, 0, 0);
         }
-        Log_Add(hook::Global<Collection*>(0x6acd34), 0, text, 0x10, company, larger);
+        Log_Add(g_messageLog, 0, text, 0x10, company, larger);
     }();
     if (worth) ((void(__cdecl*)(void*))0x5a1145)(worth);
     return result;
@@ -1762,9 +1761,9 @@ RT3_REPLACE(0x404ce0, AI_PlanFirstRoute);
 // 0x405920. Distance (cells) from (x, y) to the company's nearest site; at least 1.
 RT3_NOINLINE float __fastcall Company_NearestSiteDistance(int32_t* c, int, int32_t x, int32_t y) {
     int32_t best = 999999999;
-    int32_t n = Collection_Count(g_table6cec20);
+    int32_t n = Collection_Count(g_stations);
     for (int32_t i = 0; i < n; ++i) {
-        void* r = Collection_Get(g_table6cec20, 0, Collection_IdAt(g_table6cec20, 0, i, 0));
+        void* r = Collection_Get(g_stations, 0, Collection_IdAt(g_stations, 0, i, 0));
         if (Obj_BuildingValue(r) != c[0]) continue;
         int32_t sy = (int32_t)Obj_BuildingCellY(r);
         int32_t sx = (int32_t)Obj_BuildingCellX(r);
@@ -1788,7 +1787,7 @@ RT3_REPLACE(0x405920, Company_NearestSiteDistance);
 // 0xf and reported in the news (0xb4b). The marked ones are re-resolved.
 // QUIRK: the second step out re-checks the same neighbour.
 RT3_NOINLINE void __fastcall TrackNet_AiDoubleTrack(Collection* net, int, uint32_t id) {
-    uint8_t* co = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be10), 0, id);
+    uint8_t* co = (uint8_t*)Collection_Get(g_companies, 0, id);
     if (Company_Stat(co, 0, 0xd, 0x2329) < D(0x5c87c8)) return;
     if (IsMultiplayer()) return;
     uint32_t* buf = (uint32_t*)Malloc(Collection_Count(net) * 4 + 0x3e8);
@@ -1810,8 +1809,8 @@ RT3_NOINLINE void __fastcall TrackNet_AiDoubleTrack(Collection* net, int, uint32
         if (!(F<float>(p, 0x22a) > Fl_207(0x5c87c0)) && s != 2) continue;
         take(p);
     }
-    for (int32_t j = 0; j < Collection_Count(hook::Global<Collection*>(0x6cec20)); ++j) {
-        Collection* stations = hook::Global<Collection*>(0x6cec20);
+    for (int32_t j = 0; j < Collection_Count(g_stations); ++j) {
+        Collection* stations = g_stations;
         uint8_t* st = (uint8_t*)Collection_Get(stations, 0, Collection_IdAt(stations, 0, (uint32_t)j, 0));
         if ((uint32_t)Obj_BuildingValue(st) != id || !Obj_BuildingStateActive(st)) continue;
         int32_t home = F<int32_t>(st, 8);
@@ -1877,7 +1876,7 @@ RT3_NOINLINE void __fastcall TrackNet_AiDoubleTrack(Collection* net, int, uint32
             const char* m = Num_FormatSimple2(money, 0xb, (double)cost, 0xb);
             const char* c = Num_Format(count, 1, (double)done, 10, 1, 0, 0);
             FormatText(text, GetString(0xb4b), (const char*)co + 4, c, m, 0, 0, 0, 0, 0);
-            Log_Add(hook::Global<Collection*>(0x6acd34), 0, text, 8, (int32_t)id, 0);
+            Log_Add(g_messageLog, 0, text, 8, (int32_t)id, 0);
         }
     }
     Free(buf);
@@ -1920,17 +1919,17 @@ RT3_NOINLINE int32_t __fastcall AI_PlanExpansion(uint8_t* co) {
     }
     if (cash < 400000) return 0;
     {
-        const int32_t mode = F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4c78);
+        const int32_t mode = F<int32_t>(g_world, 0x4c78);
         if ((mode == 0 && sites > 24) || (mode == 1 && sites > 20) || (mode == 2 && sites > 15)) return 0;
     }
     int32_t tried[10] = {}, built[10], toPiece[10], fromPiece[10];
     uint32_t chosen[10];
     float cost[10] = {}, worthOf[10];
     float score[400], value[400];
-    for (int32_t i = 0; i < Collection_Count(hook::Global<Collection*>(0x62bae0)); ++i) {
+    for (int32_t i = 0; i < Collection_Count(g_cities); ++i) {
         if (i >= 400) continue;
         score[i] = 0.0f;
-        Collection* cities = hook::Global<Collection*>(0x62bae0);
+        Collection* cities = g_cities;
         uint8_t* c = (uint8_t*)Collection_Get(cities, 0, Collection_IdAt(cities, 0, (uint32_t)i, 0));
         if (F<int32_t>(c, 0x23e)) continue;
         const uint32_t id = *(uint32_t*)co;
@@ -1950,12 +1949,12 @@ RT3_NOINLINE int32_t __fastcall AI_PlanExpansion(uint8_t* co) {
     int32_t budget = 150000;
     {
         auto stat = [&](int32_t year) { return Company_Stat(co, 0, 0x2b, year); };
-        auto year = [] { return (int32_t)F<uint16_t>(hook::Global<uint8_t*>(0x6cec78), 0xd); };
+        auto year = [] { return (int32_t)F<uint16_t>(g_world, 0xd); };
         if (year() - (int32_t)F<uint16_t>(co, 0x157) >= 2 && stat(0x2329) > D(0x5c8838) && stat(year() - 1) > D(0x5c8830) && stat(year() - 2) > D(0x5c8830)) {
             budget = sites >= 4 ? 350000 : 500000;
             if (stat(year() - 1) > D(0x5c8828) && stat(year() - 2) > D(0x5c8828)) budget = Ftol((double)budget * D(0x5c8820));
         }
-        const int32_t mode = F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4c78);
+        const int32_t mode = F<int32_t>(g_world, 0x4c78);
         if (mode == 2) budget = Ftol((double)budget * D(0x5c8640));
         else if (mode == 0) budget = Ftol((double)budget * D(0x5c8818));
         if (!Company_CanIssueBond(co)) budget = -100000;
@@ -1969,9 +1968,9 @@ RT3_NOINLINE int32_t __fastcall AI_PlanExpansion(uint8_t* co) {
         uint32_t pick = 0;
         for (int32_t pass = 0; pass < 2; ++pass) {
             if (pass == 1 && pick) continue;
-            for (int32_t i = 0; i < Collection_Count(hook::Global<Collection*>(0x62bae0)); ++i) {
+            for (int32_t i = 0; i < Collection_Count(g_cities); ++i) {
                 if (i >= 400 || !(score[i] > best)) continue;
-                const uint32_t id = Collection_IdAt(hook::Global<Collection*>(0x62bae0), 0, (uint32_t)i, 0);
+                const uint32_t id = Collection_IdAt(g_cities, 0, (uint32_t)i, 0);
                 for (int32_t c = 0; c < k; ++c)
                     if (chosen[c] == id) goto nextPass;
                 if (pass == 0)
@@ -1984,7 +1983,7 @@ RT3_NOINLINE int32_t __fastcall AI_PlanExpansion(uint8_t* co) {
         float worth = (float)(((double)cash + D(0x5c8810)) / D(0x5c8808) * best);
         worth = (float)(D(0x5c8800) / (double)(sites + 9) * worth);
         if (owner) worth = (float)((double)(hook::Global<int32_t>(0x5f2d3f + 0x27 * (int8_t)owner[0x291]) + 0x384) / D(0x5c87f8) * worth);
-        const int32_t mode = F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4c78);
+        const int32_t mode = F<int32_t>(g_world, 0x4c78);
         if (mode == 1) worth = (float)(worth * D(0x5c87f0));
         else if (mode == 0) worth = (float)(worth * D(0x5c87e8));
         worth = (float)(worth * D(0x5c87e0));
@@ -2028,11 +2027,11 @@ RT3_NOINLINE int32_t __fastcall AI_PlanExpansion(uint8_t* co) {
     }
     const uint32_t city = chosen[pick];
     if (AI_ConnectCity((int32_t*)co, 0, (int32_t)city, 0, nullptr, &toPiece[pick], &fromPiece[pick])) {
-        uint8_t* c = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62bae0), 0, city);
+        uint8_t* c = (uint8_t*)Collection_Get(g_cities, 0, city);
         char text[0x1f8];
         const char* fmt = GetString(0xb48);
         FormatText(text, fmt, (const char*)co + 4, (const char*)c + 0x356, 0, 0, 0, 0, 0, 0);
-        Log_Add(hook::Global<Collection*>(0x6acd34), 0, text, 0x10, *(int32_t*)co, (int32_t)city);
+        Log_Add(g_messageLog, 0, text, 0x10, *(int32_t*)co, (int32_t)city);
     }
     if (cash > 1000000) co[0xd18] = 1;
     return 1;
@@ -2047,13 +2046,13 @@ RT3_REPLACE(0x406bf0, Collection_RecordAt2);
 // (0x4073a0) and every company (0x4019e0) acts; when one of them changed the
 // game options (+0x4c84) they are restored.
 RT3_NOINLINE void __fastcall AI_Tick(uint8_t* w) {
-    if (Global6d07b4Set2() || hook::Global<uint8_t*>(0x6cec7c)[0x82] || F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x46c38) || hook::Global<int32_t>(0x6d3b4c))
+    if (Global6d07b4Set2() || g_newGame[0x82] || F<int32_t>(g_world, 0x46c38) || g_6d3b4c)
         return;
     F<int32_t>(w, 0x4c84) = 0;
-    for (int32_t i = 0; i < Table_CountField4(hook::Global<Collection*>(0x6ceb9c)); ++i)
-        Player_AiTurn((uint8_t*)Table_NthField4(hook::Global<Collection*>(0x6ceb9c), 0, i));
-    for (int32_t i = 0; i < Collection_Count(hook::Global<Collection*>(0x62be10)); ++i) {
-        Collection* companies = hook::Global<Collection*>(0x62be10);
+    for (int32_t i = 0; i < Table_CountField4(g_players); ++i)
+        Player_AiTurn((uint8_t*)Table_NthField4(g_players, 0, i));
+    for (int32_t i = 0; i < Collection_Count(g_companies); ++i) {
+        Collection* companies = g_companies;
         AI_CompanyTurn((uint8_t*)Collection_Get(companies, 0, Collection_IdAt(companies, 0, (uint32_t)i, 0)));
     }
     if (F<int32_t>(w, 0x4c84)) Options_Restore();
@@ -2071,10 +2070,10 @@ RT3_REPLACE(0x406c10, AI_Tick);
 // QUIRK: company id 0 is never traded (an id of 0 means "none"); the log
 // kind compares the company index with world +0x21.
 RT3_NOINLINE void __fastcall Player_AiTradeStocks(uint8_t* p) {
-    if (F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x297) || F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4a7f)) return;
+    if (F<int32_t>(g_app, 0x297) || F<int32_t>(g_world, 0x4a7f)) return;
     uint8_t* ai = (uint8_t*)0x5f2d2f + (int8_t)p[0x291] * 0x27;
     auto trait = [&](int32_t off, double div, float s) { return (float)((double)F<int32_t>(ai, off) / div * ((double)s - 1.0) + 1.0); };
-    int32_t nCo = Table_CountField3f(hook::Global<Collection*>(0x62be10));
+    int32_t nCo = Table_CountField3f(g_companies);
     int32_t delta[0x20] = {};
     for (int32_t round = 0; round < 200; ++round) {
         float cashF = F<double>(p, 0x154) > D(0x5c87c8) ? (float)(F<double>(p, 0x154) / D(0x5c87c8)) : 1.0f;
@@ -2084,9 +2083,9 @@ RT3_NOINLINE void __fastcall Player_AiTradeStocks(uint8_t* p) {
         double hv = Player_HoldingsValue(p, 0, 0);
         float ratio = (float)(hv / Player_NetWorth(p, 0, 0));
         for (int32_t k = 0; k < nCo; ++k) {
-            uint8_t* c = (uint8_t*)Table_NthField3f(hook::Global<Collection*>(0x62be10), 0, k);
-            int32_t canBuy = Player_CanBuyShares(p, 0, F<uint32_t>(c, 0), !F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4a83), 0);
-            int32_t canSell = Player_CanSellShares(p, 0, F<uint32_t>(c, 0), !F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4a83), 0, 1);
+            uint8_t* c = (uint8_t*)Table_NthField3f(g_companies, 0, k);
+            int32_t canBuy = Player_CanBuyShares(p, 0, F<uint32_t>(c, 0), !F<int32_t>(g_world, 0x4a83), 0);
+            int32_t canSell = Player_CanSellShares(p, 0, F<uint32_t>(c, 0), !F<int32_t>(g_world, 0x4a83), 0, 1);
             bool own = F<uint32_t>(c, 0x3b) == F<uint32_t>(p, 0);
             int32_t foreign = !own && F<int32_t>(p, 0x1dd) ? 1 : 0;
             if (!canBuy && !canSell) continue;
@@ -2147,11 +2146,11 @@ RT3_NOINLINE void __fastcall Player_AiTradeStocks(uint8_t* p) {
         if (d > 0) strcpy(verb, GetString(0xb4c));
         else if (F<int32_t>(p, 0x15d + i * 4) < 0) strcpy(verb, GetString(0xb4d));
         else strcpy(verb, GetString(0xb4e));
-        const char* company = (const char*)Collection_Get(hook::Global<Collection*>(0x62be10), 0, (uint32_t)i) + 4;
+        const char* company = (const char*)Collection_Get(g_companies, 0, (uint32_t)i) + 4;
         const char* n = Num_Format(num, 8, (double)(d < 0 ? -d : d), 10, 1, 0, 0);
         FormatText(text, GetString(0xb4f), (const char*)p + 8, verb, n, company, 0, 0, 0, 0);
         int32_t pid = F<int32_t>(p, 0);
-        Log_Add(hook::Global<Collection*>(0x6acd34), 0, text, 0xe + (i != Obj_Get21(hook::Global<uint8_t*>(0x6cec78))), pid, i);
+        Log_Add(g_messageLog, 0, text, 0xe + (i != Obj_Get21(g_world)), pid, i);
     }
 }
 RT3_REPLACE(0x406d00, Player_AiTradeStocks);
@@ -2175,23 +2174,23 @@ RT3_REPLACE(0x406d00, Player_AiTradeStocks);
 RT3_NOINLINE void __fastcall Player_AiTurn(uint8_t* p) {
     if (!F<int32_t>(p, 4) || F<int32_t>(p, 0x1e1)) return;
     [&] {
-        Collection* const companies = hook::Global<Collection*>(0x62be10);
-        uint8_t* const w = hook::Global<uint8_t*>(0x6cec78);
+        Collection* const companies = g_companies;
+        uint8_t* const w = g_world;
         if (Collection_Count(companies) + 3 >= 0x20) return;
         if (F<int32_t>(w, 0x4ad3)) return;
         if (F<int32_t>(w, 0x4ad7) && F<int32_t>(p, 0x2a7) > 0) return;
         if (F<int32_t>(p, 0x1dd)) return;
         if (F<int32_t>(w, 0x15) - DateToMinutes((const GameDate*)(w + 5)) < F<int32_t>(p, 0x1e5)) return;
         if (!(F<double>(p, 0x154) > D(0x5c8830))) return;
-        if (F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x29b)) return;
-        float scale = (float)((double)F<int32_t>(hook::Global<uint8_t*>(0x62c120), 0x21a9) / D(0x5c88b0) + D(0x5c85d0));
-        int32_t years = (int32_t)F<uint16_t>(hook::Global<uint8_t*>(0x6cec78), 0xd) - (int32_t)F<uint16_t>(hook::Global<uint8_t*>(0x6cec78), 5);
+        if (F<int32_t>(g_app, 0x29b)) return;
+        float scale = (float)((double)F<int32_t>(g_map, 0x21a9) / D(0x5c88b0) + D(0x5c85d0));
+        int32_t years = (int32_t)F<uint16_t>(g_world, 0xd) - (int32_t)F<uint16_t>(g_world, 5);
         if (years >= 0x1e) years = 0x1e;
         scale = (float)((double)(0x3c - years) / D(0x5c88a8) * scale);
-        const float density = (float)((double)(float)Table_CountField3f(hook::Global<Collection*>(0x62be10)) / scale);
+        const float density = (float)((double)(float)Table_CountField3f(g_companies) / scale);
         float urge = (float)((double)(0xc8 - hook::Global<int32_t>(0x5f2d2b + 0x27 * (int8_t)p[0x291])) / D(0x5c85d8) * density);
         urge = (float)((double)HashRand(F<int32_t>(p, 0x29a), 0x50, 0x78) / D(0x5c85d8) * urge);
-        const bool always = F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4a7f) != 0;
+        const bool always = F<int32_t>(g_world, 0x4a7f) != 0;
         if (!(urge <= D(0x5c8770)) && !always) {
             F<int32_t>(p, 0x1e5) += 0x76200;
             p[0x29e] = 1;
@@ -2207,12 +2206,12 @@ RT3_NOINLINE void __fastcall Player_AiTurn(uint8_t* p) {
         const int32_t base = cash / 1000 * 1000;
         int32_t topUp = base < 1500000 ? 1500000 - base : 0;
         if (topUp >= base * 9) topUp = base * 9;
-        Collection* const all = hook::Global<Collection*>(0x62be10);
+        Collection* const all = g_companies;
         const int32_t id = ((int32_t(__fastcall*)(Collection*, int, int32_t, int32_t, int32_t, int32_t))(*(void***)all)[1])(all, 0, 0, 0, 0, 0);
-        uint8_t* const co = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be10), 0, (uint32_t)id);
+        uint8_t* const co = (uint8_t*)Collection_Get(g_companies, 0, (uint32_t)id);
         Company_Init(co, 0, id, *(int32_t*)p, -1, nullptr, nullptr, topUp / 1000 * 1000 + base);
         p[0x29e] = 0;
-        Events_Fire(hook::Global<Collection*>(0x62be18), 0, 7, nullptr, 0);
+        Events_Fire(g_events, 0, 7, nullptr, 0);
         const double funds = F<double>(p, 0x154) + D(0x5c86d0);
         const int32_t price = Ftol(F<float>(co, 0x57));
         int32_t shares = Ftol(funds / (double)price / D(0x5c87f8)) * 1000;
@@ -2226,7 +2225,7 @@ RT3_NOINLINE void __fastcall Player_AiTurn(uint8_t* p) {
         char text[0x1e8];
         const char* fmt = GetString(0xb49);
         FormatText(text, fmt, (const char*)p + 8, (const char*)co + 4, 0, 0, 0, 0, 0, 0);
-        Log_Add(hook::Global<Collection*>(0x6acd34), 0, text, 0x12, id, 0);
+        Log_Add(g_messageLog, 0, text, 0x12, id, 0);
     }();
     if (F<int32_t>(p, 0x1dd) || p[0x29e]) Player_AiTradeStocks(p);
 }
@@ -2259,7 +2258,7 @@ RT3_REPLACE(0x4077e0, Obj_FreeEntries5bd);
 
 // 0x407850 / 0x47efb0 / 0x508700 (vtables). Lookups through +0x72 / +4 /
 // +0x7c.
-RT3_NOINLINE void* __fastcall Obj_Cargo72(uint8_t* o) { return F<uint32_t>(o, 0x72) ? Collection_Get(hook::Global<Collection*>(0x62ba88), 0, F<uint32_t>(o, 0x72)) : nullptr; }
+RT3_NOINLINE void* __fastcall Obj_Cargo72(uint8_t* o) { return F<uint32_t>(o, 0x72) ? Collection_Get(g_carTypes, 0, F<uint32_t>(o, 0x72)) : nullptr; }
 RT3_REPLACE(0x407850, Obj_Cargo72);
 
 // 0x407870. Sends message type (size bytes at data) to the player named at
@@ -2283,9 +2282,9 @@ RT3_NOINLINE uint32_t __fastcall AI_PickEngineType(uint32_t company) {
             uint8_t* e = (uint8_t*)Collection_Get(Engines(), 0, Collection_IdAt(Engines(), 0, i, 0));
             uint8_t* ct = CarTypeOf(e);
             if (F<int32_t>(e, 0x10) == 2 && pass < 2) continue;
-            Collection* players = hook::Global<Collection*>(0x62be10);
+            Collection* players = g_companies;
             uint32_t player = Collection_IsValid(players, 0, company)
-                ? F<uint32_t>(Collection_Get(hook::Global<Collection*>(0x62be10), 0, company), 0x3b) : 0;
+                ? F<uint32_t>(Collection_Get(g_companies, 0, company), 0x3b) : 0;
             if (!CarType_Available(ct, 0, company, player) && pass < 3) continue;
             if (!(maxSpeed > F<float>(e, 0x20))) maxSpeed = F<float>(e, 0x20);
             if (!pass) continue;
@@ -2298,7 +2297,7 @@ RT3_NOINLINE uint32_t __fastcall AI_PickEngineType(uint32_t company) {
             s = (float)((double)(float)(30 - F<int32_t>(e, 0xc)) * s);
             s = (float)((double)(float)(F<int32_t>(e, 0x18) + 10) * s);
             s = (float)((double)(float)(F<int32_t>(e, 0x1c) + 15) * s);
-            int32_t age = F<uint16_t>(hook::Global<uint8_t*>(0x6cec78), 0xd) - F<int32_t>(CarTypeOf(e), 0x105);
+            int32_t age = F<uint16_t>(g_world, 0xd) - F<int32_t>(CarTypeOf(e), 0x105);
             float denom = (float)((age <= 0 ? 0 : age) + 30);
             s = (float)((double)s / denom);
             s = (float)((double)s * Fl(0x5c88c0));
@@ -2325,16 +2324,16 @@ RT3_REPLACE(0x4078a0, AI_PickEngineType);
 // distance (+2000 margin); the totals go to +0x12 (supply) and +0xe (gain), and the
 // best ratios fill up to 6 loads into +0x16 (expected rate). Dated +0xa / +0xd3a.
 RT3_NOINLINE void __fastcall Company_RateStations(int32_t* co) {
-    uint8_t* world = hook::Global<uint8_t*>(0x6cec78);
+    uint8_t* world = g_world;
     F<int32_t>(co, 0xd3a) = F<int32_t>(world, 0x15);
-    Collection* stations = hook::Global<Collection*>(0x6cec20);
-    Collection* cargos = hook::Global<Collection*>(0x62ba8c);
-    for (int32_t i = 0; i < Collection_Count(hook::Global<Collection*>(0x6cec20)); ++i) {
-        stations = hook::Global<Collection*>(0x6cec20);
+    Collection* stations = g_stations;
+    Collection* cargos = g_cargoTypes;
+    for (int32_t i = 0; i < Collection_Count(g_stations); ++i) {
+        stations = g_stations;
         uint8_t* s = (uint8_t*)Collection_Get(stations, 0, Collection_IdAt(stations, 0, i, 0));
         auto rec = [&]() { return F<uint8_t**>(s, 0x5bd)[co[0]]; };
         if (!rec()[0] || !rec()[1]) continue;
-        F<int32_t>(rec(), 0xa) = F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x15);
+        F<int32_t>(rec(), 0xa) = F<int32_t>(g_world, 0x15);
         F<int32_t>(rec(), 0xe) = 0;
         F<int32_t>(rec(), 0x12) = 0;
         F<int32_t>(rec(), 0x16) = 0;
@@ -2345,7 +2344,7 @@ RT3_NOINLINE void __fastcall Company_RateStations(int32_t* co) {
         for (int32_t k = 0; k < n; ++k) {
             float amount, quota;
             uint32_t id = Obj_NthAvailableCargo(s, 0, k + 1, &amount, &quota, 0);
-            if (F<int32_t>(hook::Global<Collection*>(0x62ba8c), 0x9a + id * 4) != -1) continue;
+            if (F<int32_t>(g_cargoTypes, 0x9a + id * 4) != -1) continue;
             if (!(amount > Fl_202(0x5c8598))) continue;
             if (lo >= (int32_t)id) lo = id;
             if (hi <= (int32_t)id) hi = id;
@@ -2358,7 +2357,7 @@ RT3_NOINLINE void __fastcall Company_RateStations(int32_t* co) {
             uint8_t* e = F<uint8_t*>(rec(), 6) + j * 0xd;
             if (!e[0]) continue;
             const uint16_t* want =
-                (const uint16_t*)Obj_BuildingRegion(Collection_Get(hook::Global<Collection*>(0x6cec20), 0, F<uint32_t>(e, 1)));
+                (const uint16_t*)Obj_BuildingRegion(Collection_Get(g_stations, 0, F<uint32_t>(e, 1)));
             for (int32_t c = lo; c <= hi; ++c) {
                 if (!(stock[c] > Fl_202(0x5c8598))) continue;
                 float q = (float)((int32_t)want[c] << 4);
@@ -2400,10 +2399,10 @@ RT3_REPLACE(0x407bd0, Company_RateStations);
 RT3_NOINLINE int32_t __fastcall Company_BestSite(int32_t* c) {
     int32_t bestId = -1;
     float bestVal = 0.0f;
-    int32_t n = Collection_Count(g_table6cec20);
+    int32_t n = Collection_Count(g_stations);
     if (n <= 0) return -1;
-    for (int32_t i = 0; i < Collection_Count(g_table6cec20); ++i) {
-        uint8_t* s = (uint8_t*)Collection_Get(g_table6cec20, 0, Collection_IdAt(g_table6cec20, 0, i, 0));
+    for (int32_t i = 0; i < Collection_Count(g_stations); ++i) {
+        uint8_t* s = (uint8_t*)Collection_Get(g_stations, 0, Collection_IdAt(g_stations, 0, i, 0));
         uint8_t* e = F<uint8_t**>(s, 0x5bd)[c[0]];
         if (!e[0] || !e[1] || !F<int32_t>(e, 0xa) || Obj_BuildingValue(s) != c[0]) continue;
         float v = F<float>(F<uint8_t**>(s, 0x5bd)[c[0]], 0x16);
@@ -2434,8 +2433,8 @@ RT3_REPLACE(0x408280, Company_BestSite);
 RT3_NOINLINE int32_t __fastcall Company_PickTrainOrder(int32_t* c, int, uint8_t* o, uint32_t from, uint8_t* train) {
     int32_t best;
     uint8_t* st;
-    if (!Collection_IsValid(hook::Global<Collection*>(0x6cec20), 0, from) ||
-        !(st = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cec20), 0, from)))
+    if (!Collection_IsValid(g_stations, 0, from) ||
+        !(st = (uint8_t*)Collection_Get(g_stations, 0, from)))
         best = Company_BestSite(c);
     else {
         int32_t n = Obj_CountAvailableCargos(st);
@@ -2446,7 +2445,7 @@ RT3_NOINLINE int32_t __fastcall Company_PickTrainOrder(int32_t* c, int, uint8_t*
         for (int32_t i = 1; i <= n; ++i) {
             float amount, value;
             int32_t cg = (int32_t)Obj_NthAvailableCargo(st, 0, i, &amount, &value, 0);
-            if (F<int32_t>(hook::Global<uint8_t*>(0x62ba8c), 0x9a + cg * 4) != -1 || !(amount > Fl_205(0x5c8598))) continue;
+            if (F<int32_t>(hook::As<uint8_t*>(g_cargoTypes), 0x9a + cg * 4) != -1 || !(amount > Fl_205(0x5c8598))) continue;
             if (!(lo < cg)) lo = cg;
             if (!(hi > cg)) hi = cg;
             avail[cg] = amount;
@@ -2462,7 +2461,7 @@ RT3_NOINLINE int32_t __fastcall Company_PickTrainOrder(int32_t* c, int, uint8_t*
             uint8_t* e = F<uint8_t*>(list(), 6) + j * 0xd;
             if (!e[0]) continue;
             memset(profit, 0, sizeof profit);
-            uint8_t* to = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cec20), 0, F<uint32_t>(e, 1));
+            uint8_t* to = (uint8_t*)Collection_Get(g_stations, 0, F<uint32_t>(e, 1));
             uint16_t* pays = (uint16_t*)Obj_BuildingRegion(to);
             for (int32_t cg = lo; cg <= hi; ++cg) {
                 if (!(avail[cg] > Fl_205(0x5c8598))) continue;
@@ -2499,7 +2498,7 @@ RT3_NOINLINE int32_t __fastcall Company_PickTrainOrder(int32_t* c, int, uint8_t*
             bonus = f * bonus;
             if (Obj_BuildingValue(st) == *c && F<int32_t>(st, 0x5c1) == 0) {
                 int32_t left = F<int32_t>(st, 0x5c5);
-                int32_t months = (left - F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x15)) / 0x9d80;
+                int32_t months = (left - F<int32_t>(g_world, 0x15)) / 0x9d80;
                 if (left == 0)
                     bonus = (float)((double)bonus * Fl_205(0x5c8898) + Fl_205(0x5c8904));
                 else if (months > 0x3c)
@@ -2549,8 +2548,8 @@ RT3_NOINLINE int32_t __fastcall Company_PickTrainOrder(int32_t* c, int, uint8_t*
             }
         }
     }
-    if (!Collection_IsValid(hook::Global<Collection*>(0x6cec20), 0, (uint32_t)best)) return 0;
-    uint8_t* dst = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cec20), 0, (uint32_t)best);
+    if (!Collection_IsValid(g_stations, 0, (uint32_t)best)) return 0;
+    uint8_t* dst = (uint8_t*)Collection_Get(g_stations, 0, (uint32_t)best);
     memset(o, 0, 0x33);
     o[0x28] &= 0xf;
     F<uint32_t>(o, 0x2f) = 0x3e395810;
@@ -2564,8 +2563,8 @@ RT3_NOINLINE int32_t __fastcall Company_PickTrainOrder(int32_t* c, int, uint8_t*
     int32_t bestDist = -1, bestId = -1;
     float tx, ty;
     Train_RearPoint(train, 0, &tx, &ty);
-    for (int32_t j = 0; j < Collection_Count(hook::Global<Collection*>(0x6cec20)); ++j) {
-        Collection* stations = hook::Global<Collection*>(0x6cec20);
+    for (int32_t j = 0; j < Collection_Count(g_stations); ++j) {
+        Collection* stations = g_stations;
         uint8_t* s = (uint8_t*)Collection_Get(stations, 0, Collection_IdAt(stations, 0, j, 0));
         if (!Obj_BuildingStateActive(s)) continue;
         if (F<int32_t>(s, 0) == F<int32_t>(train, 0xa0)) continue;
@@ -2595,7 +2594,7 @@ RT3_REPLACE(0x408380, Company_PickTrainOrder);
 // scaled by era and station count, then clamped to [avg / 2, avg] (2 when <= the
 // minimum).
 RT3_NOINLINE float __fastcall Company_StationRate(int32_t* c) {
-    Collection* stations = hook::Global<Collection*>(0x6cec20);
+    Collection* stations = g_stations;
     float sum = 0.0f;
     int32_t count = 0;
     uint8_t* first = nullptr;
@@ -2610,7 +2609,7 @@ RT3_NOINLINE float __fastcall Company_StationRate(int32_t* c) {
         sum = (float)((double)sum + F<float>(F<uint8_t**>(s, 0x5bd)[c[0]], 0x12));
         ++count;
     }
-    int32_t year = F<uint16_t>(hook::Global<uint8_t*>(0x6cec78), 0xd);
+    int32_t year = F<uint16_t>(g_world, 0xd);
     int32_t div = year < 0x749 ? 4 : year < 0x758 ? 5 : year < 0x76c ? 6 : year < 0x780 ? 5 : year < 0x78f ? 6
                 : year < 0x79e ? 7 : year < 0x7b2 ? 6 : (year >= 0x7c6) + 7;
     float avg = (float)((double)sum / (float)div);
@@ -2621,13 +2620,13 @@ RT3_NOINLINE float __fastcall Company_StationRate(int32_t* c) {
         int32_t y1 = Ftol(Obj_BuildingCellY(first));
         int32_t x1 = Ftol(Obj_BuildingCellX(first));
         float dist = (float)(int32_t)(uint16_t)DistanceInt(x1, y1, x2, y2);
-        uint16_t y = F<uint16_t>(hook::Global<uint8_t*>(0x6cec78), 0xd);
+        uint16_t y = F<uint16_t>(g_world, 0xd);
         float k = 0.85f;
         if (y >= 0x79e) k = 1.55f;
         else if (y >= 0x753) k = 1.15f;
         if (dist > Fl_193(0x5c8940)) rate = (float)(((double)dist / D(0x5c8938) + k) / ((double)k + D(0x5c8770)) * rate);
     }
-    year = F<uint16_t>(hook::Global<uint8_t*>(0x6cec78), 0xd);
+    year = F<uint16_t>(g_world, 0xd);
     uint32_t era = year < 0x73a ? 0x5c88f0 : year < 0x74e ? 0x5c8660 : year < 0x762 ? 0x5c8878 : year < 0x776 ? 0x5c85a8
                  : year < 0x78a ? 0x5c8930 : year < 0x79e ? 0x5c8928 : year < 0x7b2 ? 0x5c85a0 : 0x5c8920;
     rate = (float)(rate * D(era));
@@ -2645,18 +2644,18 @@ RT3_REPLACE(0x408f70, Company_StationRate);
 // it gets the company's preferred engine (AI_PickEngineType, 0x4aefb0) and
 // a log line 0xb51 names the company, the old and the new engine; +0xd56.
 RT3_NOINLINE void __fastcall AiCompany_ReplaceEngine(uint8_t* c, int, uint32_t train) {
-    if (F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4a97)) return;
+    if (F<int32_t>(g_world, 0x4a97)) return;
     uint32_t engine = AI_PickEngineType(F<uint32_t>(c, 0));
-    int32_t old = Train_FirstCarType126((uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfcbc), 0, train));
-    ((void(__fastcall*)(uint8_t*, int, uint32_t, int32_t))0x4aefb0)((uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfcbc), 0, train), 0, engine, 0);
-    Collection* types = hook::Global<Collection*>(0x6ada84);
+    int32_t old = Train_FirstCarType126((uint8_t*)Collection_Get(g_trains, 0, train));
+    ((void(__fastcall*)(uint8_t*, int, uint32_t, int32_t))0x4aefb0)((uint8_t*)Collection_Get(g_trains, 0, train), 0, engine, 0);
+    Collection* types = g_6ada84;
     void* oldT = Collection_Get(types, 0, (uint32_t)old);
     void* newT = Collection_Get(types, 0, engine);
     const char* newName = (const char*)(uintptr_t)Obj_RefName72(newT);
     const char* oldName = (const char*)(uintptr_t)Obj_RefName72(oldT);
     char buf[0x180];
     FormatText(buf, GetString(0xb51), (const char*)c + 4, oldName, newName, nullptr, nullptr, nullptr, nullptr, nullptr);
-    Log_Add(hook::Global<Collection*>(0x6acd34), 0, buf, 8, 0, 0);
+    Log_Add(g_messageLog, 0, buf, 8, 0, 0);
     c[0xd56] = 1;
 }
 RT3_REPLACE(0x409300, AiCompany_ReplaceEngine);
@@ -2669,8 +2668,8 @@ RT3_REPLACE(0x409300, AiCompany_ReplaceEngine);
 // and the share of it on own track (+9) - copied from the mirror record for
 // earlier stations. Then the stations are rated.
 RT3_NOINLINE void __fastcall Company_BuildStationLinks(int32_t* co) {
-    F<uint32_t>(co, 0xd3e) = F<uint32_t>(hook::Global<uint8_t*>(0x6cec78), 0x15);
-    Collection* sts = hook::Global<Collection*>(0x6cec20);
+    F<uint32_t>(co, 0xd3e) = F<uint32_t>(g_world, 0x15);
+    Collection* sts = g_stations;
     int32_t n = Collection_Count(sts);
     auto st = [&](int32_t i) { return (uint8_t*)Collection_Get(sts, 0, Collection_IdAt(sts, 0, i, 0)); };
     auto entry = [&](uint8_t* s) { return F<uint8_t*>(F<uint8_t*>(s, 0x5bd), co[0] * 4); };
@@ -2714,12 +2713,12 @@ RT3_NOINLINE void __fastcall Company_BuildStationLinks(int32_t* co) {
                 F<uint32_t>(rec, 1) = F<uint32_t>(sj, 0);
             } else {
                 F<uint32_t>(rec, 1) = F<uint32_t>(sj, 0);
-                if (!Node_SameComponent((uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfca8), 0, F<uint32_t>(si, 8)), 0, F<uint32_t>(sj, 8)))
+                if (!Node_SameComponent((uint8_t*)Collection_Get(g_tracks, 0, F<uint32_t>(si, 8)), 0, F<uint32_t>(sj, 8)))
                     rec[0] = 0;
                 else {
                     rec[0] = 1;
                     uint32_t cost, foreign;
-                    Route_NextStep(hook::Global<Collection*>(0x6cfcb4), 0, F<int32_t>(si, 8), F<int32_t>(sj, 8), &cost, 0, (uint32_t*)co, &foreign, 0);
+                    Route_NextStep(g_routes, 0, F<int32_t>(si, 8), F<int32_t>(sj, 8), &cost, 0, (uint32_t*)co, &foreign, 0);
                     if (cost == 0xffffffff) rec[0] = 0;
                     else {
                         uint32_t own = cost - foreign;
@@ -2745,8 +2744,8 @@ RT3_REPLACE(0x4093d0, Company_BuildStationLinks);
 // older than 0x7ff80 world ticks, and re-rates its stations every 0x31380.
 RT3_NOINLINE void __fastcall Company_UpdateStationLinks(int32_t* co) {
     uint8_t* c = (uint8_t*)co;
-    if (!F<int32_t>(c, 0xd3e) || F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x15) - F<int32_t>(c, 0xd3e) > 0x7ff80) Company_BuildStationLinks(co);
-    if (!F<int32_t>(c, 0xd3a) || F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x15) - F<int32_t>(c, 0xd3a) > 0x31380) Company_RateStations(co);
+    if (!F<int32_t>(c, 0xd3e) || F<int32_t>(g_world, 0x15) - F<int32_t>(c, 0xd3e) > 0x7ff80) Company_BuildStationLinks(co);
+    if (!F<int32_t>(c, 0xd3a) || F<int32_t>(g_world, 0x15) - F<int32_t>(c, 0xd3a) > 0x31380) Company_RateStations(co);
 }
 RT3_REPLACE(0x409720, Company_UpdateStationLinks);
 
@@ -2779,7 +2778,7 @@ RT3_REPLACE(0x409770, AiTrain_NextOrder);
 // (0x4078a0) running between the two, logs "company bought engine at
 // station" (0xb50) and marks +0xd56.
 RT3_NOINLINE void __fastcall AI_BuyTrain(int32_t* co) {
-    if (F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4aa3)) return;
+    if (F<int32_t>(g_world, 0x4aa3)) return;
     uint8_t orders[0x28];
     uint8_t first[0x34], second[0x34];
     char text[0x190];
@@ -2793,10 +2792,10 @@ RT3_NOINLINE void __fastcall AI_BuyTrain(int32_t* co) {
     F<int32_t>(orders, 8) = 0;
     const uint32_t engine = AI_PickEngineType((uint32_t)*co);
     Train_Create(engine, orders, 1, *co);
-    uint8_t* st = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cec20), 0, *(const uint16_t*)(first + 0x29));
-    const char* name = (const char*)(uintptr_t)Obj_RefName72(Collection_Get(hook::Global<Collection*>(0x6ada84), 0, engine));
+    uint8_t* st = (uint8_t*)Collection_Get(g_stations, 0, *(const uint16_t*)(first + 0x29));
+    const char* name = (const char*)(uintptr_t)Obj_RefName72(Collection_Get(g_6ada84, 0, engine));
     FormatText(text, GetString(0xb50), (const char*)(co + 1), name, (const char*)(st + 0x46b), 0, 0, 0, 0, 0);
-    Log_Add(hook::Global<Collection*>(0x6acd34), 0, text, 8, 0, 0);
+    Log_Add(g_messageLog, 0, text, 8, 0, 0);
     ((uint8_t*)co)[0xd56] = 1;
 }
 RT3_REPLACE(0x409830, AI_BuyTrain);
@@ -2815,17 +2814,17 @@ RT3_NOINLINE void __fastcall AI_ReviewTrains(uint8_t* co, int, int32_t built) {
     if (Company_CountCargoSites(co, 0, 1) < 1) return;
     const float target = Company_StationRate((int32_t*)co);
     int32_t trains = Company_TrainCount(co);
-    const int32_t year = F<uint16_t>(hook::Global<uint8_t*>(0x6cec78), 0xd);
+    const int32_t year = F<uint16_t>(g_world, 0xd);
     const float factor = RtBits(year < 0x73a ? 0x3fa66666 : year < 0x753 ? 0x3f99999a : year < 0x76c ? 0x3f8ccccd : year < 0x785 ? 0x3f800000 : year < 0x79e ? 0x3f666666
                                                                                                                                             : 0x3f4ccccd);
     auto sell = [&](uint8_t* t) {
-        Collection* all = hook::Global<Collection*>(0x6cfcbc);
+        Collection* all = g_trains;
         ((void(__fastcall*)(Collection*, int, uint32_t))(*(void***)all)[2])(all, 0, F<uint32_t>(t, 0x25));
         --trains;
     };
     int32_t sold = 0;
-    for (int32_t i = Collection_Count(hook::Global<Collection*>(0x6cfcbc)) - 1; i >= 0; --i) {
-        Collection* all = hook::Global<Collection*>(0x6cfcbc);
+    for (int32_t i = Collection_Count(g_trains) - 1; i >= 0; --i) {
+        Collection* all = g_trains;
         uint8_t* t = (uint8_t*)Collection_Get(all, 0, Collection_IdAt(all, 0, (uint32_t)i, 0));
         if (F<int32_t>(t, 0x51) != *(int32_t*)co) continue;
         const float age = (float)((double)(float)(year - F<int32_t>(t, 0xd4)) * factor);
@@ -2833,7 +2832,7 @@ RT3_NOINLINE void __fastcall AI_ReviewTrains(uint8_t* co, int, int32_t built) {
         if (age >= Fl_207(0x5c8954)) {
             if (!(count > target)) {
                 AiCompany_ReplaceEngine(co, 0, F<uint32_t>(t, 0x25));
-            } else if (!IsMultiplayer() && Train_CargoRate(t, 0, 0) <= Fl_207(0x5c8950) && !F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4a9b)) {
+            } else if (!IsMultiplayer() && Train_CargoRate(t, 0, 0) <= Fl_207(0x5c8950) && !F<int32_t>(g_world, 0x4a9b)) {
                 sell(t);
                 ++sold;
             }
@@ -2850,8 +2849,8 @@ RT3_NOINLINE void __fastcall AI_ReviewTrains(uint8_t* co, int, int32_t built) {
     }
     auto buy = [&] {
         if (IsMultiplayer()) {
-            if (hook::Global<int32_t>(0x6d40d0) && hook::Global<int32_t>(0x6d40dc)) {
-                uint8_t* s = hook::Global<uint8_t*>(0x6cd8d8);
+            if (hook::As<int32_t>(g_6d40d0) && g_6d40dc) {
+                uint8_t* s = g_session;
                 Net_Send(s, 0, (const char*)s + 0x8f48, 0x75, 4, co, 5, 0);
             }
         } else {
@@ -2886,7 +2885,7 @@ RT3_REPLACE(0x409950, AI_ReviewTrains);
 // curve steeper by 2.2 (1 in arctic maps, world +0x4aeb), mirrored after midday.
 RT3_NOINLINE float __stdcall Daylight_Factor(float hour) {
     float h = (float)((double(__cdecl*)(double, double))0x5a1390)(hour, 24.0);
-    float slope = F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4aeb) ? 1.0f : 2.2f;
+    float slope = F<int32_t>(g_world, 0x4aeb) ? 1.0f : 2.2f;
     if (h < Fl(0x5c8788)) {
         float v = (float)((double)slope * h);
         if (v < D(0x5c8980)) return v;
@@ -2943,29 +2942,29 @@ RT3_NOINLINE void __fastcall World_SetTime(uint8_t* w, int, int32_t minutes) {
     int32_t sh;
     float sm, ss;
     SplitHours(sun, &sh, &sm, &ss);
-    uint8_t* game = hook::Global<uint8_t*>(0x6cec74);
+    uint8_t* game = g_app;
     float clockH = sun;
     if (F<int32_t>(game, 0x124)) {
         clockH = (float)F<int32_t>(game, 0x128);
         ss = 0.0f;
         sm = 1.0f;
-    } else if (F<int32_t>(game, 0x233) && hook::Global<uint8_t*>(0x6cec7c)[0x82]) {
+    } else if (F<int32_t>(game, 0x233) && g_newGame[0x82]) {
         clockH = (float)F<int32_t>(game, 0x237);
         ss = 0.0f;
         sm = 1.0f;
     }
-    if (void* eng = hook::Global<void*>(0x6d4024)) {
+    if (void* eng = hook::As<void*>(g_engine)) {
         int32_t s3 = Ftol(ss), m3 = Ftol(sm), h3 = Ftol(clockH);
         Clock_SetD((uint8_t*)Engine_Renderer(eng), 0, h3, m3, s3);
-        if (void* e2 = hook::Global<void*>(0x6d4024)) Clock_Set11((uint8_t*)Engine_Renderer(e2), 0, hours, minsInt, Ftol(secs));
+        if (void* e2 = hook::As<void*>(g_engine)) Clock_Set11((uint8_t*)Engine_Renderer(e2), 0, hours, minsInt, Ftol(secs));
     }
-    float& last = hook::Global<float>(0x5ed080);
+    float& last = g_5ed080;
     if (ExeFabs((double)last - clockH) >= D(0x5c8988)) {
         last = clockH;
-        if (uint8_t* cam = hook::Global<uint8_t*>(0x62be68)) Camera_UpdateHaze(cam, 0, -999.0f);
+        if (uint8_t* cam = g_62be68) Camera_UpdateHaze(cam, 0, -999.0f);
     }
     if (oldYear != F<uint16_t>(w, 0xd)) Economy_UpdateEraFactors(w);
-    if (uint8_t* eng = hook::Global<uint8_t*>(0x6d4024)) F<int32_t>(eng, 0x2c) = F<int32_t>(w, 0x15) * 2;
+    if (uint8_t* eng = g_engine) F<int32_t>(eng, 0x2c) = F<int32_t>(w, 0x15) * 2;
 }
 RT3_REPLACE(0x409e80, World_SetTime);
 

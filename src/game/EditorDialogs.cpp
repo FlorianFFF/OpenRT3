@@ -8,6 +8,7 @@
 #include <string.h>
 #include <initializer_list>
 #include "hook/hook.h"
+#include "core/globals.h"
 #include "game/collection.h"
 #include "core/stream.h"
 #include "core/crt.h"
@@ -270,7 +271,7 @@ static inline SprintfFn ExeSprintf() { return (SprintfFn)0x5a19c4; }
 // (this year so far) and +0xd7f + (id * 11 + n) * 8 (n years ago, 0 = live); larger
 // ids are sums / ratios of those. Years: 0x2329 = live value, 0x232a = this year so
 // far. World 0x6cec78: year +0xd, month +0xf, day +0x11, tick +0x15, difficulty +0x2d.
-static inline uint8_t* WorldG() { return hook::Global<uint8_t*>(0x6cec78); }
+static inline uint8_t* WorldG() { return g_world; }
 
 // The setup dialogs' toggle buttons ("Setup_Options_Buttons.imb"): button id
 // `base + idx` with style `style`, placed right of (x, y, w, h) on the dialog's
@@ -309,13 +310,13 @@ static uint32_t Message_Show(const char* text, int32_t type, int32_t timeout) {
 // the money (0x5a7c, "%.f").
 RT3_NOINLINE void __fastcall NewGameDialog_ShowRow(uint8_t* w, int, int32_t row) {
     F<int32_t>(w, 0x80) = row;
-    int32_t portrait = (int8_t)hook::Global<uint8_t*>(0x6cec78)[0x69d8 + row * 9];
+    int32_t portrait = (int8_t)g_world[0x69d8 + row * 9];
     Window_SendEvent5(w, 0, 0x7c, 0x5a7e, (uint32_t)portrait, 0, 0);
     const uint8_t* s = (const uint8_t*)0x5f2d28 + portrait * 0x27;
     Window_SendEvent5(w, 0, 0x6c, 0x5a7e, s[1], 0, 0);
     Window_SendEvent5(w, 0, 0x6f, 0x5a7f, (uint32_t)(uintptr_t)GetString(*(const int32_t*)(s + 0x1f)), 0, 0);
-    Window_SendEvent5(w, 0, 0x74, hook::Global<uint8_t*>(0x6cec78)[0x69d9 + row * 9] ? 0x5a77 : 0x5a78, 1, 0, 0);
-    uint8_t* world = hook::Global<uint8_t*>(0x6cec78);
+    Window_SendEvent5(w, 0, 0x74, g_world[0x69d9 + row * 9] ? 0x5a77 : 0x5a78, 1, 0, 0);
+    uint8_t* world = g_world;
     uint8_t a = world[0x69db + row * 9];
     if (a && world[0x69da + row * 9]) Window_SendEvent5(w, 0, 0x74, 0x5a7b, 1, 0, 0);
     else Window_SendEvent5(w, 0, 0x74, a ? 0x5a79 : 0x5a7a, 1, 0, 0);
@@ -325,7 +326,7 @@ RT3_NOINLINE void __fastcall NewGameDialog_ShowRow(uint8_t* w, int, int32_t row)
     Window_SendEvent5(w, 0, t, 0x5a7a, 2, 0, 0);
     Window_SendEvent5(w, 0, t, 0x5a7b, 2, 0, 0);
     char buf[0x80];
-    Num_Format(buf, 8, (double)F<uint32_t>(hook::Global<uint8_t*>(0x6cec78), 0x69dc + row * 9), 10, 1, 0, 0);
+    Num_Format(buf, 8, (double)F<uint32_t>(g_world, 0x69dc + row * 9), 10, 1, 0, 0);
     Window_SendEvent5(w, 0, 0x6f, 0x5a7c, (uint32_t)(uintptr_t)buf, 0, 0);
 }
 RT3_REPLACE(0x4ca010, NewGameDialog_ShowRow);
@@ -336,7 +337,7 @@ RT3_REPLACE(0x4ca010, NewGameDialog_ShowRow);
 // AI-allowed rows with neither (+0x6a78); shows "a / b" (format 0x5cfda8) for
 // no-human / rows, open / AI and open / AI-allowed on 0x5a6f..0x5a71.
 RT3_NOINLINE void __fastcall NewGameDialog_CountRows(uint8_t* w) {
-    uint8_t* world = hook::Global<uint8_t*>(0x6cec78);
+    uint8_t* world = g_world;
     int32_t n = F<int32_t>(world, 0x6a6c);
     int32_t noHuman = 0, ai = 0, aiOpen = 0, allowed = 0, allowedOpen = 0;
     for (int32_t i = 0; i < n; ++i) {
@@ -362,11 +363,11 @@ RT3_NOINLINE void __fastcall NewGameDialog_CountRows(uint8_t* w) {
     line(0x5a6f, noHuman, n);
     line(0x5a70, aiOpen, ai);
     line(0x5a71, allowedOpen, allowed);
-    F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x6a68) = noHuman;
-    F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x6a70) = aiOpen;
-    F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x6a74) = ai;
-    F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x6a78) = allowedOpen;
-    F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x6a7c) = allowed;
+    F<int32_t>(g_world, 0x6a68) = noHuman;
+    F<int32_t>(g_world, 0x6a70) = aiOpen;
+    F<int32_t>(g_world, 0x6a74) = ai;
+    F<int32_t>(g_world, 0x6a78) = allowedOpen;
+    F<int32_t>(g_world, 0x6a7c) = allowed;
 }
 RT3_REPLACE(0x4ca1c0, NewGameDialog_CountRows);
 
@@ -390,7 +391,7 @@ RT3_NOINLINE void __fastcall EditorDialog_FillCargoList(uint8_t* w) {
     int32_t selected = 0, i = 1;
     for (const uint8_t* rec = (const uint8_t*)0x5f2d6e; rec < (const uint8_t*)0x5f3386; rec += 0x27, ++i) {
         Window_SendEvent5(w, 0, 0x88, 0x5aa0, (uint32_t)(uintptr_t)GetString(*(const int32_t*)rec), (uint32_t)i, 0);
-        if (hook::Global<uint8_t*>(0x6cec78)[0x6987 + i]) ++selected;
+        if (g_world[0x6987 + i]) ++selected;
     }
     char total[0x20], count[0x20], text[0xf0];
     Num_Format(total, 1, 40.0, 10, 1, 0, 0);
@@ -405,9 +406,9 @@ RT3_REPLACE(0x4ca540, EditorDialog_FillCargoList);
 // (string 0x5d3 / 0xe02, by 0x621f50) and the matching box enabled; guarded against
 // re-entry (0x6cff94).
 void __fastcall EditorDialog_ShowBriefings(uint8_t* w) {
-    if (hook::Global<int32_t>(0x6cff94)) return;
-    hook::Global<int32_t>(0x6cff94) = 1;
-    if (hook::Global<int32_t>(0x621f50)) {
+    if (g_6cff94) return;
+    g_6cff94 = 1;
+    if (g_621f50) {
         Window_SendEvent5(w, 0, 0x6f, 0x5b73, (uint32_t)(uintptr_t)GetString(0x5d3), 0, 0);
         Window_SendEvent5(w, 0, 0x65, 0x5b6d, 3, 0, 0);
         Window_SendEvent5(w, 0, 0x87, 0x5b6f, 3, 0, 0);
@@ -418,9 +419,9 @@ void __fastcall EditorDialog_ShowBriefings(uint8_t* w) {
         Window_SendEvent5(w, 0, 0x65, 0x5b6f, 3, 0, 0);
         Window_SendEvent5(w, 0, 0x74, 0x5b72, 1, 0, 0);
     }
-    Window_SendEvent5(w, 0, 0x6f, 0x5b6d, (uint32_t)(uintptr_t)(hook::Global<uint8_t*>(0x6cec78) + 0x4f30), 0, 0);
-    Window_SendEvent5(w, 0, 0x6f, 0x5b6f, (uint32_t)(uintptr_t)(hook::Global<uint8_t*>(0x6cec78) + 0x5ae9), 0, 0);
-    hook::Global<int32_t>(0x6cff94) = 0;
+    Window_SendEvent5(w, 0, 0x6f, 0x5b6d, (uint32_t)(uintptr_t)(g_world + 0x4f30), 0, 0);
+    Window_SendEvent5(w, 0, 0x6f, 0x5b6f, (uint32_t)(uintptr_t)(g_world + 0x5ae9), 0, 0);
+    g_6cff94 = 0;
 }
 RT3_REPLACE(0x4ca670, EditorDialog_ShowBriefings);
 
@@ -432,25 +433,25 @@ RT3_REPLACE(0x4ca670, EditorDialog_ShowBriefings);
 RT3_NOINLINE void __fastcall EditorDialog_ShowSettings(uint8_t* w) {
     EditorDialog_ShowBriefings(w);
     char buf[0x440];
-    uint8_t* world = hook::Global<uint8_t*>(0x6cec78);
+    uint8_t* world = g_world;
     Num_Format(buf, 8, (double)F<int32_t>(world, 0x66ca), 10, 1, 0, 0);
-    Window_SendEvent5(w, 0, 0x6f, 0x5b69, (uint32_t)(uintptr_t)(hook::Global<uint8_t*>(0x6cec78) + 0x672e), 0, 0);
-    Num_Format(buf, 8, (double)F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x66ca), 10, 1, 0, 0);
+    Window_SendEvent5(w, 0, 0x6f, 0x5b69, (uint32_t)(uintptr_t)(g_world + 0x672e), 0, 0);
+    Num_Format(buf, 8, (double)F<int32_t>(g_world, 0x66ca), 10, 1, 0, 0);
     Window_SendEvent5(w, 0, 0x6f, 0x5b6a, (uint32_t)(uintptr_t)buf, 0, 0);
-    Num_Format(buf, 8, (double)F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x66d2), 10, 1, 0, 0);
+    Num_Format(buf, 8, (double)F<int32_t>(g_world, 0x66d2), 10, 1, 0, 0);
     Window_SendEvent5(w, 0, 0x6f, 0x5b6c, (uint32_t)(uintptr_t)buf, 0, 0);
-    Num_Format(buf, 8, (double)F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x66ce), 10, 1, 0, 0);
+    Num_Format(buf, 8, (double)F<int32_t>(g_world, 0x66ce), 10, 1, 0, 0);
     Window_SendEvent5(w, 0, 0x6f, 0x5b6b, (uint32_t)(uintptr_t)buf, 0, 0);
-    Window_SendEvent5(w, 0, 0x74, 0x5b6e, hook::Global<uint8_t*>(0x6cec78)[0x66de], 0, 0);
-    Window_SendEvent5(w, 0, 0x74, 0x5b74, hook::Global<uint8_t*>(0x6cec78)[0x66f3] == 0, 0, 0);
+    Window_SendEvent5(w, 0, 0x74, 0x5b6e, g_world[0x66de], 0, 0);
+    Window_SendEvent5(w, 0, 0x74, 0x5b74, g_world[0x66f3] == 0, 0, 0);
 }
 RT3_REPLACE(0x4ca790, EditorDialog_ShowSettings);
 
 // 0x4ca910. Sets two of window w's text fields (event 0x74, ids 0x5c3a / 0x5c44 +
 // the world's +0x4c78 / +0x4c7c selections).
 RT3_NOINLINE void __fastcall Window_ShowWorldPicks(uint8_t* w) {
-    Window_SendEvent5(w, 0, 0x74, F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4c78) + 0x5c3a, 1, 0, 0);
-    Window_SendEvent5(w, 0, 0x74, F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4c7c) + 0x5c44, 1, 0, 0);
+    Window_SendEvent5(w, 0, 0x74, F<int32_t>(g_world, 0x4c78) + 0x5c3a, 1, 0, 0);
+    Window_SendEvent5(w, 0, 0x74, F<int32_t>(g_world, 0x4c7c) + 0x5c44, 1, 0, 0);
 }
 RT3_REPLACE(0x4ca910, Window_ShowWorldPicks);
 
@@ -460,15 +461,15 @@ RT3_CLEAR_CHILDREN(0x4ca960, Dialog_ClearChildrenA410, 0xa410, 0xa7f7)
 // the first sets world +0xbe2 = v / 0x5c85d8, the others +0xbe6..+0xbf6 =
 // (v - 50) / 0x5c87f8; +0xbde follows +0xbe2 and the editor refreshes.
 void __fastcall Economy_SliderCb(uint8_t* w, int32_t v) {
-    if (hook::Global<int32_t>(0x6cff9c)) return;
+    if (g_6cff9c) return;
     const uint32_t k = (uint32_t)F<uint16_t>(w, 4) - 0x5bcd;
-    uint8_t* world = hook::Global<uint8_t*>(0x6cec78);
+    uint8_t* world = g_world;
     if (k <= 10 && !(k & 1)) {
         if (k == 0) F<float>(world, 0xbe2) = (float)((double)v / D(0x5c85d8));
         else F<float>(world, 0xbe2 + k * 2) = (float)((double)(v - 0x32) / D(0x5c87f8));
     }
-    F<uint32_t>(hook::Global<uint8_t*>(0x6cec78), 0xbde) = F<uint32_t>(hook::Global<uint8_t*>(0x6cec78), 0xbe2);
-    if (uint8_t* d = hook::Global<uint8_t*>(0x6cff84)) EditorDialog_ShowEconomy(d);
+    F<uint32_t>(g_world, 0xbde) = F<uint32_t>(g_world, 0xbe2);
+    if (uint8_t* d = g_cityDialog) EditorDialog_ShowEconomy(d);
 }
 RT3_REPLACE(0x4ca980, Economy_SliderCb);
 
@@ -477,9 +478,9 @@ RT3_REPLACE(0x4ca980, Economy_SliderCb);
 // at 1 (0x6cec78 +0xbe2) in percent (0x5d0b18), compounded each year by the
 // decade's rate (+0xbe6, the fifth one from year 41 on).
 void __fastcall InflationTable_DrawCb(void*, int, float x, float y, float w, float h, int32_t) {
-    Font_DrawTextBox(hook::Global<uint8_t*>(0x6cff8c), 0, GetString(0x418), x, y, w, BitsF(0x3d77ced9), 0xffffffff, 2, 0, 0, 1.0f);
+    Font_DrawTextBox(g_6cff8c, 0, GetString(0x418), x, y, w, BitsF(0x3d77ced9), 0xffffffff, 2, 0, 0, 1.0f);
     float row = (float)((double)y + D(0x5d0b28));
-    float level = F<float>(hook::Global<uint8_t*>(0x6cec78), 0xbe2);
+    float level = F<float>(g_world, 0xbe2);
     char frame[0x17c];
     char* num = frame + 0x10;
     char* text = frame + 0x50;
@@ -488,13 +489,13 @@ void __fastcall InflationTable_DrawCb(void*, int, float x, float y, float w, flo
         if (year <= 0x33 || year == 0x51) {
             Num_Format(num, 8, (double)year, 10, 1, 0, 0);
             FormatText(text, GetString(0x419), num, 0, 0, 0, 0, 0, 0, 0);
-            Font_DrawTextBox(hook::Global<uint8_t*>(0x6cff8c), 0, text, (float)((double)x + Fl(0x5d0b20)), row, w, BitsF(0x3ce147ae), 0xffffffff, 2, 0, 0, 1.0f);
+            Font_DrawTextBox(g_6cff8c, 0, text, (float)((double)x + Fl(0x5d0b20)), row, w, BitsF(0x3ce147ae), 0xffffffff, 2, 0, 0, 1.0f);
             ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)(text, (const char*)0x5d0b18, Ftol((double)level * Fl(0x5c8c28) + D(0x5c86b8)));
-            Font_DrawTextBox(hook::Global<uint8_t*>(0x6cff8c), 0, text, (float)((double)x - Fl(0x5d0b20) - D(0x5d0b10)), row, w, BitsF(0x3ce147ae), 0xffffffff, 3, 0, 0,
+            Font_DrawTextBox(g_6cff8c, 0, text, (float)((double)x - Fl(0x5d0b20) - D(0x5d0b10)), row, w, BitsF(0x3ce147ae), 0xffffffff, 3, 0, 0,
                              1.0f);
             row = (float)((double)row + Fl(0x5d0b08));
         }
-        const float rate = *(const float*)(hook::Global<uint8_t*>(0x6cec78) + 0xbe6 + (year >= 0x29 ? 4 : decade) * 4);
+        const float rate = *(const float*)(g_world + 0xbe6 + (year >= 0x29 ? 4 : decade) * 4);
         for (int32_t k = 0; k < 10; ++k) level = (float)(((double)rate + D(0x5c8770)) * level);
     }
 }
@@ -506,11 +507,11 @@ RT3_REPLACE(0x4caaf0, InflationTable_DrawCb);
 // rounded, + 50); labels 0x5bce ("%d" style 0x5d0b18 of +0xbe2 x 0x5c8c28) and
 // 0x5bd0.. (format 0x5d0b30 of value x 0x5c8c28 + 0x5c85b8).
 RT3_NOINLINE void __fastcall EditorDialog_ShowEconomy(uint8_t* w) {
-    hook::Global<int32_t>(0x6cff9c) = 1;
+    g_6cff9c = 1;
     for (uint32_t id = 0x5bcd; id <= 0x5bd7; id += 2) Window_SendEvent5(w, 0, 0x84, id, 0x4ca980, 0, 0);
     Window_SendEvent5(w, 0, 0x7a, 0x5be1, 0x4caaf0, 0, 0);
     const double half = *(const double*)0x5c86b8;
-    auto fw = [](int32_t off) { return F<float>(hook::Global<uint8_t*>(0x6cec78), off); };
+    auto fw = [](int32_t off) { return F<float>(g_world, off); };
     Window_SendEvent5(w, 0, 0x66, 0x5bcd, (uint32_t)Ftol((double)fw(0xbe2) * *(const double*)0x5c85d8 + half), 0, 0);
     for (int32_t k = 1; k <= 5; ++k)
         Window_SendEvent5(w, 0, 0x66, 0x5bcd + k * 2, (uint32_t)(Ftol((double)fw(0xbe2 + k * 4) * *(const double*)0x5c87f8 + half) + 0x32), 0, 0);
@@ -522,7 +523,7 @@ RT3_NOINLINE void __fastcall EditorDialog_ShowEconomy(uint8_t* w) {
         ExeSprintf()(buf, (const char*)0x5d0b30, (double)fw(0xbe2 + k * 4) * scale + *(const double*)0x5c85b8);
         Window_SendEvent5(w, 0, 0x6f, 0x5bce + k * 2, (uint32_t)(uintptr_t)buf, 0, 0);
     }
-    hook::Global<int32_t>(0x6cff9c) = 0;
+    g_6cff9c = 0;
 }
 RT3_REPLACE(0x4cadf0, EditorDialog_ShowEconomy);
 
@@ -543,9 +544,9 @@ RT3_REPLACE(0x4cb1c0, SetupToggle_AddWorldFlag);
 // label 0xa7f8 of the city dialog (0x6cff84).
 RT3_NOINLINE void __fastcall EditorDialog_ShowAchievements(uint8_t* w, int, int32_t keep) {
     char goal[0x1a0], on[0x18], all[0x18], text[0x160];
-    Num_Format(goal, 8, (double)F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4b43), 10, 1, 0, 0);
+    Num_Format(goal, 8, (double)F<int32_t>(g_world, 0x4b43), 10, 1, 0, 0);
     Window_SendEvent5(w, 0, 0x6f, 0xa7ff, (uint32_t)(uintptr_t)goal, 0, 0);
-    uint32_t t = F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4aeb) ? 0x65 : 0x87;
+    uint32_t t = F<int32_t>(g_world, 0x4aeb) ? 0x65 : 0x87;
     Window_SendEvent5(w, 0, t, 0xa7fd, 3, 0, 0);
     Window_SendEvent5(w, 0, t, 0xa7fe, 3, 0, 0);
     Window_SendEvent5(w, 0, t, 0xa7ff, 3, 0, 0);
@@ -556,7 +557,7 @@ RT3_NOINLINE void __fastcall EditorDialog_ShowAchievements(uint8_t* w, int, int3
     for (const uint8_t* e = (const uint8_t*)0x5f3ab0; e < (const uint8_t*)0x5f3c69; e += 9, ++i) {
         if (e[0]) continue;
         ++total;
-        if (F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4a7f + i * 4)) ++selected;
+        if (F<int32_t>(g_world, 0x4a7f + i * 4)) ++selected;
         if (keep) continue;
         const char* desc = GetString(*(const int32_t*)(e + 5));
         const char* name = GetString(*(const int32_t*)(e + 1));
@@ -565,7 +566,7 @@ RT3_NOINLINE void __fastcall EditorDialog_ShowAchievements(uint8_t* w, int, int3
     char* sa = Num_Format(all, 1, (double)total, 10, 1, 0, 0);
     char* so = Num_Format(on, 1, (double)selected, 10, 1, 0, 0);
     FormatText(text, GetString(0x41d), so, sa, 0, 0, 0, 0, 0, 0);
-    Window_SendEvent5(hook::Global<uint8_t*>(0x6cff84), 0, 0x6f, 0xa7f8, (uint32_t)(uintptr_t)text, 0, 0);
+    Window_SendEvent5(g_cityDialog, 0, 0x6f, 0xa7f8, (uint32_t)(uintptr_t)text, 0, 0);
 }
 RT3_REPLACE(0x4cb2b0, EditorDialog_ShowAchievements);
 
@@ -577,7 +578,7 @@ RT3_REPLACE(0x4cb2b0, EditorDialog_ShowAchievements);
 RT3_NOINLINE int32_t __fastcall EditorDialog_OnSettingsEvent(uint8_t* w, int, uint32_t* ev) {
     if (ev[0] != 0xca) return 1;
     auto text = [ev]() { return F<const char*>((uint8_t*)(uintptr_t)ev[0xb], 0xba); };
-    uint8_t* world = hook::Global<uint8_t*>(0x6cec78);
+    uint8_t* world = g_world;
     switch (ev[1]) {
     case 0x5b69:
         StrCopyN((char*)world + 0x672e, text(), 600);
@@ -590,7 +591,7 @@ RT3_NOINLINE int32_t __fastcall EditorDialog_OnSettingsEvent(uint8_t* w, int, ui
         if (y < 0x725) y = 0x725;
         else if (y > 0x834) y = 0x834;
         F<int32_t>(world, ev[1] == 0x5b6a ? 0x66ca : ev[1] == 0x5b6b ? 0x66ce : 0x66d2) = y;
-        world = hook::Global<uint8_t*>(0x6cec78);
+        world = g_world;
         if (F<int32_t>(world, 0x66ca) >= F<int32_t>(world, 0x66d2)) F<int32_t>(world, 0x66ca) = F<int32_t>(world, 0x66d2);
         if (F<int32_t>(world, 0x66ce) <= F<int32_t>(world, 0x66d2)) F<int32_t>(world, 0x66ce) = F<int32_t>(world, 0x66d2);
         EditorDialog_ShowSettings(w);
@@ -609,7 +610,7 @@ RT3_NOINLINE int32_t __fastcall EditorDialog_OnSettingsEvent(uint8_t* w, int, ui
         return 0;
     case 0x5b71:
     case 0x5b72:
-        hook::Global<int32_t>(0x621f50) = ev[1] == 0x5b71;
+        g_621f50 = ev[1] == 0x5b71;
         EditorDialog_ShowBriefings(w);
         return 0;
     case 0x5b74:
@@ -624,11 +625,11 @@ RT3_REPLACE(0x4cb4a0, EditorDialog_OnSettingsEvent);
 RT3_NOINLINE int32_t __fastcall Ui_HandleCounterMsg(void*, int, const int32_t* msg) {
     if (msg[0] != 0xcb) return 1;
     if (msg[1] == 0x5143) {
-        hook::Global<int32_t>(0x6cff7c)++;
+        g_6cff7c++;
         return 0;
     }
     if (msg[1] == 0x5142) {
-        hook::Global<int32_t>(0x6cff7c)--;
+        g_6cff7c--;
         return 0;
     }
     return 1;
@@ -642,13 +643,13 @@ RT3_REPLACE(0x4cb6b0, Ui_HandleCounterMsg);
 RT3_NOINLINE int32_t __fastcall EditorDialog_OnCargoEvent(uint8_t* w, int, uint32_t* ev) {
     if (ev[0] == 0xca) {
         if ((int32_t)ev[1] < 0x5aaa || (int32_t)ev[1] > 0x5b03) return 1;
-        hook::Global<uint8_t*>(0x6cec78)[0x6987 + F<int32_t>((uint8_t*)(uintptr_t)ev[0xb], 0x82)] = (uint8_t)ev[2];
+        g_world[0x6987 + F<int32_t>((uint8_t*)(uintptr_t)ev[0xb], 0x82)] = (uint8_t)ev[2];
         EditorDialog_FillCargoList(w);
         return 0;
     }
     if (ev[0] != 0xcb || (int32_t)ev[1] < 0x5aa1 || (int32_t)ev[1] > 0x5aa3) return 1;
     for (int32_t i = 1; i <= 40; ++i)
-        hook::Global<uint8_t*>(0x6cec78)[0x6987 + i] = ((const uint8_t*)0x5f2d28)[i * 0x27 + 2] == ev[1] - 0x5aa1;
+        g_world[0x6987 + i] = ((const uint8_t*)0x5f2d28)[i * 0x27 + 2] == ev[1] - 0x5aa1;
     EditorDialog_FillCargoList(w);
     return 0;
 }
@@ -662,18 +663,18 @@ RT3_REPLACE(0x4cb6f0, EditorDialog_OnCargoEvent);
 RT3_NOINLINE int32_t __fastcall EditorDialog_OnAchievementsEvent(uint8_t* w, int, uint32_t* ev) {
     if (ev[0] == 0xcb) {
         if ((int32_t)ev[1] < 0xa7fb || (int32_t)ev[1] > 0xa7fc) return 1;
-        for (int32_t k = 0; k < 49; ++k) F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4a7f + k * 4) = ev[1] == 0xa7fb;
+        for (int32_t k = 0; k < 49; ++k) F<int32_t>(g_world, 0x4a7f + k * 4) = ev[1] == 0xa7fb;
         EditorDialog_ShowAchievements(w, 0, 0);
         return 0;
     }
     if (ev[0] != 0xca) return 1;
     uint8_t* src = (uint8_t*)(uintptr_t)ev[0xb];
     if ((int32_t)ev[1] >= 0xabe0 && (int32_t)ev[1] <= 0xafc7) {
-        F<uint32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4a7f + F<int32_t>(src, 0x82) * 4) = ev[2];
-        if (F<int32_t>(src, 0x82) == 0x19) Tracks_UpdateColor(hook::Global<Collection*>(0x6cfca8));
-        if (F<int32_t>(src, 0x82) == 0x1a) Table_RefreshAll(hook::Global<Collection*>(0x62b26c));
+        F<uint32_t>(g_world, 0x4a7f + F<int32_t>(src, 0x82) * 4) = ev[2];
+        if (F<int32_t>(src, 0x82) == 0x19) Tracks_UpdateColor(g_tracks);
+        if (F<int32_t>(src, 0x82) == 0x1a) Table_RefreshAll(g_buildings);
     } else if (ev[1] == 0xa7ff) {
-        F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4b43) = ((int(__cdecl*)(const char*))0x5a1ea5)(F<const char*>(src, 0xba));
+        F<int32_t>(g_world, 0x4b43) = ((int(__cdecl*)(const char*))0x5a1ea5)(F<const char*>(src, 0xba));
     } else return 1;
     EditorDialog_ShowAchievements(w, 0, 1);
     return 0;
@@ -686,7 +687,7 @@ RT3_NOINLINE int32_t __fastcall Ui_HandleModeMsg(void*, int, const int32_t* msg)
     if (msg[0] != 0xca) return 1;
     uint32_t i = (uint32_t)(msg[1] - 0x5c3a);
     if (i > 0xc) return 1;
-    uint8_t* w = hook::Global<uint8_t*>(0x6cec78);
+    uint8_t* w = g_world;
     if (i <= 2) F<int32_t>(w, 0x4c78) = (int32_t)i;
     else if (i >= 10) F<int32_t>(w, 0x4c7c) = (int32_t)(i - 10);
     return 1;
@@ -698,7 +699,7 @@ RT3_REPLACE(0x4cb9f0, Ui_HandleModeMsg);
 // types (0x411d50: blue 0xbf, +0x78c: red 0xbf), a highlight when the
 // selected city (0x6cff74) values it (0x41fa30 >= 0x5c8678) and that value.
 void __fastcall BuildingList_DrawRowCb(void*, int32_t id, float x, float y, float w, float h, int32_t) {
-    uint8_t* b = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62b268), 0, (uint32_t)id);
+    uint8_t* b = (uint8_t*)Collection_Get(g_62b268, 0, (uint32_t)id);
     const char* name = LocalizeName((const char*)b + 0x4f);
     char num[0x40], text[0x12c];
     Num_Format(num, 8, (double)F<uint16_t>(b, 0x26), 10, 1, 0, 0);
@@ -708,13 +709,13 @@ void __fastcall BuildingList_DrawRowCb(void*, int32_t id, float x, float y, floa
         blue = 0xbf;
     else if (F<uint32_t>(b, 0x78c))
         red = 0xbf;
-    uint8_t* city = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62bae0), 0, hook::Global<uint32_t>(0x6cff74));
+    uint8_t* city = (uint8_t*)Collection_Get(g_cities, 0, g_selectedCity);
     const float value = (float)Obj_NamedValue(city, 0, (const char*)b + 4);
     if (value >= D(0x5c8678)) Ui_FillRect(0x22ffffff, 0, x, y, w, h, 3);
     const float tx = (float)((double)x + D(0x5d0b38));
-    Font_DrawTextBox(hook::Global<uint8_t*>(0x6cff88), 0, text, tx, y, BitsF(0x3e5950c8), h, (red << 16) | blue | 0xff00ff00, 2, 0, 0, 1.0f);
+    Font_DrawTextBox(g_6cff88, 0, text, tx, y, BitsF(0x3e5950c8), h, (red << 16) | blue | 0xff00ff00, 2, 0, 0, 1.0f);
     Num_Format(text, 5, (double)value, 10, 1, 0, 0);
-    Font_DrawTextBox(hook::Global<uint8_t*>(0x6cff88), 0, text, x, y, BitsF(0x3e7d27d2), h, 0xffffffff, 3, 0, 0, 1.0f);
+    Font_DrawTextBox(g_6cff88, 0, text, x, y, BitsF(0x3e7d27d2), h, 0xffffffff, 3, 0, 0, 1.0f);
 }
 RT3_REPLACE(0x4cbac0, BuildingList_DrawRowCb);
 
@@ -723,33 +724,33 @@ RT3_REPLACE(0x4cbac0, BuildingList_DrawRowCb);
 // 0x409), the count of flagged industries and of building types available (0x726,
 // kind 2), through string 0x40a.
 RT3_NOINLINE void CityDialog_ShowSummary() {
-    uint8_t* c = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62bae0), 0, hook::Global<uint32_t>(0x6cff74));
+    uint8_t* c = (uint8_t*)Collection_Get(g_cities, 0, g_selectedCity);
     char size[0x100], num[0x100], s1[0x128], s2[0x128], text[0x1d0];
     if (F<int32_t>(c, 0x23e)) FormatText(size, GetString(0x408), Num_Format(num, 1, (double)(F<int32_t>(c, 0x242) << 4), 10, 1, 0, 0), 0, 0, 0, 0, 0, 0, 0);
     else strcpy(size, GetString(0x409));
     Num_Format(s1, 1, (double)Obj_CountFlagged7ac(c), 10, 1, 0, 0);
     Num_Format(s2, 1, (double)Obj_CountTypesAvailable(c, 0, 0x726, 2), 10, 1, 0, 0);
     FormatText(text, GetString(0x40a), size, s1, s2, 0, 0, 0, 0, 0);
-    Window_SendEvent5(hook::Global<uint8_t*>(0x6cff84), 0, 0x6f, 0x5078, (uint32_t)(uintptr_t)text, 0, 0);
+    Window_SendEvent5(g_cityDialog, 0, 0x6f, 0x5078, (uint32_t)(uintptr_t)text, 0, 0);
 }
 RT3_REPLACE(0x4cbc60, CityDialog_ShowSummary);
 
 // 0x4cbdd0. Enables the city dialog's (0x6cff84) buttons 0x508a / 0x5089 by the
 // selected city's (0x6cff74) flag +0x2f6 (0x65 on, 0x87 off).
 RT3_NOINLINE void CityDialog_UpdateButtons() {
-    uint8_t* city = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62bae0), 0, hook::Global<uint32_t>(0x6cff74));
+    uint8_t* city = (uint8_t*)Collection_Get(g_cities, 0, g_selectedCity);
     if (!city) return;
     uint32_t type = F<int32_t>(city, 0x2f6) ? 0x65 : 0x87;
-    Window_SendEvent5(hook::Global<uint8_t*>(0x6cff84), 0, type, 0x508a, 3, 0, 0);
-    Window_SendEvent5(hook::Global<uint8_t*>(0x6cff84), 0, type, 0x5089, 3, 0, 0);
+    Window_SendEvent5(g_cityDialog, 0, type, 0x508a, 3, 0, 0);
+    Window_SendEvent5(g_cityDialog, 0, type, 0x5089, 3, 0, 0);
 }
 RT3_REPLACE(0x4cbdd0, CityDialog_UpdateButtons);
 
 // 0x4cbe30 (slider callback). The edited city (0x6cff74) gets v (EDX) /
 // 0x5c85d8 of the building type of slider w (+0x82); the dialog updates.
 void __fastcall CityDialog_SetAmountCb(uint8_t* w, int32_t v) {
-    uint8_t* city = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62bae0), 0, hook::Global<uint32_t>(0x6cff74));
-    uint8_t* type = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62b268), 0, F<uint32_t>(w, 0x82));
+    uint8_t* city = (uint8_t*)Collection_Get(g_cities, 0, g_selectedCity);
+    uint8_t* type = (uint8_t*)Collection_Get(g_62b268, 0, F<uint32_t>(w, 0x82));
     Obj_SetNamedAmount(city, 0, (const char*)(type + 4), (float)((double)v / D(0x5c85d8)));
     CityDialog_UpdateButtons();
     CityDialog_ShowSummary();
@@ -762,7 +763,7 @@ RT3_REPLACE(0x4cbe30, CityDialog_SetAmountCb);
 // the city 0x6cff74's value for the type's name (x 0x5c8c28, rounded) with the
 // change handler 0x4cbe30.
 void __fastcall Setup_AddTypeRow(uint8_t* d, int, int32_t idx, float x, float y, float w, float h) {
-    uint8_t* city = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62bae0), 0, hook::Global<uint32_t>(0x6cff74));
+    uint8_t* city = (uint8_t*)Collection_Get(g_cities, 0, g_selectedCity);
     uint8_t def[0x89];
     memset(def, 0, sizeof def);
     F<float>(def, 7) = x;
@@ -803,7 +804,7 @@ void __fastcall Setup_AddTypeRow(uint8_t* d, int, int32_t idx, float x, float y,
     Window_AddChild(F<uint8_t*>(d, 0x86), 0, list, 0);
     F<int32_t>(list, 0x82) = idx;
     Free(F<void*>(ld, 0x43));
-    const char* name = (const char*)Collection_Get(hook::Global<Collection*>(0x62b268), 0, (uint32_t)idx) + 4;
+    const char* name = (const char*)Collection_Get(g_62b268, 0, (uint32_t)idx) + 4;
     int32_t v = Ftol(Obj_NamedValue(city, 0, name) * Fl(0x5c8c28) + D(0x5c8918));
     Window_SendEvent5(F<uint8_t*>(d, 0x86), 0, 0x66, F<uint16_t>(ld, 0), (uint32_t)v, 0, 0);
     Window_SendEvent5(F<uint8_t*>(d, 0x86), 0, 0x84, F<uint16_t>(ld, 0), 0x4cbe30, 0, 0);
@@ -814,7 +815,7 @@ RT3_REPLACE(0x4cbea0, Setup_AddTypeRow);
 // list +0x66b2 has its name (+4).
 void __fastcall SetupToggle_AddNamed1(uint8_t* d, int, int32_t idx, float x, float y, float w, float h) {
     uint8_t* win = SetupToggle_Add(d, idx, x, y, w, h, 0xa028, 0x4e27);
-    uint8_t* r = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62b268), 0, idx);
+    uint8_t* r = (uint8_t*)Collection_Get(g_62b268, 0, idx);
     int32_t on = World_LookupNamed1(WorldG(), 0, (const char*)(r + 4));
     Window_SendEvent5(F<uint8_t*>(d, 0x86), 0, 0x74, idx + 0xa028, (uint32_t)on, 0, 0);
     (void)win;
@@ -822,7 +823,7 @@ void __fastcall SetupToggle_AddNamed1(uint8_t* d, int, int32_t idx, float x, flo
 RT3_REPLACE(0x4cc130, SetupToggle_AddNamed1);
 
 void __fastcall NewGame_ShowRowCb(int32_t v, int32_t row) {
-    if (v != -1 && hook::Global<uint8_t*>(0x6cff84)) NewGameDialog_ShowRow(hook::Global<uint8_t*>(0x6cff84), 0, row);
+    if (v != -1 && g_cityDialog) NewGameDialog_ShowRow(g_cityDialog, 0, row);
 }
 RT3_REPLACE(0x4cc230, NewGame_ShowRowCb);
 
@@ -830,9 +831,9 @@ RT3_REPLACE(0x4cc230, NewGame_ShowRowCb);
 // AI +0x69db set to 1) in list 0x5a6e, then recounts. Quirk: the list is cleared
 // on the city dialog (0x6cff84) but filled on window w.
 RT3_NOINLINE void __fastcall NewGameDialog_ListHumanRows(uint8_t* w) {
-    Window_SendEvent5(hook::Global<uint8_t*>(0x6cff84), 0, 0x8b, 0x5a6e, 0, 0, 0);
+    Window_SendEvent5(g_cityDialog, 0, 0x8b, 0x5a6e, 0, 0, 0);
     for (int32_t i = 0; i < 16; ++i) {
-        const uint8_t* row = hook::Global<uint8_t*>(0x6cec78) + i * 9;
+        const uint8_t* row = g_world + i * 9;
         if (row[0x69db] == 1 || row[0x69da] == 1) Window_SendEvent5(w, 0, 0x88, 0x5a6e, 0, (uint32_t)i, 0);
     }
     NewGameDialog_CountRows(w);
@@ -859,8 +860,8 @@ RT3_REPLACE(0x4cc2d0, NewGameDialog_SetupRows);
 // rate scaled by 25 years of inflation (0x6cec78 +0xbe6 / +0xbea / +0xbee for
 // 10 / 10 / 5 years), and the footer 0x414.
 void __fastcall CityInfo_DrawCb(void*, int, float x, float y, float w, float h, int32_t) {
-    if (!hook::Global<uint32_t>(0x6cff74)) return;
-    uint8_t* c = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62bae0), 0, hook::Global<uint32_t>(0x6cff74));
+    if (!g_selectedCity) return;
+    uint8_t* c = (uint8_t*)Collection_Get(g_cities, 0, g_selectedCity);
     if (!c) return;
     char frame[0xe0c];
     char* note = frame + 0x18c;
@@ -874,15 +875,15 @@ void __fastcall CityInfo_DrawCb(void*, int, float x, float y, float w, float h, 
     }
     {
         char* num = frame + 0xaec;
-        Num_Format(num, 1, (double)F<float>(hook::Global<uint8_t*>(0x6cec78), 0xbe2) * Fl(0x5c8c28), 10, 1, 0, 0);
+        Num_Format(num, 1, (double)F<float>(g_world, 0xbe2) * Fl(0x5c8c28), 10, 1, 0, 0);
         FormatText(intro, GetString(0x40d), num, note, 0, 0, 0, 0, 0, 0);
     }
-    Font_DrawTextBox(hook::Global<uint8_t*>(0x6cff90), 0, intro, x, y, w, h, 0xffffffff, 2, 1, 0, 1.0f);
-    float row = (float)(Font_TextHeight(hook::Global<uint8_t*>(0x6cff90), 0, intro, w, nullptr) + y);
+    Font_DrawTextBox(g_6cff90, 0, intro, x, y, w, h, 0xffffffff, 2, 1, 0, 1.0f);
+    float row = (float)(Font_TextHeight(g_6cff90, 0, intro, w, nullptr) + y);
     static const int32_t kKind[4] = { -1, 2, 0, 3 };
     static const int32_t kName[4] = { 3, 0x40e, 0x40f, 0x410 };
     row = (float)((double)row + D(0x5d0b70));
-    uint8_t* world = hook::Global<uint8_t*>(0x6cec78);
+    uint8_t* world = g_world;
     const double g0 = (double)F<float>(world, 0xbe6) + D(0x5c8770);
     float level = (float)g0;
     for (int32_t k = 0; k < 9; ++k) level = (float)((double)level * g0);
@@ -900,42 +901,42 @@ void __fastcall CityInfo_DrawCb(void*, int, float x, float y, float w, float h, 
         if (i == 0) {
             if (any) {
                 const char* s = GetString(0x411);
-                Font_DrawTextBox(hook::Global<uint8_t*>(0x6cff90), 0, s, (float)((double)x - ((double)colw + colw)), row, w, rh, 0xffffffff, 3, 0, 1, 1.0f);
+                Font_DrawTextBox(g_6cff90, 0, s, (float)((double)x - ((double)colw + colw)), row, w, rh, 0xffffffff, 3, 0, 1, 1.0f);
             }
             const char* s2 = GetString(0x412);
-            Font_DrawTextBox(hook::Global<uint8_t*>(0x6cff90), 0, s2, (float)((double)x - colw), row, w, rh, 0xffffffff, 3, 0, 1, 1.0f);
+            Font_DrawTextBox(g_6cff90, 0, s2, (float)((double)x - colw), row, w, rh, 0xffffffff, 3, 0, 1, 1.0f);
             const char* s3 = GetString(0x413);
-            Font_DrawTextBox(hook::Global<uint8_t*>(0x6cff90), 0, s3, x, row, w, rh, 0xffffffff, 3, 0, 1, 1.0f);
+            Font_DrawTextBox(g_6cff90, 0, s3, x, row, w, rh, 0xffffffff, 3, 0, 1, 1.0f);
             row = (float)((double)row + D(0x5d0b68));
         } else {
-            Font_DrawTextBox(hook::Global<uint8_t*>(0x6cff90), 0, GetString(kName[i]), x, row, w, rh, 0xffffffff, 2, 0, 0, 1.0f);
+            Font_DrawTextBox(g_6cff90, 0, GetString(kName[i]), x, row, w, rh, 0xffffffff, 2, 0, 0, 1.0f);
             const int32_t kind = kKind[i];
             if (any) {
                 const int32_t count = kind == 2 ? c2 : kind == 0 ? c0 : kind == 3 ? c3 : 0;
                 sprintf_(cell, (const char*)0x5ca2ac, (double)(float)count);
-                Font_DrawTextBox(hook::Global<uint8_t*>(0x6cff90), 0, cell, (float)((double)x - ((double)colw + colw)), row, w, rh, 0xffffffff, 3, 0, 0, 1.0f);
+                Font_DrawTextBox(g_6cff90, 0, cell, (float)((double)x - ((double)colw + colw)), row, w, rh, 0xffffffff, 3, 0, 0, 1.0f);
             }
             sprintf_(cell, (const char*)0x5ca2ac, (double)Obj_ProductionRate(c, 0, kind));
-            Font_DrawTextBox(hook::Global<uint8_t*>(0x6cff90), 0, cell, (float)((double)x - colw), row, w, rh, 0xffffffff, 3, 0, 0, 1.0f);
+            Font_DrawTextBox(g_6cff90, 0, cell, (float)((double)x - colw), row, w, rh, 0xffffffff, 3, 0, 0, 1.0f);
             sprintf_(cell, (const char*)0x5ca2ac, (double)Obj_ProductionRate(c, 0, kind) * level);
-            Font_DrawTextBox(hook::Global<uint8_t*>(0x6cff90), 0, cell, x, row, w, rh, 0xffffffff, 3, 0, 0, 1.0f);
+            Font_DrawTextBox(g_6cff90, 0, cell, x, row, w, rh, 0xffffffff, 3, 0, 0, 1.0f);
         }
         row = (float)((double)row + Fl(0x5d0b08));
     }
     const float fy = (float)((double)row + D(0x5d0b70));
-    Font_DrawTextBox(hook::Global<uint8_t*>(0x6cff90), 0, GetString(0x414), x, fy, w, h, 0xffffffff, 2, 1, 0, 1.0f);
+    Font_DrawTextBox(g_6cff90, 0, GetString(0x414), x, fy, w, h, 0xffffffff, 2, 1, 0, 1.0f);
 }
 RT3_REPLACE(0x4cc340, CityInfo_DrawCb);
 
 // 0x4cc930 (slider callback). Sets the edited city's two sizes (+0x25e /
 // +0x25a) to v (EDX) and refills the editor.
 void __fastcall CityEditor_SetSizeCb(void*, int32_t v) {
-    if (hook::Global<int32_t>(0x6cff98) || !hook::Global<int32_t>(0x6cff74)) return;
-    uint8_t* c = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62bae0), 0, hook::Global<uint32_t>(0x6cff74));
+    if (g_6cff98 || !hook::As<int32_t>(g_selectedCity)) return;
+    uint8_t* c = (uint8_t*)Collection_Get(g_cities, 0, g_selectedCity);
     const float f = (float)v;
     F<float>(c, 0x25e) = f;
     F<float>(c, 0x25a) = f;
-    CityEditor_Fill(hook::Global<uint8_t*>(0x6cff84), 0, hook::Global<int32_t>(0x6cff74), 1);
+    CityEditor_Fill(g_cityDialog, 0, hook::As<int32_t>(g_selectedCity), 1);
 }
 RT3_REPLACE(0x4cc930, CityEditor_SetSizeCb);
 
@@ -950,21 +951,21 @@ RT3_REPLACE(0x4cc930, CityEditor_SetSizeCb);
 // 0x5083 (six names from 0x620ce8, current +0x272), the city list 0x507e sorted by
 // name (marking the current; blocked cities +0x23e tinted) and the summary line.
 RT3_NOINLINE void __fastcall CityEditor_Fill(uint8_t* w, int, int32_t id, int32_t keep) {
-    Collection* cities = hook::Global<Collection*>(0x62bae0);
-    if (id > 0) hook::Global<int32_t>(0x6cff74) = id;
-    if (!Collection_IsValid(hook::Global<Collection*>(0x62bae0), 0, hook::Global<uint32_t>(0x6cff74))) hook::Global<int32_t>(0x6cff74) = 0;
-    if (!hook::Global<int32_t>(0x6cff74) && Collection_Count(hook::Global<Collection*>(0x62bae0)) > 0)
-        hook::Global<uint32_t>(0x6cff74) = Collection_IdAt(hook::Global<Collection*>(0x62bae0), 0, 0, 0);
-    int32_t cur = hook::Global<int32_t>(0x6cff74);
-    hook::Global<int32_t>(0x6cff78) = cur;
+    Collection* cities = g_cities;
+    if (id > 0) hook::As<int32_t>(g_selectedCity) = id;
+    if (!Collection_IsValid(g_cities, 0, g_selectedCity)) hook::As<int32_t>(g_selectedCity) = 0;
+    if (!hook::As<int32_t>(g_selectedCity) && Collection_Count(g_cities) > 0)
+        g_selectedCity = Collection_IdAt(g_cities, 0, 0, 0);
+    int32_t cur = hook::As<int32_t>(g_selectedCity);
+    hook::As<int32_t>(g_6cff78) = cur;
     if (!cur) {
         Window_SendEvent5(w, 0, 0x86, 0x4e21, 3, 0, 0);
         Window_SendEvent5(w, 0, 0x65, 0x4a3c, 3, 0, 0);
         Window_SendEvent5(w, 0, 0x6f, 0x4a3c, (uint32_t)(uintptr_t)GetString(0x415), 0, 0);
         return;
     }
-    hook::Global<int32_t>(0x6cff98) = 1;
-    uint8_t* c = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62bae0), 0, (uint32_t)cur);
+    g_6cff98 = 1;
+    uint8_t* c = (uint8_t*)Collection_Get(g_cities, 0, (uint32_t)cur);
     Window_SendEvent5(w, 0, 0x7a, 0x5088, 0x4cc340, 0, 0);
     Window_SendEvent5(w, 0, 0x84, 0x5086, 0x4cc930, 0, 0);
     float size = *(const float*)0x5c8904 < F<float>(c, 0x25a) ? 400.0f : F<float>(c, 0x25a);
@@ -975,7 +976,7 @@ RT3_NOINLINE void __fastcall CityEditor_Fill(uint8_t* w, int, int32_t id, int32_
     FormatText(buf, GetString(0xbba), Num_Format(num, 1, (double)id, 10, 1, 0, 0), 0, 0, 0, 0, 0, 0, 0);
     Window_SendEvent5(w, 0, 0x6f, 0x4a44, (uint32_t)(uintptr_t)buf, 0, 0);
     if (keep) {
-        hook::Global<int32_t>(0x6cff98) = 0;
+        g_6cff98 = 0;
         return;
     }
     Window_SendEvent5(w, 0, 0x7e, 0x5079, 0x4cbea0, 0, 0);
@@ -983,11 +984,11 @@ RT3_NOINLINE void __fastcall CityEditor_Fill(uint8_t* w, int, int32_t id, int32_
     CityDialog_UpdateButtons();
     Window_SendEvent5(w, 0, 0x8b, 0x508a, 0, 0, 0);
     for (int32_t off = 0; off < 0x3a8c; off += 0x4e1)
-        Window_SendEvent5(w, 0, 0x88, 0x508a, (uint32_t)(uintptr_t)(hook::Global<uint8_t*>(0x6cec78) + 0xfe7 + off), 0, 0);
+        Window_SendEvent5(w, 0, 0x88, 0x508a, (uint32_t)(uintptr_t)(g_world + 0xfe7 + off), 0, 0);
     Window_SendEvent5(w, 0, 0x66, 0x508a, F<uint32_t>(c, 0x2f2), 0, 0);
     Window_SendEvent5(w, 0, 0x8b, 0x5079, 0, 0, 0);
     // Houses: the city's weight per type, then a selection sort.
-    auto types = []() { return hook::Global<Collection*>(0x62b268); };
+    auto types = []() { return g_62b268; };
     auto type = [&](int32_t pos) { return (uint8_t*)Collection_Get(types(), 0, Collection_IdAt(types(), 0, (uint32_t)pos, 0)); };
     static float weight[1000];
     for (int32_t i = 0; i < Collection_Count(types()); ++i) weight[i] = (float)Obj_NamedValue(c, 0, (const char*)type(i) + 4);
@@ -1026,29 +1027,29 @@ RT3_NOINLINE void __fastcall CityEditor_Fill(uint8_t* w, int, int32_t id, int32_
     // Cities by name.
     Window_SendEvent5(w, 0, 0x8b, 0x507e, 0, 0, 0);
     memset(used, 0, sizeof used);
-    int32_t n = Collection_Count(cities = hook::Global<Collection*>(0x62bae0));
+    int32_t n = Collection_Count(cities = g_cities);
     if (n > 999) n = 999;
     for (int32_t row = 0; row < n; ++row) {
         int32_t best = -1;
         for (int32_t k = 0; k < n; ++k) {
             if (used[k]) continue;
             if (best != -1) {
-                Collection* cc = hook::Global<Collection*>(0x62bae0);
+                Collection* cc = g_cities;
                 uint8_t* a = (uint8_t*)Collection_Get(cc, 0, Collection_IdAt(cc, 0, (uint32_t)k, 0));
                 uint8_t* b = (uint8_t*)Collection_Get(cc, 0, Collection_IdAt(cc, 0, (uint32_t)best, 0));
                 if (Stricmp((const char*)a + 0x356, (const char*)b + 0x356) >= 0) continue;
             }
             best = k;
         }
-        Collection* cc = hook::Global<Collection*>(0x62bae0);
+        Collection* cc = g_cities;
         uint8_t* e = (uint8_t*)Collection_Get(cc, 0, Collection_IdAt(cc, 0, (uint32_t)best, 0));
         Window_SendEvent5(w, 0, 0x88, 0x507e, (uint32_t)(uintptr_t)(e + 0x356), F<uint32_t>(e, 0x23a), 0);
         used[best] = 1;
-        if (F<int32_t>(e, 0x23a) == hook::Global<int32_t>(0x6cff74)) Window_SendEvent5(w, 0, 0x66, 0x507e, (uint32_t)row, 0, 0);
+        if (F<int32_t>(e, 0x23a) == hook::As<int32_t>(g_selectedCity)) Window_SendEvent5(w, 0, 0x66, 0x507e, (uint32_t)row, 0, 0);
         Window_SendEvent5(w, 0, 0xaf, 0x507e, (uint32_t)row, F<int32_t>(e, 0x23e) ? 0xffffcfffu : 0xffffffffu, 0);
     }
     CityDialog_ShowSummary();
-    hook::Global<int32_t>(0x6cff98) = 0;
+    g_6cff98 = 0;
 }
 RT3_REPLACE(0x4cc980, CityEditor_Fill);
 
@@ -1061,45 +1062,45 @@ RT3_REPLACE(0x4cc980, CityEditor_Fill);
 // group line (string 0x417) on 0x50e5 and the "territory N" title (0xbbb, of the
 // id as passed, before the clamp to 1) on 0x50e7.
 RT3_NOINLINE void __fastcall TerritoryEditor_Show(uint8_t* w, int, int32_t id) {
-    if (id <= 0) id = hook::Global<int32_t>(0x621f4c);
+    if (id <= 0) id = g_621f4c;
     int32_t shown = id;
     if (id < 1) id = 1;
-    hook::Global<int32_t>(0x621f48) = id;
-    hook::Global<int32_t>(0x621f4c) = id;
+    g_621f48 = id;
+    g_621f4c = id;
     // (The original's branch for id 0 here can't be reached after the clamp.)
-    uint8_t* t = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfc9c), 0, (uint32_t)id);
+    uint8_t* t = (uint8_t*)Collection_Get(g_territories, 0, (uint32_t)id);
     Window_SendEvent5(w, 0, 0xb0, 0x50e5, 0, 0, 0);
     Window_SendEvent5(w, 0, 0xb0, 0x50dc, 0, 0, 0);
     Window_SendEvent5(w, 0, 0x8b, 0x50dc, 0, 0, 0);
     Window_SendEvent5(w, 0, 0x8b, 0x50e5, 0, 0, 0);
     uint8_t used[1000];
     memset(used, 0, sizeof used);
-    int32_t n = Collection_Count(hook::Global<Collection*>(0x6cfc9c));
+    int32_t n = Collection_Count(g_territories);
     if (n > 999) n = 999;
-    else n = Collection_Count(hook::Global<Collection*>(0x6cfc9c));
+    else n = Collection_Count(g_territories);
     int32_t leaders = 0;
     for (int32_t row = 0; row < n; ++row) {
         int32_t best = -1;
         for (int32_t k = 0; k < n; ++k) {
             if (used[k]) continue;
             if (best != -1) {
-                Collection* c = hook::Global<Collection*>(0x6cfc9c);
+                Collection* c = g_territories;
                 uint8_t* a = (uint8_t*)Collection_Get(c, 0, Collection_IdAt(c, 0, k, 0));
                 uint8_t* b = (uint8_t*)Collection_Get(c, 0, Collection_IdAt(c, 0, best, 0));
                 if (Stricmp((const char*)a + 4, (const char*)b + 4) >= 0) continue;
             }
             best = k;
         }
-        Collection* c = hook::Global<Collection*>(0x6cfc9c);
+        Collection* c = g_territories;
         uint8_t* e = (uint8_t*)Collection_Get(c, 0, Collection_IdAt(c, 0, best, 0));
         Window_SendEvent5(w, 0, 0x88, 0x50dc, (uint32_t)(uintptr_t)(e + 4), F<uint32_t>(e, 0), 0);
-        if (F<int32_t>(e, 0x31) && F<int32_t>(e, 0) != hook::Global<int32_t>(0x621f48)) {
+        if (F<int32_t>(e, 0x31) && F<int32_t>(e, 0) != g_621f48) {
             Window_SendEvent5(w, 0, 0x88, 0x50e5, (uint32_t)(uintptr_t)(e + 4), F<uint32_t>(e, 0), 0);
             if (F<int32_t>(e, 0) == F<int32_t>(t, 0x35) || !leaders) Window_SendEvent5(w, 0, 0x66, 0x50e5, (uint32_t)leaders, 0, 0);
             ++leaders;
         }
         used[best] = 1;
-        if (F<int32_t>(e, 0) == hook::Global<int32_t>(0x621f48)) Window_SendEvent5(w, 0, 0x66, 0x50dc, (uint32_t)row, 0, 0);
+        if (F<int32_t>(e, 0) == g_621f48) Window_SendEvent5(w, 0, 0x66, 0x50dc, (uint32_t)row, 0, 0);
         Window_SendEvent5(w, 0, 0xaf, 0x50dc, (uint32_t)row, 0xffffffff, 0);
     }
     Window_SendEvent5(w, 0, 0x74, 0x50e0, F<uint32_t>(t, 0x31), 0, 0);
@@ -1118,7 +1119,7 @@ RT3_NOINLINE void __fastcall TerritoryEditor_Show(uint8_t* w, int, int32_t id) {
         uint32_t s = F<int32_t>(t, 0x2d) ? 0x65 : 0x87;
         for (uint32_t i = 0x50e2; i <= 0x50e4; ++i) Window_SendEvent5(w, 0, s, i, 3, 0, 0);
     }
-    uint8_t* leader = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfc9c), 0, F<uint32_t>(t, 0x35));
+    uint8_t* leader = (uint8_t*)Collection_Get(g_territories, 0, F<uint32_t>(t, 0x35));
     FormatText(text, GetString(0x417), (const char*)t + 4, (const char*)leader + 4, 0, 0, 0, 0, 0, 0);
     Window_SendEvent5(w, 0, 0x6e, 0x50e5, (uint32_t)(uintptr_t)text, 0, 0);
     FormatText(text, GetString(0xbbb), Num_Format(buf, 1, (double)shown, 10, 1, 0, 0), 0, 0, 0, 0, 0, 0, 0);
@@ -1130,7 +1131,7 @@ RT3_REPLACE(0x4cd070, TerritoryEditor_Show);
 // list +0x66b6 has its name (+0x45 of its +0x72 record).
 void __fastcall SetupToggle_AddNamed2(uint8_t* d, int, int32_t idx, float x, float y, float w, float h) {
     uint8_t* win = SetupToggle_Add(d, idx, x, y, w, h, 0xa410, 0x4e26);
-    void* r = Collection_Get(hook::Global<Collection*>(0x6ada84), 0, idx);
+    void* r = Collection_Get(g_6ada84, 0, idx);
     int32_t on = World_LookupNamed2(WorldG(), 0, (const char*)Obj_Ref72Plus45(r));
     Window_SendEvent5(F<uint8_t*>(d, 0x86), 0, 0x74, idx + 0xa410, (uint32_t)on, 0, 0);
     (void)win;
@@ -1148,14 +1149,14 @@ RT3_NOINLINE void __fastcall EditorDialog_FillIndustries(uint8_t* w, int, int32_
     Window_SendEvent5(w, 0, 0x7e, 0x5b05, 0x4cd570, 0, 0);
     Window_SendEvent5(w, 0, 0x7f, 0x5b05, 0x4ca960, 0, 0);
     for (int32_t k = 0; k < 3; ++k)
-        Window_SendEvent5(w, 0, 0x74, 0x5b09 + k, hook::Global<uint8_t*>(0x6cec78)[0x4c97 + k], 0, 0);
+        Window_SendEvent5(w, 0, 0x74, 0x5b09 + k, g_world[0x4c97 + k], 0, 0);
     if (!keep) Window_SendEvent5(w, 0, 0x8b, 0x5b05, 0, 0, 0);
     uint8_t used[1000];
     memset(used, 0, sizeof used);
-    auto list = []() { return hook::Global<Collection*>(0x6ada84); };
+    auto list = []() { return g_6ada84; };
     auto entry = [&](int32_t pos) { return (uint8_t*)Collection_Get(list(), 0, Collection_IdAt(list(), 0, (uint32_t)pos, 0)); };
     auto type = [](uint8_t* e) {
-        return F<uint32_t>(e, 0x72) ? (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba88), 0, F<uint32_t>(e, 0x72)) : nullptr;
+        return F<uint32_t>(e, 0x72) ? (uint8_t*)Collection_Get(g_carTypes, 0, F<uint32_t>(e, 0x72)) : nullptr;
     };
     int32_t enabled = 0, listed = 0, row = 0;
     for (int32_t round = 0; round < Collection_Count(list()); ++round) {
@@ -1195,13 +1196,13 @@ RT3_NOINLINE void __fastcall EditorDialog_FillIndustries(uint8_t* w, int, int32_
             Window_SendEvent5(w, 0, 0xaf, 0x5b05, (uint32_t)row, 0xffffffff, 0);
             ++row;
         }
-        if (World_LookupNamed2(hook::Global<void*>(0x6cec78), 0, (const char*)Obj_Ref72Plus45(entry(best)))) ++enabled;
+        if (World_LookupNamed2(hook::As<void*>(g_world), 0, (const char*)Obj_Ref72Plus45(entry(best)))) ++enabled;
     }
     char se[0x60], sn[0x60], text[0x200];
     char* pn = Num_Format(sn, 1, (double)listed, 10, 1, 0, 0);
     char* pe = Num_Format(se, 1, (double)enabled, 10, 1, 0, 0);
     FormatText(text, GetString(0x41a), pe, pn, 0, 0, 0, 0, 0, 0);
-    Window_SendEvent5(hook::Global<uint8_t*>(0x6cff84), 0, 0x6f, 0x5b04, (uint32_t)(uintptr_t)text, 0, 0);
+    Window_SendEvent5(g_cityDialog, 0, 0x6f, 0x5b04, (uint32_t)(uintptr_t)text, 0, 0);
 }
 RT3_REPLACE(0x4cd680, EditorDialog_FillIndustries);
 
@@ -1218,7 +1219,7 @@ RT3_NOINLINE void __fastcall EditorDialog_FillHouses(uint8_t* w, int, int32_t ke
     if (!keep) Window_SendEvent5(w, 0, 0x8b, 0x9c42, 0, 0, 0);
     uint8_t used[1000];
     memset(used, 0, sizeof used);
-    auto types = []() { return hook::Global<Collection*>(0x62b268); };
+    auto types = []() { return g_62b268; };
     auto entry = [&](int32_t pos) { return (uint8_t*)Collection_Get(types(), 0, Collection_IdAt(types(), 0, (uint32_t)pos, 0)); };
     int32_t enabled = 0, picks = 0, row = 0;
     for (int32_t round = 0; round < Collection_Count(types()); ++round) {
@@ -1239,7 +1240,7 @@ RT3_NOINLINE void __fastcall EditorDialog_FillHouses(uint8_t* w, int, int32_t ke
         ++picks;
         used[best] = 1;
         if (!keep) {
-            int32_t cities = Table_CountListing(hook::Global<Collection*>(0x62bae0), 0, Collection_IdAt(types(), 0, (uint32_t)best, 0));
+            int32_t cities = Table_CountListing(g_cities, 0, Collection_IdAt(types(), 0, (uint32_t)best, 0));
             const char* name = LocalizeName((const char*)entry(best) + 0x4f);
             char num[0x60], title[0x3e0], line[0x3e8], city[0x110];
             FormatText(title, (const char*)0x5d0b40, name, Num_Format(num, 1, (double)cities, 10, 1, 0, 0), 0, 0, 0, 0, 0, 0);
@@ -1247,7 +1248,7 @@ RT3_NOINLINE void __fastcall EditorDialog_FillHouses(uint8_t* w, int, int32_t ke
             FormatText(line, GetString(0x41b), Num_Format(num, 1, (double)cities, 10, 1, 0, 0), raw, 0, 0, 0, 0, 0, 0);
             for (int32_t i = 0; i < (cities > 8 ? 8 : cities); ++i) {
                 memcpy(line + strlen(line), (const void*)(i ? 0x5c9f38 : 0x5c9ce8), i ? 3 : 2);
-                uint8_t* c = (uint8_t*)Table_NthListing(hook::Global<Collection*>(0x62bae0), 0,
+                uint8_t* c = (uint8_t*)Table_NthListing(g_cities, 0,
                                                        Collection_IdAt(types(), 0, (uint32_t)best, 0), i + 1);
                 FormatText(city, (const char*)c + 0x356, 0, 0, 0, 0, 0, 0, 0, 0);
                 strcat(line, city);
@@ -1258,13 +1259,13 @@ RT3_NOINLINE void __fastcall EditorDialog_FillHouses(uint8_t* w, int, int32_t ke
             Window_SendEvent5(w, 0, 0xaf, 0x9c42, (uint32_t)row, cities ? 0xffffffffu : 0xff9f9f9fu, 0);
             ++row;
         }
-        if (World_LookupNamed1(hook::Global<void*>(0x6cec78), 0, (const char*)entry(best) + 4)) ++enabled;
+        if (World_LookupNamed1(hook::As<void*>(g_world), 0, (const char*)entry(best) + 4)) ++enabled;
     }
     char se[0x60], sp[0x60], text[0x200];
     char* pp = Num_Format(sp, 1, (double)picks, 10, 1, 0, 0);
     char* pe = Num_Format(se, 1, (double)enabled, 10, 1, 0, 0);
     FormatText(text, GetString(0x41c), pe, pp, 0, 0, 0, 0, 0, 0);
-    Window_SendEvent5(hook::Global<uint8_t*>(0x6cff84), 0, 0x6f, 0x9c41, (uint32_t)(uintptr_t)text, 0, 0);
+    Window_SendEvent5(g_cityDialog, 0, 0x6f, 0x9c41, (uint32_t)(uintptr_t)text, 0, 0);
 }
 RT3_REPLACE(0x4cdbd0, EditorDialog_FillHouses);
 
@@ -1279,10 +1280,10 @@ RT3_NOINLINE void __fastcall EditorDialog_SetTab(uint8_t* w, int, int32_t tab, i
     if (cur == 9) Nop4cf900(w);
     else if (cur == 11 && !RulesDialog_StoreRule(w)) return;
     if (city == -1 && tab == 1) {
-        if (Collection_IsValid(hook::Global<Collection*>(0x62bae0), 0, hook::Global<uint32_t>(0x6cff74)))
-            city = hook::Global<int32_t>(0x6cff74);
-        else if (Collection_Count(hook::Global<Collection*>(0x62bae0)))
-            city = (int32_t)Collection_IdAt(hook::Global<Collection*>(0x62bae0), 0, 0, 0);
+        if (Collection_IsValid(g_cities, 0, g_selectedCity))
+            city = hook::As<int32_t>(g_selectedCity);
+        else if (Collection_Count(g_cities))
+            city = (int32_t)Collection_IdAt(g_cities, 0, 0, 0);
         else
             city = 0;
     }
@@ -1312,7 +1313,7 @@ RT3_NOINLINE void __fastcall EditorDialog_SetTab(uint8_t* w, int, int32_t tab, i
     case 19: Dialog_SetCallback4a40(w); break;
     }
     F<int32_t>(w, 0x78) = tab;
-    hook::Global<int32_t>(0x6cff80) = tab;
+    g_6cff80 = tab;
 }
 RT3_REPLACE(0x4ce070, EditorDialog_SetTab);
 
@@ -1325,20 +1326,20 @@ RT3_REPLACE(0x4ce070, EditorDialog_SetTab);
 // 0x507e). Changes (0xca): list pick (0x507e), the value +0x272 (0x5083) and
 // the port count (0x508a). Returns 1 for unhandled events.
 RT3_NOINLINE uint32_t __fastcall CityEditor_HandleEvent(uint8_t* w, int, uint32_t* ev) {
-    Collection* cities = hook::Global<Collection*>(0x62bae0);
+    Collection* cities = g_cities;
     if (ev[0] == 0xca) {
         switch (ev[1]) {
         case 0x507e:
             EditorDialog_SetTab(w, 0, 1, (int32_t)ev[3]);
             return 0;
         case 0x5083:
-            if (hook::Global<uint32_t>(0x6cff74))
-                F<uint32_t>((uint8_t*)Collection_Get(cities, 0, hook::Global<uint32_t>(0x6cff74)), 0x272) = ev[2];
+            if (g_selectedCity)
+                F<uint32_t>((uint8_t*)Collection_Get(cities, 0, g_selectedCity), 0x272) = ev[2];
             return 0;
         case 0x508a:
-            if (hook::Global<uint32_t>(0x6cff74))
-                Obj_NumberPorts(Collection_Get(hook::Global<Collection*>(0x62bae0), 0, hook::Global<uint32_t>(0x6cff74)), 0, (int32_t)ev[2]);
-            CityEditor_Fill(w, 0, hook::Global<int32_t>(0x6cff74), 0);
+            if (g_selectedCity)
+                Obj_NumberPorts(Collection_Get(g_cities, 0, g_selectedCity), 0, (int32_t)ev[2]);
+            CityEditor_Fill(w, 0, hook::As<int32_t>(g_selectedCity), 0);
             return 0;
         }
         return 1;
@@ -1347,14 +1348,14 @@ RT3_NOINLINE uint32_t __fastcall CityEditor_HandleEvent(uint8_t* w, int, uint32_
     switch (ev[1]) {
     case 0x507a:
     case 0x507b: {
-        void* city = Collection_Get(cities, 0, hook::Global<uint32_t>(0x6cff74));
-        for (int32_t i = 0; i < Collection_Count(hook::Global<Collection*>(0x62b268)); ++i) {
-            Collection* cargos = hook::Global<Collection*>(0x62b268);
+        void* city = Collection_Get(cities, 0, g_selectedCity);
+        for (int32_t i = 0; i < Collection_Count(g_62b268); ++i) {
+            Collection* cargos = g_62b268;
             uint8_t* cargo = (uint8_t*)Collection_Get(cargos, 0, Collection_IdAt(cargos, 0, i, 0));
             double amount = ev[1] == 0x507a ? 0.0 : 1.0;
             Obj_SetNamedAmount(city, 0, (const char*)cargo + 4, (float)amount);
         }
-        CityEditor_Fill(w, 0, hook::Global<int32_t>(0x6cff74), 0);
+        CityEditor_Fill(w, 0, hook::As<int32_t>(g_selectedCity), 0);
         return 0;
     }
     case 0x507c: {
@@ -1370,16 +1371,16 @@ RT3_NOINLINE uint32_t __fastcall CityEditor_HandleEvent(uint8_t* w, int, uint32_
             for (int32_t j = 0; j < n; ++j) {
                 if (used[j]) continue;
                 if (best != -1) {
-                    Collection* c = hook::Global<Collection*>(0x62bae0);
+                    Collection* c = g_cities;
                     uint8_t* a = (uint8_t*)Collection_Get(c, 0, Collection_IdAt(c, 0, j, 0));
                     uint8_t* b = (uint8_t*)Collection_Get(c, 0, Collection_IdAt(c, 0, best, 0));
                     if (Stricmp((const char*)a + 0x356, (const char*)b + 0x356) >= 0) continue;
                 }
                 best = j;
             }
-            Collection* c = hook::Global<Collection*>(0x62bae0);
+            Collection* c = g_cities;
             uint8_t* rec = (uint8_t*)Collection_Get(c, 0, Collection_IdAt(c, 0, best, 0));
-            if (F<uint32_t>(rec, 0x23a) != hook::Global<uint32_t>(0x6cff74)) {
+            if (F<uint32_t>(rec, 0x23a) != g_selectedCity) {
                 names[count] = (const char*)rec + 0x356;
                 ids[count] = F<uint32_t>(rec, 0x23a);
                 ++count;
@@ -1388,8 +1389,8 @@ RT3_NOINLINE uint32_t __fastcall CityEditor_HandleEvent(uint8_t* w, int, uint32_
         }
         int32_t sel = 0;
         if (Dialog_RunMessage(GetString(0x41f), 2, 0xbf800000, 0xbf800000, 0, nullptr, 0, 0.0f, 0, 0, count, names, &sel, 0, 0, nullptr, 0) == 0x3f2) {
-            void* other = Collection_Get(hook::Global<Collection*>(0x62bae0), 0, ids[sel]);
-            Obj_CopyNamedAmounts(Collection_Get(hook::Global<Collection*>(0x62bae0), 0, hook::Global<uint32_t>(0x6cff74)), 0, other);
+            void* other = Collection_Get(g_cities, 0, ids[sel]);
+            Obj_CopyNamedAmounts(Collection_Get(g_cities, 0, g_selectedCity), 0, other);
             EditorDialog_SetTab(w, 0, 1, -1);
         }
         Free(names);
@@ -1397,11 +1398,11 @@ RT3_NOINLINE uint32_t __fastcall CityEditor_HandleEvent(uint8_t* w, int, uint32_
         return 0;
     }
     case 0x507f:
-        if (!hook::Global<uint32_t>(0x6cff74)) return 0;
+        if (!g_selectedCity) return 0;
         Dialog_RunMessage(GetString(0x41e), 9, 0xbf800000, 0xbf800000, 0, nullptr, 0, 0.0f,
-                          (uint32_t)(uintptr_t)((uint8_t*)Collection_Get(cities, 0, hook::Global<uint32_t>(0x6cff74)) + 0x356), 0x28, 0, nullptr, nullptr, 0, 0,
+                          (uint32_t)(uintptr_t)((uint8_t*)Collection_Get(cities, 0, g_selectedCity) + 0x356), 0x28, 0, nullptr, nullptr, 0, 0,
                           nullptr, 0);
-        CityEditor_Fill(w, 0, hook::Global<int32_t>(0x6cff74), 0);
+        CityEditor_Fill(w, 0, hook::As<int32_t>(g_selectedCity), 0);
         return 0;
     case 0x5084:
     case 0x5085:
@@ -1426,14 +1427,14 @@ RT3_REPLACE(0x4ce380, CityEditor_HandleEvent);
 // +0x2d (0x50e1), the value +0x39 from a text box (0x50e2, absolute) and the
 // owner +0x35 (0x50e5). Returns 1 for unhandled events.
 RT3_NOINLINE uint32_t __fastcall TerritoryEditor_HandleEvent(uint8_t* w, int, uint32_t* ev) {
-    uint8_t* rec = hook::Global<uint32_t>(0x621f48) ? (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfc9c), 0, hook::Global<uint32_t>(0x621f48)) : nullptr;
+    uint8_t* rec = hook::As<uint32_t>(g_621f48) ? (uint8_t*)Collection_Get(g_territories, 0, hook::As<uint32_t>(g_621f48)) : nullptr;
     if (ev[0] == 0xcb) {
         uint32_t id = ev[1];
         if (id == 0x50dd) {
-            if (hook::Global<uint32_t>(0x621f48)) {
+            if (hook::As<uint32_t>(g_621f48)) {
                 Dialog_RunMessage(GetString(0x41e), 9, 0xbf800000, 0xbf800000, 0, nullptr, 0, 0.0f, (uint32_t)(uintptr_t)(rec + 4), 0x28, 0, nullptr, nullptr, 0, 0,
                                   nullptr, 0);
-                TerritoryEditor_Show(w, 0, hook::Global<int32_t>(0x621f48));
+                TerritoryEditor_Show(w, 0, g_621f48);
             }
             return 0;
         }
@@ -1457,9 +1458,9 @@ RT3_NOINLINE uint32_t __fastcall TerritoryEditor_HandleEvent(uint8_t* w, int, ui
         if (!F<int32_t>(rec, 0x31)) {
             int32_t count = 0;
             char first[0x1b0];
-            for (int32_t i = 0; i < Collection_Count(hook::Global<Collection*>(0x6cfc9c)); ++i) {
-                uint8_t* t = (uint8_t*)Table_At(hook::Global<Collection*>(0x6cfc9c), 0, i);
-                if (F<int32_t>(t, 0x31) || F<uint32_t>(t, 0) == hook::Global<uint32_t>(0x621f48) || F<uint32_t>(t, 0x35) != hook::Global<uint32_t>(0x621f48))
+            for (int32_t i = 0; i < Collection_Count(g_territories); ++i) {
+                uint8_t* t = (uint8_t*)Table_At(g_territories, 0, i);
+                if (F<int32_t>(t, 0x31) || F<uint32_t>(t, 0) == hook::As<uint32_t>(g_621f48) || F<uint32_t>(t, 0x35) != hook::As<uint32_t>(g_621f48))
                     continue;
                 if (!count) strcpy(first, (const char*)t + 4);
                 ++count;
@@ -1478,23 +1479,23 @@ RT3_NOINLINE uint32_t __fastcall TerritoryEditor_HandleEvent(uint8_t* w, int, ui
             }
         }
         Region_PickOther(rec);
-        TerritoryEditor_Show(w, 0, hook::Global<int32_t>(0x621f48));
+        TerritoryEditor_Show(w, 0, g_621f48);
         return 0;
     }
     case 0x50e1:
         if (!rec) return 0;
         F<int32_t>(rec, 0x2d) = F<int32_t>(rec, 0x2d) == 0;
-        TerritoryEditor_Show(w, 0, hook::Global<int32_t>(0x621f48));
+        TerritoryEditor_Show(w, 0, g_621f48);
         return 0;
     case 0x50e2: {
         int32_t v = ((int(__cdecl*)(const char*))0x5a1ea5)(F<const char*>((uint8_t*)(uintptr_t)ev[11], 0xba));
         F<int32_t>(rec, 0x39) = v < 0 ? -v : v;
-        TerritoryEditor_Show(w, 0, hook::Global<int32_t>(0x621f48));
+        TerritoryEditor_Show(w, 0, g_621f48);
         return 0;
     }
     case 0x50e5:
         F<uint32_t>(rec, 0x35) = ev[3];
-        TerritoryEditor_Show(w, 0, hook::Global<int32_t>(0x621f48));
+        TerritoryEditor_Show(w, 0, g_621f48);
         return 0;
     }
     return 1;
@@ -1521,9 +1522,9 @@ RT3_NOINLINE void __fastcall NewGameDialog_StepPortrait(uint8_t* w, int, int32_t
     Window_SendEvent5(w, 0, 0x7c, 0x5a7e, (uint32_t)cur, 0, 0);
     Window_SendEvent5(w, 0, 0x6f, 0x5a7f, (uint32_t)(uintptr_t)GetString(F<int32_t>(s, 0x1f)), 0, 0);
     int32_t row = F<int32_t>(w, 0x80);
-    hook::Global<uint8_t*>(0x6cec78)[0x69d8 + row * 9] = (uint8_t)cur;
-    if (!Collection_IsValid(hook::Global<Collection*>(0x6ceb9c), 0, (uint32_t)(F<int32_t>(w, 0x80) + 1))) return;
-    uint8_t* p = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6ceb9c), 0, (uint32_t)(F<int32_t>(w, 0x80) + 1));
+    g_world[0x69d8 + row * 9] = (uint8_t)cur;
+    if (!Collection_IsValid(g_players, 0, (uint32_t)(F<int32_t>(w, 0x80) + 1))) return;
+    uint8_t* p = (uint8_t*)Collection_Get(g_players, 0, (uint32_t)(F<int32_t>(w, 0x80) + 1));
     p[0x291] = (uint8_t)cur;
     strcpy((char*)p + 8, GetString(F<int32_t>(s, 0x1f)));
     strcpy((char*)p + 0x27, GetString(F<int32_t>(s, 0x23)));
@@ -1542,7 +1543,7 @@ RT3_REPLACE(0x4ceb90, NewGameDialog_StepPortrait);
 // 0x5a78), AI only (0x5a79), AI-allowed only (0x5a7a), both (0x5a7b).
 // Returns 1 for unhandled events.
 RT3_NOINLINE uint32_t __fastcall NewGameDialog_HandleEvent(uint8_t* w, int, uint32_t* ev) {
-    auto row = [](int32_t i) { return hook::Global<uint8_t*>(0x6cec78) + 0x69d8 + i * 9; };
+    auto row = [](int32_t i) { return g_world + 0x69d8 + i * 9; };
     if (ev[0] == 0xca) {
         uint32_t id = ev[1];
         if (id != 0x5a7d && id != 0x5a7c && !F<int32_t>(w, 0x80)) {
@@ -1578,23 +1579,23 @@ RT3_NOINLINE uint32_t __fastcall NewGameDialog_HandleEvent(uint8_t* w, int, uint
     if (ev[0] != 0xcb) return 1;
     switch (ev[1]) {
     case 0x5a72: {
-        if (F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x6a6c) >= 0x10) return 0;
+        if (F<int32_t>(g_world, 0x6a6c) >= 0x10) return 0;
         int32_t i = 0;
         while (row(i)[3] || row(i)[2])
             if (++i >= 0x10) return 1;
         uint32_t pid = (uint32_t)(i + 1);
-        Collection* players = hook::Global<Collection*>(0x6ceb9c);
+        Collection* players = g_players;
         if (!Collection_IsValid(players, 0, pid)) {
-            players = hook::Global<Collection*>(0x6ceb9c);
+            players = g_players;
             pid = ((uint32_t(__thiscall*)(Collection*, int32_t, int32_t, int32_t, int32_t))(*(void***)players)[1])(players, 0, 0, 0, 0);
         }
-        uint8_t* p = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6ceb9c), 0, pid);
+        uint8_t* p = (uint8_t*)Collection_Get(g_players, 0, pid);
         int32_t k = (int8_t)row(i)[0];
         uint8_t* slot = (uint8_t*)0x5f2d28 + k * 0x27;
         const char* desc = GetString(F<int32_t>(slot, 0x23));
         const char* name = GetString(F<int32_t>(slot, 0x1f));
         Player_Init(p, 0, (int32_t)pid, slot[1], name, desc, k, 1);
-        ++F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x6a6c);
+        ++F<int32_t>(g_world, 0x6a6c);
         row(i)[3] = 1;
         row(i)[2] = 1;
         row(i)[1] = 1;
@@ -1618,13 +1619,13 @@ RT3_NOINLINE uint32_t __fastcall NewGameDialog_HandleEvent(uint8_t* w, int, uint
         F<uint32_t>(r, 4) = 0;
         r[8] = 0;
         F<int32_t>(row(i), 4) = 100000;
-        if (Collection_IsValid(hook::Global<Collection*>(0x6ceb9c), 0, (uint32_t)(i + 1))) {
-            uint8_t* p = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6ceb9c), 0, (uint32_t)(i + 1));
+        if (Collection_IsValid(g_players, 0, (uint32_t)(i + 1))) {
+            uint8_t* p = (uint8_t*)Collection_Get(g_players, 0, (uint32_t)(i + 1));
             F<uint32_t>(p, 4) = 0;
             memset(p + 0x15d, 0, 0x80);
         }
-        --F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x6a6c);
-        if (sel == F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x6a6c)) --sel;
+        --F<int32_t>(g_world, 0x6a6c);
+        if (sel == F<int32_t>(g_world, 0x6a6c)) --sel;
         NewGameDialog_ListHumanRows(w);
         Window_SendEvent5(w, 0, 0x66, 0x5a6e, (uint32_t)sel, 0, 0);
         return 0;
@@ -1642,17 +1643,17 @@ RT3_REPLACE(0x4cecc0, NewGameDialog_HandleEvent);
 // 0x5b0b toggle a group (turning one on enables its types). Returns 1 for
 // unhandled events.
 RT3_NOINLINE uint32_t __fastcall EditorDialog_OnIndustryEvent(uint8_t* w, int, uint32_t* ev) {
-    Collection* types = hook::Global<Collection*>(0x6ada84);
+    Collection* types = g_6ada84;
     auto typeAt = [](int32_t i) {
-        Collection* t = hook::Global<Collection*>(0x6ada84);
+        Collection* t = g_6ada84;
         return (uint8_t*)Collection_Get(t, 0, Collection_IdAt(t, 0, (uint32_t)i, 0));
     };
-    auto setFlag = [](uint8_t* r, int32_t v) { World_SetNamedFlag(hook::Global<uint8_t*>(0x6cec78), 0, (const char*)Obj_Ref72Plus45(r), v); };
+    auto setFlag = [](uint8_t* r, int32_t v) { World_SetNamedFlag(g_world, 0, (const char*)Obj_Ref72Plus45(r), v); };
     int32_t id = (int32_t)ev[1];
     if (ev[0] == 0xcb) {
         if (id < 0x5b06) return 1;
         if (id <= 0x5b08) {
-            for (int32_t i = 0; i < Collection_Count(hook::Global<Collection*>(0x6ada84)); ++i) {
+            for (int32_t i = 0; i < Collection_Count(g_6ada84); ++i) {
                 uint8_t* r = typeAt(i);
                 setFlag(r, r[0x30 + (id - 0x5b06)]);
             }
@@ -1660,10 +1661,10 @@ RT3_NOINLINE uint32_t __fastcall EditorDialog_OnIndustryEvent(uint8_t* w, int, u
             return 0;
         }
         if (id != 0x5b0c) return 1;
-        hook::Global<uint8_t*>(0x6cec78)[0x4c99] = 0;
-        hook::Global<uint8_t*>(0x6cec78)[0x4c98] = 0;
-        hook::Global<uint8_t*>(0x6cec78)[0x4c97] = 0;
-        for (int32_t i = 0; i < Collection_Count(hook::Global<Collection*>(0x6ada84)); ++i) setFlag(typeAt(i), 0);
+        g_world[0x4c99] = 0;
+        g_world[0x4c98] = 0;
+        g_world[0x4c97] = 0;
+        for (int32_t i = 0; i < Collection_Count(g_6ada84); ++i) setFlag(typeAt(i), 0);
         EditorDialog_FillIndustries(w, 0, 0);
         return 0;
     }
@@ -1672,7 +1673,7 @@ RT3_NOINLINE uint32_t __fastcall EditorDialog_OnIndustryEvent(uint8_t* w, int, u
         uint8_t* box = (uint8_t*)(uintptr_t)ev[11];
         uint8_t* r = (uint8_t*)Collection_Get(types, 0, F<uint32_t>(box, 0x82));
         int32_t on = (int32_t)ev[2];
-        uint8_t* wd = hook::Global<uint8_t*>(0x6cec78);
+        uint8_t* wd = g_world;
         if (!on && ((r[0x30] && wd[0x4c97]) || (r[0x31] && wd[0x4c98]) || (r[0x32] && wd[0x4c99]))) {
             F<int32_t>(box, 0xcc) = 1;
             Message_Show(GetString(0xbbc), 1, 0);
@@ -1684,10 +1685,10 @@ RT3_NOINLINE uint32_t __fastcall EditorDialog_OnIndustryEvent(uint8_t* w, int, u
         return 0;
     }
     if (id < 0x5b09 || id > 0x5b0b) return 1;
-    uint8_t& group = hook::Global<uint8_t*>(0x6cec78)[0x4c97 + (id - 0x5b09)];
+    uint8_t& group = g_world[0x4c97 + (id - 0x5b09)];
     group = group == 0;
-    if (!hook::Global<uint8_t*>(0x6cec78)[0x4c97 + (id - 0x5b09)]) return 0;
-    for (int32_t i = 0; i < Collection_Count(hook::Global<Collection*>(0x6ada84)); ++i) {
+    if (!g_world[0x4c97 + (id - 0x5b09)]) return 0;
+    for (int32_t i = 0; i < Collection_Count(g_6ada84); ++i) {
         uint8_t* r = typeAt(i);
         if (int32_t v = r[0x30 + (id - 0x5b09)]) setFlag(r, v);
     }
@@ -1704,16 +1705,16 @@ RT3_REPLACE(0x4cf0d0, EditorDialog_OnIndustryEvent);
 RT3_NOINLINE int32_t __fastcall EditorDialog_HousesEvent(uint8_t* w, int, int32_t* ev) {
     if (ev[0] != 0xca && ev[0] != 0xcb) return 1;
     if (ev[0] == 0xca && ev[1] >= 0xa028 && ev[1] <= 0xa40f) {
-        uint8_t* type = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62b268), 0, F<uint32_t>((uint8_t*)(uintptr_t)ev[0xb], 0x82));
-        World_SetNamedValue(hook::Global<uint8_t*>(0x6cec78), 0, (const char*)type + 4, ev[2]);
+        uint8_t* type = (uint8_t*)Collection_Get(g_62b268, 0, F<uint32_t>((uint8_t*)(uintptr_t)ev[0xb], 0x82));
+        World_SetNamedValue(g_world, 0, (const char*)type + 4, ev[2]);
         EditorDialog_FillHouses(w, 0, 1);
         return 0;
     }
     if (ev[1] < 0x9c43 || ev[1] > 0x9c44) return 1;
-    for (int32_t i = 0; i < Collection_Count(hook::Global<Collection*>(0x62b268)); ++i) {
-        Collection* c = hook::Global<Collection*>(0x62b268);
+    for (int32_t i = 0; i < Collection_Count(g_62b268); ++i) {
+        Collection* c = g_62b268;
         uint8_t* type = (uint8_t*)Collection_Get(c, 0, Collection_IdAt(c, 0, (uint32_t)i, 0));
-        if (type[0x32] == 2) World_SetNamedValue(hook::Global<uint8_t*>(0x6cec78), 0, (const char*)type + 4, ev[1] == 0x9c43 ? 1 : 0);
+        if (type[0x32] == 2) World_SetNamedValue(g_world, 0, (const char*)type + 4, ev[1] == 0x9c43 ? 1 : 0);
     }
     EditorDialog_FillHouses(w, 0, 0);
     return 0;
@@ -1721,7 +1722,7 @@ RT3_NOINLINE int32_t __fastcall EditorDialog_HousesEvent(uint8_t* w, int, int32_
 RT3_REPLACE(0x4cf430, EditorDialog_HousesEvent);
 
 void __fastcall Editor_SetTabCb(int32_t v) {
-    if (v != -1 && hook::Global<uint8_t*>(0x6cff84)) EditorDialog_SetTab(hook::Global<uint8_t*>(0x6cff84), 0, v, -1);
+    if (v != -1 && g_cityDialog) EditorDialog_SetTab(g_cityDialog, 0, v, -1);
 }
 RT3_REPLACE(0x4cf530, Editor_SetTabCb);
 
@@ -1744,16 +1745,16 @@ RT3_NOINLINE void __fastcall EditorDialog_Init(uint8_t* w, int, int32_t tab, int
         ((void(__cdecl*)(void*))0x5a1145)((void*)(uintptr_t)item[0]);
         ((void(__cdecl*)(void*))0x5a1145)((void*)(uintptr_t)item[1]);
     }
-    int32_t lang = hook::Global<int32_t>(0x6d3c84);
+    int32_t lang = g_language;
     if (lang == 4 || lang == 2) {
         Window_SendEvent5(w, 0, 0xb3, 0x4a44, 5, 0, 0);
-        lang = hook::Global<int32_t>(0x6d3c84);
+        lang = g_language;
     }
     if (lang == 1) {
         Window_SendEvent5(w, 0, 0x78, 0x5b0c, 0x12, 0, 0);
         Window_SendEvent5(w, 0, 0x78, 0x9c43, 0x12, 0, 0);
         Window_SendEvent5(w, 0, 0x78, 0x9c44, 0x12, 0, 0);
-        lang = hook::Global<int32_t>(0x6d3c84);
+        lang = g_language;
     }
     if (lang == 2) {
         Window_SendEvent5(w, 0, 0x78, 0x9c43, 0x12, 0, 0);
@@ -1803,21 +1804,21 @@ RT3_REPLACE(0x4cf700, EditorDialog_HandleEvent);
 // `tab` (-1: the last one, 0x6cff80) for `city`, taking the chosen city
 // 0x6cff78 into 0x6cff74 when it is valid; then updates the edit tool cursor.
 RT3_NOINLINE void __fastcall EditorDialog_Run(int32_t tab, int32_t city) {
-    if (tab == -1) tab = hook::Global<int32_t>(0x6cff80);
-    Cursor_Set(hook::Global<uint8_t*>(0xccbb20), 0, 1, 0, 0);
+    if (tab == -1) tab = g_6cff80;
+    Cursor_Set(g_cursorManager, 0, 1, 0, 0);
     uint8_t* w = (uint8_t*)((void*(__cdecl*)(size_t))0x53b070)(0xa0);
     w = w ? PortraitDialog_Construct(w) : nullptr;
     EditorDialog_Init(w, 0, tab, city);
-    if (Collection_IsValid(hook::Global<Collection*>(0x62bae0), 0, hook::Global<uint32_t>(0x6cff78))) hook::Global<uint32_t>(0x6cff74) = hook::Global<uint32_t>(0x6cff78);
-    PauseLock_Push(hook::Global<int32_t*>(0x6cec74));
-    Ui_RunModal(hook::Global<uint8_t**>(0x6d401c), 0, w, 1, 0, 0x14, 0);
-    PauseLock_Pop(hook::Global<int32_t*>(0x6cec74));
-    Windows_Remove(hook::Global<uint8_t*>(0x6d401c), 0, w);
+    if (Collection_IsValid(g_cities, 0, g_6cff78)) g_selectedCity = g_6cff78;
+    PauseLock_Push(hook::As<int32_t*>(g_app));
+    Ui_RunModal(hook::As<uint8_t**>(g_windowManager), 0, w, 1, 0, 0x14, 0);
+    PauseLock_Pop(hook::As<int32_t*>(g_app));
+    Windows_Remove(g_windowManager, 0, w);
     if (w) {
         SetupWindow_Destroy(w);
         ((void(__cdecl*)(void*))0x53b080)(w);
     }
-    if (hook::Global<uint8_t*>(0x6d0818)) EditTool_UpdateCursor(hook::Global<uint8_t*>(0x6d0818));
+    if (g_gameWindow) EditTool_UpdateCursor(g_gameWindow);
 }
 RT3_REPLACE(0x4cf830, EditorDialog_Run);
 
@@ -1834,15 +1835,15 @@ RT3_REPLACE(0x4cf900, Nop4cf900);
 // layout event 0xb3 by kind), the converter controls 0x59dc..0x59de when any entry
 // converts, and the template's +0x3ed in 0x59de.
 RT3_NOINLINE void __fastcall EditorDialog_ShowRegionTypes(uint8_t* w) {
-    ++hook::Global<int32_t>(0x6cffa0);
-    Templates_Normalize(hook::Global<uint8_t*>(0x6cec78));
+    ++g_6cffa0;
+    Templates_Normalize(g_world);
     Window_SendEvent5(w, 0, 0x8b, 0x59d8, 0, 0, 0);
     for (int32_t i = 0, off = 0; off < 0x3a8c; ++i, off += 0x4e1) {
         int32_t count = 0;
         char names[0x3f0];
         names[0] = 0;
-        for (int32_t k = 0; k < Collection_Count(hook::Global<Collection*>(0x62bae0)); ++k) {
-            Collection* cc = hook::Global<Collection*>(0x62bae0);
+        for (int32_t k = 0; k < Collection_Count(g_cities); ++k) {
+            Collection* cc = g_cities;
             uint8_t* c = (uint8_t*)Collection_Get(cc, 0, Collection_IdAt(cc, 0, (uint32_t)k, 0));
             if (F<int32_t>(c, 0x242) <= 0 || !F<int32_t>(c, 0x2f6) || F<int32_t>(c, 0x2f2) != i) continue;
             if (count < 8) {
@@ -1852,7 +1853,7 @@ RT3_NOINLINE void __fastcall EditorDialog_ShowRegionTypes(uint8_t* w) {
             ++count;
         }
         uint32_t item[8] = {};
-        String_Assign((char**)&item[0], (const char*)hook::Global<uint8_t*>(0x6cec78) + 0xfe7 + off);
+        String_Assign((char**)&item[0], (const char*)g_world + 0xfe7 + off);
         char num[0x60], text[0x400];
         if (count > 0) FormatText(text, GetString(0x1fc), Num_Format(num, 1, (double)count, 10, 1, 0, 0), names, 0, 0, 0, 0, 0, 0);
         else FormatText(text, GetString(0x1fd), 0, 0, 0, 0, 0, 0, 0, 0);
@@ -1862,8 +1863,8 @@ RT3_NOINLINE void __fastcall EditorDialog_ShowRegionTypes(uint8_t* w) {
         ((void(__cdecl*)(void*))0x5a1145)((void*)(uintptr_t)item[0]);
         ((void(__cdecl*)(void*))0x5a1145)((void*)(uintptr_t)item[1]);
     }
-    Window_SendEvent5(w, 0, 0x66, 0x59d8, hook::Global<uint32_t>(0x6cffa4), 0, 0);
-    uint8_t* tmpl = hook::Global<uint8_t*>(0x6cec78) + 0xfe7 + hook::Global<int32_t>(0x6cffa4) * 0x4e1;
+    Window_SendEvent5(w, 0, 0x66, 0x59d8, hook::As<uint32_t>(g_6cffa4), 0, 0);
+    uint8_t* tmpl = g_world + 0xfe7 + g_6cffa4 * 0x4e1;
     bool converts = false;
     uint8_t* e = tmpl + 0x3f1;
     for (int32_t j = 0, lay = 0; j < 5; ++j, e += 0x30, lay += 0xbe) {
@@ -1891,15 +1892,15 @@ RT3_NOINLINE void __fastcall EditorDialog_ShowRegionTypes(uint8_t* w) {
         Window_SendEvent5(w, 0, 0x8b, id + 0x14, 0, 0, 0);
         Window_SendEvent5(w, 0, 0x8b, id + 0x28, 0, 0, 0);
         int32_t sel1 = 0, sel2 = 0, row = 0;
-        for (int32_t k = 0; k < Collection_Count(hook::Global<Collection*>(0x62ba8c)); ++k) {
-            Collection* ct = hook::Global<Collection*>(0x62ba8c);
+        for (int32_t k = 0; k < Collection_Count(g_cargoTypes); ++k) {
+            Collection* ct = g_cargoTypes;
             uint8_t* c = (uint8_t*)Collection_Get(ct, 0, Collection_IdAt(ct, 0, (uint32_t)k, 0));
             if (c[0x46]) continue;
             const char* raw = (const char*)c + 4;
             const char* loc = LocalizeName(raw);
-            Window_SendEvent5(w, 0, 0x88, id + 0x14, (uint32_t)(uintptr_t)loc, Collection_IdAt(hook::Global<Collection*>(0x62ba8c), 0, (uint32_t)k, 0), 0);
+            Window_SendEvent5(w, 0, 0x88, id + 0x14, (uint32_t)(uintptr_t)loc, Collection_IdAt(g_cargoTypes, 0, (uint32_t)k, 0), 0);
             loc = LocalizeName(raw);
-            Window_SendEvent5(w, 0, 0x88, id + 0x28, (uint32_t)(uintptr_t)loc, Collection_IdAt(hook::Global<Collection*>(0x62ba8c), 0, (uint32_t)k, 0), 0);
+            Window_SendEvent5(w, 0, 0x88, id + 0x28, (uint32_t)(uintptr_t)loc, Collection_IdAt(g_cargoTypes, 0, (uint32_t)k, 0), 0);
             if (!Stricmp(raw, (const char*)e + 8)) sel1 = row;
             if (!Stricmp(raw, (const char*)e + 0x1c)) sel2 = row;
             ++row;
@@ -1919,7 +1920,7 @@ RT3_NOINLINE void __fastcall EditorDialog_ShowRegionTypes(uint8_t* w) {
     char buf[0x1f0];
     Num_Format(buf, 1, (double)Ftol(F<float>(tmpl, 0x3ed)), 10, 1, 0, 0);
     Window_SendEvent5(w, 0, 0x6f, 0x59de, (uint32_t)(uintptr_t)buf, 0, 0);
-    --hook::Global<int32_t>(0x6cffa0);
+    --g_6cffa0;
 }
 RT3_REPLACE(0x4cf910, EditorDialog_ShowRegionTypes);
 
@@ -1933,8 +1934,8 @@ RT3_REPLACE(0x4cf910, EditorDialog_ShowRegionTypes);
 // 0x62ba8c) and amount +4 (0x5a50 + j, warning 0x1fa above 6). Every handled
 // event reshows the page.
 RT3_NOINLINE uint32_t __fastcall EditorDialog_OnRegionTypesEvent(uint8_t* w, int, uint32_t* ev) {
-    if (hook::Global<int32_t>(0x6cffa0) > 0) return 1;
-    auto tmpl = []() { return hook::Global<uint8_t*>(0x6cec78) + 0xfe7 + hook::Global<int32_t>(0x6cffa4) * 0x4e1; };
+    if (g_6cffa0 > 0) return 1;
+    auto tmpl = []() { return g_world + 0xfe7 + g_6cffa4 * 0x4e1; };
     uint32_t id = ev[1];
     if (ev[0] == 0xcb) {
         if (id == 0x59d9) {
@@ -1943,7 +1944,7 @@ RT3_NOINLINE uint32_t __fastcall EditorDialog_OnRegionTypesEvent(uint8_t* w, int
         } else {
             if ((int32_t)id < 0x59d9 || (int32_t)id > 0x59db) return 1;
             int32_t dir = id != 0x59da ? 1 : -1;
-            hook::Global<int32_t>(0x6cffa4) = (dir + hook::Global<int32_t>(0x6cffa4) + 12) % 12;
+            g_6cffa4 = (dir + g_6cffa4 + 12) % 12;
         }
         EditorDialog_ShowRegionTypes(w);
         return 0;
@@ -1951,7 +1952,7 @@ RT3_NOINLINE uint32_t __fastcall EditorDialog_OnRegionTypesEvent(uint8_t* w, int
     if (ev[0] != 0xca) return 1;
     auto atoi_ = [&]() { return ((int(__cdecl*)(const char*))0x5a1ea5)(F<const char*>((uint8_t*)(uintptr_t)ev[11], 0xba)); };
     if (id == 0x59d8) {
-        hook::Global<uint32_t>(0x6cffa4) = ev[2];
+        hook::As<uint32_t>(g_6cffa4) = ev[2];
     } else if (id == 0x59de) {
         int32_t v = atoi_();
         if (v > 8) Message_Show(GetString(0x1f9), 1, 0);
@@ -1959,10 +1960,10 @@ RT3_NOINLINE uint32_t __fastcall EditorDialog_OnRegionTypesEvent(uint8_t* w, int
     } else if (id >= 0x5a0a && id <= 0x5a0e) {
         F<uint32_t>(tmpl(), 0x3f1 + (id - 0x5a0a) * 0x30) = ev[2];
     } else if (id >= 0x5a1e && id <= 0x5a22) {
-        uint8_t* cargo = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba8c), 0, ev[3]);
+        uint8_t* cargo = (uint8_t*)Collection_Get(g_cargoTypes, 0, ev[3]);
         strcpy((char*)tmpl() + 0x3f9 + (id - 0x5a1e) * 0x30, (const char*)cargo + 4);
     } else if (id >= 0x5a32 && id <= 0x5a36) {
-        uint8_t* cargo = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba8c), 0, ev[3]);
+        uint8_t* cargo = (uint8_t*)Collection_Get(g_cargoTypes, 0, ev[3]);
         strcpy((char*)tmpl() + 0x40d + (id - 0x5a32) * 0x30, (const char*)cargo + 4);
     } else if (id >= 0x5a50 && id <= 0x5a54) {
         int32_t v = atoi_();
@@ -1990,67 +1991,67 @@ RT3_REPLACE(0x4d03d0, Obj_Ratio76);
 // obsolete types (0x6cffd0); then ten labelled lines (0x424..0x42d, densities
 // per 1000 cells) under title 0x423, and footer 0x42e.
 RT3_NOINLINE void __fastcall EngineStats_Draw(void*, int, float x, float y, float w, float h, int32_t) {
-    if (!hook::Global<int32_t>(0x6cffb0)) {
-        hook::Global<int32_t>(0x6cffb0) = 1;
-        hook::Global<int32_t>(0x6cffb4) = 0;
-        for (int32_t cy = 0; cy < F<int32_t>(hook::Global<uint8_t*>(0x62c120), 0x2159); ++cy)
-            for (int32_t cx = 0; cx < F<int32_t>(hook::Global<uint8_t*>(0x62c120), 0x2155); ++cx)
-                if (!Map_CellLow3(hook::Global<uint8_t*>(0x62c120), 0, cx, cy)) ++hook::Global<int32_t>(0x6cffb4);
-        hook::Global<int32_t>(0x6cffc8) = 0;
-        hook::Global<int32_t>(0x6cffac) = 0;
-        hook::Global<float>(0x6cffcc) = 0.0f;
-        hook::Global<float>(0x6cffc0) = 0.0f;
+    if (!g_6cffb0) {
+        g_6cffb0 = 1;
+        g_6cffb4 = 0;
+        for (int32_t cy = 0; cy < F<int32_t>(g_map, 0x2159); ++cy)
+            for (int32_t cx = 0; cx < F<int32_t>(g_map, 0x2155); ++cx)
+                if (!Map_CellLow3(g_map, 0, cx, cy)) ++g_6cffb4;
+        g_6cffc8 = 0;
+        g_6cffac = 0;
+        g_6cffcc = 0.0f;
+        g_6cffc0 = 0.0f;
         float sumCur = 0.0f, weighted = 0.0f, weight = 0.0f;
-        Collection* locos = hook::Global<Collection*>(0x62bae0);
+        Collection* locos = g_cities;
         for (int32_t j = 0; j < Collection_Count(locos); ++j) {
             uint8_t* r = (uint8_t*)Collection_Get(locos, 0, Collection_IdAt(locos, 0, j, 0));
-            hook::Global<float>(0x6cffc0) = (float)((double)Obj_ProductionRate(r, 0, 2) + hook::Global<float>(0x6cffc0));
-            hook::Global<float>(0x6cffcc) = (float)((double)Obj_ProductionRate(r, 0, 2) + hook::Global<float>(0x6cffcc));
-            hook::Global<float>(0x6cffcc) = (float)((double)Obj_ProductionRate(r, 0, 3) + hook::Global<float>(0x6cffcc));
-            hook::Global<float>(0x6cffcc) = (float)((double)Obj_ProductionRate(r, 0, 0) + hook::Global<float>(0x6cffcc));
+            g_6cffc0 = (float)((double)Obj_ProductionRate(r, 0, 2) + g_6cffc0);
+            g_6cffcc = (float)((double)Obj_ProductionRate(r, 0, 2) + g_6cffcc);
+            g_6cffcc = (float)((double)Obj_ProductionRate(r, 0, 3) + g_6cffcc);
+            g_6cffcc = (float)((double)Obj_ProductionRate(r, 0, 0) + g_6cffcc);
             if (F<int32_t>(r, 0x23e)) {
                 float f = (float)(F<int32_t>(r, 0x242) << 4);
-                ++hook::Global<int32_t>(0x6cffac);
+                ++g_6cffac;
                 weight = (float)((double)f + weight);
                 weighted = (float)((double)f * F<float>(r, 0x25a) + weighted);
             } else {
                 sumCur = (float)((double)sumCur + F<float>(r, 0x25a));
-                ++hook::Global<int32_t>(0x6cffc8);
+                ++g_6cffc8;
             }
         }
-        int32_t nCur = hook::Global<int32_t>(0x6cffc8) < 1 ? 1 : hook::Global<int32_t>(0x6cffc8);
-        hook::Global<float>(0x6cffd4) = (float)((double)sumCur / (float)nCur);
+        int32_t nCur = g_6cffc8 < 1 ? 1 : g_6cffc8;
+        g_6cffd4 = (float)((double)sumCur / (float)nCur);
         float d = Fl(0x5c85b4) > weight ? 1.0f : weight;
-        hook::Global<float>(0x6cffd0) = (float)((double)weighted / d);
+        g_6cffd0 = (float)((double)weighted / d);
     }
-    uint8_t* font = hook::Global<uint8_t*>(0x6cff88);
+    uint8_t* font = g_6cff88;
     float rowY = (float)((double)y + D(0x5d01d8));
     float lx = (float)((double)x + D(0x5d0be0));
     float lw = (float)((double)w - D(0x5d0bd8));
     Font_DrawTextBox(font, 0, GetString(0x423), lx, rowY, lw, BitsF(0x3cfc9630), 0xffffffff, 0, 0, 0, 1.0f);
     rowY = (float)((double)rowY + D(0x5d0bd0));
     auto sprintf_ = (int(__cdecl*)(char*, const char*, ...))0x5a19c4;
-    auto cells = [] { return hook::Global<int32_t>(0x6cffb4) < 1 ? 1 : hook::Global<int32_t>(0x6cffb4); };
+    auto cells = [] { return g_6cffb4 < 1 ? 1 : g_6cffb4; };
     char buf[0x200];
     for (int32_t i = 0; i < 10; ++i) {
         uint32_t color = (i == 2 || i == 8) ? 0xffffff00 : 0xffffffff;
         Font_DrawTextBox(font, 0, GetString(0x424 + i), lx, rowY, lw, BitsF(0x3cfc9630), color, 2, 0, 0, 1.0f);
-        float c0 = hook::Global<float>(0x6cffc0), cc = hook::Global<float>(0x6cffcc);
+        float c0 = g_6cffc0, cc = g_6cffcc;
         switch (i) {
-        case 0: Num_Format(buf, 1, (double)hook::Global<int32_t>(0x6cffb4), 10, 1, 0, 0); break;
-        case 1: Num_Format(buf, 1, (double)hook::Global<int32_t>(0x6cffc8), 10, 1, 0, 0); break;
+        case 0: Num_Format(buf, 1, (double)g_6cffb4, 10, 1, 0, 0); break;
+        case 1: Num_Format(buf, 1, (double)g_6cffc8, 10, 1, 0, 0); break;
         case 2: {
             int32_t m = cells();
-            sprintf_(buf, (const char*)0x5ca2ac, (double)hook::Global<int32_t>(0x6cffc8) * D(0x5c8d18) / (double)m);
+            sprintf_(buf, (const char*)0x5ca2ac, (double)g_6cffc8 * D(0x5c8d18) / (double)m);
             break;
         }
-        case 3: sprintf_(buf, (const char*)0x5d0bc4, (double)hook::Global<float>(0x6cffd4)); break;
+        case 3: sprintf_(buf, (const char*)0x5d0bc4, (double)g_6cffd4); break;
         case 4: {
             int32_t m = cells();
-            sprintf_(buf, (const char*)0x5d0bbc, (double)hook::Global<int32_t>(0x6cffc8) * D(0x5c8d18) * hook::Global<float>(0x6cffd4) / (double)m);
+            sprintf_(buf, (const char*)0x5d0bbc, (double)g_6cffc8 * D(0x5c8d18) * g_6cffd4 / (double)m);
             break;
         }
-        case 5: sprintf_(buf, (const char*)0x5d0bc4, (double)hook::Global<float>(0x6cffd0)); break;
+        case 5: sprintf_(buf, (const char*)0x5d0bc4, (double)g_6cffd0); break;
         case 6: Num_Format(buf, 1, (double)Ftol((double)c0), 10, 1, 0, 0); break;
         case 7: Num_Format(buf, 1, (double)Ftol((double)cc - c0), 10, 1, 0, 0); break;
         case 8: {
@@ -2064,7 +2065,7 @@ RT3_NOINLINE void __fastcall EngineStats_Draw(void*, int, float x, float y, floa
             break;
         }
         }
-        float off = (float)(hook::Global<int32_t>(0x6d3c84) == 1 ? BitsD(0x3f9999999999999aull) : 0.0);
+        float off = (float)(g_language == 1 ? BitsD(0x3f9999999999999aull) : 0.0);
         float vx = (float)((double)off + lx);
         Font_DrawTextBox(font, 0, buf, vx, rowY, lw, BitsF(0x3cfc9630), color, 3, 0, 0, 1.0f);
         rowY = (float)((double)rowY + Fl(0x5d0bb8));
@@ -2092,18 +2093,18 @@ RT3_REPLACE(0x4d0420, EngineStats_Draw);
 // last loop reads each city's map cell and drops the result.
 void __fastcall ScenarioCheck_Draw(void*, int, float x, float y0, float w0, float h, int32_t) {
     float y = (float)((double)y0 + *(const double*)0x5d01d8);
-    int32_t start = F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x66ca);
+    int32_t start = F<int32_t>(g_world, 0x66ca);
     float w = (float)((double)w0 - *(const double*)0x5d0110);
     int32_t any = 0;
     uint8_t* font = nullptr;
     auto draw = [&](const char* text, uint32_t hb) {
-        font = hook::Global<uint8_t*>(0x6cff90);
+        font = g_6cff90;
         Font_DrawTextBox(font, 0, text, x, y, w, *(const float*)&hb, 0xffffffff, 0, 0, 0, 1.0f);
     };
     char msg[0x200], num1[0x20], num2[0x20], list[0x200];
-    Collection* cities = hook::Global<Collection*>(0x62bae0);
-    for (int32_t i = 0; i < Collection_Count(hook::Global<Collection*>(0x62bae0)); ++i) {
-        cities = hook::Global<Collection*>(0x62bae0);
+    Collection* cities = g_cities;
+    for (int32_t i = 0; i < Collection_Count(g_cities); ++i) {
+        cities = g_cities;
         uint8_t* c = (uint8_t*)Collection_Get(cities, 0, Collection_IdAt(cities, 0, (uint32_t)i, 0));
         if (F<int32_t>(c, 0x23e) && F<int32_t>(c, 0x242) <= 0) continue;
         if (Obj_CountTypesAvailable(c, 0, start, 2)) continue;
@@ -2115,7 +2116,7 @@ void __fastcall ScenarioCheck_Draw(void*, int, float x, float y0, float w0, floa
         draw(msg, 0x3ca3d70a);
         y = y + *(const float*)0x5cb5c4;
     }
-    uint8_t* world = hook::Global<uint8_t*>(0x6cec78);
+    uint8_t* world = g_world;
     int32_t open = 0;
     for (int32_t k = 0; k < F<int32_t>(world, 0x6a6c); ++k)
         if (!world[0x69d8 + k * 9]) ++open;
@@ -2130,29 +2131,29 @@ void __fastcall ScenarioCheck_Draw(void*, int, float x, float y0, float w0, floa
         any = 1;
         draw(msg, 0x3da3d70a);
         y = y + *(const float*)0x5d0c10;
-        world = hook::Global<uint8_t*>(0x6cec78);
+        world = g_world;
     }
     if (strlen((const char*)world + 0x4f30) < 2) {
         draw(GetString(0x432), 0x3da3d70a);
         y = (float)((double)y + *(const double*)0x5d0c08);
-        world = hook::Global<uint8_t*>(0x6cec78);
+        world = g_world;
     }
     if (strlen((const char*)world + 0x672e) < 2) {
         draw(GetString(0x433), 0x3da3d70a);
         y = (float)((double)y + *(const double*)0x5d0c08);
     }
-    int32_t total = Collection_Count(hook::Global<Collection*>(0x6ada84));
+    int32_t total = Collection_Count(g_6ada84);
     static int32_t other[200], two[200], all[200];
     memset(other, 0, sizeof other);
     memset(two, 0, sizeof two);
     memset(all, 0, sizeof all);
     int32_t used = 0;
-    for (int32_t j = 0; j < Collection_Count(hook::Global<Collection*>(0x6ada84)); ++j) {
-        Collection* engines = hook::Global<Collection*>(0x6ada84);
+    for (int32_t j = 0; j < Collection_Count(g_6ada84); ++j) {
+        Collection* engines = g_6ada84;
         uint8_t* e = (uint8_t*)Collection_Get(engines, 0, Collection_IdAt(engines, 0, (uint32_t)j, 0));
-        if (!World_LookupNamed2(hook::Global<uint8_t*>(0x6cec78), 0, (const char*)Obj_Ref72Plus45(e))) continue;
-        uint8_t* t = F<uint32_t>(e, 0x72) ? (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba88), 0, F<uint32_t>(e, 0x72)) : nullptr;
-        int32_t first = F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x66ca);
+        if (!World_LookupNamed2(g_world, 0, (const char*)Obj_Ref72Plus45(e))) continue;
+        uint8_t* t = F<uint32_t>(e, 0x72) ? (uint8_t*)Collection_Get(g_carTypes, 0, F<uint32_t>(e, 0x72)) : nullptr;
+        int32_t first = F<int32_t>(g_world, 0x66ca);
         ++used;
         for (int32_t k = 0; k < 200; ++k) {
             int32_t yr = 0x725 + k;
@@ -2174,7 +2175,7 @@ void __fastcall ScenarioCheck_Draw(void*, int, float x, float y0, float w0, floa
     bool fewAll = false, fewTwo = false, fewOther = false;
     for (int32_t k = 0; k < 200; ++k) {
         int32_t yr = 0x725 + k;
-        if (yr < F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x66ca)) continue;
+        if (yr < F<int32_t>(g_world, 0x66ca)) continue;
         if (!fewAll && all[k] <= (yr > 0x73f ? 1 : 0)) {
             const char* sn = Num_Format(num1, 1, (double)all[k], 0xa, 1, 0, 0);
             const char* sy = Num_Format(num2, 8, (double)yr, 0xa, 1, 0, 0);
@@ -2202,15 +2203,15 @@ void __fastcall ScenarioCheck_Draw(void*, int, float x, float y0, float w0, floa
         }
     }
     bool header = false;
-    for (int32_t i = 0; i < Collection_Count(hook::Global<Collection*>(0x62b268)); ++i) {
-        Collection* types = hook::Global<Collection*>(0x62b268);
+    for (int32_t i = 0; i < Collection_Count(g_62b268); ++i) {
+        Collection* types = g_62b268;
         uint8_t* b = (uint8_t*)Collection_Get(types, 0, Collection_IdAt(types, 0, (uint32_t)i, 0));
         const char* name = (const char*)b + 4;
         auto strnicmp = (int(__cdecl*)(const char*, const char*, size_t))0x5a5f26;
-        if (!World_LookupNamed1(hook::Global<uint8_t*>(0x6cec78), 0, name) || !strnicmp(name, (const char*)0x5c8f94, 4) || !strnicmp(name, (const char*)0x5c8e4c, 9))
+        if (!World_LookupNamed1(g_world, 0, name) || !strnicmp(name, (const char*)0x5c8f94, 4) || !strnicmp(name, (const char*)0x5c8e4c, 9))
             continue;
-        uint32_t id = Collection_IdAt(hook::Global<Collection*>(0x62b268), 0, (uint32_t)i, 0);
-        if (Table_CountListing(hook::Global<Collection*>(0x62bae0), 0, id)) continue;
+        uint32_t id = Collection_IdAt(g_62b268, 0, (uint32_t)i, 0);
+        if (Table_CountListing(g_cities, 0, id)) continue;
         if (!header) {
             draw(GetString(0x438), 0x3d4ccccc);
             y = (float)((double)y + *(const double*)0x5d0bf8);
@@ -2223,15 +2224,15 @@ void __fastcall ScenarioCheck_Draw(void*, int, float x, float y0, float w0, floa
         any = 1;
     }
     if (header) y = y + *(const float*)0x5cb5c4;
-    for (int32_t i = 0; i < Collection_Count(hook::Global<Collection*>(0x62ba8c)); ++i) {
-        Collection* cargos = hook::Global<Collection*>(0x62ba8c);
+    for (int32_t i = 0; i < Collection_Count(g_cargoTypes); ++i) {
+        Collection* cargos = g_cargoTypes;
         uint8_t* cg = (uint8_t*)Collection_Get(cargos, 0, Collection_IdAt(cargos, 0, (uint32_t)i, 0));
         if (!F<int32_t>(cg, 0x56)) continue;
         int32_t made = 0;
-        for (int32_t j = 0; j < Collection_Count(hook::Global<Collection*>(0x62b268)); ++j) {
-            Collection* types = hook::Global<Collection*>(0x62b268);
+        for (int32_t j = 0; j < Collection_Count(g_62b268); ++j) {
+            Collection* types = g_62b268;
             uint8_t* b = (uint8_t*)Collection_Get(types, 0, Collection_IdAt(types, 0, (uint32_t)j, 0));
-            if (!World_LookupNamed1(hook::Global<uint8_t*>(0x6cec78), 0, (const char*)b + 4) && b[0x32]) continue;
+            if (!World_LookupNamed1(g_world, 0, (const char*)b + 4) && b[0x32]) continue;
             int32_t n = F<int32_t>(b, 0x7a4);
             if (n <= 0) continue;
             const uint16_t* out = F<const uint16_t*>(b, 0x79c);
@@ -2247,11 +2248,11 @@ void __fastcall ScenarioCheck_Draw(void*, int, float x, float y0, float w0, floa
         any = 1;
     }
     char* report = (char*)0x6cffd8;
-    if (!hook::Global<int32_t>(0x6d07ac)) {
-        hook::Global<int32_t>(0x6d07ac) = 1;
+    if (!g_6d07ac) {
+        g_6d07ac = 1;
         report[0] = 0;
-        for (int32_t i = 0; i < Collection_Count(hook::Global<Collection*>(0x62bae0)); ++i) {
-            Collection* cs = hook::Global<Collection*>(0x62bae0);
+        for (int32_t i = 0; i < Collection_Count(g_cities); ++i) {
+            Collection* cs = g_cities;
             uint8_t* c = (uint8_t*)Collection_Get(cs, 0, Collection_IdAt(cs, 0, (uint32_t)i, 0));
             if (F<int32_t>(c, 0x242) <= 1) continue;
             for (int32_t k = 0; k < Obj_Count37f(c);) {
@@ -2260,7 +2261,7 @@ void __fastcall ScenarioCheck_Draw(void*, int, float x, float y0, float w0, floa
                 float amount;
                 Obj_Entry37f(c, 0, k, name, (int32_t*)&amount);
                 if (amount <= *(const float*)0x5c8598) continue;
-                uint8_t* type = (uint8_t*)Table_GetByName(hook::Global<Collection*>(0x62b268), 0, name);
+                uint8_t* type = (uint8_t*)Table_GetByName(g_62b268, 0, name);
                 if (!type) continue;
                 int32_t seed = GetSeed();
                 SetSeed(0xa7);
@@ -2289,24 +2290,24 @@ void __fastcall ScenarioCheck_Draw(void*, int, float x, float y0, float w0, floa
         y = (float)((double)y + *(const double*)0x5d0bf0);
         any = 1;
         float room = (float)((double)h - ((double)y - y0));
-        float th = (float)Font_TextHeight(hook::Global<uint8_t*>(0x6cff90), 0, report, w, nullptr);
+        float th = (float)Font_TextHeight(g_6cff90, 0, report, w, nullptr);
         if (room < th) th = room;
         float bh = (float)((double)th + *(const double*)0x5caae0);
-        Font_DrawTextBox(hook::Global<uint8_t*>(0x6cff90), 0, report, x, y, w, bh, 0xffffffff, 0, 0, 0, 1.0f);
+        Font_DrawTextBox(g_6cff90, 0, report, x, y, w, bh, 0xffffffff, 0, 0, 0, 1.0f);
         y = bh + y;
         y = (float)((double)y + *(const double*)0x5d0be8);
     }
-    for (int32_t i = 0; i < Collection_Count(hook::Global<Collection*>(0x62bae0)); ++i) {
-        Collection* cs = hook::Global<Collection*>(0x62bae0);
+    for (int32_t i = 0; i < Collection_Count(g_cities); ++i) {
+        Collection* cs = g_cities;
         uint8_t* c = (uint8_t*)Collection_Get(cs, 0, Collection_IdAt(cs, 0, (uint32_t)i, 0));
         if (F<int32_t>(c, 0x23e)) continue;
         Obj_CellX(c);
         Obj_CellY(c);
         int32_t cy = (int32_t)Obj_CellY(c);
         int32_t cx = (int32_t)Obj_CellX(c);
-        uint8_t* map = hook::Global<uint8_t*>(0x62c120);
+        uint8_t* map = g_map;
         int32_t cell = cy / 4 * F<int32_t>(map, 0x214d) + cx / 4;
-        Collection_Get(hook::Global<Collection*>(0x62bae0), 0, F<uint8_t*>(map, 0x212d)[cell * 4]);
+        Collection_Get(g_cities, 0, F<uint8_t*>(map, 0x212d)[cell * 4]);
     }
     if (!any) draw(GetString(0x43d), 0x3d23d70a);
     (void)font;
@@ -2318,35 +2319,35 @@ RT3_REPLACE(0x4d0a90, ScenarioCheck_Draw);
 // (0x6cffb8); shows the total with its averages per map cell and per land
 // cell (string 0x43e, averages as 0x5d0c14).
 void __fastcall MapStats_DrawCb(void*, int, float x, float y, float w, float h, int32_t) {
-    uint8_t* m = hook::Global<uint8_t*>(0x62c120);
-    if (!hook::Global<int32_t>(0x6cffc4)) {
-        hook::Global<int32_t>(0x6cffc4) = 1;
-        hook::Global<int32_t>(0x6cffb8) = 0;
-        hook::Global<int32_t>(0x6cffa8) = 0;
+    uint8_t* m = g_map;
+    if (!g_6cffc4) {
+        g_6cffc4 = 1;
+        g_6cffb8 = 0;
+        g_6cffa8 = 0;
         for (int32_t j = 0; j < F<int32_t>(m, 0x2159); ++j) {
             for (int32_t i = 0; i < F<int32_t>(m, 0x2155); ++i) {
                 if (!Map_CellLow3(m, 0, i, j)) {
-                    ++hook::Global<int32_t>(0x6cffa8);
-                    hook::Global<int32_t>(0x6cffb8) += (int32_t)Terrain_CellCount(hook::Global<uint8_t*>(0x62c120), 0, i, j);
+                    ++g_6cffa8;
+                    g_6cffb8 += (int32_t)Terrain_CellCount(g_map, 0, i, j);
                 }
-                m = hook::Global<uint8_t*>(0x62c120);
+                m = g_map;
             }
-            m = hook::Global<uint8_t*>(0x62c120);
+            m = g_map;
         }
     }
     auto sprintf_ = (int(__cdecl*)(char*, const char*, ...))0x5a19c4;
     char perCell[0x40], perLand[0x40], num[0xc8], text[0x5dc];
-    const float total = (float)hook::Global<int32_t>(0x6cffb8);
+    const float total = (float)g_6cffb8;
     const float cells = (float)(F<int32_t>(m, 0x2159) * F<int32_t>(m, 0x2155));
     sprintf_(perCell, (const char*)0x5d0c14, (double)total / cells);
-    const float total2 = (float)hook::Global<int32_t>(0x6cffb8);
-    const float land = (float)hook::Global<int32_t>(0x6cffa8);
+    const float total2 = (float)g_6cffb8;
+    const float land = (float)g_6cffa8;
     sprintf_(perLand, (const char*)0x5d0c14, (double)total2 / land);
-    Num_Format(num, 1, (double)hook::Global<int32_t>(0x6cffb8), 10, 1, 0, 0);
+    Num_Format(num, 1, (double)g_6cffb8, 10, 1, 0, 0);
     FormatText(text, GetString(0x43e), num, perCell, perLand, 0, 0, 0, 0, 0);
     const float tw = (float)((double)w - D(0x5c8758));
     const float tx = (float)((double)x + D(0x5d08a0));
-    Font_DrawTextBox(hook::Global<uint8_t*>(0x6cff88), 0, text, tx, y, tw, h, 0xffffffff, 0, 0, 0, 1.0f);
+    Font_DrawTextBox(g_6cff88, 0, text, tx, y, tw, h, 0xffffffff, 0, 0, 0, 1.0f);
 }
 RT3_REPLACE(0x4d1b80, MapStats_DrawCb);
 
@@ -2357,7 +2358,7 @@ RT3_REPLACE(0x4d1b80, MapStats_DrawCb);
 // tinted; a column block wraps to the right below 0x5d0c28, with a rule
 // every 5 rows.
 RT3_NOINLINE void __fastcall LocoStats_DrawTable(void*, int, float x, float y, float, float, int32_t) {
-    Collection* locos = hook::Global<Collection*>(0x62bae0);
+    Collection* locos = g_cities;
     static uint8_t used[1000];
     uint32_t order[1000];
     char best[0x190];
@@ -2381,8 +2382,8 @@ RT3_NOINLINE void __fastcall LocoStats_DrawTable(void*, int, float x, float y, f
     float rowY = (float)((double)y - D(0x5ca2e0));
     float colX = (float)((double)x + D(0x5d0b38));
     int32_t pages = (n - 1) / 35 + 1;
-    int32_t page = (hook::Global<int32_t>(0x6cff7c) + pages) % pages;
-    hook::Global<int32_t>(0x6cff7c) = page;
+    int32_t page = (g_6cff7c + pages) % pages;
+    g_6cff7c = page;
     static const int32_t heads[11] = { 3, 0x43f, 0x440, 0x441, 0x442, 0x443, 0x444, 0x445, 0x446, 0x447, 0x448 };
     static const uint32_t widths[11] = { 0x43340000, 0x42c5c28f, 0x42e2999a, 0x42e2999a, 0x42de7ae1, 0x42e6b852, 0x42ce0000, 0x42c5c28f, 0x42c5c28f,
                                          0x42b547ae, 0x42bd851f };
@@ -2428,7 +2429,7 @@ RT3_NOINLINE void __fastcall LocoStats_DrawTable(void*, int, float x, float y, f
                 float h = (float)(hmul * D(0x5d0c40));
                 float w = (float)(((double)wk + wAdd) / D(0x5ca158));
                 float tx = (float)(xAdd / D(0x5ca2c8) + cx);
-                Font_DrawTextBox(hook::Global<uint8_t*>(0x6cff90), 0, buf, tx, rowY, w, h, color, (k != 0) + 2, 4, 0, 1.0f);
+                Font_DrawTextBox(g_6cff90, 0, buf, tx, rowY, w, h, color, (k != 0) + 2, 4, 0, 1.0f);
                 cx = (float)(((double)wk + D(0x5c8978)) / D(0x5ca158) + cx);
             }
             total = (float)(((double)wk + D(0x5c8978)) / D(0x5ca158) + total);

@@ -1,5 +1,6 @@
 #include "developer_menu.h"
 #include "hook/hook.h"
+#include "core/globals.h"
 #include "core/log.h"
 #include <stdint.h>
 #include <string.h>
@@ -21,8 +22,8 @@ struct MenuOwner {
 static_assert(sizeof(MenuOwner) == 8, "RT3 is a 32-bit game");
 
 void CALLBACK MaintainMenu(HWND window, UINT, UINT_PTR, DWORD) {
-    auto engine = hook::Global<uint8_t*>(0x6d4024);
-    auto owner = hook::Global<MenuOwner*>(0x6ada8c);
+    auto engine = g_engine;
+    auto owner = hook::As<MenuOwner*>(g_6ada8c);
     if (!engine || !owner || *(HWND*)engine != window) return;
 
     // The native menu belongs to windowed mode. Keep the handle for a later
@@ -37,8 +38,8 @@ void CALLBACK MaintainMenu(HWND window, UINT, UINT_PTR, DWORD) {
 
     // Do not call the game's menu-check routine until its UI, input and sound
     // managers exist. The timer runs on the game's UI thread after startup.
-    if (!hook::Global<void*>(0x6d401c) || !hook::Global<void*>(0x6d4018) ||
-        !hook::Global<void*>(0x6d402c)) return;
+    if (!hook::As<void*>(g_windowManager) || !hook::As<void*>(g_input) ||
+        !hook::As<void*>(g_sound)) return;
 
     // DestroyWindow may have invalidated a menu on a display-mode rebuild.
     if (owner->menu && !IsMenu(owner->menu)) owner->menu = nullptr;

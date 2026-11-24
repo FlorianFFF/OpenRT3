@@ -14,6 +14,7 @@
 #include <string.h>
 #include <stdint.h>
 #include "hook/hook.h"
+#include "core/globals.h"
 #include "core/log.h"
 
 namespace rt3 { struct Collection; void __fastcall Collection_Save(Collection*, int, int32_t, int32_t);
@@ -29,7 +30,7 @@ static int g_state, g_loadFrame;
 static volatile LONG g_fakeMs = 1000000;
 static volatile LONG g_modalPasses; // modal loop passes since the last main-loop frame
 
-static void*& Game() { return hook::Global<void*>(0x6cec78); }
+static void*& Game() { return hook::As<void*>(g_world); }
 
 // --- fake clocks -----------------------------------------------------------
 
@@ -56,7 +57,7 @@ static BOOL WINAPI FakeGetCursorPos(POINT* p) {
 static BOOL WINAPI FakeSetCursorPos(int, int) { return TRUE; }
 static BOOL WINAPI FakeGetKeyboardState(BYTE* k) { memset(k, 0, 256); return TRUE; }
 static HWND WINAPI FakeGetForegroundWindow() {
-    uint8_t* engine = hook::Global<uint8_t*>(0x6d4024);
+    uint8_t* engine = g_engine;
     return engine ? *(HWND*)engine : nullptr;
 }
 
@@ -91,7 +92,7 @@ static int __fastcall FrameHook(void* ctx) {
     { // per-frame fingerprint, to find where two runs part
         uint8_t* g = (uint8_t*)Game();
         rt3::Log("F %ld lcg %08x simrand %08x world %08x cam %08x modal %ld", g_frame,
-                 hook::Global<uint32_t>(0x624324), hook::Global<uint32_t>(0x62431c),
+                 g_lcg, g_seed,
                  g ? rt3::Crc32(g + 4, 0x4c00) : 0, g ? rt3::Crc32(g + 0x4c9c, 0x14) : 0, g_modalPasses);
     }
     g_modalPasses = 0;
@@ -99,21 +100,21 @@ static int __fastcall FrameHook(void* ctx) {
         // As if a saved game were started from the menu: new-game config mode 3
         // ("load save", name at +0x11), then enter screen 1, whose world init
         // (0x438890) loads it. ctx is the app/screen manager (+0x08 = screen).
-        uint8_t* cfg = hook::Global<uint8_t*>(0x6cec7c);
+        uint8_t* cfg = g_newGame;
         *(int32_t*)(cfg + 1) = 3;
         strncpy((char*)cfg + 0x11, g_load, 0x32);
         g_state = 1;
         g_loadFrame = g_frame;
         // The Setup screen seeds SimRand (0x62431c) with Rand + GetTickCount and
         // loading does not restore it, so fix both generators before loading.
-        hook::Global<uint32_t>(0x62431c) = 0x13572468;
+        g_seed = 0x13572468;
         // Multiplayer saves touch the network layer's locks, which only exist
         // after a network session was set up (0x5236a0); create them if missing.
         static const uint32_t kLocks[] = { 0x6d4090, 0x6d406c, 0x6d4048, 0x6d40b4 };
         for (uint32_t cs : kLocks)
             if (((CRITICAL_SECTION*)cs)->DebugInfo == nullptr && ((CRITICAL_SECTION*)cs)->LockCount == 0)
                 InitializeCriticalSection((CRITICAL_SECTION*)cs);
-        hook::Global<uint32_t>(0x624324) = 0x2468ace0;
+        g_lcg = 0x2468ace0;
         rt3::Log("harness: frame %ld, starting %s", g_frame, g_load);
         ((void(__fastcall*)(void*, int, int32_t, int32_t))0x482ec0)(ctx, 0, 1, 0);
         rt3::Log("harness: screen %d, game=%p", *(int32_t*)((uint8_t*)ctx + 8), Game());
@@ -141,7 +142,7 @@ static int __fastcall FrameHook(void* ctx) {
 // loop's event fetch is wrapped: after a fixed number of loop passes since the
 // last main-loop frame, Enter is posted to the game window.
 static void PostEnter() {
-    if (uint8_t* engine = hook::Global<uint8_t*>(0x6d4024)) {
+    if (uint8_t* engine = g_engine) {
         HWND w = *(HWND*)engine;
         PostMessageA(w, WM_KEYDOWN, VK_RETURN, 0x001c0001);
         PostMessageA(w, WM_KEYUP, VK_RETURN, 0xc01c0001);
@@ -165,7 +166,7 @@ static DWORD WINAPI Watchdog(void*) {
         Sleep(20000);
         LONG f = g_frame;
         if (g_state == 1 && f == seen) {
-            uint8_t* engine = hook::Global<uint8_t*>(0x6d4024);
+            uint8_t* engine = g_engine;
             HWND w = engine ? *(HWND*)engine : nullptr;
             rt3::Log("harness: STALLED at frame %ld (non-deterministic Enter)", f);
             // Where is the frame thread? EIP and the code addresses on its stack.

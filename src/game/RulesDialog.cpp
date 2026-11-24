@@ -8,6 +8,7 @@
 #include <string.h>
 #include <initializer_list>
 #include "hook/hook.h"
+#include "core/globals.h"
 #include "game/collection.h"
 #include "core/stream.h"
 #include "core/crt.h"
@@ -260,7 +261,7 @@ static inline SprintfFn ExeSprintf() { return (SprintfFn)0x5a19c4; }
 static void Panel_Close(uint32_t slot, uint32_t vtbl, bool clearFirst) {
     uint8_t*& p = hook::Global<uint8_t*>(slot);
     if (!p) return;
-    Windows_Remove(hook::Global<uint8_t*>(0x6d401c), 0, p);
+    Windows_Remove(g_windowManager, 0, p);
     if (uint8_t* w = p) {
         F<uint32_t>(w, 0) = vtbl;
         if (clearFirst) p = nullptr;
@@ -283,7 +284,7 @@ static uint8_t* Panel_Open(uint32_t slot, size_t size, uint32_t vtbl, const char
         if (highlight) Window_HighlightViewModes(w);
     }
     hook::Global<uint8_t*>(slot) = w;
-    WidgetList_Insert(hook::Global<uint8_t**>(0x6d401c), 0, w, select);
+    WidgetList_Insert(hook::As<uint8_t**>(g_windowManager), 0, w, select);
     return w;
 }
 
@@ -292,27 +293,27 @@ static uint8_t* Panel_Open(uint32_t slot, size_t size, uint32_t vtbl, const char
 // refilling the list and keeping the selection on it.
 static void RulesDialog_MoveRule(uint8_t* w, int32_t dir) {
     if (F<int32_t>(w, 0x84) == -1) return;
-    Collection* rules = hook::Global<Collection*>(0x62be18);
+    Collection* rules = g_events;
     Collection_Get(rules, 0, F<uint32_t>(w, 0x84));
-    uint32_t pos = Collection_PositionOf(hook::Global<Collection*>(0x62be18), 0, F<uint32_t>(w, 0x84), 2);
+    uint32_t pos = Collection_PositionOf(g_events, 0, F<uint32_t>(w, 0x84), 2);
     if (dir < 0 ? pos == 0 : (int32_t)pos == F<int32_t>(w, 0x90) - 1) return;
     RulesDialog_StoreRule(w);
-    rules = hook::Global<Collection*>(0x62be18);
+    rules = g_events;
     uint8_t* other = (uint8_t*)Collection_Get(rules, 0, Collection_IdAt(rules, 0, pos + dir, 2));
-    Collection_SwapOrder(hook::Global<Collection*>(0x62be18), 0, F<uint32_t>(w, 0x84), F<uint32_t>(other, 0x14), 2);
+    Collection_SwapOrder(g_events, 0, F<uint32_t>(w, 0x84), F<uint32_t>(other, 0x14), 2);
     int32_t sel = F<int32_t>(w, 0x84);
     RulesDialog_FillList(w);
     F<int32_t>(w, 0x84) = sel;
     RulesDialog_Refresh(w);
-    Window_SendEvent5(w, 0, 0x66, 0x4e84, Collection_PositionOf(hook::Global<Collection*>(0x62be18), 0, F<uint32_t>(w, 0x84), 2), 0, 0);
+    Window_SendEvent5(w, 0, 0x66, 0x4e84, Collection_PositionOf(g_events, 0, F<uint32_t>(w, 0x84), 2), 0, 0);
 }
 
 // Runs dialog w (game paused) and frees it with `destruct`; returns its result.
 static uint32_t Dialog_RunAndFree(uint8_t* w, void(__fastcall* destruct)(uint8_t*)) {
-    PauseLock_Push(hook::Global<int32_t*>(0x6cec74));
-    uint32_t r = Ui_RunModal(hook::Global<uint8_t**>(0x6d401c), 0, w, 1, 0, 0x14, 0);
-    PauseLock_Pop(hook::Global<int32_t*>(0x6cec74));
-    Windows_Remove(hook::Global<uint8_t*>(0x6d401c), 0, w);
+    PauseLock_Push(hook::As<int32_t*>(g_app));
+    uint32_t r = Ui_RunModal(hook::As<uint8_t**>(g_windowManager), 0, w, 1, 0, 0x14, 0);
+    PauseLock_Pop(hook::As<int32_t*>(g_app));
+    Windows_Remove(g_windowManager, 0, w);
     if (w) {
         destruct(w);
         ((void(__cdecl*)(void*))0x53b080)(w);
@@ -327,7 +328,7 @@ static uint32_t Message_Show(const char* text, int32_t type, int32_t timeout) {
 }
 
 static inline uint8_t** EventEditor_Event(uint8_t* w) {
-    return (uint8_t**)Collection_Get(hook::Global<Collection*>(0x62be18), 0, F<uint32_t>(w, 0x84));
+    return (uint8_t**)Collection_Get(g_events, 0, F<uint32_t>(w, 0x84));
 }
 
 // Appends node n to the list at *head linked through +next.
@@ -345,8 +346,8 @@ static inline void EventEditor_Append(uint8_t** head, uint8_t* n, uint32_t next)
 // before the type's year +0x26, string 0x44a, greyed), then five totals by
 // kind (0x40f / 0x410 / 0x44b / 0x44c / 0x44d).
 RT3_NOINLINE void __fastcall BuildingCounts_DrawTable(void*, int, float x, float y, float, float, int32_t) {
-    uint8_t* font = hook::Global<int32_t>(0x6d4034) ? hook::Global<uint8_t*>(0x6cff8c) : hook::Global<uint8_t*>(0x6cff88);
-    Collection* types = hook::Global<Collection*>(0x62b268);
+    uint8_t* font = g_6d4034 ? g_6cff8c : g_6cff88;
+    Collection* types = g_62b268;
     int32_t sumKind0 = 0, sumFlag78c = 0, sumUnused = 0, sumKind3 = 0;
     int32_t count = Collection_Count(types);
     float width[4];
@@ -372,11 +373,11 @@ RT3_NOINLINE void __fastcall BuildingCounts_DrawTable(void*, int, float x, float
             if (F<int32_t>(r, 0x794) > 0 || r[0x32] == 1 || r[0x32] == 4 || r[0x32] == 5) continue;
             int32_t n = 0;
             if (!r[0xba] && !r[0xbb])
-                n = Table_CountField3d0(hook::Global<Collection*>(0x62b26c), 0, (int32_t)id);
+                n = Table_CountField3d0(g_buildings, 0, (int32_t)id);
             else
                 for (int32_t j = 0; j < count; ++j) {
                     uint8_t* o = (uint8_t*)Collection_Get(types, 0, Collection_IdAt(types, 0, j, 0));
-                    if ((o[0xba] && r[0xba]) || (o[0xbb] && r[0xbb])) n += Table_CountField3d0(hook::Global<Collection*>(0x62b26c), 0, F<int32_t>(o, 0xe4));
+                    if ((o[0xba] && r[0xba]) || (o[0xbb] && r[0xbb])) n += Table_CountField3d0(g_buildings, 0, F<int32_t>(o, 0xe4));
                 }
             if (c == 0) {
                 FormatText(buf, LocalizeName((const char*)(r + 0x4f)), 0, 0, 0, 0, 0, 0, 0, 0);
@@ -389,8 +390,8 @@ RT3_NOINLINE void __fastcall BuildingCounts_DrawTable(void*, int, float x, float
                 total = (float)((double)nf + total);
                 if (n) Num_Format(buf, 1, (double)Ftol((double)nf + D(0x5c85b8)), 10, 1, 0, 0);
                 else if (!F<int32_t>(r, 0x7ac))
-                    FormatText(buf, hook::Global<int32_t>(0x6d3c84) == 1 ? (const char*)0x5ca2b4 : GetString(0xe4), 0, 0, 0, 0, 0, 0, 0, 0);
-                else if (F<uint16_t>(hook::Global<uint8_t*>(0x6cec78), 0xd) < F<uint16_t>(r, 0x26))
+                    FormatText(buf, g_language == 1 ? (const char*)0x5ca2b4 : GetString(0xe4), 0, 0, 0, 0, 0, 0, 0, 0);
+                else if (F<uint16_t>(g_world, 0xd) < F<uint16_t>(r, 0x26))
                     FormatText(buf, GetString(0x44a), 0, 0, 0, 0, 0, 0, 0, 0);
                 else
                     Num_Format(buf, 1, (double)Ftol((double)nf + D(0x5c85b8)), 10, 1, 0, 0);
@@ -450,14 +451,14 @@ void __fastcall CargoStats_Draw(void*, int, float x, float y, float, float, int3
             rowY = colY;
             if (g == 0) {
                 float cw = (float)((double)widths[i] / D(0x5ca158));
-                Font_DrawTextBox(hook::Global<uint8_t*>(0x6cff90), 0, GetString(labels[i]), cx, rowY, cw, BitsF(0x3dcc1e09), 0xffffff00, (i != 0) + 2, 4, 0,
+                Font_DrawTextBox(g_6cff90, 0, GetString(labels[i]), cx, rowY, cw, BitsF(0x3dcc1e09), 0xffffff00, (i != 0) + 2, 4, 0,
                                  1.0f);
                 rowY = (float)((double)colY + D(0x5d0c80));
             }
             float sum = 0.0f;
             int32_t count = 0;
-            for (int32_t j = 0; j < Collection_Count(hook::Global<Collection*>(0x62ba8c)); ++j) {
-                Collection* cs = hook::Global<Collection*>(0x62ba8c);
+            for (int32_t j = 0; j < Collection_Count(g_cargoTypes); ++j) {
+                Collection* cs = g_cargoTypes;
                 uint8_t* c = (uint8_t*)Collection_Get(cs, 0, Collection_IdAt(cs, 0, (uint32_t)j, 0));
                 if (!Obj_YearReached(c)) continue;
                 if (g == 0 ? c[0x46] != 0 : c[0x46] == 0) continue;
@@ -496,7 +497,7 @@ void __fastcall CargoStats_Draw(void*, int, float x, float y, float, float, int3
                     else Num_FormatSimple(text, 9, (double)v / D(0x5c87f8), 0xb);
                 }
                 float cw = (float)((double)widths[i] / D(0x5ca158));
-                Font_DrawTextBox(hook::Global<uint8_t*>(0x6cff8c), 0, text, cx, rowY, cw, BitsF(0x3cb17e4b), 0xffffffff, (i != 0) + 2, 0, 0, 1.0f);
+                Font_DrawTextBox(g_6cff8c, 0, text, cx, rowY, cw, BitsF(0x3cb17e4b), 0xffffffff, (i != 0) + 2, 0, 0, 1.0f);
                 rowY = (float)((double)rowY + Fl(0x5d0c60));
             }
             rowY = (float)((double)rowY + D(0x5d0c50));
@@ -507,7 +508,7 @@ void __fastcall CargoStats_Draw(void*, int, float x, float y, float, float, int3
                 Num_FormatSimple(text, 9, (double)sum / n / D(0x5c87f8), 0xb);
             }
             float cw = (float)((double)widths[i] / D(0x5ca158));
-            Font_DrawTextBox(hook::Global<uint8_t*>(0x6cff8c), 0, text, cx, rowY, cw, BitsF(0x3cb17e4b), 0xffffffff, (i != 0) + 2, 0, 0, 1.0f);
+            Font_DrawTextBox(g_6cff8c, 0, text, cx, rowY, cw, BitsF(0x3cb17e4b), 0xffffffff, (i != 0) + 2, 0, 0, 1.0f);
             cx = (float)(((double)widths[i] + Fl(0x5c85f8)) / D(0x5ca158) + cx);
         }
         rowY = (float)((double)rowY + D(0x5d0c78));
@@ -531,19 +532,19 @@ RT3_REPLACE(0x4d3020, Dialog_SetupControl5141);
 
 // (These three also reset a dialog global first.)
 RT3_NOINLINE int32_t __fastcall Dialog_SetCallback4a3f(uint8_t* w) {
-    hook::Global<int32_t>(0x6cffc4) = 0;
+    g_6cffc4 = 0;
     return Window_SendEvent5(w, 0, 0x7a, 0x4a3f, 0x4d1b80, 0, 0);
 }
 RT3_REPLACE(0x4d3060, Dialog_SetCallback4a3f);
 
 RT3_NOINLINE int32_t __fastcall Dialog_SetCallback4a41(uint8_t* w) {
-    hook::Global<int32_t>(0x6d07ac) = 0;
+    g_6d07ac = 0;
     return Window_SendEvent5(w, 0, 0x7a, 0x4a41, 0x4d0a90, 0, 0);
 }
 RT3_REPLACE(0x4d3080, Dialog_SetCallback4a41);
 
 RT3_NOINLINE int32_t __fastcall Dialog_SetCallback4a40(uint8_t* w) {
-    hook::Global<int32_t>(0x6cffb0) = 0;
+    g_6cffb0 = 0;
     return Window_SendEvent5(w, 0, 0x7a, 0x4a40, 0x4d0420, 0, 0);
 }
 RT3_REPLACE(0x4d30a0, Dialog_SetCallback4a40);
@@ -562,7 +563,7 @@ RT3_NOINLINE void __fastcall ScenarioVars_Draw(void*, int, float x, float y, flo
     float x0 = (float)((double)x + D(0x5d0830));
     float ly = (float)((double)cy - D(0x5d06f8));
     Ui_Line(0xff8f8f8f, 0, x0, ly, (float)((double)x0 + D(0x5d0c98)), ly, 2.0f);
-    Font_DrawTextBox(hook::Global<uint8_t*>(0x6cff90), 0, GetString(0x45d), x0, cy, BitsF(0x3ecf0a3d), BitsF(0x3cb851ec), 0xffffffff, 0, 1, 0, 1.0f);
+    Font_DrawTextBox(g_6cff90, 0, GetString(0x45d), x0, cy, BitsF(0x3ecf0a3d), BitsF(0x3cb851ec), 0xffffffff, 0, 1, 0, 1.0f);
     int32_t idx = 0, phase = 0, lastPhase = 0, type = 0;
     static const int32_t header[2] = { 0x45b, 0x45c };
     cy = (float)((double)cy + D(0x5d0c90));
@@ -580,15 +581,15 @@ RT3_NOINLINE void __fastcall ScenarioVars_Draw(void*, int, float x, float y, flo
                 draw = true;
                 break;
             case 1: {
-                int32_t v = F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x8a + type * 4);
+                int32_t v = F<int32_t>(g_world, 0x8a + type * 4);
                 if (!v) break;
                 FormatText(text[0], GetString(0x45e), name, 0, 0, 0, 0, 0, 0, 0);
-                Num_Format(text[1], 1, (double)F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x8a + type * 4), 10, 1, 0, 0);
+                Num_Format(text[1], 1, (double)F<int32_t>(g_world, 0x8a + type * 4), 10, 1, 0, 0);
                 draw = true;
                 break;
             }
             case 2: {
-                uint8_t* co = (uint8_t*)Table_NthField3f(hook::Global<Collection*>(0x62be10), 0, idx);
+                uint8_t* co = (uint8_t*)Table_NthField3f(g_companies, 0, idx);
                 if (!F<int32_t>(co, 0x35b + type * 4)) break;
                 FormatText(text[0], GetString(0x45f), (const char*)(co + 4), name, 0, 0, 0, 0, 0, 0);
                 Num_Format(text[1], 1, (double)F<int32_t>(co, 0x35b + type * 4), 10, 1, 0, 0);
@@ -596,7 +597,7 @@ RT3_NOINLINE void __fastcall ScenarioVars_Draw(void*, int, float x, float y, flo
                 break;
             }
             case 3: {
-                uint8_t* p = (uint8_t*)Table_NthField4(hook::Global<Collection*>(0x6ceb9c), 0, idx);
+                uint8_t* p = (uint8_t*)Table_NthField4(g_players, 0, idx);
                 if (!F<int32_t>(p, 0x2ab + type * 4)) break;
                 FormatText(text[0], GetString(0x460), (const char*)(p + 8), name, 0, 0, 0, 0, 0, 0);
                 Num_Format(text[1], 1, (double)F<int32_t>(p, 0x2ab + type * 4), 10, 1, 0, 0);
@@ -604,7 +605,7 @@ RT3_NOINLINE void __fastcall ScenarioVars_Draw(void*, int, float x, float y, flo
                 break;
             }
             case 4: {
-                Collection* cs = hook::Global<Collection*>(0x6cfc9c);
+                Collection* cs = g_territories;
                 uint8_t* c = (uint8_t*)Collection_Get(cs, 0, Collection_IdAt(cs, 0, (uint32_t)idx, 0));
                 if (!F<int32_t>(c, 0x3b5 + type * 4)) break;
                 FormatText(text[0], GetString(0x461), (const char*)(c + 4), name, 0, 0, 0, 0, 0, 0);
@@ -623,7 +624,7 @@ RT3_NOINLINE void __fastcall ScenarioVars_Draw(void*, int, float x, float y, flo
                 for (int k = 0; k < 2; ++k) {
                     double extra = k == 0 ? BitsD(0x3fa999999999999aull) : 0.0;
                     float w = (float)((double)BitsF(widths[k]) + extra);
-                    Font_DrawTextBox(hook::Global<uint8_t*>(0x6cff90), 0, text[k], cx, cy, w, BitsF(0x3cb851ec), 0xffffffff, (k != 0) + 2, (int32_t)valign, flags,
+                    Font_DrawTextBox(g_6cff90, 0, text[k], cx, cy, w, BitsF(0x3cb851ec), 0xffffffff, (k != 0) + 2, (int32_t)valign, flags,
                                      1.0f);
                     cx = (float)((double)cx + BitsF(widths[k]));
                 }
@@ -646,7 +647,7 @@ RT3_NOINLINE void __fastcall ScenarioVars_Draw(void*, int, float x, float y, flo
             if (++type <= 0x1f6) continue;
             ++idx;
             type = 0x26;
-            if (idx < Table_CountField3f(hook::Global<Collection*>(0x62be10))) continue;
+            if (idx < Table_CountField3f(g_companies)) continue;
             idx = -1;
             phase = 3;
             continue;
@@ -654,7 +655,7 @@ RT3_NOINLINE void __fastcall ScenarioVars_Draw(void*, int, float x, float y, flo
             if (++type <= 0x1f6) continue;
             ++idx;
             type = 0x26;
-            if (idx < Table_CountField4(hook::Global<Collection*>(0x6ceb9c))) continue;
+            if (idx < Table_CountField4(g_players)) continue;
             idx = -1;
             phase = 4;
             continue;
@@ -663,8 +664,8 @@ RT3_NOINLINE void __fastcall ScenarioVars_Draw(void*, int, float x, float y, flo
             type = 0x26;
             for (;;) {
                 ++idx;
-                if (idx >= Collection_Count(hook::Global<Collection*>(0x6cfc9c))) return;
-                Collection* cs = hook::Global<Collection*>(0x6cfc9c);
+                if (idx >= Collection_Count(g_territories)) return;
+                Collection* cs = g_territories;
                 if (F<int32_t>(Collection_Get(cs, 0, Collection_IdAt(cs, 0, (uint32_t)idx, 0)), 0x3d) > 0) break;
             }
             continue;
@@ -685,13 +686,13 @@ RT3_NOINLINE void __fastcall Players_DrawTable(void*, int, float x, float y, flo
     Ui_Line(0xff8f8f8f, 0, lineX, lineY, lineX, lineEnd, 2.0f);
     const float widths[3] = { BitsF(0x3e19999a), BitsF(0x3daccccd), BitsF(0x3daccccd) };
     char text[3][0x320];
-    for (int32_t i = -1; i < Collection_Count(hook::Global<Collection*>(0x62be18)); ++i) {
+    for (int32_t i = -1; i < Collection_Count(g_events); ++i) {
         if (i == -1) {
             FormatText(text[0], GetString(0x462), 0, 0, 0, 0, 0, 0, 0, 0);
             FormatText(text[1], GetString(0x463), 0, 0, 0, 0, 0, 0, 0, 0);
             FormatText(text[2], GetString(0x464), 0, 0, 0, 0, 0, 0, 0, 0);
         } else {
-            Collection* t = hook::Global<Collection*>(0x62be18);
+            Collection* t = g_events;
             uint8_t* r = (uint8_t*)Collection_Get(t, 0, Collection_IdAt(t, 0, (uint32_t)i, 0));
             if (r[0x82b]) continue;
             FormatText(text[0], (const char*)(r + 0x18), 0, 0, 0, 0, 0, 0, 0, 0);
@@ -704,7 +705,7 @@ RT3_NOINLINE void __fastcall Players_DrawTable(void*, int, float x, float y, flo
         float rowY = (float)((double)lineY - extra);
         float cx = colX;
         for (int k = 0; k < 3; ++k) {
-            Font_DrawTextBox(hook::Global<uint8_t*>(0x6cff90), 0, text[k], cx, rowY, widths[k], rowH, 0xffffffff, k ? 3 : 2, header ? 4 : 0,
+            Font_DrawTextBox(g_6cff90, 0, text[k], cx, rowY, widths[k], rowH, 0xffffffff, k ? 3 : 2, header ? 4 : 0,
                              header ? 1 : 0, 1.0f);
             cx = (float)((double)cx + widths[k]);
         }
@@ -742,20 +743,20 @@ void __fastcall ScenarioRecords_Draw(void* self, int edx, float x, float y, floa
             case 1:
                 FormatText(text[0], GetString(0x466), 0, 0, 0, 0, 0, 0, 0, 0);
                 for (int k = 0; k < 4; ++k)
-                    Num_Format(text[k + 1], 1, (double)F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x126 + k * 4), 10, 1, 0, 0);
+                    Num_Format(text[k + 1], 1, (double)F<int32_t>(g_world, 0x126 + k * 4), 10, 1, 0, 0);
                 break;
             case 2: {
-                uint8_t* co = (uint8_t*)Table_NthField3f(hook::Global<Collection*>(0x62be10), 0, idx);
+                uint8_t* co = (uint8_t*)Table_NthField3f(g_companies, 0, idx);
                 fill((const char*)(co + 4), co, 0x407);
                 break;
             }
             case 3: {
-                uint8_t* p = (uint8_t*)Table_NthField4(hook::Global<Collection*>(0x6ceb9c), 0, idx);
+                uint8_t* p = (uint8_t*)Table_NthField4(g_players, 0, idx);
                 fill((const char*)(p + 8), p, 0x367);
                 break;
             }
             case 4: {
-                Collection* cs = hook::Global<Collection*>(0x6cfc9c);
+                Collection* cs = g_territories;
                 uint8_t* c = (uint8_t*)Collection_Get(cs, 0, Collection_IdAt(cs, 0, (uint32_t)idx, 0));
                 fill((const char*)(c + 4), c, 0x481);
                 break;
@@ -768,7 +769,7 @@ void __fastcall ScenarioRecords_Draw(void* self, int edx, float x, float y, floa
             int32_t valign = phase ? 0 : 4;
             float cx = x0;
             for (int k = 0; k < 5; ++k) {
-                Font_DrawTextBox(hook::Global<uint8_t*>(0x6cff90), 0, text[k], cx, cy, BitsF(widths[k]), BitsF(0x3cb851ec), 0xffffffff, (k != 0) + 2, valign, flags,
+                Font_DrawTextBox(g_6cff90, 0, text[k], cx, cy, BitsF(widths[k]), BitsF(0x3cb851ec), 0xffffffff, (k != 0) + 2, valign, flags,
                                  1.0f);
                 cx = (float)((double)cx + BitsF(widths[k]));
             }
@@ -785,23 +786,23 @@ void __fastcall ScenarioRecords_Draw(void* self, int edx, float x, float y, floa
             idx = -1;
             break;
         case 2:
-            if (++idx < Table_CountField3f(hook::Global<Collection*>(0x62be10))) break;
+            if (++idx < Table_CountField3f(g_companies)) break;
             phase = 3;
             idx = -1;
             break;
         case 3:
-            if (++idx < Table_CountField4(hook::Global<Collection*>(0x6ceb9c))) break;
+            if (++idx < Table_CountField4(g_players)) break;
             phase = 4;
             idx = -1;
             break;
         case 4:
             for (;;) {
                 ++idx;
-                if (idx >= Collection_Count(hook::Global<Collection*>(0x6cfc9c))) {
+                if (idx >= Collection_Count(g_territories)) {
                     done = true;
                     break;
                 }
-                Collection* cs = hook::Global<Collection*>(0x6cfc9c);
+                Collection* cs = g_territories;
                 if (F<int32_t>(Collection_Get(cs, 0, Collection_IdAt(cs, 0, (uint32_t)idx, 0)), 0x3d) > 0) break;
             }
             break;
@@ -820,9 +821,9 @@ RT3_REPLACE(0x4d38c0, ScenarioRecords_Draw);
 // (0x46c with its name +0x18 and the reason), or 0x46d when all is fine.
 void __fastcall ScenarioCheck_DrawCb(void*, int, float x, float y, float, float, int32_t) {
     bool kind9 = false, has4 = false, has6 = false, has7 = false, any = false;
-    Collection* setups = hook::Global<Collection*>(0x62be18);
-    for (int32_t i = 0; i < Collection_Count(hook::Global<Collection*>(0x62be18)); ++i) {
-        setups = hook::Global<Collection*>(0x62be18);
+    Collection* setups = g_events;
+    for (int32_t i = 0; i < Collection_Count(g_events); ++i) {
+        setups = g_events;
         uint8_t* e = (uint8_t*)Collection_Get(setups, 0, Collection_IdAt(setups, 0, (uint32_t)i, 0));
         if (e[0x7ef] == 9) kind9 = true;
         for (int32_t k = 0; k < 4; ++k)
@@ -836,7 +837,7 @@ void __fastcall ScenarioCheck_DrawCb(void*, int, float x, float y, float, float,
     const float tx = (float)(x + D(0x5d0830));
     float ty = (float)(y + D(0x5d0830));
     auto line = [&](uint32_t text) {
-        Font_DrawTextBox(hook::Global<uint8_t*>(0x6cff8c), 0, GetString(text), tx, ty, BitsF(0x3f3ccccd), BitsF(0x3d2aaaab), 0xffffffff, 2, 0, 0, 1.0f);
+        Font_DrawTextBox(g_6cff8c, 0, GetString(text), tx, ty, BitsF(0x3f3ccccd), BitsF(0x3d2aaaab), 0xffffffff, 2, 0, 0, 1.0f);
         ty = ty + BitsF(0x3d2aaaab);
     };
     if (!kind9) {
@@ -856,18 +857,18 @@ void __fastcall ScenarioCheck_DrawCb(void*, int, float x, float y, float, float,
         any = true;
         line(0x46b);
     }
-    for (int32_t i = 0; i < Collection_Count(hook::Global<Collection*>(0x62be18)); ++i) {
-        setups = hook::Global<Collection*>(0x62be18);
+    for (int32_t i = 0; i < Collection_Count(g_events); ++i) {
+        setups = g_events;
         uint8_t* e = (uint8_t*)Collection_Get(setups, 0, Collection_IdAt(setups, 0, (uint32_t)i, 0));
         char why[0x3e8], text[0x5cc];
         if (Scenario_CheckSetup((uint32_t*)e, 0, why)) continue;
         any = true;
         FormatText(text, GetString(0x46c), (const char*)e + 0x18, why, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
-        Font_DrawTextBox(hook::Global<uint8_t*>(0x6cff8c), 0, text, tx, ty, BitsF(0x3f3ccccd), 1.0f, 0xffffffff, 2, 1, 0, 1.0f);
-        ty = (float)(Font_TextHeight(hook::Global<uint8_t*>(0x6cff8c), 0, text, BitsF(0x3f3ccccd), nullptr) + ty + D(0x5c85b8));
+        Font_DrawTextBox(g_6cff8c, 0, text, tx, ty, BitsF(0x3f3ccccd), 1.0f, 0xffffffff, 2, 1, 0, 1.0f);
+        ty = (float)(Font_TextHeight(g_6cff8c, 0, text, BitsF(0x3f3ccccd), nullptr) + ty + D(0x5c85b8));
     }
     if (!any)
-        Font_DrawTextBox(hook::Global<uint8_t*>(0x6cff8c), 0, GetString(0x46d), tx, ty, BitsF(0x3f3ccccd), BitsF(0x3d2aaaab), 0xffffffff, 2, 0, 0, 1.0f);
+        Font_DrawTextBox(g_6cff8c, 0, GetString(0x46d), tx, ty, BitsF(0x3f3ccccd), BitsF(0x3d2aaaab), 0xffffffff, 2, 0, 0, 1.0f);
 }
 RT3_REPLACE(0x4d3d90, ScenarioCheck_DrawCb);
 
@@ -877,14 +878,14 @@ RT3_REPLACE(0x4d4110, Dialog_SetCallback4a43);
 RT3_NOINLINE int32_t __fastcall Dialog_SetCallback4a42(uint8_t* w) { return Window_SendEvent5(w, 0, 0x7a, 0x4a42, 0x4d3d90, 0, 0); }
 RT3_REPLACE(0x4d4130, Dialog_SetCallback4a42);
 
-int32_t Global6d07b4Set() { return hook::Global<void*>(0x6d07b4) ? 1 : 0; }
+int32_t Global6d07b4Set() { return g_6d07b4 ? 1 : 0; }
 RT3_REPLACE(0x4d4150, Global6d07b4Set);
 
 // 0x4d4160. Highlights the view-mode buttons of window w by the main view's mode
 // (0x6d0818 +0x8c; field 0x20): 0x2329 for modes 14..19, 0x232a 20, 0x232b 21,
 // 0x232c 23, 0x232d 13, 0x232f 22, 0x2331 26; 0x232e always off.
 void __fastcall Window_HighlightViewModes(uint8_t* w) {
-    int32_t m = F<int32_t>(hook::Global<uint8_t*>(0x6d0818), 0x8c);
+    int32_t m = F<int32_t>(g_gameWindow, 0x8c);
     auto t = [m](int32_t x) { return m == x ? 0x65u : 0x87u; };
     Window_SendEvent5(w, 0, m >= 0xe && m <= 0x13 ? 0x65 : 0x87, 0x2329, 0x20, 0, 0);
     Window_SendEvent5(w, 0, t(0x14), 0x232a, 0x20, 0, 0);
@@ -903,7 +904,7 @@ RT3_REPLACE(0x4d4160, Window_HighlightViewModes);
 // (0x2330) or show string 0x104 and return to mode 0 (0x232e).
 int32_t __fastcall ReportMenu_HandleEvent(void*, int, uint32_t* msg) {
     if (msg[0] != 0xcb) return 1;
-    uint8_t* view = hook::Global<uint8_t*>(0x6d0818);
+    uint8_t* view = g_gameWindow;
     auto toggle = [&](uint32_t mode) {
         if (F<uint32_t>(view, 0x8c) == mode)
             View_SetToolMode(view, 0, 0, -1);
@@ -923,7 +924,7 @@ int32_t __fastcall ReportMenu_HandleEvent(void*, int, uint32_t* msg) {
     case 0x232d: return toggle(0xd);
     case 0x232e:
         Dialog_RunMessage(GetString(0x104), 1, 0xbf800000, 0xbf800000, 0, nullptr, 0, 0.0f, 0, 0x1e, 0, nullptr, nullptr, 0, 0, nullptr, 0);
-        View_SetToolMode(hook::Global<uint8_t*>(0x6d0818), 0, 0, -1);
+        View_SetToolMode(g_gameWindow, 0, 0, -1);
         return 0;
     case 0x232f: return toggle(0x16);
     case 0x2330:
@@ -941,7 +942,7 @@ RT3_REPLACE(0x4d44a0, ViewModesPanel_Close);
 
 // 0x4d44f0. Window_HighlightViewModes on window 0x6d07b4, if open.
 void Window_HighlightViewModesIfOpen() {
-    if (uint8_t* w = hook::Global<uint8_t*>(0x6d07b4)) Window_HighlightViewModes(w);
+    if (uint8_t* w = hook::As<uint8_t*>(g_6d07b4)) Window_HighlightViewModes(w);
 }
 RT3_REPLACE(0x4d44f0, Window_HighlightViewModesIfOpen);
 
@@ -1005,7 +1006,7 @@ RT3_REPLACE(0x4d4840, Widget4d4840_Destruct);
 RT3_NOINLINE void __fastcall RulesDialog_FillEffectTypes(uint8_t* w, int, int32_t sel) {
     int32_t pos = 0, selPos = 0;
     int32_t filter = F<int32_t>(Widget_FindChild(w, 0, 0x5034), 0xcc);
-    hook::Global<int32_t>(0x6d07bc) = filter;
+    g_6d07bc = filter;
     Window_SendEvent5(w, 0, 0x8b, 0x4f56, 0, 0, 0);
     uint8_t* const table = (uint8_t*)0x5f3d90;
     char used[0x385];
@@ -1043,8 +1044,8 @@ RT3_REPLACE(0x4d4850, RulesDialog_FillEffectTypes);
 // 0x4f70 / 0x4f71). Both radio queries share one event whose other fields the
 // original leaves uninitialized (zero here).
 RT3_NOINLINE void __fastcall RulesDialog_ShowEffectType(uint8_t* w) {
-    if (hook::Global<int32_t>(0x6d07c0)) return;
-    hook::Global<int32_t>(0x6d07c0) = 1;
+    if (g_6d07c0) return;
+    g_6d07c0 = 1;
     auto send = [w](uint32_t type, uint32_t id) { Window_SendEvent5(w, 0, type, id, 3, 0, 0); };
     send(0x87, 0x4f71);
     send(0x87, 0x4f70);
@@ -1055,11 +1056,11 @@ RT3_NOINLINE void __fastcall RulesDialog_ShowEffectType(uint8_t* w) {
     if (ev[2] == 0x4f4c || ev[2] == 0x4f4d) {
         F<int32_t>(w, 0x78) = ev[2] == 0x4f4c ? -1 : -2;
         send(0x86, 0x4e48);
-        hook::Global<int32_t>(0x6d07c0) = 0;
+        g_6d07c0 = 0;
         return;
     }
     if (ev[2] != 0x4f4e) {
-        hook::Global<int32_t>(0x6d07c0) = 0;
+        g_6d07c0 = 0;
         return;
     }
     send(0x6d, 0x4e48);
@@ -1119,7 +1120,7 @@ RT3_NOINLINE void __fastcall RulesDialog_ShowEffectType(uint8_t* w) {
         send(0x87, 0x4f60);
         send(0x87, 0x4f61);
     }
-    hook::Global<int32_t>(0x6d07c0) = 0;
+    g_6d07c0 = 0;
 }
 RT3_REPLACE(0x4d4d10, RulesDialog_ShowEffectType);
 
@@ -1187,13 +1188,13 @@ RT3_REPLACE(0x4d54d0, RuleDialog_StoreCondition);
 // Widget callbacks: ECX is the new value (-1 none), EDX a second one.
 void __fastcall Rules_SetEffectType(int32_t v, int32_t value) {
     if (v == -1) return;
-    F<int32_t>(hook::Global<uint8_t*>(0x6d07b8), 0x78) = value;
-    RulesDialog_ShowEffectType(hook::Global<uint8_t*>(0x6d07b8));
+    F<int32_t>(g_6d07b8, 0x78) = value;
+    RulesDialog_ShowEffectType(g_6d07b8);
 }
 RT3_REPLACE(0x4d5790, Rules_SetEffectType);
 
 // 0x4d57b0 (callback). Stores the value (EDX) at +0x7c of 0x6d07b8.
-void __fastcall Set6d07b8_7c(void*, int32_t v) { F<int32_t>(hook::Global<uint8_t*>(0x6d07b8), 0x7c) = v; }
+void __fastcall Set6d07b8_7c(void*, int32_t v) { F<int32_t>(g_6d07b8, 0x7c) = v; }
 RT3_REPLACE(0x4d57b0, Set6d07b8_7c);
 
 // 0x4d57c0. Constructs the rules dialog (vtable 0x5d0cd4, kept in 0x6d07b8) for
@@ -1207,7 +1208,7 @@ RT3_REPLACE(0x4d57b0, Set6d07b8_7c);
 RT3_NOINLINE uint8_t* __fastcall RulesDialog_Construct(uint8_t* w, int, uint32_t a, int32_t* rule) {
     Widget_SetVtblRet(w);
     F<uint32_t>(w, 0) = 0x5d0cd4;
-    hook::Global<uint8_t*>(0x6d07b8) = w;
+    g_6d07b8 = w;
     F<uint32_t>(w, 0x80) = a;
     F<int32_t*>(w, 0x84) = rule;
     F<int32_t>(w, 0x78) = rule[0];
@@ -1215,13 +1216,13 @@ RT3_NOINLINE uint8_t* __fastcall RulesDialog_Construct(uint8_t* w, int, uint32_t
     F<int32_t>(w, 0x7c) = F<int32_t>(rule, 5) ? F<int32_t>(rule, 9) : 0;
     uint32_t xb = 0x3e9b851f, yb = 0x3d64b17e;
     Window_Load(w, 0, *(float*)&xb, *(float*)&yb, (const char*)0x5d0ce0);
-    int32_t lang = hook::Global<int32_t>(0x6d3c84);
+    int32_t lang = g_language;
     if (lang == 4 || lang == 1) {
         Window_SendEvent5(w, 0, 0x78, 0x4f73, 0x12, 0, 0);
         Window_SendEvent5(w, 0, 0x78, 0x4fd1, 0x12, 0, 0);
     }
     Widget_FindChild(w, 0, 0x5034);
-    if (hook::Global<int32_t>(0x6d07bc) && rule[0] >= 0 && F<int32_t>((uint8_t*)0x5f3d90 + rule[0] * 0x81, 0x58) == 1)
+    if (g_6d07bc && rule[0] >= 0 && F<int32_t>((uint8_t*)0x5f3d90 + rule[0] * 0x81, 0x58) == 1)
         F<int32_t>(Widget_FindChild(w, 0, 0x5034), 0xcc) = 1;
     Window_SendEvent5(w, 0, 0x86, 0x4e48, 3, 0, 0);
     Window_SendEvent5(w, 0, 0x79, 0x4f56, 0x4d5790, 0, 0);
@@ -1333,7 +1334,7 @@ RT3_REPLACE(0x4d5ba0, RulesDialog_ShowLimits);
 // "name<sep>hint" (separator 0x5c9ce8); type `sel` is selected (+0x7c).
 RT3_NOINLINE void __fastcall RulesDialog_FillConditionTypes(uint8_t* w, int, int32_t sel) {
     int32_t mpOnly = F<int32_t>(Widget_FindChild(w, 0, 0x5033), 0xcc);
-    hook::Global<int32_t>(0x6d07c8) = mpOnly;
+    g_6d07c8 = mpOnly;
     Window_SendEvent5(w, 0, 0x8b, 0x4fb2, 0, 0, 0);
     uint8_t used[0x266];
     memset(used, 0, sizeof used);
@@ -1385,8 +1386,8 @@ RT3_REPLACE(0x4d5f50, RulesDialog_UpdateButtons4ff7);
 // 0x4fc5, flag 4 the plain amount 0x4fce (kind 4) and unit labels 0x4fcb / 0x4fcc /
 // 0x4fc6; the year range box 0x4ff6 (and its fields) only for types that have one.
 RT3_NOINLINE void __fastcall ConditionDialog_ShowValue(uint8_t* w) {
-    if (hook::Global<int32_t>(0x6d07cc)) return;
-    hook::Global<int32_t>(0x6d07cc) = 1;
+    if (g_6d07cc) return;
+    g_6d07cc = 1;
     static const uint16_t off[] = { 0x4fba, 0x4fbb, 0x4fbf, 0x4fc0, 0x4fc1, 0x4fd2, 0x4fc7, 0x4fd3,
                                     0x4fcd, 0x4fce, 0x4fcc, 0x4fcb, 0x4fc6, 0x4fca, 0x4fc9, 0x4fc5 };
     for (uint16_t id : off) Window_SendEvent5(w, 0, 0x87, id, 3, 0, 0);
@@ -1440,7 +1441,7 @@ RT3_NOINLINE void __fastcall ConditionDialog_ShowValue(uint8_t* w) {
         RulesDialog_UpdateButtons4ff7(w);
     } else
         for (uint32_t id = 0x4ff6; id <= 0x4ffc; ++id) Window_SendEvent5(w, 0, 0x87, id, 3, 0, 0);
-    hook::Global<int32_t>(0x6d07cc) = 0;
+    g_6d07cc = 0;
 }
 RT3_REPLACE(0x4d6090, ConditionDialog_ShowValue);
 
@@ -1455,8 +1456,8 @@ RT3_REPLACE(0x4d6090, ConditionDialog_ShowValue);
 // 0x4ff6 is ticked (else -1 / -1), and clears +0x24. The radio queries share one
 // event whose other fields the original leaves uninitialized (zero here).
 RT3_NOINLINE int32_t __fastcall ConditionDialog_Store(uint8_t* w) {
-    if (hook::Global<int32_t>(0x6d07d0)) return 0;
-    hook::Global<int32_t>(0x6d07d0) = 1;
+    if (g_6d07d0) return 0;
+    g_6d07d0 = 1;
     F<int32_t>(F<uint8_t*>(w, 0x78), 0) = F<int32_t>(w, 0x7c);
     auto num = [w](uint32_t id) { return ((int(__cdecl*)(const char*))0x5a1ea5)(F<const char*>(Widget_FindChild(w, 0, id), 0xba)); };
     auto flags = [w]() { return ((const uint8_t*)0x6103fc)[F<int32_t>(w, 0x7c) * 0x6e]; };
@@ -1487,10 +1488,10 @@ RT3_NOINLINE int32_t __fastcall ConditionDialog_Store(uint8_t* w) {
         if (c[0x11] < 1) c[0x11] = 1;
         if (c[0x11] > 100) c[0x11] = 100;
         F<uint16_t>(c, 0x12) = (uint16_t)num(0x5041);
-        int32_t mx = F<int32_t>(hook::Global<uint8_t*>(0x62c120), 0x2155) - 1;
+        int32_t mx = F<int32_t>(g_map, 0x2155) - 1;
         if (mx < F<uint16_t>(c, 0x12)) F<uint16_t>(c, 0x12) = (uint16_t)mx;
         F<uint16_t>(c, 0x14) = (uint16_t)num(0x5044);
-        int32_t my = F<int32_t>(hook::Global<uint8_t*>(0x62c120), 0x2159) - 1;
+        int32_t my = F<int32_t>(g_map, 0x2159) - 1;
         if (my < F<uint16_t>(c, 0x14)) F<uint16_t>(c, 0x14) = (uint16_t)my;
         F<uint16_t>(c, 0x16) = (uint16_t)num(0x5047);
         if (F<uint16_t>(c, 0x16) < 1) F<uint16_t>(c, 0x16) = 1;
@@ -1524,17 +1525,17 @@ RT3_NOINLINE int32_t __fastcall ConditionDialog_Store(uint8_t* w) {
     } else F<int32_t>(F<uint8_t*>(w, 0x78), 9) = lo;
     F<int32_t>(F<uint8_t*>(w, 0x78), 0xd) = hi;
     F<int32_t>(F<uint8_t*>(w, 0x78), 0x24) = 0;
-    hook::Global<int32_t>(0x6d07d0) = 0;
+    g_6d07d0 = 0;
     return 1;
 }
 RT3_REPLACE(0x4d67f0, ConditionDialog_Store);
 
 void __fastcall Condition_SetValue(int32_t v, int32_t value) {
     if (v == -1) return;
-    F<int32_t>(hook::Global<uint8_t*>(0x6d07c4), 0x7c) = value;
-    ConditionDialog_Store(hook::Global<uint8_t*>(0x6d07c4));
-    ConditionDialog_ShowValue(hook::Global<uint8_t*>(0x6d07c4));
-    RulesDialog_UpdateButtons4ff7(hook::Global<uint8_t*>(0x6d07c4));
+    F<int32_t>(g_6d07c4, 0x7c) = value;
+    ConditionDialog_Store(g_6d07c4);
+    ConditionDialog_ShowValue(g_6d07c4);
+    RulesDialog_UpdateButtons4ff7(g_6d07c4);
 }
 RT3_REPLACE(0x4d6d30, Condition_SetValue);
 
@@ -1549,7 +1550,7 @@ RT3_REPLACE(0x4d6d30, Condition_SetValue);
 RT3_NOINLINE uint8_t* __fastcall ConditionDialog_Construct(uint8_t* w, int, uint8_t* r) {
     Widget_SetVtblRet(w);
     F<uint32_t>(w, 0) = 0x5d0cf4;
-    hook::Global<uint8_t*>(0x6d07c4) = w;
+    g_6d07c4 = w;
     F<int32_t>(w, 0x7c) = F<int32_t>(r, 0);
     F<uint8_t*>(w, 0x78) = r;
     int32_t amount = F<int32_t>(r, 4);
@@ -1559,12 +1560,12 @@ RT3_NOINLINE uint8_t* __fastcall ConditionDialog_Construct(uint8_t* w, int, uint
     int32_t hi = F<int32_t>(r, 0xd);
     uint16_t w12 = F<uint16_t>(r, 0x12), w14 = F<uint16_t>(r, 0x14), w16 = F<uint16_t>(r, 0x16);
     Window_Load(w, 0, BitsF(0x3e89eb85), BitsF(0x3e2c5f93), (const char*)0x5d0d00);
-    int32_t lang = hook::Global<int32_t>(0x6d3c84);
+    int32_t lang = g_language;
     if (lang == 4 || lang == 1) {
         Window_SendEvent5(w, 0, 0x78, 0x4fb1, 0x12, 0, 0);
         Window_SendEvent5(w, 0, 0x78, 0x4fd4, 0x12, 0, 0);
     }
-    if (hook::Global<int32_t>(0x6d07c8)) {
+    if (g_6d07c8) {
         int32_t t = F<int32_t>(r, 0);
         if (t < 0 || F<int32_t>((uint8_t*)0x610398, t * 0x6e + 0x5b)) F<int32_t>(Widget_FindChild(w, 0, 0x5033), 0xcc) = 1;
     }
@@ -1690,8 +1691,8 @@ RT3_REPLACE(0x4d71b0, TextTag_Pick);
 // companies = P * 1.5 truncated; T = territories with a positive +0x3d) on label
 // 0x4eb4 of the city dialog (0x6cff84), if open.
 RT3_NOINLINE void CityDialog_ShowMapParameters() {
-    int32_t territories = Table_CountPositive3d(hook::Global<Collection*>(0x6cfc9c));
-    int32_t players = F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x6a6c);
+    int32_t territories = Table_CountPositive3d(g_territories);
+    int32_t players = F<int32_t>(g_world, 0x6a6c);
     if (players <= 1) players = 1;
     double p = (double)players;
     char ts[0x40], ps[0x24], cs[0x30], text[0x2a0];
@@ -1699,7 +1700,7 @@ RT3_NOINLINE void CityDialog_ShowMapParameters() {
     Num_Format(ps, 1, p, 10, 1, 0, 0);
     Num_Format(cs, 1, (double)Ftol(p * D(0x5c8578)), 10, 1, 0, 0);
     FormatText(text, GetString(0x477), cs, ps, ts, 0, 0, 0, 0, 0);
-    if (uint8_t* dlg = hook::Global<uint8_t*>(0x6cff84)) Window_SendEvent5(dlg, 0, 0x6e, 0x4eb4, (uint32_t)(uintptr_t)text, 0, 0);
+    if (uint8_t* dlg = g_cityDialog) Window_SendEvent5(dlg, 0, 0x6e, 0x4eb4, (uint32_t)(uintptr_t)text, 0, 0);
 }
 RT3_REPLACE(0x4d76a0, CityDialog_ShowMapParameters);
 
@@ -1726,28 +1727,28 @@ RT3_REPLACE(0x4d78b0, Obj_SetTextE0);
 // QUIRK: 0x63 without the dialog writes through a null pointer.
 void __fastcall ConditionDialog_SetValueCb(void*, int32_t v) {
     if (v == 0x63) {
-        uint8_t* dlg = hook::Global<uint8_t*>(0x6cff84);
-        if (dlg && Collection_IsValid(hook::Global<Collection*>(0x62be18), 0, F<uint32_t>(dlg, 0x84))) {
-            uint8_t* r = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be18), 0, F<uint32_t>(hook::Global<uint8_t*>(0x6cff84), 0x84));
+        uint8_t* dlg = g_cityDialog;
+        if (dlg && Collection_IsValid(g_events, 0, F<uint32_t>(dlg, 0x84))) {
+            uint8_t* r = (uint8_t*)Collection_Get(g_events, 0, F<uint32_t>(g_cityDialog, 0x84));
             if (r && !(Load_CargoFlags(r) & 0x40)) {
-                Window_SendEvent5(hook::Global<uint8_t*>(0x6cff84), 0, 0x68, 0x4eae, 0, 0, 0);
+                Window_SendEvent5(g_cityDialog, 0, 0x68, 0x4eae, 0, 0, 0);
                 return;
             }
         }
     }
-    F<int32_t>(hook::Global<uint8_t*>(0x6cff84), 0x88) = v;
+    F<int32_t>(g_cityDialog, 0x88) = v;
 }
 RT3_REPLACE(0x4d78d0, ConditionDialog_SetValueCb);
 
 // 0x4d7950 / 0x4d7960 / 0x4d7970 (callbacks). Store a register argument in
 // 0x6cff84 +0x8c (EDX), +0x94 / +0x98 (ECX).
-void __fastcall Set6cff84_8c(void*, int32_t v) { F<int32_t>(hook::Global<uint8_t*>(0x6cff84), 0x8c) = v; }
+void __fastcall Set6cff84_8c(void*, int32_t v) { F<int32_t>(g_cityDialog, 0x8c) = v; }
 RT3_REPLACE(0x4d7950, Set6cff84_8c);
 
-void __fastcall Set6cff84_94(int32_t v) { F<int32_t>(hook::Global<uint8_t*>(0x6cff84), 0x94) = v; }
+void __fastcall Set6cff84_94(int32_t v) { F<int32_t>(g_cityDialog, 0x94) = v; }
 RT3_REPLACE(0x4d7960, Set6cff84_94);
 
-void __fastcall Set6cff84_98(int32_t v) { F<int32_t>(hook::Global<uint8_t*>(0x6cff84), 0x98) = v; }
+void __fastcall Set6cff84_98(int32_t v) { F<int32_t>(g_cityDialog, 0x98) = v; }
 RT3_REPLACE(0x4d7970, Set6cff84_98);
 
 // 0x4d7980 (draw callback). Scenario setup window (0x6cff84, scenario +0x84
@@ -1758,18 +1759,18 @@ RT3_REPLACE(0x4d7970, Set6cff84_98);
 // unless fixed, +0x88) as "n kind" (strings 0x470..0x475) joined by " X ",
 // then " = total" or, with nothing varying, string 0x476.
 void __fastcall ScenarioCombos_DrawCb(void*, int, float x, float y, float w, float h, int32_t) {
-    uint8_t* win = hook::Global<uint8_t*>(0x6cff84);
-    if (!win || !Collection_IsValid(hook::Global<Collection*>(0x62be18), 0, F<uint32_t>(win, 0x84))) return;
-    uint8_t* s = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be18), 0, F<uint32_t>(hook::Global<uint8_t*>(0x6cff84), 0x84));
+    uint8_t* win = g_cityDialog;
+    if (!win || !Collection_IsValid(g_events, 0, F<uint32_t>(win, 0x84))) return;
+    uint8_t* s = (uint8_t*)Collection_Get(g_events, 0, F<uint32_t>(g_cityDialog, 0x84));
     if (!s) return;
     Load_CargoFlags(s);
     uint32_t ev[12] = {};
     ev[0] = 0x94;
     int32_t product = 1;
-    int32_t companies = F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x6a6c);
+    int32_t companies = F<int32_t>(g_world, 0x6a6c);
     if (companies <= 1) companies = 1;
     const int32_t all = Ftol((double)companies * D(0x5c8578));
-    const int32_t territories = Table_CountPositive3d(hook::Global<Collection*>(0x6cfc9c));
+    const int32_t territories = Table_CountPositive3d(g_territories);
     const uint8_t flags = Load_CargoFlags(s);
     char frame[0x6ac];
     char* text = frame + 0x260;
@@ -1789,7 +1790,7 @@ void __fastcall ScenarioCombos_DrawCb(void*, int, float x, float y, float w, flo
     if (flags & 1) {
         ev[1] = 0x4fd7;
         int32_t n = 1;
-        Window_HandleEvent(hook::Global<uint8_t*>(0x6cff84), 0, ev);
+        Window_HandleEvent(g_cityDialog, 0, ev);
         bool skip = false;
         switch (ev[2] - 0x4ec0) {
         case 0: n = all; break;
@@ -1807,7 +1808,7 @@ void __fastcall ScenarioCombos_DrawCb(void*, int, float x, float y, float w, flo
     if (flags & 2) {
         ev[1] = 0x4fd8;
         int32_t n = 1;
-        Window_HandleEvent(hook::Global<uint8_t*>(0x6cff84), 0, ev);
+        Window_HandleEvent(g_cityDialog, 0, ev);
         bool skip = false;
         switch (ev[2] - 0x4eb6) {
         case 0: skip = true; break;
@@ -1824,7 +1825,7 @@ void __fastcall ScenarioCombos_DrawCb(void*, int, float x, float y, float w, flo
     }
     bool last = false;
     if (flags & 4) {
-        const int32_t fixed = F<int32_t>(hook::Global<uint8_t*>(0x6cff84), 0x88);
+        const int32_t fixed = F<int32_t>(g_cityDialog, 0x88);
         if (fixed != 0x63) {
             const int32_t n = fixed ? 1 : territories;
             term(n, 0x474, 0x475);
@@ -1841,7 +1842,7 @@ void __fastcall ScenarioCombos_DrawCb(void*, int, float x, float y, float w, flo
     }
     strcat(text, total);
     const float tx = (float)((double)x + D(0x5d0b38));
-    Font_DrawTextBox(F<uint8_t*>(hook::Global<uint8_t*>(0x6cec78), 0x46a9c), 0, text, tx, y, BitsF(0x3e5950c8), h, 0xffffffff, 2, 0, 0, 1.0f);
+    Font_DrawTextBox(F<uint8_t*>(g_world, 0x46a9c), 0, text, tx, y, BitsF(0x3e5950c8), h, 0xffffffff, 2, 0, 0, 1.0f);
 }
 RT3_REPLACE(0x4d7980, ScenarioCombos_DrawCb);
 
@@ -1856,9 +1857,9 @@ RT3_NOINLINE void __fastcall RulesDialog_FillList(uint8_t* w) {
     F<int32_t>(w, 0x88) = 0;
     F<int32_t>(w, 0x8c) = 0;
     Window_SendEvent5(w, 0, 0x8b, 0x4e84, 0, 0, 0);
-    int32_t n = Collection_Count(hook::Global<Collection*>(0x62be18));
+    int32_t n = Collection_Count(g_events);
     for (int32_t i = 0; i < n; ++i) {
-        Collection* rules = hook::Global<Collection*>(0x62be18);
+        Collection* rules = g_events;
         uint8_t* r = (uint8_t*)Collection_Get(rules, 0, Collection_IdAt(rules, 0, i, 2));
         if (i == 0) first = F<int32_t>(r, 0x14);
         char name[0x24c];
@@ -1875,14 +1876,14 @@ RT3_REPLACE(0x4d7ef0, RulesDialog_FillList);
 // 99, first list only) and "none" (0x479) entries, then every active territory
 // (0x6cfc9c with +0x3d: name +4, id +0); then selects (0x68) in both.
 RT3_NOINLINE void __fastcall RulesDialog_FillTerritories(uint8_t* w) {
-    int32_t n = Collection_Count(hook::Global<Collection*>(0x6cfc9c));
+    int32_t n = Collection_Count(g_territories);
     Window_SendEvent5(w, 0, 0x8b, 0x4eae, 0, 0, 0);
     Window_SendEvent5(w, 0, 0x8b, 0x500b, 0, 0, 0);
     Window_SendEvent5(w, 0, 0x88, 0x4eae, (uint32_t)(uintptr_t)GetString(0x478), 0x63, 0);
     Window_SendEvent5(w, 0, 0x88, 0x4eae, (uint32_t)(uintptr_t)GetString(0x479), 0, 0);
     Window_SendEvent5(w, 0, 0x88, 0x500b, (uint32_t)(uintptr_t)GetString(0x479), 0, 0);
     for (int32_t i = 0; i < n; ++i) {
-        Collection* regions = hook::Global<Collection*>(0x6cfc9c);
+        Collection* regions = g_territories;
         uint8_t* r = (uint8_t*)Collection_Get(regions, 0, Collection_IdAt(regions, 0, i, 0));
         if (!F<int32_t>(r, 0x3d)) continue;
         Window_SendEvent5(w, 0, 0x88, 0x4eae, (uint32_t)(uintptr_t)(r + 4), F<uint32_t>(r, 0), 0);
@@ -1907,7 +1908,7 @@ RT3_NOINLINE void __fastcall RulesDialog_FillTriggers(uint8_t* w) {
     Window_SendEvent5(w, 0, 0x8b, 0x4eaf, 0, 0, 0);
     F<int32_t>(w, 0x94) = -1;
     if (F<int32_t>(w, 0x84) == -1) return;
-    uint8_t* rule = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be18), 0, F<uint32_t>(w, 0x84));
+    uint8_t* rule = (uint8_t*)Collection_Get(g_events, 0, F<uint32_t>(w, 0x84));
     uint8_t* head = F<uint8_t*>(rule, 0);
     uint8_t mark[500];
     memset(mark, 0, sizeof mark);
@@ -1974,21 +1975,21 @@ RT3_NOINLINE void __fastcall RulesDialog_FillTriggers(uint8_t* w) {
             s1[0] = 0;
             s2[0] = 0;
             if (type == 0x4b || type == 0x4d) {
-                if (Collection_IsValid(hook::Global<Collection*>(0x6cfc9c), 0, F<uint32_t>(n, 0xe)))
+                if (Collection_IsValid(g_territories, 0, F<uint32_t>(n, 0xe)))
                     ExeSprintf()(s1, (const char*)0x5d0d54,
-                                 (const char*)Collection_Get(hook::Global<Collection*>(0x6cfc9c), 0, F<uint32_t>(n, 0xe)) + 4);
+                                 (const char*)Collection_Get(g_territories, 0, F<uint32_t>(n, 0xe)) + 4);
                 else ExeSprintf()(s1, GetString(0xbc0));
             }
             if (type == 0x4c || type == 0x4e || type == 0x35f || type == 0x360) {
-                if (Collection_IsValid(hook::Global<Collection*>(0x62bae0), 0, F<uint32_t>(n, 0xe)))
+                if (Collection_IsValid(g_cities, 0, F<uint32_t>(n, 0xe)))
                     ExeSprintf()(s1, (const char*)0x5d0d54,
-                                 (const char*)Collection_Get(hook::Global<Collection*>(0x62bae0), 0, F<uint32_t>(n, 0xe)) + 0x356);
+                                 (const char*)Collection_Get(g_cities, 0, F<uint32_t>(n, 0xe)) + 0x356);
                 else ExeSprintf()(s1, GetString(0xbc1));
             }
             if (type == 0x35f || type == 0x360) {
-                if (Collection_IsValid(hook::Global<Collection*>(0x62bae0), 0, F<uint32_t>(n, 0x12)))
+                if (Collection_IsValid(g_cities, 0, F<uint32_t>(n, 0x12)))
                     ExeSprintf()(s2, (const char*)0x5d0d54,
-                                 (const char*)Collection_Get(hook::Global<Collection*>(0x62bae0), 0, F<uint32_t>(n, 0x12)) + 0x356);
+                                 (const char*)Collection_Get(g_cities, 0, F<uint32_t>(n, 0x12)) + 0x356);
                 else ExeSprintf()(s2, GetString(0xbc2));
             }
             if (kind == 0) FormatText(t2, name, 0, 0, 0, 0, 0, 0, 0, 0);
@@ -2026,7 +2027,7 @@ RT3_REPLACE(0x4d8120, RulesDialog_FillTriggers);
 // previous row's text (on the first row the original sends stale stack; empty here).
 RT3_NOINLINE void __fastcall RulesDialog_FillConditions(uint8_t* w) {
     if (F<int32_t>(w, 0x84) == -1) return;
-    uint8_t* rule = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be18), 0, F<uint32_t>(w, 0x84));
+    uint8_t* rule = (uint8_t*)Collection_Get(g_events, 0, F<uint32_t>(w, 0x84));
     uint8_t* n = F<uint8_t*>(rule, 4 + F<int32_t>(w, 0x9c) * 4);
     Window_SendEvent5(w, 0, 0x8b, 0x4ed5, 0, 0, 0);
     F<int32_t>(w, 0x98) = -1;
@@ -2083,7 +2084,7 @@ RT3_REPLACE(0x4d88f0, RulesDialog_FillConditions);
 // no answer it reads a stale value there (zero here: nothing is stored).
 RT3_NOINLINE void __fastcall RulesDialog_Store(uint8_t* dlg) {
     if (F<int32_t>(dlg, 0x84) == -1) return;
-    uint8_t* rule = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be18), 0, F<uint32_t>(dlg, 0x84));
+    uint8_t* rule = (uint8_t*)Collection_Get(g_events, 0, F<uint32_t>(dlg, 0x84));
     F<int32_t>(rule, 0x7ff + F<int32_t>(dlg, 0x9c) * 4) = F<int32_t>(Widget_FindChild(dlg, 0, 0x500a), 0xcc);
     uint32_t ev[12] = {};
     ev[0] = 0x94;
@@ -2105,7 +2106,7 @@ RT3_REPLACE(0x4d8d50, RulesDialog_Store);
 // fields uninitialized and both queries share it (zero here).
 RT3_NOINLINE int32_t __fastcall RulesDialog_StoreRule(uint8_t* w) {
     if (F<int32_t>(w, 0x84) == -1) return 1;
-    uint8_t* r = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be18), 0, F<uint32_t>(w, 0x84));
+    uint8_t* r = (uint8_t*)Collection_Get(g_events, 0, F<uint32_t>(w, 0x84));
     auto ticked = [w](uint32_t id) { return F<int32_t>(Widget_FindChild(w, 0, id), 0xcc) != 0; };
     auto text = [w](uint32_t id) { return F<const char*>(Widget_FindChild(w, 0, id), 0xba); };
     if (ticked(0x4e8e)) {
@@ -2159,7 +2160,7 @@ RT3_REPLACE(0x4d8ea0, RulesDialog_StoreRule);
 // 0x4d9360. Deletes the rules dialog's current rule (if any) and refills the list.
 RT3_NOINLINE void __fastcall RulesDialog_DeleteRule(uint8_t* dlg) {
     if (F<int32_t>(dlg, 0x84) == -1) return;
-    Collection* rules = hook::Global<Collection*>(0x62be18);
+    Collection* rules = g_events;
     ((void(__fastcall*)(Collection*, int, uint32_t))(*(void***)rules)[2])(rules, 0, F<uint32_t>(dlg, 0x84));
     RulesDialog_FillList(dlg);
 }
@@ -2209,7 +2210,7 @@ RT3_REPLACE(0x4d9390, RulesDialog_ShowMessageKind);
 RT3_NOINLINE void __fastcall RulesDialog_UpdateScope(uint8_t* w) {
     if (F<int32_t>(w, 0x84) == -1) return;
     if (!F<int32_t>(Widget_FindChild(w, 0, 0x5001), 0xcc)) return;
-    uint8_t* r = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be18), 0, F<uint32_t>(w, 0x84));
+    uint8_t* r = (uint8_t*)Collection_Get(g_events, 0, F<uint32_t>(w, 0x84));
     uint8_t f = Load_CargoFlags(r);
     if (f & 4) Window_SendEvent5(w, 0, 0x65, 0x4eae, 3, 0, 0);
     else {
@@ -2259,7 +2260,7 @@ RT3_NOINLINE void __fastcall RulesDialog_UpdateButton(uint8_t* dlg) {
     Window_HandleEvent(dlg, 0, ev);
     uint8_t flags = 0;
     if (F<int32_t>(dlg, 0x84) != -1)
-        flags = Obj_ListFlags(Collection_Get(hook::Global<Collection*>(0x62be18), 0, F<uint32_t>(dlg, 0x84)), 0, F<int32_t>(dlg, 0x9c), 0);
+        flags = Obj_ListFlags(Collection_Get(g_events, 0, F<uint32_t>(dlg, 0x84)), 0, F<int32_t>(dlg, 0x9c), 0);
     bool on = (flags & 4) && F<int32_t>(Widget_FindChild(dlg, 0, 0x5019), 0xcc) && F<int32_t>(Widget_FindChild(dlg, 0, 0x5002), 0xcc);
     Window_SendEvent5(dlg, 0, on ? 0x65 : 0x87, 0x500b, 3, 0, 0);
 }
@@ -2288,7 +2289,7 @@ RT3_REPLACE(0x4d9ec0, RulesDialog_StoreRule);
 // the scope controls.
 RT3_NOINLINE void __fastcall RulesDialog_DeleteTrigger(uint8_t* w) {
     if (F<int32_t>(w, 0x84) == -1 || F<int32_t>(w, 0x94) == -1) return;
-    uint8_t* rule = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be18), 0, F<uint32_t>(w, 0x84));
+    uint8_t* rule = (uint8_t*)Collection_Get(g_events, 0, F<uint32_t>(w, 0x84));
     uint8_t** head = (uint8_t**)rule;
     uint8_t *prev = nullptr, *cur = *head;
     bool found = true;
@@ -2316,7 +2317,7 @@ RT3_REPLACE(0x4d9ed0, RulesDialog_DeleteTrigger);
 // 0x4ed9 / 0x4edb, the newspaper lines +0x4ca.. on 0x4fdf..0x4fe2, +0x401 on
 // 0x4edd).
 RT3_NOINLINE void __fastcall RulesDialog_ShowMessage(uint8_t* w) {
-    uint8_t* r = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be18), 0, F<uint32_t>(w, 0x84));
+    uint8_t* r = (uint8_t*)Collection_Get(g_events, 0, F<uint32_t>(w, 0x84));
     if (r[0x7ee] <= 4) Window_SendEvent5(w, 0, 0x74, 0x4e8e + r[0x7ee], 1, 0, 0);
     bool last = F<int32_t>(Widget_FindChild(w, 0, 0x4e92), 0xcc) != 0;
     for (uint32_t id = 0x4e8e; id <= 0x4e92; ++id) {
@@ -2339,13 +2340,13 @@ RT3_REPLACE(0x4d9f50, RulesDialog_ShowMessage);
 // reselects +0x8c and is disabled); a picked target radio (group 0x5006) that is
 // hidden moves to the first visible of 0x5014..0x501c. Then the main buttons.
 RT3_NOINLINE void __fastcall RulesDialog_UpdateSlot(uint8_t* w) {
-    if (hook::Global<int32_t>(0x6d07d4)) return;
-    hook::Global<int32_t>(0x6d07d4) = 1;
+    if (g_6d07d4) return;
+    g_6d07d4 = 1;
     uint8_t flags = 0;
     int32_t on = F<int32_t>(Widget_FindChild(w, 0, 0x5002), 0xcc);
     uint8_t* r = nullptr;
     if (F<int32_t>(w, 0x84) != -1) {
-        r = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be18), 0, F<uint32_t>(w, 0x84));
+        r = (uint8_t*)Collection_Get(g_events, 0, F<uint32_t>(w, 0x84));
         flags = Obj_ListFlags(r, 0, F<int32_t>(w, 0x9c), 0);
     }
     if (F<int32_t>(Widget_FindChild(w, 0, 0x4ed5), 0x1d2) && r && Record_AnyKind7(r) && on) {
@@ -2402,7 +2403,7 @@ RT3_NOINLINE void __fastcall RulesDialog_UpdateSlot(uint8_t* w) {
                 }
     }
     RulesDialog_UpdateButton(w);
-    hook::Global<int32_t>(0x6d07d4) = 0;
+    g_6d07d4 = 0;
 }
 RT3_REPLACE(0x4da0f0, RulesDialog_UpdateSlot);
 
@@ -2496,7 +2497,7 @@ RT3_REPLACE(0x4da860, EventEditor_EditCondition);
 // the list and the slot controls.
 RT3_NOINLINE void __fastcall RulesDialog_DeleteCondition(uint8_t* w) {
     if (F<int32_t>(w, 0x84) == -1 || F<int32_t>(w, 0x98) == -1) return;
-    uint8_t* rule = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be18), 0, F<uint32_t>(w, 0x84));
+    uint8_t* rule = (uint8_t*)Collection_Get(g_events, 0, F<uint32_t>(w, 0x84));
     uint8_t** head = (uint8_t**)(rule + 4 + F<int32_t>(w, 0x9c) * 4);
     uint8_t *prev = nullptr, *cur = *head;
     bool found = true;
@@ -2523,7 +2524,7 @@ RT3_REPLACE(0x4da920, RulesDialog_DeleteCondition);
 // target radio 0x5014 + (+0x7fb, 0..8); then the slot controls.
 RT3_NOINLINE void __fastcall RulesDialog_ShowSlot(uint8_t* w) {
     if (F<int32_t>(w, 0x84) == -1) return;
-    uint8_t* r = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be18), 0, F<uint32_t>(w, 0x84));
+    uint8_t* r = (uint8_t*)Collection_Get(g_events, 0, F<uint32_t>(w, 0x84));
     Window_SendEvent5(w, 0, 0x74, 0x500a, F<int32_t>(r, 0x7ff + F<int32_t>(w, 0x9c) * 4) == 1, 0, 0);
     F<int32_t>(w, 0x8c) = F<int32_t>(r, 0x80f + F<int32_t>(w, 0x9c) * 4);
     if (F<int32_t>(w, 0x8c) >= 0) Window_SendEvent5(w, 0, 0x68, 0x500b, F<uint32_t>(w, 0x8c), 0, 0);
@@ -2577,7 +2578,7 @@ RT3_NOINLINE void __fastcall RulesDialog_Reset(uint8_t* w) {
     Window_SendEvent5(w, 0, 0x68, 0x500b, 0, 0, 0);
     F<int32_t>(w, 0x9c) = 0;
     Window_SendEvent5(w, 0, 0x74, 0x4fed, 1, 0, 0);
-    Window_SendEvent5(w, 0, 0x74, hook::Global<uint32_t>(0x622074), 1, 0, 0);
+    Window_SendEvent5(w, 0, 0x74, g_622074, 1, 0, 0);
     RulesDialog_SwitchPage(w);
     Window_SendEvent5(w, 0, 0x74, 0x500a, 0, 0, 0);
     RulesDialog_ShowMessageKind(w);
@@ -2602,7 +2603,7 @@ RT3_NOINLINE void __fastcall RulesDialog_Refresh(uint8_t* w) {
     }
     for (uint32_t id = 0x4e84; id <= 0x5077; ++id) Window_SendEvent5(w, 0, 0x65, id, 3, 0, 0);
     RulesDialog_SwitchPage(w);
-    uint8_t* r = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be18), 0, F<uint32_t>(w, 0x84));
+    uint8_t* r = (uint8_t*)Collection_Get(g_events, 0, F<uint32_t>(w, 0x84));
     RulesDialog_ShowMessage(w);
     uint8_t freq = r[0x7ef];
     for (uint32_t id : { 0x4e98u, 0x4e99u, 0x4e9au, 0x4e9bu, 0x4e9eu, 0x4e9fu, 0x4ea0u, 0x4ea1u, 0x4ea2u })
@@ -2623,7 +2624,7 @@ RT3_NOINLINE void __fastcall RulesDialog_Refresh(uint8_t* w) {
     if (join <= 2) Window_SendEvent5(w, 0, 0x74, 0x4eca + join, 1, 0, 0);
     RulesDialog_FillTriggers(w);
     RulesDialog_FillConditions(w);
-    uint32_t type = Collection_Count(hook::Global<Collection*>(0x62be18)) > 1 ? 0x65 : 0x87;
+    uint32_t type = Collection_Count(g_events) > 1 ? 0x65 : 0x87;
     Window_SendEvent5(w, 0, type, 0x4e85, 3, 0, 0);
     Window_SendEvent5(w, 0, type, 0x4e86, 3, 0, 0);
 }
@@ -2638,13 +2639,13 @@ RT3_REPLACE(0x4db5e0, RulesDialog_MoveRuleDown);
 // 0x4db6a0 (rules dialog callback). Selects rule v (EDX) after storing the
 // current one (when one is shown); 0x622070 remembers it.
 void __fastcall RulesDialog_SelectCb(void*, int32_t v) {
-    uint8_t* dlg = hook::Global<uint8_t*>(0x6cff84);
+    uint8_t* dlg = g_cityDialog;
     if (F<int32_t>(dlg, 0x84) == -1 || RulesDialog_StoreRule(dlg)) {
-        F<int32_t>(hook::Global<uint8_t*>(0x6cff84), 0x84) = v;
-        RulesDialog_Reset(hook::Global<uint8_t*>(0x6cff84));
-        RulesDialog_Refresh(hook::Global<uint8_t*>(0x6cff84));
+        F<int32_t>(g_cityDialog, 0x84) = v;
+        RulesDialog_Reset(g_cityDialog);
+        RulesDialog_Refresh(g_cityDialog);
     }
-    hook::Global<int32_t>(0x622070) = v;
+    g_622070 = v;
 }
 RT3_REPLACE(0x4db6a0, RulesDialog_SelectCb);
 
@@ -2654,7 +2655,7 @@ RT3_REPLACE(0x4db6a0, RulesDialog_SelectCb);
 // fills territories and rules, resets and shows the first rule, and scrolls the
 // rule list to the remembered row 0x622070.
 RT3_NOINLINE void __fastcall RulesDialog_Init(uint8_t* w) {
-    int32_t row = hook::Global<int32_t>(0x622070);
+    int32_t row = g_622070;
     for (uint32_t id : { 0x4eacu, 0x4ed9u, 0x4fdfu, 0x4fe0u, 0x4fe1u, 0x4fe2u, 0x4edbu, 0x4eddu }) Window_SendEvent5(w, 0, 0xb9, id, 0x4d71b0, 0, 0);
     Window_SendEvent5(w, 0, 0x79, 0x4e84, 0x4db6a0, 0, 0);
     Window_SendEvent5(w, 0, 0x79, 0x4eae, 0x4d78d0, 0, 0);
@@ -2682,23 +2683,23 @@ RT3_NOINLINE void __fastcall EventEditor_NewEvent(uint8_t* w, int, int32_t dupli
     char text[0x194], num[0x108];
     if (!duplicate) {
         int32_t n = 1;
-        if (Collection_Count(hook::Global<Collection*>(0x62be18)))
-            n = (int32_t)Collection_IdAt(hook::Global<Collection*>(0x62be18), 0, Collection_Count(hook::Global<Collection*>(0x62be18)) - 1, 0) + 1;
+        if (Collection_Count(g_events))
+            n = (int32_t)Collection_IdAt(g_events, 0, Collection_Count(g_events) - 1, 0) + 1;
         ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)(num, (const char*)0x5c9aec, n);
         FormatText(text, GetString(0x47a), num, 0, 0, 0, 0, 0, 0, 0);
     } else {
         if (F<int32_t>(w, 0x84) == -1) return;
-        uint8_t* e = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be18), 0, F<uint32_t>(w, 0x84));
+        uint8_t* e = (uint8_t*)Collection_Get(g_events, 0, F<uint32_t>(w, 0x84));
         FormatText(text, GetString(0x47b), (const char*)e + 0x18, 0, 0, 0, 0, 0, 0, 0);
         source = F<uint32_t>(w, 0x84);
     }
     Dialog_RunMessage(GetString(0x47c), 0xd, 0xbf800000, 0xbf800000, 0, nullptr, 0, 0.0f, (uint32_t)(uintptr_t)text, 0xaa, 0, nullptr, nullptr, 0, 0, nullptr,
                       0);
     if (strlen(text)) {
-        F<uint32_t>(w, 0x84) = Table_AddNamedRecord(hook::Global<Collection*>(0x62be18), 0, text, F<uint32_t>(w, 0x90));
+        F<uint32_t>(w, 0x84) = Table_AddNamedRecord(g_events, 0, text, F<uint32_t>(w, 0x90));
         if (duplicate) {
-            uint8_t* src = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be18), 0, source);
-            uint8_t* dst = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be18), 0, F<uint32_t>(w, 0x84));
+            uint8_t* src = (uint8_t*)Collection_Get(g_events, 0, source);
+            uint8_t* dst = (uint8_t*)Collection_Get(g_events, 0, F<uint32_t>(w, 0x84));
             Record_CopyFrom(dst, 0, src);
         }
     }
@@ -2714,7 +2715,7 @@ RT3_REPLACE(0x4db8b0, EventEditor_NewEvent);
 // reselects it (event 0x66 / 0x4e84 with its position).
 RT3_NOINLINE void __fastcall EventEditor_Rename(uint8_t* w) {
     if (F<int32_t>(w, 0x84) == -1) return;
-    char* name = (char*)Collection_Get(hook::Global<Collection*>(0x62be18), 0, F<uint32_t>(w, 0x84)) + 0x18;
+    char* name = (char*)Collection_Get(g_events, 0, F<uint32_t>(w, 0x84)) + 0x18;
     char buf[0x12c];
     strcpy(buf, name);
     Dialog_RunMessage(GetString(0x47d), 9, 0xbf800000, 0xbf800000, 0, nullptr, 0, 0.0f, (uint32_t)(uintptr_t)buf, 0x1e, 0, nullptr, nullptr, 0, 0, nullptr, 0);
@@ -2724,7 +2725,7 @@ RT3_NOINLINE void __fastcall EventEditor_Rename(uint8_t* w) {
     RulesDialog_FillList(w);
     F<int32_t>(w, 0x84) = id;
     RulesDialog_Refresh(w);
-    uint32_t pos = Collection_PositionOf(hook::Global<Collection*>(0x62be18), 0, F<uint32_t>(w, 0x84), 2);
+    uint32_t pos = Collection_PositionOf(g_events, 0, F<uint32_t>(w, 0x84), 2);
     Window_SendEvent5(w, 0, 0x66, 0x4e84, pos, 0, 0);
 }
 RT3_REPLACE(0x4dba90, EventEditor_Rename);
@@ -2758,7 +2759,7 @@ RT3_NOINLINE uint32_t __fastcall EventEditor_HandleEvent(uint8_t* w, int, uint32
             if (RulesDialog_StoreRule(w)) EventEditor_NewEvent(w, 0, 0);
             break;
         case 0x4e88:
-            if (F<int32_t>(w, 0x84) != -1) RulesDialog_StoreRule(hook::Global<uint8_t*>(0x6cff84));
+            if (F<int32_t>(w, 0x84) != -1) RulesDialog_StoreRule(g_cityDialog);
             EventEditor_NewEvent(w, 0, 1);
             break;
         case 0x4e89: EventEditor_Rename(w); break;
@@ -2797,7 +2798,7 @@ RT3_NOINLINE uint32_t __fastcall EventEditor_HandleEvent(uint8_t* w, int, uint32
         RulesDialog_ShowMessageKind(w);
         return 0;
     case 0x4ea1:
-        if (uint8_t* e = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be18), 0, F<uint32_t>(w, 0x84))) {
+        if (uint8_t* e = (uint8_t*)Collection_Get(g_events, 0, F<uint32_t>(w, 0x84))) {
             Obj_SetTextE0(e, 0, F<const char*>(Widget_FindChild(w, 0, 0x4eac), 0xba));
             e[0x7ee] = 4;
             RulesDialog_ShowMessage(w);
@@ -2811,7 +2812,7 @@ RT3_NOINLINE uint32_t __fastcall EventEditor_HandleEvent(uint8_t* w, int, uint32
     case 0x4e9f:
     case 0x4ea0:
     case 0x4ea2:
-        if (uint8_t* e = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be18), 0, F<uint32_t>(w, 0x84))) {
+        if (uint8_t* e = (uint8_t*)Collection_Get(g_events, 0, F<uint32_t>(w, 0x84))) {
             if (e[0x7ee] == 4) {
                 Obj_SetTextE0(e, 0, F<const char*>(Widget_FindChild(w, 0, 0x4eac), 0xba));
                 e[0x7ee] = 0;
@@ -2822,13 +2823,13 @@ RT3_NOINLINE uint32_t __fastcall EventEditor_HandleEvent(uint8_t* w, int, uint32
     case 0x4eac:
     case 0x4ed9:
     case 0x4edb:
-        if (!hook::Global<int32_t>(0x6d07d8)) {
+        if (!g_6d07d8) {
             char text[0x7d0];
             StrCopyN(text, F<const char*>((uint8_t*)(uintptr_t)ev[11], 0xba), 0x7d0);
             Window_SendEvent5(w, 0, 0x6f, 0x4eac, (uint32_t)(uintptr_t)text, 0, 0);
             Window_SendEvent5(w, 0, 0x6f, 0x4ed9, (uint32_t)(uintptr_t)text, 0, 0);
             Window_SendEvent5(w, 0, 0x6f, 0x4edb, (uint32_t)(uintptr_t)text, 0, 0);
-            hook::Global<int32_t>(0x6d07d8) = 0;
+            g_6d07d8 = 0;
         }
         return 0;
     case 0x4ecb:
@@ -2852,7 +2853,7 @@ RT3_NOINLINE uint32_t __fastcall EventEditor_HandleEvent(uint8_t* w, int, uint32
     case 0x5002:
         RulesDialog_StoreRule(w);
         RulesDialog_SwitchPage(w);
-        hook::Global<uint32_t>(0x622074) = ev[1];
+        g_622074 = ev[1];
         return 0;
     }
     if (id >= 0x5014 && id <= 0x501c) {

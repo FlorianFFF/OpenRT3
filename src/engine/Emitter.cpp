@@ -9,6 +9,7 @@
 #include <windows.h>
 #include <initializer_list>
 #include "hook/hook.h"
+#include "core/globals.h"
 #include "game/collection.h"
 #include "core/crt.h"
 #include "core/ptrlist.h"
@@ -105,12 +106,12 @@ int32_t __fastcall Particle_Advance(uint8_t* p, int, float dt);
 void __fastcall Particle_ToBillboard(uint8_t* p, int, uint32_t* out, int32_t* count, const float* at);
 
 // The texture name from the main pack's cache (all mips, flag 0x7f).
-static uint8_t* Texture_Acquire(const char* name) { return TextureCache_Get(hook::Global<uint8_t*>(0x6d4020), 0, name, 0, 0, 0x7f); }
+static uint8_t* Texture_Acquire(const char* name) { return TextureCache_Get(g_pack, 0, name, 0, 0, 0x7f); }
 
 // Replaces the texture held in global slot by name's (the old one released).
 static void Texture_Replace(uint32_t slot, const char* name) {
     if (void* old = hook::Global<void*>(slot)) {
-        Pack_Release(hook::Global<uint8_t*>(0x6d4020), 0, old);
+        Pack_Release(g_pack, 0, old);
         hook::Global<void*>(slot) = nullptr;
     }
     hook::Global<uint8_t*>(slot) = Texture_Acquire(name);
@@ -118,7 +119,7 @@ static void Texture_Replace(uint32_t slot, const char* name) {
 
 // The channel's live sample, or 0 (forgetting it and marking the channel dirty).
 static inline uint8_t* LiveSample(uint8_t* c) {
-    uint8_t* s = (uint8_t*)Sound_LookupSample(hook::Global<uint8_t*>(0x6d402c), 0, F<uint32_t>(c, 0x110), 1);
+    uint8_t* s = (uint8_t*)Sound_LookupSample(g_sound, 0, F<uint32_t>(c, 0x110), 1);
     if (!s) {
         F<int32_t>(c, 0x110) = 0;
         F<int32_t>(c, 0x134) = 1;
@@ -139,7 +140,7 @@ static inline void PushFront(uint32_t* l, uint32_t* n) {
 
 static inline void FreeAll(uint32_t* l) {
     for (uint32_t* n = (uint32_t*)l[0]; n;) {
-        uint8_t* pool = F<uint8_t*>(hook::Global<uint8_t*>(0x6d4030), 0x14);
+        uint8_t* pool = F<uint8_t*>(g_models, 0x14);
         uint32_t* next = (uint32_t*)*n;
         if (F<int32_t>(pool, 0xc) && (uint32_t)n >= F<uint32_t>(pool, 4) && (uint32_t)n < F<uint32_t>(pool, 8))
             PushFront(F<uint32_t*>(pool, 0), n);
@@ -149,7 +150,7 @@ static inline void FreeAll(uint32_t* l) {
     }
 }
 
-static inline uint8_t* SoundSys() { return hook::Global<uint8_t*>(0x6d402c); }
+static inline uint8_t* SoundSys() { return g_sound; }
 
 static inline int32_t CellOf(float v) {
     int32_t r;
@@ -165,7 +166,7 @@ static inline int32_t CellOf(float v) {
 
 static inline void* ExeNew(size_t n) { return ((void*(__cdecl*)(size_t))0x53b070)(n); }
 
-static inline uint8_t* Snd() { return hook::Global<uint8_t*>(0x6d402c); }
+static inline uint8_t* Snd() { return g_sound; }
 
 static inline int32_t Cell16(float v) {
     double d = (double)v * *(const float*)0x5dcfe8;
@@ -226,7 +227,7 @@ static inline void Emitter_Density(uint8_t* e, const float* pt, const float* cam
     double dx = (double)pt[0] - cam[0], dy = (double)pt[1] - cam[1], dz = (double)pt[2] - cam[2];
     double r = ((double)step + Fl(0x5ce500)) - Sqrt87((dz * dz + dy * dy) + dx * dx) * k;
     F<float>(e, 0xdc) = (float)r;
-    if (r > F<float>(hook::Global<uint8_t*>(0x6d4030), 0x28)) F<uint32_t>(e, 0xdc) = F<uint32_t>(hook::Global<uint8_t*>(0x6d4030), 0x28);
+    if (r > F<float>(g_models, 0x28)) F<uint32_t>(e, 0xdc) = F<uint32_t>(g_models, 0x28);
     else if (Fl(0x5ce500) > r) F<uint32_t>(e, 0xdc) = 0x3e19999a;
 }
 
@@ -235,7 +236,7 @@ static inline void Emitter_Density(uint8_t* e, const float* pt, const float* cam
 static void ReleaseResourceIn(uint32_t slot) {
     void*& r = hook::Global<void*>(slot);
     if (!r) return;
-    Pack_Release(hook::Global<uint8_t*>(0x6d4020), 0, r);
+    Pack_Release(g_pack, 0, r);
     r = nullptr;
 }
 
@@ -257,7 +258,7 @@ void __fastcall Channel_Detach(uint8_t* c) {
         }
     }
     if (PtrListNode* n = F<PtrListNode*>(c, 0x13d))
-        Widget_RemoveListNode((uint8_t*)Engine_Renderer(hook::Global<void*>(0x6d4024)), 0, n);
+        Widget_RemoveListNode((uint8_t*)Engine_Renderer(hook::As<void*>(g_engine)), 0, n);
     if (uint32_t key = F<uint32_t>(c, 0x110)) {
         Sound_Stop(SoundSys(), 0, key, 1);
         F<uint32_t>(c, 0x110) = 0;
@@ -390,7 +391,7 @@ RT3_REPLACE(0x5543f0, Channel_SetLoop);
 // 0x554450. Sets the channel volume (+0x128, sample +0x28 flag 1).
 RT3_NOINLINE void __fastcall Channel_SetVolume(uint8_t* c, int, uint32_t v) {
     if (F<uint32_t>(c, 0x110)) {
-        uint8_t* s = (uint8_t*)Sound_LookupSample(hook::Global<uint8_t*>(0x6d402c), 0, F<uint32_t>(c, 0x110), 1);
+        uint8_t* s = (uint8_t*)Sound_LookupSample(g_sound, 0, F<uint32_t>(c, 0x110), 1);
         if (s) {
             F<uint32_t>(s, 0x28) = v;
             F<uint32_t>(s, 0x44) |= 1;
@@ -455,7 +456,7 @@ void __fastcall Channel_MoveTo(uint8_t* c, int, float x, float y, float z) {
     uint8_t now = grid[0x47c + nx * 64 + nz] & 1;
     bool playing = false;
     if (F<uint32_t>(c, 0x110)) {
-        uint8_t* s = (uint8_t*)Sound_LookupSample(hook::Global<uint8_t*>(0x6d402c), 0, F<uint32_t>(c, 0x110), 1);
+        uint8_t* s = (uint8_t*)Sound_LookupSample(g_sound, 0, F<uint32_t>(c, 0x110), 1);
         if (s) {
             if (F<int32_t>(c, 0x134) == 1) Channel_ApplyTo(c, 0, s);
             else {
@@ -476,11 +477,11 @@ void __fastcall Channel_MoveTo(uint8_t* c, int, float x, float y, float z) {
     }
     if (!playing) F<uint32_t>(c, 0x110) = 0;
     if (was != now || !F<uint32_t>(c, 0x110)) {
-        if (now) Channel_Command(c, 0, 1, F<int32_t>(Engine_Renderer(hook::Global<void*>(0x6d4024)), 0xd));
+        if (now) Channel_Command(c, 0, 1, F<int32_t>(Engine_Renderer(hook::As<void*>(g_engine)), 0xd));
         else {
             c[0x13c] = 0;
             if (F<uint32_t>(c, 0x110)) {
-                Sound_Stop(hook::Global<uint8_t*>(0x6d402c), 0, F<uint32_t>(c, 0x110), 1);
+                Sound_Stop(g_sound, 0, F<uint32_t>(c, 0x110), 1);
                 F<uint32_t>(c, 0x110) = 0;
             }
         }
@@ -518,7 +519,7 @@ RT3_REPLACE(0x554830, Channel_Setup);
 RT3_NOINLINE void __fastcall Nop5548c0(void*, int, int32_t, int32_t) { __asm nop }
 RT3_REPLACE(0x5548c0, Nop5548c0);
 
-void __fastcall Clear_d939a0(void*, int, int32_t, int32_t) { hook::Global<int32_t>(0xd939a0) = 0; }
+void __fastcall Clear_d939a0(void*, int, int32_t, int32_t) { g_d939a0 = 0; }
 RT3_REPLACE(0x5548d0, Clear_d939a0);
 
 // 0x5548e0. Sets the view parameters when the first (a) is positive.
@@ -561,7 +562,7 @@ void __fastcall Obj_SetPair1ed(uint8_t* o, int, uint32_t v) {
 }
 RT3_REPLACE(0x554980, Obj_SetPair1ed);
 
-uint32_t __fastcall Get_d9399c() { return hook::Global<uint32_t>(0xd9399c); }
+uint32_t __fastcall Get_d9399c() { return g_d9399c; }
 RT3_REPLACE(0x5549a0, Get_d9399c);
 
 RT3_NOINLINE void ReleaseResourceD9399c() { ReleaseResourceIn(0xd9399c); }
@@ -617,7 +618,7 @@ RT3_REPLACE(0x554a30, ListPair_Clear);
 // colour (+0x48, jittered by the render LCG 0x624324 with flag 2), box +0xe0..+0xec,
 // flags +0xac and size +0x98. Returns 1 if spawned.
 RT3_NOINLINE int32_t __fastcall Emitter_SpawnParticle(uint8_t* e) {
-    uint8_t* pool = F<uint8_t*>(hook::Global<uint8_t*>(0x6d4030), 0x14);
+    uint8_t* pool = F<uint8_t*>(g_models, 0x14);
     uint32_t** freeList = F<uint32_t**>(pool, 0);
     double ratio = (double)(int32_t)((uint32_t*)freeList)[2] / F<int32_t>(pool, 0xc);
     if (!(ratio > *(const float*)0x5ddcb0) && !(ratio != ratio) && !(F<uint32_t>(e, 0xac) & 0x8000)) return 0;
@@ -642,7 +643,7 @@ RT3_NOINLINE int32_t __fastcall Emitter_SpawnParticle(uint8_t* e) {
     ++alive[2];
     if (!alive[1]) alive[1] = (uint32_t)node;
     if (F<uint32_t>(e, 0xac) & 2) {
-        uint32_t& seed = hook::Global<uint32_t>(0x624324);
+        uint32_t& seed = g_lcg;
         seed = seed * 0x19660d + 0x3c6ef35f;
         int32_t d = (int8_t)(uint8_t)((seed & 0x3f) - 0x1f);
         int32_t c[3] = { (int32_t)((color >> 16) & 0xff) + d, (int32_t)((color >> 8) & 0xff) + d, (int32_t)(color & 0xff) + d };
@@ -727,12 +728,12 @@ RT3_REPLACE(0x554d70, Emitter_WorldPoints);
 // unless +0x1e1), thinned by distance to the camera (step accumulated per particle
 // until it reaches the frame step, unless +0xb0 & 2).
 void __fastcall Emitter_Draw(uint8_t* e, int, uint8_t* out, int32_t* count) {
-    uint8_t* camObj = F<uint8_t*>(hook::Global<uint8_t*>(0x6d4024), 0x28);
+    uint8_t* camObj = F<uint8_t*>(g_engine, 0x28);
     float cam[3];
     X87Copy(&cam[1], camObj + 0x20);
     F<uint32_t>(cam, 0) = F<uint32_t>(camObj, 0x1c);
     X87Copy(&cam[2], camObj + 0x24);
-    uint8_t* clock = hook::Global<uint8_t*>(0x6d4030);
+    uint8_t* clock = g_models;
     float k = (float)((double)F<float>(clock, 0x28) * Fl(0x5dd230));
     if (Fl(0x5c8598) == F<float>(clock, 0x28)) return;
     if (!(F<uint32_t>(e, 0xac) & 0x400)) {
@@ -751,10 +752,10 @@ void __fastcall Emitter_Draw(uint8_t* e, int, uint8_t* out, int32_t* count) {
         const float* pt = F<int32_t>(e, 0x1e1) ? *pts : Vec3_Transform(*pts, 0, tmp, (const float*)(F<uint8_t*>(e, 0xc) + 0xce));
         for (int j = 0; j < 3; ++j) ((uint32_t*)at)[j] = ((const uint32_t*)pt)[j];
         ++pts;
-        Emitter_Density(e, at, cam, k, F<float>(hook::Global<uint8_t*>(0x6d4030), 0x28));
+        Emitter_Density(e, at, cam, k, F<float>(g_models, 0x28));
         double acc = F<float>(e, 0xdc);
         for (void** n = *F<void***>(group, 4); n; n = (void**)n[0]) {
-            double step = F<float>(hook::Global<uint8_t*>(0x6d4030), 0x28);
+            double step = F<float>(g_models, 0x28);
             if (!(acc < step || acc != acc) || (e[0xb0] & 2)) {
                 Particle_ToBillboard((uint8_t*)n[1], 0, (uint32_t*)(out + *count * 0x18), count, at);
                 acc = Fl(0x5c8598);
@@ -775,16 +776,16 @@ RT3_REPLACE(0x554e70, Emitter_Draw);
 // live list (+4) to the free list (+0). 0 when skipped.
 RT3_NOINLINE int32_t __fastcall Emitter_Update(uint8_t* e, int, int32_t dt) {
     if (dt < 0) return 0;
-    int32_t frame = F<int32_t>(hook::Global<uint8_t*>(0x6d4030), 0x2c);
+    int32_t frame = F<int32_t>(g_models, 0x2c);
     if (F<int32_t>(e, 0x1f9) == frame) return 0;
     uint32_t trail = F<uint32_t>(e, 0xac) & 0x19;
     float mx = 0.0f, my = 0.0f, mz = 0.0f;
     F<int32_t>(e, 0x1f9) = frame;
     if (trail && F<uint8_t*>(e, 0xc)) {
-        if (!hook::Global<int32_t>(0xd939a0)) {
+        if (!g_d939a0) {
             for (int32_t k = 0; k < 3; ++k) F<uint32_t>(e, 0x20 + k * 4) = F<uint32_t>(e, 0x14 + k * 4);
             for (int32_t k = 0; k < 3; ++k) F<uint32_t>(e, 0x14 + k * 4) = F<uint32_t>(F<uint8_t*>(e, 0xc), 0x1e2 + k * 4);
-            uint8_t* g = hook::Global<uint8_t*>(0xd939a4);
+            uint8_t* g = g_d939a4;
             if ((F<uint32_t>(e, 0xac) & 0x800000) && g) {
                 for (int32_t k = 0; k < 3; ++k) F<uint32_t>(g, 0x94 + k * 4) = F<uint32_t>(e, 0x14 + k * 4);
                 for (int32_t k = 0; k < 3; ++k) F<uint32_t>(g, 0x88 + k * 4) = F<uint32_t>(e, 0x20 + k * 4);
@@ -878,7 +879,7 @@ RT3_NOINLINE uint32_t __fastcall Particle_Color(uint8_t* e, int, uint8_t* p, int
     int32_t r, g, b;
     uint32_t ca = F<uint32_t>(e, 0x48), cb = F<uint32_t>(e, 0x4c);
     if (mode == 1) {
-        uint32_t& seed = hook::Global<uint32_t>(0x624324);
+        uint32_t& seed = g_lcg;
         seed = seed * 0x19660d + 0x3c6ef35f;
         double t = (double)(int32_t)(seed & 0x7fff) * *(const float*)0x5ddcb8;
         double u = (double)*(const float*)0x5c85b4 - t;
@@ -924,7 +925,7 @@ RT3_REPLACE(0x555740, Emitter_RetintAll);
 // uninitialized stack buffer into p +0x18..+0x20 (Emitter_Start overwrites it unless
 // the particle's flags have 0x40000000); the rewrite leaves those fields alone there.
 void __fastcall Emitter_LaunchParticle(uint8_t* e, int, uint8_t* p, const float* at, int32_t t) {
-    uint32_t& seed = hook::Global<uint32_t>(0x624324);
+    uint32_t& seed = g_lcg;
     auto next = [&]() { return seed = seed * 0x19660d + 0x3c6ef35f; };
     auto jitter = [&](uint32_t off) {
         int32_t v = (int32_t)(next() & 0xff) - 0x7f;
@@ -1001,8 +1002,8 @@ void __fastcall Emitter_LaunchParticle(uint8_t* e, int, uint8_t* p, const float*
     float lifeS = (float)(life * F<float>(e, 0xcc));
     if (lifeS <= Fl(0x5c8598)) lifeS = 1.0f;
     float rate = (float)(((double)hiS - loS) / lifeS);
-    if (hook::Global<int32_t>(0xd939a8))
-        F<float>(p, 0x60) = (float)((double)F<float>(hook::Global<uint8_t*>(0x6d4030), 0x30) * F<float>(e, 0x98));
+    if (g_d939a8)
+        F<float>(p, 0x60) = (float)((double)F<float>(g_models, 0x30) * F<float>(e, 0x98));
     else
         X87Copy(p + 0x60, e + 0x98);
     uint32_t color;
@@ -1034,7 +1035,7 @@ void __fastcall Emitter_LaunchParticle(uint8_t* e, int, uint8_t* p, const float*
     for (int i = 0; i < 3; ++i) to[i] = (float)((double)vel[i] + velJ[i]);
     for (int i = 0; i < 3; ++i) from[i] = (float)((double)off[i] + at[i]);
     Emitter_Start(p, 0, Ftol(lifeS), (const uint32_t*)from, (const uint32_t*)to, *(uint32_t*)&loS, rate);
-    Particle_Advance(p, 0, (float)(F<int32_t>(e, 0x6c) - t + hook::Global<int32_t>(0x6257d8)));
+    Particle_Advance(p, 0, (float)(F<int32_t>(e, 0x6c) - t + g_6257d8));
 }
 RT3_REPLACE(0x555780, Emitter_LaunchParticle);
 
@@ -1050,12 +1051,12 @@ RT3_REPLACE(0x555780, Emitter_LaunchParticle);
 RT3_NOINLINE void __fastcall Emitter_Tick(uint8_t* e, int, int32_t force) {
     uint32_t fl = F<uint32_t>(e, 0xac);
     if (fl & 0x1000000) return;
-    uint8_t* clock = hook::Global<uint8_t*>(0x6d4030);
+    uint8_t* clock = g_models;
     if (F<int32_t>(e, 0x1f9) == F<int32_t>(clock, 0x2c)) return;
-    int32_t& gnow = hook::Global<int32_t>(0x6257d8);
+    int32_t& gnow = g_6257d8;
     int32_t now;
-    if ((fl & 0x800000) && !hook::Global<int32_t>(0xd939a0)) {
-        now = F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x2c);
+    if ((fl & 0x800000) && !g_d939a0) {
+        now = F<int32_t>(g_engine, 0x2c);
         gnow = now;
     } else {
         now = gnow;
@@ -1068,7 +1069,7 @@ RT3_NOINLINE void __fastcall Emitter_Tick(uint8_t* e, int, int32_t force) {
     int32_t dt = start - F<int32_t>(e, 0xc0) + now;
     if ((fl & 0x800000) && dt > 0) {
         int32_t c = F<int32_t>(e, 0x68);
-        hook::Global<uint32_t>(0xd939a4) = (uint32_t)((c % 64) * 0xe8) + F<uint32_t>(e, 0x64);
+        hook::As<uint32_t>(g_d939a4) = (uint32_t)((c % 64) * 0xe8) + F<uint32_t>(e, 0x64);
         F<int32_t>(e, 0x68) = c + 1;
     }
     int32_t base = now;
@@ -1080,7 +1081,7 @@ RT3_NOINLINE void __fastcall Emitter_Tick(uint8_t* e, int, int32_t force) {
             F<int32_t>(e, 0xc0) = start + now;
             return;
         }
-        int32_t& reset = hook::Global<int32_t>(0xd97af4);
+        int32_t& reset = g_d97af4;
         reset = 0;
         if (dt > F<int32_t>(e, 0x54) && !e[0x1d8]) {
             reset = 1;
@@ -1102,7 +1103,7 @@ RT3_NOINLINE void __fastcall Emitter_Tick(uint8_t* e, int, int32_t force) {
                 F<int32_t>(e, 0xc4) = t6c + base;
                 F<int32_t>(e, 0x1f1) = 0;
                 if (F<uint32_t>(e, 0xac) & 0x40000) {
-                    uint32_t& seed = hook::Global<uint32_t>(0x624324);
+                    uint32_t& seed = g_lcg;
                     seed = seed * 0x19660d + 0x3c6ef35f;
                     F<int32_t>(e, 0x1f1) = (int32_t)((seed & 0x7fff) << 1) % F<int32_t>(e, 0x38);
                     seed = seed * 0x19660d + 0x3c6ef35f;
@@ -1136,7 +1137,7 @@ RT3_NOINLINE void __fastcall Emitter_Tick(uint8_t* e, int, int32_t force) {
                     X87Copy(&pos[1], obj + 0x102);
                     X87Copy(&pos[2], obj + 0x106);
                 } else {
-                    uint8_t* g = hook::Global<uint8_t*>(0xd939a0);
+                    uint8_t* g = hook::As<uint8_t*>(g_d939a0);
                     const float* m = g ? (const float*)(g + 0x3c) : (ac & 0x10) ? (const float*)(obj + 0x14e) : (const float*)(obj + 0xce);
                     float* r = Vec3_Transform(list, 0, tmp, m);
                     for (int i = 0; i < 3; ++i) pos[i] = r[i];

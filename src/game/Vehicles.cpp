@@ -9,6 +9,7 @@
 #include <math.h>
 #include <initializer_list>
 #include "hook/hook.h"
+#include "core/globals.h"
 #include "game/collection.h"
 #include "core/stream.h"
 #include "core/crt.h"
@@ -235,7 +236,7 @@ static void SaveWithRecords(Collection* t, Stream s, int32_t recordSize, uint32_
     StreamWriteU32(s, tag + 2);
 }
 
-static inline uint8_t* SoundSys() { return hook::Global<uint8_t*>(0x6d402c); }
+static inline uint8_t* SoundSys() { return g_sound; }
 
 static inline double D(uint32_t a) { return *(const double*)a; }
 
@@ -246,7 +247,7 @@ static void FatalFormat(int32_t id, const char* arg) {
     Fatal_Exit(msg);
 }
 
-static inline uint8_t* Snd() { return hook::Global<uint8_t*>(0x6d402c); }
+static inline uint8_t* Snd() { return g_sound; }
 
 static inline double Fl(uint32_t a) { return *(const float*)a; }
 
@@ -296,7 +297,7 @@ inline double RtMod(double x, double y) { return ((double(__cdecl*)(double, doub
 inline int RtStricmp(const char* a, const char* b) { return ((int(__cdecl*)(const char*, const char*))0x5a57cf)(a, b); }
 inline float RtBits(uint32_t v) { return *(const float*)&v; }
 inline uint8_t* RtGet(uint32_t global, int32_t id) { return (uint8_t*)Collection_Get(hook::Global<Collection*>(global), 0, (uint32_t)id); }
-inline uint8_t* RtMap() { return hook::Global<uint8_t*>(0x62c120); }
+inline uint8_t* RtMap() { return g_map; }
 }
 
 // 0x40a150. Re-applies the world clock (refreshes the derived times).
@@ -316,15 +317,15 @@ RT3_REPLACE(0x40a150, World_RefreshTime);
 // events fire, and cargo counts, demand and the map cells refresh.
 RT3_NOINLINE void __fastcall World_YearEnd(uint8_t* w) {
     Nop433e90(w);
-    for (int32_t i = 0; i < Table_CountField3f(hook::Global<Collection*>(0x62be10)); ++i)
-        Company_AnnualReview((uint8_t*)Table_NthField3f(hook::Global<Collection*>(0x62be10), 0, i));
-    for (int32_t i = 0; i < Table_CountField4(hook::Global<Collection*>(0x6ceb9c)); ++i) Nop476090(Table_NthField4(hook::Global<Collection*>(0x6ceb9c), 0, i));
+    for (int32_t i = 0; i < Table_CountField3f(g_companies); ++i)
+        Company_AnnualReview((uint8_t*)Table_NthField3f(g_companies, 0, i));
+    for (int32_t i = 0; i < Table_CountField4(g_players); ++i) Nop476090(Table_NthField4(g_players, 0, i));
     YearEach(0x6cfcbc, [](uint8_t* o) { Nop4a7320(o); });
     YearEach(0x62b26c, [](uint8_t* o) { Nop40ca60(o); });
-    Cities_Grow(hook::Global<Collection*>(0x62bae0));
-    Events_Fire(hook::Global<Collection*>(0x62be18), 0, 1, nullptr, 0);
-    uint8_t* world = hook::Global<uint8_t*>(0x6cec78);
-    if (!F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0xf8) && !F<int32_t>(w, 0x46c38) && !F<int32_t>(world, 0x4aeb) && !hook::Global<uint8_t*>(0x6cec7c)[0x82]) {
+    Cities_Grow(g_cities);
+    Events_Fire(g_events, 0, 1, nullptr, 0);
+    uint8_t* world = g_world;
+    if (!F<int32_t>(g_app, 0xf8) && !F<int32_t>(w, 0x46c38) && !F<int32_t>(world, 0x4aeb) && !g_newGame[0x82]) {
         if (!F<int32_t>(w, 0x4a73)) {
             F<int32_t>(w, 0x4d) = 1;
         } else {
@@ -335,28 +336,28 @@ RT3_NOINLINE void __fastcall World_YearEnd(uint8_t* w) {
     }
     World_SetTime(w, 0, F<int32_t>(w, 0x15) + 1);
     World_RollStats(w);
-    Industries_BuildCargoLists(hook::Global<Collection*>(0x62b268));
+    Industries_BuildCargoLists(g_62b268);
     World_UpdateEraFactor();
     World_UpdateSpeedScale(w);
     int32_t decades = ((int32_t)F<uint16_t>(w, 0xd) - (int32_t)F<uint16_t>(w, 5)) / 10;
-    float rate = F<float>(hook::Global<uint8_t*>(0x6cec78), (decades < 4 ? decades : 4) * 4 + 0xbe6);
+    float rate = F<float>(g_world, (decades < 4 ? decades : 4) * 4 + 0xbe6);
     if (decades >= 0x96) rate = 0.0f;
     else if (decades >= 0x64) rate = (float)((double)rate * *(const double*)0x5c88e8);
     else if (decades >= 0x46) rate = (float)((double)rate * *(const double*)0x5c8750);
     F<float>(w, 0xbde) = (float)(((double)rate + *(const double*)0x5c8770) * F<float>(w, 0xbde));
-    for (int32_t i = 0; i < Table_CountField3f(hook::Global<Collection*>(0x62be10)); ++i)
-        Company_YearEnd((uint8_t*)Table_NthField3f(hook::Global<Collection*>(0x62be10), 0, i));
-    for (int32_t i = 0; i < Table_CountField4(hook::Global<Collection*>(0x6ceb9c)); ++i)
-        Player_RecordWealth((uint8_t*)Table_NthField4(hook::Global<Collection*>(0x6ceb9c), 0, i));
+    for (int32_t i = 0; i < Table_CountField3f(g_companies); ++i)
+        Company_YearEnd((uint8_t*)Table_NthField3f(g_companies, 0, i));
+    for (int32_t i = 0; i < Table_CountField4(g_players); ++i)
+        Player_RecordWealth((uint8_t*)Table_NthField4(g_players, 0, i));
     YearEach(0x6cfcbc, [](uint8_t* o) { Train_RollStats(o); });
     YearEach(0x62b26c, [](uint8_t* o) { Building_RollStats(o); });
     YearEach(0x6cec20, [](uint8_t* o) { Site_RollStats(o); });
     YearEach(0x6cfc9c, [](uint8_t* o) { Station_RollStats(o); });
     YearEach(0x62bae0, [](uint8_t* o) { Obj_YearRollover(o); });
-    Events_Fire(hook::Global<Collection*>(0x62be18), 0, 0, nullptr, 0);
-    CargoTypes_Recount(hook::Global<Collection*>(0x62ba8c));
-    Lots_RebuildDemand(hook::Global<Collection*>(0x6ada90));
-    Map_RefreshCells(hook::Global<uint8_t*>(0x62c120));
+    Events_Fire(g_events, 0, 0, nullptr, 0);
+    CargoTypes_Recount(g_cargoTypes);
+    Lots_RebuildDemand(g_6ada90);
+    Map_RefreshCells(g_map);
 }
 RT3_REPLACE(0x40a160, World_YearEnd);
 
@@ -376,64 +377,64 @@ RT3_REPLACE(0x40a160, World_YearEnd);
 RT3_NOINLINE void __fastcall World_EndOfMonth(uint8_t* w) {
     const int32_t month = w[0xf];
     if (w[0xf] == 2 || w[0xf] == 8) World_EconomyTick(w, 0, -1);
-    for (int32_t i = 0; i < Table_CountField3f(hook::Global<Collection*>(0x62be10)); ++i)
-        Obj_Nop423fc0(Table_NthField3f(hook::Global<Collection*>(0x62be10), 0, i));
-    for (int32_t i = 0; i < Table_CountField4(hook::Global<Collection*>(0x6ceb9c)); ++i)
-        Nop476080(Table_NthField4(hook::Global<Collection*>(0x6ceb9c), 0, i));
-    for (int32_t i = 0; i < Collection_Count(hook::Global<Collection*>(0x6cfcbc)); ++i) {
-        Collection* trains = hook::Global<Collection*>(0x6cfcbc);
+    for (int32_t i = 0; i < Table_CountField3f(g_companies); ++i)
+        Obj_Nop423fc0(Table_NthField3f(g_companies, 0, i));
+    for (int32_t i = 0; i < Table_CountField4(g_players); ++i)
+        Nop476080(Table_NthField4(g_players, 0, i));
+    for (int32_t i = 0; i < Collection_Count(g_trains); ++i) {
+        Collection* trains = g_trains;
         Train_SmoothSpeed((uint8_t*)Collection_Get(trains, 0, Collection_IdAt(trains, 0, (uint32_t)i, 0)));
     }
-    CargoTypes_UpdateAverages(hook::Global<Collection*>(0x62ba8c), 0, 0);
-    Stations_CountTargets(hook::Global<Collection*>(0x6cec20));
-    for (int32_t i = 0; i < Collection_Count(hook::Global<Collection*>(0x6cec20)); ++i) {
-        Collection* stations = hook::Global<Collection*>(0x6cec20);
+    CargoTypes_UpdateAverages(g_cargoTypes, 0, 0);
+    Stations_CountTargets(g_stations);
+    for (int32_t i = 0; i < Collection_Count(g_stations); ++i) {
+        Collection* stations = g_stations;
         Station_UpdateRoutes((uint8_t*)Collection_Get(stations, 0, Collection_IdAt(stations, 0, (uint32_t)i, 0)));
     }
-    Events_Fire(hook::Global<Collection*>(0x62be18), 0, 3, nullptr, 0);
+    Events_Fire(g_events, 0, 3, nullptr, 0);
     {
         const uint8_t m = w[0xf];
-        if (m != 3 && m != 0xc && m != 2 && m != 8) Cities_RandomBoom(hook::Global<Collection*>(0x62bae0));
+        if (m != 3 && m != 0xc && m != 2 && m != 8) Cities_RandomBoom(g_cities);
     }
     if (w[0xf] == 3) World_YearEvents(w);
     if (w[0xf] == 0xc) World_YearEnd(w);
     else World_SetTime(w, 0, F<int32_t>(w, 0x15) + 1);
-    if (w[0xf] == 6) CarTypes_AnnounceNew(hook::Global<Collection*>(0x62ba88));
-    for (int32_t i = 0; i < Table_CountField3f(hook::Global<Collection*>(0x62be10)); ++i)
-        Company_MonthEnd((uint8_t*)Table_NthField3f(hook::Global<Collection*>(0x62be10), 0, i));
-    for (int32_t i = 0; i < Table_CountField4(hook::Global<Collection*>(0x6ceb9c)); ++i)
-        Company_UpdateCreditRate((uint8_t*)Table_NthField4(hook::Global<Collection*>(0x6ceb9c), 0, i));
-    Events_Fire(hook::Global<Collection*>(0x62be18), 0, 2, nullptr, 0);
+    if (w[0xf] == 6) CarTypes_AnnounceNew(g_carTypes);
+    for (int32_t i = 0; i < Table_CountField3f(g_companies); ++i)
+        Company_MonthEnd((uint8_t*)Table_NthField3f(g_companies, 0, i));
+    for (int32_t i = 0; i < Table_CountField4(g_players); ++i)
+        Company_UpdateCreditRate((uint8_t*)Table_NthField4(g_players, 0, i));
+    Events_Fire(g_events, 0, 2, nullptr, 0);
     World_ProcessMarginCalls();
     {
-        uint8_t* ed = hook::Global<uint8_t*>(0x6cec74);
-        if (!F<int32_t>(ed, 0x90) && !F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4aeb) &&
-            (!hook::Global<uint8_t*>(0x6cec7c)[0x82] || !F<int32_t>(ed, 0x24b))) {
+        uint8_t* ed = g_app;
+        if (!F<int32_t>(ed, 0x90) && !F<int32_t>(g_world, 0x4aeb) &&
+            (!g_newGame[0x82] || !F<int32_t>(ed, 0x24b))) {
             if (!IsMultiplayer()) {
-                Cities_UpdateAll(hook::Global<Collection*>(0x62bae0), 0, 0x3daaaaab, 0);
-            } else if (hook::Global<int32_t>(0x6d40dc)) {
+                Cities_UpdateAll(g_cities, 0, 0x3daaaaab, 0);
+            } else if (g_6d40dc) {
                 PushSeed();
-                Cities_UpdateAll(hook::Global<Collection*>(0x62bae0), 0, 0x3daaaaab, 0);
+                Cities_UpdateAll(g_cities, 0, 0x3daaaaab, 0);
                 Net_SendPendingRecords();
                 PopSeed();
             }
         }
     }
     if (!IsMultiplayer() && !F<int32_t>(w, 0x46c38)) {
-        const int32_t every = F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0xf4);
+        const int32_t every = F<int32_t>(g_app, 0xf4);
         bool save = false;
         if (every < 3) {
             if (every && (month == 6 || month == 0xc || (every == 1 && (month == 3 || month == 9)))) save = !IsMultiplayer();
         } else if (month == 0xc) {
             if (every == 3) save = true;
             else if (every == 4 && Prod_Rem(F<uint16_t>(w, 0xd), 2) == 0) save = true;
-            else if (F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0xf4) == 5) save = Prod_Rem(F<uint16_t>(w, 0xd), 5) == 0;
+            else if (F<int32_t>(g_app, 0xf4) == 5) save = Prod_Rem(F<uint16_t>(w, 0xd), 5) == 0;
         }
         if (save) World_Save(w, 0, nullptr, 2, nullptr);
     }
     AI_Tick(w);
-    Table_DecayWear(hook::Global<Collection*>(0x6cfca8));
-    Overview_Redraw(hook::Global<uint8_t*>(0x62c120), 0, nullptr);
+    Table_DecayWear(g_tracks);
+    Overview_Redraw(g_map, 0, nullptr);
 }
 RT3_REPLACE(0x40a590, World_EndOfMonth);
 
@@ -443,16 +444,16 @@ RT3_REPLACE(0x40a590, World_EndOfMonth);
 // before and after.
 RT3_NOINLINE void __fastcall World_EndOfWeek(uint8_t* w) {
     RunDebugValidation();
-    Industries_ProduceQuarter(hook::Global<Collection*>(0x62b26c));
-    Events_Fire(hook::Global<Collection*>(0x62be18), 0, 5, nullptr, 0);
+    Industries_ProduceQuarter(g_buildings);
+    Events_Fire(g_events, 0, 5, nullptr, 0);
     if (w[0x11] == 0x1c) World_EndOfMonth(w);
     else World_SetTime(w, 0, F<int32_t>(w, 0x15) + 1);
-    Loads_Age(hook::Global<Collection*>(0x6ada90));
-    for (int32_t i = 0; i < Collection_Count(hook::Global<Collection*>(0x6cfcbc)); ++i) {
-        Collection* trains = hook::Global<Collection*>(0x6cfcbc);
+    Loads_Age(g_6ada90);
+    for (int32_t i = 0; i < Collection_Count(g_trains); ++i) {
+        Collection* trains = g_trains;
         Train_YearlyUpkeep((uint8_t*)Collection_Get(trains, 0, Collection_IdAt(trains, 0, (uint32_t)i, 0)));
     }
-    Events_Fire(hook::Global<Collection*>(0x62be18), 0, 4, nullptr, 0);
+    Events_Fire(g_events, 0, 4, nullptr, 0);
     RunDebugValidation();
 }
 RT3_REPLACE(0x40a910, World_EndOfWeek);
@@ -466,22 +467,22 @@ RT3_REPLACE(0x40a910, World_EndOfWeek);
 RT3_NOINLINE void __fastcall World_EndOfDay(uint8_t* w) {
     if (IsMultiplayer() && F<int32_t>(w, 0x66ae)) {
         Game_PauseTools();
-        SetSeed(hook::Global<int32_t>(0x5f2b6c));
+        SetSeed(g_5f2b6c);
     }
-    Terrain_AgeCorners(hook::Global<uint8_t*>(0x62c120));
+    Terrain_AgeCorners(g_map);
     if (w[0x11] % 7 == 0) World_EndOfWeek(w);
     else World_SetTime(w, 0, F<int32_t>(w, 0x15) + 1);
-    for (int32_t i = 0; i < Collection_Count(hook::Global<Collection*>(0x62ba84)); ++i) {
-        Collection* cars = hook::Global<Collection*>(0x62ba84);
+    for (int32_t i = 0; i < Collection_Count(g_62ba84); ++i) {
+        Collection* cars = g_62ba84;
         Car_ApplyPriceFactor((uint8_t*)Collection_Get(cars, 0, Collection_IdAt(cars, 0, (uint32_t)i, 0)));
     }
     if (IsMultiplayer() && F<int32_t>(w, 0x66ae)) {
-        Net_RunFrameMessages(hook::Global<uint8_t*>(0x6cd8d8));
-        Net_WeeklyCheck(hook::Global<uint8_t*>(0x6cd8d8));
+        Net_RunFrameMessages(g_session);
+        Net_WeeklyCheck(g_session);
         Options_Restore();
     }
     if (IsMultiplayer() && Net_AllHaveVersion(RtBits(0x3f828f5c))) return;
-    uint8_t* const world = hook::Global<uint8_t*>(0x6cec78);
+    uint8_t* const world = g_world;
     const int32_t clock = F<int32_t>(world, 0x15);
     SetSeed(world[0x11] * 0x25 + clock + GetSeed());
 }
@@ -493,10 +494,10 @@ RT3_REPLACE(0x40a9c0, World_EndOfDay);
 // QUIRK: Vehicles_DriveAll gets the minutes as float bits.
 RT3_NOINLINE void __fastcall World_AdvanceMinutes(uint8_t* w, int, int32_t minutes) {
     const float f = (float)minutes;
-    ((void(__fastcall*)(Collection*, int, float))0x4b24a0)(hook::Global<Collection*>(0x6cfcbc), 0, f);
-    Vehicles_MaybeSpawn(hook::Global<Collection*>(0x62b244), 0, f);
-    Vehicles_MaybeSpawnFlight(hook::Global<Collection*>(0x62b244), 0, f, 0);
-    Vehicles_DriveAll(hook::Global<Collection*>(0x62b244), 0, Bits(f));
+    ((void(__fastcall*)(Collection*, int, float))0x4b24a0)(g_trains, 0, f);
+    Vehicles_MaybeSpawn(g_62b244, 0, f);
+    Vehicles_MaybeSpawnFlight(g_62b244, 0, f, 0);
+    Vehicles_DriveAll(g_62b244, 0, Bits(f));
     World_SetTime(w, 0, F<int32_t>(w, 0x15) + minutes);
     Attach_TickAll();
     Weather_ApplyIntensity(w);
@@ -510,15 +511,15 @@ RT3_REPLACE(0x40aae0, World_AdvanceMinutes);
 // economy, then the day end on the 4th quarter or one clock step, until the
 // target's quarter; the rest advances directly (World_AdvanceMinutes).
 RT3_NOINLINE void __fastcall World_Advance(uint8_t* w, int, int32_t minutes, int32_t nested) {
-    if (!nested && hook::Global<int32_t>(0x62b240)) return;
-    ++hook::Global<int32_t>(0x62b240);
+    if (!nested && g_62b240) return;
+    ++g_62b240;
     int32_t left = minutes;
     const uint64_t to = DateAddMinutes(minutes, *(GameDate*)(w + 0xd));
     GameDate target;
     memcpy(&target, &to, sizeof target);
     auto now = [&] { return (const GameDate*)(w + 0xd); };
     auto step = [&] {
-        Map_MonthlyEconomy(hook::Global<uint8_t*>(0x62c120));
+        Map_MonthlyEconomy(g_map);
         if (w[0x14] == 4) World_EndOfDay(w);
         else World_SetTime(w, 0, F<int32_t>(w, 0x15) + 1);
     };
@@ -537,7 +538,7 @@ RT3_NOINLINE void __fastcall World_Advance(uint8_t* w, int, int32_t minutes, int
         }
     }
     if (left > 0) World_AdvanceMinutes(w, 0, left);
-    --hook::Global<int32_t>(0x62b240);
+    --g_62b240;
 }
 RT3_REPLACE(0x40ab50, World_Advance);
 
@@ -601,13 +602,13 @@ RT3_REPLACE(0x40aeb0, Airplanes_Construct);
 // unfollowed and torn down, then released.
 RT3_NOINLINE void __fastcall Vehicles_Remove(Collection* t, int, uint32_t id) {
     uint8_t* o = (uint8_t*)Collection_Get(t, 0, id);
-    uint8_t* w = hook::Global<uint8_t*>(0x6cec78);
+    uint8_t* w = g_world;
     if (o[0x261]) --F<int32_t>(w, 0x4c9e);
     else --F<int32_t>(w, 0x4c9a);
-    w = hook::Global<uint8_t*>(0x6cec78);
+    w = g_world;
     if (F<int32_t>(w, 0x4c9e) < 0) F<int32_t>(w, 0x4c9e) = 0;
     if (F<int32_t>(w, 0x4c9a) < 0) F<int32_t>(w, 0x4c9a) = 0;
-    if (o == F<uint8_t*>(hook::Global<uint8_t*>(0x62be68), 0x60)) World_SetFollow(hook::Global<uint8_t*>(0x6cec78), 0, 0, nullptr);
+    if (o == F<uint8_t*>(g_62be68, 0x60)) World_SetFollow(g_world, 0, 0, nullptr);
     CameraObj_Teardown(o);
     Collection_Release(t, 0, id);
 }
@@ -653,11 +654,11 @@ RT3_REPLACE(0x40b060, Vehicles_DriveAll);
 // +0x8c: of the types in service this year (+0xb4 .. +0xb8, not +0xb0) the
 // one with the best random score, logged (string 0xaa, kind 7) at its cell.
 RT3_NOINLINE void __fastcall Vehicles_MaybeSpawn(Collection* t, int, float chance) {
-    uint8_t* w = hook::Global<uint8_t*>(0x6cec78);
+    uint8_t* w = g_world;
     if (F<int32_t>(w, 0x46c38)) return;
     uint16_t year = F<uint16_t>(w, 0xd);
     int32_t cap = year > 0x7bc ? 6 : year > 0x79e ? 4 : (year > 0x78a) + 1;
-    uint8_t* map = hook::Global<uint8_t*>(0x62c120);
+    uint8_t* map = g_map;
     if (F<int32_t>(map, 0x2159) * F<int32_t>(map, 0x2155) > 0x31704) cap = (int32_t)((double)cap * *(const double*)0x5c8578);
     if (F<int32_t>(w, 0x4c9a) > cap) return;
     int32_t y = year;
@@ -675,12 +676,12 @@ RT3_NOINLINE void __fastcall Vehicles_MaybeSpawn(Collection* t, int, float chanc
         }
     }
     uint8_t* v = Vehicles_Add(t, 0, best);
-    F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4c9a) += 1;
+    F<int32_t>(g_world, 0x4c9a) += 1;
     char ys[0x20], xs[0x20], msg[0x12c];
     const char* yt = Num_Format(ys, 1, (double)(int32_t)Obj_CellY(v), 10, 1, 0, 0);
     const char* xt = Num_Format(xs, 1, (double)(int32_t)Obj_CellX(v), 10, 1, 0, 0);
     FormatText(msg, GetString(0xaa), (const char*)t + 0x90 + best * 0x5c, xt, yt, nullptr, nullptr, nullptr, nullptr, nullptr);
-    Log_Add(hook::Global<Collection*>(0x6acd34), 0, msg, 7, F<int32_t>(v, 0x23a), 0);
+    Log_Add(g_messageLog, 0, msg, 7, F<int32_t>(v, 0x23a), 0);
 }
 RT3_REPLACE(0x40b0b0, Vehicles_MaybeSpawn);
 
@@ -691,7 +692,7 @@ RT3_REPLACE(0x40b0b0, Vehicles_MaybeSpawn);
 // a unit lower per row), all on its heading; logged (string 0xab, kind 7) at
 // the leader's cell. Returns the leader's id, or 0.
 RT3_NOINLINE uint32_t __fastcall Vehicles_MaybeSpawnFlight(Collection* t, int, float chance, int32_t force) {
-    uint8_t* w = hook::Global<uint8_t*>(0x6cec78);
+    uint8_t* w = g_world;
     if (F<int32_t>(w, 0x46c38)) return 0;
     if (!force) {
         if (F<int32_t>(w, 0x4c9e) > 0x60) return 0;
@@ -699,7 +700,7 @@ RT3_NOINLINE uint32_t __fastcall Vehicles_MaybeSpawnFlight(Collection* t, int, f
         if (r > chance) return 0;
     }
     uint8_t* lead = Vehicles_AddNamed(t, 0, (const char*)0x5c8a2c);
-    F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4c9e) += 1;
+    F<int32_t>(g_world, 0x4c9e) += 1;
     float heading = SceneObj_Angle2(lead);
     float x, y, z;
     SceneObj_GetPos(lead, 0, (uint32_t*)&x, (uint32_t*)&y, (uint32_t*)&z);
@@ -725,13 +726,13 @@ RT3_NOINLINE uint32_t __fastcall Vehicles_MaybeSpawnFlight(Collection* t, int, f
         Obj_MoveTo(v, 0, (float)((double)dx + x), (float)((double)y - row), (float)((double)dz + z));
         F<float>(v, 0x2a1) = heading;
         SceneObj_SetAngles(v, 0, 0, *(uint32_t*)&heading, 0);
-        F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4c9e) += 1;
+        F<int32_t>(g_world, 0x4c9e) += 1;
     }
     char ys[0x20], xs[0x20], msg[0x12c];
     const char* yt = Num_Format(ys, 1, (double)(int32_t)Obj_CellY(lead), 10, 1, 0, 0);
     const char* xt = Num_Format(xs, 1, (double)(int32_t)Obj_CellX(lead), 10, 1, 0, 0);
     FormatText(msg, GetString(0xab), xt, yt, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
-    Log_Add(hook::Global<Collection*>(0x6acd34), 0, msg, 7, F<int32_t>(lead, 0x23a), 0);
+    Log_Add(g_messageLog, 0, msg, 7, F<int32_t>(lead, 0x23a), 0);
     return F<uint32_t>(lead, 0x23a);
 }
 RT3_REPLACE(0x40b2d0, Vehicles_MaybeSpawnFlight);
@@ -785,7 +786,7 @@ void __fastcall Ambient_StopSlots() {
         F<uint32_t>(s, 0) = 0;
         F<int32_t>(s, 0x14) = 0;
     }
-    hook::Global<int32_t>(0x62b248) = 0;
+    g_62b248 = 0;
 }
 RT3_REPLACE(0x40b7d0, Ambient_StopSlots);
 
@@ -814,9 +815,9 @@ RT3_NOINLINE void __fastcall Ambient_Start(void*) {
     }
     Sound_ListenerDir(Snd(), 0, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f);
     Sound_ListenerPos(Snd(), 0, 0.0f, 0.0f, 0.0f);
-    F<int32_t>(Engine_Renderer(hook::Global<void*>(0x6d4024)), 0x3698) = 0x30;
+    F<int32_t>(Engine_Renderer(hook::As<void*>(g_engine)), 0x3698) = 0x30;
     F<int32_t>(F<uint8_t*>(Snd(), 0), 0x14) = 1;
-    hook::Global<int32_t>(0x62b248) = 1;
+    g_62b248 = 1;
 }
 RT3_REPLACE(0x40b830, Ambient_Start);
 
@@ -832,27 +833,27 @@ RT3_REPLACE(0x40b830, Ambient_Start);
 // then eases towards its target (by elapsed ms / 650), starting, pausing or
 // stopping its sample.
 RT3_NOINLINE void Ambient_Update() {
-    uint8_t* snd = hook::Global<uint8_t*>(0x6d402c);
+    uint8_t* snd = g_sound;
     if (Sound_ListenerIdle(snd)) return;
-    if (!hook::Global<int32_t>(0x62b248)) return;
-    int32_t dt = ClockMs() - hook::Global<int32_t>(0x62b24c);
-    uint8_t* view = hook::Global<uint8_t*>(0x62be68);
+    if (!g_62b248) return;
+    int32_t dt = ClockMs() - g_62b24c;
+    uint8_t* view = g_62be68;
     auto fabs_ = (double(__cdecl*)(double))0x5a152e;
     auto sin_ = (double(__cdecl*)(double))0x5a1494;
     auto cos_ = (double(__cdecl*)(double))0x5a13e4;
     auto sqrt_ = (double(__cdecl*)(double))0x5a1634;
     float vx = F<float>(view, 0x1c), vy = F<float>(view, 0x20), vz = F<float>(view, 0x24);
-    double m = fabs_((double)vz - hook::Global<float>(0x62b260));
-    m = fabs_((double)vy - hook::Global<float>(0x62b25c)) + m;
-    float moved = (float)(fabs_((double)vx - hook::Global<float>(0x62b258)) + m);
+    double m = fabs_((double)vz - g_62b260);
+    m = fabs_((double)vy - g_62b25c) + m;
+    float moved = (float)(fabs_((double)vx - g_62b258) + m);
     if (dt <= 0x14 && !(moved > D(0x5c8c48))) return;
-    view = hook::Global<uint8_t*>(0x62be68);
-    hook::Global<float>(0x62b258) = F<float>(view, 0x1c);
-    hook::Global<float>(0x62b25c) = F<float>(view, 0x20);
-    hook::Global<float>(0x62b260) = F<float>(view, 0x24);
+    view = g_62be68;
+    g_62b258 = F<float>(view, 0x1c);
+    g_62b25c = F<float>(view, 0x20);
+    g_62b260 = F<float>(view, 0x24);
     int32_t cx = Ftol((double)F<float>(view, 0x1c) / Fl(0x5c8700));
     int32_t cz = Ftol((double)F<float>(view, 0x24) / Fl(0x5c8700));
-    uint8_t* grid = hook::Global<uint8_t*>(0x62c120);
+    uint8_t* grid = g_map;
     int32_t x0 = cx - 0x20 < 0 ? 0 : cx - 0x20, x1 = cx + 0x20;
     if (F<int32_t>(grid, 0x2155) - 1 < x1) x1 = F<int32_t>(grid, 0x2155) - 1;
     int32_t z0 = cz - 0x20 < 0 ? 0 : cz - 0x20, z1 = cz + 0x20;
@@ -867,25 +868,25 @@ RT3_NOINLINE void Ambient_Update() {
                 float d = (float)(uint16_t)DistanceInt(x, z, cx, cz);
                 float w = Fl(0x5c8c40) - d;
                 if (w < Fl(0x5c878c)) continue;
-                grid = hook::Global<uint8_t*>(0x62c120);
+                grid = g_map;
                 total = w + total;
                 if (Terrain_KindIs1Or3to5(grid, 0, x, z)) {
                     water = w + water;
                     if (!(nearest < d)) nearest = d;
-                    grid = hook::Global<uint8_t*>(0x62c120);
+                    grid = g_map;
                     bool edge = (x > 0 && !Terrain_KindIs1Or3to5(grid, 0, x - 1, z)) || (z > 0 && !Terrain_KindIs1Or3to5(grid, 0, x, z - 1)) ||
                                 (x < F<int32_t>(grid, 0x2155) - 1 && !Terrain_KindIs1Or3to5(grid, 0, x + 1, z)) ||
                                 (z < F<int32_t>(grid, 0x2159) - 1 && !Terrain_KindIs1Or3to5(grid, 0, x, z + 1));
                     if (edge && !(shore < d)) shore = d;
                     continue;
                 }
-                if (Terrain_RecBit9(hook::Global<uint8_t*>(0x62c120), 0, x, z)) {
+                if (Terrain_RecBit9(g_map, 0, x, z)) {
                     float k = BitsF(0x400ccccdu);
                     if (d < Fl(0x5c873c)) k = (float)((((double)Fl(0x5c873c) - d) / D(0x5c8610) + D(0x5c8770)) * D(0x5c8c38));
                     trees = (float)((double)k * w + trees);
                 }
-                int32_t n = (int32_t)Terrain_CellCount(hook::Global<uint8_t*>(0x62c120), 0, x, z);
-                grid = hook::Global<uint8_t*>(0x62c120);
+                int32_t n = (int32_t)Terrain_CellCount(g_map, 0, x, z);
+                grid = g_map;
                 uint8_t kind = F<uint8_t*>(grid, 0x212d)[(F<int32_t>(grid, 0x214d) * (z / 4) + x / 4) * 4 + 3];
                 double dn = (double)n;
                 if (kind == 0) grass = (float)(dn / D(0x5c87b8) * w + grass);
@@ -906,7 +907,7 @@ RT3_NOINLINE void Ambient_Update() {
     T[4 * 8] = (float)(rock / tt);
     float openF = (float)(open / tt);
     float night = Sky_NightFactor();
-    view = hook::Global<uint8_t*>(0x62be68);
+    view = g_62be68;
     float alt = F<float>(view, 0x66);
     float camY = F<float>(view, 0x20);
     uint8_t on[16];
@@ -930,7 +931,7 @@ RT3_NOINLINE void Ambient_Update() {
     if (w0 > D(0x5c8680) || w2 > D(0x5c8680) || w1 > D(0x5c8680)) on[7] = 1;
     if ((w0 > D(0x5c88e8) || w2 > D(0x5c88e8) || w1 > D(0x5c88e8)) && w6 < D(0x5c88e8) && night <= D(0x5c8680)) on[1] = on[2] = 1;
     if (w0 > D(0x5c8988) && w6 < D(0x5c88e8) && night <= D(0x5c8680)) on[3] = on[4] = 1;
-    int32_t since = ClockMs() - hook::Global<int32_t>(0x62b254);
+    int32_t since = ClockMs() - g_62b254;
     bool roll = since >= 0x9c4;
     if (roll && since < 0xfa0) roll = Rand(0, 0x64) < 0x21;
     else if (roll && since < 0x157c) roll = Rand(0, 0x64) < 0x42;
@@ -960,29 +961,29 @@ RT3_NOINLINE void Ambient_Update() {
                 double ad = (double)a;
                 float dist = (float)(ad / D(0x5c8798) * F<float>(e, 0xc));
                 int32_t rr = Rand(0, 1000);
-                view = hook::Global<uint8_t*>(0x62be68);
+                view = g_62be68;
                 float camX = F<float>(view, 0x1c);
                 double rd = (double)rr;
                 float ang = (float)(rd / D(0x5c87f8) * D(0x5c8c08));
                 double dd = dist;
                 float px = (float)(cos_(ang) * dd + camX);
-                float camZ = F<float>(hook::Global<uint8_t*>(0x62be68), 0x24);
+                float camZ = F<float>(g_62be68, 0x24);
                 float pz = (float)(sin_(ang) * dd + camZ);
                 int32_t tx = Ftol((double)px / Fl(0x5c8700));
                 int32_t tz = Ftol((double)pz / Fl(0x5c8700));
-                grid = hook::Global<uint8_t*>(0x62c120);
+                grid = g_map;
                 if (tx < 0 || tx >= F<int32_t>(grid, 0x2155) || tz < 0 || tz >= F<int32_t>(grid, 0x2159)) continue;
                 uint8_t ok;
                 if (Terrain_KindIs1Or3to5(grid, 0, tx, tz)) ok = e[0x14];
-                else ok = (int32_t)Terrain_CellCount(hook::Global<uint8_t*>(0x62c120), 0, tx, tz) > 0 ? e[0x16] : e[0x15];
+                else ok = (int32_t)Terrain_CellCount(g_map, 0, tx, tz) > 0 ? e[0x16] : e[0x15];
                 if (!ok) continue;
                 float fz = (float)tz, fx = (float)tx;
-                double h = Terrain_HeightAtTile(hook::Global<uint8_t*>(0x62c120), 0, fx, fz);
+                double h = Terrain_HeightAtTile(g_map, 0, fx, fz);
                 float y = (float)(h + (double)F<float>(e, 0x10) * Fl(0x5c8700));
-                Sound_Play3D(hook::Global<uint8_t*>(0x6d402c), 0, F<const char*>(e, 0x17), px, y, pz, F<float>(e, 8), 0, 0, 2,
+                Sound_Play3D(g_sound, 0, F<const char*>(e, 0x17), px, y, pz, F<float>(e, 8), 0, 0, 2,
                              F<float>(e, 0xc) * Fl(0x5c8700));
                 played = 1;
-                hook::Global<int32_t>(0x62b254) = ClockMs();
+                g_62b254 = ClockMs();
             }
         }
     }
@@ -1028,7 +1029,7 @@ RT3_NOINLINE void Ambient_Update() {
         if (T[k * 8] > D(0x5c8770)) T[k * 8] = 1.0f;
         if (T[k * 8] < D(0x5c8918)) T[k * 8] = 0.0f;
     }
-    double el = (double)(ClockMs() - hook::Global<int32_t>(0x62b24c));
+    double el = (double)(ClockMs() - g_62b24c);
     float stepV = (float)(el / D(0x5c8be8));
     double stepD = stepV;
     for (int k = 0; k < 8; ++k) {
@@ -1041,12 +1042,12 @@ RT3_NOINLINE void Ambient_Update() {
             cur = cur > target ? cur - stepV : stepV + cur;
         float vol = F<float>(s, -8) * cur;
         uint32_t& handle = F<uint32_t>(s, -0xc);
-        uint8_t* snd2 = hook::Global<uint8_t*>(0x6d402c);
+        uint8_t* snd2 = g_sound;
         if (vol < D(0x5c85b8)) {
             if (F<int32_t>(s, 0xc)) {
                 if (handle) {
                     F<int32_t>(s, 8) = Sound_LookupSample(snd2, 0, handle, 1);
-                    if (F<int32_t>(s, 8)) Sound_Stop(hook::Global<uint8_t*>(0x6d402c), 0, handle, 1);
+                    if (F<int32_t>(s, 8)) Sound_Stop(g_sound, 0, handle, 1);
                 }
                 handle = 0;
                 F<int32_t>(s, 8) = 0;
@@ -1067,8 +1068,8 @@ RT3_NOINLINE void Ambient_Update() {
                 have = F<int32_t>(s, 8) != 0;
             }
         }
-        if (!have) handle = Sound_Play3D(hook::Global<uint8_t*>(0x6d402c), 0, F<const char*>(s, 0x10), 0.0f, 0.0f, 0.0f, 0.0f, 1, 1, F<int32_t>(s, 4), 0.0f);
-        uint8_t* smp = (uint8_t*)(uintptr_t)Sound_LookupSample(hook::Global<uint8_t*>(0x6d402c), 0, handle, 1);
+        if (!have) handle = Sound_Play3D(g_sound, 0, F<const char*>(s, 0x10), 0.0f, 0.0f, 0.0f, 0.0f, 1, 1, F<int32_t>(s, 4), 0.0f);
+        uint8_t* smp = (uint8_t*)(uintptr_t)Sound_LookupSample(g_sound, 0, handle, 1);
         if (smp) {
             if (F<int32_t>(smp, 0xc)) {
                 F<uint32_t>(smp, 0x44) |= 8;
@@ -1078,7 +1079,7 @@ RT3_NOINLINE void Ambient_Update() {
             F<uint32_t>(smp, 0x44) |= 1;
         }
     }
-    hook::Global<int32_t>(0x62b24c) = ClockMs();
+    g_62b24c = ClockMs();
 }
 RT3_REPLACE(0x40b920, Ambient_Update);
 

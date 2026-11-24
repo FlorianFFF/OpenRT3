@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <windows.h>
 #include "hook/hook.h"
+#include "core/globals.h"
 #include "core/stream.h"
 #include "core/crt.h"
 #include "game/collection.h"
@@ -355,7 +356,7 @@ static inline void ExeDelete(void* p) { ((void(__cdecl*)(void*))0x53b080)(p); }
 static inline void* ExeNew(size_t n) { return ((void*(__cdecl*)(size_t))0x53b070)(n); }
 
 // The texture name from the main pack's cache (all mips, flag 0x7f).
-static uint8_t* Texture_Acquire(const char* name) { return TextureCache_Get(hook::Global<uint8_t*>(0x6d4020), 0, name, 0, 0, 0x7f); }
+static uint8_t* Texture_Acquire(const char* name) { return TextureCache_Get(g_pack, 0, name, 0, 0, 0x7f); }
 
 // The first free slot of t (-1 when full) gets texture name.
 static int32_t TextureSlots_AddInline(uint8_t* t, const char* name) {
@@ -368,7 +369,7 @@ static int32_t TextureSlots_AddInline(uint8_t* t, const char* name) {
     return slot;
 }
 
-static inline uint8_t* Engine() { return hook::Global<uint8_t*>(0x6d4024); }
+static inline uint8_t* Engine() { return g_engine; }
 
 // Terrain sound-flag grids: one block grid per 16x16 vertices (+0x1685).
 static inline uint8_t* FlagGrid(uint8_t* t, int32_t x, int32_t y) {
@@ -386,7 +387,7 @@ static inline float Fl(uint32_t a) { return *(const float*)a; }
 
 // Calls the optional hook 0x6d4014 (ECX as the original left it).
 static inline void InitHook(void* ecx) {
-    if (void* f = hook::Global<void*>(0x6d4014)) ((void(__thiscall*)(void*))f)(ecx);
+    if (void* f = g_6d4014) ((void(__thiscall*)(void*))f)(ecx);
 }
 
 namespace {
@@ -425,11 +426,11 @@ static inline void MipCell(uint8_t* t, int32_t x, int32_t y, int32_t level) {
 // starts it with 3D provider `provider` (-1 = none) and a 1 MB sound cache (+0).
 uint8_t* __fastcall Sound_Construct(uint8_t* snd, int, int32_t provider) {
     F<int32_t>(snd, 4) = 0;
-    hook::Global<void*>(0xccb9f8) = nullptr;
-    hook::Global<void*>(0xccb9fc) = nullptr;
-    hook::Global<void*>(0xccba00) = nullptr;
+    hook::As<void*>(g_ccb9f8) = nullptr;
+    hook::As<void*>(g_ccb9fc) = nullptr;
+    hook::As<void*>(g_ccba00) = nullptr;
     F<void*>(snd, 0) = nullptr;
-    hook::Global<uint32_t>(0x624d5c) = 0x3f800000;
+    hook::As<uint32_t>(g_624d5c) = 0x3f800000;
     F<int32_t>(snd, 0x4c) = -1;
     F<int32_t>(snd, 0x50) = 0;
     memset(snd + 8, 0, 0x40);
@@ -463,7 +464,7 @@ RT3_REPLACE(0x532200, Sound_Destruct);
 
 // 0x532230. Restarts the sound system with 3D provider number n (if 3D is up).
 int32_t __fastcall Sound_SelectProvider(uint8_t* snd, int, int32_t n) {
-    if (!hook::Global<void*>(0xccb9fc)) return 0;
+    if (!hook::As<void*>(g_ccb9fc)) return 0;
     return Sound_Restart(snd, 0, (const char*)Sound_Get3DProvider(n));
 }
 RT3_REPLACE(0x532230, Sound_SelectProvider);
@@ -471,26 +472,26 @@ RT3_REPLACE(0x532230, Sound_SelectProvider);
 // 0x532260. (Re)starts the music fade timer (+0x4c, mode +0x50: 0 fades in from
 // silence) via the Miles timer API.
 void __fastcall Sound_StartFadeTimer(uint8_t* s, int, int32_t mode) {
-    if (F<int32_t>(s, 4) != 1 || hook::Global<int32_t>(0xccb9f4)) return;
+    if (F<int32_t>(s, 4) != 1 || g_ccb9f4) return;
     if (F<int32_t>(s, 0x4c) != -1) {
         if (mode == F<int32_t>(s, 0x50)) return;
-        hook::Global<int32_t>(0x624d58) = 1;
+        g_624d58 = 1;
         Sound_ReleaseTimer(s);
     }
     int32_t t = Import<int32_t(__stdcall*)(uint32_t)>(0x5c83f4)(0x531fd0);
     F<int32_t>(s, 0x4c) = t;
     if (t == -1) return;
     F<int32_t>(s, 0x50) = mode;
-    hook::Global<uint32_t>(0x624d60) = 0xbf800000;
+    hook::As<uint32_t>(g_624d60) = 0xbf800000;
     uint32_t user = 1;
     if (!mode) {
-        Music_SetVolume(hook::Global<uint8_t*>(0xccba00), 0, 0.0f);
+        Music_SetVolume(g_ccba00, 0, 0.0f);
         t = F<int32_t>(s, 0x4c);
         user = 2;
     }
     Import<void(__stdcall*)(int32_t, uint32_t)>(0x5c8400)(t, user);
     Import<void(__stdcall*)(int32_t, uint32_t)>(0x5c83c8)(F<int32_t>(s, 0x4c), 3);
-    hook::Global<int32_t>(0x624d58) = 0;
+    g_624d58 = 0;
     Import<void(__stdcall*)(int32_t)>(0x5c83a0)(F<int32_t>(s, 0x4c));
 }
 RT3_REPLACE(0x532260, Sound_StartFadeTimer);
@@ -763,10 +764,10 @@ RT3_NOINLINE void __fastcall Render_ReleaseTextureSlots(uint8_t* r) {
         t = nullptr;
     };
     uint8_t** slots = (uint8_t**)(r + 8);
-    if (hook::Global<uint8_t*>(0x6d4024)[0x11422e]) {
+    if (g_engine[0x11422e]) {
         destroy(slots[0]);
     } else if (slots[0]) {
-        Pack_Release(hook::Global<uint8_t*>(0x6d4020), 0, slots[0]);
+        Pack_Release(g_pack, 0, slots[0]);
         slots[0] = nullptr;
         --F<int32_t>(r, 4);
     }
@@ -774,7 +775,7 @@ RT3_NOINLINE void __fastcall Render_ReleaseTextureSlots(uint8_t* r) {
     for (; i < F<int32_t>(r, 0x1554); ++i) destroy(slots[i]);
     for (; i < 0x100; ++i) {
         if (i == F<int32_t>(r, 0x1558)) {
-            if (hook::Global<uint8_t*>(0x6d4024)[0x11422e]) destroy(slots[i]);
+            if (g_engine[0x11422e]) destroy(slots[i]);
             continue;
         }
         if (!slots[i]) continue;
@@ -782,7 +783,7 @@ RT3_NOINLINE void __fastcall Render_ReleaseTextureSlots(uint8_t* r) {
             Texture_Destroy(slots[i]);
             ExeDelete(slots[i]);
         } else {
-            Pack_Release(hook::Global<uint8_t*>(0x6d4020), 0, slots[i]);
+            Pack_Release(g_pack, 0, slots[i]);
         }
         slots[i] = nullptr;
         --F<int32_t>(r, 4);
@@ -1660,12 +1661,12 @@ RT3_REPLACE(0x534fc0, Render_CreateOverviewTarget);
 RT3_NOINLINE int32_t __fastcall TextureSlots_Reset(uint8_t* t) {
     memset(t + 8, 0, 0x400);
     F<int32_t>(t, 4) = 0;
-    if (!hook::Global<uint8_t*>(0x6d4024)[0x11422e]) return TextureSlots_Add(t, 0, (const char*)0x5dd26c);
+    if (!g_engine[0x11422e]) return TextureSlots_Add(t, 0, (const char*)0x5dd26c);
     uint8_t* tex = (uint8_t*)ExeNew(0xec);
     if (tex) tex = Texture_ConstructDefault(tex);
     F<uint8_t*>(t, 8) = tex;
-    if (!Texture_CreateTarget(tex, 0, 0x100, 0x100, F<void*>(hook::Global<uint8_t*>(0x6d4024), 8)))
-        hook::Global<uint8_t*>(0x6d4024)[0x1146eb] = 0;
+    if (!Texture_CreateTarget(tex, 0, 0x100, 0x100, F<void*>(g_engine, 8)))
+        g_engine[0x1146eb] = 0;
     return ++F<int32_t>(t, 4);
 }
 RT3_REPLACE(0x535070, TextureSlots_Reset);
@@ -1703,7 +1704,7 @@ RT3_NOINLINE void __fastcall Terrain_BuildTiles(uint8_t* t, int, int32_t w, int3
     int32_t slot = 0;
     for (int32_t by = 3; by >= 0; --by)
         for (int32_t bx = 0; bx < 4; ++bx) {
-            ++hook::Global<int32_t>(0xccb9e8);
+            ++g_skipCount;
             if (hook::Global<void(__cdecl*)()>(0x6d4014)) hook::Global<void(__cdecl*)()>(0x6d4014)();
             int32_t tw = F<int32_t>(t, 0x157c), th = F<int32_t>(t, 0x1580);
             uint32_t* pix = (uint32_t*)((void*(__cdecl*)(uint32_t))0x5a125d)((uint32_t)(tw * th * 4));
@@ -1750,9 +1751,9 @@ RT3_REPLACE(0x535100, Terrain_BuildTiles);
 // than 3000 bytes; returns 1), else plain (at the maximum size with
 // `fullSize`, else 128 x 128). 1 when a texture was used.
 RT3_NOINLINE int32_t __fastcall Terrain_LoadTexture(uint8_t* t, int, const char* name, int32_t fullSize) {
-    ++hook::Global<int32_t>(0xccb9e8);
+    ++g_skipCount;
     if (hook::Global<void(__cdecl*)()>(0x6d4014)) hook::Global<void(__cdecl*)()>(0x6d4014)();
-    ++F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x11427e);
+    ++F<int32_t>(g_engine, 0x11427e);
     uint8_t* tex = nullptr;
     int32_t w = 0x80, h = 0x80, maxW = 0x4000, maxH = 0x4000;
     Render_ClampTextureSize(&maxW, &maxH);
@@ -1760,19 +1761,19 @@ RT3_NOINLINE int32_t __fastcall Terrain_LoadTexture(uint8_t* t, int, const char*
     if (name) {
         char alt[0x100];
         FormatText(alt, (const char*)0x5dd284, name, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
-        uint8_t* packs = hook::Global<uint8_t*>(0x6d4020);
+        uint8_t* packs = g_pack;
         if (NameTable_ContainsName(packs, 0, name, 0, (const char*)0x5dd27c) ||
-            NameTable_ContainsName(hook::Global<uint8_t*>(0x6d4020), 0, name, 0, (const char*)0x5dd274) ||
-            NameTable_ContainsName(hook::Global<uint8_t*>(0x6d4020), 0, alt, 0, (const char*)0x5dd27c) ||
-            NameTable_ContainsName(hook::Global<uint8_t*>(0x6d4020), 0, alt, 0, (const char*)0x5dd274)) {
-            uint8_t* e = hook::Global<uint8_t*>(0x6d4024);
+            NameTable_ContainsName(g_pack, 0, name, 0, (const char*)0x5dd274) ||
+            NameTable_ContainsName(g_pack, 0, alt, 0, (const char*)0x5dd27c) ||
+            NameTable_ContainsName(g_pack, 0, alt, 0, (const char*)0x5dd274)) {
+            uint8_t* e = g_engine;
             int32_t savedA = F<int32_t>(e, 0x11423b), savedB = F<int32_t>(e, 0x11423f);
             F<int32_t>(e, 0x11423b) = 0x800;
-            F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x11423f) = 0x800;
+            F<int32_t>(g_engine, 0x11423f) = 0x800;
             used = 1;
-            tex = TextureCache_Get(hook::Global<uint8_t*>(0x6d4020), 0, name, 0, 0, 0);
-            F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x11423b) = savedA;
-            F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x11423f) = savedB;
+            tex = TextureCache_Get(g_pack, 0, name, 0, 0, 0);
+            F<int32_t>(g_engine, 0x11423b) = savedA;
+            F<int32_t>(g_engine, 0x11423f) = savedB;
             Texture_ImageSize(tex, 0, &w, &h, 0);
             if (maxW < w || maxH < h) {
                 if (w >= maxW) w = maxW;
@@ -1781,13 +1782,13 @@ RT3_NOINLINE int32_t __fastcall Terrain_LoadTexture(uint8_t* t, int, const char*
             }
             Texture_Pixels32(tex, 0, &w, &h, 0);
         } else {
-            const uint8_t* img = hook::Global<uint8_t*>(0x62bed4);
-            if (img && hook::Global<int32_t>(0x62bed8) > 0xbb8) {
+            const uint8_t* img = g_62bed4;
+            if (img && g_62bed8 > 0xbb8) {
                 uint8_t* p = (uint8_t*)((void*(__cdecl*)(uint32_t))0x53b070)(0xec);
                 uint8_t* mem = p ? Texture_InitMemory(p, 0, (void*)(img + img[0] + 0x12), *(const uint16_t*)(img + 0xc), *(const uint16_t*)(img + 0xe), 0)
                                  : nullptr;
                 Terrain_BuildTiles(t, 0, *(const uint16_t*)(img + 0xc), *(const uint16_t*)(img + 0xe), mem);
-                --F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x11427e);
+                --F<int32_t>(g_engine, 0x11427e);
                 return 1;
             }
             if (fullSize) {
@@ -1800,8 +1801,8 @@ RT3_NOINLINE int32_t __fastcall Terrain_LoadTexture(uint8_t* t, int, const char*
         h = maxH;
     }
     Terrain_BuildTiles(t, 0, w, h, tex);
-    if (used) Pack_Release(hook::Global<uint8_t*>(0x6d4020), 0, tex);
-    --F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x11427e);
+    if (used) Pack_Release(g_pack, 0, tex);
+    --F<int32_t>(g_engine, 0x11427e);
     return used;
 }
 RT3_REPLACE(0x535430, Terrain_LoadTexture);
@@ -1814,7 +1815,7 @@ RT3_REPLACE(0x535430, Terrain_LoadTexture);
 RT3_NOINLINE void __fastcall Water_LoadTextures(uint8_t* t) {
     if (F<int32_t>(t, 0x1568)) return;
     typedef void (*HookFn)();
-    if (HookFn f = hook::Global<HookFn>(0x6d4014)) f();
+    if (HookFn f = hook::As<HookFn>(g_6d4014)) f();
     F<int32_t>(t, 0x1568) = TextureSlots_Add(t, 0, (const char*)0x5dd2b0);
     F<int32_t>(t, 0x156c) = 1;
     for (int32_t i = 0x66; i <= 0x84; ++i) {
@@ -1822,15 +1823,15 @@ RT3_NOINLINE void __fastcall Water_LoadTextures(uint8_t* t) {
         ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)(name, (const char*)0x5dd2a4, i);
         int32_t slot = TextureSlots_AddInline(t, name);
         F<uint8_t*>(t, 8 + slot * 4)[5] = 0;
-        if (HookFn f = hook::Global<HookFn>(0x6d4014)) f();
+        if (HookFn f = hook::As<HookFn>(g_6d4014)) f();
         ++F<int32_t>(t, 0x156c);
     }
     int32_t first = F<int32_t>(t, 0x1568), end = F<int32_t>(t, 0x156c) + first;
     for (int32_t i = first; i < end; ++i) {
-        if (HookFn f = hook::Global<HookFn>(0x6d4014)) f();
+        if (HookFn f = hook::As<HookFn>(g_6d4014)) f();
         F<uint8_t*>(t, 8 + i * 4)[5] = 0;
         Texture_MakeBumpMaps(F<uint8_t*>(t, 8 + i * 4));
-        if (i % 3 == 0) ++hook::Global<int32_t>(0xccb9e8);
+        if (i % 3 == 0) ++g_skipCount;
     }
     F<int32_t>(t, 0x1574) = TextureSlots_AddInline(t, (const char*)0x5dd298);
     F<int32_t>(t, 0x1578) = TextureSlots_AddInline(t, (const char*)0x5dd28c);
@@ -1843,7 +1844,7 @@ RT3_REPLACE(0x5356e0, Water_LoadTextures);
 RT3_NOINLINE void __fastcall Rain_LoadFrames(uint8_t* t) {
     if (F<int32_t>(t, 0x1560)) return;
     typedef void (*HookFn)();
-    if (HookFn f = hook::Global<HookFn>(0x6d4014)) f();
+    if (HookFn f = hook::As<HookFn>(g_6d4014)) f();
     F<int32_t>(t, 0x1560) = TextureSlots_Add(t, 0, (const char*)0x5dd2d0);
     for (int32_t i = 2; i <= 0x20; ++i) {
         char name[0x12c];
@@ -1854,7 +1855,7 @@ RT3_NOINLINE void __fastcall Rain_LoadFrames(uint8_t* t) {
             F<uint8_t*>(t, 8 + slot * 4) = Texture_Acquire(name);
             ++F<int32_t>(t, 4);
         }
-        if (HookFn f = hook::Global<HookFn>(0x6d4014)) f();
+        if (HookFn f = hook::As<HookFn>(g_6d4014)) f();
     }
     F<int32_t>(t, 0x1564) = 0x20;
 }
@@ -2425,7 +2426,7 @@ RT3_REPLACE(0x537010, Terrain_RefreshQuads);
 // (engine +0x28; distance at least 0x5c85b4): (c / d + sqrt(c / d)) * 0x5dd2f0.
 RT3_NOINLINE void __stdcall Camera_DetailFactor(int32_t x, int32_t z, float* out) {
     float cx, cy, cz;
-    Obj_GetXYZ1c(F<uint8_t*>(hook::Global<uint8_t*>(0x6d4024), 0x28), 0, (uint32_t*)&cx, (uint32_t*)&cy,
+    Obj_GetXYZ1c(F<uint8_t*>(g_engine, 0x28), 0, (uint32_t*)&cx, (uint32_t*)&cy,
                  (uint32_t*)&cz);
     double dx = (double)x - cx;
     double dz = (double)z - cz;
@@ -2444,7 +2445,7 @@ RT3_REPLACE(0x537170, Camera_DetailFactor);
 RT3_NOINLINE void __fastcall Fog_ParamsAt(uint8_t*, int, int32_t x, int32_t z, float bias, float* scale, uint32_t* color,
                              float* strength) {
     float cy, cx, cz;
-    Obj_GetXYZ1c(F<uint8_t*>(hook::Global<uint8_t*>(0x6d4024), 0x28), 0, (uint32_t*)&cx, (uint32_t*)&cy,
+    Obj_GetXYZ1c(F<uint8_t*>(g_engine, 0x28), 0, (uint32_t*)&cx, (uint32_t*)&cy,
                  (uint32_t*)&cz);
     double dx = (double)x - cx, dz = (double)z - cz;
     double len = sqrt(dz * dz + dx * dx + (double)cy * cy);
@@ -2455,12 +2456,12 @@ RT3_NOINLINE void __fastcall Fog_ParamsAt(uint8_t*, int, int32_t x, int32_t z, f
     if (v < D(0x5c8758)) v = D(0x5c8758);
     if (v > D(0x5c87e8)) v = D(0x5c87e8);
     float s = (float)v;
-    uint8_t* e = hook::Global<uint8_t*>(0x6d4024);
+    uint8_t* e = g_engine;
     *color = F<uint32_t>(e, 0x1141f5);
     *strength = s;
-    if ((double)s < D(0x5dd2f8) || hook::Global<int32_t>(0x6d4034)) {
+    if ((double)s < D(0x5dd2f8) || g_6d4034) {
         *(uint32_t*)strength = 0x3ebbbbbc;
-        *color = F<uint32_t>(hook::Global<uint8_t*>(0x6d4024), 0x1141f9);
+        *color = F<uint32_t>(g_engine, 0x1141f9);
         *scale = 1.0f;
         return;
     }
@@ -2564,8 +2565,8 @@ RT3_NOINLINE void __fastcall Terrain_InitMaps(uint8_t* t, int, char init, int32_
         if (e) continue;
         e = (uint8_t*)TerrainMalloc(n);
         for (int32_t i = 0; i < (int32_t)n; ++i) {
-            uint32_t s = hook::Global<uint32_t>(0x624324) * 0x19660d + 0x3c6ef35f;
-            hook::Global<uint32_t>(0x624324) = s;
+            uint32_t s = g_lcg * 0x19660d + 0x3c6ef35f;
+            g_lcg = s;
             e[i] = (uint8_t)s;
         }
     }
@@ -2639,7 +2640,7 @@ RT3_REPLACE(0x5375c0, Terrain_InitMaps);
 RT3_NOINLINE void __fastcall Terrain_Destructor(uint8_t* r) {
     F<uint32_t>(r, 0) = 0x5dd25c;
     Terrain_Destroy(r);
-    if (Engine_Get1C(hook::Global<uint8_t*>(0x6d4024)) == r) Engine_Set1C(hook::Global<uint8_t*>(0x6d4024), 0, nullptr);
+    if (Engine_Get1C(g_engine) == r) Engine_Set1C(g_engine, 0, nullptr);
 }
 RT3_REPLACE(0x537e30, Terrain_Destructor);
 
@@ -2658,10 +2659,10 @@ RT3_NOINLINE void __fastcall Terrain_Create(uint8_t* t, int, int32_t w, int32_t 
     PtrList* l = (PtrList*)((void*(__cdecl*)(uint32_t))0x53b070)(0x18);
     F<PtrList*>(t, 0x166d) = l ? PtrList_Init(l) : nullptr;
     progress();
-    F<int32_t>(t, 0x2121) = hook::Global<int32_t>(0xccba10);
-    ++hook::Global<int32_t>(0xccba10);
-    if (!hook::Global<void*>(0x6d4024)) Fatal_Exit(GetString(0xa3));
-    Engine_Set1C(hook::Global<void*>(0x6d4024), 0, t);
+    F<int32_t>(t, 0x2121) = g_ccba10;
+    ++g_ccba10;
+    if (!hook::As<void*>(g_engine)) Fatal_Exit(GetString(0xa3));
+    Engine_Set1C(hook::As<void*>(g_engine), 0, t);
     F<int32_t>(t, 0x15d9) = w;
     F<int32_t>(t, 0x15d5) = h;
     F<int32_t>(t, 0x15dd) = w + 1;
@@ -2672,7 +2673,7 @@ RT3_NOINLINE void __fastcall Terrain_Create(uint8_t* t, int, int32_t w, int32_t 
     if (w && h) Terrain_InitMaps(t, 0, 1, 0, 0);
     progress();
     TextureSlots_Reset(t);
-    hook::Global<int32_t>(0xccb9e8) += 2;
+    g_skipCount += 2;
     progress();
     Terrain_LoadTexture(t, 0, tex, 0);
     progress();

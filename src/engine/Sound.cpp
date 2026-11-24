@@ -10,6 +10,7 @@
 #include <windows.h>
 #include <initializer_list>
 #include "hook/hook.h"
+#include "core/globals.h"
 #include "game/collection.h"
 #include "core/ptrlist.h"
 #include "core/stream.h"
@@ -79,11 +80,7 @@ int32_t __stdcall Ray_HitsTriangle_Impl(float a0, float a1, float a2, float b0, 
 
 // The mesh walk state the original keeps in globals (current LOD, sub-mesh,
 // triangle pointer and triangles left).
-static uint8_t*& g_lod = hook::Global<uint8_t*>(0xcc3b6c);
 
-static uint8_t*& g_sub = hook::Global<uint8_t*>(0xcc3b58);
-static uint8_t*& g_tri = hook::Global<uint8_t*>(0xcc3b64);
-static int32_t& g_left = hook::Global<int32_t>(0xcc3b5c);
 struct PtrListNode;
 void __fastcall Terrain_Remove1671(uint8_t* r, int, PtrListNode* n, int32_t x, int32_t y);
 PtrListNode* __fastcall Terrain_Add1671(uint8_t* r, int, void* v, int32_t x, int32_t y);
@@ -118,8 +115,6 @@ char* __fastcall FormatText(char*, const char*, const char*, const char*, const 
 
 static StreamRecord* const g_streams = reinterpret_cast<StreamRecord*>(0xccb880);
 static const int kStreams = 10;
-static int32_t& g_streamsReady = hook::Global<int32_t>(0xccb9ec);
-static int32_t& g_skipCount = hook::Global<int32_t>(0xccb9e8);
 static const int kOpenRead = 0x8000;
 
            // _O_RDONLY | _O_BINARY
@@ -195,19 +190,19 @@ RT3_NOINLINE void __fastcall Font_DrawTextBox(uint8_t* f, int, const char* text,
 RT3_NOINLINE void __fastcall Glyph_Queue(uint8_t* g, int, float x, float y, uint32_t tint, float sx, float sy, uint32_t color, int32_t, int32_t snap, int32_t clip, float left, float top, float right, float bottom);
 
 // Sound objects: +4 == 1 for 3D sounds; 0xccb9f4 set while 3D sound is unavailable.
-static inline bool Is3D(uint8_t* s) { return F<int32_t>(s, 4) == 1 && !hook::Global<int32_t>(0xccb9f4); }
+static inline bool Is3D(uint8_t* s) { return F<int32_t>(s, 4) == 1 && !g_ccb9f4; }
 
-static inline uint8_t* Sound3D() { return hook::Global<uint8_t*>(0xccb9fc); }
+static inline uint8_t* Sound3D() { return g_ccb9fc; }
 
 static inline void* ExeNew(size_t n) { return ((void*(__cdecl*)(size_t))0x53b070)(n); }
 
 static inline void ExeDelete(void* p) { ((void(__cdecl*)(void*))0x53b080)(p); }
 
-static inline uint8_t*& Snd2D() { return hook::Global<uint8_t*>(0xccb9f8); }
+static inline uint8_t*& Snd2D() { return g_ccb9f8; }
 
-static inline uint8_t*& Snd3D() { return hook::Global<uint8_t*>(0xccb9fc); }
+static inline uint8_t*& Snd3D() { return g_ccb9fc; }
 
-static inline uint8_t*& Music() { return hook::Global<uint8_t*>(0xccba00); }
+static inline uint8_t*& Music() { return g_ccba00; }
 
 static inline void Sleep_(uint32_t ms) { Import<void(__stdcall*)(uint32_t)>(0x5c81f0)(ms); }
 
@@ -221,7 +216,7 @@ static void DestroySnd(uint8_t*& p, void(__fastcall* dtor)(uint8_t*)) {
 }
 
 // Whether sound is up (+4) and not shutting down.
-static inline bool SoundUp(uint8_t* snd) { return F<int32_t>(snd, 4) == 1 && !hook::Global<int32_t>(0xccb9f4); }
+static inline bool SoundUp(uint8_t* snd) { return F<int32_t>(snd, 4) == 1 && !g_ccb9f4; }
 
 static inline int32_t Cell16(float v) {
     double d = (double)v * *(const float*)0x5dcfe8;
@@ -265,10 +260,10 @@ static void FatalCannotOpen(const char* path) {
 // with its inverse matrix (+0x8e, rebuilt from +0xce when +0x20 bit 2 is set) after
 // subtracting its position (+0x1e2).
 int32_t __fastcall Mesh_RayHit(uint8_t* o, int, const float* dir, const float* origin) {
-    g_lod = F<uint8_t*>(o, 0x14) + F<int32_t>(o, 0x3a) * 0x18;
-    g_sub = F<uint8_t*>(g_lod, 0xc) + F<int32_t>(o, 0x21) * 0x45;
-    g_tri = F<uint8_t*>(g_sub, 4);
-    g_left = F<int32_t>(g_sub, 0xc);
+    g_cc3b6c = F<uint8_t*>(o, 0x14) + F<int32_t>(o, 0x3a) * 0x18;
+    g_cc3b58 = F<uint8_t*>(g_cc3b6c, 0xc) + F<int32_t>(o, 0x21) * 0x45;
+    hook::As<uint8_t*>(g_cc3b64) = F<uint8_t*>(g_cc3b58, 4);
+    g_cc3b5c = F<int32_t>(g_cc3b58, 0xc);
     float x = dir[0], y = dir[1], z = dir[2];
     if (o[0x20] & 4) {
         o[0x20] &= 0xfb;
@@ -285,14 +280,14 @@ int32_t __fastcall Mesh_RayHit(uint8_t* o, int, const float* dir, const float* o
     float ox = (float)(pz * m[8] + px * m[0] + py * m[4]);
     float oy = (float)(px * m[1] + py * m[5] + pz * m[9]);
     float oz = (float)(py * m[6] + pz * m[10] + px * m[2]);
-    if (!g_left) return 0;
+    if (!g_cc3b5c) return 0;
     do {
-        const float* a = F<const float*>(g_tri, 0);
-        const float* b = F<const float*>(g_tri, 4);
-        const float* c = F<const float*>(g_tri, 8);
+        const float* a = F<const float*>(hook::As<uint8_t*>(g_cc3b64), 0);
+        const float* b = F<const float*>(hook::As<uint8_t*>(g_cc3b64), 4);
+        const float* c = F<const float*>(hook::As<uint8_t*>(g_cc3b64), 8);
         if (Ray_HitsTriangle_Impl(a[0], a[1], a[2], b[0], b[1], b[2], c[0], c[1], c[2], ox, oy, oz, dx, dy, dz)) return 1;
-        g_tri += 0x4c;
-    } while (--g_left);
+        hook::As<uint8_t*>(g_cc3b64) += 0x4c;
+    } while (--g_cc3b5c);
     return 0;
 }
 RT3_REPLACE(0x530030, Mesh_RayHit);
@@ -306,7 +301,7 @@ RT3_REPLACE(0x530030, Mesh_RayHit);
 // (shrunk to vtbl +0x3c past 1; under 0.14 it fades) or 1.1 x the fog strength
 // above text, and skipped at 0.1 or less.
 void __fastcall SceneObj_DrawMarker(uint8_t* o) {
-    uint8_t* e = hook::Global<uint8_t*>(0x6d4024);
+    uint8_t* e = g_engine;
     if (!e || !F<uint32_t>(e, 0x1141f5)) return;
     char text[0x130];
     int32_t color = -1;
@@ -318,19 +313,19 @@ void __fastcall SceneObj_DrawMarker(uint8_t* o) {
     int32_t h = kind == 1 || kind == 3 ? ((int32_t(__thiscall*)(uint8_t*))(*(void***)o)[0x34 / 4])(o)
                                        : ((int32_t(__thiscall*)(uint8_t*))(*(void***)o)[0x38 / 4])(o);
     float sx, sy, depth;
-    int32_t shown = Scene_ProjectNormalised((uint8_t*)Engine_Renderer(hook::Global<uint8_t*>(0x6d4024)), 0, F<float>(o, 0x1e2),
+    int32_t shown = Scene_ProjectNormalised((uint8_t*)Engine_Renderer(g_engine), 0, F<float>(o, 0x1e2),
                                             (float)((double)h + F<float>(o, 0x1e6)), F<float>(o, 0x1ea), &sx, &sy, &depth);
     Fade_Save();
     Fade_Set(*(uint32_t*)&depth);
     float scale = 1.0f, strength = 1.0f;
     float size;
-    if (shown && Camera_InBounds(F<uint8_t*>(hook::Global<uint8_t*>(0x6d4024), 0x28), 0, sx, sy)) {
+    if (shown && Camera_InBounds(F<uint8_t*>(g_engine, 0x28), 0, sx, sy)) {
         bool drawIcon = false;
         if (kind == 1 || kind == 3) {
             uint8_t* font;
             int32_t fz = Ftol(F<float>(o, 0x1ea));
             int32_t fx = Ftol(F<float>(o, 0x1e2));
-            Fog_ParamsAt((uint8_t*)Engine_Get1C(hook::Global<uint8_t*>(0x6d4024)), 0, fx, fz, bias, &scale, (uint32_t*)&font, &strength);
+            Fog_ParamsAt((uint8_t*)Engine_Get1C(g_engine), 0, fx, fz, bias, &scale, (uint32_t*)&font, &strength);
             Font_DrawTextBox(font, 0, text, (float)((double)sx - D(0x5c88c8)), (float)((double)sy - D(0x5c86b8)), BitsF(0x3f19999a), BitsF(0x3e4ccccd),
                              (uint32_t)color, 0, 0, 0, scale);
             if (kind == 3) {
@@ -364,7 +359,7 @@ RT3_REPLACE(0x530280, SceneObj_DrawMarker);
 
 // 0x5305c0. Whether the object was drawn within the last two renderer frames (+0x65).
 RT3_NOINLINE int32_t __fastcall SceneObj_RecentlyDrawn(uint8_t* o) {
-    int32_t d = F<int32_t>(Engine_Renderer(hook::Global<void*>(0x6d4024)), 5) - F<int32_t>(o, 0x65);
+    int32_t d = F<int32_t>(Engine_Renderer(hook::As<void*>(g_engine)), 5) - F<int32_t>(o, 0x65);
     return d > 2 || d < 0 ? 0 : 1;
 }
 RT3_REPLACE(0x5305c0, SceneObj_RecentlyDrawn);
@@ -457,7 +452,7 @@ RT3_REPLACE(0x530720, Obj_MoveTo);
 // "Non 3DP World Object" (0xa8) without a model. Returns whether it wrote one; the
 // last three arguments are unused.
 RT3_NOINLINE int32_t __fastcall SceneObj_DebugTooltip(uint8_t* o, int, char* dst, int32_t n, int32_t, int32_t, int32_t) {
-    int32_t mode = F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x1146be);
+    int32_t mode = F<int32_t>(g_engine, 0x1146be);
     if (!mode || (o[0x20] & 0x10)) return 0;
     if (((int32_t(__fastcall*)(uint8_t*))(*(void***)o)[0x14 / 4])(o)) return 0;
     if (!SceneObj_RecentlyDrawn(o)) return 0;
@@ -465,7 +460,7 @@ RT3_NOINLINE int32_t __fastcall SceneObj_DebugTooltip(uint8_t* o, int, char* dst
     uint8_t* model = F<uint8_t*>(o, 0x14);
     if (!model) {
         FormatText(text, GetString(0xa8), 0, 0, 0, 0, 0, 0, 0, 0);
-    } else if (F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x1146be) == 1) {
+    } else if (F<int32_t>(g_engine, 0x1146be) == 1) {
         if (o[0x5c] & 2) {
             text[0] = 'X';
             text[1] = 0;
@@ -486,9 +481,9 @@ RT3_NOINLINE int32_t __fastcall SceneObj_DebugTooltip(uint8_t* o, int, char* dst
 RT3_REPLACE(0x530820, SceneObj_DebugTooltip);
 
 RT3_NOINLINE void StreamInit() {
-    if (g_streamsReady == 0) {
+    if (g_ccb9ec == 0) {
         memset(g_streams, 0, sizeof(StreamRecord) * kStreams);
-        g_streamsReady = 1;
+        g_ccb9ec = 1;
     }
 }
 RT3_REPLACE(0x5309d0, StreamInit);
@@ -574,9 +569,9 @@ int32_t __fastcall FileExists(const char* path) {
 RT3_REPLACE(0x530c20, FileExists);
 
 RT3_NOINLINE void StreamReleaseAll() {
-    if (g_streamsReady == 0) return;
+    if (g_ccb9ec == 0) return;
     for (int i = 0; i < kStreams; ++i) StreamRelease(i);
-    g_streamsReady = 0;
+    g_ccb9ec = 0;
 }
 RT3_REPLACE(0x530c50, StreamReleaseAll);
 
@@ -801,26 +796,26 @@ RT3_REPLACE(0x531490, StreamWriteText);
 RT3_NOINLINE uint32_t __fastcall Sound_Get3DProvider(int32_t n) {
     uint32_t next = 0;
     uint8_t name[4];
-    hook::Global<uint32_t>(0xccba08) = 0;
+    g_ccba08 = 0;
     auto enumerate = Import<int32_t(__stdcall*)(uint32_t*, void*, uint32_t*)>(0x5c8454);
     for (int32_t i = 0; i <= n; ++i)
         if (!enumerate(&next, name, (uint32_t*)0xccba08)) return 0;
-    return hook::Global<uint32_t>(0xccba08);
+    return g_ccba08;
 }
 RT3_REPLACE(0x5314b0, Sound_Get3DProvider);
 
 uint32_t __fastcall Sound_Is3D(uint8_t* s) {
     if (F<int32_t>(s, 4) != 1) return 0;
-    return hook::Global<int32_t>(0xccb9f4) ? 0 : 1;
+    return g_ccb9f4 ? 0 : 1;
 }
 RT3_REPLACE(0x531500, Sound_Is3D);
 
 // 0x531520. Stops the game music (0xccba00) when it is playing or paused.
 void __fastcall Sound_StopMusic(uint8_t* s, int, uint32_t notify) {
-    if (F<int32_t>(s, 4) != 1 || hook::Global<int32_t>(0xccb9f4)) return;
-    uint8_t* m = hook::Global<uint8_t*>(0xccba00);
-    if (Music_IsPlaying(m) == 1 || Music_IsPaused(hook::Global<uint8_t*>(0xccba00)) == 1)
-        Music_Stop(hook::Global<uint8_t*>(0xccba00), 0, notify);
+    if (F<int32_t>(s, 4) != 1 || g_ccb9f4) return;
+    uint8_t* m = g_ccba00;
+    if (Music_IsPlaying(m) == 1 || Music_IsPaused(g_ccba00) == 1)
+        Music_Stop(g_ccba00, 0, notify);
 }
 RT3_REPLACE(0x531520, Sound_StopMusic);
 
@@ -828,10 +823,10 @@ RT3_REPLACE(0x531520, Sound_StopMusic);
 RT3_NOINLINE void __fastcall Sound_SetVolume(uint8_t* s, int, float vol, int32_t kind) {
     if (!Is3D(s)) return;
     if (kind == 0) {
-        Music_SetVolume(hook::Global<uint8_t*>(0xccba00), 0, vol);
+        Music_SetVolume(g_ccba00, 0, vol);
     } else if (kind == 2) {
-        Sound2D_SetVolume(hook::Global<uint8_t*>(0xccb9f8), 0, vol);
-        Sound_SetEffectsVolume(hook::Global<uint8_t*>(0xccb9fc), 0, vol);
+        Sound2D_SetVolume(g_ccb9f8, 0, vol);
+        Sound_SetEffectsVolume(g_ccb9fc, 0, vol);
     }
 }
 RT3_REPLACE(0x531560, Sound_SetVolume);
@@ -872,7 +867,7 @@ RT3_REPLACE(0x531640, Sound_ActiveProviderIndex);
 RT3_NOINLINE uint32_t __fastcall Sound_ProviderFlagsAt(uint8_t* s, int, int32_t n) {
     if (!Is3D(s)) return 0;
     const char* name = (const char*)Sound_Get3DProvider(n);
-    return Sound_ProviderFlags(hook::Global<uint8_t*>(0xccb9fc), 0, name);
+    return Sound_ProviderFlags(g_ccb9fc, 0, name);
 }
 RT3_REPLACE(0x5316d0, Sound_ProviderFlagsAt);
 
@@ -895,21 +890,21 @@ RT3_NOINLINE int32_t __fastcall Sound_GetSpeakers(uint8_t* s) { return Is3D(s) ?
 RT3_REPLACE(0x531770, Sound_GetSpeakers);
 
 void __fastcall Sound_SetSampleVolume(uint8_t* s, int, uint32_t key, float vol) {
-    if (Is3D(s)) Sound2D_SetSampleVolume(hook::Global<uint8_t*>(0xccb9f8), 0, key, vol);
+    if (Is3D(s)) Sound2D_SetSampleVolume(g_ccb9f8, 0, key, vol);
 }
 RT3_REPLACE(0x531790, Sound_SetSampleVolume);
 
 // 0x5317b0. Stops sample `key`: kind 0 = 2D, kind 1 = 3D.
 RT3_NOINLINE void __fastcall Sound_Stop(uint8_t* s, int, uint32_t key, int32_t kind) {
     if (!Is3D(s)) return;
-    if (kind == 0) Sound2D_Stop(hook::Global<uint8_t*>(0xccb9f8), 0, key);
-    else if (kind == 1) Sound3D_Stop(hook::Global<uint8_t*>(0xccb9fc), 0, key, nullptr);
+    if (kind == 0) Sound2D_Stop(g_ccb9f8, 0, key);
+    else if (kind == 1) Sound3D_Stop(g_ccb9fc, 0, key, nullptr);
 }
 RT3_REPLACE(0x5317b0, Sound_Stop);
 
 // 0x531880. Stops and releases the sound's Miles timer (+0x4c).
 RT3_NOINLINE void __fastcall Sound_ReleaseTimer(uint8_t* s) {
-    if (F<int32_t>(s, 0x4c) == -1 || hook::Global<int32_t>(0x624d58) != 1) return;
+    if (F<int32_t>(s, 0x4c) == -1 || g_624d58 != 1) return;
     Import<void(__stdcall*)(int32_t)>(0x5c83b8)(F<int32_t>(s, 0x4c));
     Import<void(__stdcall*)(int32_t)>(0x5c8450)(F<int32_t>(s, 0x4c));
     F<int32_t>(s, 0x4c) = -1;
@@ -924,8 +919,8 @@ RT3_REPLACE(0x5318b0, Sound_WaitIdle);
 
 // 0x5318c0. Sends sound command cmd for h to the 3D (0xccba04) or 2D system.
 int32_t __fastcall Sound_Command(uint8_t* h, int32_t* cmd) {
-    if (hook::Global<int32_t>(0xccba04)) return Sound3D_Command(hook::Global<uint8_t*>(0xccb9fc), 0, h, cmd);
-    return Sound2D_Command(hook::Global<uint8_t*>(0xccb9f8), 0, h, cmd);
+    if (g_ccba04) return Sound3D_Command(g_ccb9fc, 0, h, cmd);
+    return Sound2D_Command(g_ccb9f8, 0, h, cmd);
 }
 RT3_REPLACE(0x5318c0, Sound_Command);
 
@@ -963,10 +958,10 @@ RT3_REPLACE(0x5318f0, Sound_Startup);
 // their volume (16 ms apart, then 200 ms), waits for the worker (0xccb9f0), stops
 // everything, releases the timer (+0x4c), closes Miles and frees the systems.
 RT3_NOINLINE void __fastcall Sound_Shutdown(uint8_t* snd, int, int32_t immediate) {
-    hook::Global<int32_t>(0xccb9f4) = 1;
+    g_ccb9f4 = 1;
     if (F<int32_t>(snd, 4) != 1) {
         F<int32_t>(snd, 4) = 0;
-        hook::Global<int32_t>(0xccb9f4) = 0;
+        g_ccb9f4 = 0;
         return;
     }
     if (!immediate) {
@@ -983,7 +978,7 @@ RT3_NOINLINE void __fastcall Sound_Shutdown(uint8_t* snd, int, int32_t immediate
         }
         Sleep_(200);
     }
-    while (hook::Global<volatile int32_t>(0xccb9f0)) {}
+    while (hook::As<volatile int32_t>(g_ccb9f0)) {}
     Music_Stop(Music(), 0, 0);
     Sound2D_StopAll(Snd2D());
     Sound_StopAll(Snd3D());
@@ -999,28 +994,28 @@ RT3_NOINLINE void __fastcall Sound_Shutdown(uint8_t* snd, int, int32_t immediate
     DestroySnd(Snd3D(), Sound3D_Destruct);
     DestroySnd(Snd2D(), Sound2D_Destruct);
     F<int32_t>(snd, 4) = 0;
-    hook::Global<int32_t>(0xccb9f4) = 0;
+    g_ccb9f4 = 0;
 }
 RT3_REPLACE(0x531a10, Sound_Shutdown);
 
 // 0x531c00. Restarts the sound system with 3D provider `name` and re-applies the
 // listener and the music (engine +0x1146fe x 0.24) / effects (+0x1146fa) volumes.
 RT3_NOINLINE int32_t __fastcall Sound_Restart(uint8_t* snd, int, const char* name) {
-    if (!hook::Global<void*>(0xccb9fc)) return 0;
+    if (!hook::As<void*>(g_ccb9fc)) return 0;
     char buf[0x1f8];
     char* d = buf;
     while ((*d++ = *name++) != 0) {}
     Sound_Shutdown(snd, 0, 1);
     if (Sound_Startup(snd, 0, buf) != 1) return 0;
-    if (SoundUp(snd)) Sound_SetListenerDir(hook::Global<uint8_t*>(0xccb9fc), 0, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f);
-    if (SoundUp(snd)) Sound_SetListenerPos(hook::Global<uint8_t*>(0xccb9fc), 0, 0.0f, 0.0f, 0.0f);
-    uint8_t* e = hook::Global<uint8_t*>(0x6d4024);
+    if (SoundUp(snd)) Sound_SetListenerDir(g_ccb9fc, 0, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f);
+    if (SoundUp(snd)) Sound_SetListenerPos(g_ccb9fc, 0, 0.0f, 0.0f, 0.0f);
+    uint8_t* e = g_engine;
     float mv = (float)((double)F<float>(e, 0x1146fe) * *(const double*)0x5c9c80);
-    if (SoundUp(snd)) Music_SetVolume(hook::Global<uint8_t*>(0xccba00), 0, mv);
-    float sv = F<float>(hook::Global<uint8_t*>(0x6d4024), 0x1146fa);
+    if (SoundUp(snd)) Music_SetVolume(g_ccba00, 0, mv);
+    float sv = F<float>(g_engine, 0x1146fa);
     if (SoundUp(snd)) {
-        Sound2D_SetVolume(hook::Global<uint8_t*>(0xccb9f8), 0, sv);
-        Sound_SetEffectsVolume(hook::Global<uint8_t*>(0xccb9fc), 0, sv);
+        Sound2D_SetVolume(g_ccb9f8, 0, sv);
+        Sound_SetEffectsVolume(g_ccb9fc, 0, sv);
     }
     return 0;
 }
@@ -1028,14 +1023,14 @@ RT3_REPLACE(0x531c00, Sound_Restart);
 
 // 0x531d30. Starts a music file at the configured music volume (engine +0x1146fe).
 int32_t __fastcall Sound_PlayMusic(uint8_t* s, int, const char* file, void* onEnd) {
-    if (F<int32_t>(s, 4) != 1 || hook::Global<int32_t>(0xccb9f4)) return 0;
-    float vol = (float)((double)F<float>(hook::Global<uint8_t*>(0x6d4024), 0x1146fe) * *(const double*)0x5c9c80);
-    Music_SetVolume(hook::Global<uint8_t*>(0xccba00), 0, vol);
-    uint8_t* m = hook::Global<uint8_t*>(0xccba00);
+    if (F<int32_t>(s, 4) != 1 || g_ccb9f4) return 0;
+    float vol = (float)((double)F<float>(g_engine, 0x1146fe) * *(const double*)0x5c9c80);
+    Music_SetVolume(g_ccba00, 0, vol);
+    uint8_t* m = g_ccba00;
     if (!(F<float>(m, 0x104) > *(const float*)0x5c8598)) return 0;
-    if (Music_IsPlaying(m) == 1) Music_Stop(hook::Global<uint8_t*>(0xccba00), 0, 0);
-    return Music_Play(hook::Global<uint8_t*>(0xccba00), 0, file,
-                      F<void*>(hook::Global<uint8_t*>(0xccb9f8), 0x2c), onEnd);
+    if (Music_IsPlaying(m) == 1) Music_Stop(g_ccba00, 0, 0);
+    return Music_Play(g_ccba00, 0, file,
+                      F<void*>(g_ccb9f8, 0x2c), onEnd);
 }
 RT3_REPLACE(0x531d30, Sound_PlayMusic);
 
@@ -1043,8 +1038,8 @@ RT3_REPLACE(0x531d30, Sound_PlayMusic);
 RT3_NOINLINE uint32_t __fastcall Sound_ListenerIdle(uint8_t* s) {
     if (!Is3D(s)) return 1;
     const float zero = *(const float*)0x5c8598;
-    if (!(F<float>(hook::Global<uint8_t*>(0xccb9f8), 0x20) == zero)) return 0;
-    return F<float>(hook::Global<uint8_t*>(0xccb9fc), 0x58) == zero ? 1 : 0;
+    if (!(F<float>(g_ccb9f8, 0x20) == zero)) return 0;
+    return F<float>(g_ccb9fc, 0x58) == zero ? 1 : 0;
 }
 RT3_REPLACE(0x531dc0, Sound_ListenerIdle);
 
@@ -1068,21 +1063,21 @@ void __fastcall Sound_SetMatrix(uint8_t* s, int, Mat16 m) {
     if (!Is3D(s)) return;
     F<int32_t>(s, 0x48) = 1;
     for (int k = 0; k < 16; ++k) F<uint32_t>(s, 8 + k * 4) = m.v[k];
-    F<int32_t>(hook::Global<uint8_t*>(0xccb9fc), 0x60) = 2;
+    F<int32_t>(g_ccb9fc, 0x60) = 2;
 }
 RT3_REPLACE(0x531e90, Sound_SetMatrix);
 
 RT3_NOINLINE uint32_t __fastcall Sound_Get2c(uint8_t* s) {
     if (!Is3D(s)) return 0;
-    return F<uint32_t>(hook::Global<uint8_t*>(0xccb9f8), 0x2c);
+    return F<uint32_t>(g_ccb9f8, 0x2c);
 }
 RT3_REPLACE(0x531ed0, Sound_Get2c);
 
 // 0x531ef0. Looks key up in the 2D (kind 0) or 3D (kind 1) sample table.
 RT3_NOINLINE int32_t __fastcall Sound_LookupSample(uint8_t* s, int, uint32_t key, int32_t kind) {
-    if (F<int32_t>(s, 4) != 1 || hook::Global<int32_t>(0xccb9f4)) return 0;
-    if (kind == 0) return Hash_Get((HashMap*)(hook::Global<uint8_t*>(0xccb9f8) + 0xc), 0, key);
-    if (kind == 1) return Hash_Get((HashMap*)(hook::Global<uint8_t*>(0xccb9fc) + 0x14), 0, key);
+    if (F<int32_t>(s, 4) != 1 || g_ccb9f4) return 0;
+    if (kind == 0) return Hash_Get((HashMap*)(g_ccb9f8 + 0xc), 0, key);
+    if (kind == 1) return Hash_Get((HashMap*)(g_ccb9fc + 0x14), 0, key);
     return 0;
 }
 RT3_REPLACE(0x531ef0, Sound_LookupSample);
@@ -1090,9 +1085,9 @@ RT3_REPLACE(0x531ef0, Sound_LookupSample);
 // 0x531f40. Pauses all sound (stopping the fade timer first).
 void __fastcall Sound_Pause(uint8_t* s) {
     if (!Is3D(s)) return;
-    if (F<int32_t>(s, 0x4c) != -1 && hook::Global<int32_t>(0x624d58) == 1) Sound_ReleaseTimer(s);
-    Sound2D_PauseAll(hook::Global<uint8_t*>(0xccb9f8));
-    Sound_PauseAll(hook::Global<uint8_t*>(0xccb9fc));
+    if (F<int32_t>(s, 0x4c) != -1 && g_624d58 == 1) Sound_ReleaseTimer(s);
+    Sound2D_PauseAll(g_ccb9f8);
+    Sound_PauseAll(g_ccb9fc);
     F<int32_t>(s, 0x48) = 0;
 }
 RT3_REPLACE(0x531f40, Sound_Pause);
@@ -1101,7 +1096,7 @@ RT3_REPLACE(0x531f40, Sound_Pause);
 // 0x531840 for 3D ones; AIL_register_(3D_)EOS_callback).
 int32_t __fastcall Sound_RegisterEos(uint8_t* s, int, uint32_t sample, int32_t kind) {
     if (F<int32_t>(s, 4) != 1) return 0;
-    if (int32_t busy = hook::Global<int32_t>(0xccb9f4)) return busy;
+    if (int32_t busy = g_ccb9f4) return busy;
     if (kind == 0) return Import<int32_t(__stdcall*)(uint32_t, uint32_t)>(0x5c83a8)(sample, 0x531800);
     if (kind == 1) return Import<int32_t(__stdcall*)(uint32_t, uint32_t)>(0x5c83a4)(sample, 0x531840);
     return kind - 1;
@@ -1113,34 +1108,34 @@ RT3_REPLACE(0x531f90, Sound_RegisterEos);
 // the option +0x1146fe times 0x5dd250; at the end the music stops (out) or
 // keeps the option volume, and the target resets (-1, 0x624d58 set).
 void __stdcall Music_FadeStep(int32_t mode) {
-    if (hook::Global<int32_t>(0xccb9f4)) return;
-    ++hook::Global<int32_t>(0xccb9f0);
-    uint8_t* mus = hook::Global<uint8_t*>(0xccba00);
-    uint8_t* eng = hook::Global<uint8_t*>(0x6d4024);
+    if (g_ccb9f4) return;
+    ++g_ccb9f0;
+    uint8_t* mus = g_ccba00;
+    uint8_t* eng = g_engine;
     auto finish = [&](double vol) {
-        Music_SetVolume(hook::Global<uint8_t*>(0xccba00), 0, (float)vol);
-        hook::Global<uint32_t>(0x624d60) = 0xbf800000;
-        hook::Global<int32_t>(0x624d58) = 1;
+        Music_SetVolume(g_ccba00, 0, (float)vol);
+        hook::As<uint32_t>(g_624d60) = 0xbf800000;
+        g_624d58 = 1;
     };
     if (mode == 2) {
         const double base = F<float>(mus, 0x104);
-        if (Fl(0x5c9b08) == (double)hook::Global<float>(0x624d60)) hook::Global<float>(0x624d60) = (float)((double)F<float>(eng, 0x1146fe) * D(0x5dd250));
-        const float v = (float)((double)hook::Global<float>(0x624d60) + base);
-        const double lim = (double)F<float>(hook::Global<uint8_t*>(0x6d4024), 0x1146fe) * D(0x5c9c80);
-        if ((double)v < lim) Music_SetVolume(hook::Global<uint8_t*>(0xccba00), 0, v);
+        if (Fl(0x5c9b08) == (double)g_624d60) g_624d60 = (float)((double)F<float>(eng, 0x1146fe) * D(0x5dd250));
+        const float v = (float)((double)g_624d60 + base);
+        const double lim = (double)F<float>(g_engine, 0x1146fe) * D(0x5c9c80);
+        if ((double)v < lim) Music_SetVolume(g_ccba00, 0, v);
         else finish(lim);
     } else if (mode == 1) {
         const double base = F<float>(mus, 0x104);
-        if (Fl(0x5c9b08) == (double)hook::Global<float>(0x624d60)) hook::Global<float>(0x624d60) = (float)(Fl(0x5dd24c) * base);
-        if ((double)hook::Global<float>(0x624d60) < base) {
-            Music_SetVolume(hook::Global<uint8_t*>(0xccba00), 0, (float)(base - (double)hook::Global<float>(0x624d60)));
+        if (Fl(0x5c9b08) == (double)g_624d60) g_624d60 = (float)(Fl(0x5dd24c) * base);
+        if ((double)g_624d60 < base) {
+            Music_SetVolume(g_ccba00, 0, (float)(base - (double)g_624d60));
         } else {
-            if (Music_IsPlaying(hook::Global<uint8_t*>(0xccba00)) == 1 || Music_IsPaused(hook::Global<uint8_t*>(0xccba00)) == 1)
-                Music_Stop(hook::Global<uint8_t*>(0xccba00), 0, 1);
-            finish((double)F<float>(hook::Global<uint8_t*>(0x6d4024), 0x1146fe) * D(0x5c9c80));
+            if (Music_IsPlaying(g_ccba00) == 1 || Music_IsPaused(g_ccba00) == 1)
+                Music_Stop(g_ccba00, 0, 1);
+            finish((double)F<float>(g_engine, 0x1146fe) * D(0x5c9c80));
         }
     }
-    --hook::Global<int32_t>(0xccb9f0);
+    --g_ccb9f0;
 }
 RT3_REPLACE(0x531fd0, Music_FadeStep);
 

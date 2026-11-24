@@ -9,6 +9,7 @@
 #include <math.h>
 #include <initializer_list>
 #include "hook/hook.h"
+#include "core/globals.h"
 #include "game/collection.h"
 #include "core/stream.h"
 #include "core/crt.h"
@@ -120,7 +121,7 @@ static inline double D(uint32_t a) { return *(const double*)a; }
 
 static inline float Fl(uint32_t a) { return *(const float*)a; }
 
-static inline uint8_t* Map() { return hook::Global<uint8_t*>(0x62c120); }
+static inline uint8_t* Map() { return g_map; }
 
 static inline float Prod_Bits(uint32_t b) { return *(const float*)&b; }
 
@@ -175,7 +176,7 @@ RT3_NOINLINE void __fastcall Territories_Recount(Collection* c) {
         if (F<int32_t>(e, 0x31)) continue;
         F<int32_t>(Collection_Get(c, 0, F<uint32_t>(e, 0x35)), 0x41) += F<int32_t>(e, 0x3d);
     }
-    Territories_BuildBorders(hook::Global<Collection*>(0x6cfc9c));
+    Territories_BuildBorders(g_territories);
 }
 RT3_REPLACE(0x4881b0, Territories_Recount);
 
@@ -184,7 +185,7 @@ RT3_REPLACE(0x4881b0, Territories_Recount);
 // its id), then recounts them.
 RT3_NOINLINE void __fastcall Territories_AddTestSet(Collection* t) {
     for (int32_t i = 1; i <= 0x18; ++i) {
-        Loading_Pump(hook::Global<uint8_t*>(0x6cec74), 0, 0, 0);
+        Loading_Pump(g_app, 0, 0, 0);
         char num[0x20], name[0x120];
         ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)(num, (const char*)0x5c9aec, i);
         FormatText(name, GetString(0x11e), num, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
@@ -227,7 +228,7 @@ RT3_NOINLINE void __fastcall Text_ExportLine(int32_t st, int32_t section, int32_
     Str_Replace(buf, len * 2, (const char*)0x5cf130, (const char*)0x5cf134, 1);
     Str_Replace(buf, len * 2, (const char*)0x5c9ce8, (const char*)0x5cf134, 1);
     Str_Replace(buf, len * 2, (const char*)0x5cf12c, (const char*)0x5c87a8, 1);
-    hook::Global<int32_t>(0x6cfca0) += CountWords(buf);
+    g_6cfca0 += CountWords(buf);
     int32_t id = sub + (section * 100000 + item) * 10;
     char num[0x40], line[0x1760];
     Num_Format(num, 8, (double)id, 10, 1, 0, 0);
@@ -295,12 +296,12 @@ RT3_REPLACE(0x4886c0, Obj_SetName46b);
 // lines). Text_ExportLine counts the words into 0x6cfca0, which is written
 // as a trailer and returned; 0xe6e reports the file when `report`.
 RT3_NOINLINE int32_t __fastcall ScenarioText_Export(const char* name, int32_t report) {
-    if (!hook::Global<uint8_t*>(0x6cec78) || !Global6d07b4Set2()) {
+    if (!g_world || !Global6d07b4Set2()) {
         Message_Show(GetString(0xe6d), 1, 0);
         return 0;
     }
     char path[0x12c];
-    hook::Global<int32_t>(0x6cfca0) = 0;
+    g_6cfca0 = 0;
     FormatText(path, (const char*)0x5cfcb8, name, 0, 0, 0, 0, 0, 0, 0);
     int32_t s = StreamOpen(path, 4, 5000, 1);
     static const uint32_t header[] = { 0x5cfcb0, 0x5cfcb0, 0x5cfc8c, 0x5cfcb0, 0x5cfc40, 0x5cfc0c, 0x5cfcb0, 0x5cfbec, 0x5cfcb0, 0x5cfba0, 0x5cfb50,
@@ -320,47 +321,47 @@ RT3_NOINLINE int32_t __fastcall ScenarioText_Export(const char* name, int32_t re
     };
     StreamWrite(s, text, (uint32_t)strlen(text), 0);
     section(0x5cf314);
-    Text_ExportLine(s, 2, 0, 0, (const char*)hook::Global<uint8_t*>(0x6cec78) + 0x672e);
+    Text_ExportLine(s, 2, 0, 0, (const char*)g_world + 0x672e);
     section(0x5cf2ec);
-    Text_ExportLine(s, 3, 0, 0, (const char*)hook::Global<uint8_t*>(0x6cec78) + 0x4f30);
+    Text_ExportLine(s, 3, 0, 0, (const char*)g_world + 0x4f30);
     section(0x5cf2b8);
-    Text_ExportLine(s, 4, 0, 0, (const char*)hook::Global<uint8_t*>(0x6cec78) + 0x5ae9);
+    Text_ExportLine(s, 4, 0, 0, (const char*)g_world + 0x5ae9);
     section(0x5cf298);
-    for (int32_t i = 0; i < Collection_Count(hook::Global<Collection*>(0x6cfc9c)); ++i) {
-        Collection* c = hook::Global<Collection*>(0x6cfc9c);
+    for (int32_t i = 0; i < Collection_Count(g_territories); ++i) {
+        Collection* c = g_territories;
         uint8_t* t = (uint8_t*)Collection_Get(c, 0, Collection_IdAt(c, 0, (uint32_t)i, 0));
         if (F<int32_t>(t, 0x3d) > 0 && F<int32_t>(t, 0x31)) Text_ExportLine(s, 5, F<int32_t>(t, 0), 0, (const char*)t + 4);
     }
     section(0x5cf288);
-    for (int32_t i = 0; i < Collection_Count(hook::Global<Collection*>(0x62bae0)); ++i) {
-        Collection* c = hook::Global<Collection*>(0x62bae0);
+    for (int32_t i = 0; i < Collection_Count(g_cities); ++i) {
+        Collection* c = g_cities;
         uint8_t* t = (uint8_t*)Collection_Get(c, 0, Collection_IdAt(c, 0, (uint32_t)i, 0));
         if (!F<int32_t>(t, 0x23e)) Text_ExportLine(s, 6, F<int32_t>(t, 0x23a), 0, (const char*)t + 0x356);
     }
     section(0x5cf26c);
-    for (int32_t i = 0; i < Collection_Count(hook::Global<Collection*>(0x6ada80)); ++i) {
-        Collection* c = hook::Global<Collection*>(0x6ada80);
+    for (int32_t i = 0; i < Collection_Count(g_6ada80); ++i) {
+        Collection* c = g_6ada80;
         uint8_t* t = (uint8_t*)Collection_Get(c, 0, Collection_IdAt(c, 0, (uint32_t)i, 0));
-        Text_ExportLine(s, 0xa, (int32_t)Collection_IdAt(hook::Global<Collection*>(0x6ada80), 0, (uint32_t)i, 0), 0, (const char*)t + 0x2a2);
+        Text_ExportLine(s, 0xa, (int32_t)Collection_IdAt(g_6ada80, 0, (uint32_t)i, 0), 0, (const char*)t + 0x2a2);
     }
     section(0x5cf250);
-    for (int32_t i = 0; i < Collection_Count(hook::Global<Collection*>(0x6cec20)); ++i) {
-        Collection* c = hook::Global<Collection*>(0x6cec20);
+    for (int32_t i = 0; i < Collection_Count(g_stations); ++i) {
+        Collection* c = g_stations;
         uint8_t* t = (uint8_t*)Collection_Get(c, 0, Collection_IdAt(c, 0, (uint32_t)i, 0));
         Text_ExportLine(s, 9, F<int32_t>(t, 0), 0, (const char*)t + 0x46b);
     }
     section(0x5cf234);
-    for (int32_t i = 0; i < Table_CountField3f(hook::Global<Collection*>(0x62be10)); ++i) {
-        uint8_t* t = (uint8_t*)Table_NthField3f(hook::Global<Collection*>(0x62be10), 0, i);
+    for (int32_t i = 0; i < Table_CountField3f(g_companies); ++i) {
+        uint8_t* t = (uint8_t*)Table_NthField3f(g_companies, 0, i);
         Text_ExportLine(s, 8, F<int32_t>(t, 0), 0, (const char*)t + 4);
     }
     section(0x5cf220);
     const char* kinds[6] = { (const char*)0x5cf20c, (const char*)0x5cf1f8, (const char*)0x5cf1d4,
                              (const char*)0x5cf1b8, (const char*)0x5cf1a4, (const char*)0x5cf190 };
-    for (int32_t i = 0; i < Collection_Count(hook::Global<Collection*>(0x62be18)); ++i) {
-        Collection* c = hook::Global<Collection*>(0x62be18);
+    for (int32_t i = 0; i < Collection_Count(g_events); ++i) {
+        Collection* c = g_events;
         uint8_t* e = (uint8_t*)Collection_Get(c, 0, Collection_IdAt(c, 0, (uint32_t)i, 0));
-        int32_t id = (int32_t)Collection_IdAt(hook::Global<Collection*>(0x62be18), 0, (uint32_t)i, 0);
+        int32_t id = (int32_t)Collection_IdAt(g_events, 0, (uint32_t)i, 0);
         char* body = (char*)e + 0xe0;
         TrimSpaces(body, 1);
         TrimSpaces((char*)e + 0x401, 1);
@@ -373,7 +374,7 @@ RT3_NOINLINE int32_t __fastcall ScenarioText_Export(const char* name, int32_t re
                 if (type == 4 || type == 5 || type == 6 || type == 7) news = true;
             }
         if (news) {
-            int32_t lines = Font_CountLines(F<uint8_t*>(hook::Global<uint8_t*>(0x6cec78), 0x46a9c), 0, body, Prod_Bits(0x3e9eb852), nullptr);
+            int32_t lines = Font_CountLines(F<uint8_t*>(g_world, 0x46a9c), 0, body, Prod_Bits(0x3e9eb852), nullptr);
             if (lines > 6) {
                 char msg[0x4ac];
                 ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)(msg, (const char*)0x5cf160, name, (const char*)e + 0x18, lines, body);
@@ -390,19 +391,19 @@ RT3_NOINLINE int32_t __fastcall ScenarioText_Export(const char* name, int32_t re
         StreamWrite(s, (const void*)0x5cf130, 2, 0);
     }
     char trailer[0x1f4];
-    ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)(trailer, (const char*)0x5cf138, hook::Global<int32_t>(0x6cfca0));
+    ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)(trailer, (const char*)0x5cf138, g_6cfca0);
     StreamWriteText(s, trailer);
     StreamClose(s);
     FormatText(text, GetString(0xe6e), path, 0, 0, 0, 0, 0, 0, 0);
     if (report) Message_Show(text, 1, 0);
-    return hook::Global<int32_t>(0x6cfca0);
+    return g_6cfca0;
 }
 RT3_REPLACE(0x4886e0, ScenarioText_Export);
 
 // 0x4895c0. Renames object `id` of the given kind: 2..4 scenario texts in the world,
 // 5 ..., 6 cities, 7 event texts (field 1..6), 8 players, 9 stations, 10 ...
 RT3_NOINLINE void __fastcall Obj_Rename(int32_t kind, uint32_t id, int32_t field, const char* text) {
-    uint8_t* w = hook::Global<uint8_t*>(0x6cec78);
+    uint8_t* w = g_world;
     auto in = [&](uint32_t g) -> uint8_t* {
         Collection* c = hook::Global<Collection*>(g);
         return Collection_IsValid(c, 0, id) ? (uint8_t*)Collection_Get(hook::Global<Collection*>(g), 0, id) : nullptr;
@@ -439,7 +440,7 @@ RT3_REPLACE(0x4895c0, Obj_Rename);
 // (done) when reporting. Returns 1 when the file was read. The file buffer
 // is not freed (as in the original).
 RT3_NOINLINE uint32_t __fastcall ScenarioText_Import(const char* name, int32_t report) {
-    if (!hook::Global<uint8_t*>(0x6cec78) || !Global6d07b4Set2()) {
+    if (!g_world || !Global6d07b4Set2()) {
         if (report) Message_Show(GetString(0xe6d), 1, 0);
         return 0;
     }
@@ -481,7 +482,7 @@ RT3_REPLACE(0x489830, ScenarioText_Import);
 // QUIRK: FindClose also gets the invalid handle when there is no map.
 // QUIRK: only 100 names fit; more maps overrun the name table.
 RT3_NOINLINE void __fastcall Maps_BatchScenarioText(int32_t import) {
-    if (!hook::Global<uint8_t*>(0x6cec78) || !Global6d07b4Set2()) {
+    if (!g_world || !Global6d07b4Set2()) {
         Dialog_RunMessage(GetString(0xe70), 1, 0xbf800000, 0xbf800000, 0, nullptr, 0, 0.0f, 0, 0x1e, 0, nullptr, nullptr, 0, 0, nullptr, 0);
         return;
     }
@@ -491,7 +492,7 @@ RT3_NOINLINE void __fastcall Maps_BatchScenarioText(int32_t import) {
     char names[100][200], msg[5000], failed[3000], pattern[504], status[400], stem[304], num1[0x30], num2[0x30];
     char fd[0x140];
     auto sprintf_ = (int(__cdecl*)(char*, const char*, ...))0x5a19c4;
-    hook::Global<int32_t>(0x6cfca4) = 1;
+    g_6cfca4 = 1;
     int32_t count = 0, exported = 0, imported = 0;
     failed[0] = 0;
     FormatText(pattern, (const char*)0x5cfcd4, 0, 0, 0, 0, 0, 0, 0, 0);
@@ -503,11 +504,11 @@ RT3_NOINLINE void __fastcall Maps_BatchScenarioText(int32_t import) {
     findClose(h);
     for (int32_t i = 0; i < count; ++i) {
         const char* name = names[i];
-        F<int32_t>(hook::Global<uint8_t*>(0x6cec7c), 1) = 3;
+        F<int32_t>(g_newGame, 1) = 3;
         sprintf_(status, (const char*)0x5cfcc4, i, count, GetString(0xe71), name);
-        Status_SetMessage(hook::Global<uint8_t*>(0x6d401c), 0, status);
-        F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x6c) = 1;
-        World_Load(hook::Global<uint8_t*>(0x6cec78), 0, name, 0, nullptr);
+        Status_SetMessage(g_windowManager, 0, status);
+        F<int32_t>(g_app, 0x6c) = 1;
+        World_Load(g_world, 0, name, 0, nullptr);
         stem[0] = 0;
         strcat(stem, name);
         const size_t len = strlen(stem);
@@ -517,13 +518,13 @@ RT3_NOINLINE void __fastcall Maps_BatchScenarioText(int32_t import) {
         } else if (ScenarioText_Import(stem, 0)) {
             ++imported;
             sprintf_(status, (const char*)0x5cfcc4, i, count, GetString(0xe72), name);
-            Status_SetMessage(hook::Global<uint8_t*>(0x6d401c), 0, status);
-            World_Save(hook::Global<uint8_t*>(0x6cec78), 0, name, 0, nullptr);
+            Status_SetMessage(g_windowManager, 0, status);
+            World_Save(g_world, 0, name, 0, nullptr);
         } else {
             strcat(failed, name);
             memcpy(failed + strlen(failed), (const void*)0x5c9ce8, 2);
         }
-        F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x6c) = 0;
+        F<int32_t>(g_app, 0x6c) = 0;
     }
     if (import) {
         const char* total = Num_Format(num1, 1, (double)count, 10, 1, 0, 0);
@@ -536,7 +537,7 @@ RT3_NOINLINE void __fastcall Maps_BatchScenarioText(int32_t import) {
         FormatText(msg, GetString(0xe75), total, n, 0, 0, 0, 0, 0, 0);
     }
     Dialog_RunMessage(msg, 1, 0xbf800000, 0xbf800000, 0, nullptr, 0, 0.0f, 0, 0x1e, 0, nullptr, nullptr, 0, 0, nullptr, 0);
-    hook::Global<int32_t>(0x6cfca4) = 0;
+    g_6cfca4 = 0;
 }
 RT3_REPLACE(0x489a20, Maps_BatchScenarioText);
 

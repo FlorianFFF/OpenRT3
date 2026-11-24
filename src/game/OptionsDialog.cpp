@@ -8,6 +8,7 @@
 #include <math.h>
 #include <initializer_list>
 #include "hook/hook.h"
+#include "core/globals.h"
 #include "hook/keepregs.h"
 #include "core/ptrlist.h"
 #include "core/crt.h"
@@ -153,9 +154,9 @@ RT3_NOINLINE void __fastcall OptionsDialog_ShowPage(uint8_t* w, int, int32_t pag
 
 #define RT3_OPTION(addr, name, off) \
     void __fastcall name(int32_t v) { \
-        if (v == -1 || hook::Global<uint8_t>(0x6d135d)) return; \
-        F<int32_t>(hook::Global<uint8_t*>(0x6cec74), off) = v; \
-        Options_Save(hook::Global<uint8_t*>(0x6cec74), 0, 1); \
+        if (v == -1 || g_6d135d) return; \
+        F<int32_t>(g_app, off) = v; \
+        Options_Save(g_app, 0, 1); \
     } \
     RT3_REPLACE(addr, name);
 
@@ -168,7 +169,7 @@ void __fastcall Sound_Speakers(uint8_t* s, int, int32_t type, int32_t noApply);
     void __fastcall name(uint8_t* o, int, int32_t i) { \
         F<int32_t>(o, 0x78) = i; \
         const float r = (float)((double)((const int32_t*)table)[i] + D(0x5c8628)); \
-        Scene_SetBrushRadius((uint8_t*)Engine_Renderer(hook::Global<void*>(0x6d4024)), 0, r); \
+        Scene_SetBrushRadius((uint8_t*)Engine_Renderer(hook::As<void*>(g_engine)), 0, r); \
     } \
     RT3_REPLACE(addr, name);
 
@@ -182,14 +183,14 @@ void __fastcall Cursor_UseWindows(uint8_t* c);
 #define RT3_ONOFF(addr, name, guard, on, level) \
     void __fastcall name(int32_t v) { \
         if (v == -1 || guard) return; \
-        uint8_t* app = hook::Global<uint8_t*>(0x6cec74); \
+        uint8_t* app = g_app; \
         if (!v) { \
             F<int32_t>(app, on) = v; \
         } else { \
             F<int32_t>(app, on) = 1; \
-            F<int32_t>(hook::Global<uint8_t*>(0x6cec74), level) = v - 1; \
+            F<int32_t>(g_app, level) = v - 1; \
         } \
-        Options_Save(hook::Global<uint8_t*>(0x6cec74), 0, 1); \
+        Options_Save(g_app, 0, 1); \
     } \
     RT3_REPLACE(addr, name);
 
@@ -320,7 +321,7 @@ static inline int32_t Ftol(double v) {
 // 0x4fe6f0 / 0x4fe730. Select option list 0x755f / 0x7569 of window w (event 0x66)
 // from the options' entry 1 / 2 (+0xac array) through table 0x622990 (-1: 0).
 static void Window_SelectOption(uint8_t* w, int32_t entry, uint32_t id) {
-    int32_t k = Obj_ArrayAc(hook::Global<void*>(0x6cec74), 0, entry);
+    int32_t k = Obj_ArrayAc(hook::As<void*>(g_app), 0, entry);
     uint32_t v = k == -1 ? 0 : ((const uint32_t*)0x622990)[k];
     Window_SendEvent5(w, 0, 0x66, id, v, 0, 0);
 }
@@ -331,9 +332,9 @@ static inline float Prod_Bits(uint32_t b) { return *(const float*)&b; }
 // 0x4fcb40: drop the scene's busy mark and leave their overview mode.
 static void MapModeWindow_Destruct(uint8_t* w, uint32_t vtbl, int32_t mode, uint32_t clear) {
     F<uint32_t>(w, 0) = vtbl;
-    Scene_PopBusy((uint8_t*)Engine_Renderer(hook::Global<uint8_t*>(0x6d4024)));
+    Scene_PopBusy((uint8_t*)Engine_Renderer(g_engine));
     if (clear) hook::Global<uint32_t>(clear) = 0;
-    if (F<int32_t>(hook::Global<uint8_t*>(0x62c120), 0x2175) == mode) Overview_Close(hook::Global<uint8_t*>(0x62c120));
+    if (F<int32_t>(g_map, 0x2175) == mode) Overview_Close(g_map);
     Widget_SetVtbl(w);
 }
 
@@ -345,7 +346,7 @@ static void EditorToolWindow_Open(uint8_t* w, uint32_t vtbl, uint32_t sizeIdx, u
     F<uint32_t>(w, 0) = vtbl;
     F<int32_t>(w, 0x78) = i;
     float r = (float)((double)((const int32_t*)sizes)[i] + D(0x5c8628));
-    Scene_SetBrushRadius((uint8_t*)Engine_Renderer(hook::Global<uint8_t*>(0x6d4024)), 0, r);
+    Scene_SetBrushRadius((uint8_t*)Engine_Renderer(g_engine), 0, r);
 }
 
 // A centred (-1, -1) message box of `type` showing `text` with the default
@@ -406,7 +407,7 @@ RT3_NOINLINE void __fastcall MapBrush_PaintFlag10(uint8_t* d, int, float x, floa
     float y0 = y - r - BitsF(0x3f800000);
     if (y0 < 0.0f) y0 = 0.0f;
     const int32_t iy0 = (int32_t)y0;
-    uint8_t* map = hook::Global<uint8_t*>(0x62c120);
+    uint8_t* map = g_map;
     const float wmax = (float)(F<int32_t>(map, 0x2155) - 1);
     const float xr = r + x + BitsF(0x3f800000);
     const int32_t ix1 = (int32_t)(wmax < xr ? wmax : xr);
@@ -419,17 +420,17 @@ RT3_NOINLINE void __fastcall MapBrush_PaintFlag10(uint8_t* d, int, float x, floa
         const int32_t py = (int32_t)y, px = (int32_t)x;
         for (int32_t cy = iy0; cy <= iy1; ++cy) {
             if ((int32_t)(uint16_t)DistanceInt(cx, cy, px, py) > radius) continue;
-            if (Grid_CellMarked(hook::Global<uint8_t*>(0x62c120), 0, cx, cy) == want) continue;
+            if (Grid_CellMarked(g_map, 0, cx, cy) == want) continue;
             if (F<int32_t>(d, 0xac))
-                Grid_MarkCell(hook::Global<uint8_t*>(0x62c120), 0, cx, cy);
+                Grid_MarkCell(g_map, 0, cx, cy);
             else
-                Map_ClearCellFlag10(hook::Global<uint8_t*>(0x62c120), 0, cx, cy);
+                Map_ClearCellFlag10(g_map, 0, cx, cy);
             changed = true;
         }
     }
     if (!changed) return;
-    Overview_RedrawRect(hook::Global<uint8_t*>(0x62c120), 0, ix0, iy0, ix1, iy1);
-    Terrain_RefreshRect(hook::Global<uint8_t*>(0x62c120), 0, ix0 - 0x14, iy0 - 0x14, ix1 + 0x14, iy1 + 0x14);
+    Overview_RedrawRect(g_map, 0, ix0, iy0, ix1, iy1);
+    Terrain_RefreshRect(g_map, 0, ix0 - 0x14, iy0 - 0x14, ix1 + 0x14, iy1 + 0x14);
 }
 RT3_REPLACE(0x4fc280, MapBrush_PaintFlag10);
 
@@ -445,19 +446,19 @@ RT3_NOINLINE void __fastcall MapBrush_PaintBit3(uint8_t* b, int, float x, float 
     bool changed = false;
     const int32_t x0 = cx - r - 1 < 0 ? 0 : cx - r - 1;
     const int32_t y0 = cy - r - 1 < 0 ? 0 : cy - r - 1;
-    const int32_t w = F<int32_t>(hook::Global<uint8_t*>(0x62c120), 0x215d) - 1;
+    const int32_t w = F<int32_t>(g_map, 0x215d) - 1;
     const int32_t x1 = w < cx + r + 1 ? w : cx + r + 1;
-    const int32_t h = F<int32_t>(hook::Global<uint8_t*>(0x62c120), 0x2161) - 1;
+    const int32_t h = F<int32_t>(g_map, 0x2161) - 1;
     const int32_t y1 = h < cy + r + 1 ? h : cy + r + 1;
     if (x0 > x1) return;
     for (int32_t i = x0; i <= x1; ++i)
         for (int32_t j = y0; j <= y1; ++j) {
             if ((int32_t)(uint16_t)DistanceInt(i, j, cx, cy) > r) continue;
-            if (Map_CellFlag(hook::Global<uint8_t*>(0x62c120), 0, i, j, 3) == on) continue;
-            Map_SetFineBit(hook::Global<uint8_t*>(0x62c120), 0, i, j, on, 3, 1);
+            if (Map_CellFlag(g_map, 0, i, j, 3) == on) continue;
+            Map_SetFineBit(g_map, 0, i, j, on, 3, 1);
             changed = true;
         }
-    if (changed) Overview_RedrawRect(hook::Global<uint8_t*>(0x62c120), 0, x0, y0, x1, y1);
+    if (changed) Overview_RedrawRect(g_map, 0, x0, y0, x1, y1);
 }
 RT3_REPLACE(0x4fc4d0, MapBrush_PaintBit3);
 
@@ -472,7 +473,7 @@ RT3_REPLACE(0x4fc4d0, MapBrush_PaintBit3);
 // terrain types (0x6d132c) first. Paints the whole path (0x4f8bb0) and
 // makes (x, y) the last point.
 RT3_NOINLINE void __fastcall MapEditor_Stroke(uint8_t* d, int, float x, float y, int32_t first, int32_t erase) {
-    const float dist = (float)Distance2D(hook::Global<float>(0x622844), hook::Global<float>(0x622848), x, y);
+    const float dist = (float)Distance2D(g_622844, g_622848, x, y);
     if (!first) {
         if (dist < D(0x5c8668)) return;
         if (dist > Fl(0x5c8780) && (double)((const float*)0x6227ac)[F<int32_t>(d, 0x98)] * Fl(0x5c85f8) < dist) return;
@@ -482,7 +483,7 @@ RT3_NOINLINE void __fastcall MapEditor_Stroke(uint8_t* d, int, float x, float y,
             const int32_t at = (F<int32_t>(d, 0xfc) * row + F<int32_t>(d, 0x104)) * 4;
             memcpy(F<uint8_t*>(d, 0x114) + at, F<uint8_t*>(d, 0x118) + at, (size_t)((F<int32_t>(d, 0x10c) - F<int32_t>(d, 0x104)) * 4 + 4));
         }
-    const float len = (float)Distance2D(x, y, hook::Global<float>(0x622844), hook::Global<float>(0x622848));
+    const float len = (float)Distance2D(x, y, g_622844, g_622848);
     const int32_t size = F<int32_t>(d, 0x98);
     float step = size < 3 ? 4.0f : size < 4 ? 3.0f : 2.0f;
     if (F<int32_t>(d, 0x90) == 4) step = step + step;
@@ -512,25 +513,25 @@ RT3_NOINLINE void __fastcall MapEditor_Stroke(uint8_t* d, int, float x, float y,
     for (int32_t i = 0; i <= n; ++i) {
         if (i == 0 && !fresh) continue; // the start is already on the path
         const float a = (float)(n - i), b = (float)i, fn = (float)n;
-        xs[F<int32_t>(d, 0xf0)] = (float)(((double)a * hook::Global<float>(0x622844) + (double)b * x) / fn);
-        ys[F<int32_t>(d, 0xf0)] = (float)(((double)a * hook::Global<float>(0x622848) + (double)b * y) / fn);
+        xs[F<int32_t>(d, 0xf0)] = (float)(((double)a * g_622844 + (double)b * x) / fn);
+        ys[F<int32_t>(d, 0xf0)] = (float)(((double)a * g_622848 + (double)b * y) / fn);
         ++F<int32_t>(d, 0xf0);
     }
     float r = ((const float*)0x6227ac)[F<int32_t>(d, 0x98)];
     const int32_t tool = F<int32_t>(d, 0x90), sub = F<int32_t>(d, 0xb4);
-    if (((tool == 4 && (sub == 0 || sub == 1 || sub == 2)) || (tool == 5 && F<int32_t>(d, 0x94) == 2)) && !hook::Global<uint8_t*>(0x6d132c)) {
+    if (((tool == 4 && (sub == 0 || sub == 1 || sub == 2)) || (tool == 5 && F<int32_t>(d, 0x94) == 2)) && !hook::As<uint8_t*>(g_6d132c)) {
         // Cache the terrain types of the vertex grid.
-        uint8_t* w = hook::Global<uint8_t*>(0x62c120);
+        uint8_t* w = g_map;
         const size_t cells = (size_t)((F<int32_t>(w, 0x15d9) + 1) * (F<int32_t>(w, 0x15d5) + 1));
         uint8_t* cache = ((uint8_t*(__cdecl*)(size_t))0x5a125d)(cells);
-        hook::Global<uint8_t*>(0x6d132c) = cache;
+        hook::As<uint8_t*>(g_6d132c) = cache;
         memset(cache, 0, cells);
-        for (int32_t j = 0; j < F<int32_t>(hook::Global<uint8_t*>(0x62c120), 0x15d9) + 1; ++j)
-            for (int32_t i = 0; i < F<int32_t>(hook::Global<uint8_t*>(0x62c120), 0x15d5) + 1; ++i) {
-                uint8_t* g = hook::Global<uint8_t*>(0x62c120);
+        for (int32_t j = 0; j < F<int32_t>(g_map, 0x15d9) + 1; ++j)
+            for (int32_t i = 0; i < F<int32_t>(g_map, 0x15d5) + 1; ++i) {
+                uint8_t* g = g_map;
                 const int32_t stride = F<int32_t>(g, 0x15d9) + 1;
                 const uint8_t v = Grid_CellLow(g, 0, j, i);
-                hook::Global<uint8_t*>(0x6d132c)[stride * i + j] = v;
+                hook::As<uint8_t*>(g_6d132c)[stride * i + j] = v;
             }
     }
     if (F<int32_t>(d, 0x90) == 4 && (F<int32_t>(d, 0xb4) == 0 || F<int32_t>(d, 0xb4) == 2 || F<int32_t>(d, 0xb4) == 1))
@@ -538,8 +539,8 @@ RT3_NOINLINE void __fastcall MapEditor_Stroke(uint8_t* d, int, float x, float y,
     ((void(__thiscall*)(uint8_t*, int32_t, float*, float*, float, float, int32_t, int32_t, uint32_t, int32_t, int32_t))0x4f8bb0)(
         d, F<int32_t>(d, 0xf0), F<float*>(d, 0xf4), F<float*>(d, 0xf8), r, ((const float*)0x622790)[F<int32_t>(d, 0x9c)], F<int32_t>(d, 0x88),
         F<int32_t>(d, 0xa0), F<uint32_t>(d, 0x80), F<int32_t>(d, 0x8c) == 0, erase);
-    hook::Global<float>(0x622844) = x;
-    hook::Global<float>(0x622848) = y;
+    g_622844 = x;
+    g_622848 = y;
 }
 RT3_REPLACE(0x4fc630, MapEditor_Stroke);
 
@@ -556,9 +557,9 @@ RT3_REPLACE(0x4fcb40, MapWindow1e_Destruct);
 RT3_NOINLINE void __fastcall TerritoryDialog_Show(uint8_t* w) {
     for (int32_t i = 0; i < 7; ++i) Window_SendEvent5(w, 0, i != F<int32_t>(w, 0x78) ? 0x87 : 0x65, 0xbb81 + i, 1, 0, 0);
     for (int32_t i = 1; i <= 0x18; ++i) Window_SendEvent5(w, 0, i != F<int32_t>(w, 0x80) ? 0x87 : 0x65, 0xbb93 + i, 1, 0, 0);
-    Territories_Recount(hook::Global<Collection*>(0x6cfc9c));
+    Territories_Recount(g_territories);
     for (uint32_t id = 0xbbf8; id < 0xbbf8 + 0x18; ++id) {
-        uint8_t* r = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfc9c), 0, id - 0xbbf7);
+        uint8_t* r = (uint8_t*)Collection_Get(g_territories, 0, id - 0xbbf7);
         Window_SendEvent5(w, 0, 0x6f, id, (uint32_t)(uintptr_t)(r + 4), 0, 0);
         Window_SendEvent5(w, 0, 0xa7, id, F<int32_t>(r, 0x3d) + F<int32_t>(r, 0x41) ? 0xffffffffu : 0xffafafafu, 0, 0);
         char a[0x190], b[0x190], text[0x190];
@@ -578,7 +579,7 @@ RT3_REPLACE(0x4fcb80, TerritoryDialog_Show);
 // painting, moves paint (Map_MarkTiles), the release stops.
 int32_t __fastcall TerritoryBrush_HandleEvent(uint8_t* d, int, uint32_t* msg) {
     auto overlay = [&]() {
-        uint8_t* map = hook::Global<uint8_t*>(0x62c120);
+        uint8_t* map = g_map;
         if (F<int32_t>(map, 0x2175) == 0x1e)
             Overview_Redraw(map, 0, d + 0x80);
         else
@@ -602,7 +603,7 @@ int32_t __fastcall TerritoryBrush_HandleEvent(uint8_t* d, int, uint32_t* msg) {
         if ((int32_t)id >= 0xbb94 && (int32_t)id < 0xbbac) {
             const int32_t territory = (int32_t)id - 0xbb93;
             F<int32_t>(d, 0x80) = territory;
-            hook::Global<int32_t>(0x62284c) = territory;
+            g_62284c = territory;
             overlay();
             return 0;
         }
@@ -615,7 +616,7 @@ int32_t __fastcall TerritoryBrush_HandleEvent(uint8_t* d, int, uint32_t* msg) {
         if ((int32_t)id > 0xbb80 && (int32_t)id <= 0xbb87) {
             const int32_t size = (int32_t)id - 0xbb81;
             Brush_SetSizeI622854(d, 0, size);
-            hook::Global<int32_t>(0x622850) = size;
+            g_622850 = size;
             TerritoryDialog_Show(d);
             return 0;
         }
@@ -629,7 +630,7 @@ int32_t __fastcall TerritoryBrush_HandleEvent(uint8_t* d, int, uint32_t* msg) {
     float x, y;
     Scene_FocusFlagIs1(&x, &y);
     const float r = (float)((const int32_t*)0x622854)[F<int32_t>(d, 0x78)];
-    Map_MarkTiles(hook::Global<uint8_t*>(0x62c120), 0, x, y, r, (uint8_t)F<int32_t>(d, 0x80));
+    Map_MarkTiles(g_map, 0, x, y, r, (uint8_t)F<int32_t>(d, 0x80));
     overlay();
     return 1;
 }
@@ -640,13 +641,13 @@ RT3_REPLACE(0x4fcd10, TerritoryBrush_HandleEvent);
 // mode 0x1e over that setting.
 uint8_t* __fastcall TerritoryToolWindow_Construct(uint8_t* w) {
     Widget_SetVtblRet(w);
-    F<uint32_t>(w, 0x80) = hook::Global<uint32_t>(0x62284c);
+    F<uint32_t>(w, 0x80) = hook::As<uint32_t>(g_62284c);
     EditorToolWindow_Open(w, 0x5d1480, 0x622850, 0x622854);
     F<uint32_t>(w, 0x7c) = 0;
     Window_Load(w, 0, Prod_Bits(0x3ecf5c29), Prod_Bits(0x3f34e81b), (const char*)0x5d148c);
     TerritoryDialog_Show(w);
-    Scene_PushBusy((uint8_t*)Engine_Renderer(hook::Global<uint8_t*>(0x6d4024)));
-    uint8_t* map = hook::Global<uint8_t*>(0x62c120);
+    Scene_PushBusy((uint8_t*)Engine_Renderer(g_engine));
+    uint8_t* map = g_map;
     if (F<int32_t>(map, 0x2175) == 0x1e) Overview_Redraw(map, 0, w + 0x80);
     else Overview_SetMode(map, 0, 0x1e, 0, 0, 0, w + 0x80, 0, 0, 99999, 99999);
     return w;
@@ -656,22 +657,22 @@ RT3_REPLACE(0x4fcf30, TerritoryToolWindow_Construct);
 // 0x4fd010 (draw callback). Draws entry `id` of 0x6d1354: its label (+0x88,
 // right-aligned, inset by 0x5d0ad0) and its value (+8, at 0x5d14a0).
 void __fastcall OptionList_DrawCb(void*, uint32_t id, float x, float y, float w, float h, int32_t) {
-    uint8_t* e = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6d1354), 0, id);
+    uint8_t* e = (uint8_t*)Collection_Get(g_6d1354, 0, id);
     char text[0x100];
     FormatText(text, (const char*)(e + 0x88), 0, 0, 0, 0, 0, 0, 0, 0);
     const float lw = (float)((double)w - Fl(0x5d0ad0));
     const float lx = (float)((double)x + Fl(0x5d0ad0));
-    Font_DrawTextBox(hook::Global<uint8_t*>(0x6d1358), 0, text, lx, y, lw, h, 0xffffffff, 2, 0, 0, 1.0f);
+    Font_DrawTextBox(g_6d1358, 0, text, lx, y, lw, h, 0xffffffff, 2, 0, 0, 1.0f);
     FormatText(text, (const char*)(e + 8), 0, 0, 0, 0, 0, 0, 0, 0);
     const float vx = (float)((double)x + Fl(0x5d14a0));
-    Font_DrawTextBox(hook::Global<uint8_t*>(0x6d1358), 0, text, vx, y, BitsF(0x3e81999a), h, 0xffffffff, 3, 0, 0, 1.0f);
+    Font_DrawTextBox(g_6d1358, 0, text, vx, y, BitsF(0x3e81999a), h, 0xffffffff, 3, 0, 0, 1.0f);
 }
 RT3_REPLACE(0x4fd010, OptionList_DrawCb);
 
 void __fastcall Options_DisplayModeCb(int32_t v) {
-    if (v == -1 || hook::Global<uint8_t>(0x6d135d)) return;
-    Options_SetDisplayMode(hook::Global<uint8_t*>(0x6cec74), 0, v);
-    Options_Save(hook::Global<uint8_t*>(0x6cec74), 0, 1);
+    if (v == -1 || g_6d135d) return;
+    Options_SetDisplayMode(g_app, 0, v);
+    Options_Save(g_app, 0, 1);
 }
 RT3_REPLACE(0x4fd100, Options_DisplayModeCb);
 
@@ -681,36 +682,36 @@ RT3_OPTION(0x4fd160, Options_Set22fCb, 0x22f)
 
 // 0x4fd190 (options callback). Speaker type (EDX), applied and saved.
 void __fastcall Options_SetSpeakersCb(void*, int32_t type) {
-    if (hook::Global<uint8_t>(0x6d135d)) return;
-    Sound_Speakers(hook::Global<uint8_t*>(0x6d402c), 0, type, 0);
-    F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x11470a) = type;
-    Options_Save(hook::Global<uint8_t*>(0x6cec74), 0, 1);
+    if (g_6d135d) return;
+    Sound_Speakers(g_sound, 0, type, 0);
+    F<int32_t>(g_engine, 0x11470a) = type;
+    Options_Save(g_app, 0, 1);
 }
 RT3_REPLACE(0x4fd190, Options_SetSpeakersCb);
 
 // 0x4fd1d0 / 0x4fd200 (options callbacks). Detail settings 0xa / 0xb.
 void __fastcall Options_SetDetailACb(int32_t v) {
-    if (v == -1 || hook::Global<uint8_t>(0x6d135d)) return;
-    Options_SetDetail(hook::Global<uint8_t*>(0x6cec74), 0, 0xa, v, 1);
-    Options_Save(hook::Global<uint8_t*>(0x6cec74), 0, 1);
+    if (v == -1 || g_6d135d) return;
+    Options_SetDetail(g_app, 0, 0xa, v, 1);
+    Options_Save(g_app, 0, 1);
 }
 RT3_REPLACE(0x4fd1d0, Options_SetDetailACb);
 
 void __fastcall Options_SetDetailBCb(int32_t v) {
-    if (v == -1 || hook::Global<uint8_t>(0x6d135d)) return;
-    Options_SetDetail(hook::Global<uint8_t*>(0x6cec74), 0, 0xb, v, 1);
-    Options_Save(hook::Global<uint8_t*>(0x6cec74), 0, 1);
+    if (v == -1 || g_6d135d) return;
+    Options_SetDetail(g_app, 0, 0xb, v, 1);
+    Options_Save(g_app, 0, 1);
 }
 RT3_REPLACE(0x4fd200, Options_SetDetailBCb);
 
 void __fastcall Options_SetEngine1146b3Cb(int32_t v) {
-    if (v == -1 || hook::Global<uint8_t>(0x6d135d)) return;
-    F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x1146b3) = v;
-    Engine_SaveConfig(hook::Global<uint8_t*>(0x6d4024));
+    if (v == -1 || g_6d135d) return;
+    F<int32_t>(g_engine, 0x1146b3) = v;
+    Engine_SaveConfig(g_engine);
 }
 RT3_REPLACE(0x4fd230, Options_SetEngine1146b3Cb);
 
-RT3_ONOFF(0x4fd260, Options_Choice233Cb, hook::Global<uint8_t>(0x6d135d), 0x233, 0x237)
+RT3_ONOFF(0x4fd260, Options_Choice233Cb, g_6d135d, 0x233, 0x237)
 
 // 0x4fd2c0. Engine option dialog: switches the engine mode +0x114736 to
 // `mode` (not -1, not while 0x6d135d or re-entered via 0x6d1364). Positive
@@ -718,45 +719,45 @@ RT3_ONOFF(0x4fd260, Options_Choice233Cb, hook::Global<uint8_t>(0x6d135d), 0x233,
 // to 0 and 0xe14 is shown; otherwise in a game 0xe15 warns first. Saves the
 // options either way.
 void __fastcall Options_SetEngineMode(int32_t mode) {
-    if (mode == -1 || hook::Global<uint8_t>(0x6d135d)) return;
-    uint8_t* e = hook::Global<uint8_t*>(0x6d4024);
-    if (mode == F<int32_t>(e, 0x114736) || hook::Global<int32_t>(0x6d1364)) return;
-    hook::Global<int32_t>(0x6d1364) = 1;
+    if (mode == -1 || g_6d135d) return;
+    uint8_t* e = g_engine;
+    if (mode == F<int32_t>(e, 0x114736) || g_6d1364) return;
+    g_6d1364 = 1;
     if (mode > 0 && !F<uint8_t>(e, 0x11422f)) {
-        Window_SendEvent5(hook::Global<uint8_t*>(0x6d1350), 0, 0x66, 0x7573, 0, 0, 0);
+        Window_SendEvent5(g_optionsWindow, 0, 0x66, 0x7573, 0, 0, 0);
         Message_Show(GetString(0xe14), 1, 0);
     } else {
-        if (hook::Global<void*>(0x6cec78)) {
+        if (hook::As<void*>(g_world)) {
             Message_Show(GetString(0xe15), 1, 0);
-            e = hook::Global<uint8_t*>(0x6d4024);
+            e = g_engine;
         }
         F<int32_t>(e, 0x114736) = mode;
     }
-    Options_Save(hook::Global<uint8_t*>(0x6cec74), 0, 1);
-    --hook::Global<int32_t>(0x6d1364);
+    Options_Save(g_app, 0, 1);
+    --g_6d1364;
 }
 RT3_REPLACE(0x4fd2c0, Options_SetEngineMode);
 
-RT3_ONOFF(0x4fd3d0, Options_Choice23bCb, hook::Global<uint8_t>(0x6d135d), 0x23b, 0x23f)
+RT3_ONOFF(0x4fd3d0, Options_Choice23bCb, g_6d135d, 0x23b, 0x23f)
 
 RT3_OPTION(0x4fd430, Options_Set31dCb, 0x31d)
 
 // 0x4fd460 (options callback). Lighting option +0x319, saved and applied.
 void __fastcall Options_SetLightingCb(int32_t v) {
-    if (v == -1 || hook::Global<uint8_t>(0x6d135d)) return;
-    F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x319) = v;
-    Options_Save(hook::Global<uint8_t*>(0x6cec74), 0, 1);
-    Lighting_Rebuild(hook::Global<uint8_t*>(0x6cec74));
+    if (v == -1 || g_6d135d) return;
+    F<int32_t>(g_app, 0x319) = v;
+    Options_Save(g_app, 0, 1);
+    Lighting_Rebuild(g_app);
 }
 RT3_REPLACE(0x4fd460, Options_SetLightingCb);
 
 // 0x4fd4a0 (options callback). Engine option +0x11474e, saved; redraws the
 // overview.
 void __fastcall Options_SetEngine11474eCb(int32_t v) {
-    if (v == -1 || hook::Global<uint8_t>(0x6d135d)) return;
-    F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x11474e) = v;
-    Engine_SaveConfig(hook::Global<uint8_t*>(0x6d4024));
-    if (uint8_t* m = hook::Global<uint8_t*>(0x62c120)) Overview_RedrawRect(m, 0, 0, 0, 0x270f, 0x270f);
+    if (v == -1 || g_6d135d) return;
+    F<int32_t>(g_engine, 0x11474e) = v;
+    Engine_SaveConfig(g_engine);
+    if (uint8_t* m = g_map) Overview_RedrawRect(m, 0, 0, 0, 0x270f, 0x270f);
 }
 RT3_REPLACE(0x4fd4a0, Options_SetEngine11474eCb);
 
@@ -768,16 +769,16 @@ RT3_OPTION(0x4fd520, Options_Set315Cb, 0x315)
 // event 0x73) from the options' entries 8 / 7 / 7 / 9 (sic: two sliders show entry
 // 7) and slider 0x7596 as 4 - entry 13 (event 0x6a).
 RT3_NOINLINE void __fastcall OptionsDialog_ShowSliders2(uint8_t* w) {
-    void* o = hook::Global<void*>(0x6cec74);
+    void* o = hook::As<void*>(g_app);
     Window_SendEvent5(w, 0, 0x73, 0x7566, 0x15, 0, 0);
     Window_SendEvent5(w, 0, 0x6a, 0x7566, (uint32_t)Obj_ArrayAc(o, 0, 8), 0, 0);
-    Window_SendEvent5(w, 0, 0x6a, 0x7596, (uint32_t)(4 - Obj_ArrayAc(hook::Global<void*>(0x6cec74), 0, 0xd)), 0, 0);
+    Window_SendEvent5(w, 0, 0x6a, 0x7596, (uint32_t)(4 - Obj_ArrayAc(hook::As<void*>(g_app), 0, 0xd)), 0, 0);
     Window_SendEvent5(w, 0, 0x73, 0x7560, 0x15, 0, 0);
-    Window_SendEvent5(w, 0, 0x6a, 0x7560, (uint32_t)Obj_ArrayAc(hook::Global<void*>(0x6cec74), 0, 7), 0, 0);
+    Window_SendEvent5(w, 0, 0x6a, 0x7560, (uint32_t)Obj_ArrayAc(hook::As<void*>(g_app), 0, 7), 0, 0);
     Window_SendEvent5(w, 0, 0x73, 0x7562, 0x15, 0, 0);
-    Window_SendEvent5(w, 0, 0x6a, 0x7562, (uint32_t)Obj_ArrayAc(hook::Global<void*>(0x6cec74), 0, 7), 0, 0);
+    Window_SendEvent5(w, 0, 0x6a, 0x7562, (uint32_t)Obj_ArrayAc(hook::As<void*>(g_app), 0, 7), 0, 0);
     Window_SendEvent5(w, 0, 0x73, 0x7564, 0x15, 0, 0);
-    Window_SendEvent5(w, 0, 0x6a, 0x7564, (uint32_t)Obj_ArrayAc(hook::Global<void*>(0x6cec74), 0, 9), 0, 0);
+    Window_SendEvent5(w, 0, 0x6a, 0x7564, (uint32_t)Obj_ArrayAc(hook::As<void*>(g_app), 0, 9), 0, 0);
 }
 RT3_REPLACE(0x4fd550, OptionsDialog_ShowSliders2);
 
@@ -788,7 +789,7 @@ RT3_NOINLINE void __fastcall OptionsDialog_ShowSliders(uint8_t* w) {
     const int32_t entries[4] = { 6, 4, 5, 3 };
     for (int k = 0; k < 4; ++k) {
         Window_SendEvent5(w, 0, 0x73, ids[k], 0x15, 0, 0);
-        Window_SendEvent5(w, 0, 0x6a, ids[k], (uint32_t)Obj_ArrayAc(hook::Global<void*>(0x6cec74), 0, entries[k]), 0, 0);
+        Window_SendEvent5(w, 0, 0x6a, ids[k], (uint32_t)Obj_ArrayAc(hook::As<void*>(g_app), 0, entries[k]), 0, 0);
     }
 }
 RT3_REPLACE(0x4fd650, OptionsDialog_ShowSliders);
@@ -804,18 +805,18 @@ RT3_NOINLINE void __fastcall OptionsDialog_ShowGraphics(uint8_t* w) {
         const char* name = GetString(((const int32_t*)0x6228d8)[i * 2]);
         Window_SendEvent5(w, 0, 0x88, 0x7546, (uint32_t)(uintptr_t)name, (uint32_t)i, (uint32_t)(uintptr_t)desc);
     }
-    int32_t q = F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x10c);
+    int32_t q = F<int32_t>(g_app, 0x10c);
     Window_SendEvent5(w, 0, 0x66, 0x7546, (uint32_t)(q > 3 ? 3 : q), 0, 0);
-    Window_SendEvent5(w, 0, 0x74, 0x7547, hook::Global<uint8_t*>(0x6d4024)[0x1146d7], 0, 0);
-    Window_SendEvent5(w, 0, 0x74, 0x7593, F<uint32_t>(hook::Global<uint8_t*>(0x6cec74), 0x283), 0, 0);
-    Window_SendEvent5(w, 0, 0x74, 0x7594, F<uint32_t>(hook::Global<uint8_t*>(0x6cec74), 0x28b), 0, 0);
+    Window_SendEvent5(w, 0, 0x74, 0x7547, g_engine[0x1146d7], 0, 0);
+    Window_SendEvent5(w, 0, 0x74, 0x7593, F<uint32_t>(g_app, 0x283), 0, 0);
+    Window_SendEvent5(w, 0, 0x74, 0x7594, F<uint32_t>(g_app, 0x28b), 0, 0);
     const uint32_t lists[2] = { 0x759f, 0x75a0 };
     const int32_t sel[2] = { 0x311, 0x315 };
     for (int k = 0; k < 2; ++k) {
         Window_SendEvent5(w, 0, 0x8b, lists[k], 0, 0, 0);
         for (const int32_t* id = (const int32_t*)0x6229fc; id < (const int32_t*)0x622a08; ++id)
             Window_SendEvent5(w, 0, 0x88, lists[k], (uint32_t)(uintptr_t)GetString(*id), 0, 0);
-        Window_SendEvent5(w, 0, 0x66, lists[k], F<uint32_t>(hook::Global<uint8_t*>(0x6cec74), sel[k]), 0, 0);
+        Window_SendEvent5(w, 0, 0x66, lists[k], F<uint32_t>(g_app, sel[k]), 0, 0);
     }
 }
 RT3_REPLACE(0x4fd730, OptionsDialog_ShowGraphics);
@@ -826,16 +827,16 @@ RT3_NOINLINE void __fastcall Window_FillList759e(uint8_t* w) {
     Window_SendEvent5(w, 0, 0x8b, 0x759e, 0, 0, 0);
     for (int32_t i = 0; i < 5; ++i)
         Window_SendEvent5(w, 0, 0x88, 0x759e, (uint32_t)(uintptr_t)GetString(((const int32_t*)0x622a08)[i]), (uint32_t)i, 0);
-    Window_SendEvent5(w, 0, 0x66, 0x759e, F<uint32_t>(hook::Global<uint8_t*>(0x6d4024), 0x11474e), 0, 0);
+    Window_SendEvent5(w, 0, 0x66, 0x759e, F<uint32_t>(g_engine, 0x11474e), 0, 0);
 }
 RT3_REPLACE(0x4fd8d0, Window_FillList759e);
 
 // 0x4fd940. Shows option +0xf8 on box 0x7545 and the inverted switches +0x26b..
 // +0x27b on boxes 0x758c..0x7590 (event 0x74).
 RT3_NOINLINE void __fastcall OptionsDialog_ShowSwitches(uint8_t* w) {
-    Window_SendEvent5(w, 0, 0x74, 0x7545, F<uint32_t>(hook::Global<uint8_t*>(0x6cec74), 0xf8), 0, 0);
+    Window_SendEvent5(w, 0, 0x74, 0x7545, F<uint32_t>(g_app, 0xf8), 0, 0);
     for (int k = 0; k < 5; ++k)
-        Window_SendEvent5(w, 0, 0x74, 0x758c + k, F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x26b + k * 4) == 0 ? 1 : 0, 0, 0);
+        Window_SendEvent5(w, 0, 0x74, 0x758c + k, F<int32_t>(g_app, 0x26b + k * 4) == 0 ? 1 : 0, 0, 0);
 }
 RT3_REPLACE(0x4fd940, OptionsDialog_ShowSwitches);
 
@@ -847,20 +848,20 @@ RT3_NOINLINE void __fastcall OptionsDialog_ShowGeneral(uint8_t* w) {
     Window_SendEvent5(w, 0, 0x8b, 0x7548, 0, 0, 0);
     for (int32_t i = 0; i < 6; ++i)
         Window_SendEvent5(w, 0, 0x88, 0x7548, (uint32_t)(uintptr_t)GetString(((const int32_t*)0x6228f8)[i]), (uint32_t)i, 0);
-    Window_SendEvent5(w, 0, 0x66, 0x7548, F<uint32_t>(hook::Global<uint8_t*>(0x6cec74), 0xf4), 0, 0);
+    Window_SendEvent5(w, 0, 0x66, 0x7548, F<uint32_t>(g_app, 0xf4), 0, 0);
     Window_SendEvent5(w, 0, 0x8b, 0x7591, 0, 0, 0);
     for (int32_t i = 0; i < 3; ++i) {
         const char* desc = GetString(((const int32_t*)0x622914)[i * 2]);
         const char* name = GetString(((const int32_t*)0x622910)[i * 2]);
         Window_SendEvent5(w, 0, 0x88, 0x7591, (uint32_t)(uintptr_t)name, (uint32_t)i, (uint32_t)(uintptr_t)desc);
     }
-    uint8_t* o = hook::Global<uint8_t*>(0x6cec74);
+    uint8_t* o = g_app;
     Window_SendEvent5(w, 0, 0x66, 0x7591, F<uint32_t>(o, 0x22f), 0, 0);
-    Window_SendEvent5(w, 0, 0x74, 0x7592, F<uint32_t>(hook::Global<uint8_t*>(0x6cec74), 0x263), 0, 0);
-    Window_SendEvent5(w, 0, 0x74, 0x7599, F<uint32_t>(hook::Global<uint8_t*>(0x6cec74), 0x2cc), 0, 0);
-    Window_SendEvent5(w, 0, 0x74, 0x759c, F<uint32_t>(hook::Global<uint8_t*>(0x6cec74), 0x309), 0, 0);
-    Window_SendEvent5(w, 0, 0x74, 0x7544, F<uint32_t>(hook::Global<uint8_t*>(0x6cec74), 0xa8), 0, 0);
-    Window_SendEvent5(w, 0, 0x74, 0x759b, F<uint32_t>(hook::Global<uint8_t*>(0x6d4024), 0x114742), 0, 0);
+    Window_SendEvent5(w, 0, 0x74, 0x7592, F<uint32_t>(g_app, 0x263), 0, 0);
+    Window_SendEvent5(w, 0, 0x74, 0x7599, F<uint32_t>(g_app, 0x2cc), 0, 0);
+    Window_SendEvent5(w, 0, 0x74, 0x759c, F<uint32_t>(g_app, 0x309), 0, 0);
+    Window_SendEvent5(w, 0, 0x74, 0x7544, F<uint32_t>(g_app, 0xa8), 0, 0);
+    Window_SendEvent5(w, 0, 0x74, 0x759b, F<uint32_t>(g_engine, 0x114742), 0, 0);
 }
 RT3_REPLACE(0x4fda20, OptionsDialog_ShowGeneral);
 
@@ -879,19 +880,19 @@ RT3_NOINLINE void __fastcall OptionsDialog_ShowSound(uint8_t* w) {
     Window_SendEvent5(w, 0, 0x8b, 0x7551, 0, 0, 0);
     for (int32_t i = 1; p; p = (const char*)(uintptr_t)Sound_Get3DProvider(i++))
         Window_SendEvent5(w, 0, 0x88, 0x7551, (uint32_t)(uintptr_t)p, 0, 0);
-    Window_SendEvent5(w, 0, 0x66, 0x7551, (uint32_t)Sound_ActiveProviderIndex(hook::Global<uint8_t*>(0x6d402c)), 0, 0);
-    int32_t active = Sound_ActiveProviderIndex(hook::Global<uint8_t*>(0x6d402c));
-    Window_SendEvent5(w, 0, 0x74, 0x7550, Sound_ProviderFlagsAt(hook::Global<uint8_t*>(0x6d402c), 0, active) == 0, 0, 0);
+    Window_SendEvent5(w, 0, 0x66, 0x7551, (uint32_t)Sound_ActiveProviderIndex(g_sound), 0, 0);
+    int32_t active = Sound_ActiveProviderIndex(g_sound);
+    Window_SendEvent5(w, 0, 0x74, 0x7550, Sound_ProviderFlagsAt(g_sound, 0, active) == 0, 0, 0);
     Window_SendEvent5(w, 0, 0x8b, 0x754f, 0, 0, 0);
     Window_SendEvent5(w, 0, 0x88, 0x754f, (uint32_t)(uintptr_t)GetString(0x584), 0x63, 0);
     for (int32_t i = 0; i < 6; ++i)
         Window_SendEvent5(w, 0, 0x88, 0x754f, (uint32_t)(uintptr_t)GetString(((const int32_t*)0x6229e4)[i]), (uint32_t)i, 0);
-    Window_SendEvent5(w, 0, 0x68, 0x754f, (uint32_t)Sound_GetSpeakers(hook::Global<uint8_t*>(0x6d402c)), 0, 0);
+    Window_SendEvent5(w, 0, 0x68, 0x754f, (uint32_t)Sound_GetSpeakers(g_sound), 0, 0);
     for (uint32_t id = 0x7549; id < 0x754f; id += 2) Window_SendEvent5(w, 0, 0x73, id, 0xb, 0, 0);
     const float ten = *(const float*)0x5c85f8;
-    Window_SendEvent5(w, 0, 0x6a, 0x7549, (uint32_t)Ftol((double)F<float>(hook::Global<uint8_t*>(0x6d4024), 0x1146fa) * ten), 0, 0);
-    Window_SendEvent5(w, 0, 0x6a, 0x754b, (uint32_t)Ftol((double)F<float>(hook::Global<uint8_t*>(0x6d4024), 0x1146fe) * ten), 0, 0);
-    Window_SendEvent5(w, 0, 0x6a, 0x754d, (uint32_t)Ftol((double)F<float>(hook::Global<uint8_t*>(0x6d4024), 0x114702) * ten), 0, 0);
+    Window_SendEvent5(w, 0, 0x6a, 0x7549, (uint32_t)Ftol((double)F<float>(g_engine, 0x1146fa) * ten), 0, 0);
+    Window_SendEvent5(w, 0, 0x6a, 0x754b, (uint32_t)Ftol((double)F<float>(g_engine, 0x1146fe) * ten), 0, 0);
+    Window_SendEvent5(w, 0, 0x6a, 0x754d, (uint32_t)Ftol((double)F<float>(g_engine, 0x114702) * ten), 0, 0);
 }
 RT3_REPLACE(0x4fdb90, OptionsDialog_ShowSound);
 
@@ -906,28 +907,28 @@ RT3_NOINLINE void __fastcall OptionsDialog_ShowEngine(uint8_t* w) {
         const char* name = GetString(0xe18 + i);
         Window_SendEvent5(w, 0, 0x88, 0x7573, (uint32_t)(uintptr_t)name, (uint32_t)i, (uint32_t)(uintptr_t)desc);
     }
-    Window_SendEvent5(w, 0, 0x66, 0x7573, F<uint32_t>(hook::Global<uint8_t*>(0x6d4024), 0x114736), 0, 0);
+    Window_SendEvent5(w, 0, 0x66, 0x7573, F<uint32_t>(g_engine, 0x114736), 0, 0);
     Window_SendEvent5(w, 0, 0x8b, 0x7574, 0, 0, 0);
     for (int32_t i = 0; i < 3; ++i)
         Window_SendEvent5(w, 0, 0x88, 0x7574, (uint32_t)(uintptr_t)GetString(((const int32_t*)0x622928)[i]), (uint32_t)i, 0);
-    Window_SendEvent5(w, 0, 0x66, 0x7574, F<uint32_t>(hook::Global<uint8_t*>(0x6d4024), 0x1146b3), 0, 0);
-    bool eq = (double)F<float>(hook::Global<uint8_t*>(0x6d4024), 0x1146af) == *(const double*)0x5c8628;
+    Window_SendEvent5(w, 0, 0x66, 0x7574, F<uint32_t>(g_engine, 0x1146b3), 0, 0);
+    bool eq = (double)F<float>(g_engine, 0x1146af) == *(const double*)0x5c8628;
     Window_SendEvent5(w, 0, 0x74, 0x7575, eq ? 1 : 0, 0, 0);
-    Window_SendEvent5(w, 0, 0x74, 0x7576, hook::Global<uint8_t*>(0x6d4024)[0x1146a8], 0, 0);
-    Window_SendEvent5(w, 0, 0x74, 0x7577, hook::Global<uint8_t*>(0x6d4024)[0x1146e3], 0, 0);
-    Window_SendEvent5(w, 0, 0x74, 0x7586, Obj_ArrayAc2(hook::Global<void*>(0x6cec74), 0, 0xc) != 0, 0, 0);
+    Window_SendEvent5(w, 0, 0x74, 0x7576, g_engine[0x1146a8], 0, 0);
+    Window_SendEvent5(w, 0, 0x74, 0x7577, g_engine[0x1146e3], 0, 0);
+    Window_SendEvent5(w, 0, 0x74, 0x7586, Obj_ArrayAc2(hook::As<void*>(g_app), 0, 0xc) != 0, 0, 0);
 }
 RT3_REPLACE(0x4fdd70, OptionsDialog_ShowEngine);
 
 // 0x4fdf20. Shows option values +0x114 / +0x118 / +0x11c on sliders 0x757d / 0x757f /
 // 0x7581 (0x6a) and the +0x120 switch as the radio pair 0x7584 / 0x7585 (0x74).
 RT3_NOINLINE void __fastcall OptionsDialog_ShowValues(uint8_t* w) {
-    uint8_t* o = hook::Global<uint8_t*>(0x6cec74);
+    uint8_t* o = g_app;
     Window_SendEvent5(w, 0, 0x6a, 0x757d, F<uint32_t>(o, 0x114), 0, 0);
-    Window_SendEvent5(w, 0, 0x6a, 0x757f, F<uint32_t>(hook::Global<uint8_t*>(0x6cec74), 0x118), 0, 0);
-    Window_SendEvent5(w, 0, 0x6a, 0x7581, F<uint32_t>(hook::Global<uint8_t*>(0x6cec74), 0x11c), 0, 0);
-    Window_SendEvent5(w, 0, 0x74, 0x7584, F<uint32_t>(hook::Global<uint8_t*>(0x6cec74), 0x120), 0, 0);
-    Window_SendEvent5(w, 0, 0x74, 0x7585, F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x120) == 0 ? 1 : 0, 0, 0);
+    Window_SendEvent5(w, 0, 0x6a, 0x757f, F<uint32_t>(g_app, 0x118), 0, 0);
+    Window_SendEvent5(w, 0, 0x6a, 0x7581, F<uint32_t>(g_app, 0x11c), 0, 0);
+    Window_SendEvent5(w, 0, 0x74, 0x7584, F<uint32_t>(g_app, 0x120), 0, 0);
+    Window_SendEvent5(w, 0, 0x74, 0x7585, F<int32_t>(g_app, 0x120) == 0 ? 1 : 0, 0, 0);
 }
 RT3_REPLACE(0x4fdf20, OptionsDialog_ShowValues);
 
@@ -938,23 +939,23 @@ RT3_NOINLINE void __fastcall OptionsDialog_ShowLists7587(uint8_t* w) {
     Window_SendEvent5(w, 0, 0x8b, 0x7587, 0, 0, 0);
     for (int32_t i = 0; i < 0x19; ++i)
         Window_SendEvent5(w, 0, 0x88, 0x7587, (uint32_t)(uintptr_t)GetString(((const int32_t*)0x620dd8)[i]), (uint32_t)i, 0);
-    uint8_t* o = hook::Global<uint8_t*>(0x6cec74);
+    uint8_t* o = g_app;
     Window_SendEvent5(w, 0, 0x66, 0x7587, F<int32_t>(o, 0x233) ? F<uint32_t>(o, 0x237) + 1 : 0, 0, 0);
     Window_SendEvent5(w, 0, 0x8b, 0x7588, 0, 0, 0);
     for (int32_t i = 0; i < 0xa; ++i)
         Window_SendEvent5(w, 0, 0x88, 0x7588, (uint32_t)(uintptr_t)GetString(((const int32_t*)0x620e3c)[i]), (uint32_t)i, 0);
-    o = hook::Global<uint8_t*>(0x6cec74);
+    o = g_app;
     Window_SendEvent5(w, 0, 0x66, 0x7588, F<int32_t>(o, 0x23b) ? F<uint32_t>(o, 0x23f) + 1 : 0, 0, 0);
-    Window_SendEvent5(w, 0, 0x74, 0x7589, F<uint32_t>(hook::Global<uint8_t*>(0x6cec74), 0x247), 0, 0);
-    Window_SendEvent5(w, 0, 0x74, 0x758b, F<uint32_t>(hook::Global<uint8_t*>(0x6cec74), 0x24b), 0, 0);
-    Window_SendEvent5(w, 0, 0x74, 0x758a, F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x243) == 0, 0, 0);
+    Window_SendEvent5(w, 0, 0x74, 0x7589, F<uint32_t>(g_app, 0x247), 0, 0);
+    Window_SendEvent5(w, 0, 0x74, 0x758b, F<uint32_t>(g_app, 0x24b), 0, 0);
+    Window_SendEvent5(w, 0, 0x74, 0x758a, F<int32_t>(g_app, 0x243) == 0, 0, 0);
 }
 RT3_REPLACE(0x4fdfd0, OptionsDialog_ShowLists7587);
 
-RT3_NOINLINE int32_t Global6d1350Set() { return hook::Global<void*>(0x6d1350) ? 1 : 0; }
+RT3_NOINLINE int32_t Global6d1350Set() { return hook::As<void*>(g_optionsWindow) ? 1 : 0; }
 RT3_REPLACE(0x4fe120, Global6d1350Set);
 
-void SetGlobal6d1360() { hook::Global<int32_t>(0x6d1360) = 1; }
+void SetGlobal6d1360() { g_6d1360 = 1; }
 RT3_REPLACE(0x4fe130, SetGlobal6d1360);
 
 RT3_NOINLINE uint32_t __fastcall Obj_Busy18(uint8_t* o) {
@@ -966,13 +967,13 @@ RT3_REPLACE(0x4fe140, Obj_Busy18);
 // 0x4fe160. Restarts the world's ambient sounds, resets the per-session globals
 // when the options say so (+0x14) and replays the renderer's sound channels.
 RT3_NOINLINE void __fastcall Game_RestartSounds() {
-    if (hook::Global<void*>(0x6cec78)) {
+    if (hook::As<void*>(g_world)) {
         Ambient_StopSlots();
-        Ambient_Start(hook::Global<void*>(0x6cec78));
+        Ambient_Start(hook::As<void*>(g_world));
     }
-    if (F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x14)) ResetGlobals4686d0();
-    if (Engine_Renderer(hook::Global<void*>(0x6d4024)))
-        Channels_PlayAll((uint8_t*)Engine_Renderer(hook::Global<void*>(0x6d4024)));
+    if (F<int32_t>(g_app, 0x14)) ResetGlobals4686d0();
+    if (Engine_Renderer(hook::As<void*>(g_engine)))
+        Channels_PlayAll((uint8_t*)Engine_Renderer(hook::As<void*>(g_engine)));
 }
 RT3_REPLACE(0x4fe160, Game_RestartSounds);
 
@@ -982,29 +983,29 @@ RT3_REPLACE(0x4fe160, Game_RestartSounds);
 // stores the index in the engine (+0x114706), restarts the sounds and saves the
 // engine configuration.
 void __fastcall SoundDialog_PickProvider(int32_t idx) {
-    if (idx == -1 || hook::Global<uint8_t>(0x6d135d)) return;
-    Sound_SelectProvider(hook::Global<uint8_t*>(0x6d402c), 0, idx);
-    if (Sound_ActiveProviderIndex(hook::Global<uint8_t*>(0x6d402c)) != idx)
-        Window_SendEvent5(hook::Global<uint8_t*>(0x6d1350), 0, 0x66, 0x7551, (uint32_t)Sound_ActiveProviderIndex(hook::Global<uint8_t*>(0x6d402c)), 0, 0);
-    int32_t active = Sound_ActiveProviderIndex(hook::Global<uint8_t*>(0x6d402c));
-    uint32_t flags = Sound_ProviderFlagsAt(hook::Global<uint8_t*>(0x6d402c), 0, active);
-    Window_SendEvent5(hook::Global<uint8_t*>(0x6d1350), 0, 0x74, 0x7550, flags == 0 ? 1 : 0, 0, 0);
-    F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x114706) = Sound_ActiveProviderIndex(hook::Global<uint8_t*>(0x6d402c));
+    if (idx == -1 || g_6d135d) return;
+    Sound_SelectProvider(g_sound, 0, idx);
+    if (Sound_ActiveProviderIndex(g_sound) != idx)
+        Window_SendEvent5(g_optionsWindow, 0, 0x66, 0x7551, (uint32_t)Sound_ActiveProviderIndex(g_sound), 0, 0);
+    int32_t active = Sound_ActiveProviderIndex(g_sound);
+    uint32_t flags = Sound_ProviderFlagsAt(g_sound, 0, active);
+    Window_SendEvent5(g_optionsWindow, 0, 0x74, 0x7550, flags == 0 ? 1 : 0, 0, 0);
+    F<int32_t>(g_engine, 0x114706) = Sound_ActiveProviderIndex(g_sound);
     Game_RestartSounds();
-    Engine_SaveConfig(hook::Global<uint8_t*>(0x6d4024));
+    Engine_SaveConfig(g_engine);
 }
 RT3_REPLACE(0x4fe1b0, SoundDialog_PickProvider);
 
 // 0x4fe270 (options callback). Resolution choice EDX (width << 16 |
 // height): applied (windowed state kept) unless it is the current one.
 void __fastcall Options_SetResolutionCb(int32_t v, int32_t res) {
-    if (v == -1 || hook::Global<uint8_t>(0x6d135d)) return;
-    uint8_t* e = hook::Global<uint8_t*>(0x6d4024);
+    if (v == -1 || g_6d135d) return;
+    uint8_t* e = g_engine;
     const int32_t* cur = (const int32_t*)(F<uint8_t*>(e, 0x34) + F<int32_t>(e, 0x11421e) * 0x15);
     const int32_t w = res >> 16, h = res & 0xffff;
     if (w == cur[0] && h == cur[1]) return;
     Engine_SetDisplayMode(e, 0, w, h, -1, 1);
-    Engine_SaveConfig(hook::Global<uint8_t*>(0x6d4024));
+    Engine_SaveConfig(g_engine);
 }
 RT3_REPLACE(0x4fe270, Options_SetResolutionCb);
 
@@ -1012,38 +1013,38 @@ RT3_REPLACE(0x4fe270, Options_SetResolutionCb);
 // 0x6211d0, saved; the cursor buttons (0x757c / 0x759a) follow the cursor
 // state.
 void __fastcall Options_SetDetail0Cb(int32_t v) {
-    if (v == -1 || hook::Global<uint8_t>(0x6d135d)) return;
-    Options_SetDetail(hook::Global<uint8_t*>(0x6cec74), 0, 0, ((const int32_t*)0x6211d0)[v], 1);
-    Options_Save(hook::Global<uint8_t*>(0x6cec74), 0, 1);
-    uint8_t* c = hook::Global<uint8_t*>(0xccbb20);
+    if (v == -1 || g_6d135d) return;
+    Options_SetDetail(g_app, 0, 0, ((const int32_t*)0x6211d0)[v], 1);
+    Options_Save(g_app, 0, 1);
+    uint8_t* c = g_cursorManager;
     const uint32_t on = Obj_Get18(c) || Obj_Zero18And14(c) ? 1 : 0;
-    Window_SendEvent5(hook::Global<uint8_t*>(0x6d1350), 0, 0x74, 0x757c, on, 0, 0);
-    c = hook::Global<uint8_t*>(0xccbb20);
-    if (Obj_Get18(c) || Obj_Zero18And14(c)) Window_SendEvent5(hook::Global<uint8_t*>(0x6d1350), 0, 0x65, 0x759a, 3, 0, 0);
-    else Window_SendEvent5(hook::Global<uint8_t*>(0x6d1350), 0, 0x87, 0x759a, 3, 0, 0);
-    Window_SendEvent5(hook::Global<uint8_t*>(0x6d1350), 0, 0x74, 0x759a, (uint32_t)Obj_Zero18And14(hook::Global<uint8_t*>(0xccbb20)), 0, 0);
+    Window_SendEvent5(g_optionsWindow, 0, 0x74, 0x757c, on, 0, 0);
+    c = g_cursorManager;
+    if (Obj_Get18(c) || Obj_Zero18And14(c)) Window_SendEvent5(g_optionsWindow, 0, 0x65, 0x759a, 3, 0, 0);
+    else Window_SendEvent5(g_optionsWindow, 0, 0x87, 0x759a, 3, 0, 0);
+    Window_SendEvent5(g_optionsWindow, 0, 0x74, 0x759a, (uint32_t)Obj_Zero18And14(g_cursorManager), 0, 0);
 }
 RT3_REPLACE(0x4fe2d0, Options_SetDetail0Cb);
 
 // 0x4fe3b0 / 0x4fe400 (options callbacks). Detail settings 1 / 2 from the
 // level table 0x6211d0; the dialog's sliders are refreshed with 0x6d135c set.
 void __fastcall Options_SetDetail1Cb(int32_t v) {
-    if (v == -1 || hook::Global<uint8_t>(0x6d135d)) return;
-    Options_SetDetail(hook::Global<uint8_t*>(0x6cec74), 0, 1, ((const int32_t*)0x6211d0)[v], 1);
-    hook::Global<uint8_t>(0x6d135c) = 1;
-    OptionsDialog_ShowSliders2(hook::Global<uint8_t*>(0x6d1350));
-    hook::Global<uint8_t>(0x6d135c) = 0;
-    Options_Save(hook::Global<uint8_t*>(0x6cec74), 0, 1);
+    if (v == -1 || g_6d135d) return;
+    Options_SetDetail(g_app, 0, 1, ((const int32_t*)0x6211d0)[v], 1);
+    g_6d135c = 1;
+    OptionsDialog_ShowSliders2(g_optionsWindow);
+    g_6d135c = 0;
+    Options_Save(g_app, 0, 1);
 }
 RT3_REPLACE(0x4fe3b0, Options_SetDetail1Cb);
 
 void __fastcall Options_SetDetail2Cb(int32_t v) {
-    if (v == -1 || hook::Global<uint8_t>(0x6d135d)) return;
-    Options_SetDetail(hook::Global<uint8_t*>(0x6cec74), 0, 2, ((const int32_t*)0x6211d0)[v], 1);
-    hook::Global<uint8_t>(0x6d135c) = 1;
-    OptionsDialog_ShowSliders(hook::Global<uint8_t*>(0x6d1350));
-    hook::Global<uint8_t>(0x6d135c) = 0;
-    Options_Save(hook::Global<uint8_t*>(0x6cec74), 0, 1);
+    if (v == -1 || g_6d135d) return;
+    Options_SetDetail(g_app, 0, 2, ((const int32_t*)0x6211d0)[v], 1);
+    g_6d135c = 1;
+    OptionsDialog_ShowSliders(g_optionsWindow);
+    g_6d135c = 0;
+    Options_Save(g_app, 0, 1);
 }
 RT3_REPLACE(0x4fe400, Options_SetDetail2Cb);
 
@@ -1052,13 +1053,13 @@ RT3_REPLACE(0x4fe400, Options_SetDetail2Cb);
 // and releases its image 0x6d1358.
 RT3_NOINLINE void __fastcall SettingsWindow_Destruct(uint8_t* w) {
     F<uint32_t>(w, 0) = 0x5d14a4;
-    if (Collection* c = hook::Global<Collection*>(0x6d1354)) {
+    if (Collection* c = g_6d1354) {
         Collection_Destruct(c);
         ExeDelete(c);
     }
-    hook::Global<Collection*>(0x6d1354) = nullptr;
-    if (!Obj_Idlec60(hook::Global<uint8_t*>(0x6d401c))) Obj_Decc60(hook::Global<uint8_t*>(0x6d401c));
-    Pack_Release(hook::Global<uint8_t*>(0x6d4020), 0, hook::Global<void*>(0x6d1358));
+    g_6d1354 = nullptr;
+    if (!Obj_Idlec60(g_windowManager)) Obj_Decc60(g_windowManager);
+    Pack_Release(g_pack, 0, hook::As<void*>(g_6d1358));
     Widget_SetVtbl(w);
 }
 RT3_REPLACE(0x4fe450, SettingsWindow_Destruct);
@@ -1071,18 +1072,18 @@ RT3_REPLACE(0x4fe450, SettingsWindow_Destruct);
 // records, index +0x11421e).
 RT3_NOINLINE void __fastcall OptionsDialog_FillResolutions(uint8_t* w) {
     Window_SendEvent5(w, 0, 0x8b, 0x7553, 0, 0, 0);
-    int32_t n = Engine_ModeCount(hook::Global<void*>(0x6d4024));
-    uint8_t* e = hook::Global<uint8_t*>(0x6d4024);
+    int32_t n = Engine_ModeCount(hook::As<void*>(g_engine));
+    uint8_t* e = g_engine;
     const uint8_t* cur = F<uint8_t*>(e, 0x34) + F<int32_t>(e, 0x11421e) * 0x15;
     int32_t curW = *(const int32_t*)cur, curH = *(const int32_t*)(cur + 4);
     int32_t listed = 0, sel = 0;
     static int32_t ok[0x1f0];
     for (int32_t i = 0; i < n; ++i) {
         int32_t mw, mh, bpp;
-        Engine_ModeAt(hook::Global<void*>(0x6d4024), 0, i, &mw, &mh, &bpp);
+        Engine_ModeAt(hook::As<void*>(g_engine), 0, i, &mw, &mh, &bpp);
         bool fits = mw >= 0x280 && mw <= 0x640 && mh >= 0x1e0 && mh <= 0x4b0;
-        if (fits && !Engine_IsFullscreen(hook::Global<void*>(0x6d4024))) {
-            uint8_t* en = hook::Global<uint8_t*>(0x6d4024);
+        if (fits && !Engine_IsFullscreen(hook::As<void*>(g_engine))) {
+            uint8_t* en = g_engine;
             fits = mw < F<int32_t>(en, 0x38) && mh < F<int32_t>(en, 0x3c);
         }
         if (!fits) {
@@ -1093,7 +1094,7 @@ RT3_NOINLINE void __fastcall OptionsDialog_FillResolutions(uint8_t* w) {
         for (int32_t j = 0; j < i; ++j) {
             if (!ok[j]) continue;
             int32_t w2, h2, b2;
-            Engine_ModeAt(hook::Global<void*>(0x6d4024), 0, j, &w2, &h2, &b2);
+            Engine_ModeAt(hook::As<void*>(g_engine), 0, j, &w2, &h2, &b2);
             if (w2 == mw && h2 == mh && b2 != 0x20) {
                 ok[i] = 0;
                 break;
@@ -1125,19 +1126,19 @@ RT3_REPLACE(0x4fe730, Window_SelectOption7569);
 // two fullscreen-only switches 0x7555 / 0x7578 (disabled when windowed), the
 // resolution list and option list 0x7557 (ten names from 0x622964, entry 0).
 RT3_NOINLINE void __fastcall OptionsDialog_ShowVideo(uint8_t* w) {
-    Window_SendEvent5(w, 0, 0x74, 0x7554, hook::Global<uint8_t*>(0x6d4024)[0x114226], 0, 0);
+    Window_SendEvent5(w, 0, 0x74, 0x7554, g_engine[0x114226], 0, 0);
     auto mode = []() {
-        uint8_t* m = hook::Global<uint8_t*>(0xccbb20);
+        uint8_t* m = g_cursorManager;
         return Obj_Get18(m) ? 1 : Obj_Zero18And14(m);
     };
     Window_SendEvent5(w, 0, 0x74, 0x757c, (uint32_t)mode(), 0, 0);
-    Window_SendEvent5(hook::Global<uint8_t*>(0x6d1350), 0, mode() ? 0x65 : 0x87, 0x759a, 1, 0, 0);
-    Window_SendEvent5(hook::Global<uint8_t*>(0x6d1350), 0, 0x74, 0x759a, (uint32_t)Obj_Zero18And14(hook::Global<uint8_t*>(0xccbb20)), 0, 0);
-    Window_SendEvent5(w, 0, 0x74, 0x7595, F<uint32_t>(hook::Global<uint8_t*>(0x6cec74), 0x2c3), 0, 0);
-    Window_SendEvent5(w, 0, 0x74, 0x7556, F<uint32_t>(hook::Global<uint8_t*>(0x6d4024), 0x114206), 0, 0);
-    if (hook::Global<uint8_t*>(0x6d4024)[0x114226]) {
-        Window_SendEvent5(w, 0, 0x74, 0x7555, (uint32_t)Engine_Get1146ae(hook::Global<void*>(0x6d4024)), 0, 0);
-        Window_SendEvent5(w, 0, 0x74, 0x7578, (uint32_t)Engine_Get11470e(hook::Global<void*>(0x6d4024)), 0, 0);
+    Window_SendEvent5(g_optionsWindow, 0, mode() ? 0x65 : 0x87, 0x759a, 1, 0, 0);
+    Window_SendEvent5(g_optionsWindow, 0, 0x74, 0x759a, (uint32_t)Obj_Zero18And14(g_cursorManager), 0, 0);
+    Window_SendEvent5(w, 0, 0x74, 0x7595, F<uint32_t>(g_app, 0x2c3), 0, 0);
+    Window_SendEvent5(w, 0, 0x74, 0x7556, F<uint32_t>(g_engine, 0x114206), 0, 0);
+    if (g_engine[0x114226]) {
+        Window_SendEvent5(w, 0, 0x74, 0x7555, (uint32_t)Engine_Get1146ae(hook::As<void*>(g_engine)), 0, 0);
+        Window_SendEvent5(w, 0, 0x74, 0x7578, (uint32_t)Engine_Get11470e(hook::As<void*>(g_engine)), 0, 0);
     } else {
         Window_SendEvent5(w, 0, 0x87, 0x7555, 3, 0, 0);
         Window_SendEvent5(w, 0, 0x87, 0x7578, 3, 0, 0);
@@ -1159,14 +1160,14 @@ RT3_NOINLINE void __fastcall OptionsDialog_ShowDisplay(uint8_t* w) {
     Window_SendEvent5(w, 0, 0x8b, 0x755a, 0, 0, 0);
     for (int32_t i = 0; i < 5; ++i)
         Window_SendEvent5(w, 0, 0x88, 0x755a, (uint32_t)(uintptr_t)GetString(((const int32_t*)0x622940)[i]), (uint32_t)i, 0);
-    Window_SendEvent5(w, 0, 0x6a, 0x755a, (uint32_t)Obj_ArrayAc(hook::Global<void*>(0x6cec74), 0, 10), 0, 0);
+    Window_SendEvent5(w, 0, 0x6a, 0x755a, (uint32_t)Obj_ArrayAc(hook::As<void*>(g_app), 0, 10), 0, 0);
     Window_SendEvent5(w, 0, 0x8b, 0x755b, 0, 0, 0);
     for (int32_t i = 0; i < 4; ++i)
         Window_SendEvent5(w, 0, 0x88, 0x755b, (uint32_t)(uintptr_t)GetString(((const int32_t*)0x622954)[i]), (uint32_t)i, 0);
-    Window_SendEvent5(w, 0, 0x66, 0x755b, (uint32_t)Obj_ArrayAc(hook::Global<void*>(0x6cec74), 0, 11), 0, 0);
-    if (hook::Global<uint8_t*>(0x6d4024)[0x114226]) {
+    Window_SendEvent5(w, 0, 0x66, 0x755b, (uint32_t)Obj_ArrayAc(hook::As<void*>(g_app), 0, 11), 0, 0);
+    if (g_engine[0x114226]) {
         Window_SendEvent5(w, 0, 0x73, 0x7558, 0x1f, 0, 0);
-        float g = F<float>(hook::Global<uint8_t*>(0x6d4024), 0x1146b9);
+        float g = F<float>(g_engine, 0x1146b9);
         int32_t v = Ftol(((double)g - *(const float*)0x5c8d48) * *(const float*)0x5c8784);
         Window_SendEvent5(w, 0, 0x66, 0x7558, (uint32_t)v, 0, 0);
     } else {
@@ -1174,9 +1175,9 @@ RT3_NOINLINE void __fastcall OptionsDialog_ShowDisplay(uint8_t* w) {
         Window_SendEvent5(w, 0, 0x87, 0x7559, 3, 0, 0);
         Window_SendEvent5(w, 0, 0x87, 0x7579, 3, 0, 0);
     }
-    Window_SendEvent5(w, 0, 0x74, 0x755c, hook::Global<uint8_t*>(0x6d4024)[0x1146eb], 0, 0);
-    Window_SendEvent5(w, 0, 0x74, 0x755d, hook::Global<uint8_t*>(0x6d4024)[0x1146e9], 0, 0);
-    Window_SendEvent5(w, 0, 0x74, 0x755e, F<uint32_t>(hook::Global<uint8_t*>(0x6d4024), 0x114697), 0, 0);
+    Window_SendEvent5(w, 0, 0x74, 0x755c, g_engine[0x1146eb], 0, 0);
+    Window_SendEvent5(w, 0, 0x74, 0x755d, g_engine[0x1146e9], 0, 0);
+    Window_SendEvent5(w, 0, 0x74, 0x755e, F<uint32_t>(g_engine, 0x114697), 0, 0);
 }
 RT3_REPLACE(0x4fe960, OptionsDialog_ShowDisplay);
 
@@ -1189,7 +1190,7 @@ RT3_NOINLINE void __fastcall OptionsDialog_FillList755f(uint8_t* w) {
         Window_SendEvent5(w, 0, 0x88, 0x755f, (uint32_t)(uintptr_t)GetString(*id), 0, 0);
     Window_SelectOption(w, 1, 0x755f);
     OptionsDialog_ShowSliders2(w);
-    Window_SendEvent5(w, 0, 0x74, 0x7568, hook::Global<uint8_t*>(0x6d4024)[0x1146b8], 0, 0);
+    Window_SendEvent5(w, 0, 0x74, 0x7568, g_engine[0x1146b8], 0, 0);
 }
 RT3_REPLACE(0x4feb20, OptionsDialog_FillList755f);
 
@@ -1210,24 +1211,24 @@ RT3_REPLACE(0x4febd0, OptionsDialog_FillList7569);
 // the original leaves the first 8 bytes of each record uninitialised (stack
 // residue); here they are zero.
 RT3_NOINLINE void __fastcall OptionsDialog_FillModels(uint8_t* w, int, int32_t) {
-    if (Obj_Idlec60(hook::Global<uint8_t*>(0x6d401c))) Obj_Incc60(hook::Global<uint8_t*>(0x6d401c));
+    if (Obj_Idlec60(g_windowManager)) Obj_Incc60(g_windowManager);
     uint8_t* list = Widget_FindChild(w, 0, 0x757a);
     int32_t sel = F<int32_t>(list, 0x1e2);
     Window_SendEvent5(w, 0, 0x8b, 0x757a, 0, 0, 0);
-    if (Collection* old = hook::Global<Collection*>(0x6d1354)) {
+    if (Collection* old = g_6d1354) {
         Collection_Destruct(old);
         ((void(__cdecl*)(void*))0x53b080)(old);
     }
-    hook::Global<Collection*>(0x6d1354) = nullptr;
+    g_6d1354 = nullptr;
     Collection* c = (Collection*)((void*(__cdecl*)(size_t))0x53b070)(0x88);
-    hook::Global<Collection*>(0x6d1354) = c ? Collection_Construct(c, 0, 1, 0x108, 10, 5, 0, 0, 0) : nullptr;
+    g_6d1354 = c ? Collection_Construct(c, 0, 1, 0x108, 10, 5, 0, 0, 0) : nullptr;
     while (uint8_t* m = Models_NextInOrder()) {
         uint8_t rec[0x108];
         memset(rec, 0, 8);
         const char* name = (const char*)m + 8;
         FormatText((char*)rec + 8, strlen(name) ? name : GetString(0xb3e), 0, 0, 0, 0, 0, 0, 0, 0);
         FormatText((char*)rec + 0x88, (const char*)m + 0x88, 0, 0, 0, 0, 0, 0, 0, 0);
-        Collection* t = hook::Global<Collection*>(0x6d1354);
+        Collection* t = g_6d1354;
         uint32_t id = ((uint32_t(__fastcall*)(Collection*, int, void*, int32_t, int32_t, int32_t))(*(void***)t)[1])(t, 0, rec, 0, 0, 0);
         Window_SendEvent5(w, 0, 0x88, 0x757a, 0, id, 0);
     }
@@ -1254,10 +1255,10 @@ void __fastcall OptionsDialog_OnSlider(uint8_t* sl, int32_t v) {
     auto speedText = [&]() { sprintf_(text, (const char*)0x5d0b18, Ftol((double)((const float*)0x5f34b0)[v] * Fl(0x5c8c28) + D(0x5c85b8))); };
     auto number = [&]() { Num_Format(text, 1, (double)v, 10, 1, 0, 0); };
     auto detail = [&](int32_t which, int32_t level, bool list755f) {
-        Options_SetDetail(hook::Global<uint8_t*>(0x6cec74), 0, which, level, 1);
-        if (!hook::Global<uint8_t>(0x6d135c)) {
-            if (list755f) Window_SelectOption755f(hook::Global<uint8_t*>(0x6d1350));
-            else Window_SelectOption7569(hook::Global<uint8_t*>(0x6d1350));
+        Options_SetDetail(g_app, 0, which, level, 1);
+        if (!g_6d135c) {
+            if (list755f) Window_SelectOption755f(g_optionsWindow);
+            else Window_SelectOption7569(g_optionsWindow);
         }
     };
     switch (F<uint16_t>(sl, 4)) {
@@ -1265,11 +1266,11 @@ void __fastcall OptionsDialog_OnSlider(uint8_t* sl, int32_t v) {
     case 0x754b:
     case 0x754d: {
         percent();
-        if (hook::Global<uint8_t>(0x6d135d)) break;
+        if (g_6d135d) break;
         uint32_t off = F<uint16_t>(sl, 4) == 0x7549 ? 0x1146fa : F<uint16_t>(sl, 4) == 0x754b ? 0x1146fe : 0x114702;
         float fv = (float)v;
-        F<float>(hook::Global<uint8_t*>(0x6d4024), off) = (float)((double)fv / Fl(0x5c85f8));
-        float vol = F<float>(hook::Global<uint8_t*>(0x6d4024), off);
+        F<float>(g_engine, off) = (float)((double)fv / Fl(0x5c85f8));
+        float vol = F<float>(g_engine, off);
         int32_t kind = 2;
         if (off == 0x1146fe) {
             vol = (float)(vol * D(0x5c9c80));
@@ -1278,7 +1279,7 @@ void __fastcall OptionsDialog_OnSlider(uint8_t* sl, int32_t v) {
             vol = (float)(vol * D(0x5c8640));
             kind = 1;
         }
-        Sound_SetVolume(hook::Global<uint8_t*>(0x6d402c), 0, vol, kind);
+        Sound_SetVolume(g_sound, 0, vol, kind);
         break;
     }
     case 0x7558: {
@@ -1287,78 +1288,78 @@ void __fastcall OptionsDialog_OnSlider(uint8_t* sl, int32_t v) {
         sprintf_(text, (const char*)0x5d14d0, (double)off);
         uint32_t bits;
         memcpy(&bits, &off, 4);
-        if (!hook::Global<uint8_t>(0x6d135d)) Engine_SetCursorObject(hook::Global<void*>(0x6d4024), 0, bits);
+        if (!g_6d135d) Engine_SetCursorObject(hook::As<void*>(g_engine), 0, bits);
         break;
     }
     case 0x7596: {
         static const uint32_t names[] = { 0x5d14cc, 0x5d14c8, 0x5d14c4, 0x5d14c0, 0x5d14b8 };
         strcpy(text, (const char*)names[v]);
-        if (!hook::Global<uint8_t>(0x6d135d)) detail(0xd, 4 - v, true);
+        if (!g_6d135d) detail(0xd, 4 - v, true);
         break;
     }
     case 0x7566:
         number();
-        if (!hook::Global<uint8_t>(0x6d135d)) detail(8, v, true);
+        if (!g_6d135d) detail(8, v, true);
         break;
     case 0x7560:
     case 0x7562:
         number();
-        if (!hook::Global<uint8_t>(0x6d135d)) {
-            Options_SetDetail(hook::Global<uint8_t*>(0x6cec74), 0, 7, v, 1);
-            Window_SendEvent5(hook::Global<uint8_t*>(0x6d1350), 0, 0x66, F<uint16_t>(sl, 4) == 0x7560 ? 0x7562 : 0x7560, (uint32_t)v, 0, 0);
-            if (!hook::Global<uint8_t>(0x6d135c)) Window_SelectOption755f(hook::Global<uint8_t*>(0x6d1350));
+        if (!g_6d135d) {
+            Options_SetDetail(g_app, 0, 7, v, 1);
+            Window_SendEvent5(g_optionsWindow, 0, 0x66, F<uint16_t>(sl, 4) == 0x7560 ? 0x7562 : 0x7560, (uint32_t)v, 0, 0);
+            if (!g_6d135c) Window_SelectOption755f(g_optionsWindow);
         }
         break;
     case 0x7564:
         number();
-        if (!hook::Global<uint8_t>(0x6d135d)) detail(9, v, true);
+        if (!g_6d135d) detail(9, v, true);
         break;
     case 0x756e:
         number();
-        if (!hook::Global<uint8_t>(0x6d135d)) detail(6, v, false);
+        if (!g_6d135d) detail(6, v, false);
         break;
     case 0x756a:
         number();
-        if (!hook::Global<uint8_t>(0x6d135d)) detail(4, v, false);
+        if (!g_6d135d) detail(4, v, false);
         break;
     case 0x756c:
         number();
-        if (!hook::Global<uint8_t>(0x6d135d)) detail(5, v, false);
+        if (!g_6d135d) detail(5, v, false);
         break;
     case 0x7570:
         number();
-        if (!hook::Global<uint8_t>(0x6d135d)) detail(3, v, false);
+        if (!g_6d135d) detail(3, v, false);
         break;
     case 0x757d:
         if (v > 0) speedText();
         else FormatText(text, GetString(8), 0, 0, 0, 0, 0, 0, 0, 0);
-        if (!hook::Global<uint8_t>(0x6d135d)) {
-            F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x114) = v;
-            Options_Save(hook::Global<uint8_t*>(0x6cec74), 0, 1);
+        if (!g_6d135d) {
+            F<int32_t>(g_app, 0x114) = v;
+            Options_Save(g_app, 0, 1);
         }
         break;
     case 0x757f:
         speedText();
-        if (!hook::Global<uint8_t>(0x6d135d)) {
-            int32_t old = F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x118);
-            F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x118) = v;
-            Options_Save(hook::Global<uint8_t*>(0x6cec74), 0, 1);
-            if (uint8_t* setup = hook::Global<uint8_t*>(0x6d0820))
+        if (!g_6d135d) {
+            int32_t old = F<int32_t>(g_app, 0x118);
+            F<int32_t>(g_app, 0x118) = v;
+            Options_Save(g_app, 0, 1);
+            if (uint8_t* setup = g_6d0820)
                 if (old != v && (!old || !v)) SetupWindow_FillLabels(setup);
         }
         break;
     case 0x7581:
         speedText();
-        if (!hook::Global<uint8_t>(0x6d135d)) {
-            F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x11c) = v;
-            Options_Save(hook::Global<uint8_t*>(0x6cec74), 0, 1);
+        if (!g_6d135d) {
+            F<int32_t>(g_app, 0x11c) = v;
+            Options_Save(g_app, 0, 1);
         }
         break;
     default:
         return;
     }
-    if (uint8_t* d = hook::Global<uint8_t*>(0x6d1350)) Window_SendEvent5(d, 0, 0x6f, F<uint16_t>(sl, 4) + 1u, (uint32_t)(uintptr_t)text, 0, 0);
-    Options_Save(hook::Global<uint8_t*>(0x6cec74), 0, 1);
+    if (uint8_t* d = g_optionsWindow) Window_SendEvent5(d, 0, 0x6f, F<uint16_t>(sl, 4) + 1u, (uint32_t)(uintptr_t)text, 0, 0);
+    Options_Save(g_app, 0, 1);
 }
 RT3_REPLACE(0x4fede0, OptionsDialog_OnSlider);
 
@@ -1376,8 +1377,8 @@ RT3_REPLACE(0x4fede0, OptionsDialog_OnSlider);
 // and lighting options and the train ghosts; 0x759d warns once (0xfb9).
 int32_t __fastcall OptionsDialog_HandleEvent(uint8_t* d, int, uint32_t* msg) {
     if (msg[0] == 0xc9) return 1;
-    uint8_t* e = hook::Global<uint8_t*>(0x6d4024);
-    auto opts = []() { return hook::Global<uint8_t*>(0x6cec74); };
+    uint8_t* e = g_engine;
+    auto opts = []() { return g_app; };
     auto save = [&]() {
         Options_Save(opts(), 0, 1);
         return 0;
@@ -1387,7 +1388,7 @@ int32_t __fastcall OptionsDialog_HandleEvent(uint8_t* d, int, uint32_t* msg) {
         return save();
     };
     auto saveEngine = []() {
-        Engine_SaveConfig(hook::Global<uint8_t*>(0x6d4024));
+        Engine_SaveConfig(g_engine);
         return 0;
     };
     auto flipByte = [&](int32_t off) {
@@ -1401,15 +1402,15 @@ int32_t __fastcall OptionsDialog_HandleEvent(uint8_t* d, int, uint32_t* msg) {
     auto send = [&](uint32_t type, uint32_t id, uint32_t a) { Window_SendEvent5(d, 0, type, id, a, 0, 0); };
     switch (msg[0]) {
     case 0:
-        if (hook::Global<int32_t>(0x6d1360)) {
-            hook::Global<int32_t>(0x6d1360) = 0;
+        if (g_6d1360) {
+            g_6d1360 = 0;
             msg[0] = 0xc9;
         }
         return 1;
     case 3: {
         if (!Widget_IsVisible(Widget_FindChild(d, 0, 0x757a))) return 1;
         if (F<int32_t>(Widget_FindChild(d, 0, 0x757a), 0x1d6) <= -1) return 1;
-        uint8_t* model = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6d1354), 0, TreeView_SelectedData(Widget_FindChild(d, 0, 0x757a)));
+        uint8_t* model = (uint8_t*)Collection_Get(g_6d1354, 0, TreeView_SelectedData(Widget_FindChild(d, 0, 0x757a)));
         if (!LookupSingleFlag((int32_t)msg[2], (int32_t)msg[8])) return 1;
         if (msg[2] != 0xd && msg[2] != 0x1b) {
             const uint32_t flags = RepackFlags(msg[8]);
@@ -1446,23 +1447,23 @@ int32_t __fastcall OptionsDialog_HandleEvent(uint8_t* d, int, uint32_t* msg) {
     case 0x7545: return toggle(0xf8);
     case 0x7547: return flipByte(0x1146d7);
     case 0x7550: {
-        uint8_t* snd = hook::Global<uint8_t*>(0x6d402c);
+        uint8_t* snd = g_sound;
         const uint32_t fl = Sound_ProviderFlagsAt(snd, 0, Sound_ActiveProviderIndex(snd));
-        Sound_Restart(hook::Global<uint8_t*>(0x6d402c), 0, fl ? (const char*)0x5d14f8 : (const char*)0x5d14d8);
-        send(0x66, 0x7551, (uint32_t)Sound_ActiveProviderIndex(hook::Global<uint8_t*>(0x6d402c)));
+        Sound_Restart(g_sound, 0, fl ? (const char*)0x5d14f8 : (const char*)0x5d14d8);
+        send(0x66, 0x7551, (uint32_t)Sound_ActiveProviderIndex(g_sound));
         Game_RestartSounds();
         return save();
     }
     case 0x7554: {
         Options_ToggleFullscreen();
-        Engine_SaveConfig(hook::Global<uint8_t*>(0x6d4024));
+        Engine_SaveConfig(g_engine);
         OptionsDialog_FillResolutions(d);
         static const uint32_t kModes[5] = { 0x7555, 0x7578, 0x7558, 0x7559, 0x7579 };
-        if (hook::Global<uint8_t*>(0x6d4024)[0x114226]) {
+        if (g_engine[0x114226]) {
             send(0x65, 0x7555, 3);
             send(0x65, 0x7578, 3);
-            send(0x74, 0x7555, (uint32_t)Engine_Get1146ae(hook::Global<uint8_t*>(0x6d4024)));
-            send(0x74, 0x7578, (uint32_t)Engine_Get11470e(hook::Global<uint8_t*>(0x6d4024)));
+            send(0x74, 0x7555, (uint32_t)Engine_Get1146ae(g_engine));
+            send(0x74, 0x7578, (uint32_t)Engine_Get11470e(g_engine));
             for (int k = 2; k < 5; ++k) send(0x65, kModes[k], 3);
         } else {
             for (int k = 0; k < 5; ++k) send(0x87, kModes[k], 3);
@@ -1471,10 +1472,10 @@ int32_t __fastcall OptionsDialog_HandleEvent(uint8_t* d, int, uint32_t* msg) {
     }
     case 0x7555: {
         if (Engine_Get1146ae(e)) {
-            Engine_SetHardwareOption(hook::Global<uint8_t*>(0x6d4024), 0, 0);
+            Engine_SetHardwareOption(g_engine, 0, 0);
             return saveEngine();
         }
-        if (!Engine_ModeHasFlags(hook::Global<uint8_t*>(0x6d4024))) {
+        if (!Engine_ModeHasFlags(g_engine)) {
             send(0x74, 0x7555, 0);
             Message478(0xe17, 1);
             return 0;
@@ -1487,9 +1488,9 @@ int32_t __fastcall OptionsDialog_HandleEvent(uint8_t* d, int, uint32_t* msg) {
                 return 0;
             }
         }
-        Engine_SetHardwareOption(hook::Global<uint8_t*>(0x6d4024), 0, 1);
-        Engine_SaveConfig(hook::Global<uint8_t*>(0x6d4024));
-        if (!Engine_Get1146ae(hook::Global<uint8_t*>(0x6d4024))) {
+        Engine_SetHardwareOption(g_engine, 0, 1);
+        Engine_SaveConfig(g_engine);
+        if (!Engine_Get1146ae(g_engine)) {
             send(0x74, 0x7555, 0);
             Message478(0xe93, 1);
         }
@@ -1498,8 +1499,8 @@ int32_t __fastcall OptionsDialog_HandleEvent(uint8_t* d, int, uint32_t* msg) {
     case 0x7556: return flipInt(0x114206);
     case 0x755c:
         e[0x1146eb] = e[0x1146eb] == 0;
-        if (hook::Global<uint8_t*>(0x62c120) && !hook::Global<uint8_t*>(0x6d4024)[0x1146eb])
-            Map_RebuildCoast(hook::Global<uint8_t*>(0x62c120), 0, 0, 0, 0x270f, 0x270f, nullptr);
+        if (g_map && !g_engine[0x1146eb])
+            Map_RebuildCoast(g_map, 0, 0, 0, 0x270f, 0x270f, nullptr);
         return saveEngine();
     case 0x755d: return flipByte(0x1146e9);
     case 0x755e: return flipInt(0x114697);
@@ -1511,28 +1512,28 @@ int32_t __fastcall OptionsDialog_HandleEvent(uint8_t* d, int, uint32_t* msg) {
     case 0x7576: return flipByte(0x1146a8);
     case 0x7577: return flipByte(0x1146e3);
     case 0x7578:
-        Engine_SetDisplayOption(hook::Global<uint8_t*>(0x6d4024), 0, Engine_Get11470e(e) == 0 ? 1 : 0);
+        Engine_SetDisplayOption(g_engine, 0, Engine_Get11470e(e) == 0 ? 1 : 0);
         return saveEngine();
     case 0x757c:
     case 0x759a: {
-        if (ClockMs() < hook::Global<int32_t>(0x6d136c)) return 0;
-        hook::Global<int32_t>(0x6d136c) = ClockMs() + 1000;
-        uint8_t* c = hook::Global<uint8_t*>(0xccbb20);
+        if (ClockMs() < g_6d136c) return 0;
+        g_6d136c = ClockMs() + 1000;
+        uint8_t* c = g_cursorManager;
         if (id == 0x757c) {
             if (Obj_Busy18(c))
-                Cursor_UseSystem(hook::Global<uint8_t*>(0xccbb20));
+                Cursor_UseSystem(g_cursorManager);
             else
-                Cursor_Reapply(hook::Global<uint8_t*>(0xccbb20));
+                Cursor_Reapply(g_cursorManager);
             Options_Save(opts(), 0, 1);
             OptionsDialog_ShowVideo(d);
         } else {
             if (Obj_Zero18And14(c))
-                Cursor_UseGameDrawn(hook::Global<uint8_t*>(0xccbb20));
+                Cursor_UseGameDrawn(g_cursorManager);
             else
-                Cursor_UseWindows(hook::Global<uint8_t*>(0xccbb20));
+                Cursor_UseWindows(g_cursorManager);
             Options_Save(opts(), 0, 1);
         }
-        hook::Global<int32_t>(0x6d136c) = ClockMs() + 0x3c;
+        g_6d136c = ClockMs() + 0x3c;
         return 0;
     }
     case 0x7584:
@@ -1552,58 +1553,58 @@ int32_t __fastcall OptionsDialog_HandleEvent(uint8_t* d, int, uint32_t* msg) {
     case 0x7590: return toggle(0x27b);
     case 0x7592: {
         F<int32_t>(opts(), 0x263) = F<int32_t>(opts(), 0x263) == 0;
-        uint8_t* view = hook::Global<uint8_t*>(0x6d0818);
+        uint8_t* view = g_gameWindow;
         if (view && F<int32_t>(view, 0x8c) == 0xc) {
-            uint8_t* o = hook::Global<uint8_t*>(0x62c120);
+            uint8_t* o = g_map;
             F<int32_t>(o, 0x168d) = F<int32_t>(opts(), 0x263) ? F<int32_t>(o, 0x1689) + 1 : F<int32_t>(o, 0x1689);
         }
         return save();
     }
     case 0x7593:
         toggle(0x283);
-        if (uint8_t* view = hook::Global<uint8_t*>(0x6d0818)) Window_EnableControl7f9(view, 0, F<int32_t>(opts(), 0x283) != 0);
+        if (uint8_t* view = g_gameWindow) Window_EnableControl7f9(view, 0, F<int32_t>(opts(), 0x283) != 0);
         return 0;
     case 0x7594: return toggle(0x28b);
     case 0x7595:
         toggle(0x2c3);
         Lighting_Rebuild(opts());
-        if (uint8_t* view = hook::Global<uint8_t*>(0x6d0818)) OptionsDialog_SetLightingSet(view, 0, (uint8_t)F<int32_t>(opts(), 0x2c3), 0);
+        if (uint8_t* view = g_gameWindow) OptionsDialog_SetLightingSet(view, 0, (uint8_t)F<int32_t>(opts(), 0x2c3), 0);
         return 0;
     case 0x7599: {
         F<int32_t>(opts(), 0x2cc) = F<int32_t>(opts(), 0x2cc) == 0;
-        if (uint8_t* o = hook::Global<uint8_t*>(0x62c120)) {
+        if (uint8_t* o = g_map) {
             if (!F<int32_t>(opts(), 0x2cc) && F<int32_t>(o, 0x2175) == 0x15) {
                 Overview_EndPlain(o);
-                Overview_Close(hook::Global<uint8_t*>(0x62c120));
-                o = hook::Global<uint8_t*>(0x62c120);
+                Overview_Close(g_map);
+                o = g_map;
             }
-            if (F<int32_t>(opts(), 0x2cc) && !F<int32_t>(o, 0x2175) && F<int32_t>(hook::Global<uint8_t*>(0x6d0818), 0x8c) == 0xc) {
+            if (F<int32_t>(opts(), 0x2cc) && !F<int32_t>(o, 0x2175) && F<int32_t>(g_gameWindow, 0x8c) == 0xc) {
                 Overview_EndPlain(o);
-                Overview_SetMode(hook::Global<uint8_t*>(0x62c120), 0, 0x15, 0, 0, 0, nullptr, 0, 0, 0x1869f, 0x1869f);
+                Overview_SetMode(g_map, 0, 0x15, 0, 0, 0, nullptr, 0, 0, 0x1869f, 0x1869f);
             }
         }
         return save();
     }
     case 0x759b:
         F<int32_t>(e, 0x114742) = F<int32_t>(e, 0x114742) == 0;
-        if (hook::Global<Collection*>(0x6cfcbc)) Trains_ReapplyGhosts(hook::Global<Collection*>(0x6cfcbc));
+        if (g_trains) Trains_ReapplyGhosts(g_trains);
         return save();
     case 0x759c: {
         F<int32_t>(opts(), 0x309) = F<int32_t>(opts(), 0x309) == 0;
         const int32_t on = F<int32_t>(opts(), 0x309);
-        if (hook::Global<int32_t>(0x6d1a8c) && hook::Global<uint8_t*>(0x6cfca8)) {
+        if (hook::As<int32_t>(g_6d1a8c) && hook::As<uint8_t*>(g_tracks)) {
             if (on)
-                Camera_BeginA0(hook::Global<uint8_t*>(0x6cfca8));
+                Camera_BeginA0(hook::As<uint8_t*>(g_tracks));
             else
-                Obj_DecA0(hook::Global<uint8_t*>(0x6cfca8));
+                Obj_DecA0(hook::As<uint8_t*>(g_tracks));
         }
         return save();
     }
     case 0x759d:
         F<int32_t>(e, 0x11474a) = F<int32_t>(e, 0x11474a) == 0;
         Options_Save(opts(), 0, 1);
-        if (!hook::Global<int32_t>(0x6d1368)) {
-            hook::Global<int32_t>(0x6d1368) = 1;
+        if (!g_6d1368) {
+            g_6d1368 = 1;
             Message478(0xfb9, 1);
         }
         return 0;
@@ -1617,8 +1618,8 @@ RT3_REPLACE(0x4ff510, OptionsDialog_HandleEvent);
 // trade tab buttons; 0x7540 marks page 11) and fills it, with 0x6d135d set
 // while it does (the UI busy count drops unless idle).
 RT3_NOINLINE void __fastcall OptionsDialog_ShowPage(uint8_t* w, int, int32_t page) {
-    hook::Global<uint8_t>(0x6d135d) = 1;
-    if (!Obj_Idlec60(hook::Global<uint8_t*>(0x6d401c))) Obj_Decc60(hook::Global<uint8_t*>(0x6d401c));
+    g_6d135d = 1;
+    if (!Obj_Idlec60(g_windowManager)) Obj_Decc60(g_windowManager);
     int32_t tab = page == 0xc ? 0xb : page == 0xb ? 0xd : page;
     for (int32_t i = 0; i < 0xd; ++i) Window_SendEvent5(w, 0, i != tab ? 0x86 : 0x6d, 0x7533 + i, 3, 0, 0);
     Window_SendEvent5(w, 0, page != 0xb ? 0x86 : 0x6d, 0x7540, 3, 0, 0);
@@ -1632,12 +1633,12 @@ RT3_NOINLINE void __fastcall OptionsDialog_ShowPage(uint8_t* w, int, int32_t pag
         if (page == 7) OptionsDialog_FillModels(w, 0, 0);
         else pages[page](w);
     }
-    hook::Global<uint8_t>(0x6d135d) = 0;
+    g_6d135d = 0;
 }
 RT3_REPLACE(0x500410, OptionsDialog_ShowPage);
 
 void __fastcall Options_ShowPageCb(int32_t v) {
-    if (v != -1 && !hook::Global<uint8_t>(0x6d135d) && hook::Global<uint8_t*>(0x6d1350)) OptionsDialog_ShowPage(hook::Global<uint8_t*>(0x6d1350), 0, v);
+    if (v != -1 && !g_6d135d && g_optionsWindow) OptionsDialog_ShowPage(g_optionsWindow, 0, v);
 }
 RT3_REPLACE(0x500620, Options_ShowPageCb);
 
@@ -1653,10 +1654,10 @@ RT3_NOINLINE uint8_t* __fastcall SettingsWindow_Construct(uint8_t* w) {
     Widget_SetVtblRet(w);
     F<uint32_t>(w, 0) = 0x5d14a4;
     Window_Load(w, 0, 0.0f, 0.0f, (const char*)0x5d1530);
-    hook::Global<uint8_t*>(0x6d1358) = Pack_AcquireFont(hook::Global<uint8_t*>(0x6d4020), 0, 1);
+    g_6d1358 = Pack_AcquireFont(g_pack, 0, 1);
     int32_t prev = 0;
     for (int32_t i = 0; i < 0xd; ++i) {
-        if (i == 0xc && hook::Global<uint8_t*>(0x6cec7c)[0x82] == 0) continue;
+        if (i == 0xc && g_newGame[0x82] == 0) continue;
         uint8_t item[0x20];
         memset(item, 0, sizeof item);
         String_Assign(&F<char*>(item, 0), GetString(hook::Global<uint32_t>(0x622870 + i * 8)));
@@ -1712,7 +1713,7 @@ RT3_NOINLINE uint8_t* __fastcall SettingsWindow_Construct(uint8_t* w) {
         F<int32_t>(b, 0x67) = 6;
         String_Assign(&F<char*>(b, 0x6f), GetString(0xfb7));
         String_Assign(&F<char*>(b, 0x3f), GetString(0xfb8));
-        if (hook::Global<int32_t>(0x6d3c84) == 4) {
+        if (g_language == 4) {
             F<float>(b, 0xf) = (float)((double)F<float>(b, 0xf) + D(0x5d1528));
             F<float>(b, 0x7d) = (float)((double)F<float>(b, 0x7d) + D(0x5d1528));
         }
@@ -1723,7 +1724,7 @@ RT3_NOINLINE uint8_t* __fastcall SettingsWindow_Construct(uint8_t* w) {
         Free(F<void*>(b, 0x6f));
         Free(F<void*>(b, 0x3f));
     }
-    Window_SendEvent5(w, 0, 0x74, 0x759d, F<uint32_t>(hook::Global<uint8_t*>(0x6d4024), 0x11474a), 0, 0);
+    Window_SendEvent5(w, 0, 0x74, 0x759d, F<uint32_t>(g_engine, 0x11474a), 0, 0);
     Window_SendEvent5(w, 0, 0xb2, 0x7554, 0x2c7, 0, 0);
     Window_SendEvent5(w, 0, 0xa1, 0x7532, 0x8000, 0, 0);
     // One settings row: caption (text, tooltip) at height `labelY`, then the
@@ -1786,10 +1787,10 @@ RT3_NOINLINE uint8_t* __fastcall SettingsWindow_Construct(uint8_t* w) {
     }
     row(0x7540, 0x3e7f258c, 0x10db, 0x10dc, 0x75a1, 0x3e92c5f9, 0x4fd430);
     for (uint32_t s = 0x10df; s <= 0x10e9; ++s) Window_SendEvent5(w, 0, 0x88, 0x75a1, (uint32_t)(uintptr_t)GetString(s), 0, 0);
-    Window_SendEvent5(w, 0, 0x66, 0x75a1, F<uint32_t>(hook::Global<uint8_t*>(0x6cec74), 0x31d), 0, 0);
+    Window_SendEvent5(w, 0, 0x66, 0x75a1, F<uint32_t>(g_app, 0x31d), 0, 0);
     row(0x7540, 0x3eae147b, 0x10dd, 0x10de, 0x75a2, 0x3ec147ae, 0x4fd460);
     for (uint32_t s = 0x10ea; s <= 0x10f4; ++s) Window_SendEvent5(w, 0, 0x88, 0x75a2, (uint32_t)(uintptr_t)GetString(s), 0, 0);
-    Window_SendEvent5(w, 0, 0x66, 0x75a2, F<uint32_t>(hook::Global<uint8_t*>(0x6cec74), 0x319), 0, 0);
+    Window_SendEvent5(w, 0, 0x66, 0x75a2, F<uint32_t>(g_app, 0x319), 0, 0);
     return w;
 }
 RT3_REPLACE(0x500640, SettingsWindow_Construct);
@@ -1797,22 +1798,22 @@ RT3_REPLACE(0x500640, SettingsWindow_Construct);
 // 0x501e50. Opens the options dialog (0x6d1350) modally on page 2, with the
 // game paused, then reloads the capabilities (0x62be68) and destroys it.
 RT3_NOINLINE void OptionsDialog_Open() {
-    if (hook::Global<uint8_t*>(0x6d1350)) return;
-    hook::Global<int32_t>(0x6d1360) = 0;
+    if (g_optionsWindow) return;
+    g_6d1360 = 0;
     uint8_t* o = (uint8_t*)((void*(__cdecl*)(size_t))0x53b070)(0x78);
-    hook::Global<uint8_t*>(0x6d1350) = o ? SettingsWindow_Construct(o) : nullptr;
-    Window_SendEvent5(hook::Global<uint8_t*>(0x6d1350), 0, 0x66, 0x7532, 2, 0, 0);
-    OptionsDialog_ShowPage(hook::Global<uint8_t*>(0x6d1350), 0, 2);
-    PauseLock_Push(hook::Global<int32_t*>(0x6cec74));
-    Ui_RunModal(hook::Global<uint8_t**>(0x6d401c), 0, hook::Global<uint8_t*>(0x6d1350), 1, 0, 0x14, 0);
-    PauseLock_Pop(hook::Global<int32_t*>(0x6cec74));
-    if (hook::Global<uint8_t*>(0x62be68)) Caps_Load(hook::Global<uint8_t*>(0x62be68));
-    Windows_Remove(hook::Global<uint8_t*>(0x6d401c), 0, hook::Global<uint8_t*>(0x6d1350));
-    if (uint8_t* w = hook::Global<uint8_t*>(0x6d1350)) {
+    g_optionsWindow = o ? SettingsWindow_Construct(o) : nullptr;
+    Window_SendEvent5(g_optionsWindow, 0, 0x66, 0x7532, 2, 0, 0);
+    OptionsDialog_ShowPage(g_optionsWindow, 0, 2);
+    PauseLock_Push(hook::As<int32_t*>(g_app));
+    Ui_RunModal(hook::As<uint8_t**>(g_windowManager), 0, g_optionsWindow, 1, 0, 0x14, 0);
+    PauseLock_Pop(hook::As<int32_t*>(g_app));
+    if (g_62be68) Caps_Load(g_62be68);
+    Windows_Remove(g_windowManager, 0, g_optionsWindow);
+    if (uint8_t* w = g_optionsWindow) {
         SettingsWindow_Destruct(w);
         ((void(__cdecl*)(void*))0x53b080)(w);
     }
-    hook::Global<uint8_t*>(0x6d1350) = nullptr;
+    g_optionsWindow = nullptr;
 }
 RT3_REPLACE(0x501e50, OptionsDialog_Open);
 

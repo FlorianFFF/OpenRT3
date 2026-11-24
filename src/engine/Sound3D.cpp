@@ -9,6 +9,7 @@
 #include <initializer_list>
 #include <intrin.h>
 #include "hook/hook.h"
+#include "core/globals.h"
 #include "game/collection.h"
 #include "core/ptrlist.h"
 #include "core/crt.h"
@@ -173,7 +174,7 @@ static inline uint32_t* NewZeroed(size_t n) {
 
 static inline void VisitAll(uint8_t* s, int32_t mode, int32_t flag) {
     int32_t ctx[4] = { mode, -1 };
-    hook::Global<int32_t>(0xccba04) = flag;
+    g_ccba04 = flag;
     Hash_ForEach((HashMap*)(s + 0xc), 0, 0, (HashVisit)0x5318c0, ctx);
 }
 
@@ -222,7 +223,7 @@ static uint8_t* AcquireVoice(uint8_t* s) {
 
 static inline uint32_t Bits(float f) { return *(uint32_t*)&f; }
 
-static inline uint8_t* Snd() { return *hook::Global<uint8_t**>(0x6d402c); }
+static inline uint8_t* Snd() { return *hook::As<uint8_t**>(g_sound); }
 
 // Registers the voice res (key res[0]) in hash h under the Miles lock.
 static void Register(HashMap* h, uint32_t* res) {
@@ -302,9 +303,9 @@ int32_t Count_RecordsOfClass(Collection* c, uint8_t cls) {
 void Vote_BuildState(uint8_t* st, const uint8_t* d, uint32_t mask, uint32_t present, uint32_t voted) {
     F<uint16_t>(st, 4) = d[4];
     F<uint16_t>(st, 6) = d[5];
-    for (int32_t i = 0; i < Collection_Count(hook::Global<Collection*>(0x6ceb9c)); ++i) {
+    for (int32_t i = 0; i < Collection_Count(g_players); ++i) {
         st[present + i] = 1;
-        Collection* c = hook::Global<Collection*>(0x6ceb9c);
+        Collection* c = g_players;
         uint8_t* e = (uint8_t*)Collection_Get(c, 0, Collection_IdAt(c, 0, (uint32_t)i, 0));
         if (!F<int32_t>(e, 0x1e1) || !F<int32_t>(e, 4) || (mask & (1u << i))) st[voted + i] = 1;
     }
@@ -313,14 +314,14 @@ void Vote_BuildState(uint8_t* st, const uint8_t* d, uint32_t mask, uint32_t pres
 
 // Output stream A: 0x8000-byte buffer *0xda7dd8, fill 0xda7dd4, flushed as 0xd97dc8.
 static int32_t PutA(uint8_t b, StreamFn flush) {
-    int32_t pos = hook::Global<int32_t>(0xda7dd4);
-    hook::Global<uint8_t*>(0xda7dd8)[pos] = b;
+    int32_t pos = g_da7dd4;
+    g_da7dd8[pos] = b;
     ++pos;
-    hook::Global<int32_t>(0xda7dd4) = pos;
+    g_da7dd4 = pos;
     int32_t r = 1;
     if (pos == 0x8000 && flush) {
         r = flush((uint8_t*)0xd97dc8, pos);
-        hook::Global<int32_t>(0xda7dd4) = 0;
+        g_da7dd4 = 0;
     }
     return r;
 }
@@ -330,14 +331,14 @@ static int32_t __cdecl StreamA_PutImpl(uint32_t b, StreamFn flush) { return PutA
 
 // 0x56c320 body: the same for stream B (buffer *0xdb7dec, fill 0xdafde4, flushed as 0xda7de0).
 static int32_t __cdecl StreamB_PutImpl(uint32_t b, StreamFn flush) {
-    int32_t pos = hook::Global<int32_t>(0xdafde4);
-    hook::Global<uint8_t*>(0xdb7dec)[pos] = (uint8_t)b;
+    int32_t pos = g_dafde4;
+    g_db7dec[pos] = (uint8_t)b;
     ++pos;
-    hook::Global<int32_t>(0xdafde4) = pos;
+    g_dafde4 = pos;
     int32_t r = 1;
     if (pos == 0x8000 && flush) {
         r = flush((uint8_t*)0xda7de0, pos);
-        hook::Global<int32_t>(0xdafde4) = 0;
+        g_dafde4 = 0;
     }
     return r;
 }
@@ -350,14 +351,14 @@ static int32_t __cdecl StreamA_PutPendingImpl(StreamFn flush, uint8_t* c, int32_
     if (n <= 0) return n;
     int32_t pos = 0;
     for (int32_t i = 0; i < F<int32_t>(c, 0x18); ++i) {
-        pos = hook::Global<int32_t>(0xda7dd4);
-        hook::Global<uint8_t*>(0xda7dd8)[pos] = c[0x3c + i];
+        pos = g_da7dd4;
+        g_da7dd8[pos] = c[0x3c + i];
         ++pos;
-        hook::Global<int32_t>(0xda7dd4) = pos;
+        g_da7dd4 = pos;
         if (pos == 0x8000) {
             flush((uint8_t*)0xd97dc8, pos);
             pos = 0;
-            hook::Global<int32_t>(0xda7dd4) = 0;
+            g_da7dd4 = 0;
         }
     }
     return pos;
@@ -366,20 +367,20 @@ static int32_t __cdecl StreamA_PutPendingImpl(StreamFn flush, uint8_t* c, int32_
 // 0x56b8f0 body. Reads one byte from input stream A (pointer 0xda7dd0, left
 // 0xd9fdc8), refilling 0x8000 bytes at 0xd9fdd0 through the callback; -1 at the end.
 static int32_t __cdecl StreamA_GetImpl(StreamFn refill) {
-    int32_t left = hook::Global<int32_t>(0xd9fdc8);
+    int32_t left = g_d9fdc8;
     if (left <= 0) {
         if (!refill) return -1;
-        hook::Global<uint8_t*>(0xda7dd0) = (uint8_t*)0xd9fdd0;
+        g_da7dd0 = (uint8_t*)0xd9fdd0;
         left = refill((uint8_t*)0xd9fdd0, 0x8000);
         if (left == -1) {
-            hook::Global<int32_t>(0xd9fdc8) = 0;
+            g_d9fdc8 = 0;
             return -1;
         }
     }
-    uint8_t* p = hook::Global<uint8_t*>(0xda7dd0);
+    uint8_t* p = g_da7dd0;
     int32_t b = *p;
-    hook::Global<int32_t>(0xd9fdc8) = left - 1;
-    hook::Global<uint8_t*>(0xda7dd0) = p + 1;
+    g_d9fdc8 = left - 1;
+    g_da7dd0 = p + 1;
     return b;
 }
 
@@ -388,20 +389,20 @@ static int32_t __cdecl StreamA_GetImpl(StreamFn refill) {
 static int32_t __cdecl StreamB_ReadImpl(int32_t n, StreamFn refill, uint8_t* dst) {
     int32_t i = 0;
     while (i < n) {
-        int32_t left = hook::Global<int32_t>(0xdb7de8);
+        int32_t left = g_db7de8;
         if (left <= 0) {
             if (!refill) return i;
-            hook::Global<uint8_t*>(0xdafde0) = (uint8_t*)0xdafde8;
+            g_dafde0 = (uint8_t*)0xdafde8;
             left = refill((uint8_t*)0xdafde8, 0x8000);
             if (left == -1) {
-                hook::Global<int32_t>(0xdb7de8) = 0;
+                g_db7de8 = 0;
                 return i;
             }
         }
-        uint8_t* p = hook::Global<uint8_t*>(0xdafde0);
+        uint8_t* p = g_dafde0;
         uint32_t b = *p;
-        hook::Global<uint8_t*>(0xdafde0) = p + 1;
-        hook::Global<int32_t>(0xdb7de8) = left - 1;
+        g_dafde0 = p + 1;
+        g_db7de8 = left - 1;
         if (b == 0xffffffff) return i;
         dst[i++] = (uint8_t)b;
     }
@@ -569,8 +570,8 @@ RT3_NOINLINE int32_t __fastcall Sound_Open3DProvider(uint8_t* s) {
         F<void*>(s, 0x28) = nullptr;
         return 0;
     }
-    if (hook::Global<int32_t>(0x625c7c) == -2)
-        hook::Global<int32_t>(0x625c7c) = Import<int32_t(__stdcall*)(uint32_t)>(0x5c83e0)(F<uint32_t*>(s, 0x28)[0]);
+    if (g_625c7c == -2)
+        g_625c7c = Import<int32_t(__stdcall*)(uint32_t)>(0x5c83e0)(F<uint32_t*>(s, 0x28)[0]);
     int32_t room = Import<int32_t(__stdcall*)(uint32_t)>(0x5c83dc)(F<uint32_t*>(s, 0x28)[0]);
     F<uint32_t*>(s, 0x28)[3] = room != -1 ? 1 : 0;
     Import<void(__stdcall*)(uint32_t, uint32_t)>(0x5c83d8)(F<uint32_t*>(s, 0x28)[0], 0x3e806d98);
@@ -584,7 +585,7 @@ RT3_NOINLINE void __fastcall Sound_EnumProviders() {
     for (int k = 0; k < 0x80; ++k) ((uint32_t*)0xd97bc0)[k] = 0;
     auto enumerate = Import<int32_t(__stdcall*)(uint32_t*, void*, void*)>(0x5c8454);
     uint32_t next = 0;
-    int32_t& count = hook::Global<int32_t>(0xd97dc0);
+    int32_t& count = g_d97dc0;
     count = 0;
     if (!enumerate(&next, (void*)0xd97bc0, (void*)0xd97bc4)) return;
     while (count < 0x20) {
@@ -601,7 +602,7 @@ RT3_REPLACE(0x569400, Sound_EnumProviders);
 
 // 0x5694f0. The provider whose name contains `name`, or 0.
 RT3_NOINLINE uint8_t* __stdcall Sound_FindProvider(const char* name) {
-    for (int32_t i = 0; i < hook::Global<int32_t>(0xd97dc0); ++i)
+    for (int32_t i = 0; i < g_d97dc0; ++i)
         if (ExeStrStr(F<const char*>(Provider(i), 4), name)) return Provider(i);
     return nullptr;
 }
@@ -610,14 +611,14 @@ RT3_REPLACE(0x5694f0, Sound_FindProvider);
 // 0x569540. Changes the 3D speaker type (0x625c78; 0x63 = the detected one,
 // 0x625c7c), pausing 400 ms before and 200 ms after.
 void __fastcall Sound_SetSpeakerType(uint8_t* s, int, int32_t type, int32_t noApply) {
-    int32_t old = hook::Global<int32_t>(0x625c78);
-    hook::Global<int32_t>(0x625c78) = type;
+    int32_t old = g_625c78;
+    g_625c78 = type;
     if (noApply || type == old) return;
     int32_t v = type;
     if (type == 0x63) {
-        v = hook::Global<int32_t>(0x625c7c);
+        v = g_625c7c;
         if (v < 0 || v > 5 || v == old) return;
-    } else if (old == 0x63 && hook::Global<int32_t>(0x625c7c) == type) {
+    } else if (old == 0x63 && g_625c7c == type) {
         return;
     }
     ClockMs();
@@ -629,14 +630,14 @@ void __fastcall Sound_SetSpeakerType(uint8_t* s, int, int32_t type, int32_t noAp
 }
 RT3_REPLACE(0x569540, Sound_SetSpeakerType);
 
-int32_t __fastcall Sound_SpeakerType() { return hook::Global<int32_t>(0x625c78); }
+int32_t __fastcall Sound_SpeakerType() { return g_625c78; }
 RT3_REPLACE(0x5695d0, Sound_SpeakerType);
 
 // 0x5695e0. Squared distance of a point to the listener (0 when any coordinate is 0).
 RT3_NOINLINE double __stdcall Sound_ListenerDistSq(float x, float y, float z) {
     const float zero = *(const float*)0x5c8598;
     if (zero == x || zero == y || zero == z) return zero;
-    Sound_TransformPoint(hook::Global<uint8_t*>(0x6d402c), 0, &x, &y, &z);
+    Sound_TransformPoint(g_sound, 0, &x, &y, &z);
     return (double)x * x + (double)y * y + (double)z * z;
 }
 RT3_REPLACE(0x5695e0, Sound_ListenerDistSq);
@@ -694,8 +695,8 @@ RT3_NOINLINE uint32_t __fastcall Voices_Acquire(uint8_t* v) {
     }
     if (item) {
         h = item[1];
-        if (++hook::Global<int32_t>(0x625c80) == 0) hook::Global<int32_t>(0x625c80) = 1;
-        item[2] = hook::Global<uint32_t>(0x625c80);
+        if (++g_625c80 == 0) g_625c80 = 1;
+        item[2] = hook::As<uint32_t>(g_625c80);
     }
     AilUnlock();
     return h;
@@ -738,7 +739,7 @@ RT3_REPLACE(0x569830, Sound_OpenPreferredProvider);
 // 64 voice records (+0xc, 0x38 bytes).
 int32_t __fastcall Sound3D_Open(uint8_t* s, int, const char* name) {
     Sound_EnumProviders();
-    if (hook::Global<int32_t>(0xd97dc0) <= 0) return 0;
+    if (g_d97dc0 <= 0) return 0;
     if (name) {
         F<uint8_t*>(s, 0x28) = Sound_FindProvider(name);
         Sound_Open3DProvider(s);
@@ -796,7 +797,7 @@ RT3_NOINLINE void __fastcall Sound_StopAll(uint8_t* s) {
     int32_t ctx[2] = { 1, -1 };
     Sound_WaitIdle();
     AilLock();
-    hook::Global<int32_t>(0xccba04) = 1;
+    g_ccba04 = 1;
     Hash_ForEach((HashMap*)(s + 0x14), 0, 0, (HashVisit)0x5318c0, ctx);
     AilUnlock();
     Hash_Init((HashMap*)(s + 0x14), 0, 0x11, 0x40);
@@ -816,7 +817,7 @@ void __fastcall Sound_SetEffectsVolume(uint8_t* s, int, float vol) {
     Sound_WaitIdle();
     AilLock();
     if (F<int32_t>(s, 0x5c) > 0) {
-        hook::Global<int32_t>(0xccba04) = 1;
+        g_ccba04 = 1;
         Hash_ForEach((HashMap*)(s + 0x14), 0, 0, (HashVisit)0x5318c0, ctx);
     }
     AilUnlock();
@@ -877,7 +878,7 @@ void __fastcall Sound_PauseAll(uint8_t* s) {
     int32_t ctx[4] = { 3 };
     Sound_WaitIdle();
     AilLock();
-    hook::Global<int32_t>(0xccba04) = 1;
+    g_ccba04 = 1;
     Hash_ForEach((HashMap*)(s + 0x14), 0, 0, (HashVisit)0x5318c0, ctx);
     F<int32_t>(s, 0x60) = 0;
     AilUnlock();
@@ -937,9 +938,9 @@ RT3_NOINLINE void __fastcall Sound3D_Close(uint8_t* s) {
         ExeDelete(h);
     }
     F<void*>(s, 0x10) = nullptr;
-    int32_t want = hook::Global<int32_t>(0x625c7c), cur = hook::Global<int32_t>(0x625c78);
+    int32_t want = g_625c7c, cur = g_625c78;
     if (want >= 0 && want <= 5 && cur >= 0 && cur <= 5 && want != cur) {
-        hook::Global<int32_t>(0x625c78) = want;
+        g_625c78 = want;
         if (want == 99 || cur != 99) {
             ClockMs();
             WaitMs(400);
@@ -1006,7 +1007,7 @@ RT3_NOINLINE int32_t __fastcall Sound3D_Command(uint8_t* sys, int, uint8_t* h, i
     }
     uint8_t* r = (uint8_t*)smp;
     auto volume = [&]() {
-        float v = (float)((double)F<float>(r, 0x28) * F<float>(sys, 0x58) * hook::Global<float>(0x624d5c));
+        float v = (float)((double)F<float>(r, 0x28) * F<float>(sys, 0x58) * g_624d5c);
         Import<void(__stdcall*)(uint32_t, float)>(0x5c842c)(handle, v);
     };
     auto stop = [&]() { Import<void(__stdcall*)(uint32_t)>(0x5c8410)(handle); };
@@ -1034,7 +1035,7 @@ RT3_NOINLINE int32_t __fastcall Sound3D_Command(uint8_t* sys, int, uint8_t* h, i
         if (f & 2) {
             float x = F<float>(r, 0x10), y = F<float>(r, 0x14), z = F<float>(r, 0x18);
             if (!(Fl(0x5c8598) == x) || !(Fl(0x5c8598) == y) || !(Fl(0x5c8598) == z)) {
-                Sound_TransformPoint(hook::Global<uint8_t*>(0x6d402c), 0, &x, &y, &z);
+                Sound_TransformPoint(g_sound, 0, &x, &y, &z);
                 x = (float)Ftol(x);
                 y = (float)Ftol(y);
                 z = (float)Ftol(z);
@@ -1123,7 +1124,7 @@ RT3_NOINLINE uint8_t* __fastcall Sound3D_PrepareSample(uint8_t* s, int, const ch
         if (res) break;
         float dist = (float)Sound_ListenerDistSq(x, y, z);
         struct { int32_t kind, prio; float* dist; int32_t found; } ctx = { 8, prio, &dist, 0 };
-        hook::Global<int32_t>(0xccba04) = 1;
+        g_ccba04 = 1;
         Hash_ForEach((HashMap*)(s + 0x14), 0, 0, (HashVisit)0x5318c0, &ctx);
         if (!ctx.found) return nullptr;
         if (ctx.found == -1) continue;
@@ -1168,7 +1169,7 @@ RT3_NOINLINE uint8_t* __fastcall Sound3D_PrepareSample(uint8_t* s, int, const ch
         F<uint32_t>(q, 0) = key;
         F<int32_t>(q, 0xc) = 0;
         Hash_Insert(F<HashMap*>(s, 0x10), 0, key, (int32_t)q);
-        F<void*>(q, 0x10) = SoundCache_Load(*hook::Global<uint8_t**>(0x6d402c), 0, name, q + 0x14);
+        F<void*>(q, 0x10) = SoundCache_Load(*hook::As<uint8_t**>(g_sound), 0, name, q + 0x14);
     }
     ++F<int32_t>(q, 0xc);
     F<uint8_t*>(res, 4) = q;
@@ -1296,7 +1297,7 @@ void __fastcall Sound2D_SetVolume(uint8_t* s, int, float vol) {
     AilLock();
     if (F<int32_t>(s, 0x24) > 0) {
         int32_t ctx[4] = { 2 };
-        hook::Global<int32_t>(0xccba04) = 0;
+        g_ccba04 = 0;
         Hash_ForEach((HashMap*)(s + 0xc), 0, 0, (HashVisit)0x5318c0, ctx);
     }
     AilUnlock();
@@ -1393,7 +1394,7 @@ RT3_REPLACE(0x56a970, Sound2D_Command);
 RT3_NOINLINE uint8_t* __fastcall Sound_PrepareSample(uint8_t* s, int, const char* name, int32_t load) {
     uint8_t* res = AcquireVoice(s);
     if (!res) return nullptr;
-    if (load == 1) F<void*>(res, 4) = SoundCache_Load(*hook::Global<uint8_t**>(0x6d402c), 0, name, nullptr);
+    if (load == 1) F<void*>(res, 4) = SoundCache_Load(*hook::As<uint8_t**>(g_sound), 0, name, nullptr);
     else F<void*>(res, 4) = nullptr;
     return res;
 }
@@ -1473,7 +1474,7 @@ void __fastcall Sound2D_PauseAll(uint8_t* s) {
     Sound_WaitIdle();
     AilLock();
     int32_t ctx[4] = { 3 };
-    hook::Global<int32_t>(0xccba04) = 0;
+    g_ccba04 = 0;
     Hash_ForEach((HashMap*)(s + 0xc), 0, 0, (HashVisit)0x5318c0, ctx);
     AilUnlock();
 }
@@ -1684,7 +1685,7 @@ void __fastcall BlockGrid_SetByte(uint8_t* g, int, int32_t a, int32_t b, uint8_t
     uint8_t* blk = *Slot(g, a, b);
     if (!blk) return;
     CellIn(blk, a, b)[1] = v;
-    ((uint8_t*)Engine_Renderer(hook::Global<void*>(0x6d4024)))[0x374a] = 1;
+    ((uint8_t*)Engine_Renderer(hook::As<void*>(g_engine)))[0x374a] = 1;
 }
 RT3_REPLACE(0x56b700, BlockGrid_SetByte);
 
@@ -1801,13 +1802,13 @@ RT3_REPLACE(0x56bca0, Tree_Init);
 RT3_NOINLINE int32_t __fastcall Lzss_Unpack(StreamFn read, StreamFn write) {
     if (!read || !write) return -3;
     int32_t n = read((uint8_t*)0xd9fdd0, 0x8000);
-    hook::Global<int32_t>(0xd9fdc8) = n;
+    g_d9fdc8 = n;
     if (n <= 0) return -2;
-    if (hook::Global<uint16_t>(0xd9fddc) != 0x10 || hook::Global<uint16_t>(0xd9fdde) != 0x91) return -4;
-    hook::Global<int32_t>(0xd9fdc8) = n - 0x10;
-    hook::Global<uint8_t*>(0xda7dd0) = (uint8_t*)0xd9fde0;
-    hook::Global<int32_t>(0xda7dd4) = 0;
-    hook::Global<uint8_t*>(0xda7dd8) = (uint8_t*)0xd97dc8;
+    if (g_d9fddc != 0x10 || g_d9fdde != 0x91) return -4;
+    g_d9fdc8 = n - 0x10;
+    g_da7dd0 = (uint8_t*)0xd9fde0;
+    g_da7dd4 = 0;
+    g_da7dd8 = (uint8_t*)0xd97dc8;
     uint8_t win[0x200];
     memset(win, 0, sizeof win);
     uint32_t r = 0x1be, flags = 0;
@@ -1839,9 +1840,9 @@ RT3_NOINLINE int32_t __fastcall Lzss_Unpack(StreamFn read, StreamFn write) {
             r = (r + 1) & 0x1ff;
         }
     }
-    if (hook::Global<int32_t>(0xda7dd4) > 0) {
-        write((uint8_t*)0xd97dc8, hook::Global<int32_t>(0xda7dd4));
-        hook::Global<int32_t>(0xda7dd4) = 0;
+    if (g_da7dd4 > 0) {
+        write((uint8_t*)0xd97dc8, g_da7dd4);
+        g_da7dd4 = 0;
     }
     return 1;
 }
@@ -1853,17 +1854,17 @@ RT3_REPLACE(0x56be10, Lzss_Unpack);
 RT3_NOINLINE int32_t __fastcall Lzss_Pack(StreamFn read, StreamFn write) {
     if (!read || !write) return -3;
     int32_t n = read((uint8_t*)0xd9fdd0, 0x8000);
-    hook::Global<int32_t>(0xd9fdc8) = n;
+    g_d9fdc8 = n;
     if (n <= 0) return -2;
-    hook::Global<int32_t>(0xd97dcc) = 0;
-    hook::Global<int32_t>(0xd97dd0) = 0;
-    hook::Global<int32_t>(0xd97dd4) = 0x910010;
+    g_d97dcc = 0;
+    g_d97dd0 = 0;
+    g_d97dd4 = 0x910010;
     uint8_t c[0x50];
     memset(c, 0, 0x4e);
-    hook::Global<int32_t>(0xda7dd4) = 0x10;
-    hook::Global<int32_t>(0xd97dc8) = 0xbabe;
-    hook::Global<uint8_t*>(0xda7dd0) = (uint8_t*)0xd9fdd0;
-    hook::Global<uint8_t*>(0xda7dd8) = (uint8_t*)0xd97dc8;
+    g_da7dd4 = 0x10;
+    g_d97dc8 = 0xbabe;
+    g_da7dd0 = (uint8_t*)0xd9fdd0;
+    g_da7dd8 = (uint8_t*)0xd97dc8;
     Tree_InitImpl(c);
     uint8_t* text = F<uint8_t*>(c, 0x38);
     memset(text, 0, 0x200);
@@ -1907,9 +1908,9 @@ RT3_NOINLINE int32_t __fastcall Lzss_Pack(StreamFn read, StreamFn write) {
         F<int32_t>(c, 0) += pending;
         for (int32_t k = 0; k < pending; ++k) PutA(c[0x3c + k], write);
     }
-    if (hook::Global<int32_t>(0xda7dd4) > 0) {
-        write((uint8_t*)0xd97dc8, hook::Global<int32_t>(0xda7dd4));
-        hook::Global<int32_t>(0xda7dd4) = 0;
+    if (g_da7dd4 > 0) {
+        write((uint8_t*)0xd97dc8, g_da7dd4);
+        g_da7dd4 = 0;
     }
     static const uint32_t bufs[] = { 0x24, 0x28, 0x2c, 0x38 };
     for (uint32_t off : bufs)
@@ -1951,15 +1952,15 @@ RT3_REPLACE(0x56c370, StreamB_Read);
 RT3_NOINLINE int32_t __fastcall Rle_Pack(StreamFn read, StreamFn write) {
     if (!read || !write) return -3;
     int32_t n = read((uint8_t*)0xdafde8, 0x8000);
-    hook::Global<int32_t>(0xdb7de8) = n;
+    g_db7de8 = n;
     if (n <= 0) return -2;
-    hook::Global<int32_t>(0xda7de8) = 0;
-    hook::Global<int32_t>(0xda7de4) = 0;
-    hook::Global<int32_t>(0xdafde4) = 0x10;
-    hook::Global<int32_t>(0xda7de0) = 0xbabe;
-    hook::Global<int32_t>(0xda7dec) = 0x920010;
-    hook::Global<uint8_t*>(0xdafde0) = (uint8_t*)0xdafde8;
-    hook::Global<uint8_t*>(0xdb7dec) = (uint8_t*)0xda7de0;
+    g_da7de8 = 0;
+    g_da7de4 = 0;
+    g_dafde4 = 0x10;
+    g_da7de0 = 0xbabe;
+    g_da7dec = 0x920010;
+    g_dafde0 = (uint8_t*)0xdafde8;
+    g_db7dec = (uint8_t*)0xda7de0;
     uint8_t buf[0x100];
     int32_t len = StreamB_ReadImpl(0x100, read, buf);
     while (len > 0) {
@@ -1990,9 +1991,9 @@ RT3_NOINLINE int32_t __fastcall Rle_Pack(StreamFn read, StreamFn write) {
             len += StreamB_ReadImpl(j, read, buf + 0x100 - j) - j;
         }
     }
-    if (hook::Global<int32_t>(0xdafde4) > 0) {
-        write((uint8_t*)0xda7de0, hook::Global<int32_t>(0xdafde4));
-        hook::Global<int32_t>(0xdafde4) = 0;
+    if (g_dafde4 > 0) {
+        write((uint8_t*)0xda7de0, g_dafde4);
+        g_dafde4 = 0;
     }
     return 1;
 }
@@ -2003,13 +2004,13 @@ RT3_REPLACE(0x56c3e0, Rle_Pack);
 RT3_NOINLINE int32_t __fastcall Rle_Unpack(StreamFn read, StreamFn write) {
     if (!read || !write) return -3;
     int32_t n = read((uint8_t*)0xdafde8, 0x8000);
-    hook::Global<int32_t>(0xdb7de8) = n;
+    g_db7de8 = n;
     if (n <= 0) return -2;
-    if (hook::Global<uint16_t>(0xdafdf4) != 0x10 || hook::Global<uint16_t>(0xdafdf6) != 0x92) return -4;
-    hook::Global<int32_t>(0xdb7de8) = n - 0x10;
-    hook::Global<uint8_t*>(0xdafde0) = (uint8_t*)0xdafdf8;
-    hook::Global<int32_t>(0xdafde4) = 0;
-    hook::Global<uint8_t*>(0xdb7dec) = (uint8_t*)0xda7de0;
+    if (g_dafdf4 != 0x10 || g_dafdf6 != 0x92) return -4;
+    g_db7de8 = n - 0x10;
+    g_dafde0 = (uint8_t*)0xdafdf8;
+    g_dafde4 = 0;
+    g_db7dec = (uint8_t*)0xda7de0;
     uint8_t buf[0x100];
     int32_t len = StreamB_ReadImpl(0x100, read, buf);
     while (len > 0) {
@@ -2029,9 +2030,9 @@ RT3_NOINLINE int32_t __fastcall Rle_Unpack(StreamFn read, StreamFn write) {
             len += StreamB_ReadImpl(m, read, buf + 0x100 - m) - m;
         }
     }
-    if (hook::Global<int32_t>(0xdafde4) > 0) {
-        write((uint8_t*)0xda7de0, hook::Global<int32_t>(0xdafde4));
-        hook::Global<int32_t>(0xdafde4) = 0;
+    if (g_dafde4 > 0) {
+        write((uint8_t*)0xda7de0, g_dafde4);
+        g_dafde4 = 0;
     }
     return 1;
 }

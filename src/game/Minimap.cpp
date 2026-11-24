@@ -8,6 +8,7 @@
 #include <math.h>
 #include <initializer_list>
 #include "hook/hook.h"
+#include "core/globals.h"
 #include "game/collection.h"
 #include "core/crt.h"
 #include "core/stream.h"
@@ -248,7 +249,7 @@ static inline void* ExeMalloc(size_t n) { return ((void*(__cdecl*)(size_t))0x5a1
 // kind's init, then an `n`-byte record read from the pack's current position.
 static uint8_t* Widget_ReadRecord(uint8_t* w, int32_t n) {
     uint8_t* rec = (uint8_t*)ExeMalloc(n);
-    NameTable_Read(hook::Global<uint8_t*>(0x6d4020), 0, rec, n);
+    NameTable_Read(g_pack, 0, rec, n);
     Widget_LoadBase(w, 0, rec);
     return rec;
 }
@@ -276,9 +277,9 @@ void WidgetClickCb453(uint8_t* w, uint32_t* msg) {
 // centred on the city: x maps the city's cell x over [+0xc3, +0xcb] onto the
 // width +0x13, y goes through Obj_MapY.
 RT3_NOINLINE void __fastcall MapWidget_DrawCityMarker(uint8_t* w) {
-    Collection* cities = hook::Global<Collection*>(0x62bae0);
+    Collection* cities = g_cities;
     if (!Collection_IsValid(cities, 0, F<uint32_t>(w, 0x11b))) return;
-    void* city = Collection_Get(hook::Global<Collection*>(0x62bae0), 0, F<uint32_t>(w, 0x11b));
+    void* city = Collection_Get(g_cities, 0, F<uint32_t>(w, 0x11b));
     float cx = (float)Obj_CellX(city);
     float cy = (float)Obj_CellY(city);
     uint8_t* g = (uint8_t*)Table_Entry(F<uint8_t*>(w, 0xaf), 0, 2);
@@ -311,11 +312,11 @@ RT3_NOINLINE void __fastcall Minimap_DrawRouteMarkers(uint8_t* m) {
     else
         return;
     if (!list) return;
-    Engine_ResetTextureQueue(hook::Global<void*>(0x6d4024));
+    Engine_ResetTextureQueue(hook::As<void*>(g_engine));
     int32_t x0 = F<int32_t>(m, 0xc3), y0 = F<int32_t>(m, 0xc7);
     float bx0 = (float)(x0 + 2), by0 = (float)(y0 + 2), bx1 = (float)(F<int32_t>(m, 0xcb) - 2), by1 = (float)(F<int32_t>(m, 0xcf) - 2);
     float wf = (float)(F<int32_t>(m, 0xcb) - x0);
-    uint8_t* map = hook::Global<uint8_t*>(0x62c120);
+    uint8_t* map = g_map;
     float mw = (float)F<int32_t>(map, 0x2155);
     float sx = (float)((double)wf / mw);
     float hf = (float)(F<int32_t>(m, 0xcf) - y0);
@@ -340,10 +341,10 @@ RT3_NOINLINE void __fastcall Minimap_DrawRouteMarkers(uint8_t* m) {
     auto image = [&](int32_t i) { return (uint8_t*)(uintptr_t)Table_Entry(F<uint8_t*>(m, 0xaf), 0, i); };
     for (int32_t pass = 0; pass < 6; ++pass) {
         if (pass == 2) {
-            Engine_ResetTextureQueue(hook::Global<void*>(0x6d4024));
+            Engine_ResetTextureQueue(hook::As<void*>(g_engine));
             for (int32_t i = 0; i < F<int32_t>(list, 4); ++i) {
                 if (!(((int8_t*)Array33_At(list, 0, i))[0x28] < 0)) continue;
-                void* node = Collection_Get(hook::Global<Collection*>(0x6cfca8), 0, F<uint32_t>(Array33_At(list, 0, i), 0x2b));
+                void* node = Collection_Get(g_tracks, 0, F<uint32_t>(Array33_At(list, 0, i), 0x2b));
                 float px = Obj_CenterCellX(node);
                 float pz = Obj_CenterCellY(node);
                 if (!inBox(px, pz)) continue;
@@ -351,9 +352,9 @@ RT3_NOINLINE void __fastcall Minimap_DrawRouteMarkers(uint8_t* m) {
             }
             continue;
         }
-        Collection* stations = hook::Global<Collection*>(0x6cec20);
-        for (int32_t j = 0; j < Collection_Count(hook::Global<Collection*>(0x6cec20)); ++j) {
-            stations = hook::Global<Collection*>(0x6cec20);
+        Collection* stations = g_stations;
+        for (int32_t j = 0; j < Collection_Count(g_stations); ++j) {
+            stations = g_stations;
             uint8_t* st = (uint8_t*)Collection_Get(stations, 0, Collection_IdAt(stations, 0, j, 0));
             if ((pass == 0 || pass == 3) && Obj_BuildingStateActive(st)) continue;
             if ((pass == 1 || pass == 4) && !Obj_BuildingStateActive(st)) continue;
@@ -363,7 +364,7 @@ RT3_NOINLINE void __fastcall Minimap_DrawRouteMarkers(uint8_t* m) {
             float pz = Obj_NodeCenterY(st);
             if (!inBox(px, pz)) continue;
             int32_t id = 0x14;
-            int32_t mine = Obj_Get21(hook::Global<uint8_t*>(0x6cec78));
+            int32_t mine = Obj_Get21(g_world);
             if (Obj_BuildingValue(st) != mine) id = 0x28;
             bool hit = false;
             for (int32_t o = 0; o < F<int32_t>(list, 4); ++o)
@@ -383,8 +384,8 @@ RT3_NOINLINE void __fastcall Minimap_DrawRouteMarkers(uint8_t* m) {
             marker(image(id), own ? 0x40000000 : 0x3f800000, px, pz);
         }
     }
-    for (int32_t j = 0; j < Collection_Count(hook::Global<Collection*>(0x6cfcbc)); ++j) {
-        Collection* trains = hook::Global<Collection*>(0x6cfcbc);
+    for (int32_t j = 0; j < Collection_Count(g_trains); ++j) {
+        Collection* trains = g_trains;
         uint8_t* t = (uint8_t*)Collection_Get(trains, 0, Collection_IdAt(trains, 0, j, 0));
         if (Obj_ByteF9(t) <= 0) continue;
         float px, pz;
@@ -403,9 +404,9 @@ RT3_NOINLINE void __fastcall Minimap_DrawRouteMarkers(uint8_t* m) {
         float gx = (float)((double)gxT - Slider_StepA(img) * r * D(0x5c8628));
         Glyph_Queue(img, 0, gx, gy, 0x3f800000, BitsF(rb), BitsF(rb), 0xffffffff, 0, 1, 0, 0.0f, 0.0f, 1.0f, 1.0f);
     }
-    if (!F<uint32_t>(m, 0x113) || !Collection_IsValid(hook::Global<Collection*>(0x6cfca8), 0, F<uint32_t>(m, 0x113))) return;
+    if (!F<uint32_t>(m, 0x113) || !Collection_IsValid(g_tracks, 0, F<uint32_t>(m, 0x113))) return;
     float px, pz;
-    Obj_CenterCell(Collection_Get(hook::Global<Collection*>(0x6cfca8), 0, F<uint32_t>(m, 0x113)), 0, &px, &pz);
+    Obj_CenterCell(Collection_Get(g_tracks, 0, F<uint32_t>(m, 0x113)), 0, &px, &pz);
     if (!inBox(px, pz)) return;
     marker(image(0x3c), 0x40000000, px, pz);
 }
@@ -417,7 +418,7 @@ RT3_REPLACE(0x478330, Minimap_DrawRouteMarkers);
 // first move also refreshes the view, slot 4); the frame callback
 // (0x6d4004) runs every 20 ms or when the queue is empty.
 RT3_NOINLINE void __fastcall Minimap_DragCamera(uint8_t* o) {
-    uint8_t* in = hook::Global<uint8_t*>(0x6d4018);
+    uint8_t* in = g_input;
     InputEvent e;
     e.v[9] = F<uint32_t>(in, 0xa94);
     e.v[10] = F<uint32_t>(in, 0xa98);
@@ -429,24 +430,24 @@ RT3_NOINLINE void __fastcall Minimap_DragCamera(uint8_t* o) {
         if (type == 2) {
             float ox, oy;
             Minimap_WorldToPixel(o, 0, *(float*)&e.v[9], *(float*)&e.v[10], &ox, &oy);
-            World_SetFollow(hook::Global<uint8_t*>(0x6cec78), 0, 0, nullptr);
-            Camera_MoveToCell(hook::Global<uint8_t*>(0x62be68), 0, ox, oy);
+            World_SetFollow(g_world, 0, 0, nullptr);
+            Camera_MoveToCell(g_62be68, 0, ox, oy);
             if (first) {
-                uint8_t* cam = hook::Global<uint8_t*>(0x62be68);
+                uint8_t* cam = g_62be68;
                 first = 0;
                 ((void(__fastcall*)(uint8_t*))(*(void***)cam)[4])(cam);
             }
         }
         Engine_Nop();
         InputEvent tmp;
-        e = *Input_NextEvent(hook::Global<uint8_t*>(0x6d4018), 0, &tmp);
+        e = *Input_NextEvent(g_input, 0, &tmp);
         type = e.v[0];
         if (ClockMs() - last > 20 || !type) {
             if (auto fn = hook::Global<void(__cdecl*)()>(0x6d4004)) fn();
             last = ClockMs();
         }
     } while (type != 7);
-    Input_Unblock(hook::Global<uint8_t*>(0x6d4018));
+    Input_Unblock(g_input);
 }
 RT3_REPLACE(0x478cb0, Minimap_DragCamera);
 
@@ -459,7 +460,7 @@ RT3_REPLACE(0x478cb0, Minimap_DragCamera);
 RT3_NOINLINE void __fastcall Overview_FitArea(uint8_t* o) {
     uint32_t flags = F<uint32_t>(o, 0x33);
     if (!(flags & 0x2030000)) return;
-    auto map = []() { return hook::Global<uint8_t*>(0x62c120); };
+    auto map = []() { return g_map; };
     int32_t& x0 = F<int32_t>(o, 0xb3);
     int32_t& y0 = F<int32_t>(o, 0xb7);
     int32_t& x1 = F<int32_t>(o, 0xbb);
@@ -485,11 +486,11 @@ RT3_NOINLINE void __fastcall Overview_FitArea(uint8_t* o) {
                 if (y > y1) y1 = y;
             }
         int32_t near = 0;
-        Collection* stations = hook::Global<Collection*>(0x6cec20);
-        for (int32_t i = 0; i < Collection_Count(hook::Global<Collection*>(0x6cec20)); ++i) {
-            stations = hook::Global<Collection*>(0x6cec20);
+        Collection* stations = g_stations;
+        for (int32_t i = 0; i < Collection_Count(g_stations); ++i) {
+            stations = g_stations;
             uint8_t* st = (uint8_t*)Collection_Get(stations, 0, Collection_IdAt(stations, 0, i, 0));
-            int32_t me = Obj_Get21(hook::Global<uint8_t*>(0x6cec78));
+            int32_t me = Obj_Get21(g_world);
             if (Obj_BuildingValue(st) != me) continue;
             float d = (float)Distance2D((float)Obj_BuildingCellX(st), (float)Obj_BuildingCellY(st), (float)x0, (float)y0);
             if (d < Fl(0x5c8898)) near = 1;
@@ -589,22 +590,22 @@ RT3_NOINLINE void __fastcall Overview_UpdateView(uint8_t* o) {
     int32_t vx0 = Ftol(cx - half), vx1 = Ftol(half + cx);
     double cy = (double)F<int32_t>(o, 0xe3);
     int32_t vy0 = Ftol(cy - half), vy1 = Ftol(half + cy);
-    uint8_t* m = hook::Global<uint8_t*>(0x62c120);
+    uint8_t* m = g_map;
     ClampSpan(vx0, vx1, F<int32_t>(m, 0x2155));
-    ClampSpan(vy0, vy1, F<int32_t>(hook::Global<uint8_t*>(0x62c120), 0x2159));
+    ClampSpan(vy0, vy1, F<int32_t>(g_map, 0x2159));
     F<int32_t>(o, 0xc3) = vx0;
     F<int32_t>(o, 0xcb) = vx1;
     F<int32_t>(o, 0xc7) = vy0;
     F<int32_t>(o, 0xcf) = vy1;
-    m = hook::Global<uint8_t*>(0x62c120);
+    m = g_map;
     float sx = (float)(((double)F<float>(o, 0x103) - F<float>(o, 0xff)) / (float)F<int32_t>(m, 0x2155));
     float sy = (float)(((double)F<float>(o, 0x10b) - F<float>(o, 0x107)) / (float)F<int32_t>(m, 0x2159));
     float u0 = (float)((double)(float)vx0 * sx + F<float>(o, 0xff));
     F<float>(o, 0xef) = u0;
     float u1 = (float)((double)(float)vx1 * sx + F<float>(o, 0xff));
     F<float>(o, 0xf3) = u1;
-    F<float>(o, 0xfb) = (float)((double)(float)(F<int32_t>(hook::Global<uint8_t*>(0x62c120), 0x2159) - vy0 - 1) * sy + F<float>(o, 0x107));
-    F<float>(o, 0xf7) = (float)((double)(float)(F<int32_t>(hook::Global<uint8_t*>(0x62c120), 0x2159) - vy1 - 1) * sy + F<float>(o, 0x107));
+    F<float>(o, 0xfb) = (float)((double)(float)(F<int32_t>(g_map, 0x2159) - vy0 - 1) * sy + F<float>(o, 0x107));
+    F<float>(o, 0xf7) = (float)((double)(float)(F<int32_t>(g_map, 0x2159) - vy1 - 1) * sy + F<float>(o, 0x107));
     F<float>(o, 0xef) = (float)(D(0x5c8678) > u0 ? 0.001 : (double)u0);
     F<float>(o, 0xf3) = (float)(D(0x5caa68) < u1 ? 0.999 : (double)u1);
     F<float>(o, 0xf7) = (float)(F<float>(o, 0xf7) < D(0x5c8678) ? 0.001 : (double)F<float>(o, 0xf7));
@@ -631,9 +632,9 @@ RT3_NOINLINE int32_t __fastcall Minimap_PickNearest(uint8_t* o, int, float x, fl
     *building = 0;
     *other = 0;
     float r = (float)((double)(F<int32_t>(o, 0xcb) - F<int32_t>(o, 0xc3)) / D(0x5cab00) * D(0x5c85c8));
-    int32_t all = F<int32_t>(hook::Global<uint8_t*>(0x6d4018), 0xa8c) & 4;
-    for (int32_t i = 0; i < Collection_Count(hook::Global<Collection*>(0x6cec20)); ++i) {
-        Collection* c = hook::Global<Collection*>(0x6cec20);
+    int32_t all = F<int32_t>(g_input, 0xa8c) & 4;
+    for (int32_t i = 0; i < Collection_Count(g_stations); ++i) {
+        Collection* c = g_stations;
         uint8_t* s = (uint8_t*)Collection_Get(c, 0, Collection_IdAt(c, 0, i, 0));
         float cx = Obj_NodeCenterX(s);
         float cy = Obj_NodeCenterY(s);
@@ -648,8 +649,8 @@ RT3_NOINLINE int32_t __fastcall Minimap_PickNearest(uint8_t* o, int, float x, fl
     if (*building) return 1;
     r = (float)((double)r * D(0x5c8750));
     if (all) {
-        for (int32_t i = 0; i < Collection_Count(hook::Global<Collection*>(0x6cfca8)); ++i) {
-            Collection* c = hook::Global<Collection*>(0x6cfca8);
+        for (int32_t i = 0; i < Collection_Count(g_tracks); ++i) {
+            Collection* c = g_tracks;
             uint8_t* t = (uint8_t*)Collection_Get(c, 0, Collection_IdAt(c, 0, i, 0));
             float cx, cy;
             Obj_CenterCell(t, 0, &cx, &cy);
@@ -692,10 +693,10 @@ RT3_NOINLINE void __fastcall Minimap_AddOrder(uint8_t* o, int, float x, float y)
         return;
     }
     if (!list) return;
-    Collection* pieces = hook::Global<Collection*>(0x6cfca8);
+    Collection* pieces = g_tracks;
     if ((F<uint32_t>(o, 0x33) & 0x10000) && SelectedTrain()) {
         uint32_t at = node;
-        if (station) at = F<uint32_t>(Collection_Get(hook::Global<Collection*>(0x6cec20), 0, station), 8);
+        if (station) at = F<uint32_t>(Collection_Get(g_stations, 0, station), 8);
         uint32_t trk = F<uint32_t>(sel(), 0x49);
         if (Collection_IsValid(pieces, 0, at) && Collection_IsValid(pieces, 0, trk) && !Node_SameComponent((uint8_t*)Collection_Get(pieces, 0, at), 0, trk)) {
             Dialog_RunMessage(GetString(station ? 0xc12 : 0xc13), 1, 0xbf800000, 0xbf800000, 0, nullptr, 0, 0.0f, 0, 0x1e, 0, nullptr, nullptr, 0, 0, nullptr, 0);
@@ -718,7 +719,7 @@ RT3_NOINLINE void __fastcall Minimap_AddOrder(uint8_t* o, int, float x, float y)
     F<uint32_t>(e, 0x2f) = 0x3e395810;
     if ((F<uint32_t>(o, 0x33) & 0x10000) && SelectedTrain()) {
         int32_t company = F<int32_t>(sel(), 0x51);
-        if (company != Obj_Get21(hook::Global<void*>(0x6cec78))) {
+        if (company != Obj_Get21(hook::As<void*>(g_world))) {
             uint8_t* co = (uint8_t*)Train_Company(sel());
             char buf[0x200];
             FormatText(buf, GetString(0x250), co ? (const char*)co + 4 : (const char*)0x5c87a8, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
@@ -726,19 +727,19 @@ RT3_NOINLINE void __fastcall Minimap_AddOrder(uint8_t* o, int, float x, float y)
             return;
         }
     }
-    if (IsMultiplayer() && !hook::Global<uint32_t>(0x6d3ae4)) {
+    if (IsMultiplayer() && !hook::As<uint32_t>(g_6d3ae4)) {
         uint8_t* msg = ((uint8_t*(__cdecl*)(size_t))0x5a125d)(0x3b);
         F<int32_t>(msg, 0) = Global6d40e4();
         F<int32_t>(msg, 4) = SelectedTrainId();
         memcpy(msg + 8, e, 0x33);
-        Net_SendToHost(hook::Global<uint8_t*>(0x6cd8d8), 0, 0x41, 0x3b, msg);
+        Net_SendToHost(g_session, 0, 0x41, 0x3b, msg);
         ((void(__cdecl*)(void*))0x5a1145)(msg);
     } else {
         int32_t idx = (int32_t)list[1];
-        if (hook::Global<uint8_t*>(0x6d4018)[0xa8c] & 3) {
-            uint8_t* w = hook::Global<uint32_t>(0x6d3ae4)
-                             ? Widget_FindChild(hook::Global<uint8_t*>(0x6d3ac8), 0, 0x2aff)
-                             : Widget_FindChild(hook::Global<uint8_t*>(0x6d3b20), 0, hook::Global<uint32_t>(0x6d3b24) ? 0x65a3 : 0x65a4);
+        if (g_input[0xa8c] & 3) {
+            uint8_t* w = hook::As<uint32_t>(g_6d3ae4)
+                             ? Widget_FindChild(g_6d3ac8, 0, 0x2aff)
+                             : Widget_FindChild(g_6d3b20, 0, hook::As<uint32_t>(g_6d3b24) ? 0x65a3 : 0x65a4);
             idx = F<int32_t>(w, 0x1d6);
         }
         if (idx < 0) idx = 0;
@@ -772,34 +773,34 @@ RT3_REPLACE(0x479d30, Minimap_AddOrder);
 RT3_NOINLINE void __fastcall Minimap_Render(uint32_t* dst, int32_t w, int32_t h, uint32_t flags, int32_t player, int32_t haveTex, uint32_t* tex, int32_t srcW,
                                int32_t srcH, float* u0, float* u1, float* v0, float* v1) {
     int32_t madeTex = 0;
-    bool editor = hook::Global<int32_t>(0x6ceba0) != 0;
+    bool editor = g_6ceba0 != 0;
     if (editor) {
-        Render_GetSize4((uint8_t*)Engine_Get1C(hook::Global<void*>(0x6d4024)), 0, &srcW, &srcH);
+        Render_GetSize4((uint8_t*)Engine_Get1C(hook::As<void*>(g_engine)), 0, &srcW, &srcH);
     } else if (!haveTex) {
         haveTex = 1;
         madeTex = 1;
-        tex = Terrain_ExtractTexture((uint8_t*)Engine_Get1C(hook::Global<void*>(0x6d4024)), 0, 0.0f, 0.0f, 1.0f, 1.0f, nullptr, nullptr);
-        Render_GetSize4((uint8_t*)Engine_Get1C(hook::Global<void*>(0x6d4024)), 0, &srcW, &srcH);
+        tex = Terrain_ExtractTexture((uint8_t*)Engine_Get1C(hook::As<void*>(g_engine)), 0, 0.0f, 0.0f, 1.0f, 1.0f, nullptr, nullptr);
+        Render_GetSize4((uint8_t*)Engine_Get1C(hook::As<void*>(g_engine)), 0, &srcW, &srcH);
     }
     if (!tex) {
-        if (!hook::Global<int32_t>(0x6ceba0)) return;
-    } else if (!hook::Global<int32_t>(0x6ceba0)) {
+        if (!g_6ceba0) return;
+    } else if (!g_6ceba0) {
         Mem_Fill32(dst, 0xff000000, (uint32_t)(w * h));
     }
-    uint8_t* map = hook::Global<uint8_t*>(0x62c120);
+    uint8_t* map = g_map;
     if (!map) return;
     uint32_t political = flags & 0x400000;
     uint32_t colours[100], owners[100];
     if (political) {
         memset(colours, 0, sizeof colours);
         memset(owners, 0, sizeof owners);
-        for (int32_t i = 0; i < Collection_Count(hook::Global<Collection*>(0x6cfc9c)); ++i) {
-            uint32_t* r = (uint32_t*)Collection_Get(hook::Global<Collection*>(0x6cfc9c), 0, Collection_IdAt(hook::Global<Collection*>(0x6cfc9c), 0, (uint32_t)i, 0));
+        for (int32_t i = 0; i < Collection_Count(g_territories); ++i) {
+            uint32_t* r = (uint32_t*)Collection_Get(g_territories, 0, Collection_IdAt(g_territories, 0, (uint32_t)i, 0));
             owners[r[0]] = F<int32_t>(r, 0x31) ? r[0] : F<uint32_t>(r, 0x35);
         }
         void* mine = SelectedCompany();
-        for (int32_t i = 0; i < Collection_Count(hook::Global<Collection*>(0x6cfc9c)); ++i) {
-            uint32_t id = Collection_IdAt(hook::Global<Collection*>(0x6cfc9c), 0, (uint32_t)i, 0);
+        for (int32_t i = 0; i < Collection_Count(g_territories); ++i) {
+            uint32_t id = Collection_IdAt(g_territories, 0, (uint32_t)i, 0);
             uint32_t mask = owners[id] != (uint32_t)player ? 0 : 0x323232;
             if (mine && Company_EntryFlag(mine, 0, (int32_t)owners[id])) colours[id] = mask + 0xff28b111;
             else colours[id] = mask + 0xffc7808d;
@@ -835,8 +836,8 @@ RT3_NOINLINE void __fastcall Minimap_Render(uint32_t* dst, int32_t w, int32_t h,
     }
     float fx = 0, fy = 0, cb = 0, cg = 0, cr = 0;
     if (!haveTex) {
-        if (!hook::Global<int32_t>(0x6ceba0)) goto done;
-    } else if (!hook::Global<int32_t>(0x6ceba0)) {
+        if (!g_6ceba0) goto done;
+    } else if (!g_6ceba0) {
         int32_t y = h - offY - 1;
         if (y > offY) {
             int32_t row = y * w;
@@ -847,12 +848,12 @@ RT3_NOINLINE void __fastcall Minimap_Render(uint32_t* dst, int32_t w, int32_t h,
                     int32_t mx = Ftol(fx);
                     if (mx >= tw) break;
                     if (political) {
-                        if (hook::Global<int32_t>(0x6ceba0)) goto colour;
+                        if (g_6ceba0) goto colour;
                         uint32_t c;
-                        if (Terrain_KindIs1Or4(hook::Global<uint8_t*>(0x62c120), 0, mx, my)) c = 0xff8fa9ce;
-                        else if (Terrain_KindIs3Or5(hook::Global<uint8_t*>(0x62c120), 0, mx, my)) c = 0xff7b95ba;
+                        if (Terrain_KindIs1Or4(g_map, 0, mx, my)) c = 0xff8fa9ce;
+                        else if (Terrain_KindIs3Or5(g_map, 0, mx, my)) c = 0xff7b95ba;
                         else {
-                            uint8_t* m = hook::Global<uint8_t*>(0x62c120);
+                            uint8_t* m = g_map;
                             int32_t mw = F<int32_t>(m, 0x2155);
                             const uint8_t* cell = F<uint8_t*>(m, 0x2131) + mw * my;
                             uint32_t o = owners[cell[mx] >> 3];
@@ -862,21 +863,21 @@ RT3_NOINLINE void __fastcall Minimap_Render(uint32_t* dst, int32_t w, int32_t h,
                         dst[row + x] = c;
                         goto next;
                     }
-                    if (hook::Global<int32_t>(0x6ceba0)) goto colour;
-                    if (Terrain_KindIs1Or4(hook::Global<uint8_t*>(0x62c120), 0, mx, my)) {
+                    if (g_6ceba0) goto colour;
+                    if (Terrain_KindIs1Or4(g_map, 0, mx, my)) {
                         cr = 41.0f;
                         cg = 64.0f;
                         cb = 96.0f;
-                    } else if (Terrain_KindIs3Or5(hook::Global<uint8_t*>(0x62c120), 0, mx, my) ||
-                               Map_Bit9NearWater(hook::Global<uint8_t*>(0x62c120), 0, mx, my)) {
+                    } else if (Terrain_KindIs3Or5(g_map, 0, mx, my) ||
+                               Map_Bit9NearWater(g_map, 0, mx, my)) {
                         cr = 31.0f;
                         cg = 59.0f;
                         cb = 86.0f;
                     } else {
-                        int32_t h0 = Ftol(Map_GridFloat(hook::Global<uint8_t*>(0x62c120), 0, mx, my));
+                        int32_t h0 = Ftol(Map_GridFloat(g_map, 0, mx, my));
                         int32_t d;
-                        if (mx > 0 && my > 0) d = Ftol(Map_GridFloat(hook::Global<uint8_t*>(0x62c120), 0, mx - 1, my - 1)) - h0 + 0x7f;
-                        else d = h0 - Ftol(Map_GridFloat(hook::Global<uint8_t*>(0x62c120), 0, mx + 1, my + 1)) + 0x7f;
+                        if (mx > 0 && my > 0) d = Ftol(Map_GridFloat(g_map, 0, mx - 1, my - 1)) - h0 + 0x7f;
+                        else d = h0 - Ftol(Map_GridFloat(g_map, 0, mx + 1, my + 1)) + 0x7f;
                         if (d < 0) d = 0;
                         else if (d > 0xff) d = 0xff;
                         float shade = (float)((double)d / D(0x5ca9e8));
@@ -925,7 +926,7 @@ RT3_NOINLINE void __fastcall Minimap_Render(uint32_t* dst, int32_t w, int32_t h,
     {
         bool zoomed = scaleX > Fl(0x5c85b4) || scaleY > Fl(0x5c85b4);
         int32_t total = w * h;
-        uint8_t* m = hook::Global<uint8_t*>(0x62c120);
+        uint8_t* m = g_map;
         int32_t mh = F<int32_t>(m, 0x2159), mw = F<int32_t>(m, 0x2155);
         int32_t lastRow = mh - 1;
         uint8_t* buf = nullptr;
@@ -933,15 +934,15 @@ RT3_NOINLINE void __fastcall Minimap_Render(uint32_t* dst, int32_t w, int32_t h,
             buf = ((uint8_t*(__cdecl*)(uint32_t))0x5a125d)((uint32_t)(mw * mh));
             memset(buf, 0, (size_t)(mw * mh));
         }
-        const uint8_t* cell = F<uint8_t*>(hook::Global<uint8_t*>(0x62c120), 0x2131);
+        const uint8_t* cell = F<uint8_t*>(g_map, 0x2131);
         if (mh > 0) {
             int32_t flip = mh - 1;
             uint8_t* brow = buf + (mh - 1) * mw;
             for (int32_t y = 0; y < mh; ++y, brow -= mw, --flip) {
                 for (int32_t x = 0; x < mw; ++x, ++cell) {
                     int32_t owner, dbl;
-                    if (!(*cell & 6) || !Map_TrackOwnerAt(hook::Global<void*>(0x6cfca8), 0, x, y, &owner, &dbl)) continue;
-                    int32_t me = Obj_Get21(hook::Global<void*>(0x6cec78));
+                    if (!(*cell & 6) || !Map_TrackOwnerAt(hook::As<void*>(g_tracks), 0, x, y, &owner, &dbl)) continue;
+                    int32_t me = Obj_Get21(hook::As<void*>(g_world));
                     int32_t kind = (owner == me ? 0 : 2) + (dbl != 0 ? 1 : 0) + 1;
                     if (zoomed) {
                         brow[x] = (uint8_t)kind;
@@ -993,8 +994,8 @@ RT3_NOINLINE void __fastcall Minimap_Render(uint32_t* dst, int32_t w, int32_t h,
             }
         }
         if (buf) ((void(__cdecl*)(void*))0x5a1145)(buf);
-        for (int32_t i = 0; i < Collection_Count(hook::Global<Collection*>(0x62bae0)); ++i) {
-            uint8_t* s = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62bae0), 0, Collection_IdAt(hook::Global<Collection*>(0x62bae0), 0, (uint32_t)i, 0));
+        for (int32_t i = 0; i < Collection_Count(g_cities); ++i) {
+            uint8_t* s = (uint8_t*)Collection_Get(g_cities, 0, Collection_IdAt(g_cities, 0, (uint32_t)i, 0));
             if (F<int32_t>(s, 0x23e)) continue;
             float fo = (float)offX;
             int32_t px = Ftol(Obj_CellX(s) * scaleX + fo);
@@ -1008,7 +1009,7 @@ RT3_NOINLINE void __fastcall Minimap_Render(uint32_t* dst, int32_t w, int32_t h,
         }
     }
 done:
-    if (madeTex) Terrain_CommitTexture((uint8_t*)Engine_Get1C(hook::Global<void*>(0x6d4024)), 0, 1);
+    if (madeTex) Terrain_CommitTexture((uint8_t*)Engine_Get1C(hook::As<void*>(g_engine)), 0, 1);
 }
 
 // The original is fastcall with dst in ECX and w in EDX.
@@ -1040,7 +1041,7 @@ RT3_REPLACE(0x47b0d0, MapView_Construct);
 // texture (+0xab).
 void __fastcall MapWidget_Destruct(uint8_t* w) {
     F<uint32_t>(w, 0) = 0x5ce840;
-    if (F<void*>(w, 0xaf)) Pack_Release(hook::Global<uint8_t*>(0x6d4020), 0, F<void*>(w, 0xaf));
+    if (F<void*>(w, 0xaf)) Pack_Release(g_pack, 0, F<void*>(w, 0xaf));
     F<void*>(w, 0xaf) = nullptr;
     if (uint8_t* t = F<uint8_t*>(w, 0xab)) {
         Texture_Destroy(t);
@@ -1057,7 +1058,7 @@ RT3_REPLACE(0x47b110, MapWidget_Destruct);
 // the route markers (modes 0x30000), the city marker (0x2000000) or the view
 // box unless locked (0x400000), the debug frames, and ends the scissor.
 void __fastcall MinimapWidget_Draw(uint8_t* w) {
-    if (!Widget_IsVisible(w) || !hook::Global<uint8_t*>(0x62c120)) return;
+    if (!Widget_IsVisible(w) || !g_map) return;
     uint8_t* p = F<uint8_t*>(w, 0x86);
     float v = (float)((double)F<float>(w, 0xb) + F<float>(p, 5));
     const float x0 = Fl(0x5c8598) > v ? 0.0f : v;
@@ -1069,7 +1070,7 @@ void __fastcall MinimapWidget_Draw(uint8_t* w) {
     const float y1 = Fl(0x5c85b4) < v ? 1.0f : v;
     bool clip = false;
     if (!(x0 >= x1) && !(y0 >= y1)) {
-        Engine_QueueType5(hook::Global<void*>(0x6d4024), 0, Bits(x0), Bits(y0), Bits(x1), Bits(y1));
+        Engine_QueueType5(hook::As<void*>(g_engine), 0, Bits(x0), Bits(y0), Bits(x1), Bits(y1));
         clip = true;
     }
     Overview_UpdateView(w);
@@ -1079,7 +1080,7 @@ void __fastcall MinimapWidget_Draw(uint8_t* w) {
     const float sx1 = (float)((double)F<float>(w, 0xb) + F<float>(p, 5) + F<float>(w, 0x13));
     const float sy0 = (float)((double)F<float>(p, 9) + F<float>(w, 0xf));
     const float sx0 = (float)((double)F<float>(w, 0xb) + F<float>(p, 5));
-    Engine_QueueSprite(hook::Global<void*>(0x6d4024), 0, Bits(sx0), Bits(sy0), Bits(sx1), Bits(sy1), Bits(fade), 0xffffffff, F<uint32_t>(w, 0xab),
+    Engine_QueueSprite(hook::As<void*>(g_engine), 0, Bits(sx0), Bits(sy0), Bits(sx1), Bits(sy1), Bits(fade), 0xffffffff, F<uint32_t>(w, 0xab),
                        F<uint32_t>(w, 0xef), F<uint32_t>(w, 0xf7), F<uint32_t>(w, 0xf3), F<uint32_t>(w, 0xfb), 0x3f800000);
     const uint32_t style = F<uint32_t>(w, 0x33);
     if (!(style & 0x400000)) {
@@ -1090,7 +1091,7 @@ void __fastcall MinimapWidget_Draw(uint8_t* w) {
         else
             MiniMap_DrawView(w);
     }
-    if (F<uint32_t>(hook::Global<uint8_t*>(0x6d401c), 0xc79) & F<uint16_t>(w, 6)) {
+    if (F<uint32_t>(g_windowManager, 0xc79) & F<uint16_t>(w, 6)) {
         p = F<uint8_t*>(w, 0x86);
         Ui_FrameRect(0xffffffff, 0, (float)((double)F<float>(p, 5) + F<float>(w, 0xb)), (float)((double)F<float>(p, 9) + F<float>(w, 0xf)), F<float>(w, 0x13),
                      F<float>(w, 0x17), 1.0f, 3);
@@ -1100,7 +1101,7 @@ void __fastcall MinimapWidget_Draw(uint8_t* w) {
                          F<float>(w, 0x23), F<float>(w, 0x27), 1.0f, 3);
         }
     }
-    if (clip) Engine_QueueType6(hook::Global<void*>(0x6d4024));
+    if (clip) Engine_QueueType6(hook::As<void*>(g_engine));
 }
 RT3_REPLACE(0x47b170, MinimapWidget_Draw);
 
@@ -1131,7 +1132,7 @@ RT3_REPLACE(0x47b450, MapWidget_DeletingDestructor);
 RT3_NOINLINE uint8_t* __fastcall MinimapWidget_Texture(uint8_t* m, int, int32_t w, int32_t h) {
     if (F<uint8_t*>(m, 0xab)) return F<uint8_t*>(m, 0xab);
     if (h == -1) {
-        uint8_t* eng = hook::Global<uint8_t*>(0x6d4024);
+        uint8_t* eng = g_engine;
         uint8_t* vp = F<uint8_t*>(eng, 0x34) + F<int32_t>(eng, 0x11421e) * 0x15;
         float fw = (float)F<int32_t>(vp, 0);
         int32_t pw = Ftol((double)fw * F<float>(m, 0x13));
@@ -1141,7 +1142,7 @@ RT3_NOINLINE uint8_t* __fastcall MinimapWidget_Texture(uint8_t* m, int, int32_t 
         h = 0x40;
         w = 0x40;
         if (D(0x5ce880) < needH) {
-            int32_t maxH = F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x11423f);
+            int32_t maxH = F<int32_t>(g_engine, 0x11423f);
             while (h < maxH) {
                 h <<= 1;
                 if (!((double)h < needH)) break;
@@ -1149,7 +1150,7 @@ RT3_NOINLINE uint8_t* __fastcall MinimapWidget_Texture(uint8_t* m, int, int32_t 
         }
         double needW = (double)pw * D(0x5c8640);
         if (D(0x5ce880) < needW) {
-            int32_t maxW = F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x11423b);
+            int32_t maxW = F<int32_t>(g_engine, 0x11423b);
             while (w < maxW) {
                 w <<= 1;
                 if (!((double)w < needW)) break;
@@ -1180,10 +1181,10 @@ void __fastcall MinimapWidget_OnHover(uint8_t* m, int, float x, float y, int32_t
     if (F<uint32_t>(m, 0x33) & 0x400000) {
         int32_t cx = Ftol(px.f), cy = Ftol(py.f);
         uint32_t region = 0;
-        uint8_t* map = hook::Global<uint8_t*>(0x62c120);
+        uint8_t* map = g_map;
         if (cx >= 0 && cx < F<int32_t>(map, 0x2155) && cy >= 0 && cy < F<int32_t>(map, 0x2159) && !Terrain_KindIs1Or4(map, 0, cx, cy) &&
-            !Terrain_KindIs3Or5(hook::Global<uint8_t*>(0x62c120), 0, cx, cy))
-            region = *(uint32_t*)Map_RegionRecordAt(hook::Global<uint8_t*>(0x62c120), 0, (float)cx, (float)cy);
+            !Terrain_KindIs3Or5(g_map, 0, cx, cy))
+            region = *(uint32_t*)Map_RegionRecordAt(g_map, 0, (float)cx, (float)cy);
         if (region != F<uint32_t>(m, 0x117)) {
             F<uint32_t>(m, 0x117) = region;
             MinimapWidget_Refresh(m, 0, 0, nullptr, 0, 0);
@@ -1226,12 +1227,12 @@ int32_t __fastcall MinimapWidget_HandleEvent(uint8_t* w, int, uint32_t* msg) {
     case 0xba:
     case 0xbb:
         if (msg[1] != F<uint16_t>(w, 4)) break;
-        hook::Global<int32_t>(0x6ceba0) = msg[0] == 0xbb ? 1 : 0;
+        g_6ceba0 = msg[0] == 0xbb ? 1 : 0;
         if (!F<uint32_t>(w, 0xab))
             MinimapWidget_Texture(w, 0, -1, -1);
         else
             MinimapWidget_Refresh(w, 0, 0, nullptr, 0, 0);
-        hook::Global<int32_t>(0x6ceba0) = 0;
+        g_6ceba0 = 0;
         Overview_FitArea(w);
         break;
     case 0xbc: {
@@ -1287,7 +1288,7 @@ RT3_NOINLINE void __fastcall MapPointer_Place(int32_t slot, int32_t kind, float 
     if (kind == 0) Building_Init(m, 0, (const char*)0x5cb244, (const char*)0x5cb244, x, z, 1, 1, 0, (uint16_t)h);
     else if (kind == 1) Building_Init(m, 0, (const char*)0x5ce894, (const char*)0x5ce894, x, z, 1, 1, 0, (uint16_t)h);
     else Building_Init(m, 0, (const char*)0x5ce888, (const char*)0x5ce888, x, z, 1, 0, 1, (uint16_t)h);
-    float ground = (float)Terrain_HeightAtTile(hook::Global<uint8_t*>(0x62c120), 0, x, z);
+    float ground = (float)Terrain_HeightAtTile(g_map, 0, x, z);
     Obj_MoveToCell(*p, 0, x, z, (float)((double)ground + lift));
     SceneObj_SetScale36(*p, 0, BitsF(0x3f4ccccd));
     (*p)[0x20] &= 0xdf;
@@ -1335,7 +1336,7 @@ RT3_REPLACE(0x47bbf0, NewGameConfig_Reset);
 
 // 0x47bc50. First of the 16 player slots (config +0xc6) whose state is below 2; 16 if none.
 int32_t NewGameConfig_FirstOpenSlot() {
-    const uint8_t* c = hook::Global<uint8_t*>(0x6cec7c);
+    const uint8_t* c = g_newGame;
     for (int32_t i = 0; i < 0x10; ++i)
         if (c[0xc6 + i] < 2) return i;
     return 0x10;
@@ -1347,7 +1348,7 @@ RT3_REPLACE(0x47bc50, NewGameConfig_FirstOpenSlot);
 // multiplayer), first making sure as many slots are enabled (+0x2c9 + k) as
 // needed; 0x5f2d28 (41 x 0x27 bytes) marks slots taken. Not in the editor (+0x68).
 RT3_NOINLINE void __fastcall Obj_AssignRandomSlots(uint8_t* o) {
-    if (F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x68)) return;
+    if (F<int32_t>(g_app, 0x68)) return;
     uint8_t* taken = (uint8_t*)0x5f2d28;
     for (uint32_t a = 0x5f2d28; a < 0x5f3367; a += 0x27) *(uint8_t*)a = 0;
     for (int32_t i = 0; i < F<int32_t>(o, 0x3ae); ++i) {
@@ -1365,11 +1366,11 @@ RT3_NOINLINE void __fastcall Obj_AssignRandomSlots(uint8_t* o) {
                 break;
             }
     }
-    if (hook::Global<void*>(0x6cd8d8)) F<int32_t>(hook::Global<uint8_t*>(0x6cec7c), 0x83) = 7;
+    if (hook::As<void*>(g_session)) F<int32_t>(g_newGame, 0x83) = 7;
     for (int32_t i = 0; i < F<int32_t>(o, 0x3ae); ++i) {
         uint8_t* e = o + 0x31a + i * 9;
         if (*e) continue;
-        int32_t n = HashRand(F<int32_t>(hook::Global<uint8_t*>(0x6cec7c), 0x83), 1, nfree);
+        int32_t n = HashRand(F<int32_t>(g_newGame, 0x83), 1, nfree);
         int32_t k = 0, tries = 0;
         if (n > 0) {
             while (nfree) {
@@ -1393,7 +1394,7 @@ RT3_REPLACE(0x47bc80, Obj_AssignRandomSlots);
 // in multiplayer, and the +0x20 byte) and assigns its random slots.
 RT3_NOINLINE void __fastcall Obj_ApplySetup(uint8_t* o, int, uint8_t* src) {
     if (!src || !src[0]) return;
-    if (!hook::Global<void*>(0x6cd8d8)) {
+    if (!hook::As<void*>(g_session)) {
         F<uint16_t>(o, 0x77) = F<uint16_t>(src, 0x14);
         F<uint16_t>(o, 0x79) = F<uint16_t>(src, 0x3b2);
         F<uint16_t>(o, 0x7b) = F<uint16_t>(src, 0x3ba);
@@ -1411,11 +1412,11 @@ RT3_REPLACE(0x47be50, Obj_ApplySetup);
 // apart) in 0x5f2c50 (>= 3) notches; the knob goes to the top with `reset` or no
 // current amount (0x6cec10 == -1), else to the current amount's notch.
 RT3_NOINLINE void __fastcall MoneySlider_Setup(int32_t reset) {
-    float aggr = Player_Aggressiveness((uint8_t*)Obj_Ref25(hook::Global<void*>(0x6cec78)));
-    float cash = (float)hook::Global<int32_t>(0x6cec14);
+    float aggr = Player_Aggressiveness((uint8_t*)Obj_Ref25(hook::As<void*>(g_world)));
+    float cash = (float)g_6cec14;
     float v = (float)((double)cash * aggr);
     int32_t top = (double)v < *(const float*)0x5ce8a0 ? Ftol(v) : 1000000000;
-    int32_t money = hook::Global<int32_t>(0x6cec14);
+    int32_t money = g_6cec14;
     if (top <= 200000 - money) top = 200000 - money;
     int32_t step;
     if (top <= 50000) {
@@ -1431,34 +1432,34 @@ RT3_NOINLINE void __fastcall MoneySlider_Setup(int32_t reset) {
     int32_t lo = top / 2;
     if (lo >= 500000 - money) lo = 500000 - money;
     if (lo < 0) lo = 0;
-    hook::Global<int32_t>(0x6cebcc) = lo;
+    g_6cebcc = lo;
     if (lo % step) {
         lo += step - lo % step;
-        hook::Global<int32_t>(0x6cebcc) = lo;
+        g_6cebcc = lo;
     }
     int32_t hi = top - top % step;
-    hook::Global<int32_t>(0x6cebd0) = hi;
+    g_6cebd0 = hi;
     if (hi <= lo + step) {
         hi = lo + step;
-        hook::Global<int32_t>(0x6cebd0) = hi;
+        g_6cebd0 = hi;
     }
     int32_t n = (hi - lo) / step + 1;
-    hook::Global<int32_t>(0x5f2c50) = n;
+    g_5f2c50 = n;
     if (n < 3) {
         n = 3;
-        hook::Global<int32_t>(0x5f2c50) = 3;
+        g_5f2c50 = 3;
     }
-    Window_SendEvent5(hook::Global<uint8_t*>(0x6cec18), 0, 0x73, 0x7150, (uint32_t)n, 0, 0);
-    int32_t cur = hook::Global<int32_t>(0x6cec10), pos;
-    if (cur == -1 || reset) pos = hook::Global<int32_t>(0x5f2c50) - 1;
+    Window_SendEvent5(g_6cec18, 0, 0x73, 0x7150, (uint32_t)n, 0, 0);
+    int32_t cur = g_6cec10, pos;
+    if (cur == -1 || reset) pos = g_5f2c50 - 1;
     else {
-        int32_t last = hook::Global<int32_t>(0x5f2c50) - 1;
-        int32_t notch = (hook::Global<int32_t>(0x6cebd0) - hook::Global<int32_t>(0x6cebcc)) / last;
-        pos = (cur - hook::Global<int32_t>(0x6cebcc)) / notch;
+        int32_t last = g_5f2c50 - 1;
+        int32_t notch = (g_6cebd0 - g_6cebcc) / last;
+        pos = (cur - g_6cebcc) / notch;
         if (pos < 0) pos = 0;
         if (last < pos) pos = last;
     }
-    Window_SendEvent5(hook::Global<uint8_t*>(0x6cec18), 0, 0x66, 0x7150, (uint32_t)pos, 0, 0);
+    Window_SendEvent5(g_6cec18, 0, 0x66, 0x7150, (uint32_t)pos, 0, 0);
 }
 RT3_REPLACE(0x47bea0, MoneySlider_Setup);
 

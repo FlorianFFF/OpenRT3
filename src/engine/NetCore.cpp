@@ -9,6 +9,7 @@
 #include <math.h>
 #include <initializer_list>
 #include "hook/hook.h"
+#include "core/globals.h"
 #include "core/stream.h"
 #include "core/ptrlist.h"
 #include "core/crt.h"
@@ -313,7 +314,7 @@ static void Pool_Return(uint8_t* pool, uint32_t* node) {
 
 namespace {
 void Callback_Delete(void* p) { ((void(__cdecl*)(void*))0x53b080)(p); }
-int32_t Tooltip_Clear() { return Ui_ShowTooltip(hook::Global<uint8_t*>(0x6d401c), 0, (const char*)0x5c87a8, 3, 0, -1); }
+int32_t Tooltip_Clear() { return Ui_ShowTooltip(g_windowManager, 0, (const char*)0x5c87a8, 3, 0, -1); }
 // A network message's handler gets the packet (+8) when it has one (+0xc).
 template <typename P, typename Fn> int32_t NetMsg_Forward(uint8_t* m, Fn handler) {
     if (F<int32_t>(m, 0xc) > 0) handler(F<P>(m, 8));
@@ -384,12 +385,12 @@ RT3_NOINLINE int32_t __fastcall Engine_CreateWindow(uint8_t* e, int, int32_t x, 
         Import<LONG(__stdcall*)(HWND, int, LONG)>(0x5c82bc)(wnd, -16, 0x4000000);
     }
     e[0x55] = 0;
-    if (uint16_t icon = hook::Global<uint16_t>(0x6d4038)) {
+    if (uint16_t icon = g_6d4038) {
         auto loadIcon = Import<HICON(__stdcall*)(HINSTANCE, const char*)>(0x5c82cc);
         auto send = Import<LRESULT(__stdcall*)(HWND, UINT, WPARAM, LPARAM)>(0x5c82c0);
         send(F<HWND>(e, 0), 0x80, 1, (LPARAM)loadIcon(F<HINSTANCE>(e, 4), (const char*)(uintptr_t)icon));
         send(F<HWND>(e, 0), 0x80, 0,
-             (LPARAM)loadIcon(F<HINSTANCE>(e, 4), (const char*)(uintptr_t)hook::Global<uint16_t>(0x6d4038)));
+             (LPARAM)loadIcon(F<HINSTANCE>(e, 4), (const char*)(uintptr_t)g_6d4038));
     }
     return 0;
 }
@@ -442,19 +443,19 @@ RT3_NOINLINE void __fastcall Engine_SwitchDisplay(uint8_t* e, int, int32_t fulls
         F<uint8_t*>(e, 0x18) = s ? Scene_Construct(s) : nullptr;
     } else
         Scene_CreateRenderer(F<uint8_t*>(e, 0x18));
-    Pack_RecreateFonts(hook::Global<uint8_t*>(0x6d4020));
+    Pack_RecreateFonts(g_pack);
     (*(int32_t(__stdcall**)())0x5c82a8)();
     if (fullscreen) {
-        uint8_t* c = hook::Global<uint8_t*>(0xccbb20);
+        uint8_t* c = g_cursorManager;
         bool acquire;
         if (c && Obj_Get18(c)) acquire = true;
-        else if (hook::Global<uint8_t*>(0xccbb20)) acquire = false;
+        else if (g_cursorManager) acquire = false;
         else acquire = F<int32_t>(e, 0x11473e) != 0;
         if (acquire) Mouse_Acquire(F<uint8_t*>(e, 0x20));
-        else (*(void*(__stdcall**)(void*))0x5c82ac)(F<void*>(hook::Global<uint8_t*>(0x6d4024), 0));
+        else (*(void*(__stdcall**)(void*))0x5c82ac)(F<void*>(g_engine, 0));
     } else
         Mouse_Unacquire(F<uint8_t*>(e, 0x20));
-    if (hook::Global<uint8_t**>(0x6d401c)) Ui_SendEvent5(hook::Global<uint8_t**>(0x6d401c), 0, 0xac, 0, 0, 0, 0);
+    if (hook::As<uint8_t**>(g_windowManager)) Ui_SendEvent5(hook::As<uint8_t**>(g_windowManager), 0, 0xac, 0, 0, 0, 0);
 }
 RT3_REPLACE(0x5202c0, Engine_SwitchDisplay);
 
@@ -464,7 +465,7 @@ RT3_REPLACE(0x5202c0, Engine_SwitchDisplay);
 // display, keeps the new fullscreen flag (+0x114696), restarts the cursor
 // timer and saves the configuration.
 RT3_NOINLINE void __fastcall Engine_ResetDisplay(uint8_t* e, int, int32_t fullscreen, int32_t mode) {
-    Pack_ReleaseFontHandles(hook::Global<uint8_t*>(0x6d4020));
+    Pack_ReleaseFontHandles(g_pack);
     if (uint8_t* m = F<uint8_t*>(e, 0x20)) {
         Mouse_Destroy(m);
         ((void(__cdecl*)(void*))0x53b080)(m);
@@ -478,8 +479,8 @@ RT3_NOINLINE void __fastcall Engine_ResetDisplay(uint8_t* e, int, int32_t fullsc
     F<void*>(e, 0) = nullptr;
     if (mode == -1) mode = F<int32_t>(e, 0x11421e);
     Engine_SwitchDisplay(e, 0, fullscreen, mode);
-    e[0x114696] = hook::Global<uint8_t*>(0x6d4024)[0x114226];
-    if (uint8_t* c = hook::Global<uint8_t*>(0xccbb20)) Timer_Restart(c);
+    e[0x114696] = g_engine[0x114226];
+    if (uint8_t* c = g_cursorManager) Timer_Restart(c);
     Engine_SaveConfig(e);
 }
 RT3_REPLACE(0x520400, Engine_ResetDisplay);
@@ -541,12 +542,12 @@ RT3_NOINLINE void __fastcall Engine_DrawFrame(uint8_t* e) {
         Scene_RenderFrame(F<uint8_t*>(e, 0x18), 0, F<uint8_t*>(e, 0x28), F<uint8_t*>(e, 0x1c), 0);
     } else {
         Engine_UpdateFrameTime(e);
-        Cursor_Draw(hook::Global<uint8_t*>(0xccbb20));
+        Cursor_Draw(g_cursorManager);
         Scene_DrawOverlay(F<uint8_t*>(e, 0x18), 0, 1);
     }
     if (!e[0x55]) {
         e[0x55] = 1;
-        hook::Global<int32_t(__stdcall*)(void*, int32_t)>(0x5c82a4)(F<void*>(e, 0), hook::Global<int32_t>(0x6cec58));
+        hook::Global<int32_t(__stdcall*)(void*, int32_t)>(0x5c82a4)(F<void*>(e, 0), g_6cec58);
     }
     Engine_ClearRenderLists(e);
     F<int32_t>(e, 0x58) = 0;
@@ -561,7 +562,7 @@ RT3_REPLACE(0x520620, Engine_DrawFrame);
 // rebuilds the display. With `save` the size is remembered (+0x11468a /
 // +0x11468e); the configuration is saved either way.
 RT3_NOINLINE void __fastcall Engine_SetDisplayMode(uint8_t* e, int, int32_t w, int32_t h, int32_t fullscreen, int32_t save) {
-    uint8_t* eng = hook::Global<uint8_t*>(0x6d4024);
+    uint8_t* eng = g_engine;
     if (fullscreen == -1) fullscreen = eng[0x114226];
     int32_t hw = e[0x1146ae] && !F<int32_t>(e, 0x11427a) && fullscreen ? 1 : 0;
     uint8_t* cur = F<uint8_t*>(e, 0x34) + F<int32_t>(e, 0x11421e) * 0x15;
@@ -569,7 +570,7 @@ RT3_NOINLINE void __fastcall Engine_SetDisplayMode(uint8_t* e, int, int32_t w, i
         int32_t bpp = 0x20;
         int32_t mode = Engine_PickDisplayMode(e, 0, &w, &h, &bpp);
         eng[0x114226] = (uint8_t)fullscreen;
-        Engine_ResetDisplay(e, 0, hook::Global<uint8_t*>(0x6d4024)[0x114226], mode);
+        Engine_ResetDisplay(e, 0, g_engine[0x114226], mode);
     }
     if (save) {
         F<int32_t>(e, 0x11468a) = w;
@@ -589,7 +590,7 @@ RT3_NOINLINE void __stdcall Textures_MemoryTotals(int32_t* video, int32_t* resid
     if (resident) *resident = 0;
     if (count) *count = 0;
     int32_t v = 0, r = 0, n = 0;
-    for (uint8_t* t = hook::Global<uint8_t*>(0xccbb2c); t; t = (uint8_t*)Obj_Next0(t)) {
+    for (uint8_t* t = g_ccbb2c; t; t = (uint8_t*)Obj_Next0(t)) {
         Texture_CountMemory(t);
         v += F<int32_t>(t, 0xcc);
         r += F<int32_t>(t, 0xd0);
@@ -612,7 +613,7 @@ RT3_REPLACE(0x5207a0, Textures_MemoryTotals);
 RT3_NOINLINE uint8_t __fastcall Engine_PosterScreenshot(uint8_t* e) {
     if (!e[0x114226]) return 0;
     uint8_t* mem = ((uint8_t*(__cdecl*)(size_t))0x53b070)(0x8a);
-    uint8_t* cam = mem ? Camera_ConstructSetup(mem, 0, F<uint32_t>(hook::Global<uint8_t*>(0x6d4024), 0x1c), 0, 0, 0, 0x44800000) : nullptr;
+    uint8_t* cam = mem ? Camera_ConstructSetup(mem, 0, F<uint32_t>(g_engine, 0x1c), 0, 0, 0, 0x44800000) : nullptr;
     F<uint32_t>(cam, 0) = F<uint32_t>(F<uint8_t*>(e, 0x28), 0);
     Camera_SetBounds(F<uint8_t*>(e, 0x28), 0, 0, 0, 0x3f800000, 0x3f800000);
     uint8_t* mode = F<uint8_t*>(e, 0x34) + F<int32_t>(e, 0x11421e) * 0x15;
@@ -622,9 +623,9 @@ RT3_NOINLINE uint8_t __fastcall Engine_PosterScreenshot(uint8_t* e) {
     memset(pixels, 0, size);
     uint8_t* tm = ((uint8_t*(__cdecl*)(size_t))0x53b070)(0xec);
     uint8_t* img = tm ? Texture_InitMemory(tm, 0, pixels, w * 3, h * 3, 1) : nullptr;
-    uint8_t* scene = F<uint8_t*>(hook::Global<uint8_t*>(0x6d4024), 0x18);
-    Cursor_Set(hook::Global<uint8_t*>(0xccbb20), 0, 0, 0, 0);
-    hook::Global<uint8_t*>(0x6d401c)[0xc68] = 1;
+    uint8_t* scene = F<uint8_t*>(g_engine, 0x18);
+    Cursor_Set(g_cursorManager, 0, 0, 0, 0);
+    g_windowManager[0xc68] = 1;
     int32_t poster = F<int32_t>(e, 0x114216);
     F<int32_t>(e, 0x114216) = 1;
     F<uint32_t>(F<uint8_t*>(scene, 0x2d), 0x25eb) = 0x3e99999a;
@@ -657,8 +658,8 @@ RT3_NOINLINE uint8_t __fastcall Engine_PosterScreenshot(uint8_t* e) {
         Texture_Destroy(img);
         ((void(__cdecl*)(void*))0x53b080)(img);
     }
-    Cursor_Set(hook::Global<uint8_t*>(0xccbb20), 0, 1, 0, 0);
-    hook::Global<uint8_t*>(0x6d401c)[0xc68] = 0;
+    Cursor_Set(g_cursorManager, 0, 1, 0, 0);
+    g_windowManager[0xc68] = 0;
     F<int32_t>(e, 0x114216) = poster;
     F<uint32_t>(F<uint8_t*>(scene, 0x2d), 0x25eb) = 0x3f800000;
     Scene_SetViewOffset(scene, 0, 0, 0);
@@ -682,8 +683,8 @@ RT3_NOINLINE uint8_t __fastcall Engine_Screenshot(uint8_t* e, int, int32_t hideC
     if (!e[0x114226]) return 0;
     uint8_t ok = 1;
     if (hideCursor) {
-        Cursor_Set(hook::Global<uint8_t*>(0xccbb20), 0, 0, 0, 0);
-        hook::Global<uint8_t*>(0x6d401c)[0xc68] = 1;
+        Cursor_Set(g_cursorManager, 0, 0, 0, 0);
+        g_windowManager[0xc68] = 1;
         if (F<int32_t>(e, 0x1c)) e[0x56] = 1;
         Engine_DrawFrame(e);
     }
@@ -729,8 +730,8 @@ RT3_NOINLINE uint8_t __fastcall Engine_Screenshot(uint8_t* e, int, int32_t hideC
         }
     }
     if (hideCursor) {
-        Cursor_Set(hook::Global<uint8_t*>(0xccbb20), 0, 1, 0, 0);
-        hook::Global<uint8_t*>(0x6d401c)[0xc68] = 0;
+        Cursor_Set(g_cursorManager, 0, 1, 0, 0);
+        g_windowManager[0xc68] = 0;
         if (F<int32_t>(e, 0x1c)) e[0x56] = 1;
         Engine_DrawFrame(e);
     }
@@ -795,9 +796,9 @@ void __fastcall Engine_Init(uint8_t* e, int, void* inst, int32_t w, int32_t h) {
     F<int32_t>(e, 0x11421e) = Engine_PickDisplayMode(e, 0, &w, &h, (int32_t*)(e + 0x114692));
     e[0x114226] = e[0x114696];
     uint8_t* o = New(0x429bc);
-    hook::Global<uint8_t*>(0x6d4020) = o ? NameTable_Construct(o) : nullptr;
+    g_pack = o ? NameTable_Construct(o) : nullptr;
     o = New(0xaa8);
-    hook::Global<uint8_t*>(0x6d4018) = o ? Input_Construct(o) : nullptr;
+    g_input = o ? Input_Construct(o) : nullptr;
     o = New(0x400);
     F<uint8_t*>(e, 0x24) = o ? KeyTable_Init(o) : nullptr;
     o = New(0x38);
@@ -807,28 +808,28 @@ void __fastcall Engine_Init(uint8_t* e, int, void* inst, int32_t w, int32_t h) {
         F<uint32_t>(o, 0x30) = 0x3f800000;
         F<uint32_t>(o, 0x34) = 0xbf800000;
     }
-    hook::Global<uint8_t*>(0x6d4030) = o;
-    ModelLibrary_Init(hook::Global<uint32_t*>(0x6d4030), 0, (SysInfo_TotalMemory() & 0xfff00000) < 0xc000000 ? 10000 : 0);
+    g_models = o;
+    ModelLibrary_Init(hook::As<uint32_t*>(g_models), 0, (SysInfo_TotalMemory() & 0xfff00000) < 0xc000000 ? 10000 : 0);
     Engine_SwitchDisplay(e, 0, e[0x114226], F<int32_t>(e, 0x11421e));
     F<uint32_t>(e, 0x10) = 0;
     o = New(0x54);
-    hook::Global<uint8_t*>(0x6d402c) = o ? Sound_Construct(o, 0, -1) : nullptr;
-    Sound_SelectProvider(hook::Global<uint8_t*>(0x6d402c), 0, F<int32_t>(e, 0x114706));
-    F<int32_t>(e, 0x114706) = Sound_ActiveProviderIndex(hook::Global<uint8_t*>(0x6d402c));
-    if (uint8_t* d = F<uint8_t*>(hook::Global<uint8_t*>(0x6d402c), 0)) Obj_SetName24(d, 0, (const char*)0x5dcf54);
-    uint8_t* eng = hook::Global<uint8_t*>(0x6d4024);
-    Sound_SetVolume(hook::Global<uint8_t*>(0x6d402c), 0, F<float>(eng, 0x1146fa), 2);
-    eng = hook::Global<uint8_t*>(0x6d4024);
-    Sound_SetVolume(hook::Global<uint8_t*>(0x6d402c), 0, (float)(F<float>(eng, 0x1146fe) * D(0x5c9c80)), 0);
-    eng = hook::Global<uint8_t*>(0x6d4024);
-    Sound_SetVolume(hook::Global<uint8_t*>(0x6d402c), 0, (float)(F<float>(eng, 0x114702) * D(0x5c8640)), 1);
+    g_sound = o ? Sound_Construct(o, 0, -1) : nullptr;
+    Sound_SelectProvider(g_sound, 0, F<int32_t>(e, 0x114706));
+    F<int32_t>(e, 0x114706) = Sound_ActiveProviderIndex(g_sound);
+    if (uint8_t* d = F<uint8_t*>(g_sound, 0)) Obj_SetName24(d, 0, (const char*)0x5dcf54);
+    uint8_t* eng = g_engine;
+    Sound_SetVolume(g_sound, 0, F<float>(eng, 0x1146fa), 2);
+    eng = g_engine;
+    Sound_SetVolume(g_sound, 0, (float)(F<float>(eng, 0x1146fe) * D(0x5c9c80)), 0);
+    eng = g_engine;
+    Sound_SetVolume(g_sound, 0, (float)(F<float>(eng, 0x114702) * D(0x5c8640)), 1);
     o = New(0xc7d);
-    hook::Global<uint8_t*>(0x6d401c) = o ? HandleTable_Construct(o) : nullptr;
+    g_windowManager = o ? HandleTable_Construct(o) : nullptr;
     o = New(0x2c);
-    hook::Global<uint8_t*>(0xccbb20) = o ? Cursor_Construct(o) : nullptr;
-    F<uint8_t*>(e, 0x1141f5) = Pack_AcquireFont(hook::Global<uint8_t*>(0x6d4020), 0, 4);
-    F<uint8_t*>(e, 0x1141f9) = Pack_AcquireFont(hook::Global<uint8_t*>(0x6d4020), 0, 1);
-    F<uint8_t*>(e, 0x1141fd) = Pack_AcquireFont(hook::Global<uint8_t*>(0x6d4020), 0, 2);
+    g_cursorManager = o ? Cursor_Construct(o) : nullptr;
+    F<uint8_t*>(e, 0x1141f5) = Pack_AcquireFont(g_pack, 0, 4);
+    F<uint8_t*>(e, 0x1141f9) = Pack_AcquireFont(g_pack, 0, 1);
+    F<uint8_t*>(e, 0x1141fd) = Pack_AcquireFont(g_pack, 0, 2);
     Engine_BuildTrigTables(e);
 }
 RT3_REPLACE(0x521060, Engine_Init);
@@ -854,53 +855,53 @@ void __fastcall Engine_Destroy(uint8_t* e) {
     Engine_Shutdown(e, 0, 1);
     static const uint32_t images[] = { 0x1141f5, 0x1141f9, 0x1141fd };
     for (uint32_t off : images) {
-        if (void* p = F<void*>(e, off)) Pack_Release(hook::Global<uint8_t*>(0x6d4020), 0, p);
+        if (void* p = F<void*>(e, off)) Pack_Release(g_pack, 0, p);
         F<void*>(e, off) = nullptr;
     }
-    if (uint8_t* m = hook::Global<uint8_t*>(0x6d401c)) {
+    if (uint8_t* m = g_windowManager) {
         Windows_Shutdown(m);
         ExeDelete(m);
     }
-    hook::Global<uint8_t*>(0x6d401c) = nullptr;
+    g_windowManager = nullptr;
     if (uint8_t* p = F<uint8_t*>(e, 0x24)) {
         Nop564170();
         ExeDelete(p);
     }
     F<uint8_t*>(e, 0x24) = nullptr;
-    if (uint8_t* c = hook::Global<uint8_t*>(0xccbb20)) {
+    if (uint8_t* c = g_cursorManager) {
         Cursor_Shutdown(c);
         ExeDelete(c);
     }
-    hook::Global<uint8_t*>(0xccbb20) = nullptr;
+    g_cursorManager = nullptr;
     if (uint8_t* m = F<uint8_t*>(e, 0x20)) {
         Mouse_Destroy(m);
         ExeDelete(m);
     }
     F<uint8_t*>(e, 0x20) = nullptr;
-    if (uint8_t* p = hook::Global<uint8_t*>(0x6d4020)) {
+    if (uint8_t* p = g_pack) {
         Pack_Shutdown(p);
         ExeDelete(p);
     }
-    hook::Global<uint8_t*>(0x6d4020) = nullptr;
-    if (uint8_t* p = hook::Global<uint8_t*>(0x6d4018)) {
+    g_pack = nullptr;
+    if (uint8_t* p = g_input) {
         Nop54e780();
         ExeDelete(p);
     }
-    hook::Global<uint8_t*>(0x6d4018) = nullptr;
-    if (uint8_t* s = hook::Global<uint8_t*>(0x6d402c)) {
+    g_input = nullptr;
+    if (uint8_t* s = g_sound) {
         Sound_Destruct(s);
         ExeDelete(s);
     }
-    hook::Global<uint8_t*>(0x6d402c) = nullptr;
-    if (uint32_t* m = hook::Global<uint32_t*>(0x6d4030)) {
+    g_sound = nullptr;
+    if (uint32_t* m = hook::As<uint32_t*>(g_models)) {
         ModelLibrary_Free(m);
         ExeDelete(m);
     }
-    hook::Global<uint32_t*>(0x6d4030) = nullptr;
+    hook::As<uint32_t*>(g_models) = nullptr;
     ((void(__cdecl*)(void*))0x5a1145)(F<void*>(e, 0x34));
     FreeLanguageStrings();
     StreamReleaseAll();
-    hook::Global<void*>(0x6d4024) = nullptr;
+    hook::As<void*>(g_engine) = nullptr;
 }
 RT3_REPLACE(0x521390, Engine_Destroy);
 
@@ -942,30 +943,30 @@ RT3_NOINLINE int32_t __fastcall Sound_SetBufferMs(uint8_t* e, int, void* o, int3
 }
 RT3_REPLACE(0x521620, Sound_SetBufferMs);
 
-RT3_NOINLINE int32_t Global6d4100() { return hook::Global<int32_t>(0x6d4100); }
+RT3_NOINLINE int32_t Global6d4100() { return g_6d4100; }
 RT3_REPLACE(0x521670, Global6d4100);
 
 // 0x521680 / 0x5216a0. Locks / unlocks the network queue (critical section
 // 0x6d4090, depth 0x6d40a8); lock returns the queue 0x6d408c.
 RT3_NOINLINE int32_t Net_LockQueue() {
     Import<void(__stdcall*)(void*)>(0x5c81fc)((void*)0x6d4090);
-    hook::Global<int32_t>(0x6d40a8)++;
-    return hook::Global<int32_t>(0x6d408c);
+    g_6d40a8++;
+    return hook::As<int32_t>(g_6d408c);
 }
 RT3_REPLACE(0x521680, Net_LockQueue);
 
 RT3_NOINLINE void Net_UnlockQueue() {
-    hook::Global<int32_t>(0x6d40a8)--;
+    g_6d40a8--;
     Import<void(__stdcall*)(void*)>(0x5c81f8)((void*)0x6d4090);
 }
 RT3_REPLACE(0x5216a0, Net_UnlockQueue);
 
-RT3_NOINLINE int32_t Global6d40e4() { return hook::Global<int32_t>(0x6d40e4); }
+RT3_NOINLINE int32_t Global6d40e4() { return g_6d40e4; }
 RT3_REPLACE(0x5216c0, Global6d40e4);
 
 // 0x5216d0. Unlock variant that pops one (unused) argument.
 RT3_NOINLINE void __stdcall Net_UnlockQueueArg(int32_t) {
-    hook::Global<int32_t>(0x6d40a8)--;
+    g_6d40a8--;
     Import<void(__stdcall*)(void*)>(0x5c81f8)((void*)0x6d4090);
 }
 RT3_REPLACE(0x5216d0, Net_UnlockQueueArg);
@@ -1007,20 +1008,20 @@ RT3_REPLACE(0x5217b0, Nop5217b0);
 // section 0x6d4048, depth 0x6d4060); lock returns the list 0x6d4044.
 RT3_NOINLINE int32_t Net_LockList2() {
     Import<void(__stdcall*)(void*)>(0x5c81fc)((void*)0x6d4048);
-    hook::Global<int32_t>(0x6d4060)++;
-    return hook::Global<int32_t>(0x6d4044);
+    g_6d4060++;
+    return hook::As<int32_t>(g_6d4044);
 }
 RT3_REPLACE(0x5217c0, Net_LockList2);
 
 RT3_NOINLINE void Net_UnlockList2() {
-    hook::Global<int32_t>(0x6d4060)--;
+    g_6d4060--;
     Import<void(__stdcall*)(void*)>(0x5c81f8)((void*)0x6d4048);
 }
 RT3_REPLACE(0x5217e0, Net_UnlockList2);
 
 // 0x521800. Broadcasts the LAN game announcement "name[;tag];ip;port" to UDP port 1234.
 RT3_NOINLINE void __fastcall Net_BroadcastGame(uint8_t* o, int, const char* name) {
-    if (hook::Global<int32_t>(0x6d4100) >= 4) return;
+    if (g_6d4100 >= 4) return;
     char msg[0x100], ip[0x100];
     auto sprintf = (int(__cdecl*)(char*, const char*, ...))0x5a19c4;
     int32_t port = F<int32_t>(o, 0x216);
@@ -1048,32 +1049,32 @@ RT3_NOINLINE void __fastcall Net_BroadcastGame(uint8_t* o, int, const char* name
 }
 RT3_REPLACE(0x521800, Net_BroadcastGame);
 
-RT3_NOINLINE void __stdcall SetGlobal6d4108(int32_t v) { hook::Global<int32_t>(0x6d4108) = v; }
+RT3_NOINLINE void __stdcall SetGlobal6d4108(int32_t v) { g_6d4108 = v; }
 RT3_REPLACE(0x521910, SetGlobal6d4108);
 
 // 0x521920. Stops the network listener: flags the thread (+0x10) to quit,
 // closes its socket 0x6d40e8, waits up to 30 ms and deletes it; then shuts
 // Winsock down if it was started (0x6d410c).
 void __fastcall Net_StopListener() {
-    if (uint8_t* t = hook::Global<uint8_t*>(0x6d40d4)) {
-        hook::Global<int32_t>(0x6d40ec) = 1;
+    if (uint8_t* t = g_6d40d4) {
+        g_6d40ec = 1;
         F<int32_t>(t, 0x10) = 1;
-        Import<int32_t(__stdcall*)(int32_t)>(0x5c82fc)(hook::Global<int32_t>(0x6d40e8));
-        hook::Global<int32_t>(0x6d40e8) = 0;
-        Thread_Stop(hook::Global<uint8_t*>(0x6d40d4), 0, 0x1e);
-        if (uint8_t* t2 = hook::Global<uint8_t*>(0x6d40d4)) {
+        Import<int32_t(__stdcall*)(int32_t)>(0x5c82fc)(g_6d40e8);
+        g_6d40e8 = 0;
+        Thread_Stop(g_6d40d4, 0, 0x1e);
+        if (uint8_t* t2 = g_6d40d4) {
             (*(void(__fastcall**)(uint8_t*, int, int32_t))F<void**>(t2, 0))(t2, 0, 1);
-            hook::Global<uint8_t*>(0x6d40d4) = nullptr;
+            g_6d40d4 = nullptr;
         }
     }
-    if (hook::Global<int32_t>(0x6d410c)) Import<int32_t(__stdcall*)()>(0x5c8314)();
+    if (g_6d410c) Import<int32_t(__stdcall*)()>(0x5c8314)();
 }
 RT3_REPLACE(0x521920, Net_StopListener);
 
 // 0x521990. Text (in 0x6d4120) for the last socket error 0x6d4118.
 RT3_NOINLINE const char* Net_SocketErrorText() {
     int32_t id;
-    switch (hook::Global<int32_t>(0x6d4118)) {
+    switch (g_6d4118) {
     case 10036: id = 0xffb; break;
     case 10067: id = 0xffc; break;
     case 10091: id = 0xff9; break;
@@ -1104,7 +1105,7 @@ RT3_REPLACE(0x521ad0, Thread_DeletingDestructor);
 
 // 0x521af0 / 0x521b10. Network queue entry by ID (+4) / by name CRC (+0x48).
 RT3_NOINLINE uint8_t* __fastcall Net_FindById(int32_t id) {
-    for (uint8_t* e = *hook::Global<uint8_t**>(0x6d408c); e; e = *(uint8_t**)e)
+    for (uint8_t* e = *g_6d408c; e; e = *(uint8_t**)e)
         if (F<int32_t>(e, 4) == id) return e;
     return nullptr;
 }
@@ -1112,7 +1113,7 @@ RT3_REPLACE(0x521af0, Net_FindById);
 
 RT3_NOINLINE uint8_t* __fastcall Net_FindByName(const char* name) {
     uint32_t crc = ((uint32_t(__fastcall*)(const char*, int32_t))0x53d810)(name, 1);
-    for (uint8_t* e = *hook::Global<uint8_t**>(0x6d408c); e; e = *(uint8_t**)e)
+    for (uint8_t* e = *g_6d408c; e; e = *(uint8_t**)e)
         if (F<uint32_t>(e, 0x48) == crc) return e;
     return nullptr;
 }
@@ -1120,7 +1121,7 @@ RT3_REPLACE(0x521b10, Net_FindByName);
 
 // 0x521b40. The node of the list at 0x6d40b0 whose byte +0x1c is tag, or null.
 RT3_NOINLINE uint8_t* __fastcall Engine_FindTagged(char tag) {
-    for (uint8_t* n = *hook::Global<uint8_t**>(0x6d40b0); n; n = F<uint8_t*>(n, 0))
+    for (uint8_t* n = *g_6d40b0; n; n = F<uint8_t*>(n, 0))
         if ((char)n[0x1c] == tag) return n;
     return nullptr;
 }
@@ -1129,7 +1130,7 @@ RT3_REPLACE(0x521b40, Engine_FindTagged);
 // 0x521b60. Whether a sound with rec's id (+0x104) and name (+0x84) is in the list
 // 0x6d4044; touch also stamps the found one's time (+0x118).
 RT3_NOINLINE int32_t __stdcall Sounds_Has(uint8_t* rec, int32_t touch) {
-    for (uint8_t* n = *hook::Global<uint8_t**>(0x6d4044); n; n = F<uint8_t*>(n, 0))
+    for (uint8_t* n = *hook::As<uint8_t**>(g_6d4044); n; n = F<uint8_t*>(n, 0))
         if (F<int32_t>(n, 0x104) == F<int32_t>(rec, 0x104) && !strcmp((const char*)n + 0x84, (const char*)rec + 0x84)) {
             if (touch) F<int32_t>(n, 0x118) = ClockMs();
             return 1;
@@ -1146,12 +1147,12 @@ RT3_NOINLINE uint8_t* __fastcall Net_Construct(uint8_t* o) {
     F<uint32_t>(o, 0x18e) = 0;
     F<uint32_t>(o, 0x212) = 0;
     F<uint32_t>(o, 0x216) = 0;
-    hook::Global<int32_t>(0x6d4118) = 0;
-    hook::Global<int32_t>(0x6d411c) = 0;
-    if (hook::Global<int32_t>(0x6d40e8)) return o;
-    hook::Global<int32_t>(0x6d40ec) = 0;
+    g_6d4118 = 0;
+    g_6d411c = 0;
+    if (g_6d40e8) return o;
+    g_6d40ec = 0;
     int32_t r = Import<int32_t(__stdcall*)(uint32_t, void*)>(0x5c8318)(1, o);
-    hook::Global<int32_t>(0x6d410c) = 1;
+    g_6d410c = 1;
     uint32_t* t = (uint32_t*)ExeNew(0x14);
     if (t) {
         t[1] = 0;
@@ -1160,9 +1161,9 @@ RT3_NOINLINE uint8_t* __fastcall Net_Construct(uint8_t* o) {
         t[0] = 0x5dcf94;
         t[4] = 0;
     }
-    hook::Global<uint32_t*>(0x6d40d4) = t;
+    hook::As<uint32_t*>(g_6d40d4) = t;
     Thread_Start((uint8_t*)t);
-    hook::Global<int32_t>(0x6d4118) = r;
+    g_6d4118 = r;
     return o;
 }
 RT3_REPLACE(0x521bf0, Net_Construct);
@@ -1170,7 +1171,7 @@ RT3_REPLACE(0x521bf0, Net_Construct);
 // 0x521c80. Sets the local player's name (IDirectPlay8Peer::SetPeerInfo, sync);
 // the peer interface goes to 0x6d40e0. 1 on success.
 RT3_NOINLINE int32_t __fastcall Net_SetPlayerName(uint8_t* o, int, const char* name) {
-    hook::Global<void*>(0x6d40e0) = F<void*>(F<uint8_t*>(o, 0x18e), 8);
+    g_6d40e0 = F<void*>(F<uint8_t*>(o, 0x18e), 8);
     struct { uint32_t size, flags; wchar_t* name; void* data; uint32_t dataSize, playerFlags; } info;
     wchar_t buf[0x80];
     Str_ToWide(buf, name, -1);
@@ -1187,7 +1188,7 @@ RT3_REPLACE(0x521c80, Net_SetPlayerName);
 // 0x521d10. When 0x6d40dc is set, calls method 0x68 of the device at +0x18e -> +8
 // with (v, 0, 0, 0).
 int32_t __fastcall Engine_DeviceCall68(uint8_t* e, int, int32_t v) {
-    if (!hook::Global<int32_t>(0x6d40dc)) return 0;
+    if (!g_6d40dc) return 0;
     void* dev = F<void*>(F<uint8_t*>(e, 0x18e), 8);
     return ((int32_t(__stdcall*)(void*, int32_t, int32_t, int32_t, int32_t))(*(void***)dev)[0x68 / 4])(dev, v, 0, 0, 0);
 }
@@ -1195,7 +1196,7 @@ RT3_REPLACE(0x521d10, Engine_DeviceCall68);
 
 // 0x521d40. The first entry of the list at 0x6d408c, or null.
 RT3_NOINLINE void* Engine_FirstListEntry() {
-    void** l = hook::Global<void**>(0x6d408c);
+    void** l = hook::As<void**>(g_6d408c);
     if (!l || !*l) return nullptr;
     return *l;
 }
@@ -1205,12 +1206,12 @@ RT3_REPLACE(0x521d40, Engine_FirstListEntry);
 // with the lock 0x6d4090 still held (and its count +1), as the original does.
 RT3_NOINLINE uint8_t* __stdcall Textures_Find(int32_t key) {
     Enter(0x6d4090, 0x5c81fc);
-    ++hook::Global<int32_t>(0x6d40a8);
-    uint8_t** l = hook::Global<uint8_t**>(0x6d408c);
+    ++g_6d40a8;
+    uint8_t** l = g_6d408c;
     if (l)
         for (uint8_t* n = *l; n; n = F<uint8_t*>(n, 0))
             if (F<int32_t>(n, 4) == key) return n;
-    --hook::Global<int32_t>(0x6d40a8);
+    --g_6d40a8;
     Enter(0x6d4090, 0x5c81f8);
     return nullptr;
 }
@@ -1243,17 +1244,17 @@ int32_t __fastcall Net_SendTo(uint8_t* net, int, const uint8_t* data, uint16_t s
     bool send = true;
     if (to) {
         Import<void(__stdcall*)(void*)>(0x5c81fc)((void*)0x6d4090);
-        ++hook::Global<int32_t>(0x6d40a8);
+        ++g_6d40a8;
         uint32_t crc = Crc32String(to, 1);
         send = false;
-        for (uint8_t* n = *hook::Global<uint8_t**>(0x6d408c); n; n = F<uint8_t*>(n, 0)) {
+        for (uint8_t* n = *g_6d408c; n; n = F<uint8_t*>(n, 0)) {
             if (F<uint32_t>(n, 0x48) == crc) {
                 dpnid = F<uint32_t>(n, 4);
                 send = true;
                 break;
             }
         }
-        --hook::Global<int32_t>(0x6d40a8);
+        --g_6d40a8;
         Import<void(__stdcall*)(void*)>(0x5c81f8)((void*)0x6d4090);
     }
     if (send) {
@@ -1261,7 +1262,7 @@ int32_t __fastcall Net_SendTo(uint8_t* net, int, const uint8_t* data, uint16_t s
             flags = (flags & ~2u) | 8;
         else if (!(flags & 8))
             flags |= 0x12;
-        hook::Global<uint32_t>(0x6d4104) += desc.size;
+        g_6d4104 += desc.size;
         void* peer = F<void*>(F<uint8_t*>(net, 0x18e), 8);
         uint32_t handle = (uint32_t)(uintptr_t)net;
         (*(int32_t(__stdcall**)(void*, uint32_t, void*, uint32_t, uint32_t, void*, uint32_t*, uint32_t))(*(uint8_t**)peer + 0x1c))(
@@ -1279,9 +1280,9 @@ RT3_NOINLINE int32_t __fastcall Textures_QueryDesc(uint8_t* e, int, int32_t key,
     int32_t ok = 0;
     if (lock == 1) {
         Enter(0x6d4090, 0x5c81fc);
-        ++hook::Global<int32_t>(0x6d40a8);
+        ++g_6d40a8;
     }
-    for (uint8_t* n = *hook::Global<uint8_t**>(0x6d408c); n; n = F<uint8_t*>(n, 0))
+    for (uint8_t* n = *g_6d408c; n; n = F<uint8_t*>(n, 0))
         if (F<int32_t>(n, 4) == key) {
             uint32_t desc[0x17];
             memset(desc, 0, sizeof desc);
@@ -1294,7 +1295,7 @@ RT3_NOINLINE int32_t __fastcall Textures_QueryDesc(uint8_t* e, int, int32_t key,
             break;
         }
     if (lock == 1) {
-        --hook::Global<int32_t>(0x6d40a8);
+        --g_6d40a8;
         Enter(0x6d4090, 0x5c81f8);
     }
     return ok;
@@ -1307,15 +1308,15 @@ RT3_REPLACE(0x521f90, Textures_QueryDesc);
 RT3_NOINLINE uint8_t* __stdcall Textures_Lookup(uint8_t* t, int32_t keep) {
     uint8_t* result = nullptr;
     Enter(0x6d4090, 0x5c81fc);
-    ++hook::Global<int32_t>(0x6d40a8);
-    for (uint8_t* n = *hook::Global<uint8_t**>(0x6d408c); n; n = F<uint8_t*>(n, 0))
+    ++g_6d40a8;
+    for (uint8_t* n = *g_6d408c; n; n = F<uint8_t*>(n, 0))
         if (F<int32_t>(n, 4) == F<int32_t>(t, 0x18)) {
             if (keep == 1) return n;
             memcpy((void*)0x6d4220, n, 0x9bd * 4);
             result = (uint8_t*)0x6d4220;
             break;
         }
-    --hook::Global<int32_t>(0x6d40a8);
+    --g_6d40a8;
     Enter(0x6d4090, 0x5c81f8);
     return result;
 }
@@ -1327,11 +1328,11 @@ RT3_NOINLINE uint8_t* __fastcall CmdNode_New(int32_t clear, int32_t lock) {
     uint8_t* n;
     if (lock == 1) {
         Enter(0x6d406c, 0x5c81fc);
-        ++hook::Global<int32_t>(0x6d4084);
-        n = (uint8_t*)Pool_Take(hook::Global<uint8_t*>(0x6d4064));
-        --hook::Global<int32_t>(0x6d4084);
+        ++g_6d4084;
+        n = (uint8_t*)Pool_Take(g_6d4064);
+        --g_6d4084;
         Enter(0x6d406c, 0x5c81f8);
-    } else n = (uint8_t*)Pool_Take(hook::Global<uint8_t*>(0x6d4064));
+    } else n = (uint8_t*)Pool_Take(g_6d4064);
     if (n) {
         F<int32_t>(n, 0x20) = 0;
         if (clear == 1) memset(n, 0, 0x28);
@@ -1344,16 +1345,16 @@ RT3_REPLACE(0x5220d0, CmdNode_New);
 // command pool 0x6d4064 (lock 0x6d406c).
 void __fastcall CmdQueue_Clear(uint8_t* q) {
     Enter(0x6d406c, 0x5c81fc);
-    ++hook::Global<int32_t>(0x6d4084);
+    ++g_6d4084;
     for (;;) {
         uint8_t* n = F<uint8_t*>(q, 0);
         if (!n) break;
         F<uint8_t*>(q, 0) = F<uint8_t*>(n, 0);
         if (n == F<uint8_t*>(q, 4)) F<uint8_t*>(q, 4) = F<uint8_t*>(n, 0);
         --F<int32_t>(q, 8);
-        Pool_Give(hook::Global<uint8_t*>(0x6d4064), n);
+        Pool_Give(g_6d4064, n);
     }
-    --hook::Global<int32_t>(0x6d4084);
+    --g_6d4084;
     Enter(0x6d406c, 0x5c81f8);
 }
 RT3_REPLACE(0x5221a0, CmdQueue_Clear);
@@ -1363,16 +1364,16 @@ RT3_REPLACE(0x5221a0, CmdQueue_Clear);
 RT3_NOINLINE int32_t __fastcall CmdQueue_Broadcast(int32_t a, int32_t b, int32_t c) {
     int32_t count = 0;
     Enter(0x6d406c, 0x5c81fc);
-    ++hook::Global<int32_t>(0x6d4084);
-    for (uint8_t* ch = *hook::Global<uint8_t**>(0x6d40b0); ch; ch = F<uint8_t*>(ch, 0)) {
-        uint8_t* n = (uint8_t*)Pool_Take(hook::Global<uint8_t*>(0x6d4064));
+    ++g_6d4084;
+    for (uint8_t* ch = *g_6d40b0; ch; ch = F<uint8_t*>(ch, 0)) {
+        uint8_t* n = (uint8_t*)Pool_Take(g_6d4064);
         if (!n) continue;
         F<int32_t>(n, 0x20) = 0;
         memset(n, 0, 0x28);
         F<int32_t>(n, 0x10) = a;
         F<int32_t>(n, 0x1c) = b;
         F<int32_t>(n, 8) = c;
-        F<int32_t>(n, 0x18) = hook::Global<int32_t>(0x6d40e4);
+        F<int32_t>(n, 0x18) = g_6d40e4;
         ++count;
         uint8_t* tail = F<uint8_t*>(ch, 8);
         if (tail) {
@@ -1385,7 +1386,7 @@ RT3_NOINLINE int32_t __fastcall CmdQueue_Broadcast(int32_t a, int32_t b, int32_t
         ++F<int32_t>(ch, 0xc);
         F<uint8_t*>(ch, 8) = n;
     }
-    --hook::Global<int32_t>(0x6d4084);
+    --g_6d4084;
     Enter(0x6d406c, 0x5c81f8);
     return count;
 }
@@ -1396,9 +1397,9 @@ RT3_REPLACE(0x522240, CmdQueue_Broadcast);
 // set, else a new +0x10-byte block), gets an empty message list and goes to the
 // front.
 int32_t __stdcall Net_OpenChannel(uint8_t id) {
-    for (uint8_t* n = *hook::Global<uint8_t**>(0x6d40b0); n; n = F<uint8_t*>(n, 0))
+    for (uint8_t* n = *g_6d40b0; n; n = F<uint8_t*>(n, 0))
         if (n[0x1c] == id) return 0;
-    uint8_t* pool = hook::Global<uint8_t*>(0x6d40ac);
+    uint8_t* pool = g_6d40ac;
     uint8_t* node;
     if (F<int32_t>(pool, 0xc)) {
         uint32_t* free = F<uint32_t*>(pool, 0);
@@ -1415,7 +1416,7 @@ int32_t __stdcall Net_OpenChannel(uint8_t id) {
     F<uint32_t>(node, 8) = 0;
     F<uint32_t>(node, 0xc) = 0;
     node[0x1c] = id;
-    uint32_t* list = hook::Global<uint32_t*>(0x6d40b0);
+    uint32_t* list = hook::As<uint32_t*>(g_6d40b0);
     F<uint32_t>(node, 0) = list[0];
     ++list[2];
     list[0] = (uint32_t)(uintptr_t)node;
@@ -1428,14 +1429,14 @@ RT3_REPLACE(0x522340, Net_OpenChannel);
 // nodes are not freed) and clears 0x6d40ec.
 void __fastcall Net_ResetOutgoing() {
     Import<void(__stdcall*)(void*)>(0x5c81fc)((void*)0x6d4048);
-    ++hook::Global<int32_t>(0x6d4060);
-    uint32_t* list = hook::Global<uint32_t*>(0x6d4044);
+    ++g_6d4060;
+    uint32_t* list = g_6d4044;
     list[0] = 0;
     list[1] = 0;
     list[2] = 0;
-    --hook::Global<int32_t>(0x6d4060);
+    --g_6d4060;
     Import<void(__stdcall*)(void*)>(0x5c81f8)((void*)0x6d4048);
-    hook::Global<int32_t>(0x6d40ec) = 0;
+    g_6d40ec = 0;
 }
 RT3_REPLACE(0x5223d0, Net_ResetOutgoing);
 
@@ -1445,9 +1446,9 @@ RT3_REPLACE(0x5223d0, Net_ResetOutgoing);
 // original reuses its slot to tail-call LeaveCriticalSection (RET 4).
 RT3_NOINLINE void __stdcall Net_PurgeSentMessages(int32_t) {
     Import<void(__stdcall*)(void*)>(0x5c81fc)((void*)0x6d4048);
-    ++hook::Global<int32_t>(0x6d4060);
+    ++g_6d4060;
     for (;;) {
-        uint32_t* list = hook::Global<uint32_t*>(0x6d4044);
+        uint32_t* list = g_6d4044;
         uint32_t* head = (uint32_t*)(uintptr_t)list[0];
         uint32_t* node = head;
         while (node && F<int32_t>(node, 0x118) != -1) node = (uint32_t*)(uintptr_t)node[0];
@@ -1464,7 +1465,7 @@ RT3_NOINLINE void __stdcall Net_PurgeSentMessages(int32_t) {
             if ((uint32_t)(uintptr_t)first == list[1]) list[1] = list[0];
             --list[2];
         }
-        uint8_t* pool = hook::Global<uint8_t*>(0x6d4040);
+        uint8_t* pool = hook::As<uint8_t*>(g_6d4040);
         if (F<int32_t>(pool, 0xc) && (uintptr_t)node >= F<uint32_t>(pool, 4) && (uintptr_t)node < F<uint32_t>(pool, 8)) {
             uint32_t* free = F<uint32_t*>(pool, 0);
             node[0] = free[0];
@@ -1475,7 +1476,7 @@ RT3_NOINLINE void __stdcall Net_PurgeSentMessages(int32_t) {
             ExeDelete(node);
         }
     }
-    --hook::Global<int32_t>(0x6d4060);
+    --g_6d4060;
     Import<void(__stdcall*)(void*)>(0x5c81f8)((void*)0x6d4048);
 }
 RT3_REPLACE(0x522430, Net_PurgeSentMessages);
@@ -1547,42 +1548,42 @@ int32_t __fastcall Lan_ListenThread(uint8_t* ctx) {
     int32_t cleared = 0;
     do {
         if (F<int32_t>(ctx, 0x10)) return 0;
-        if (hook::Global<void*>(0x6d4044) && hook::Global<void*>(0x6d4040)) {
+        if (hook::As<void*>(g_6d4044) && g_6d4040) {
             Lock456(0x5c81fc, 0x6d4048);
-            ++hook::Global<int32_t>(0x6d4060);
-            if (uint32_t* q = hook::Global<uint32_t*>(0x6d4044)) {
+            ++g_6d4060;
+            if (uint32_t* q = g_6d4044) {
                 cleared = 1;
                 q[0] = 0, q[1] = 0, q[2] = 0;
             }
-            --hook::Global<int32_t>(0x6d4060);
+            --g_6d4060;
             Lock456(0x5c81f8, 0x6d4048);
         }
         Iat456<void(__stdcall*)(uint32_t)>(0x5c81f0)(0);
     } while (!cleared);
-    hook::Global<int32_t>(0x6d40e8) = Iat456<int32_t(__stdcall*)(int, int, int)>(0x5c8310)(2, 2, 0);
+    g_6d40e8 = Iat456<int32_t(__stdcall*)(int, int, int)>(0x5c8310)(2, 2, 0);
     uint8_t addr[0x10];
-    if (hook::Global<int32_t>(0x6d40e8) != -1) {
+    if (g_6d40e8 != -1) {
         *(uint16_t*)addr = 2;
         *(uint32_t*)(addr + 4) = Iat456<uint32_t(__stdcall*)(uint32_t)>(0x5c8308)(0);
         *(uint16_t*)(addr + 2) = Iat456<uint16_t(__stdcall*)(uint16_t)>(0x5c8304)(0x4d2);
-        if (Iat456<int(__stdcall*)(int32_t, const void*, int)>(0x5c82f0)(hook::Global<int32_t>(0x6d40e8), addr, d.fromLen)) {
+        if (Iat456<int(__stdcall*)(int32_t, const void*, int)>(0x5c82f0)(g_6d40e8, addr, d.fromLen)) {
             Iat456<int(__stdcall*)()>(0x5c8324)();
             return 1;
         }
     }
-    if (!hook::Global<int32_t>(0x6d40ec)) {
+    if (!g_6d40ec) {
         char name[0x80], where[0x80], buf[0x200];
         int32_t port = 0;
         auto recvfrom_ = Iat456<int(__stdcall*)(int32_t, char*, int, int, void*, int32_t*)>(0x5c831c);
         auto strtok_ = (char*(__cdecl*)(char*, const char*))0x5a3db9;
         do {
             if (F<int32_t>(ctx, 0x10)) break;
-            const int n = recvfrom_(hook::Global<int32_t>(0x6d40e8), buf, 0x1ff, 0, addr, &d.fromLen);
+            const int n = recvfrom_(g_6d40e8, buf, 0x1ff, 0, addr, &d.fromLen);
             if (n == -1) {
                 Iat456<int(__stdcall*)()>(0x5c8324)();
                 continue;
             }
-            if (hook::Global<int32_t>(0x6d40ec) || F<int32_t>(ctx, 0x10)) break;
+            if (g_6d40ec || F<int32_t>(ctx, 0x10)) break;
             buf[n] = 0;
             d.delim[3] = ';';
             char* tok = strtok_(buf, &d.delim[3]);
@@ -1595,26 +1596,26 @@ int32_t __fastcall Lan_ListenThread(uint8_t* ctx) {
                 else if (field == 2)
                     port = ((int(__cdecl*)(const char*))0x5a1e1d)(tok);
             }
-            if (!hook::Global<void*>(0x6d4044) || !hook::Global<void*>(0x6d4040)) continue;
+            if (!hook::As<void*>(g_6d4044) || !g_6d4040) continue;
             Lock456(0x5c81fc, 0x6d4048);
-            ++hook::Global<int32_t>(0x6d4060);
-            if (hook::Global<void*>(0x6d4044) && hook::Global<void*>(0x6d4040) && !Sounds_Has((uint8_t*)name, 1)) {
-                if (uint8_t* g = (uint8_t*)FreeList_Take(hook::Global<uint8_t*>(0x6d4040))) {
+            ++g_6d4060;
+            if (hook::As<void*>(g_6d4044) && g_6d4040 && !Sounds_Has((uint8_t*)name, 1)) {
+                if (uint8_t* g = (uint8_t*)FreeList_Take(hook::As<uint8_t*>(g_6d4040))) {
                     memset(g, 0, 0x11c);
                     F<int32_t>(g, 0x104) = port;
                     F<int32_t>(g, 0x118) = ClockMs();
                     strcpy((char*)g + 4, name);
                     strcpy((char*)g + 0x84, where);
-                    SList_PushFront(hook::Global<void**>(0x6d4044), 0, (void**)g);
+                    SList_PushFront(hook::As<void**>(g_6d4044), 0, (void**)g);
                 }
             }
-            --hook::Global<int32_t>(0x6d4060);
+            --g_6d4060;
             Lock456(0x5c81f8, 0x6d4048);
-        } while (!hook::Global<int32_t>(0x6d40ec));
+        } while (!g_6d40ec);
     }
-    Iat456<int(__stdcall*)(int32_t)>(0x5c82fc)(hook::Global<int32_t>(0x6d40e8));
-    hook::Global<int32_t>(0x6d40ec) = 0;
-    hook::Global<int32_t>(0x6d40e8) = 0;
+    Iat456<int(__stdcall*)(int32_t)>(0x5c82fc)(g_6d40e8);
+    g_6d40ec = 0;
+    g_6d40e8 = 0;
     return 0xff;
 }
 RT3_REPLACE(0x522670, Lan_ListenThread);
@@ -1663,7 +1664,7 @@ RT3_REPLACE(0x522a40, Net_FreePendingList);
 // local player (flag 2) becomes 0x6d40e4, the host (flag 4) gets +0x50. The player
 // count 0x6d4100 rises and a command 5 for it is queued. 0 when added, else -1.
 RT3_NOINLINE int32_t __fastcall Net_PlayerJoined(int32_t, uint8_t* msg) {
-    void* peer = hook::Global<void*>(0x6d40e0);
+    void* peer = g_6d40e0;
     typedef int32_t(__stdcall * GetInfo)(void*, int32_t, void*, uint32_t*, uint32_t);
     uint32_t size = 0;
     int32_t result = -1;
@@ -1671,15 +1672,15 @@ RT3_NOINLINE int32_t __fastcall Net_PlayerJoined(int32_t, uint8_t* msg) {
     uint32_t* info = (uint32_t*)ExeNew(size);
     memset(info, 0, 0x18);
     info[0] = 0x18;
-    peer = hook::Global<void*>(0x6d40e0);
+    peer = g_6d40e0;
     if ((*(GetInfo*)(*(uint8_t**)peer + 0x54))(peer, F<int32_t>(msg, 4), info, &size, 0) >= 0) {
         char name[0x40];
         Str_FromWide(name, (const wchar_t*)(uintptr_t)info[2], -1);
         uint32_t hash = Crc32String(name, 1);
         Enter(0x6d4090, 0x5c81fc);
-        ++hook::Global<int32_t>(0x6d40a8);
-        if (hook::Global<void*>(0x6d408c)) {
-            if (uint8_t* p = (uint8_t*)FreeList_Take(hook::Global<uint8_t*>(0x6d4088))) {
+        ++g_6d40a8;
+        if (hook::As<void*>(g_6d408c)) {
+            if (uint8_t* p = (uint8_t*)FreeList_Take(g_6d4088)) {
                 memset(p, 0, 0x9bd * 4);
                 strcpy((char*)p + 8, name);
                 F<int32_t>(p, 4) = F<int32_t>(msg, 4);
@@ -1704,12 +1705,12 @@ RT3_NOINLINE int32_t __fastcall Net_PlayerJoined(int32_t, uint8_t* msg) {
                 F<int32_t>(p, 0x74) = 0x7ffffffe;
                 F<int32_t>(p, 0x5c) = 1;
                 F<int32_t>(p, 0x2690) = 1;
-                void** list = hook::Global<void**>(0x6d408c);
+                void** list = hook::As<void**>(g_6d408c);
                 SList_InsertAfter(list, 0, (void**)list[1], (void**)p);
                 if (info[5] & 2) {
-                    hook::Global<int32_t>(0x6d40e4) = F<int32_t>(p, 4);
+                    g_6d40e4 = F<int32_t>(p, 4);
                     F<uint32_t>(p, 0x2694) = SysInfo_CpuSignature();
-                    F<int32_t>(p, 0x268c) = hook::Global<int32_t>(0x6d4108);
+                    F<int32_t>(p, 0x268c) = g_6d4108;
                 }
                 if (info[5] & 4) F<int32_t>(p, 0x50) = 1;
                 Enter(0x6d4100, 0x5c8070);
@@ -1717,7 +1718,7 @@ RT3_NOINLINE int32_t __fastcall Net_PlayerJoined(int32_t, uint8_t* msg) {
                 result = 0;
             }
         }
-        --hook::Global<int32_t>(0x6d40a8);
+        --g_6d40a8;
         Enter(0x6d4090, 0x5c81f8);
     }
     ExeDelete(info);
@@ -1731,10 +1732,10 @@ RT3_REPLACE(0x522ab0, Net_PlayerJoined);
 // command 6 for it is queued on every channel (count kept at +0x4c).
 RT3_NOINLINE int32_t __fastcall Net_PlayerLeft(int32_t, uint8_t* msg) {
     Enter(0x6d4090, 0x5c81fc);
-    ++hook::Global<int32_t>(0x6d40a8);
-    uint8_t* p = *hook::Global<uint8_t**>(0x6d408c);
+    ++g_6d40a8;
+    uint8_t* p = *g_6d408c;
     while (p && F<int32_t>(p, 4) != F<int32_t>(msg, 4)) p = F<uint8_t*>(p, 0);
-    --hook::Global<int32_t>(0x6d40a8);
+    --g_6d40a8;
     Enter(0x6d4090, 0x5c81f8);
     if (!p) return 0;
     int32_t why = F<int32_t>(msg, 0xc);
@@ -1770,7 +1771,7 @@ void __stdcall Net_FreePlayerRecord(uint8_t* p) {
         }
     }
     if (HashMap* h = F<HashMap*>(p, 0x2580)) {
-        if (F<int32_t>(p, 4) != hook::Global<int32_t>(0x6d40e4)) Hash_ForEach(h, 0, 0, (HashVisit)0x522a40, nullptr);
+        if (F<int32_t>(p, 4) != g_6d40e4) Hash_ForEach(h, 0, 0, (HashVisit)0x522a40, nullptr);
         if (HashMap* h2 = F<HashMap*>(p, 0x2580)) {
             Hash_DestroyThunk(h2);
             ExeDelete(h2);
@@ -1780,7 +1781,7 @@ void __stdcall Net_FreePlayerRecord(uint8_t* p) {
     if (MaxHeap* heap = F<MaxHeap*>(p, 0x6c)) {
         for (uint32_t* m; (m = (uint32_t*)(uintptr_t)Heap_PopMax(heap)) != nullptr; heap = F<MaxHeap*>(p, 0x6c)) {
             ExeDelete((void*)(uintptr_t)m[1]);
-            Pool_Return(hook::Global<uint8_t*>(0x6d4064), m);
+            Pool_Return(g_6d4064, m);
         }
         if (MaxHeap* h2 = F<MaxHeap*>(p, 0x6c)) {
             Heap_Destroy2(h2);
@@ -1796,10 +1797,10 @@ RT3_REPLACE(0x522e30, Net_FreePlayerRecord);
 // when the network is down, the channel is unknown or has nothing.
 uint32_t* __stdcall Net_TakeChannelMessages(uint8_t id) {
     uint32_t* taken = nullptr;
-    if (!hook::Global<void*>(0x6d408c)) return nullptr;
+    if (!hook::As<void*>(g_6d408c)) return nullptr;
     Import<void(__stdcall*)(void*)>(0x5c81fc)((void*)0x6d406c);
-    ++hook::Global<int32_t>(0x6d4084);
-    for (uint8_t* n = *hook::Global<uint8_t**>(0x6d40b0); n; n = F<uint8_t*>(n, 0)) {
+    ++g_6d4084;
+    for (uint8_t* n = *g_6d40b0; n; n = F<uint8_t*>(n, 0)) {
         if (n[0x1c] != id) continue;
         if (F<uint32_t>(n, 4)) {
             taken = (uint32_t*)(n + 0x10);
@@ -1808,7 +1809,7 @@ uint32_t* __stdcall Net_TakeChannelMessages(uint8_t id) {
         }
         break;
     }
-    --hook::Global<int32_t>(0x6d4084);
+    --g_6d4084;
     Import<void(__stdcall*)(void*)>(0x5c81f8)((void*)0x6d406c);
     return taken;
 }
@@ -1828,19 +1829,19 @@ void __fastcall Net_FinishReceived(uint8_t* net, int, uint32_t* list) {
     for (uint8_t* m = (uint8_t*)(uintptr_t)list[0]; m; m = F<uint8_t*>(m, 0)) {
         if (F<int32_t>(m, 0x10) == 6) {
             enter((void*)0x6d406c);
-            ++hook::Global<int32_t>(0x6d4084);
+            ++g_6d4084;
             enter((void*)0x6d4090);
-            ++hook::Global<int32_t>(0x6d40a8);
+            ++g_6d40a8;
             uint32_t* p = F<uint32_t*>(m, 8);
             if (--F<int32_t>(p, 0x4c) == 0) {
-                uint32_t* players = hook::Global<uint32_t*>(0x6d408c);
+                uint32_t* players = hook::As<uint32_t*>(g_6d408c);
                 SList_Unlink(&players[0], &players[1], (int32_t*)&players[2], p);
                 Net_FreePlayerRecord((uint8_t*)p);
-                Pool_Return(hook::Global<uint8_t*>(0x6d4088), p);
+                Pool_Return(g_6d4088, p);
             }
-            --hook::Global<int32_t>(0x6d40a8);
+            --g_6d40a8;
             leave((void*)0x6d4090);
-            --hook::Global<int32_t>(0x6d4084);
+            --g_6d4084;
             leave((void*)0x6d406c);
         }
         if (uint32_t buffer = F<uint32_t>(m, 0x14)) {
@@ -1849,7 +1850,7 @@ void __fastcall Net_FinishReceived(uint8_t* net, int, uint32_t* list) {
         }
     }
     enter((void*)0x6d406c);
-    ++hook::Global<int32_t>(0x6d4084);
+    ++g_6d4084;
     uint32_t* node = (uint32_t*)(uintptr_t)list[0];
     if (node) {
         list[0] = node[0];
@@ -1857,14 +1858,14 @@ void __fastcall Net_FinishReceived(uint8_t* net, int, uint32_t* list) {
         --list[2];
     }
     for (;;) {
-        if (!(((uint8_t*)node)[0x20] & 1)) Pool_Return(hook::Global<uint8_t*>(0x6d4064), node);
+        if (!(((uint8_t*)node)[0x20] & 1)) Pool_Return(g_6d4064, node);
         node = (uint32_t*)(uintptr_t)list[0];
         if (!node) break;
         list[0] = node[0];
         if ((uint32_t)(uintptr_t)node == list[1]) list[1] = list[0];
         --list[2];
     }
-    --hook::Global<int32_t>(0x6d4084);
+    --g_6d4084;
     leave((void*)0x6d406c);
 }
 RT3_REPLACE(0x523010, Net_FinishReceived);
@@ -1874,14 +1875,14 @@ RT3_REPLACE(0x523010, Net_FinishReceived);
 // object, frees every player record and the pools / lists set up by
 // Net_InitShared, and clears the session globals.
 int32_t __fastcall Net_ShutdownShared(uint8_t* net) {
-    if (!hook::Global<void*>(0x6d408c)) return 0;
-    hook::Global<int32_t>(0x6d40f4) = 1;
-    while (hook::Global<int32_t>(0x6d40f0) > 0) Import<void(__stdcall*)(uint32_t)>(0x5c81f0)(0);
+    if (!hook::As<void*>(g_6d408c)) return 0;
+    g_6d40f4 = 1;
+    while (g_6d40f0 > 0) Import<void(__stdcall*)(uint32_t)>(0x5c81f0)(0);
     if (F<uint32_t>(net, 0x18e)) {
         Set_d973b0(0);
         F<uint32_t>(net, 0x18e) = 0;
     }
-    for (uint8_t* n = *hook::Global<uint8_t**>(0x6d408c); n; n = F<uint8_t*>(n, 0)) Net_FreePlayerRecord(n);
+    for (uint8_t* n = *g_6d408c; n; n = F<uint8_t*>(n, 0)) Net_FreePlayerRecord(n);
     auto freeList = [](uint32_t at) {
         if (void* l = hook::Global<void*>(at)) {
             ExeDelete(l);
@@ -1903,10 +1904,10 @@ int32_t __fastcall Net_ShutdownShared(uint8_t* net) {
     freePool(0x6d4040);
     freeList(0x6d40b0);
     freePool(0x6d40ac);
-    hook::Global<int32_t>(0x6d4100) = 0;
-    hook::Global<int32_t>(0x6d40dc) = 0;
-    hook::Global<int32_t>(0x6d40e0) = 0;
-    hook::Global<int32_t>(0x6d40e4) = 0;
+    g_6d4100 = 0;
+    g_6d40dc = 0;
+    hook::As<int32_t>(g_6d40e0) = 0;
+    g_6d40e4 = 0;
     F<int32_t>(net, 0x212) = 0;
     F<int32_t>(net, 0x216) = 0;
     return 1;
@@ -1923,7 +1924,7 @@ RT3_REPLACE(0x523200, Net_ShutdownShared);
 // session lost 0xffff0016 sets 0x6d4114; receive 0xffff0011 queues the data
 // to its tagged engine queue (returning 0x15800e, pending).
 int32_t __fastcall Net_HandleMessage(int32_t ctx, uint32_t type, uint8_t* msg) {
-    if (hook::Global<int32_t>(0x6d40f4)) return 0;
+    if (g_6d40f4) return 0;
     Lock456(0x5c8070, 0x6d40f0);
     int32_t r = 0;
     switch (type) {
@@ -1935,20 +1936,20 @@ int32_t __fastcall Net_HandleMessage(int32_t ctx, uint32_t type, uint8_t* msg) {
         break;
     case 0xffff000e:
         Lock456(0x5c81fc, 0x6d4090);
-        ++hook::Global<int32_t>(0x6d40a8);
+        ++g_6d40a8;
         if (F<const char*>(msg, 4) && Net_FindByName(F<const char*>(msg, 4))) {
-            hook::Global<int32_t>(0x6d40d8) = 0;
+            g_6d40d8 = 0;
             F<int32_t>(msg, 0x10) = 4;
             F<uint32_t>(msg, 0xc) = 0x6d40d8;
             r = 1;
         }
-        if (hook::Global<int32_t>(0x6d4110)) {
-            hook::Global<int32_t>(0x6d40d8) = 0xa;
+        if (g_6d4110) {
+            g_6d40d8 = 0xa;
             F<int32_t>(msg, 0x10) = 4;
             F<uint32_t>(msg, 0xc) = 0x6d40d8;
             r = 1;
         }
-        --hook::Global<int32_t>(0x6d40a8);
+        --g_6d40a8;
         Lock456(0x5c81f8, 0x6d4090);
         break;
     case 0xffff0005: {
@@ -1969,21 +1970,21 @@ int32_t __fastcall Net_HandleMessage(int32_t ctx, uint32_t type, uint8_t* msg) {
     }
     case 0xffff000d: {
         Lock456(0x5c81fc, 0x6d4090);
-        ++hook::Global<int32_t>(0x6d40a8);
+        ++g_6d40a8;
         uint8_t* p = Net_FindById(F<int32_t>(msg, 4));
         F<int32_t>(p, 0x50) = 1;
         CmdQueue_Broadcast(4, 0, (int32_t)(uintptr_t)p);
-        --hook::Global<int32_t>(0x6d40a8);
+        --g_6d40a8;
         Lock456(0x5c81f8, 0x6d4090);
-        if (F<int32_t>(msg, 4) == hook::Global<int32_t>(0x6d40e4)) hook::Global<int32_t>(0x6d40dc) = 1;
+        if (F<int32_t>(msg, 4) == g_6d40e4) g_6d40dc = 1;
         break;
     }
     case 0xffff0016:
-        hook::Global<int32_t>(0x6d4114) = 0xa;
+        g_6d4114 = 0xa;
         break;
     case 0xffff0011: {
         Lock456(0x5c81fc, 0x6d406c);
-        ++hook::Global<int32_t>(0x6d4084);
+        ++g_6d4084;
         uint8_t* data = F<uint8_t*>(msg, 0xc);
         if (uint8_t* e = Engine_FindTagged((char)data[8])) {
             if (uint8_t* n = CmdNode_New(1, 0)) {
@@ -1996,7 +1997,7 @@ int32_t __fastcall Net_HandleMessage(int32_t ctx, uint32_t type, uint8_t* msg) {
                 r = 0x15800e;
             }
         }
-        --hook::Global<int32_t>(0x6d4084);
+        --g_6d4084;
         Lock456(0x5c81f8, 0x6d406c);
         break;
     }
@@ -2012,14 +2013,14 @@ RT3_REPLACE(0x523380, Net_HandleMessage);
 // 0x2000, outgoing 0x11c x 0x20, channels 0x1d x 0x100), opens the broadcast
 // channel 0xff and installs the message handler 0x523380.
 RT3_NOINLINE int32_t __fastcall Net_InitShared(uint8_t* net) {
-    if (hook::Global<void*>(0x6d408c)) return 0;
-    F<uint32_t>(net, 0x18e) = hook::Global<uint32_t>(0xd973b4);
+    if (hook::As<void*>(g_6d408c)) return 0;
+    F<uint32_t>(net, 0x18e) = hook::As<uint32_t>(g_d973b4);
     memset((void*)0x6d4088, 0, 9 * 4);
     memset((void*)0x6d4064, 0, 9 * 4);
     memset((void*)0x6d4040, 0, 9 * 4);
     memset((void*)0x6d40ac, 0, 9 * 4);
-    hook::Global<int32_t>(0x6d40f0) = 0;
-    hook::Global<int32_t>(0x6d40f4) = 0;
+    g_6d40f0 = 0;
+    g_6d40f4 = 0;
     auto init = Import<void(__stdcall*)(void*)>(0x5c81ec);
     init((void*)0x6d4090);
     init((void*)0x6d406c);
@@ -2041,8 +2042,8 @@ RT3_NOINLINE int32_t __fastcall Net_InitShared(uint8_t* net) {
     memset(net + 0x21a, 0, 0x10 * 4);
     Net_OpenChannel(0xff);
     Set_d973b0(0x523380);
-    hook::Global<int32_t>(0x6d4110) = 0;
-    hook::Global<int32_t>(0x6d4114) = 0;
+    g_6d4110 = 0;
+    g_6d4114 = 0;
     return 1;
 }
 RT3_REPLACE(0x5236a0, Net_InitShared);
@@ -2053,7 +2054,7 @@ RT3_REPLACE(0x5236a0, Net_InitShared);
 // device address +0x18e +0xc). 1 when hosting (0x6d40dc set, command 4 queued).
 RT3_NOINLINE int32_t __fastcall Net_Host(uint8_t* o, int, const char* game, const char* name, const char* password, int32_t ms, int32_t maxPlayers) {
     Net_InitShared(o);
-    if (!hook::Global<void*>(0x6d408c)) return 0;
+    if (!hook::As<void*>(g_6d408c)) return 0;
     struct {
         int32_t caps;
         uint32_t desc[0x12];
@@ -2088,7 +2089,7 @@ RT3_NOINLINE int32_t __fastcall Net_Host(uint8_t* o, int, const char* game, cons
     int32_t hr = (*(int32_t(__stdcall**)(void*, void*, void*, uint32_t, void*, void*, void*, uint32_t))(*(uint8_t**)peer + 0x24))(
         peer, l.desc, d + 0xc, 1, nullptr, nullptr, nullptr, 0);
     if (hr < 0) return 0;
-    hook::Global<int32_t>(0x6d40dc) = 1;
+    g_6d40dc = 1;
     CmdQueue_Broadcast(4, 0, 0);
     return 1;
 }
@@ -2101,7 +2102,7 @@ RT3_REPLACE(0x5238e0, Net_Host);
 // when the session isn't ready, a connection is up (0x6d40dc) or a setup step fails.
 RT3_NOINLINE int32_t __fastcall Net_Connect(uint8_t* o, int, const char* host, const char* name, const char* password, int32_t ms) {
     Net_InitShared(o);
-    if (!hook::Global<void*>(0x6d408c) || hook::Global<int32_t>(0x6d40dc)) return (int32_t)0x80158480;
+    if (!hook::As<void*>(g_6d408c) || g_6d40dc) return (int32_t)0x80158480;
     if (Net_SetPlayerName(o, 0, name) != 1) return (int32_t)0x80158480;
     if (DpAddress_AddString(F<void*>(F<uint8_t*>(o, 0x18e), 0x10), host) != 1) return (int32_t)0x80158480;
     if (Sound_SetBufferMs(o, 0, F<void*>(F<uint8_t*>(o, 0x18e), 0xc), ms) != 1) return (int32_t)0x80158480;

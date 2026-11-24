@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <string.h>
 #include "hook/hook.h"
+#include "core/globals.h"
 #include "game/collection.h"
 #include "core/crt.h"
 #include "core/stream.h"
@@ -22,10 +23,6 @@ extern int g_traceMaskPointer;
 
 static CollectionVtbl* const kVtbl = reinterpret_cast<CollectionVtbl*>(0x5d1aa0);
 
-static int32_t&  g_seed      = hook::Global<int32_t>(0x62431c);
-static int32_t&  g_seedSaved = hook::Global<int32_t>(0x624320);
-static int32_t&  g_seedDepth = hook::Global<int32_t>(0x6d3b94);
-static uint32_t& g_lcg       = hook::Global<uint32_t>(0x624324);
 struct BuiltinString { int32_t id; const char* text; };
 struct BuiltinTable { const BuiltinString* entries; int32_t count; };
 #include "game/builtin_strings.inc"
@@ -99,7 +96,7 @@ static const char* Builtin(int32_t lang, int32_t id) {
 
 // QUIRK: like the original, a negative id indexes before the loaded array.
 static const char* Loaded(int32_t id) {
-    StringList* l = hook::Global<StringList*>(0x6d3c94);
+    StringList* l = g_6d3c94;
     if (!l || !l->items || l->count <= id) return nullptr;
     return l->items[id];
 }
@@ -530,22 +527,22 @@ RT3_NOINLINE int32_t __fastcall SimRand(int32_t lo, int32_t hi) {
         return (int32_t)((first << 15 | second) % (uint32_t)(range + 1)) + lo;
     }
     if (hi <= lo) return hi;
-    uint32_t s = (uint32_t)g_seed;
+    uint32_t s = (uint32_t)hook::As<int32_t>(g_seed);
     s = s * 0x41c64e6d + (uint32_t)(int32_t)(int16_t)(s >> 16) + 0x3039;
-    g_seed = (int32_t)s;
+    hook::As<int32_t>(g_seed) = (int32_t)s;
     return (int32_t)(s & 0x7fffffff) % (range + 1) + lo;
 }
 RT3_REPLACE(0x518be0, SimRand);
 
-RT3_NOINLINE int32_t GetSeed() { return g_seed; }
+RT3_NOINLINE int32_t GetSeed() { return hook::As<int32_t>(g_seed); }
 RT3_REPLACE(0x518c60, GetSeed);
 
-RT3_NOINLINE void __fastcall SetSeed(int32_t seed) { g_seed = seed; }
+RT3_NOINLINE void __fastcall SetSeed(int32_t seed) { hook::As<int32_t>(g_seed) = seed; }
 RT3_REPLACE(0x518c70, SetSeed);
 
 // Nested save/restore of the global seed.
 void PushSeed() {
-    if (g_seedDepth == 0) g_seedSaved = g_seed;
+    if (g_seedDepth == 0) g_seedSaved = hook::As<int32_t>(g_seed);
     g_seedDepth++;
 }
 RT3_REPLACE(0x518c80, PushSeed);
@@ -553,7 +550,7 @@ RT3_REPLACE(0x518c80, PushSeed);
 void PopSeed() {
     g_seedDepth--;
     if (g_seedDepth == 0) {
-        g_seed = g_seedSaved;
+        hook::As<int32_t>(g_seed) = g_seedSaved;
         g_seedSaved = -1;
     }
 }
@@ -684,7 +681,7 @@ RT3_NOINLINE void Language_Select() {
         { 0x180c, 0x5d21ec }, { 0x410, 0x5d21e4 }, { 0x810, 0x5d21e4 }, { 0x416, 0x5d21dc }, { 0x816, 0x5d21dc },
         { 0x411, 0x5d21fc }, { 0x415, 0x5d2204 }, { 0x419, 0x5d21f4 }, { 0x40e, 0x5d220c },
     };
-    uint16_t id = ((uint16_t(__stdcall*)())hook::Global<void*>(0x5c8218))();
+    uint16_t id = ((uint16_t(__stdcall*)())g_5c8218)();
     const char* name = (const char*)0x5d21c4;
     if ((id & 0x3ff) == 0xa && id >= 0x40a && id <= 0x500a) name = (const char*)0x5d21bc; // all Spanish variants
     for (const Entry& e : table)
@@ -709,7 +706,7 @@ RT3_REPLACE(0x518fa0, Language_Select);
 
 // 0x5193d0. Frees the strings loaded from the language file (0x6d3c94).
 RT3_NOINLINE void FreeLanguageStrings() {
-    StringList*& args = hook::Global<StringList*>(0x6d3c94);
+    StringList*& args = g_6d3c94;
     if (!args) return;
     StringList_Free(args);
     FreeAndNull((void**)&args);
@@ -718,7 +715,7 @@ RT3_REPLACE(0x5193d0, FreeLanguageStrings);
 
 RT3_NOINLINE const char* __fastcall GetString(int32_t id) {
     if (id == 1) return (const char*)0x5c9ce8; // "\n"
-    int32_t lang = hook::Global<int32_t>(0x6d3c84);
+    int32_t lang = g_language;
     const char* s;
     switch (lang) {
     case 6: case 11: case 12:
@@ -730,7 +727,7 @@ RT3_NOINLINE const char* __fastcall GetString(int32_t id) {
         break;
     }
     if ((s = Loaded(id)) != nullptr) return s;
-    return id == 7 ? hook::Global<const char*>(0x6243c4) : hook::Global<const char*>(0x6243c0);
+    return id == 7 ? g_6243c4 : g_6243c0;
 }
 RT3_REPLACE(0x5193f0, GetString);
 

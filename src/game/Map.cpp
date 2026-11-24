@@ -8,6 +8,7 @@
 #include <initializer_list>
 #include <windows.h>
 #include "hook/hook.h"
+#include "core/globals.h"
 #include "game/collection.h"
 #include "hook/keepregs.h"
 #include "core/crt.h"
@@ -24,8 +25,6 @@ namespace rt3 {
 
 template <typename T> static inline T& F(void* o, uint32_t off) { return *(T*)((uint8_t*)o + off); }
 uint32_t __fastcall Map_GridByte(void* m, int, float x, float y);
-static Collection*& g_table6cfc9c = hook::Global<Collection*>(0x6cfc9c);
-static Collection*& g_table62bae0 = hook::Global<Collection*>(0x62bae0);
 void __fastcall Terrain_DeleteMarkers(uint8_t* r);
 void __fastcall Obj_FreeKeyList(void* o);
 void __fastcall Station_Reset(void* o, int, uint16_t x, uint16_t y);
@@ -465,13 +464,13 @@ static int32_t __fastcall Map_ClampRectInclusive_Impl(uint8_t* m, int, int32_t* 
 
 static inline double ExeSqrt(double v) { return ((double(__cdecl*)(double))0x5a1634)(v); }
 
-static inline uint8_t* Renderer() { return (uint8_t*)Engine_Renderer(hook::Global<void*>(0x6d4024)); }
+static inline uint8_t* Renderer() { return (uint8_t*)Engine_Renderer(hook::As<void*>(g_engine)); }
 
 static inline uint32_t VertexCount(uint8_t* r) {
     return (uint32_t)((F<int32_t>(r, 0x15d9) + 1) * (F<int32_t>(r, 0x15d5) + 1));
 }
 
-static inline uint8_t* Map() { return hook::Global<uint8_t*>(0x62c120); }
+static inline uint8_t* Map() { return g_map; }
 
 // Eight neighbour directions (dx 0x624b28, dy 0x624b48).
 static inline int32_t DirX(int32_t d) { return ((const int32_t*)0x624b28)[d]; }
@@ -496,7 +495,7 @@ static inline void MarkWater(uint8_t* t, int32_t x, int32_t y, uint32_t keep2, u
     w = (w & 7) == 2 ? ((w & keep2) | set2) : ((w & keep) | set);
     *rec = (uint16_t)w;
     Terrain_DecCellCount(t, 0, x, y, 6);
-    void* cam = hook::Global<void*>(0x62be68);
+    void* cam = hook::As<void*>(g_62be68);
     ((void(__thiscall*)(void*))(*(void***)cam)[0])(cam);
 }
 
@@ -504,7 +503,7 @@ static inline double D(uint32_t a) { return *(const double*)a; }
 
 static inline float Fl(uint32_t a) { return *(const float*)a; }
 
-static inline Collection* Cargos() { return hook::Global<Collection*>(0x62ba8c); }
+static inline Collection* Cargos() { return g_cargoTypes; }
 
 // Cell centre (n + 0.5) as a float.
 static inline float Centre(int32_t n) { return (float)((double)n + D(0x5c8628)); }
@@ -608,7 +607,7 @@ static inline uint32_t Overview_Check(int32_t x, int32_t y, uint32_t odd, uint32
 // Colour of map t's overview cell (x, y) (sx, sy: in quarter cells on big
 // maps) for overview mode t +0x2175 and its key +0x2179.
 static uint32_t Overview_CellColour(uint8_t* t, const void* arg, int32_t x, int32_t y, int32_t sx, int32_t sy, uint32_t prev) {
-    uint8_t* M = hook::Global<uint8_t*>(0x62c120);
+    uint8_t* M = g_map;
     int32_t mode = F<int32_t>(t, 0x2175);
     switch (mode) {
     case 0x1f: {
@@ -622,17 +621,17 @@ static uint32_t Overview_CellColour(uint8_t* t, const void* arg, int32_t x, int3
         uint32_t c;
         uint32_t reg = F<uint8_t*>(M, 0x2131)[F<int32_t>(M, 0x2155) * y + x] >> 3;
         if (reg == F<uint32_t>(t, 0x2179)) c = 0xc35ae343;
-        else if (!F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x68) &&
-                 Map_RegionTypeAt(hook::Global<uint8_t*>(0x62c120), 0, (float)x, (float)y) == F<uint32_t>(t, 0x2179))
+        else if (!F<int32_t>(g_app, 0x68) &&
+                 Map_RegionTypeAt(g_map, 0, (float)x, (float)y) == F<uint32_t>(t, 0x2179))
             c = 0xc35ae343;
         else c = 0;
-        return Terrain_KindIs1Or3to5(hook::Global<uint8_t*>(0x62c120), 0, x, y) ? 0 : c;
+        return Terrain_KindIs1Or3to5(g_map, 0, x, y) ? 0 : c;
     }
     case 0x1e: {
         uint32_t sel = arg ? *(const uint32_t*)arg : 0;
         uint32_t reg = F<uint8_t*>(M, 0x2131)[F<int32_t>(M, 0x2155) * y + x] >> 3;
         uint32_t c = reg == sel ? 0xa8ffff00 : hook::Global<uint32_t>(0x5ee840 + (reg & 0x1f) * 4);
-        return Terrain_KindIs1Or3to5(hook::Global<uint8_t*>(0x62c120), 0, x, y) ? 0 : c;
+        return Terrain_KindIs1Or3to5(g_map, 0, x, y) ? 0 : c;
     }
     case 0x17: return ((const uint8_t*)arg)[F<int32_t>(t, 0x2155) * y + x] ? 0x38ffffff : 0;
     case 3: {
@@ -641,7 +640,7 @@ static uint32_t Overview_CellColour(uint8_t* t, const void* arg, int32_t x, int3
         uint8_t* cell = F<uint8_t*>(t, 0x2129) + (F<int32_t>(t, 0x2145) * y + x) * 0x1d7;
         if ((cell[0xe6] & 1) && !(cell[0xe6] & 4)) return 0;
         int32_t k = F<int32_t>(t, 0x2179);
-        if (!k || F<int32_t>(hook::Global<uint8_t*>(0x62ba8c), k * 4 + 0x9a) != -1 || F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4af7)) return 0x8fcccccc;
+        if (!k || F<int32_t>(hook::As<uint8_t*>(g_cargoTypes), k * 4 + 0x9a) != -1 || F<int32_t>(g_world, 0x4af7)) return 0x8fcccccc;
         float q = (float)City_CargoQuota(cell, 0, k % 0x35);
         return HeatColor((float)(((double)q - F<float>(t, 0x2195)) / F<float>(t, 0x2199)));
     }
@@ -691,8 +690,8 @@ static uint32_t Overview_CellColour(uint8_t* t, const void* arg, int32_t x, int3
     case 0x11: {
         int32_t cy = Ftol(((double)y + D(0x5c8628)) * D(0x5c87b8));
         int32_t cx = Ftol(((double)x + D(0x5c8628)) * D(0x5c87b8));
-        if (Terrain_KindIs1Or3to5(hook::Global<uint8_t*>(0x62c120), 0, cx, cy)) return 0;
-        uint8_t* m2 = hook::Global<uint8_t*>(0x62c120);
+        if (Terrain_KindIs1Or3to5(g_map, 0, cx, cy)) return 0;
+        uint8_t* m2 = g_map;
         uint32_t v = F<uint8_t*>(m2, 0x212d)[(F<int32_t>(m2, 0x214d) * y + x) * 4 + 3];
         return F<uint32_t>(t, 0x2179) == v ? 0x7fffff00 : hook::Global<uint32_t>(0x5ee82c + v * 4);
     }
@@ -701,23 +700,23 @@ static uint32_t Overview_CellColour(uint8_t* t, const void* arg, int32_t x, int3
         return w != F<uint32_t>(t, 0x2179) ? 0 : 0x4800ff00;
     }
     case 0x18:
-        if (!Terrain_RecBit9(hook::Global<uint8_t*>(0x62c120), 0, x, y)) return Overview_Check(x, y, 0xff000001, 0x8ffffff);
-        if (!Terrain_KindIs2Or4Or5(hook::Global<uint8_t*>(0x62c120), 0, x, y)) return Overview_Check(x, y, 0x7b9f4a4, 0x209414c4);
-        if (Terrain_Rec(hook::Global<uint8_t*>(0x62c120), 0, x, y)[2] & 0x20) return 0x2fff0000;
+        if (!Terrain_RecBit9(g_map, 0, x, y)) return Overview_Check(x, y, 0xff000001, 0x8ffffff);
+        if (!Terrain_KindIs2Or4Or5(g_map, 0, x, y)) return Overview_Check(x, y, 0x7b9f4a4, 0x209414c4);
+        if (Terrain_Rec(g_map, 0, x, y)[2] & 0x20) return 0x2fff0000;
         return Overview_Check(x, y, 0xac9f4a4, 0x24a4a4e4);
     case 0x19:
-        return Terrain_KindIs1Or4(hook::Global<uint8_t*>(0x62c120), 0, x, y) ? Overview_Check(x, y, 0x1fb9f4a4, 0xcf9414c4)
+        return Terrain_KindIs1Or4(g_map, 0, x, y) ? Overview_Check(x, y, 0x1fb9f4a4, 0xcf9414c4)
                                                                              : Overview_Check(x, y, 0xff000001, 0x18ffffff);
     case 0x1a:
-        return Map_CellLow3(hook::Global<uint8_t*>(0x62c120), 0, x, y) ? Overview_Check(x, y, 0xff000001, 0x18ffffff)
+        return Map_CellLow3(g_map, 0, x, y) ? Overview_Check(x, y, 0xff000001, 0x18ffffff)
                                                                         : Overview_Check(x, y, 0x1fb9f4a4, 0xcf9414c4);
     case 0x1b:
         return (uint32_t)(F<uint8_t*>(t, 0x162d)[((F<int32_t>(t, 0x15d9) >> (F<uint32_t>(t, 0x15e1) & 0x1f)) + 1) * y + x] | 0x7f00) << 16;
     case 0x1c:
-        return Terrain_KindIs3Or5(hook::Global<uint8_t*>(0x62c120), 0, x, y) ? Overview_Check(x, y, 0x1fb9f4a4, 0xcf9414c4)
+        return Terrain_KindIs3Or5(g_map, 0, x, y) ? Overview_Check(x, y, 0x1fb9f4a4, 0xcf9414c4)
                                                                              : Overview_Check(x, y, 0xff000001, 0x18ffffff);
     case 0x1d:
-        return Grid_CellMarked(hook::Global<uint8_t*>(0x62c120), 0, x, y) ? Overview_Check(x, y, 0x1fb9f4a4, 0xcf9414c4)
+        return Grid_CellMarked(g_map, 0, x, y) ? Overview_Check(x, y, 0x1fb9f4a4, 0xcf9414c4)
                                                                           : Overview_Check(x, y, 0xff000001, 0x18ffffff);
     case 0x15: case 0x25: case 0x26: case 0x27:
         return (((x >> 2) + (y >> 2)) & 1) ? Overview_Check(x, y, 0xff708f71, 0x168fff8f) : Overview_Check(x, y, 0xff000001, 0xeffffff);
@@ -736,7 +735,7 @@ static uint32_t Overview_CellColour(uint8_t* t, const void* arg, int32_t x, int3
         return c;
     }
     case 0x2d: {
-        uint8_t bits = Terrain_GetFlag(hook::Global<uint8_t*>(0x62c120), 0, sx >> 2, sy >> 2);
+        uint8_t bits = Terrain_GetFlag(g_map, 0, sx >> 2, sy >> 2);
         uint8_t bit = (uint8_t)(1 << (((sy >> 1) & 1) * 2 + ((sx >> 1) & 1)));
         uint32_t c = (bit & bits) ? Overview_Check(x, y, 0x30000000, 0xbfff0000) : Overview_Check(x, y, 0xff000001, 0x18ffffff);
         if (((sx >> 2) + (sy >> 2)) & 1) c = (c | 0xff) + 0x10000000;
@@ -792,7 +791,7 @@ static inline void Coast_SetEdgeNibble(uint8_t* m, int32_t x, int32_t y, uint8_t
 }
 
 // Engine counters of the overview modes (engine +0x11425a..).
-static inline int32_t& Overview_Count(uint32_t off) { return F<int32_t>(hook::Global<uint8_t*>(0x6d4024), off); }
+static inline int32_t& Overview_Count(uint32_t off) { return F<int32_t>(g_engine, off); }
 
 // Sets the overlay flag +0x219d, counting it while +0x21a1 is set.
 static inline void Overview_SetOverlay(uint8_t* t, int32_t on) {
@@ -815,7 +814,7 @@ static inline void Overview_SetOverlay(uint8_t* t, int32_t on) {
 // shows the plain mode 0x15 (whole map, all filters off).
 static void Overview_ShowPlain(uint8_t* m) {
     Render_DestroyColourMap(m);
-    if (F<int32_t>(m, 0x2175) == 6) Table_RefreshAll(hook::Global<Collection*>(0x62b26c));
+    if (F<int32_t>(m, 0x2175) == 6) Table_RefreshAll(g_buildings);
     if (F<int32_t>(m, 0x2175) == 7) {
         --Overview_Count(0x11425a);
         --Overview_Count(0x114262);
@@ -839,13 +838,13 @@ static void Overview_ShowPlain(uint8_t* m) {
     F<int32_t>(m, 0x218d) = 99999;
     F<int32_t>(m, 0x2191) = 99999;
     Overview_Redraw(m, 0, nullptr);
-    if (F<int32_t>(m, 0x2175) == 3 && F<int32_t>(m, 0x2181)) Buildings_RefreshHighlight(hook::Global<Collection*>(0x62b26c), 0, F<int32_t>(m, 0x2181));
+    if (F<int32_t>(m, 0x2175) == 3 && F<int32_t>(m, 0x2181)) Buildings_RefreshHighlight(g_buildings, 0, F<int32_t>(m, 0x2181));
     Map_ClearFogMode(m);
 }
 
 static void Pump() {
     hook::Orig<void(__fastcall*)(void*, int, int32_t, int32_t)>(0x4834e0)(
-        hook::Global<void*>(0x6cec74), 0, 0, 0);
+        hook::As<void*>(g_app), 0, 0, 0);
 }
 
 static void Method(uint32_t address, void* self) { hook::Orig<void(__fastcall*)(void*)>(address)(self); }
@@ -883,7 +882,7 @@ RT3_NOINLINE void __fastcall Map_InitRuntimeState(uint8_t* map) {
     F<uint32_t>(map, 0x2201) = 1;
     Pump();
     memset(map + 0x21da, 0, 35);
-    hook::Global<uint8_t*>(0x62c120) = map;
+    g_map = map;
     Pump();
     Method(0x532590, map);
 }
@@ -894,10 +893,10 @@ RT3_NOINLINE void __fastcall Map_Free(uint8_t* m) {
     if (!F<int32_t>(m, 0x2165)) return;
     F<int32_t>(m, 0x2165) = 0;
     Map_FreeCellKeyLists(m);
-    if (Collection* t = hook::Global<Collection*>(0x6cfca8)) {
+    if (Collection* t = g_tracks) {
         Tracks_Destruct(t);
         ((void(__cdecl*)(void*))0x53b080)(t);
-        hook::Global<Collection*>(0x6cfca8) = nullptr;
+        g_tracks = nullptr;
     }
     static const uint32_t kBuffers[] = { 0x2141, 0x2139, 0x213d, 0x212d, 0x2129, 0x2135, 0x2131 };
     for (uint32_t off : kBuffers) Free(F<void*>(m, off));
@@ -923,7 +922,7 @@ RT3_NOINLINE void __fastcall Map_AllocGrids(uint8_t* m) {
     F<int32_t>(m, 0x2161) = w * 4;
     F<int32_t>(m, 0x21a9) = w * h;
     void* p = ((void*(__cdecl*)(size_t))0x53b070)(0x20a);
-    hook::Global<Collection*>(0x6cfca8) =
+    g_tracks =
         p ? Tracks_Construct((Collection*)p, 0, F<int32_t>(m, 0x2155), F<int32_t>(m, 0x2159)) : nullptr;
     int32_t bits = (F<int32_t>(m, 0x215d) * F<int32_t>(m, 0x2161) + 7) / 8;
     int32_t tiles = F<int32_t>(m, 0x2159) * F<int32_t>(m, 0x2155);
@@ -957,7 +956,7 @@ RT3_REPLACE(0x448470, Map_AllocGrids);
 // (min(sx / 2 + 10, 146), min(sy / 2 + 10, 128)) from 768 units.
 RT3_NOINLINE void __fastcall World_CreateTables(uint8_t* m, int, int32_t sx, int32_t sy) {
     TreeTypes_Load(m);
-    auto pump = [] { Loading_Pump(hook::Global<uint8_t*>(0x6cec74), 0, 0, 0); };
+    auto pump = [] { Loading_Pump(g_app, 0, 0, 0); };
     auto make = [&](size_t size, Collection* (__fastcall* ctor)(Collection*), uint32_t global) {
         pump();
         Collection* c = (Collection*)((void*(__cdecl*)(size_t))0x53b070)(size);
@@ -984,7 +983,7 @@ RT3_NOINLINE void __fastcall World_CreateTables(uint8_t* m, int, int32_t sx, int
         float fz = (float)((int32_t)y * 0x5c), fx = (float)(cx * 0x5c);
         cam = Camera_ConstructView(cam, 0, (uint32_t)(uintptr_t)m, *(uint32_t*)&fx, 0, *(uint32_t*)&fz, 0x44400000);
     }
-    hook::Global<uint8_t*>(0x62be68) = cam;
+    g_62be68 = cam;
     pump();
 }
 RT3_REPLACE(0x448740, World_CreateTables);
@@ -1054,14 +1053,14 @@ RT3_NOINLINE uint32_t __fastcall Terrain_PaintVertex(uint8_t* r, int, int32_t x,
     int32_t i = F<int32_t>(r, 0x15dd) * y + x;
     F<uint8_t*>(r, 0x1655)[i] = v;
     F<uint8_t*>(r, 0x165d)[(F<int32_t>(r, 0x15dd) * y + x) * 3] &= 0xf8;
-    void* cam = hook::Global<void*>(0x62be68);
+    void* cam = hook::As<void*>(g_62be68);
     return ((uint32_t(__thiscall*)(void*))(*(void***)cam)[0])(cam);
 }
 RT3_REPLACE(0x448d40, Terrain_PaintVertex);
 
 RT3_NOINLINE void __fastcall Grid_MarkCell(uint8_t* g, int, int32_t x, int32_t y) {
     *Cell165d(g, x, y) |= 0x10;
-    void* o = hook::Global<void*>(0x62be68);
+    void* o = hook::As<void*>(g_62be68);
     ((void(__thiscall*)(void*))(*(void***)o)[0])(o);
 }
 RT3_REPLACE(0x448d90, Grid_MarkCell);
@@ -1070,7 +1069,7 @@ RT3_REPLACE(0x448d90, Grid_MarkCell);
 // +0x165d, row +0x15dd) and tells the camera (0x62be68 slot 0).
 RT3_NOINLINE void __fastcall Map_ClearCellFlag10(uint8_t* m, int, int32_t x, int32_t y) {
     (F<uint8_t*>(m, 0x165d) + (F<int32_t>(m, 0x15dd) * y + x) * 3)[2] &= 0xef;
-    uint8_t* c = hook::Global<uint8_t*>(0x62be68);
+    uint8_t* c = g_62be68;
     ((void(__fastcall*)(uint8_t*))(*(void***)c)[0])(c);
 }
 RT3_REPLACE(0x448dc0, Map_ClearCellFlag10);
@@ -1188,14 +1187,14 @@ RT3_REPLACE(0x449110, Grid_Roughness);
 // (+0x2125 = 1), clears 0x6ceba4.. and reapplies the graphics options.
 RT3_NOINLINE void __fastcall Map_Create(uint8_t* m, int, int32_t w, int32_t h, const char* tex) {
     Map_InitRuntimeState(m);
-    Loading_Pump(hook::Global<uint8_t*>(0x6cec74), 0, 0, 0);
+    Loading_Pump(g_app, 0, 0, 0);
     Terrain_Create(m, 0, w, h, tex);
     World_CreateTables(m, 0, w - 1, h - 1);
-    hook::Global<int32_t>(0xccb9e8) += 4;
+    g_skipCount += 4;
     F<int32_t>(m, 0x2125) = 1;
     Map_AllocGrids(m);
     ClearGlobals6ceba4();
-    Options_ApplyGraphics(hook::Global<uint8_t*>(0x6cec74), 0, -2, 0);
+    Options_ApplyGraphics(g_app, 0, -2, 0);
 }
 RT3_REPLACE(0x449200, Map_Create);
 
@@ -1350,7 +1349,7 @@ RT3_NOINLINE int32_t __fastcall Map_NearFeature(uint8_t* m, int, int32_t x, int3
     for (int d = 0; d < 8; ++d) {
         int32_t ny = dy[d] + y, nx = dx[d] + x;
         if (edge) {
-            uint8_t* map = hook::Global<uint8_t*>(0x62c120);
+            uint8_t* map = g_map;
             if (nx < 0 || nx >= F<int32_t>(map, 0x15d9) - 1) continue;
             if (ny < 0 || ny >= F<int32_t>(map, 0x15d5) - 1) continue;
         }
@@ -1513,8 +1512,8 @@ RT3_REPLACE(0x44a560, Map_MarkTiles);
 // 0x44a7a0. City owning 4x4 block (x, y) (its region byte when unclaimed); the
 // assignment is redone first when marked stale (+0x2201) in the editor.
 RT3_NOINLINE int32_t __fastcall Map_BlockCity(uint8_t* m, int, int32_t x, int32_t y) {
-    if (Global6d07b4Set2() && F<int32_t>(m, 0x2201)) Cities_AssignBlocks(hook::Global<Collection*>(0x62bae0));
-    uint8_t* g = hook::Global<uint8_t*>(0x62c120);
+    if (Global6d07b4Set2() && F<int32_t>(m, 0x2201)) Cities_AssignBlocks(g_cities);
+    uint8_t* g = g_map;
     uint8_t* b = F<uint8_t*>(g, 0x212d) + (F<int32_t>(g, 0x214d) * y + x) * 4;
     int32_t id = F<uint16_t>(b, 1);
     return id ? id : b[0];
@@ -1527,7 +1526,7 @@ RT3_REPLACE(0x44a800, Map_CellCity);
 
 // 0x44a830. Value +0x23a of the untyped region nearest to cell (x, y) (u16, AX only).
 RT3_NOINLINE uint16_t __stdcall Regions_NearestValue(int32_t x, int32_t y) {
-    Collection* regions = hook::Global<Collection*>(0x62bae0);
+    Collection* regions = g_cities;
     float best = 4294967296.0f;
     uint16_t sel = 0;
     for (int32_t i = 0; i < Collection_Count(regions); ++i) {
@@ -1639,7 +1638,7 @@ RT3_NOINLINE void* __fastcall Map_RegionAt(uint8_t* map, int, float x, float y) 
     int32_t yi = (int32_t)y;
     const uint8_t* row = F<uint8_t*>(map, 0x2131) + F<int32_t>(map, 0x2155) * yi;
     int32_t xi = (int32_t)x;
-    return Collection_Get(hook::Global<Collection*>(0x6cfc9c), 0, row[xi] >> 3);
+    return Collection_Get(g_territories, 0, row[xi] >> 3);
 }
 RT3_REPLACE(0x44ada0, Map_RegionAt);
 
@@ -1648,9 +1647,9 @@ RT3_NOINLINE void* __fastcall Map_RegionRecordAt(void* m, int, float x, float y)
     int32_t row = (int32_t)y;
     int32_t col = (int32_t)x;
     uint32_t type = (F<uint8_t*>(m, 0x2131) + F<int32_t>(m, 0x2155) * row)[col] >> 3;
-    uint8_t* rec = (uint8_t*)Collection_Get(g_table6cfc9c, 0, type);
+    uint8_t* rec = (uint8_t*)Collection_Get(g_territories, 0, type);
     if (F<int32_t>(rec, 0x31) != 0) return rec;
-    return Collection_Get(g_table6cfc9c, 0, F<uint32_t>(rec, 0x35));
+    return Collection_Get(g_territories, 0, F<uint32_t>(rec, 0x35));
 }
 RT3_REPLACE(0x44ade0, Map_RegionRecordAt);
 
@@ -1674,7 +1673,7 @@ RT3_REPLACE(0x44ae40, Map_NearestLandHeight);
 // distance to the view target 50..200 -> 0x5c8880 scale), or a zoom term above
 // 0x5ca190 (+0x20), +50 with option 0x2bb.
 int32_t __stdcall Map_FogEnd(int32_t x, int32_t y) {
-    uint8_t* cam = hook::Global<uint8_t*>(0x62be68);
+    uint8_t* cam = g_62be68;
     float tz = F<float>(cam, 0x24), tx = F<float>(cam, 0x1c);
     int32_t cellZ, cellX;
     __asm {
@@ -1714,7 +1713,7 @@ int32_t __stdcall Map_FogEnd(int32_t x, int32_t y) {
             if (!(top > v)) top = v;
         }
     int32_t r = fog + (top - base);
-    float zoom = F<float>(hook::Global<uint8_t*>(0x62be68), 0x20);
+    float zoom = F<float>(g_62be68, 0x20);
     if (zoom > Fl(0x5ca190)) {
         __asm {
             fld zoom
@@ -1749,22 +1748,22 @@ RT3_NOINLINE int32_t __fastcall Map_Bulldoze(uint8_t* map, int, float x, float y
     msg[0] = 0;
     *(int32_t*)cost = 0;
     World_RefreshColors();
-    if (!Collection_IsValid(hook::Global<Collection*>(0x62be10), 0, company) && !F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x68)) {
+    if (!Collection_IsValid(g_companies, 0, company) && !F<int32_t>(g_app, 0x68)) {
         strcpy(msg, GetString(0x1a3));
         return 0;
     }
     uint8_t* co = nullptr;
-    if (F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x68)) company = 0;
-    else co = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be10), 0, company);
+    if (F<int32_t>(g_app, 0x68)) company = 0;
+    else co = (uint8_t*)Collection_Get(g_companies, 0, company);
     msg[0] = 0;
     float total = 0.0f;
     int32_t ok = 1;
     float nearOwn = 999.0f, nearOther = 999.0f;
     int32_t step = IsMultiplayer() ? 1 : 0xc;
-    Collection* pieces = hook::Global<Collection*>(0x6cfca8);
+    Collection* pieces = g_tracks;
     int32_t n = Collection_Count(pieces);
     for (int32_t i = 0; i < n; i += step) {
-        uint8_t* p = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfca8), 0, Collection_IdAt(hook::Global<Collection*>(0x6cfca8), 0, (uint32_t)i, 0));
+        uint8_t* p = (uint8_t*)Collection_Get(g_tracks, 0, Collection_IdAt(g_tracks, 0, (uint32_t)i, 0));
         if (!p[0x216]) continue;
         float px, py;
         Obj_CenterCell(p, 0, &px, &py);
@@ -1784,9 +1783,9 @@ RT3_NOINLINE int32_t __fastcall Map_Bulldoze(uint8_t* map, int, float x, float y
     for (int32_t pass = 0; pass < 2; ++pass) {
         if (pass == 1) {
             if (checkOnly || !ok) continue;
-            if (ClockMs() >= hook::Global<int32_t>(0x62c124) && (Global6d07b4Set2() || hook::Global<uint8_t*>(0x6cec7c)[0x82]))
-                Terrain_PaintPoints(hook::Global<uint8_t*>(0x62c120), 0, x, y, r, 1, 0, 0, 9999.0f, 0);
-            if (!hook::Global<uint8_t*>(0x6cec7c)[0x82] && total > D(0x5c86b8)) {
+            if (ClockMs() >= g_62c124 && (Global6d07b4Set2() || g_newGame[0x82]))
+                Terrain_PaintPoints(g_map, 0, x, y, r, 1, 0, 0, 9999.0f, 0);
+            if (!g_newGame[0x82] && total > D(0x5c86b8)) {
                 if (!co) goto clear;
                 double want = total;
                 if (Company_Stat(co, 0, 0xd, 0x2329) < want) {
@@ -1829,13 +1828,13 @@ RT3_NOINLINE int32_t __fastcall Map_Bulldoze(uint8_t* map, int, float x, float y
                         ++removed;
                     }
                 }
-                if (tb == 1 && removed) Cities_AssignBlocks(hook::Global<Collection*>(0x62bae0));
+                if (tb == 1 && removed) Cities_AssignBlocks(g_cities);
             }
         }
         keep1 = 0;
         keep2 = 0;
-        for (int32_t k = Collection_Count(hook::Global<Collection*>(0x62b26c)) - 1; k >= 0; --k) {
-            Collection* bs = hook::Global<Collection*>(0x62b26c);
+        for (int32_t k = Collection_Count(g_buildings) - 1; k >= 0; --k) {
+            Collection* bs = g_buildings;
             uint8_t* b = (uint8_t*)Collection_Get(bs, 0, Collection_IdAt(bs, 0, (uint32_t)k, 0));
             float by = (float)Obj_CellY(b);
             float bx = (float)Obj_CellX(b);
@@ -1843,15 +1842,15 @@ RT3_NOINLINE int32_t __fastcall Map_Bulldoze(uint8_t* map, int, float x, float y
             auto vcall = [&](int off) { return (*(int32_t(__thiscall**)(uint8_t*))(F<uint8_t*>(b, 0) + off))(b); };
             auto mark = [&] { (*(void(__thiscall**)(uint8_t*, uint32_t, int32_t, int32_t))(F<uint8_t*>(b, 0) + 0x58))(b, 0xff, 0, 0); };
             if (pass != 0) {
-                F<int32_t>(hook::Global<uint8_t*>(0x62b2fc), 0x98) = 0;
-                bs = hook::Global<Collection*>(0x62b26c);
+                F<int32_t>(hook::As<uint8_t*>(g_buildingTypes), 0x98) = 0;
+                bs = g_buildings;
                 CollectionVtbl* vt = bs->vtbl;
-                vt->release(hook::Global<Collection*>(0x62b26c), Collection_IdAt(bs, 0, (uint32_t)k, 0));
-                F<int32_t>(hook::Global<uint8_t*>(0x62b2fc), 0x98) = 1;
-                hook::Global<int32_t>(0x62c124) = IsMultiplayer() ? ClockMs() : ClockMs() + 0x320;
+                vt->release(g_buildings, Collection_IdAt(bs, 0, (uint32_t)k, 0));
+                F<int32_t>(hook::As<uint8_t*>(g_buildingTypes), 0x98) = 1;
+                g_62c124 = IsMultiplayer() ? ClockMs() : ClockMs() + 0x320;
                 continue;
             }
-            if (F<uint32_t>(b, 0x276) == company || Global6d07b4Set2() || hook::Global<uint8_t*>(0x6cec7c)[0x82]) {
+            if (F<uint32_t>(b, 0x276) == company || Global6d07b4Set2() || g_newGame[0x82]) {
                 vcall(0x70);
                 total = (float)(total + Fl_207(0x5c85b0));
                 mark();
@@ -1861,14 +1860,14 @@ RT3_NOINLINE int32_t __fastcall Map_Bulldoze(uint8_t* map, int, float x, float y
                 }
                 continue;
             }
-            if (F<uint32_t>(b, 0x276) && Collection_IsValid(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(b, 0x276))) {
+            if (F<uint32_t>(b, 0x276) && Collection_IsValid(g_companies, 0, F<uint32_t>(b, 0x276))) {
                 ok = 0;
                 FormatText(msg, GetString(0x1a5), nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
                 continue;
             }
             float v = Building_Price(b, 0, company);
             uint32_t chair = co ? F<uint32_t>(co, 0x3b) : 0;
-            v = (float)(Effects_Multiplier(hook::Global<uint8_t*>(0x6cec78), 0, 0x65, company, chair, Obj_GridByte(b)) * v);
+            v = (float)(Effects_Multiplier(g_world, 0, 0x65, company, chair, Obj_GridByte(b)) * v);
             v = (float)(v * factor);
             if (!((uint8_t*)(uintptr_t)vcall(0x80))[0x32]) {
                 float year = (float)F<int32_t>(Obj_Ref3cc(b), 0x141);
@@ -1878,47 +1877,47 @@ RT3_NOINLINE int32_t __fastcall Map_Bulldoze(uint8_t* map, int, float x, float y
             total = v + total;
             mark();
         }
-        Tracks_ClearHighlights(hook::Global<Collection*>(0x6cfca8));
-        for (int32_t i = Collection_Count(hook::Global<Collection*>(0x6cfca8)) - 1; i >= 0; --i) {
-            Collection* ps = hook::Global<Collection*>(0x6cfca8);
+        Tracks_ClearHighlights(g_tracks);
+        for (int32_t i = Collection_Count(g_tracks) - 1; i >= 0; --i) {
+            Collection* ps = g_tracks;
             uint8_t* p = (uint8_t*)Collection_Get(ps, 0, Collection_IdAt(ps, 0, (uint32_t)i, 0));
             float py = Obj_CenterCellY(p);
             float px = Obj_CenterCellX(p);
             if (Distance2D(x, y, px, py) < r)
-                Tracks_HighlightRun(hook::Global<Collection*>(0x6cfca8), 0, Collection_IdAt(hook::Global<Collection*>(0x6cfca8), 0, (uint32_t)i, 0), 1, 1);
+                Tracks_HighlightRun(g_tracks, 0, Collection_IdAt(g_tracks, 0, (uint32_t)i, 0), 1, 1);
         }
-        for (int32_t i = Collection_Count(hook::Global<Collection*>(0x6cfca8)) - 1; i >= 0; --i) {
-            Collection* ps = hook::Global<Collection*>(0x6cfca8);
+        for (int32_t i = Collection_Count(g_tracks) - 1; i >= 0; --i) {
+            Collection* ps = g_tracks;
             uint8_t* p = (uint8_t*)Collection_Get(ps, 0, Collection_IdAt(ps, 0, (uint32_t)i, 0));
             if (!(p[0x201] & 0x20)) continue;
             if (pass != 0) {
-                Tracks_Delete(hook::Global<Collection*>(0x6cfca8), 0, Collection_IdAt(hook::Global<Collection*>(0x6cfca8), 0, (uint32_t)i, 0), 0);
+                Tracks_Delete(g_tracks, 0, Collection_IdAt(g_tracks, 0, (uint32_t)i, 0), 0);
                 continue;
             }
-            if ((uint32_t)F<uint16_t>(p, 0x22e) != company && !Global6d07b4Set2() && !hook::Global<uint8_t*>(0x6cec7c)[0x82]) {
+            if ((uint32_t)F<uint16_t>(p, 0x22e) != company && !Global6d07b4Set2() && !g_newGame[0x82]) {
                 ok = 0;
                 strcpy(msg, GetString(0x1a6));
             }
             float px = Obj_CenterCellX(p);
             float py = Obj_CenterCellY(p);
-            for (int32_t c = Collection_Count(hook::Global<Collection*>(0x62ba84)) - 1; c >= 0; --c) {
-                Collection* cs = hook::Global<Collection*>(0x62ba84);
+            for (int32_t c = Collection_Count(g_62ba84) - 1; c >= 0; --c) {
+                Collection* cs = g_62ba84;
                 uint8_t* car = (uint8_t*)Collection_Get(cs, 0, Collection_IdAt(cs, 0, (uint32_t)c, 0));
                 float cy = (float)Obj_CellY(car);
                 float cx = (float)Obj_CellX(car);
                 if (Distance2D(px, py, cx, cy) > Fl_207(0x5c8900)) continue;
-                if (!Obj_NodeNear356(car, 0, (int32_t)Collection_IdAt(hook::Global<Collection*>(0x6cfca8), 0, (uint32_t)i, 0))) continue;
+                if (!Obj_NodeNear356(car, 0, (int32_t)Collection_IdAt(g_tracks, 0, (uint32_t)i, 0))) continue;
                 ok = 0;
                 strcpy(msg, GetString(0x1a7));
             }
-            for (int32_t s = Collection_Count(hook::Global<Collection*>(0x6cec20)) - 1; s >= 0; --s) {
-                Collection* ss = hook::Global<Collection*>(0x6cec20);
+            for (int32_t s = Collection_Count(g_stations) - 1; s >= 0; --s) {
+                Collection* ss = g_stations;
                 uint8_t* st = (uint8_t*)Collection_Get(ss, 0, Collection_IdAt(ss, 0, (uint32_t)s, 0));
                 float sy = (float)Obj_BuildingCellY(st);
                 float sx = (float)Obj_BuildingCellX(st);
                 if (Distance2D(px, py, sx, sy) > Fl_207(0x5c89a4)) continue;
                 if (F<uint32_t>(st, 0) == keep1 || F<uint32_t>(st, 0) == keep2) continue;
-                if (!Obj_NodeNear8(st, 0, (int32_t)Collection_IdAt(hook::Global<Collection*>(0x6cfca8), 0, (uint32_t)i, 0))) continue;
+                if (!Obj_NodeNear8(st, 0, (int32_t)Collection_IdAt(g_tracks, 0, (uint32_t)i, 0))) continue;
                 ok = 0;
                 uint8_t* o1 = (uint8_t*)Obj_Building(st);
                 uint8_t* o2 = (uint8_t*)Obj_Building(st);
@@ -1932,7 +1931,7 @@ RT3_NOINLINE int32_t __fastcall Map_Bulldoze(uint8_t* map, int, float x, float y
             Track_BuildCost(p, 0, company, 0);
         }
     }
-    hook::Global<uint8_t*>(0x6cec78)[0x89] = 0;
+    g_world[0x89] = 0;
     *cost = total;
     return ok;
 }
@@ -1950,7 +1949,7 @@ int32_t __fastcall Map_TerrainKindAt(void* m, int, float x, float y) {
     if (cy >= h - 1) cy = h - 1;
     uint8_t* t = F<uint8_t*>(m, 0x212d) + (w * cy + cx) * 4;
     uint32_t id = *(uint16_t*)(t + 1) ? *(uint16_t*)(t + 1) : t[0];
-    uint8_t* r = (uint8_t*)Collection_Get(g_table62bae0, 0, id);
+    uint8_t* r = (uint8_t*)Collection_Get(g_cities, 0, id);
     return r ? F<int32_t>(r, 0x272) : 5;
 }
 RT3_REPLACE(0x44bd10, Map_TerrainKindAt);
@@ -1984,7 +1983,7 @@ void __fastcall Water_FloodFill(uint8_t* m, int, int32_t x, int32_t y, int32_t d
     if (F<int32_t>(m, 0x21b1) >= y) F<int32_t>(m, 0x21b1) = y;
     if (F<int32_t>(m, 0x21b5) <= x) F<int32_t>(m, 0x21b5) = x;
     if (F<int32_t>(m, 0x21b9) <= y) F<int32_t>(m, 0x21b9) = y;
-    auto visited = [&](int32_t cx, int32_t cy) -> uint8_t& { return hook::Global<uint8_t*>(0x62c128)[F<int32_t>(m, 0x2155) * cy + cx]; };
+    auto visited = [&](int32_t cx, int32_t cy) -> uint8_t& { return g_62c128[F<int32_t>(m, 0x2155) * cy + cx]; };
     visited(x, y) = 1;
     auto setDir = [&](uint32_t idx) {
         uint16_t* r = (uint16_t*)Terrain_Rec(m, 0, x, y);
@@ -2045,16 +2044,16 @@ void __fastcall Water_FloodFrom(uint8_t* m, int, int32_t x, int32_t y) {
     const int32_t* dx = (const int32_t*)0x624b28;
     const int32_t* dy = (const int32_t*)0x624b48;
     if (!Terrain_KindIs2Or4Or5(m, 0, x, y)) return;
-    F<int32_t>(m, 0x21bd) = F<int32_t>(hook::Global<uint8_t*>(0x6d4018), 0xa8c) & 4;
+    F<int32_t>(m, 0x21bd) = F<int32_t>(g_input, 0xa8c) & 4;
     int32_t cells = F<int32_t>(m, 0x2159) * F<int32_t>(m, 0x2155);
     F<int32_t>(m, 0x21ad) = x;
     F<int32_t>(m, 0x21b1) = y;
     F<int32_t>(m, 0x21b5) = x;
     F<int32_t>(m, 0x21b9) = y;
     uint8_t* visited = (uint8_t*)((void*(__cdecl*)(size_t))0x5a125d)(cells);
-    hook::Global<uint8_t*>(0x62c128) = visited;
+    g_62c128 = visited;
     memset(visited, 0, cells);
-    hook::Global<uint8_t*>(0x62c128)[F<int32_t>(m, 0x2155) * y + x] = 1;
+    g_62c128[F<int32_t>(m, 0x2155) * y + x] = 1;
     int32_t dir = ((const uint8_t*)0x5ee5d4)[((Terrain_Rec(m, 0, x, y)[0] >> 3) - 4) & 7];
     int32_t last = dir, flag = 0, first = 1;
     for (int32_t i = 0; i < 8; ++i) {
@@ -2077,8 +2076,8 @@ void __fastcall Water_FloodFrom(uint8_t* m, int, int32_t x, int32_t y) {
         Water_FloodFill(m, 0, nx, ny, i, flag);
     }
     Water_FloodFill(m, 0, x, y, (last + 4) % 8, flag == 0);
-    Free(hook::Global<uint8_t*>(0x62c128));
-    hook::Global<uint8_t*>(0x62c128) = nullptr;
+    Free(g_62c128);
+    g_62c128 = nullptr;
 }
 RT3_REPLACE(0x44c200, Water_FloodFrom);
 
@@ -2096,7 +2095,7 @@ RT3_NOINLINE void __fastcall Map_MarkUntypedRegions(uint8_t* m) {
     for (int32_t y = 0; y < F<int32_t>(m, 0x2149); ++y)
         for (int32_t x = 0; x < F<int32_t>(m, 0x2145); ++x)
             (F<uint8_t*>(m, 0x2129) + (F<int32_t>(m, 0x2145) * y + x) * 0x1d7)[0xe6] &= 0xef;
-    Collection* regions = hook::Global<Collection*>(0x62bae0);
+    Collection* regions = g_cities;
     for (int32_t i = 0; i < Collection_Count(regions); ++i) {
         uint8_t* r = (uint8_t*)Collection_Get(regions, 0, Collection_IdAt(regions, 0, i, 0));
         if (F<int32_t>(r, 0x23e)) continue;
@@ -2138,7 +2137,7 @@ RT3_REPLACE(0x44c570, Map_MarkTileDirty);
 // at random (closer = likelier) and refreshes the textures; every 7th
 // region type 3 also redraws two map overlays.
 RT3_NOINLINE void __fastcall Terrain_AgeCorners(uint8_t* t) {
-    if (!F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4af3)) return;
+    if (!F<int32_t>(g_world, 0x4af3)) return;
     int32_t minX = 9999, minY = 9999, maxX = -1, maxY = -1;
     for (int32_t y = F<int32_t>(t, 0x21ca), seed = y * 0x11; y <= F<int32_t>(t, 0x21d2); ++y, seed += 0x11) {
         for (int32_t x = F<int32_t>(t, 0x21c6); x <= F<int32_t>(t, 0x21ce); ++x) {
@@ -2164,7 +2163,7 @@ RT3_NOINLINE void __fastcall Terrain_AgeCorners(uint8_t* t) {
     }
     Terrain_RefreshPointGrids(t, 0, F<int32_t>(t, 0x21c6), F<int32_t>(t, 0x21ca), F<int32_t>(t, 0x21ce) + 2, F<int32_t>(t, 0x21d2) + 2);
     if (maxY == -1 || maxY - minY < 4 || maxX - minX < 4) return;
-    uint8_t* map = hook::Global<uint8_t*>(0x62c120);
+    uint8_t* map = g_map;
     int32_t x0 = (minX - 4 < 0 ? 0 : minX - 4) + 4;
     if (F<int32_t>(map, 0x2155) - 1 < x0) x0 = F<int32_t>(map, 0x2155) - 1;
     int32_t y0 = (minY - 4 < 0 ? 0 : minY - 4) + 4;
@@ -2183,13 +2182,13 @@ RT3_NOINLINE void __fastcall Terrain_AgeCorners(uint8_t* t) {
     double v1d = v1 > D(0x5c8770) ? 1.0 : (double)v1;
     v1 = (float)v1d;
     int32_t outW, outH;
-    uint32_t* px = Terrain_ExtractTexture((uint8_t*)Engine_Get1C(hook::Global<void*>(0x6d4024)), 0, u0, v0, u1, v1, &outW, &outH);
+    uint32_t* px = Terrain_ExtractTexture((uint8_t*)Engine_Get1C(hook::As<void*>(g_engine)), 0, u0, v0, u1, v1, &outW, &outH);
     float fw = (float)outW;
     float sx = (float)(((double)u1 - u0) * tw / fw);
     float fh = (float)outH;
     float sy = (float)(((double)v1 - v0) * th / fh);
     int32_t sizeW, sizeH;
-    Render_GetSize4((uint8_t*)Engine_Get1C(hook::Global<void*>(0x6d4024)), 0, &sizeW, &sizeH);
+    Render_GetSize4((uint8_t*)Engine_Get1C(hook::As<void*>(g_engine)), 0, &sizeW, &sizeH);
     for (int32_t j = 0; j < outH; ++j) {
         if (outW <= 0) continue;
         float fj = (float)j;
@@ -2239,10 +2238,10 @@ RT3_NOINLINE void __fastcall Terrain_AgeCorners(uint8_t* t) {
             *px = o | (c & 0xff000000);
         }
     }
-    Terrain_CommitTexture((uint8_t*)Engine_Get1C(hook::Global<void*>(0x6d4024)), 0, 0);
-    if (hook::Global<uint8_t*>(0x6cec78)[0x11] % 7 == 3) {
-        Ui_SendEvent5(hook::Global<uint8_t**>(0x6d401c), 0, 0xba, 0x808, 0, 0, 0);
-        Ui_SendEvent5(hook::Global<uint8_t**>(0x6d401c), 0, 0xba, 0x659d, 0, 0, 0);
+    Terrain_CommitTexture((uint8_t*)Engine_Get1C(hook::As<void*>(g_engine)), 0, 0);
+    if (g_world[0x11] % 7 == 3) {
+        Ui_SendEvent5(hook::As<uint8_t**>(g_windowManager), 0, 0xba, 0x808, 0, 0, 0);
+        Ui_SendEvent5(hook::As<uint8_t**>(g_windowManager), 0, 0xba, 0x659d, 0, 0, 0);
     }
 }
 RT3_REPLACE(0x44c670, Terrain_AgeCorners);
@@ -2251,7 +2250,7 @@ RT3_REPLACE(0x44c670, Terrain_AgeCorners);
 // cells with feature bits 0x3e in the byte grid +0x2135 (if world +0x4af3).
 RT3_NOINLINE void __fastcall Map_FeatureBounds(uint8_t* m) {
     for (int k = 0; k < 5; ++k) F<int32_t>(m, 0x21c6 + k * 4) = 0;
-    if (!F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4af3)) return;
+    if (!F<int32_t>(g_world, 0x4af3)) return;
     int32_t w = F<int32_t>(m, 0x2155);
     for (int32_t y = 0; y < F<int32_t>(m, 0x2159); ++y) {
         for (int32_t x = 0; x < w && x < F<int32_t>(m, 0x2155); ++x) {
@@ -2279,7 +2278,7 @@ RT3_NOINLINE uint8_t* __fastcall Map_Construct(uint8_t* m, int, int32_t w, int32
     Terrain_Construct(m);
     F<uint32_t>(m, 0) = 0x5ca9fc;
     F<int32_t>(m, 0x2125) = 0;
-    hook::Global<uint8_t*>(0x62c120) = m;
+    g_map = m;
     Map_Create(m, 0, w, h, tex);
     return m;
 }
@@ -2300,17 +2299,17 @@ RT3_NOINLINE void __fastcall Map_Load(uint8_t* m, int, int32_t s, const char* te
     int32_t version;
     F<int32_t>(m, 0x2125) = 1;
     StreamRead(s, &version, 4, 0, 1);
-    Loading_Pump(hook::Global<uint8_t*>(0x6cec74), 0, 0, 0);
+    Loading_Pump(g_app, 0, 0, 0);
     Terrain_Load(m, 0, s, tex);
-    Loading_Pump(hook::Global<uint8_t*>(0x6cec74), 0, 0, 0);
+    Loading_Pump(g_app, 0, 0, 0);
     World_CreateTables(m, 0, F<int32_t>(m, 0x15d9) - 1, F<int32_t>(m, 0x15d5) - 1);
-    Ambient_Start(hook::Global<void*>(0x6cec78));
+    Ambient_Start(hook::As<void*>(g_world));
     m[0x21c5] = 0;
     StreamSkip4(s, 0x2ee2, 0, 0);
     static const uint16_t kFields[] = { 0x2145, 0x2149, 0x214d, 0x2151, 0x2155, 0x2159, 0x215d, 0x2161, 0x2201 };
     for (uint16_t off : kFields) StreamRead(s, m + off, 4, 0, 1);
     Collection* tracks = (Collection*)((void*(__cdecl*)(size_t))0x53b070)(0x20a);
-    hook::Global<Collection*>(0x6cfca8) = tracks ? Tracks_Construct(tracks, 0, F<int32_t>(m, 0x2155), F<int32_t>(m, 0x2159)) : nullptr;
+    g_tracks = tracks ? Tracks_Construct(tracks, 0, F<int32_t>(m, 0x2155), F<int32_t>(m, 0x2159)) : nullptr;
     StreamSkip4(s, 0x2ee3, 0, 0);
     int32_t bits = (F<int32_t>(m, 0x2161) * F<int32_t>(m, 0x215d) + 7) / 8;
     int32_t cells = F<int32_t>(m, 0x2155) * F<int32_t>(m, 0x2159);
@@ -2318,7 +2317,7 @@ RT3_NOINLINE void __fastcall Map_Load(uint8_t* m, int, int32_t s, const char* te
     int32_t layers = F<int32_t>(m, 0x2151) * F<int32_t>(m, 0x214d) * 4;
     int32_t sites = F<int32_t>(m, 0x2149) * F<int32_t>(m, 0x2145) * 0x1d7;
     F<int32_t>(m, 0x2165) = 1;
-    Loading_Pump(hook::Global<uint8_t*>(0x6cec74), 0, 0, 0);
+    Loading_Pump(g_app, 0, 0, 0);
     F<void*>(m, 0x2139) = Malloc(bits);
     memset(F<void*>(m, 0x2139), 0, (uint32_t)bits);
     StreamSkip4(s, 0x2ef4, 0, 0);
@@ -2328,7 +2327,7 @@ RT3_NOINLINE void __fastcall Map_Load(uint8_t* m, int, int32_t s, const char* te
     F<void*>(m, 0x2141) = Malloc(bits);
     memset(F<void*>(m, 0x2141), 0, (uint32_t)bits);
     StreamSkip4(s, 0x2ef6, 0, 0);
-    Loading_Pump(hook::Global<uint8_t*>(0x6cec74), 0, 0, 0);
+    Loading_Pump(g_app, 0, 0, 0);
     F<void*>(m, 0x2131) = Malloc(cells);
     StreamRead(s, F<void*>(m, 0x2131), (uint32_t)cells, 0, 1);
     F<void*>(m, 0x2135) = Malloc(corners);
@@ -2339,7 +2338,7 @@ RT3_NOINLINE void __fastcall Map_Load(uint8_t* m, int, int32_t s, const char* te
         memset(F<void*>(m, 0x2135), 0, (uint32_t)corners);
     }
     StreamSkip4(s, 0x2ee4, 0, 0);
-    Loading_Pump(hook::Global<uint8_t*>(0x6cec74), 0, 0, 0);
+    Loading_Pump(g_app, 0, 0, 0);
     StreamRead(s, F<void*>(m, 0x2141), (uint32_t)bits, 0, 1);
     StreamSkip4(s, 0x2ee5, 0, 0);
     F<void*>(m, 0x212d) = Malloc(layers);
@@ -2352,9 +2351,9 @@ RT3_NOINLINE void __fastcall Map_Load(uint8_t* m, int, int32_t s, const char* te
         for (int32_t x = 0; x < F<int32_t>(m, 0x2145); ++x)
             Site_Load(F<uint8_t*>(m, 0x2129) + (F<int32_t>(m, 0x2145) * y + x) * 0x1d7, 0, s, (int16_t)x, (int16_t)y);
     Routes_BuildCosts(m);
-    Loading_Pump(hook::Global<uint8_t*>(0x6cec74), 0, 0, 0);
+    Loading_Pump(g_app, 0, 0, 0);
     Map_CountLand(m);
-    Options_ApplyGraphics(hook::Global<uint8_t*>(0x6cec74), 0, -2, 1);
+    Options_ApplyGraphics(g_app, 0, -2, 1);
     StreamSkip4(s, 0x2ee5, 0, 0);
 }
 RT3_REPLACE(0x44cfb0, Map_Load);
@@ -2369,10 +2368,10 @@ RT3_NOINLINE void __fastcall Map_CellsChangedImpl(uint8_t* m, int, int32_t x0, i
     Terrain_RefreshRect(m, 0, x0, y0, x1, y1);
     Terrain_RefreshPointGrids(m, 0, x0, y0, x1, y1);
     Terrain_RefreshQuads(m, 0, x0, y0, x1, y1);
-    uint8_t* view = hook::Global<uint8_t*>(0x62be68);
+    uint8_t* view = g_62be68;
     ((void(__fastcall*)(uint8_t*))(*(void***)view)[0])(view);
-    if (hook::Global<Collection*>(0x62bae0)) Objs_DropInRect(hook::Global<Collection*>(0x62bae0), 0, x0 - 1, y0 - 1, x1 + 1, y1 + 1);
-    if (hook::Global<Collection*>(0x6ada80)) Objs_DropAllInRect(hook::Global<Collection*>(0x6ada80), 0, x0 - 1, y0 - 1, x1 + 1, y1 + 1);
+    if (g_cities) Objs_DropInRect(g_cities, 0, x0 - 1, y0 - 1, x1 + 1, y1 + 1);
+    if (g_6ada80) Objs_DropAllInRect(g_6ada80, 0, x0 - 1, y0 - 1, x1 + 1, y1 + 1);
     Tracks_RefreshArea(x0 - 1, y0 - 1, x1, y1);
 }
 
@@ -2560,7 +2559,7 @@ RT3_NOINLINE void __fastcall Map_FloodCell(uint8_t* m, int, int32_t x, int32_t y
     CellByte(m, 0x1661, x, y) = 1;
     CellByte(m, 0x1665, x, y) = 1;
     Terrain_DecCellCount(m, 0, x, y, 6);
-    uint8_t* cam = hook::Global<uint8_t*>(0x62be68);
+    uint8_t* cam = g_62be68;
     ((void(__thiscall*)(void*))(*(void***)cam)[0])(cam);
     ShadeByte(m, x, y) = 0xc4;
     Map_MarkNearKind245(m, 0, x - 1, y - 1, x + 1, y + 1);
@@ -2626,7 +2625,7 @@ RT3_NOINLINE uint32_t __fastcall Map_RegionTypeAt(void* m, int, float x, float y
     int32_t row = (int32_t)y;
     int32_t col = (int32_t)x;
     uint32_t type = (F<uint8_t*>(m, 0x2131) + F<int32_t>(m, 0x2155) * row)[col] >> 3;
-    uint8_t* rec = (uint8_t*)Collection_Get(g_table6cfc9c, 0, type);
+    uint8_t* rec = (uint8_t*)Collection_Get(g_territories, 0, type);
     if (F<int32_t>(rec, 0x31) == 0) return F<uint32_t>(rec, 0x35);
     return (F<uint8_t*>(m, 0x2131) + F<int32_t>(m, 0x2155) * row)[col] >> 3;
 }
@@ -2706,20 +2705,20 @@ void __fastcall Track_Init(uint8_t* t, int, int32_t id, int32_t group, float x0,
     F<int32_t>(t, 0x24d) = 0;
     t[0x252] = 0;
     t[0x24c] &= 8;
-    Track_Setup(t, 0, (uint32_t*)v[0], (uint32_t*)v[1], (uint32_t*)v[2], (uint32_t*)v[3], Engine_Get1C(hook::Global<void*>(0x6d4024)),
+    Track_Setup(t, 0, (uint32_t*)v[0], (uint32_t*)v[1], (uint32_t*)v[2], (uint32_t*)v[3], Engine_Get1C(hook::As<void*>(g_engine)),
                 (uint8_t)style);
     F<int32_t>(t, 0x230) = 0;
-    if (!F<int32_t>(hook::Global<uint8_t*>(0x6cfca8), 0xed)) {
+    if (!F<int32_t>(hook::As<uint8_t*>(g_tracks), 0xed)) {
         float cxf = (float)(((double)F<float>(t, 0x2c) + F<float>(t, 0x14)) / Fl_205(0x5cfcfc));
         float cyf = (float)(((double)F<float>(t, 0x34) + F<float>(t, 0x1c)) / Fl_205(0x5cfcfc));
         int32_t cy = Ftol(cyf);
-        Map_SetCoarseByte(hook::Global<void*>(0x62c120), 0, Ftol(cxf), cy, 0x80);
+        Map_SetCoarseByte(hook::As<void*>(g_map), 0, Ftol(cxf), cy, 0x80);
     }
     Track_DropAndSettle(t, 0, 0x40400000, 1);
     uint8_t newKind = (uint8_t)kind;
     if (newKind == 2 && t[0x216] != 2) {
-        Obj_CountTrack(hook::Global<uint8_t*>(0x6cfca8), 0, t, 1);
-        Trains_Clear1a3(hook::Global<Collection*>(0x6cfcbc));
+        Obj_CountTrack(hook::As<uint8_t*>(g_tracks), 0, t, 1);
+        Trains_Clear1a3(g_trains);
     }
     t[0x216] = newKind;
     Track_UpdateColor(t);
@@ -2769,11 +2768,11 @@ RT3_NOINLINE int32_t __fastcall Map_TidyWater(uint8_t* m, int, int32_t x0, int32
             }
         }
     }
-    uint8_t* q = hook::Global<uint8_t*>(0x6d1304);
+    uint8_t* q = g_6d1304;
     if (!q || F<int32_t>(q, 0x78) == -1) return 0;
     Water_FloodFrom(m, 0, F<int32_t>(q, 0x78), F<int32_t>(q, 0x7c));
-    F<int32_t>(hook::Global<uint8_t*>(0x6d1304), 0x7c) = -1;
-    F<int32_t>(hook::Global<uint8_t*>(0x6d1304), 0x78) = -1;
+    F<int32_t>(g_6d1304, 0x7c) = -1;
+    F<int32_t>(g_6d1304, 0x78) = -1;
     return 1;
 }
 RT3_REPLACE(0x44e500, Map_TidyWater);
@@ -2838,23 +2837,23 @@ RT3_NOINLINE void __fastcall Map_RebuildCoast(uint8_t* m, int, int32_t x0, int32
     if (!Map_ClampRect(m, 0, &x0, &y0, &x1, &y1)) return;
     int32_t tidied = Map_TidyWater(m, 0, x0, y0, x1, y1);
     int32_t recolour = 0;
-    uint8_t* eng = hook::Global<uint8_t*>(0x6d4024);
-    if (!F<int32_t>(hook::Global<uint8_t*>(0x62c120), 0x21a5) && !eng[0x1146eb]) {
+    uint8_t* eng = g_engine;
+    if (!F<int32_t>(g_map, 0x21a5) && !eng[0x1146eb]) {
         F<int32_t>(m, 0x21a5) = 1;
         recolour = 1;
     }
     int32_t extracted = 0;
     if (!tex) {
-        if (Render_Get1588((uint8_t*)Engine_Get1C(hook::Global<uint8_t*>(0x6d4024))))
-            tex = (uint32_t*)(uintptr_t)Render_Get1584((uint8_t*)Engine_Get1C(hook::Global<uint8_t*>(0x6d4024)));
+        if (Render_Get1588((uint8_t*)Engine_Get1C(g_engine)))
+            tex = (uint32_t*)(uintptr_t)Render_Get1584((uint8_t*)Engine_Get1C(g_engine));
         else {
-            tex = Terrain_ExtractTexture((uint8_t*)Engine_Get1C(hook::Global<uint8_t*>(0x6d4024)), 0, 0.0f, 0.0f, 1.0f, 1.0f, nullptr, nullptr);
+            tex = Terrain_ExtractTexture((uint8_t*)Engine_Get1C(g_engine), 0, 0.0f, 0.0f, 1.0f, 1.0f, nullptr, nullptr);
             extracted = 1;
         }
     }
     Map_CountLand(m);
     int32_t texW, texH;
-    Render_GetSize4((uint8_t*)Engine_Get1C(hook::Global<uint8_t*>(0x6d4024)), 0, &texW, &texH);
+    Render_GetSize4((uint8_t*)Engine_Get1C(g_engine), 0, &texW, &texH);
     int32_t W = F<int32_t>(m, 0x2155), H = F<int32_t>(m, 0x2159);
     float sx = (float)texW / (float)W;
     float sy = (float)texH / (float)H;
@@ -2996,12 +2995,12 @@ RT3_NOINLINE void __fastcall Map_RebuildCoast(uint8_t* m, int, int32_t x0, int32
     int32_t px1 = Ftol((double)q2 + Fl_207(0x5c85b4));
     int32_t py0 = Ftol(q1);
     int32_t px0 = Ftol(q0);
-    Terrain_PasteTexture((uint8_t*)Engine_Get1C(hook::Global<uint8_t*>(0x6d4024)), 0, px0, py0, px1, py1);
-    if (extracted) Terrain_CommitTexture((uint8_t*)Engine_Get1C(hook::Global<uint8_t*>(0x6d4024)), 0, 0);
-    void* cam = hook::Global<void*>(0x62be68);
+    Terrain_PasteTexture((uint8_t*)Engine_Get1C(g_engine), 0, px0, py0, px1, py1);
+    if (extracted) Terrain_CommitTexture((uint8_t*)Engine_Get1C(g_engine), 0, 0);
+    void* cam = hook::As<void*>(g_62be68);
     ((void(__thiscall*)(void*))(*(void***)cam)[0])(cam);
     Map_ReclassifySites(m);
-    Territories_Recount(hook::Global<Collection*>(0x6cfc9c));
+    Territories_Recount(g_territories);
     Free(flat);
     int32_t rx0 = x0, ry0 = y0, rx1 = x1, ry1 = y1;
     if (tidied) {
@@ -3064,7 +3063,7 @@ RT3_NOINLINE void __fastcall Map_PaintShallows(uint8_t* m) {
         }
     }
     Map_RebuildCoast(m, 0, 0, 0, 0x270f, 0x270f, tex);
-    Terrain_CommitTexture((uint8_t*)Engine_Get1C(hook::Global<uint8_t*>(0x6d4024)), 0, 0);
+    Terrain_CommitTexture((uint8_t*)Engine_Get1C(g_engine), 0, 0);
 }
 RT3_REPLACE(0x44f840, Map_PaintShallows);
 
@@ -3074,13 +3073,13 @@ RT3_REPLACE(0x44f840, Map_PaintShallows);
 // reapplied, with loading-screen steps. Returns the import result.
 RT3_NOINLINE int32_t __fastcall Map_ImportHeightmap(uint8_t* m, int, const char* name, float scale, float curve, int32_t smooth) {
     int32_t ok = Terrain_ImportHeightmap(m, 0, name, scale, curve, smooth);
-    Ambient_Start(hook::Global<void*>(0x6cec78));
-    Loading_Pump(hook::Global<uint8_t*>(0x6cec74), 0, 1, 0);
+    Ambient_Start(hook::As<void*>(g_world));
+    Loading_Pump(g_app, 0, 1, 0);
     if (!ok) Map_PaintShallows(m);
     Map_ReclassifySites(m);
-    Territories_Recount(hook::Global<Collection*>(0x6cfc9c));
-    Loading_Pump(hook::Global<uint8_t*>(0x6cec74), 0, 1, 0);
-    Options_ApplyGraphics(hook::Global<uint8_t*>(0x6cec74), 0, -2, 1);
+    Territories_Recount(g_territories);
+    Loading_Pump(g_app, 0, 1, 0);
+    Options_ApplyGraphics(g_app, 0, -2, 1);
     return ok;
 }
 RT3_REPLACE(0x44faf0, Map_ImportHeightmap);
@@ -3172,16 +3171,16 @@ RT3_REPLACE(0x44ffd0, Map_RefreshCells);
 // table 0x62c150 of 0..13 drawn once with seed 0x61) matches the day % 14 runs its
 // economy; then all blocks cap their stocks.
 void __fastcall Map_MonthlyEconomy(uint8_t* m) {
-    if (hook::Global<uint8_t*>(0x6cec7c)[0x82]) return;
-    uint8_t* world = hook::Global<uint8_t*>(0x6cec78);
+    if (g_newGame[0x82]) return;
+    uint8_t* world = g_world;
     if (F<int32_t>(world, 0x4af7) || F<int32_t>(world, 0x4aef)) return;
-    if (!hook::Global<int32_t>(0x62c254)) {
+    if (!g_62c254) {
         PushSeed();
         SetSeed(0x61);
         for (int32_t i = 0; i < 0x100; ++i) hook::Global<uint8_t>(0x62c150 + i) = (uint8_t)SimRand(0, 0xd);
         PopSeed();
-        world = hook::Global<uint8_t*>(0x6cec78);
-        hook::Global<int32_t>(0x62c254) = 1;
+        world = g_world;
+        g_62c254 = 1;
     }
     int32_t phase = world[0x11] % 14;
     int32_t n = F<int32_t>(m, 0x2149) * F<int32_t>(m, 0x2145);
@@ -3254,7 +3253,7 @@ RT3_NOINLINE uint32_t __fastcall Map_CellKeyColour(uint8_t* m, int, int32_t x, i
     const uint8_t* e = F<uint8_t*>(cell, 0xef);
     for (int32_t i = 0; i < F<int32_t>(cell, 0xeb); ++i, e += 6)
         if (F<uint16_t>((void*)e, 0) == key || key == 0)
-            return F<uint32_t>(hook::Global<uint8_t*>(0x6cec78), 0x66ba) | 0x2c000000;
+            return F<uint32_t>(g_world, 0x66ba) | 0x2c000000;
     return 0;
 }
 RT3_REPLACE(0x450490, Map_CellKeyColour);
@@ -3293,7 +3292,7 @@ RT3_NOINLINE void __fastcall Overview_Redraw(uint8_t* t, int, void* arg) {
     F<int32_t>(t, 0x218d) = x1;
     int32_t y1 = F<int32_t>(t, 0x2191) >= gh - 1 ? gh - 1 : F<int32_t>(t, 0x2191);
     F<int32_t>(t, 0x2191) = y1;
-    uint8_t* e = hook::Global<uint8_t*>(0x6d4024);
+    uint8_t* e = g_engine;
     int32_t texW = F<int32_t>(e, 0x11423b) > 0x800 ? 0x800 : F<int32_t>(e, 0x11423b);
     int32_t texH = F<int32_t>(e, 0x11423f) > 0x800 ? 0x800 : F<int32_t>(e, 0x11423f);
     if (x1 >= F<int32_t>(t, 0x2185) + texW - 1) x1 = F<int32_t>(t, 0x2185) + texW - 1;
@@ -3373,7 +3372,7 @@ RT3_REPLACE(0x450520, Overview_Redraw);
 RT3_NOINLINE void __fastcall Map_DrawCellOverlay(uint8_t* m, int, float x, float y, uint32_t fade, int32_t cx, int32_t cy) {
     uint8_t* cell = F<uint8_t*>(m, 0x2129) + (F<int32_t>(m, 0x2145) * (cy / 4) + cx / 4) * 0x1d7;
     uint32_t color = 0xff000000;
-    float h = F<float>(hook::Global<uint8_t*>(0x62be68), 0x14);
+    float h = F<float>(g_62be68, 0x14);
     if (h < D(0x5c8618)) return;
     float k = 1.0f;
     if (h < D(0x5cab18)) {
@@ -3392,12 +3391,12 @@ RT3_NOINLINE void __fastcall Map_DrawCellOverlay(uint8_t* m, int, float x, float
         count = F<float>(cell, 0x103 + mode % 0x35 * 4);
         output = City_CargoOutput(cell, 0, mode);
     }
-    uint8_t* view = hook::Global<uint8_t*>(0x62be68);
+    uint8_t* view = g_62be68;
     uint32_t color2 = color;
     if (F<float>(view, 0x14) < D(0x5cab10)) {
         Fade_Save();
         Fade_Set(fade);
-        view = hook::Global<uint8_t*>(0x62be68);
+        view = g_62be68;
     }
     if (F<int32_t>(m, 0x2179) == 0) {
         int32_t t = Ftol(F<float>(view, 0x20));
@@ -3423,7 +3422,7 @@ RT3_NOINLINE void __fastcall Map_DrawCellOverlay(uint8_t* m, int, float x, float
     }
     if (count > Fl_205(0x5c8598) || demand > D(0x5c85b8) || output > D(0x5c85b8)) {
         float fy = (float)(cy * 0x5c);
-        float gh = (float)Grid_Float1605(hook::Global<uint8_t*>(0x62c120), 0, cx, cy);
+        float gh = (float)Grid_Float1605(g_map, 0, cx, cy);
         float fx = (float)(cx * 0x5c);
         float dist = (float)Distance3D(F<float>(view, 0x1c), F<float>(view, 0x20), F<float>(view, 0x24), fx, gh, fy);
         if (dist > Fl_205(0x5ca1c8)) dist = (float)(((double)dist - Fl_205(0x5ca1c8)) * D(0x5c8c18) + D(0x5cab08));
@@ -3443,7 +3442,7 @@ RT3_NOINLINE void __fastcall Map_DrawCellOverlay(uint8_t* m, int, float x, float
                             float sz = !(rem >= Fl_205(0x5c85b4)) ? (float)((double)rem * Fl_205(0x5c8d70)) : 36.0f;
                             int32_t icon = Ftol(sz);
                             float w = (float)(scale / D(0x5caaf8));
-                            uint8_t* glyph = (uint8_t*)Table_Entry(F<uint8_t*>(hook::Global<uint8_t*>(0x6cec78), 0x46a90), 0, icon);
+                            uint8_t* glyph = (uint8_t*)Table_Entry(F<uint8_t*>(g_world, 0x46a90), 0, icon);
                             float hh;
                             if (rem < Fl_205(0x5c85b4)) {
                                 double n = (double)(icon + 4);
@@ -3483,7 +3482,7 @@ RT3_NOINLINE void __fastcall Map_DrawCellOverlay(uint8_t* m, int, float x, float
             }
             if (!(demand > D(0x5c85b8)) && !(output > D(0x5c85b8))) goto done;
             y = (float)(y - D(0x5caae0));
-            auto lines = [] { return *(int32_t*)(F<uint8_t*>(hook::Global<uint8_t*>(0x6d4024), 0x34) + F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x11421e) * 0x15 + 4); };
+            auto lines = [] { return *(int32_t*)(F<uint8_t*>(g_engine, 0x34) + F<int32_t>(g_engine, 0x11421e) * 0x15 + 4); };
             float m1 = (float)(D(0x5caad8) / dist);
             double minLen = D(0x5c87b8) / (double)lines();
             float cap = (float)(m1 > minLen ? (double)m1 : minLen);
@@ -3508,13 +3507,13 @@ RT3_NOINLINE void __fastcall Map_DrawCellOverlay(uint8_t* m, int, float x, float
                         if (first) {
                             float e = (float)((double)y - len - gapY);
                             float fd = Fade_Step_Impl();
-                            Engine_QueueQuad(hook::Global<void*>(0x6d4024), 0, FBits((float)((double)halfW + gapX + x)), FBits(e), FBits(x), FBits((float)((double)gapY + y)),
+                            Engine_QueueQuad(hook::As<void*>(g_engine), 0, FBits((float)((double)halfW + gapX + x)), FBits(e), FBits(x), FBits((float)((double)gapY + y)),
                                              FBits((float)((double)x - halfW - gapX)), FBits(e), FBits(fd), 0xffffffff, 0xffffffff, 0xffffffff, 0, 0, 0, 0x3f800000,
                                              0x3f800000, 0x3f800000, 0, 0x3f800000, 0x3f800000, 0x3f800000);
                         } else {
                             float e = (float)((double)gapY + y);
                             float fd = Fade_Step_Impl();
-                            Engine_QueueQuad(hook::Global<void*>(0x6d4024), 0, FBits(x), FBits((float)((double)y - len - gapY)), FBits((float)((double)halfW + gapX + x)), FBits(e),
+                            Engine_QueueQuad(hook::As<void*>(g_engine), 0, FBits(x), FBits((float)((double)y - len - gapY)), FBits((float)((double)halfW + gapX + x)), FBits(e),
                                              FBits((float)((double)x - halfW - gapX)), FBits(e), FBits(fd), 0xffffffff, 0xffffffff, 0xffffffff, 0, 0, 0, 0x3f800000,
                                              0x3f800000, 0x3f800000, 0, 0x3f800000, 0x3f800000, 0x3f800000);
                         }
@@ -3523,11 +3522,11 @@ RT3_NOINLINE void __fastcall Map_DrawCellOverlay(uint8_t* m, int, float x, float
                 float fd = Fade_Step_Impl();
                 if (first) {
                     float e = y - len;
-                    Engine_QueueQuad(hook::Global<void*>(0x6d4024), 0, FBits((float)((double)halfW + x)), FBits(e), FBits(x), FBits(y), FBits((float)((double)x - halfW)), FBits(e),
+                    Engine_QueueQuad(hook::As<void*>(g_engine), 0, FBits((float)((double)halfW + x)), FBits(e), FBits(x), FBits(y), FBits((float)((double)x - halfW)), FBits(e),
                                      FBits(fd), c, c, c, 0, 0, 0, 0x3f800000, 0x3f800000, 0x3f800000, 0, 0x3f800000, 0x3f800000, 0x3f800000);
                     y = (float)(y - (len - D(0x5caad0)));
                 } else
-                    Engine_QueueQuad(hook::Global<void*>(0x6d4024), 0, FBits(x), FBits(y - len), FBits((float)((double)halfW + x)), FBits(y), FBits((float)((double)x - halfW)), FBits(y),
+                    Engine_QueueQuad(hook::As<void*>(g_engine), 0, FBits(x), FBits(y - len), FBits((float)((double)halfW + x)), FBits(y), FBits((float)((double)x - halfW)), FBits(y),
                                      FBits(fd), c, c, c, 0, 0, 0, 0x3f800000, 0x3f800000, 0x3f800000, 0, 0x3f800000, 0x3f800000, 0x3f800000);
             };
             if (demand > D(0x5c85b8)) bar(demand, 0xa0ffd0, 0xffa0ffd0, true);
@@ -3535,7 +3534,7 @@ RT3_NOINLINE void __fastcall Map_DrawCellOverlay(uint8_t* m, int, float x, float
         }
     }
 done:
-    if (F<float>(hook::Global<uint8_t*>(0x62be68), 0x14) < D(0x5cab10)) Fade_Restore();
+    if (F<float>(g_62be68, 0x14) < D(0x5cab10)) Fade_Restore();
 }
 RT3_REPLACE(0x4515c0, Map_DrawCellOverlay);
 
@@ -3552,7 +3551,7 @@ RT3_REPLACE(0x4515c0, Map_DrawCellOverlay);
 //      the edge of its radius).
 // Labels fade out from view height 0x5c8880 (plus a bonus near the station).
 void __fastcall Map_DrawCellLabel(uint8_t* m, int, float x, float y, float fade, int32_t cx, int32_t cy) {
-    if (!Camera_InBounds(hook::Global<uint8_t*>(0x62be68), 0, x, y)) return;
+    if (!Camera_InBounds(g_62be68, 0, x, y)) return;
     uint8_t* cell = nullptr;
     float lift = 0.0f, quota = 0.0f;
     int32_t forced = 0;
@@ -3568,8 +3567,8 @@ void __fastcall Map_DrawCellLabel(uint8_t* m, int, float x, float y, float fade,
             lift = 100.0f;
         } else {
             if ((!(cell[0xe6] & 0x10) || F<int32_t>(cell, 0xeb) > 0) && !Chain_AnyActive(cell)) return;
-            if (!Collection_IsValid(hook::Global<Collection*>(0x6cec20), 0, F<uint32_t>(m, 0x2181))) return;
-            uint8_t* st = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cec20), 0, F<uint32_t>(m, 0x2181));
+            if (!Collection_IsValid(g_stations, 0, F<uint32_t>(m, 0x2181))) return;
+            uint8_t* st = (uint8_t*)Collection_Get(g_stations, 0, F<uint32_t>(m, 0x2181));
             if (!st) return;
             int32_t q = City_CargoQuota(Obj_BuildingRegion(st), 0, F<int32_t>(m, 0x2179));
             lift = BitsF(0x3e4ccccdu);
@@ -3586,7 +3585,7 @@ void __fastcall Map_DrawCellLabel(uint8_t* m, int, float x, float y, float fade,
             }
         }
     }
-    float h = F<float>(hook::Global<uint8_t*>(0x62be68), 0x14) + lift;
+    float h = F<float>(g_62be68, 0x14) + lift;
     float zOff = 0.0f;
     uint32_t color = 0xffcf1f00;
     int32_t flags = 2;
@@ -3606,26 +3605,26 @@ void __fastcall Map_DrawCellLabel(uint8_t* m, int, float x, float y, float fade,
             b = (uint8_t*)Obj_Building(site);
         else if (cell[0xe6] & 0x10) {
             float fy = (float)cy, fx = (float)cx;
-            int32_t id = Table_NearestValue23a(hook::Global<Collection*>(0x62bae0), 0, fx, fy);
+            int32_t id = Table_NearestValue23a(g_cities, 0, fx, fy);
             if (!id) return;
-            b = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62bae0), 0, (uint32_t)id);
+            b = (uint8_t*)Collection_Get(g_cities, 0, (uint32_t)id);
         }
         bool own = forced != 0;
-        if (own && Collection_Get(hook::Global<Collection*>(0x6cec20), 0, F<uint32_t>(m, 0x2181)))
-            b = (uint8_t*)Obj_Building(Collection_Get(hook::Global<Collection*>(0x6cec20), 0, F<uint32_t>(m, 0x2181)));
+        if (own && Collection_Get(g_stations, 0, F<uint32_t>(m, 0x2181)))
+            b = (uint8_t*)Obj_Building(Collection_Get(g_stations, 0, F<uint32_t>(m, 0x2181)));
         if (b) {
             float bz = F<float>(b, 0x1e6);
-            double t = Camera_TargetAboveGround(hook::Global<uint8_t*>(0x62be68)) / Fl_205(0x5c8c28) + Fl_205(0x5cab50);
+            double t = Camera_TargetAboveGround(g_62be68) / Fl_205(0x5c8c28) + Fl_205(0x5cab50);
             double dd = (double)dist;
             bz = (float)(t + dd * D(0x5c8578) + bz);
-            Scene_ProjectNormalised((uint8_t*)Engine_Renderer(hook::Global<void*>(0x6d4024)), 0, F<float>(b, 0x1e2), bz, F<float>(b, 0x1ea), &x, &y,
+            Scene_ProjectNormalised((uint8_t*)Engine_Renderer(hook::As<void*>(g_engine)), 0, F<float>(b, 0x1e2), bz, F<float>(b, 0x1ea), &x, &y,
                                     &fade);
         }
         if (own) {
-            uint8_t* st = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cec20), 0, F<uint32_t>(m, 0x2181));
+            uint8_t* st = (uint8_t*)Collection_Get(g_stations, 0, F<uint32_t>(m, 0x2181));
             if (st) FormatText(text, (const char*)st + 0x46b, 0, 0, 0, 0, 0, 0, 0, 0);
             color |= 0xffffff;
-        } else if (F<int32_t>(hook::Global<uint8_t*>(0x62ba8c), 0x9a + F<int32_t>(m, 0x2179) * 4) == -1) {
+        } else if (F<int32_t>(hook::As<uint8_t*>(g_cargoTypes), 0x9a + F<int32_t>(m, 0x2179) * 4) == -1) {
             int32_t k = F<int32_t>(m, 0x2179) % 0x35;
             int32_t q = City_CargoQuota(Grid_RegionAt(m, 0, cx / 4, cy / 4), 0, k);
             float qf = (float)q;
@@ -3645,7 +3644,7 @@ void __fastcall Map_DrawCellLabel(uint8_t* m, int, float x, float y, float fade,
                 color |= 0xffbfbf;
             }
         } else {
-            uint8_t* st = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cec20), 0, F<uint32_t>(m, 0x2181));
+            uint8_t* st = (uint8_t*)Collection_Get(g_stations, 0, F<uint32_t>(m, 0x2181));
             if (!st || !site) return;
             float cnt, amt;
             Train_GatherLoads(st, 0, 1, nullptr, site, F<int32_t>(m, 0x2179), BitsF(0x4479c000u), &cnt, &amt, nullptr);
@@ -3696,7 +3695,7 @@ void __fastcall Map_DrawCellLabel(uint8_t* m, int, float x, float y, float fade,
         break;
     }
     case 6: {
-        uint8_t* p = hook::Global<uint8_t*>(0x6cfe18);
+        uint8_t* p = g_6cfe18;
         if (!p) return;
         float fa, fb, fr;
         Obj_GetDims(p, 0, (int32_t*)&fa, (int32_t*)&fb, &fr);
@@ -3740,11 +3739,11 @@ void __fastcall Map_DrawCellLabel(uint8_t* m, int, float x, float y, float fade,
     }
     float fogScale, fogStrength;
     uint32_t fogFont;
-    Fog_ParamsAt((uint8_t*)Engine_Get1C(hook::Global<void*>(0x6d4024)), 0, cx * 0x5c, cy * 0x5c, zOff, &fogScale, &fogFont, &fogStrength);
+    Fog_ParamsAt((uint8_t*)Engine_Get1C(hook::As<void*>(g_engine)), 0, cx * 0x5c, cy * 0x5c, zOff, &fogScale, &fogFont, &fogStrength);
     Fade_Save();
-    if (F<int32_t>(hook::Global<uint8_t*>(0x6d401c), 0xc64) <= 0 && (y < D(0x5cab28) || y == D(0x5cab28)))
+    if (F<int32_t>(g_windowManager, 0xc64) <= 0 && (y < D(0x5cab28) || y == D(0x5cab28)))
         fade = BitsF(0x3a9d4952u);
-    else if (F<float>(hook::Global<uint8_t*>(0x62be68), 0x14) >= D(0x5c8da8))
+    else if (F<float>(g_62be68, 0x14) >= D(0x5c8da8))
         fade = (float)(fade - D(0x5c85b8));
     Fade_Set(FBits(fade));
     float ty = (float)(y - D(0x5c86b8));
@@ -3763,8 +3762,8 @@ void __fastcall Map_SetFogMode(uint8_t* m, int, int32_t mode) {
         int32_t active = F<int32_t>(m, 0x21a1);
         F<int32_t>(m, 0x219d) = 1;
         if (active) {
-            F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x114272)++;
-            F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x114266)++;
+            F<int32_t>(g_engine, 0x114272)++;
+            F<int32_t>(g_engine, 0x114266)++;
         }
     }
     F<int32_t>(m, 0x2171) = mode;
@@ -3773,7 +3772,7 @@ void __fastcall Map_SetFogMode(uint8_t* m, int, int32_t mode) {
         if (mode <= 5) v = 4;
         else if (mode == 6) v = 1;
     }
-    uint8_t* map = hook::Global<uint8_t*>(0x62c120);
+    uint8_t* map = g_map;
     Render_SetFog(m, 0, v / 2, v / 2, F<uint32_t>(map, 0x2155), F<uint32_t>(map, 0x2159), v, v, 9999);
 }
 RT3_REPLACE(0x452ca0, Map_SetFogMode);
@@ -3784,8 +3783,8 @@ RT3_NOINLINE void __fastcall Map_ClearFogMode(uint8_t* m) {
         int32_t active = F<int32_t>(m, 0x21a1);
         F<int32_t>(m, 0x219d) = 0;
         if (active) {
-            F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x114272)--;
-            F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x114266)--;
+            F<int32_t>(g_engine, 0x114272)--;
+            F<int32_t>(g_engine, 0x114266)--;
         }
     }
     F<int32_t>(m, 0x2171) = 0;
@@ -3803,9 +3802,9 @@ RT3_REPLACE(0x452d80, Overview_SetOption);
 // 0x452db0. Sets the highlighted building (+0x2181) of the buildings mode (3):
 // clears the old highlight and marks the new one, then redraws.
 RT3_NOINLINE void __fastcall Overview_SetHighlight(uint8_t* t, int, int32_t key) {
-    if (F<int32_t>(t, 0x2175) == 3 && F<int32_t>(t, 0x2181)) Table_RefreshAll(hook::Global<Collection*>(0x62b26c));
+    if (F<int32_t>(t, 0x2175) == 3 && F<int32_t>(t, 0x2181)) Table_RefreshAll(g_buildings);
     F<int32_t>(t, 0x2181) = key;
-    if (F<int32_t>(t, 0x2175) == 3 && key) Buildings_RefreshHighlight(hook::Global<Collection*>(0x62b26c), 0, key);
+    if (F<int32_t>(t, 0x2175) == 3 && key) Buildings_RefreshHighlight(g_buildings, 0, key);
     if (F<int32_t>(t, 0x2175)) Overview_Redraw(t, 0, nullptr);
 }
 RT3_REPLACE(0x452db0, Overview_SetHighlight);
@@ -3814,8 +3813,8 @@ RT3_REPLACE(0x452db0, Overview_SetHighlight);
 // -1) or that are active take the vtable +0xc update, the rest +0x10.
 RT3_NOINLINE void __stdcall Buildings_UpdateFor(int32_t cargo) {
     typedef void(__thiscall * Fn)(void*);
-    for (int32_t i = 0; i < Collection_Count(hook::Global<Collection*>(0x62b26c)); ++i) {
-        Collection* c = hook::Global<Collection*>(0x62b26c);
+    for (int32_t i = 0; i < Collection_Count(g_buildings); ++i) {
+        Collection* c = g_buildings;
         uint8_t* b = (uint8_t*)Collection_Get(c, 0, Collection_IdAt(c, 0, i, 0));
         void** vt = *(void***)b;
         bool active = cargo == -1;
@@ -3832,13 +3831,13 @@ RT3_REPLACE(0x452e10, Buildings_UpdateFor);
 // 0x452ea0. Tracks whether the value at (*0x62be68)+0x20 exceeds 0x5ca1c0
 // (+0x21a1); while +0x219d is set, each change adjusts two engine counters.
 RT3_NOINLINE void __fastcall Obj_UpdateThreshold(uint8_t* o) {
-    int32_t on = F<float>(hook::Global<uint8_t*>(0x62be68), 0x20) > *(const float*)0x5ca1c0 ? 1 : 0;
+    int32_t on = F<float>(g_62be68, 0x20) > *(const float*)0x5ca1c0 ? 1 : 0;
     if (on == F<int32_t>(o, 0x21a1)) return;
     F<int32_t>(o, 0x21a1) = on;
     if (!F<int32_t>(o, 0x219d)) return;
     int32_t d = on ? 1 : -1;
-    F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x114272) += d;
-    F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x114266) += d;
+    F<int32_t>(g_engine, 0x114272) += d;
+    F<int32_t>(g_engine, 0x114266) += d;
 }
 RT3_REPLACE(0x452ea0, Obj_UpdateThreshold);
 
@@ -3866,7 +3865,7 @@ RT3_NOINLINE void __fastcall Overview_SetMode(uint8_t* t, int, int32_t mode, int
                                  int32_t a8, int32_t a9) {
     Render_DestroyColourMap(t);
     int32_t old = F<int32_t>(t, 0x2175);
-    if ((old == 6 && mode != 6) || (old == 3 && highlight && mode != 3)) Table_RefreshAll(hook::Global<Collection*>(0x62b26c));
+    if ((old == 6 && mode != 6) || (old == 3 && highlight && mode != 3)) Table_RefreshAll(g_buildings);
     if (mode == 7) {
         if (F<int32_t>(t, 0x2175) != 7) {
             ++Overview_Count(0x11425a);
@@ -3914,9 +3913,9 @@ RT3_NOINLINE void __fastcall Overview_SetMode(uint8_t* t, int, int32_t mode, int
     F<int32_t>(t, 0x2179) = cargo;
     F<int32_t>(t, 0x218d) = a8;
     Overview_Redraw(t, 0, rect);
-    if (mode == 6) Buildings_RefreshHighlight(hook::Global<Collection*>(0x62b26c), 0, F<int32_t>(t, 0x2179));
-    if (F<int32_t>(t, 0x2175) == 3 && F<int32_t>(t, 0x2181)) Buildings_RefreshHighlight(hook::Global<Collection*>(0x62b26c), 0, F<int32_t>(t, 0x2181));
-    if (F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x12c)) {
+    if (mode == 6) Buildings_RefreshHighlight(g_buildings, 0, F<int32_t>(t, 0x2179));
+    if (F<int32_t>(t, 0x2175) == 3 && F<int32_t>(t, 0x2181)) Buildings_RefreshHighlight(g_buildings, 0, F<int32_t>(t, 0x2181));
+    if (F<int32_t>(g_app, 0x12c)) {
         if (mode < 2 || mode > 5) {
             Map_ClearFogMode(t);
             return;
@@ -3930,7 +3929,7 @@ RT3_NOINLINE void __fastcall Overview_SetMode(uint8_t* t, int, int32_t mode, int
         Overview_SetOverlay(t, 1);
         F<int32_t>(t, 0x2171) = 1;
     }
-    uint8_t* map = hook::Global<uint8_t*>(0x62c120);
+    uint8_t* map = g_map;
     Render_SetFog(t, 0, 2, 2, F<uint32_t>(map, 0x2155), F<uint32_t>(map, 0x2159), 4, 4, 0x270f);
 }
 RT3_REPLACE(0x452fa0, Overview_SetMode);
@@ -3940,7 +3939,7 @@ RT3_REPLACE(0x452fa0, Overview_SetMode);
 RT3_NOINLINE void __fastcall Overview_ShowPlainOnce(uint8_t* t) {
     if (t[0x21c5]) return;
     t[0x21c5] = 1;
-    uint8_t* m = hook::Global<uint8_t*>(0x62c120);
+    uint8_t* m = g_map;
     if (F<int32_t>(m, 0x2175)) return;
     Overview_ShowPlain(m);
 }
@@ -3969,7 +3968,7 @@ RT3_NOINLINE void __fastcall Overview_Close(uint8_t* t) {
     uint8_t shown = t[0x21c5];
     F<int32_t>(t, 0x2175) = 0;
     if (!shown) return;
-    Overview_ShowPlain(hook::Global<uint8_t*>(0x62c120));
+    Overview_ShowPlain(g_map);
 }
 RT3_REPLACE(0x453510, Overview_Close);
 
@@ -3978,7 +3977,7 @@ RT3_REPLACE(0x453510, Overview_Close);
 RT3_NOINLINE void __fastcall Overview_EndPlain(uint8_t* t) {
     if (!t[0x21c5]) return;
     t[0x21c5] = 0;
-    if (F<int32_t>(hook::Global<uint8_t*>(0x62c120), 0x2175) == 0x15) Overview_Close(hook::Global<uint8_t*>(0x62c120));
+    if (F<int32_t>(g_map, 0x2175) == 0x15) Overview_Close(g_map);
 }
 RT3_REPLACE(0x453780, Overview_EndPlain);
 
@@ -4024,7 +4023,7 @@ int32_t __fastcall Map_TreeSpot(uint8_t* m, int, int32_t x, int32_t y, int32_t b
     const int32_t cell = (y * 8 | x) & 0x3f;
     if (const int32_t season = F<int32_t>(m, 0x21fd))
         if (*(const uint8_t*)((((season * 0xc4 + spot - 0xc4) * 6) + blk) * 64 + cell + 0x62c258)) return 0;
-    if (F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x11425a) && *(const uint8_t*)(((spot * 6) + blk) * 64 + cell + 0x675a58)) return 0;
+    if (F<int32_t>(g_engine, 0x11425a) && *(const uint8_t*)(((spot * 6) + blk) * 64 + cell + 0x675a58)) return 0;
     const uint8_t* table = ((const uint8_t* const*)0x6acd20)[*(const uint8_t*)(0x688058 + spot)];
     const uint8_t* rec = table + ((blk << 4 | y) << 4 | x) * 9;
     *outX = F<uint32_t>((uint8_t*)rec, 0);
@@ -4062,7 +4061,7 @@ RT3_REPLACE(0x4539c0, Map_DropMarkers);
 RT3_NOINLINE void Vegetation_BuildTables() {
     int32_t saved = GetSeed();
     SetSeed(0x7b);
-    Loading_Pump(hook::Global<uint8_t*>(0x6cec74), 0, 1, 0);
+    Loading_Pump(g_app, 0, 1, 0);
     for (uint8_t* row = (uint8_t*)0x5ef3e0; row < (uint8_t*)0x5f0720; row += 0xb0) {
         F<int32_t>(row, 0) = 0;
         for (int j = 0; j < 20; ++j) F<float>(row, 0) = (float)((double)F<float>(row, 0x14 + 8 * j) + F<float>(row, 0));
@@ -4129,7 +4128,7 @@ RT3_NOINLINE void Vegetation_BuildTables() {
         }
     }
     SetSeed(saved);
-    Loading_Pump(hook::Global<uint8_t*>(0x6cec74), 0, 1, 0);
+    Loading_Pump(g_app, 0, 1, 0);
 }
 RT3_REPLACE(0x4539f0, Vegetation_BuildTables);
 

@@ -8,6 +8,7 @@
 #include <math.h>
 #include <initializer_list>
 #include "hook/hook.h"
+#include "core/globals.h"
 #include "game/collection.h"
 #include "hook/keepregs.h"
 #include "core/stream.h"
@@ -27,8 +28,6 @@ template <typename T> static inline T& F(void* o, uint32_t off) { return *(T*)((
    // 0x5c8700
 static const float kTwoCells = 184.0f;
 
-static Collection*& g_trackNodes = hook::Global<Collection*>(0x6cfca8);
-static Collection*& g_companies  = hook::Global<Collection*>(0x62be10);
 uint32_t __fastcall Map_RegionTypeAt(void* m, int, float x, float y);
 uint32_t __fastcall Map_GridByte(void* m, int, float x, float y);
 void __fastcall Company_CountTrack(uint8_t* c, int, uint8_t* t, int32_t add);
@@ -360,17 +359,17 @@ static inline void* RefNotMinus1(Collection* t, int32_t id) { return id != -1 ? 
 // end nodes leads back to it (+0x202); the node's flag +0x201 bit 1 says which side.
 static uint8_t* EndNode(uint8_t* t, int end) {
     int32_t id = end ? F<int32_t>(t, 0x20a) : F<int32_t>(t, 0x206);
-    return id != -1 ? (uint8_t*)Collection_Get(g_trackNodes, 0, id) : nullptr;
+    return id != -1 ? (uint8_t*)Collection_Get(g_tracks, 0, id) : nullptr;
 }
 
 // 0x4932a0 / 0x493300. Starts (counter +0xa0 / +0xa4) a camera action; the
 // first one records whether the camera height is below 2000. Always stores
 // the camera value +0x18.
 static void CameraBegin(uint8_t* o, uint32_t counter) {
-    uint8_t* cam = hook::Global<uint8_t*>(0x62be68);
+    uint8_t* cam = g_62be68;
     if (!F<int32_t>(o, 0xa0) && !F<int32_t>(o, 0xa4))
         F<int32_t>(o, 0xb0) = F<float>(cam, 0x66) < *(const float*)0x5c88e0 ? 1 : 0;
-    F<float>(o, 0xb8) = (float)Obj_Float18(hook::Global<void*>(0x62be68));
+    F<float>(o, 0xb8) = (float)Obj_Float18(hook::As<void*>(g_62be68));
     F<int32_t>(o, counter)++;
 }
 
@@ -378,13 +377,13 @@ static void CameraBegin(uint8_t* o, uint32_t counter) {
 // +0xb4 for +0xa8/+0xac), refreshed when the camera value moved; 0 if inactive.
 static int32_t CameraFlag(uint8_t* o, uint32_t active, uint32_t flag) {
     if (!F<int32_t>(o, active)) return 0;
-    if (!(Obj_Float18(hook::Global<void*>(0x62be68)) == F<float>(o, 0xb8))) Camera_UpdateZoomFlags(o);
+    if (!(Obj_Float18(hook::As<void*>(g_62be68)) == F<float>(o, 0xb8))) Camera_UpdateZoomFlags(o);
     return F<int32_t>(o, flag);
 }
 
 static inline Collection* Coll(uint32_t a) { return hook::Global<Collection*>(a); }
 
-static inline uint8_t* Map() { return hook::Global<uint8_t*>(0x62c120); }
+static inline uint8_t* Map() { return g_map; }
 
 static inline void GetCorners(uint8_t* o, Corners& k) {
     Effect_GetVectors(o, 0, (uint32_t*)k.a, (uint32_t*)k.b, (uint32_t*)k.c, (uint32_t*)k.d);
@@ -402,7 +401,7 @@ static inline float WrapAngle(float a) {
 
 static inline void* ExeNew(size_t n) { return ((void*(__cdecl*)(size_t))0x53b070)(n); }
 
-static inline Collection* Routes() { return hook::Global<Collection*>(0x6cfcb4); }
+static inline Collection* Routes() { return g_routes; }
 
 static inline float Fl(uint32_t a) { return *(const float*)a; }
 
@@ -439,7 +438,7 @@ static inline void Track_Mid(uint8_t* t, float* x, float* y) {
 // than `of`'s own midpoint (side code `side`).
 static bool Track_NeighbourCrosses(uint8_t* judge, uint8_t* of, int32_t side, bool firstByMid) {
     if (firstByMid) {
-        if (F<int32_t>(of, 0x206) != -1 && Collection_Get(hook::Global<Collection*>(0x6cfca8), 0, F<int32_t>(of, 0x206))) {
+        if (F<int32_t>(of, 0x206) != -1 && Collection_Get(g_tracks, 0, F<int32_t>(of, 0x206))) {
             float x, y;
             Track_Mid((uint8_t*)Obj_Node206(of), &x, &y);
             if (Effect_PointOnSide(judge, 0, 1, x, y) != side) return true;
@@ -818,7 +817,7 @@ RT3_NOINLINE uint32_t __fastcall Obj_CenterGridByte(void* o) {
     const float twoCells = 184.0f;
     float y = (float)(((double)F<float>(o, 0x34) + F<float>(o, 0x1c)) / twoCells);
     float x = (float)(((double)F<float>(o, 0x2c) + F<float>(o, 0x14)) / twoCells);
-    return Map_GridByte(hook::Global<void*>(0x62c120), 0, x, y);
+    return Map_GridByte(hook::As<void*>(g_map), 0, x, y);
 }
 RT3_REPLACE(0x48aa30, Obj_CenterGridByte);
 
@@ -827,7 +826,7 @@ RT3_NOINLINE uint32_t __fastcall Obj_CenterRegionType(void* o) {
     const float twoCells = 184.0f;
     float y = (float)(((double)F<float>(o, 0x34) + F<float>(o, 0x1c)) / twoCells);
     float x = (float)(((double)F<float>(o, 0x2c) + F<float>(o, 0x14)) / twoCells);
-    return Map_RegionTypeAt(hook::Global<void*>(0x62c120), 0, x, y);
+    return Map_RegionTypeAt(hook::As<void*>(g_map), 0, x, y);
 }
 RT3_REPLACE(0x48aa70, Obj_CenterRegionType);
 
@@ -883,19 +882,19 @@ RT3_NOINLINE int32_t __fastcall Track_BuildCost(uint8_t* t, int, uint32_t compan
     }
     uint8_t* rec = nullptr;
     uint32_t owner = 0;
-    if (Collection_IsValid(hook::Global<Collection*>(0x62be10), 0, company)) {
-        rec = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be10), 0, company);
+    if (Collection_IsValid(g_companies, 0, company)) {
+        rec = (uint8_t*)Collection_Get(g_companies, 0, company);
         owner = F<uint32_t>(rec, 0x3b);
     }
     float my = (float)(((double)F<float>(t, 0x1c) + F<float>(t, 0x34)) / Fl_205(0x5cfcfc));
     float mx = (float)(((double)F<float>(t, 0x2c) + F<float>(t, 0x14)) / Fl_205(0x5cfcfc));
-    uint32_t region = Map_GridByte(hook::Global<uint8_t*>(0x62c120), 0, mx, my);
-    uint8_t* w = hook::Global<uint8_t*>(0x6cec78);
+    uint32_t region = Map_GridByte(g_map, 0, mx, my);
+    uint8_t* w = g_world;
     float f3d = Effects_Multiplier(w, 0, 0x3d, company, owner, region);
-    float f3e = Effects_Multiplier(hook::Global<uint8_t*>(0x6cec78), 0, 0x3e, company, owner, region);
-    Effects_Multiplier(hook::Global<uint8_t*>(0x6cec78), 0, 0x3f, company, owner, region);
-    float f40 = Effects_Multiplier(hook::Global<uint8_t*>(0x6cec78), 0, 0x40, company, owner, region);
-    float f41 = Effects_Multiplier(hook::Global<uint8_t*>(0x6cec78), 0, 0x41, company, owner, region);
+    float f3e = Effects_Multiplier(g_world, 0, 0x3e, company, owner, region);
+    Effects_Multiplier(g_world, 0, 0x3f, company, owner, region);
+    float f40 = Effects_Multiplier(g_world, 0, 0x40, company, owner, region);
+    float f41 = Effects_Multiplier(g_world, 0, 0x41, company, owner, region);
     int32_t single = t[0x218] == 1;
     float extra = 0.0f;
     int32_t cost = 1000;
@@ -941,13 +940,13 @@ RT3_NOINLINE int32_t __fastcall Track_BuildCost(uint8_t* t, int, uint32_t compan
         float y = (float)(((double)F<float>(t, 0x1c) + F<float>(t, 0x34)) / Fl_205(0x5cfcfc));
         float x = (float)(((double)F<float>(t, 0x2c) + F<float>(t, 0x14)) / Fl_205(0x5cfcfc));
         int32_t iy = Ftol(y);
-        cost += (int32_t)Terrain_CellCount(hook::Global<uint8_t*>(0x62c120), 0, Ftol(x), iy) * 0xfa;
+        cost += (int32_t)Terrain_CellCount(g_map, 0, Ftol(x), iy) * 0xfa;
     }
     if (t[0x44]) cost = Ftol((double)cost + (single ? 600.0 : BitsD(0x408f3cccccccccccull)));
     if (extra < Fl_205(0x5c8598)) extra = 0.0f;
     int32_t r = Ftol((double)(float)cost + extra);
     r = Ftol((double)(float)r * f3d);
-    r = Ftol((double)(float)r * ((const float*)0x5f3390)[F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x2d)]);
+    r = Ftol((double)(float)r * ((const float*)0x5f3390)[F<int32_t>(g_world, 0x2d)]);
     if (rec) {
         double blend = Obj_DifficultyBlend(rec);
         r = Ftol(blend * (float)r);
@@ -970,7 +969,7 @@ RT3_REPLACE(0x48b110, Track_Cost2);
 // matches. Skipped while loading (node table +0xed) and, in multiplayer, unless
 // +0x216.
 void __fastcall Track_MatchNeighbourHeights(uint8_t* t) {
-    if (F<int32_t>(hook::Global<uint8_t*>(0x6cfca8), 0xed)) return;
+    if (F<int32_t>(hook::As<uint8_t*>(g_tracks), 0xed)) return;
     if (IsMultiplayer() && !t[0x216]) return;
     float own[4][3];
     Effect_GetVectors(t, 0, (uint32_t*)own[0], (uint32_t*)own[1], (uint32_t*)own[2], (uint32_t*)own[3]);
@@ -1000,14 +999,14 @@ void __fastcall Track_MatchNeighbourHeights(uint8_t* t) {
     for (int k = 0; k < 2; ++k) {
         int32_t id = F<int32_t>(t, 0x206 + k * 4);
         if (id == -1) continue;
-        uint8_t* nb = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfca8), 0, id);
+        uint8_t* nb = (uint8_t*)Collection_Get(g_tracks, 0, id);
         float v[4][3];
         Effect_GetVectors(nb, 0, (uint32_t*)v[0], (uint32_t*)v[1], (uint32_t*)v[2], (uint32_t*)v[3]);
         int branch = match(nb, v, &own[k * 2][1], &own[k * 2 + 1][1]);
         if (branch >= 0 && F<int32_t>(nb, 0x20e) != -1 && ((nb[0x201] >> 1) & 1) == branch) Track_MatchNeighbourHeights(nb);
     }
     if (F<int32_t>(t, 0x20e) == -1) return;
-    uint8_t* nb = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfca8), 0, F<int32_t>(t, 0x20e));
+    uint8_t* nb = (uint8_t*)Collection_Get(g_tracks, 0, F<int32_t>(t, 0x20e));
     float v[4][3];
     Effect_GetVectors(nb, 0, (uint32_t*)v[0], (uint32_t*)v[1], (uint32_t*)v[2], (uint32_t*)v[3]);
     int e = (t[0x201] & 2) ? 0 : 2;
@@ -1019,12 +1018,12 @@ RT3_REPLACE(0x48b120, Track_MatchNeighbourHeights);
 // back, +0x20a ahead; flag +0x59 & 0x10, mode not 0xff): mode 2/3 (slopes) when
 // they differ, their mode when they agree; neighbours already on a slope win.
 void __fastcall Node_UpdateLightFromNeighbors(uint8_t* n) {
-    Collection* nodes = hook::Global<Collection*>(0x6cfca8);
+    Collection* nodes = g_tracks;
     auto lit = [&](uint32_t off) {
         int32_t id = F<int32_t>(n, off);
         return id != -1 && (((uint8_t*)Collection_Get(nodes, 0, id))[0x59] & 0x10) ? 1 : 0;
     };
-    auto mode = [&](uint32_t off) { return ((uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfca8), 0, F<uint32_t>(n, off)))[0x5a]; };
+    auto mode = [&](uint32_t off) { return ((uint8_t*)Collection_Get(g_tracks, 0, F<uint32_t>(n, off)))[0x5a]; };
     int32_t a = lit(0x206), b = lit(0x20a);
     if (a && mode(0x206) == 0xff) a = 0;
     if (b && mode(0x20a) == 0xff) b = 0;
@@ -1053,10 +1052,10 @@ RT3_REPLACE(0x48b4b0, Node_UpdateLightFromNeighbors);
 
 // 0x48b630. Option +0x2bf: 0 off, 2 on, else on in screen mode 12 (0x6d0818 +0x8c).
 RT3_NOINLINE int32_t Option2bfActive() {
-    int32_t m = F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x2bf);
+    int32_t m = F<int32_t>(g_app, 0x2bf);
     if (m == 0) return 0;
     if (m == 2) return 1;
-    uint8_t* s = hook::Global<uint8_t*>(0x6d0818);
+    uint8_t* s = g_gameWindow;
     return s && F<int32_t>(s, 0x8c) == 0xc ? 1 : 0;
 }
 RT3_REPLACE(0x48b630, Option2bfActive);
@@ -1068,27 +1067,27 @@ RT3_REPLACE(0x48b630, Option2bfActive);
 // (+0x44 double, +0x218 == 4 electric); else grey (dimmed for +0x216 == 1 with
 // option +0x98).
 RT3_NOINLINE void __fastcall Track_UpdateColor(uint8_t* o) {
-    uint8_t* opts = hook::Global<uint8_t*>(0x6cec74);
+    uint8_t* opts = g_app;
     int32_t owners;
     int32_t m = F<int32_t>(opts, 0x2bf);
     if (!m) owners = 0;
     else if (m == 2) owners = 1;
     else {
-        uint8_t* view = hook::Global<uint8_t*>(0x6d0818);
+        uint8_t* view = g_gameWindow;
         owners = view && F<int32_t>(view, 0x8c) == 0xc ? 1 : 0;
     }
     uint8_t kind = o[0x216];
-    if (!kind && !F<int32_t>(hook::Global<uint8_t*>(0x6cfca8), 0xe9)) {
+    if (!kind && !F<int32_t>(hook::As<uint8_t*>(g_tracks), 0xe9)) {
         Track_ColorSlope(o);
         return;
     }
-    if (F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4ae3) && (o[0x201] & 0x40)) {
+    if (F<int32_t>(g_world, 0x4ae3) && (o[0x201] & 0x40)) {
         Obj_SetArgb(o, 0, 0xff, 0x5f, 0x5f, 0xff);
         return;
     }
     if (owners) {
         bool elec = o[0x218] == 4;
-        bool mine = F<uint16_t>(o, 0x22e) == (uint32_t)Obj_Get21(hook::Global<void*>(0x6cec78));
+        bool mine = F<uint16_t>(o, 0x22e) == (uint32_t)Obj_Get21(hook::As<void*>(g_world));
         bool dbl = o[0x44] != 0;
         if (mine) {
             if (dbl) {
@@ -1112,8 +1111,8 @@ RT3_REPLACE(0x48b660, Track_UpdateColor);
 // track totals and clears the trains' +0x1a3 flags. Recolours it.
 RT3_NOINLINE void __fastcall Track_SetKind(uint8_t* o, int, uint8_t kind) {
     if (kind == 2 && o[0x216] != kind) {
-        Obj_CountTrack(hook::Global<uint8_t*>(0x6cfca8), 0, o, 1);
-        Trains_Clear1a3(hook::Global<Collection*>(0x6cfcbc));
+        Obj_CountTrack(hook::As<uint8_t*>(g_tracks), 0, o, 1);
+        Trains_Clear1a3(g_trains);
     }
     o[0x216] = kind;
     Track_UpdateColor(o);
@@ -1131,7 +1130,7 @@ RT3_REPLACE(0x48b870, Node_IsRouteEnd);
 
 // 0x48b8d0. Virtual slot 6 (1) for an unclassed track piece with +8, unless the node table's +0xed is set.
 RT3_NOINLINE void __fastcall Track_Refresh(uint8_t* t) {
-    if (F<int32_t>(hook::Global<uint8_t*>(0x6cfca8), 0xed)) return;
+    if (F<int32_t>(hook::As<uint8_t*>(g_tracks), 0xed)) return;
     if (F<int32_t>(t, 0x226) || !F<int32_t>(t, 8)) return;
     ((void(__thiscall*)(void*, int32_t))(*(void***)t)[0x18 / 4])(t, 1);
 }
@@ -1232,7 +1231,7 @@ RT3_REPLACE(0x48bd70, Track_ClearProps);
 // fine-grid street bit when +8; otherwise fine-grid layer 0/1 by kind +0x226 and
 // cell bit 2).
 RT3_NOINLINE void __fastcall Track_MarkCells(uint8_t* t) {
-    if (F<int32_t>(hook::Global<uint8_t*>(0x6cfca8), 0xed)) return;
+    if (F<int32_t>(hook::As<uint8_t*>(g_tracks), 0xed)) return;
     int32_t town = (*(int32_t(__fastcall**)(void*))(*(uint8_t**)t + 0x14))(t);
     int32_t street = F<int32_t>(t, 8) != 0;
     int32_t layer = (F<int32_t>(t, 0x226) == 1 || F<int32_t>(t, 0x226) == 3) ? 0 : 1;
@@ -1254,15 +1253,15 @@ RT3_NOINLINE void __fastcall Track_MarkCells(uint8_t* t) {
     for (int32_t k = 0; k < 6; ++k) {
         int32_t xi = Ftol((double)px[k] * Fl_204(0x5c8568)), yi = Ftol((double)py[k] * Fl_204(0x5c8568));
         auto grid = [&]() -> uint8_t& {
-            uint8_t* m = hook::Global<uint8_t*>(0x62c120);
+            uint8_t* m = g_map;
             int32_t row = Ftol(py[k]);
             return F<uint8_t*>(m, 0x2131)[F<int32_t>(m, 0x2155) * row + Ftol(px[k])];
         };
         if (town) {
             grid() |= 4;
-            if (street) Map_SetFineBit(hook::Global<uint8_t*>(0x62c120), 0, xi, yi, 1, 2, 1);
+            if (street) Map_SetFineBit(g_map, 0, xi, yi, 1, 2, 1);
         } else {
-            Map_SetFineBit(hook::Global<uint8_t*>(0x62c120), 0, xi, yi, 1, layer, 1);
+            Map_SetFineBit(g_map, 0, xi, yi, 1, layer, 1);
             grid() |= 2;
         }
     }
@@ -1275,7 +1274,7 @@ RT3_REPLACE(0x48bdb0, Track_MarkCells);
 // piece again for each. With `remark`, re-marks the nodes over the samples'
 // fine-grid box (the last row is left out).
 RT3_NOINLINE void __fastcall Track_UnmarkCells(uint8_t* t, int, int32_t remark) {
-    if (F<int32_t>(hook::Global<uint8_t*>(0x6cfca8), 0xed)) return;
+    if (F<int32_t>(hook::As<uint8_t*>(g_tracks), 0xed)) return;
     int32_t kind = F<int32_t>(t, 0x226);
     int32_t layer = (kind == 1 || kind == 3 || kind == 2) ? 0 : 1;
     int32_t minX = 99999, maxX = 0, minY = 99999, maxY = 0;
@@ -1296,20 +1295,20 @@ RT3_NOINLINE void __fastcall Track_UnmarkCells(uint8_t* t, int, int32_t remark) 
     LerpPercent(0x32, &px[5], px[1], py[1], px[2], py[2], &py[5]);
     for (int32_t k = 0; k < 6; ++k) {
         int32_t xi = Ftol((double)px[k] * Fl_204(0x5c8568)), yi = Ftol((double)py[k] * Fl_204(0x5c8568));
-        Map_SetFineBit(hook::Global<uint8_t*>(0x62c120), 0, xi, yi, 0, layer, 1);
+        Map_SetFineBit(g_map, 0, xi, yi, 0, layer, 1);
         if (xi <= minX) minX = xi;
         if (xi >= maxX) maxX = xi;
         if (yi <= minY) minY = yi;
         if (yi >= maxY) maxY = yi;
         int32_t town = (*(int32_t(__fastcall**)(void*))(*(uint8_t**)t + 0x14))(t);
-        uint8_t* m = hook::Global<uint8_t*>(0x62c120);
+        uint8_t* m = g_map;
         int32_t row = Ftol(py[k]);
         uint8_t& g = F<uint8_t*>(m, 0x2131)[F<int32_t>(m, 0x2155) * row + Ftol(px[k])];
         g &= town ? 0xfb : 0xfd;
     }
     if (!remark) return;
     for (int32_t x = minX; x <= maxX; ++x)
-        for (int32_t y = minY; y < maxY; ++y) Nodes_RemarkAround(hook::Global<Collection*>(0x6cfca8), 0, x, y);
+        for (int32_t y = minY; y < maxY; ++y) Nodes_RemarkAround(g_tracks, 0, x, y);
 }
 RT3_REPLACE(0x48c400, Track_UnmarkCells);
 
@@ -1320,11 +1319,11 @@ RT3_REPLACE(0x48c400, Track_UnmarkCells);
 // step (null when there is none or it stays here). No target: null (after a
 // random draw).
 RT3_NOINLINE uint8_t* __fastcall Node_NextTowards(uint8_t* n, int, int32_t target, int32_t car, int32_t prev, uint8_t* train, int32_t anyTrack) {
-    Collection* nodes = hook::Global<Collection*>(0x6cfca8);
+    Collection* nodes = g_tracks;
     uint8_t bits = n[0x201] >> 1;
     int32_t sw = (prev == F<int32_t>(n, 0x206) ? bits : (uint8_t)~bits) & 1;
     if (car != -1) {
-        int32_t at = F<int32_t>(Collection_Get(hook::Global<Collection*>(0x62ba84), 0, (uint32_t)car), 0x356);
+        int32_t at = F<int32_t>(Collection_Get(g_62ba84, 0, (uint32_t)car), 0x356);
         if (at != -1) {
             int32_t route = F<int32_t>(Collection_Get(nodes, 0, (uint32_t)at), 0x212);
             if (route != -1) {
@@ -1345,7 +1344,7 @@ RT3_NOINLINE uint8_t* __fastcall Node_NextTowards(uint8_t* n, int, int32_t targe
         co = (uint32_t*)Train_Company(train);
     }
     uint32_t cost;
-    int32_t step = Route_NextStep(hook::Global<Collection*>(0x6cfcb4), 0, F<int32_t>(n, 0x202), target, &cost, need, co, nullptr, anyTrack);
+    int32_t step = Route_NextStep(g_routes, 0, F<int32_t>(n, 0x202), target, &cost, need, co, nullptr, anyTrack);
     if (step == -1 || step == F<int32_t>(n, 0x202)) return nullptr;
     return (uint8_t*)Collection_Get(nodes, 0, (uint32_t)step);
 }
@@ -1361,10 +1360,10 @@ int32_t __fastcall Track_FindOverlap(uint8_t* t, int, int32_t* hit) {
     Effect_GetVectors(t, 0, (uint32_t*)a, (uint32_t*)b, (uint32_t*)c, (uint32_t*)d);
     const double cell = *(const float*)0x5c8700, four = *(const float*)0x5c8568;
     auto probe = [&](float x, float y, uint32_t other) {
-        Collection* nodes = hook::Global<Collection*>(0x6cfca8);
+        Collection* nodes = g_tracks;
         int32_t id = Grid_NearestObject(nodes, 0, x, y, F<int32_t>(t, 0x202), F<int32_t>(t, other), 1);
         if (id == -1) return false;
-        if (F<int32_t>(Collection_Get(hook::Global<Collection*>(0x6cfca8), 0, id), 0x226)) return false;
+        if (F<int32_t>(Collection_Get(g_tracks, 0, id), 0x226)) return false;
         if (hit) *hit = id;
         return true;
     };
@@ -1398,7 +1397,7 @@ RT3_REPLACE(0x48cc20, Track_FindOverlap);
 // coloured green..red into *color) and / or the speed limit +0x230 (returns how
 // many texts were written, *offset = -0.5); else the normal track tooltip.
 RT3_NOINLINE int32_t __fastcall Track_InfoText(uint8_t* t, int, char* dst, int32_t n, uint32_t* color, float* offset, char* dst2, int32_t extra) {
-    uint8_t* opts = hook::Global<uint8_t*>(0x6cec74);
+    uint8_t* opts = g_app;
     char text[0x100], a[0x40], b[0x40], c[0x40], d[0x40];
     auto u = [](uint32_t v) {
         double r = (double)(int32_t)v;
@@ -1422,7 +1421,7 @@ RT3_NOINLINE int32_t __fastcall Track_InfoText(uint8_t* t, int, char* dst, int32
     }
     if (F<int32_t>(opts, 0x2b3)) {
         int32_t route = F<int32_t>(t, 0x212);
-        int32_t v = route == -1 ? -1 : Routes_Component(hook::Global<Collection*>(0x6cfcb4), 0, route);
+        int32_t v = route == -1 ? -1 : Routes_Component(g_routes, 0, route);
         Num_Format(text, 8, (double)v, 10, 1, 0, 0);
         return done();
     }
@@ -1475,16 +1474,16 @@ RT3_NOINLINE int32_t __fastcall Track_InfoText(uint8_t* t, int, char* dst, int32
             return done();
         }
     }
-    uint8_t* cam = hook::Global<uint8_t*>(0x6cfca8);
+    uint8_t* cam = hook::As<uint8_t*>(g_tracks);
     int32_t grade, speed;
     if (!t[0x216]) {
         grade = Camera_FlagA4(cam, 0, 1);
-        speed = Camera_FlagAc(hook::Global<uint8_t*>(0x6cfca8), 0, 1);
-        grade |= Camera_FlagA0(hook::Global<uint8_t*>(0x6cfca8), 0, 1);
-        speed |= Camera_FlagA8(hook::Global<uint8_t*>(0x6cfca8), 0, 1);
+        speed = Camera_FlagAc(hook::As<uint8_t*>(g_tracks), 0, 1);
+        grade |= Camera_FlagA0(hook::As<uint8_t*>(g_tracks), 0, 1);
+        speed |= Camera_FlagA8(hook::As<uint8_t*>(g_tracks), 0, 1);
     } else {
         grade = Camera_FlagA0(cam, 0, 1);
-        speed = Camera_FlagA8(hook::Global<uint8_t*>(0x6cfca8), 0, 1);
+        speed = Camera_FlagA8(hook::As<uint8_t*>(g_tracks), 0, 1);
     }
     if (!grade && !speed) return Track_DebugTooltip(t, 0, dst, n, (int32_t)(uintptr_t)color, (int32_t)(uintptr_t)offset, (int32_t)(uintptr_t)dst2, extra);
     *(uint32_t*)offset = 0xbf000000;
@@ -1530,7 +1529,7 @@ RT3_NOINLINE int32_t __fastcall Track_LoadModels(uint8_t* t, int, int32_t s) {
     F<void*>(t, 8) = nullptr;
     StreamRead(s, &count, 2, 0, 1);
     int32_t selSlot = s;
-    if (F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x46c34) >= 0x2535) StreamRead(s, &selSlot, 1, 0, 1);
+    if (F<int32_t>(g_world, 0x46c34) >= 0x2535) StreamRead(s, &selSlot, 1, 0, 1);
     for (int32_t i = 0; i < count; ++i) {
         uint8_t* mem = ((uint8_t*(__cdecl*)(size_t))0x53b070)(0x23a);
         uint8_t* m = nullptr;
@@ -1560,10 +1559,10 @@ RT3_NOINLINE int32_t __fastcall Track_LoadModels(uint8_t* t, int, int32_t s) {
     float cy = (float)(((double)F<float>(t, 0x34) + F<float>(t, 0x1c)) / Fl_207(0x5cfcfc));
     float cx = (float)(((double)F<float>(t, 0x2c) + F<float>(t, 0x14)) / Fl_207(0x5cfcfc));
     int32_t iy = Ftol((double)cy);
-    Map_SetCoarseByte(hook::Global<uint8_t*>(0x62c120), 0, Ftol((double)cx), iy, 0x80);
+    Map_SetCoarseByte(g_map, 0, Ftol((double)cx), iy, 0x80);
     if (t[0x216] == 1) {
-        Obj_CountTrack(hook::Global<uint8_t*>(0x6cfca8), 0, t, 1);
-        Trains_Clear1a3(hook::Global<Collection*>(0x6cfcbc));
+        Obj_CountTrack(hook::As<uint8_t*>(g_tracks), 0, t, 1);
+        Trains_Clear1a3(g_trains);
         t[0x216] = 2;
         Track_UpdateColor(t);
     }
@@ -1636,22 +1635,22 @@ int32_t __fastcall Track_LinksWithin(uint8_t* n, int, int32_t target, int32_t de
     for (uint32_t l : links) {
         int32_t id = F<int32_t>(n, l);
         if (id == -1 || id == from) continue;
-        uint8_t* c = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfca8), 0, id);
+        uint8_t* c = (uint8_t*)Collection_Get(g_tracks, 0, id);
         if (Track_LinksWithin(c, 0, target, depth - 1, F<int32_t>(n, 0x202))) return 1;
     }
     return 0;
 }
 RT3_REPLACE(0x48e050, Track_LinksWithin);
 
-RT3_NOINLINE void* __fastcall Obj_Node206(void* o) { return RefNotMinus1(g_trackNodes, F<int32_t>(o, 0x206)); }
+RT3_NOINLINE void* __fastcall Obj_Node206(void* o) { return RefNotMinus1(g_tracks, F<int32_t>(o, 0x206)); }
 RT3_REPLACE(0x48e140, Obj_Node206);
 
-RT3_NOINLINE void* __fastcall Obj_Node20a(void* o) { return RefNotMinus1(g_trackNodes, F<int32_t>(o, 0x20a)); }
+RT3_NOINLINE void* __fastcall Obj_Node20a(void* o) { return RefNotMinus1(g_tracks, F<int32_t>(o, 0x20a)); }
 RT3_REPLACE(0x48e160, Obj_Node20a);
 
 void* __fastcall Track_Node20e(uint8_t* t) {
     int32_t id = F<int32_t>(t, 0x20e);
-    return id != -1 ? Collection_Get(g_trackNodes, 0, id) : nullptr;
+    return id != -1 ? Collection_Get(g_tracks, 0, id) : nullptr;
 }
 RT3_REPLACE(0x48e180, Track_Node20e);
 
@@ -1717,8 +1716,8 @@ RT3_REPLACE(0x48e340, Track_SetOwner);
 
 // 0x48e3c0. Whether track node id is in the same block component as this node.
 RT3_NOINLINE int32_t __fastcall Node_SameComponent(uint8_t* n, int, uint32_t id) {
-    int32_t b = F<int32_t>(Collection_Get(hook::Global<Collection*>(0x6cfca8), 0, id), 0x212);
-    return Routes_SameComponent(hook::Global<Collection*>(0x6cfcb4), 0, F<int32_t>(n, 0x212), b);
+    int32_t b = F<int32_t>(Collection_Get(g_tracks, 0, id), 0x212);
+    return Routes_SameComponent(g_routes, 0, F<int32_t>(n, 0x212), b);
 }
 RT3_REPLACE(0x48e3c0, Node_SameComponent);
 
@@ -1786,9 +1785,9 @@ RT3_NOINLINE void __fastcall Track_Reshape_Impl(uint8_t* t, int, const uint32_t*
         v[3][1] = d[1];
         Track_SetEnds(t, 0, v[0], v[1], v[2], v[3]);
     } else {
-        if (t[0x216] || F<int32_t>(hook::Global<uint8_t*>(0x6cfca8), 0xe9)) Map_RemoveTrackRef(hook::Global<uint8_t*>(0x6cfca8), 0, t);
+        if (t[0x216] || F<int32_t>(hook::As<uint8_t*>(g_tracks), 0xe9)) Map_RemoveTrackRef(hook::As<uint8_t*>(g_tracks), 0, t);
         Track_SetEnds(t, 0, a, b, c, d);
-        if (t[0x216] || F<int32_t>(hook::Global<uint8_t*>(0x6cfca8), 0xe9)) Grid_AddObject(hook::Global<uint8_t*>(0x6cfca8), 0, t);
+        if (t[0x216] || F<int32_t>(hook::As<uint8_t*>(g_tracks), 0xe9)) Grid_AddObject(hook::As<uint8_t*>(g_tracks), 0, t);
     }
     Obj_UpdateHeightLight(t);
     Track_SettleGroup(t);
@@ -1821,17 +1820,17 @@ RT3_REPLACE(0x48e7a0, Track_SetFlatAndLift);
 // partner is then paired back.
 RT3_NOINLINE void __fastcall Track_PairWith(uint8_t* t, int, int32_t id, int32_t mutual) {
     if (id == -1) {
-        if (mutual && Collection_IsValid(hook::Global<Collection*>(0x6cfca8), 0, F<uint32_t>(t, 0x253))) {
-            uint8_t* o = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfca8), 0, F<uint32_t>(t, 0x253));
+        if (mutual && Collection_IsValid(g_tracks, 0, F<uint32_t>(t, 0x253))) {
+            uint8_t* o = (uint8_t*)Collection_Get(g_tracks, 0, F<uint32_t>(t, 0x253));
             if (F<int32_t>(o, 0x253) == F<int32_t>(t, 0x202))
-                Track_PairWith((uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfca8), 0, F<uint32_t>(t, 0x253)), 0, -1, 0);
+                Track_PairWith((uint8_t*)Collection_Get(g_tracks, 0, F<uint32_t>(t, 0x253)), 0, -1, 0);
         }
         F<int32_t>(t, 0x253) = -1;
         return;
     }
     for (;;) {
-        if (!Collection_IsValid(hook::Global<Collection*>(0x6cfca8), 0, (uint32_t)id)) return;
-        uint8_t* o = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfca8), 0, (uint32_t)id);
+        if (!Collection_IsValid(g_tracks, 0, (uint32_t)id)) return;
+        uint8_t* o = (uint8_t*)Collection_Get(g_tracks, 0, (uint32_t)id);
         for (uint32_t l = 0x206; l <= 0x20a; l += 4) {
             int32_t v = F<int32_t>(o, l);
             if (v != -1 && (v == F<int32_t>(t, 0x206) || v == F<int32_t>(t, 0x20a))) return;
@@ -1883,7 +1882,7 @@ RT3_REPLACE(0x48eb80, Track_Reverse);
 // (0xb, model 0x5cb198 for a crossing, else 0x5cb1ac), turned around when
 // `flip`.
 RT3_NOINLINE void __fastcall Track_MakeEnd(uint8_t* t, int, int32_t flip) {
-    if (F<int32_t>(hook::Global<uint8_t*>(0x6cfca8), 0xed) || F<int32_t>(t, 0x226)) return;
+    if (F<int32_t>(hook::As<uint8_t*>(g_tracks), 0xed) || F<int32_t>(t, 0x226)) return;
     if (F<int32_t>(t, 8)) ((void(__fastcall*)(uint8_t*, int, int32_t))(*(void***)t)[6])(t, 0, 1);
     float h;
     if (flip) h = (float)((double)Vehicle_ScreenHeading(t, 0, 1) + Fl_207(0x5c8760));
@@ -1935,7 +1934,7 @@ RT3_REPLACE(0x48ed30, Track_DropModel);
 // Returns the node id it stops on, -1 at a track end or off plain track.
 RT3_NOINLINE int32_t __fastcall Node_Advance(uint8_t* n, int, float pos, float dist, float* x, float* z, float* outPos, int32_t* dir, int32_t* count,
                                              float* accum, int32_t car, int32_t, int32_t front) {
-    Collection* nodes = hook::Global<Collection*>(0x6cfca8);
+    Collection* nodes = g_tracks;
     for (;;) {
         if (*dir) {
             double rem = D(0x5c97e0) - pos;
@@ -1965,14 +1964,14 @@ RT3_NOINLINE int32_t __fastcall Node_Advance(uint8_t* n, int, float pos, float d
         uint8_t* next = (uint8_t*)Collection_Get(nodes, 0, (uint32_t)exitLink);
         if (next[0x216] != 2) return -1;
         if (car != -1 && Node_IsRouteEnd(n) && F<int32_t>(n, 0x20e) != -1) {
-            uint8_t* c = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba84), 0, (uint32_t)car);
-            int32_t target = Train_OrderTarget((uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfcbc), 0, F<uint32_t>(c, 0x390)), 0, nullptr, 0);
+            uint8_t* c = (uint8_t*)Collection_Get(g_62ba84, 0, (uint32_t)car);
+            int32_t target = Train_OrderTarget((uint8_t*)Collection_Get(g_trains, 0, F<uint32_t>(c, 0x390)), 0, nullptr, 0);
             int32_t linkA = back ? 0x206 : 0x20a, linkB = back ? 0x20a : 0x206;
             if (front) {
                 uint8_t* r = Node_NextTowards(n, 0, target, F<int32_t>(c, 0x34e), F<int32_t>(n, linkA), (uint8_t*)Obj_Train390(c), 0);
                 if (r) next = r;
             } else {
-                int32_t target2 = Train_CurrentOrderNode((uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfcbc), 0, F<uint32_t>(c, 0x390)));
+                int32_t target2 = Train_CurrentOrderNode((uint8_t*)Collection_Get(g_trains, 0, F<uint32_t>(c, 0x390)));
                 int32_t follow = F<int32_t>(c, 0x352);
                 uint8_t* r = Node_NextTowards(n, 0, target2, follow, F<int32_t>(n, linkB), (uint8_t*)Obj_Train390(c), 0);
                 if (r) {
@@ -2029,34 +2028,34 @@ RT3_NOINLINE uint8_t __fastcall Track_SetState(uint8_t* t, int, uint8_t state, i
     if (old == state && (t[0x44] != 0) == (on != 0)) return old;
     if (state == 4 && t[0x219] == 3) return old;
     int32_t wasOn = t[0x44] != 0;
-    if (Collection_IsValid(hook::Global<Collection*>(0x62be10), 0, F<uint16_t>(t, 0x22e)) && t[0x218] == 4 && state != 4)
-        Company_Add7680(Collection_Get(hook::Global<Collection*>(0x62be10), 0, F<uint16_t>(t, 0x22e)), 0, 1);
+    if (Collection_IsValid(g_companies, 0, F<uint16_t>(t, 0x22e)) && t[0x218] == 4 && state != 4)
+        Company_Add7680(Collection_Get(g_companies, 0, F<uint16_t>(t, 0x22e)), 0, 1);
     if (notify && !(state == 2 && F<int32_t>(t, 0x244)))
-        Vehicles_PushState(hook::Global<Collection*>(0x6cfca8), 0, F<uint32_t>(t, 0x202), state);
-    if (t[0x216] == 2) Obj_CountTrack(hook::Global<uint8_t*>(0x6cfca8), 0, t, 0);
+        Vehicles_PushState(g_tracks, 0, F<uint32_t>(t, 0x202), state);
+    if (t[0x216] == 2) Obj_CountTrack(hook::As<uint8_t*>(g_tracks), 0, t, 0);
     Effect_SetStyle(t, 0, state, (uint8_t)on);
     t[0x218] = state;
     Track_BuildGeometry(t);
     if (t[0x216] == 2) {
-        Obj_CountTrack(hook::Global<uint8_t*>(0x6cfca8), 0, t, 1);
-        Trains_Clear1a3(hook::Global<Collection*>(0x6cfcbc));
+        Obj_CountTrack(hook::As<uint8_t*>(g_tracks), 0, t, 1);
+        Trains_Clear1a3(g_trains);
     }
     if (old == 1 && state == 4 && (F<int32_t>(t, 0x206) == -1 || F<int32_t>(t, 0x20a) == -1)) Track_MakeEnd(t, 0, F<int32_t>(t, 0x206) == -1);
     if (!spread) return old;
     auto vis = [](uint8_t* n) { return ((int32_t(__fastcall*)(uint8_t*))(*(void***)n)[5])(n); };
     bool go = (old == 1 && state == 4) || (!wasOn && on == 1);
     if (go && (vis(t) || F<int32_t>(t, 0x226) == 1 || F<int32_t>(t, 0x226) == 3))
-        Track_Propagate(hook::Global<Collection*>(0x6cfca8), 0, t, state, on, old, notify);
+        Track_Propagate(g_tracks, 0, t, state, on, old, notify);
     if (!go || vis(t)) return old;
     uint8_t* n = (uint8_t*)Obj_Node206(t);
     if (n && vis(n) && ((n[0x218] == 1 && state == 4) || (n[0x44] && on == 1))) {
         Track_SetState(n, 0, state, on, 1, 0);
-        Track_Propagate(hook::Global<Collection*>(0x6cfca8), 0, n, state, on, old, notify);
+        Track_Propagate(g_tracks, 0, n, state, on, old, notify);
     }
     n = (uint8_t*)Obj_Node20a(t);
     if (n && vis(n) && ((n[0x218] == 1 && state == 4) || (n[0x44] && on == 1))) {
         Track_SetState(n, 0, state, on, 1, 0);
-        Track_Propagate(hook::Global<Collection*>(0x6cfca8), 0, n, state, on, old, notify);
+        Track_Propagate(g_tracks, 0, n, state, on, old, notify);
     }
     return old;
 }
@@ -2069,10 +2068,10 @@ RT3_REPLACE(0x48f4c0, Track_SetState);
 void __fastcall Track_MoveEnds(uint8_t* t, int, const uint32_t* a, const uint32_t* b, const uint32_t* c, const uint32_t* d,
                                int32_t unused, int32_t force) {
     if (force || F<int32_t>(t, 0x206) == -1 || F<int32_t>(t, 0x20a) == -1) {
-        uint8_t* nodes = hook::Global<uint8_t*>(0x6cfca8);
+        uint8_t* nodes = hook::As<uint8_t*>(g_tracks);
         if (t[0x216] || F<int32_t>(nodes, 0xe9)) Map_RemoveTrackRef(nodes, 0, t);
         Track_SetEnds(t, 0, a, b, c, d);
-        nodes = hook::Global<uint8_t*>(0x6cfca8);
+        nodes = hook::As<uint8_t*>(g_tracks);
         if (t[0x216] || F<int32_t>(nodes, 0xe9)) Grid_AddObject(nodes, 0, t);
     }
     Track_DropAndSettle(t, 0, 0x40400000, 1);
@@ -2091,7 +2090,7 @@ RT3_REPLACE(0x48f740, Track_MoveEnds);
 RT3_NOINLINE int32_t __fastcall Track_Connect(uint8_t* t, int, int32_t id) {
     float v[4][3], w[4][3];
     Effect_GetVectors(t, 0, (uint32_t*)v[0], (uint32_t*)v[1], (uint32_t*)v[2], (uint32_t*)v[3]);
-    uint8_t* n = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfca8), 0, (uint32_t)id);
+    uint8_t* n = (uint8_t*)Collection_Get(g_tracks, 0, (uint32_t)id);
     Effect_GetVectors(n, 0, (uint32_t*)w[0], (uint32_t*)w[1], (uint32_t*)w[2], (uint32_t*)w[3]);
     auto meets = [&](const float* p) {
         for (int k = 0; k < 4; ++k)
@@ -2113,7 +2112,7 @@ RT3_NOINLINE int32_t __fastcall Track_Connect(uint8_t* t, int, int32_t id) {
     if (meets(v[0]) || meets(v[1])) {
         if (F<int32_t>(t, 0x206) == -1 || F<int32_t>(t, 0x206) == id) {
             F<int32_t>(t, 0x206) = id;
-            if (!F<int32_t>(hook::Global<uint8_t*>(0x6cfca8), 0xed) && !F<int32_t>(t, 0x226) && F<int32_t>(t, 8))
+            if (!F<int32_t>(hook::As<uint8_t*>(g_tracks), 0xed) && !F<int32_t>(t, 0x226) && F<int32_t>(t, 8))
                 ((void(__fastcall*)(uint8_t*, int, int32_t))(*(void***)t)[6])(t, 0, 1);
             if (F<int32_t>(t, 0x20a) == -1) Track_MakeEnd(t, 0, 0);
             return 1;
@@ -2146,16 +2145,16 @@ RT3_REPLACE(0x48f8e0, Track_Connect);
 // (a 1 / 4 pair also reversing it). An open t then opens through to an open
 // A (or B) when both are junction-aware (+0x216), carrying C along.
 RT3_NOINLINE void __fastcall Track_Resolve(uint8_t* t, int, int32_t on) {
-    uint8_t* C = F<int32_t>(t, 0x20e) != -1 ? (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfca8), 0, F<uint32_t>(t, 0x20e)) : nullptr;
+    uint8_t* C = F<int32_t>(t, 0x20e) != -1 ? (uint8_t*)Collection_Get(g_tracks, 0, F<uint32_t>(t, 0x20e)) : nullptr;
     uint8_t sa = 0, sb = 0, want = 0, got = 0;
     uint8_t* A = nullptr;
     uint8_t* B = nullptr;
     if (F<int32_t>(t, 0x206) != -1) {
-        A = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfca8), 0, F<uint32_t>(t, 0x206));
+        A = (uint8_t*)Collection_Get(g_tracks, 0, F<uint32_t>(t, 0x206));
         if (A && (!t[0x216] || A[0x216])) sa = Track_FacingState(A, t);
     }
     if (F<int32_t>(t, 0x20a) != -1) {
-        B = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfca8), 0, F<uint32_t>(t, 0x20a));
+        B = (uint8_t*)Collection_Get(g_tracks, 0, F<uint32_t>(t, 0x20a));
         if (B && (!t[0x216] || B[0x216])) sb = Track_FacingState(B, t);
     }
     if (C && (!t[0x216] || C[0x216])) {
@@ -2245,7 +2244,7 @@ RT3_NOINLINE int32_t __fastcall Track_Unlink(uint8_t* t, int, int32_t id) {
         if (branch != -1 && (t[0x201] & 2)) {
             F<int32_t>(t, 0x206) = branch;
             F<int32_t>(t, 0x20e) = -1;
-            Routes_TryMergeAt(hook::Global<Collection*>(0x6cfcb4), 0, F<uint32_t>(t, 0x212));
+            Routes_TryMergeAt(g_routes, 0, F<uint32_t>(t, 0x212));
         }
         if (F<int32_t>(t, 0x20a) != -1 && F<int32_t>(t, 0x206) == -1) Track_MakeEnd(t, 0, 1);
         return 1;
@@ -2256,14 +2255,14 @@ RT3_NOINLINE int32_t __fastcall Track_Unlink(uint8_t* t, int, int32_t id) {
         if (branch != -1 && !(t[0x201] & 2)) {
             F<int32_t>(t, 0x20a) = branch;
             F<int32_t>(t, 0x20e) = -1;
-            Routes_TryMergeAt(hook::Global<Collection*>(0x6cfcb4), 0, F<uint32_t>(t, 0x212));
+            Routes_TryMergeAt(g_routes, 0, F<uint32_t>(t, 0x212));
         }
         if (F<int32_t>(t, 0x206) != -1 && F<int32_t>(t, 0x20a) == -1) Track_MakeEnd(t, 0, 0);
         return 1;
     }
     if (F<int32_t>(t, 0x20e) == id) {
         F<int32_t>(t, 0x20e) = -1;
-        Routes_TryMergeAt(hook::Global<Collection*>(0x6cfcb4), 0, F<uint32_t>(t, 0x212));
+        Routes_TryMergeAt(g_routes, 0, F<uint32_t>(t, 0x212));
         return 1;
     }
     return 0;
@@ -2281,9 +2280,9 @@ RT3_NOINLINE void __fastcall Track_SetMode(uint8_t* t, int, int32_t kind, const 
     if (t[0x218] == 4 && model && !memcmp((const void*)0x5cafac, model, 0x19)) {
         Track_SetState(t, 0, 1, t[0x44] != 0, 1, 1);
         if (F<int32_t>(t, 0x206) != -1)
-            Track_Resolve((uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfca8), 0, F<uint32_t>(t, 0x206)), 0, 1);
+            Track_Resolve((uint8_t*)Collection_Get(g_tracks, 0, F<uint32_t>(t, 0x206)), 0, 1);
         if (F<int32_t>(t, 0x20a) != -1)
-            Track_Resolve((uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfca8), 0, F<uint32_t>(t, 0x20a)), 0, 1);
+            Track_Resolve((uint8_t*)Collection_Get(g_tracks, 0, F<uint32_t>(t, 0x20a)), 0, 1);
     }
     if (kind < 4) {
         ((void(__fastcall*)(uint8_t*, int, int32_t))(*(void***)t)[6])(t, 0, 0);
@@ -2336,19 +2335,19 @@ RT3_REPLACE(0x490ac0, Track_InitRotated);
 // vtbl[6](0) runs and trains drop it as a waypoint. Then the effect is
 // destroyed (really only when it was placed).
 RT3_NOINLINE void __fastcall Track_Remove(uint8_t* t) {
-    Collection* pieces = hook::Global<Collection*>(0x6cfca8);
-    Collection* routes = hook::Global<Collection*>(0x6cfcb4);
+    Collection* pieces = g_tracks;
+    Collection* routes = g_routes;
     if (t[0x201] & 1) {
         Track_PairWith(t, 0, -1, 1);
-        if (t[0x216] == 2) Obj_CountTrack(hook::Global<uint8_t*>(0x6cfca8), 0, t, 0);
-        if (!F<int32_t>(hook::Global<uint8_t*>(0x6cfca8), 0xed)) {
+        if (t[0x216] == 2) Obj_CountTrack(hook::As<uint8_t*>(g_tracks), 0, t, 0);
+        if (!F<int32_t>(hook::As<uint8_t*>(g_tracks), 0xed)) {
             float fx = (float)(((double)F<float>(t, 0x2c) + F<float>(t, 0x14)) / Fl_207(0x5cfcfc));
             float fy = (float)(((double)F<float>(t, 0x34) + F<float>(t, 0x1c)) / Fl_207(0x5cfcfc));
             int32_t y = Ftol(fy);
-            Map_SetCoarseByte(hook::Global<void*>(0x62c120), 0, Ftol(fx), y, 0);
+            Map_SetCoarseByte(hook::As<void*>(g_map), 0, Ftol(fx), y, 0);
         }
         Obj_FreeList244(t);
-        if (t[0x216] == 2 && F<uint16_t>(t, 0x22e) && hook::Global<uint32_t>(0x62be10) && !hook::Global<uint8_t*>(0x6cec7c)[0x82]) {
+        if (t[0x216] == 2 && F<uint16_t>(t, 0x22e) && hook::As<uint32_t>(g_companies) && !g_newGame[0x82]) {
             float cost = -(float)(double)F<uint32_t>(t, 0x230);
             Company_AddStat(Node_Company(t), 0, 0xf, cost);
             Company_PostStat(Node_Company(t), 0, 0xc, cost, 0);
@@ -2357,7 +2356,7 @@ RT3_NOINLINE void __fastcall Track_Remove(uint8_t* t) {
         uint8_t* route = nullptr;
         if (Collection_IsValid(routes, 0, F<uint32_t>(t, 0x212)) && F<int32_t>(t, 0x212) != -1) route = (uint8_t*)Collection_Get(routes, 0, F<uint32_t>(t, 0x212));
         bool keep = true;
-        if (!F<int32_t>(hook::Global<uint8_t*>(0x6cfca8), 0xf1)) {
+        if (!F<int32_t>(hook::As<uint8_t*>(g_tracks), 0xf1)) {
             if (!route) keep = false;
             else if (!Pair_Contains(route, 0, F<int32_t>(t, 0x202))) {
                 Routes_SplitAtNode(routes, 0, t, 0);
@@ -2390,7 +2389,7 @@ RT3_NOINLINE void __fastcall Track_Remove(uint8_t* t) {
         F<int32_t>(t, 0x20a) = -1;
         F<int32_t>(t, 0x20e) = -1;
         (*(void(__thiscall**)(uint8_t*, int32_t))(F<uint8_t*>(t, 0) + 0x18))(t, 0);
-        if (t[0x216] == 2 && hook::Global<Collection*>(0x6cfcbc)) Trains_DropWaypoint(hook::Global<Collection*>(0x6cfcbc), 0, F<int32_t>(t, 0x202));
+        if (t[0x216] == 2 && g_trains) Trains_DropWaypoint(g_trains, 0, F<int32_t>(t, 0x202));
     }
     Effect_Destroy(t, 0, t[0x201] & 1);
 }
@@ -2405,7 +2404,7 @@ RT3_REPLACE(0x490bf0, Track_Remove);
 void __fastcall Track_PlaceRotated(uint8_t* t, int, float cx, float cy, float angle) {
     float c = (float)((double(__cdecl*)(double))0x5a13e4)((double)angle);
     float s = (float)((double(__cdecl*)(double))0x5a1494)((double)angle);
-    Engine_Get1C(hook::Global<void*>(0x6d4024));
+    Engine_Get1C(hook::As<void*>(g_engine));
     double s1 = (double)s * D(0x5cfde0), c1 = (double)c * D(0x5cfde0);
     double c2 = (double)c * D(0x5c97d8), s2 = (double)s * D(0x5c97d8);
     const double k = D(0x5c8c48);
@@ -2419,10 +2418,10 @@ void __fastcall Track_PlaceRotated(uint8_t* t, int, float cx, float cy, float an
     v[3][0] = (float)(((s2 - c1) + cx) * k);
     v[3][2] = (float)(((c2 + s1) + cy) * k);
     if (F<int32_t>(t, 0x206) == -1 || F<int32_t>(t, 0x20a) == -1) {
-        uint8_t* nodes = hook::Global<uint8_t*>(0x6cfca8);
+        uint8_t* nodes = hook::As<uint8_t*>(g_tracks);
         if (t[0x216] || F<int32_t>(nodes, 0xe9)) Map_RemoveTrackRef(nodes, 0, t);
         Track_SetEnds(t, 0, (uint32_t*)v[0], (uint32_t*)v[1], (uint32_t*)v[2], (uint32_t*)v[3]);
-        nodes = hook::Global<uint8_t*>(0x6cfca8);
+        nodes = hook::As<uint8_t*>(g_tracks);
         if (t[0x216] || F<int32_t>(nodes, 0xe9)) Grid_AddObject(nodes, 0, t);
     }
     Track_DropAndSettle(t, 0, 0x40400000, 1);
@@ -2450,10 +2449,10 @@ RT3_NOINLINE void __fastcall Track_AddCatenary(uint8_t* t, int, int32_t side) {
     if (!t[0x44] || F<void*>(t, 0x248) || t[0x219] != 0xff || t[0x251] != 0xff) return;
     int32_t left;
     if (F<int32_t>(t, 0x206) != -1 &&
-        F<uint32_t>(Collection_Get(hook::Global<Collection*>(0x6cfca8), 0, F<uint32_t>(t, 0x206)), 0x212) != F<uint32_t>(t, 0x212))
+        F<uint32_t>(Collection_Get(g_tracks, 0, F<uint32_t>(t, 0x206)), 0x212) != F<uint32_t>(t, 0x212))
         left = 0;
     else if (F<int32_t>(t, 0x20a) != -1 &&
-             F<uint32_t>(Collection_Get(hook::Global<Collection*>(0x6cfca8), 0, F<uint32_t>(t, 0x20a)), 0x212) != F<uint32_t>(t, 0x212))
+             F<uint32_t>(Collection_Get(g_tracks, 0, F<uint32_t>(t, 0x20a)), 0x212) != F<uint32_t>(t, 0x212))
         left = 1;
     else
         left = side;
@@ -2493,11 +2492,11 @@ RT3_NOINLINE void __fastcall Track_PopUndo(uint8_t* t) {
     ((void(__fastcall*)(uint8_t*, int, const uint8_t*, const uint8_t*, const uint8_t*, const uint8_t*, int32_t, int32_t, int32_t))(void*)&Track_Reshape)(
         t, 0, rec + 0x12, rec + 0x1e, rec + 0x2a, rec + 0x36, 1, 0, 0);
     if (t[0x44] && !rec[6] && t[0x216] && Node_IsRouteEnd(t))
-        ((uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfcb4), 0, F<uint32_t>(t, 0x212)))[0x1c] = 0;
+        ((uint8_t*)Collection_Get(g_routes, 0, F<uint32_t>(t, 0x212)))[0x1c] = 0;
     if (t[0x218] == 2) Track_Resolve(t, 0, 0);
     auto at = [&](uint32_t side) -> uint8_t* {
-        if (F<int32_t>(t, side) == -1 || !Collection_Get(hook::Global<Collection*>(0x6cfca8), 0, F<uint32_t>(t, side))) return nullptr;
-        return F<int32_t>(t, side) == -1 ? nullptr : (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfca8), 0, F<uint32_t>(t, side));
+        if (F<int32_t>(t, side) == -1 || !Collection_Get(g_tracks, 0, F<uint32_t>(t, side))) return nullptr;
+        return F<int32_t>(t, side) == -1 ? nullptr : (uint8_t*)Collection_Get(g_tracks, 0, F<uint32_t>(t, side));
     };
     if (F<int32_t>(t, 0x226) == 1) {
         if (uint8_t* n = at(0x206))
@@ -2511,14 +2510,14 @@ RT3_NOINLINE void __fastcall Track_PopUndo(uint8_t* t) {
         if (uint8_t* n = at(0x20a))
             if (!((int32_t(__fastcall*)(uint8_t*))(*(void***)n)[5])(n)) Track_Resolve((uint8_t*)Obj_Node20a(t), 0, 0);
     }
-    if (Collection_IsValid(hook::Global<Collection*>(0x62be10), 0, F<uint16_t>(t, 0x22e)) && t[0x218] == 1 && old == 4)
-        Company_Add7680(Collection_Get(hook::Global<Collection*>(0x62be10), 0, F<uint16_t>(t, 0x22e)), 0, 1);
+    if (Collection_IsValid(g_companies, 0, F<uint16_t>(t, 0x22e)) && t[0x218] == 1 && old == 4)
+        Company_Add7680(Collection_Get(g_companies, 0, F<uint16_t>(t, 0x22e)), 0, 1);
     Effect_SetStyle(t, 0, t[0x218], rec[6]);
-    if (old == 4 && t[0x218] == 1 && F<int32_t>(t, 0x226)) TrackNet_IdleModels(hook::Global<Collection*>(0x6cfca8), 0, t);
+    if (old == 4 && t[0x218] == 1 && F<int32_t>(t, 0x226)) TrackNet_IdleModels(g_tracks, 0, t);
     if (rec[7]) Track_AddCatenary(t, 0, 1);
     else if (F<void*>(t, 0x248)) Track_DropModel(t);
     Track_BuildGeometry(t);
-    if (t[0x216] && Node_IsRouteEnd(t)) Routes_TryMergeAt(hook::Global<Collection*>(0x6cfcb4), 0, F<uint32_t>(t, 0x212));
+    if (t[0x216] && Node_IsRouteEnd(t)) Routes_TryMergeAt(g_routes, 0, F<uint32_t>(t, 0x212));
     Free(rec);
 }
 RT3_REPLACE(0x4912d0, Track_PopUndo);
@@ -2533,16 +2532,16 @@ RT3_NOINLINE void __fastcall Track_Electrify(uint8_t* t, int, int32_t catenary, 
     if (!t[0x44] && !(s == 4 && t[0x219] == 3)) {
         uint8_t old = s;
         int32_t wasOn = t[0x44] != 0;
-        if (Collection_IsValid(hook::Global<Collection*>(0x62be10), 0, F<uint16_t>(t, 0x22e)) && t[0x218] == 4 && s != 4)
-            Company_Add7680(Collection_Get(hook::Global<Collection*>(0x62be10), 0, F<uint16_t>(t, 0x22e)), 0, 1);
-        if (notify && !(s == 2 && F<int32_t>(t, 0x244))) Vehicles_PushState(hook::Global<Collection*>(0x6cfca8), 0, F<uint32_t>(t, 0x202), s);
-        if (t[0x216] == 2) Obj_CountTrack(hook::Global<uint8_t*>(0x6cfca8), 0, t, 0);
+        if (Collection_IsValid(g_companies, 0, F<uint16_t>(t, 0x22e)) && t[0x218] == 4 && s != 4)
+            Company_Add7680(Collection_Get(g_companies, 0, F<uint16_t>(t, 0x22e)), 0, 1);
+        if (notify && !(s == 2 && F<int32_t>(t, 0x244))) Vehicles_PushState(g_tracks, 0, F<uint32_t>(t, 0x202), s);
+        if (t[0x216] == 2) Obj_CountTrack(hook::As<uint8_t*>(g_tracks), 0, t, 0);
         Effect_SetStyle(t, 0, s, 1);
         t[0x218] = s;
         Track_BuildGeometry(t);
         if (t[0x216] == 2) {
-            Obj_CountTrack(hook::Global<uint8_t*>(0x6cfca8), 0, t, 1);
-            Trains_Clear1a3(hook::Global<Collection*>(0x6cfcbc));
+            Obj_CountTrack(hook::As<uint8_t*>(g_tracks), 0, t, 1);
+            Trains_Clear1a3(g_trains);
         }
         auto vis = [](uint8_t* n) { return ((int32_t(__fastcall*)(uint8_t*))(*(void***)n)[5])(n); };
         bool go = old == 1 && s == 4;
@@ -2550,21 +2549,21 @@ RT3_NOINLINE void __fastcall Track_Electrify(uint8_t* t, int, int32_t catenary, 
             if (F<int32_t>(t, 0x206) == -1 || F<int32_t>(t, 0x20a) == -1) Track_MakeEnd(t, 0, F<int32_t>(t, 0x206) == -1);
         }
         if (go || !wasOn) {
-            if (vis(t) || F<int32_t>(t, 0x226) == 1 || F<int32_t>(t, 0x226) == 3) Track_Propagate(hook::Global<Collection*>(0x6cfca8), 0, t, s, 1, old, notify);
+            if (vis(t) || F<int32_t>(t, 0x226) == 1 || F<int32_t>(t, 0x226) == 3) Track_Propagate(g_tracks, 0, t, s, 1, old, notify);
             if (!vis(t)) {
                 for (int32_t k = 0; k < 2; ++k) {
                     uint8_t* n = (uint8_t*)(k ? Obj_Node20a(t) : Obj_Node206(t));
                     if (!n || !vis(n)) continue;
                     if (!((n[0x218] == 1 && s == 4) || n[0x44])) continue;
                     Track_SetState(n, 0, s, 1, 1, 0);
-                    Track_Propagate(hook::Global<Collection*>(0x6cfca8), 0, n, s, 1, old, notify);
+                    Track_Propagate(g_tracks, 0, n, s, 1, old, notify);
                 }
             }
         }
     }
     if (catenary) Track_AddCatenary(t, 0, side);
     if (F<int32_t>(t, 0x212) != -1 && Node_IsRouteEnd(t))
-        Route_UpdateFlag((uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfcb4), 0, F<uint32_t>(t, 0x212)));
+        Route_UpdateFlag((uint8_t*)Collection_Get(g_routes, 0, F<uint32_t>(t, 0x212)));
     Track_BuildGeometry(t);
     Track_UpdateColor(t);
 }
@@ -2773,7 +2772,7 @@ RT3_REPLACE(0x491fd0, Map_RemoveTrackRef);
 // 0x492090. Frees the per-column chains +0x8c (map width entries; each node
 // +6 next, +2 sub-list with +4 next), then the column array.
 RT3_NOINLINE void __fastcall Obj_FreeColumns(uint8_t* o) {
-    int32_t w = F<int32_t>(hook::Global<uint8_t*>(0x62c120), 0x2155);
+    int32_t w = F<int32_t>(g_map, 0x2155);
     auto free53b = [](void* p) { ((void(__cdecl*)(void*))0x53b080)(p); };
     for (int32_t i = 0; i < w; ++i) {
         for (uint8_t* e = F<uint8_t**>(o, 0x8c)[i]; e; ) {
@@ -2797,7 +2796,7 @@ RT3_REPLACE(0x492090, Obj_FreeColumns);
 RT3_NOINLINE void* __fastcall Obj_CellEntry(void* o, int, uint16_t x, uint16_t y) {
     uint8_t** columns = F<uint8_t**>(o, 0x8c);
     if (!columns) return nullptr;
-    uint8_t* map = hook::Global<uint8_t*>(0x62c120);
+    uint8_t* map = g_map;
     if ((int32_t)x >= F<int32_t>(map, 0x15d9) - 1 || (int32_t)y >= F<int32_t>(map, 0x15d5) - 1) return nullptr;
     for (uint8_t* n = columns[x]; n; n = *(uint8_t**)(n + 6)) {
         uint16_t k = *(uint16_t*)n;
@@ -2815,7 +2814,7 @@ RT3_REPLACE(0x492130, Obj_CellEntry);
 // *best and *second; returns the node id or -1.
 int32_t __fastcall Grid_NearestNode(Collection* g, int, float px, float py, int32_t cx, int32_t cy, float* second,
                                     int32_t exclude, int32_t byDegree, float* best, int32_t skipLinked) {
-    uint8_t* m = hook::Global<uint8_t*>(0x62c120);
+    uint8_t* m = g_map;
     if (cx < 0 || cx >= F<int32_t>(m, 0x15d9) - 1 || cy < 0 || cy >= F<int32_t>(m, 0x15d5) - 1) return -1;
     uint8_t* e = (uint8_t*)Obj_CellEntry(g, 0, (uint16_t)cx, (uint16_t)cy);
     if (!e) return -1;
@@ -2858,7 +2857,7 @@ RT3_REPLACE(0x4921a0, Grid_NearestNode);
 // around fine cell (fx, fy); stale entries are freed (only the list head is
 // unlinked, as in the original).
 void __fastcall Nodes_RemarkAround(Collection* nodes, int, int32_t fx, int32_t fy) {
-    uint8_t* m = hook::Global<uint8_t*>(0x62c120);
+    uint8_t* m = g_map;
     int32_t x0 = (fx - 1 < 0 ? 0 : fx - 1) / 4;
     int32_t xm = F<int32_t>(m, 0x2155) * 4 - 4;
     int32_t x1 = (xm < fx + 1 ? xm : fx + 1) / 4;
@@ -2904,7 +2903,7 @@ RT3_NOINLINE int32_t __fastcall Grid_NearestObject(Collection* c, int, float x, 
     uint8_t* e = (uint8_t*)Obj_CellEntry(c, 0, (uint16_t)blockX, (uint16_t)blockY);
     if (!e) return -1;
     int32_t iy = (int32_t)y, ix = (int32_t)x;
-    if (!Map_CellFlag(hook::Global<void*>(0x62c120), 0, ix, iy, 1)) return -1;
+    if (!Map_CellFlag(hook::As<void*>(g_map), 0, ix, iy, 1)) return -1;
     int32_t best = -1;
     float bestD = 9999999.0f;
     for (const uint32_t* n = F<const uint32_t*>(e, 2); n; n = (const uint32_t*)n[1]) {
@@ -2946,7 +2945,7 @@ int32_t __stdcall Track_FindClearance(uint8_t* p, int32_t from, float* height) {
         *height = (float)(((double)k * D(0x5c8758) + D(0x5c8770)) * D(0x5c8d68));
         int32_t cur = next, prev = F<int32_t>(p, 0x202), steps = 0;
         while (cur != -1) {
-            uint8_t* q = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfca8), 0, cur);
+            uint8_t* q = (uint8_t*)Collection_Get(g_tracks, 0, cur);
             ++steps;
             bool hit;
             int32_t after;
@@ -3003,7 +3002,7 @@ RT3_NOINLINE void __fastcall TrackNet_GradeRun(Collection* net, int, uint8_t* t,
     float level = h0;
     for (int32_t cur = first; cur != -1;) {
         ++count;
-        uint8_t* p = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfca8), 0, (uint32_t)cur);
+        uint8_t* p = (uint8_t*)Collection_Get(g_tracks, 0, (uint32_t)cur);
         int32_t kind = F<int32_t>(p, 0x226);
         if (kind == 3 || kind == 1) {
             int32_t next = F<int32_t>(t, 0x206);
@@ -3017,10 +3016,10 @@ RT3_NOINLINE void __fastcall TrackNet_GradeRun(Collection* net, int, uint8_t* t,
             if (next == -1) return;
             float acc = step;
             for (int32_t q = next; q != -1;) {
-                uint8_t* s = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfca8), 0, (uint32_t)q);
+                uint8_t* s = (uint8_t*)Collection_Get(g_tracks, 0, (uint32_t)q);
                 int32_t k = F<int32_t>(s, 0x226);
                 if (k == 3 || k == 1) {
-                    uint8_t* r = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfca8), 0, (uint32_t)pr);
+                    uint8_t* r = (uint8_t*)Collection_Get(g_tracks, 0, (uint32_t)pr);
                     TrackVec sa;
                     Effect_GetVectors(s, 0, sa.u, nullptr, nullptr, nullptr);
                     Effect_GetVectors(r, 0, a.u, b.u, c.u, d.u);
@@ -3050,7 +3049,7 @@ RT3_NOINLINE void __fastcall TrackNet_GradeRun(Collection* net, int, uint8_t* t,
         int32_t next;
         if (F<int32_t>(p, 0x206) == prev) {
             Vehicle_RearMid(p, 0, &x, &z);
-            double ground = Terrain_HeightAt(hook::Global<uint8_t*>(0x62c120), 0, (float)((double)x * Fl_207(0x5c8700)), (float)((double)z * Fl_207(0x5c8700)));
+            double ground = Terrain_HeightAt(g_map, 0, (float)((double)x * Fl_207(0x5c8700)), (float)((double)z * Fl_207(0x5c8700)));
             if (ground > (double)level) {
                 b.f[1] = (float)((double)level + rise);
                 a.u[1] = b.u[1];
@@ -3072,7 +3071,7 @@ RT3_NOINLINE void __fastcall TrackNet_GradeRun(Collection* net, int, uint8_t* t,
             next = F<int32_t>(p, 0x20a);
         } else {
             Vehicle_FrontMid(p, 0, &x, &z);
-            double ground = Terrain_HeightAt(hook::Global<uint8_t*>(0x62c120), 0, (float)((double)x * Fl_207(0x5c8700)), (float)((double)z * Fl_207(0x5c8700)));
+            double ground = Terrain_HeightAt(g_map, 0, (float)((double)x * Fl_207(0x5c8700)), (float)((double)z * Fl_207(0x5c8700)));
             if (ground > (double)level) {
                 d.f[1] = (float)((double)level + rise);
                 c.u[1] = d.u[1];
@@ -3099,7 +3098,7 @@ RT3_NOINLINE void __fastcall TrackNet_GradeRun(Collection* net, int, uint8_t* t,
         prev = cur;
         cur = next;
     }
-    uint8_t* q = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfca8), 0, (uint32_t)first);
+    uint8_t* q = (uint8_t*)Collection_Get(g_tracks, 0, (uint32_t)first);
     if (!q[0x44]) return;
     if (F<void*>(q, 0x248)) Track_DropModel(q);
     Track_AddCatenary(q, 0, 0);
@@ -3178,15 +3177,15 @@ RT3_REPLACE(0x493190, Table_DecayWear);
 // 0x4931e0. Debug validation (option +0x1cb): per-record hook and a lookup of
 // every track piece referenced from the cell lists. No effects.
 void __fastcall Track_Validate(Collection* t) {
-    if (!F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x1cb)) return;
+    if (!F<int32_t>(g_app, 0x1cb)) return;
     for (int32_t i = 0; i < Collection_Count(t); ++i) Nop48a780(Collection_Get(t, 0, Collection_IdAt(t, 0, i, 0)));
-    uint8_t* map = hook::Global<uint8_t*>(0x62c120);
+    uint8_t* map = g_map;
     for (int32_t x = 0; x < F<int32_t>(map, 0x2155) - 1; ++x) {
         for (int32_t y = 0; y < F<int32_t>(map, 0x2159) - 1; ++y) {
             uint8_t* e = (uint8_t*)Obj_CellEntry(t, 0, (uint16_t)x, (uint16_t)y);
             if (!e) continue;
-            for (uint32_t* s = F<uint32_t*>(e, 2); s; s = (uint32_t*)s[1]) Collection_IsValid(g_trackNodes, 0, s[0]);
-            map = hook::Global<uint8_t*>(0x62c120);
+            for (uint32_t* s = F<uint32_t*>(e, 2); s; s = (uint32_t*)s[1]) Collection_IsValid(g_tracks, 0, s[0]);
+            map = g_map;
         }
     }
 }
@@ -3200,10 +3199,10 @@ RT3_REPLACE(0x493300, Camera_BeginA4);
 
 // 0x493360. As 0x4932a0 for the second camera pair (+0xa8/+0xac, flag +0xb4).
 void __fastcall Camera_BeginAc(uint8_t* o) {
-    uint8_t* cam = hook::Global<uint8_t*>(0x62be68);
+    uint8_t* cam = g_62be68;
     if (!F<int32_t>(o, 0xa8) && !F<int32_t>(o, 0xac))
         F<int32_t>(o, 0xb4) = F<float>(cam, 0x66) < *(const float*)0x5c88e0 ? 1 : 0;
-    F<float>(o, 0xb8) = (float)Obj_Float18(hook::Global<void*>(0x62be68));
+    F<float>(o, 0xb8) = (float)Obj_Float18(hook::As<void*>(g_62be68));
     F<int32_t>(o, 0xac)++;
 }
 RT3_REPLACE(0x493360, Camera_BeginAc);
@@ -3211,18 +3210,18 @@ RT3_REPLACE(0x493360, Camera_BeginAc);
 // 0x4933c0. Updates the camera zoom flags (+0xb0 / +0xb4, hysteresis around
 // 2000) for the active camera actions and stores the camera value +0x18.
 RT3_NOINLINE void __fastcall Camera_UpdateZoomFlags(uint8_t* o) {
-    float cam66 = F<float>(hook::Global<uint8_t*>(0x62be68), 0x66);
+    float cam66 = F<float>(g_62be68, 0x66);
     const float h = *(const float*)0x5c88e0;
     if (F<int32_t>(o, 0xa0) || F<int32_t>(o, 0xa4)) {
         float k = F<int32_t>(o, 0xb0) ? 1.05f : 0.95f;
         F<int32_t>(o, 0xb0) = (double)k * h > cam66 ? 1 : 0;
     }
     if (F<int32_t>(o, 0xa8) || F<int32_t>(o, 0xac)) {
-        cam66 = F<float>(hook::Global<uint8_t*>(0x62be68), 0x66);
+        cam66 = F<float>(g_62be68, 0x66);
         float k = F<int32_t>(o, 0xb4) ? 1.1f : 0.9f;
         F<int32_t>(o, 0xb4) = (double)k * h > cam66 ? 1 : 0;
     }
-    F<float>(o, 0xb8) = (float)Obj_Float18(hook::Global<void*>(0x62be68));
+    F<float>(o, 0xb8) = (float)Obj_Float18(hook::As<void*>(g_62be68));
 }
 RT3_REPLACE(0x4933c0, Camera_UpdateZoomFlags);
 
@@ -3244,7 +3243,7 @@ int32_t __fastcall Map_TrackOwnerAt(void* o, int, int32_t x, int32_t y, int32_t*
     if (!e) return 0;
     uint32_t* list = F<uint32_t*>(e, 2);
     if (!list) return 0;
-    uint8_t* t = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfca8), 0, list[0]);
+    uint8_t* t = (uint8_t*)Collection_Get(g_tracks, 0, list[0]);
     if (!t) return 0;
     *owner = F<uint16_t>(t, 0x22e);
     *flag = t[0x44] ? 1 : 0;
@@ -3255,12 +3254,12 @@ RT3_REPLACE(0x4935a0, Map_TrackOwnerAt);
 // 0x493600. Route_GradeFactor from the camera focus (0x62be68 +0x1c..+0x24), or
 // from the stored point (0x5f2b4c, 0x6cd988, 0x6ce6f8) when one is set.
 RT3_NOINLINE float __stdcall Route_GradeFactorHere(float x, float z) {
-    uint32_t sx = hook::Global<uint32_t>(0x5f2b4c);
+    uint32_t sx = g_5f2b4c;
     if (sx == 0x49741cf0) {
-        uint8_t* cam = hook::Global<uint8_t*>(0x62be68);
+        uint8_t* cam = g_62be68;
         return Route_GradeFactor(x, z, F<float>(cam, 0x1c), F<float>(cam, 0x20), F<float>(cam, 0x24));
     }
-    return Route_GradeFactor(x, z, *(float*)&sx, hook::Global<float>(0x6cd988), hook::Global<float>(0x6ce6f8));
+    return Route_GradeFactor(x, z, *(float*)&sx, hook::As<float>(g_6cd988), hook::As<float>(g_6ce6f8));
 }
 RT3_REPLACE(0x493600, Route_GradeFactorHere);
 
@@ -3278,14 +3277,14 @@ RT3_NOINLINE void __fastcall Obj_CountTrack(uint8_t* o, int, uint8_t* t, int32_t
     else if (((int32_t(__thiscall*)(void*))(*(void***)t)[0x14 / 4])(t)) F<int32_t>(o, 0xd4) += d;
     if (t[0x44]) F<int32_t>(o, 0xc8) += d;
     if (Node_Company(t)) Company_CountTrack((uint8_t*)Node_Company(t), 0, t, add);
-    Collection* regions = hook::Global<Collection*>(0x6cfc9c);
+    Collection* regions = g_territories;
     if (!regions) return;
     int32_t y = (int32_t)Obj_CenterCellY(t);
     int32_t x = (int32_t)Obj_CenterCellX(t);
-    uint8_t* map = hook::Global<uint8_t*>(0x62c120);
+    uint8_t* map = g_map;
     uint32_t r = F<uint8_t*>(map, 0x2131)[F<int32_t>(map, 0x2155) * y + x] >> 3;
-    if (!Collection_IsValid(hook::Global<Collection*>(0x6cfc9c), 0, r)) return;
-    World_CountTrack((uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfc9c), 0, r), 0, t, add);
+    if (!Collection_IsValid(g_territories, 0, r)) return;
+    World_CountTrack((uint8_t*)Collection_Get(g_territories, 0, r), 0, t, add);
 }
 RT3_REPLACE(0x493660, Obj_CountTrack);
 
@@ -3315,7 +3314,7 @@ RT3_NOINLINE void __fastcall Tracks_HighlightRun(Collection* c, int, uint32_t id
     for (int dir = 0; dir < 2; ++dir) {
         int32_t cur = F<int32_t>(t, dir ? 0x20a : 0x206), prev = F<int32_t>(t, 0x202);
         for (int32_t steps = 0; cur != -1 && steps < 1000; ++steps) {
-            uint8_t* n = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfca8), 0, (uint32_t)cur);
+            uint8_t* n = (uint8_t*)Collection_Get(g_tracks, 0, (uint32_t)cur);
             int32_t next = F<int32_t>(n, 0x206);
             if (next == -1 || next == prev) {
                 next = F<int32_t>(n, 0x20a);
@@ -3337,7 +3336,7 @@ RT3_REPLACE(0x4937f0, Tracks_HighlightRun);
 // sixth plain piece. Reports the cost (*cost) and the share still unpowered
 // (*share, at least 0.01; 0 when all already were).
 RT3_NOINLINE void __fastcall TrackNet_ElectrifyCompany(Collection* net, int, uint32_t company, int32_t dryRun, float* cost, float* share) {
-    if (!Collection_IsValid(hook::Global<Collection*>(0x62be10), 0, company)) return;
+    if (!Collection_IsValid(g_companies, 0, company)) return;
     int32_t n = Collection_Count(net);
     float total = 0;
     int32_t owned = 0, powered = 0;

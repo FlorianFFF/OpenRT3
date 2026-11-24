@@ -8,6 +8,7 @@
 #include <math.h>
 #include <initializer_list>
 #include "hook/hook.h"
+#include "core/globals.h"
 #include "game/collection.h"
 #include "core/stream.h"
 #include "core/crt.h"
@@ -124,7 +125,7 @@ RT3_NOINLINE char* __fastcall Num_Format(char* buf, int32_t style, double v, int
 RT3_NOINLINE char* __fastcall Num_FormatSimple(char* buf, int32_t style, double v, int32_t width);
 RT3_NOINLINE int32_t __fastcall Ui_SendEvent5(uint8_t** mgr, int, uint32_t type, uint32_t id, uint32_t a, uint32_t b, uint32_t c);
 
-static inline uint8_t* World() { return hook::Global<uint8_t*>(0x6cec78); }
+static inline uint8_t* World() { return g_world; }
 
 static inline void* ExeNew(size_t n) { return ((void*(__cdecl*)(size_t))0x53b070)(n); }
 
@@ -164,8 +165,8 @@ static inline int32_t Ftol(double v) {
 RT3_NOINLINE void __stdcall Territory_GiveToOwner(int32_t* owner, int32_t* filter, int32_t kind) {
     if (!owner) return;
     if (kind == 0xb || kind == 0xc || kind == 9) {
-        for (int32_t i = 0; i < Collection_Count(hook::Global<Collection*>(0x62b26c)); ++i) {
-            Collection* c = hook::Global<Collection*>(0x62b26c);
+        for (int32_t i = 0; i < Collection_Count(g_buildings); ++i) {
+            Collection* c = g_buildings;
             uint8_t* b = (uint8_t*)Collection_Get(c, 0, Collection_IdAt(c, 0, i, 0));
             if (Obj_Flag3d4(b) != 1) continue;
             if (filter && *filter != (int32_t)Obj_GridByte(b)) continue;
@@ -175,27 +176,27 @@ RT3_NOINLINE void __stdcall Territory_GiveToOwner(int32_t* owner, int32_t* filte
         }
     }
     if (kind == 0x17 || kind == 9) {
-        for (int32_t i = 0; i < Collection_Count(hook::Global<Collection*>(0x6cfcbc)); ++i) {
-            Collection* c = hook::Global<Collection*>(0x6cfcbc);
+        for (int32_t i = 0; i < Collection_Count(g_trains); ++i) {
+            Collection* c = g_trains;
             uint8_t* t = (uint8_t*)Collection_Get(c, 0, Collection_IdAt(c, 0, i, 0));
             if (filter && *filter != (int32_t)Obj_CityGridByte(t) && *filter != (int32_t)Train_GridByteAtCar45(t)) continue;
             F<int32_t>(t, 0x51) = *owner;
         }
     }
     if (kind != 0xa && kind != 9) return;
-    for (int32_t i = 0; i < Collection_Count(hook::Global<Collection*>(0x6cfca8)); ++i) {
-        Collection* c = hook::Global<Collection*>(0x6cfca8);
+    for (int32_t i = 0; i < Collection_Count(g_tracks); ++i) {
+        Collection* c = g_tracks;
         uint8_t* n = (uint8_t*)Collection_Get(c, 0, Collection_IdAt(c, 0, i, 0));
         if (n[0x216] != 2) continue;
         if (filter && *filter != (int32_t)Obj_CenterGridByte(n)) continue;
         Track_SetOwner(n, 0, (uint16_t)*owner);
-        if (!Collection_IsValid(hook::Global<Collection*>(0x6cfcb4), 0, F<uint32_t>(n, 0x212))) continue;
-        uint8_t* st = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfcb4), 0, F<uint32_t>(n, 0x212));
+        if (!Collection_IsValid(g_routes, 0, F<uint32_t>(n, 0x212))) continue;
+        uint8_t* st = (uint8_t*)Collection_Get(g_routes, 0, F<uint32_t>(n, 0x212));
         if (F<int32_t>(st, 0x1e) != *owner)
-            F<int32_t>(Collection_Get(hook::Global<Collection*>(0x6cfcb4), 0, F<uint32_t>(n, 0x212)), 0x1e) = *owner;
+            F<int32_t>(Collection_Get(g_routes, 0, F<uint32_t>(n, 0x212)), 0x1e) = *owner;
     }
-    Ui_SendEvent5(hook::Global<uint8_t**>(0x6d401c), 0, 0xba, 0x808, 0, 0, 0);
-    Ui_SendEvent5(hook::Global<uint8_t**>(0x6d401c), 0, 0xba, 0x659d, 0, 0, 0);
+    Ui_SendEvent5(hook::As<uint8_t**>(g_windowManager), 0, 0xba, 0x808, 0, 0, 0);
+    Ui_SendEvent5(hook::As<uint8_t**>(g_windowManager), 0, 0xba, 0x659d, 0, 0, 0);
 }
 RT3_REPLACE(0x430040, Territory_GiveToOwner);
 
@@ -208,11 +209,11 @@ RT3_REPLACE(0x430040, Territory_GiveToOwner);
 // +0x88 is held up meanwhile.
 RT3_NOINLINE void __stdcall Event_BuildIndustries(const uint8_t* rec) {
     int32_t count = rec[0x11];
-    uint8_t* type = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62b268), 0, *(int32_t*)(0x61039c + F<int32_t>((void*)rec, 0) * 0x6e) - 0x1f7);
+    uint8_t* type = (uint8_t*)Collection_Get(g_62b268, 0, *(int32_t*)(0x61039c + F<int32_t>((void*)rec, 0) * 0x6e) - 0x1f7);
     if (!type) return;
     uint32_t bt = Obj_FindRecord62b2fc(type);
     if (!bt) return;
-    ++F<int32_t>(hook::Global<uint8_t*>(0x62bae0), 0x88);
+    ++F<int32_t>(hook::As<uint8_t*>(g_cities), 0x88);
     int32_t radius = F<uint16_t>((void*)rec, 0x16) > 1 ? F<uint16_t>((void*)rec, 0x16) : 1;
     int32_t tries = 0;
     while (count > 0 && tries <= 0xc8) {
@@ -229,14 +230,14 @@ RT3_NOINLINE void __stdcall Event_BuildIndustries(const uint8_t* rec) {
         int32_t xi = Ftol(fx);
         float dist = (float)(uint16_t)DistanceInt(xi, yi, F<uint16_t>((void*)rec, 0x12), F<uint16_t>((void*)rec, 0x14));
         if (!(dist <= (float)radius)) continue;
-        uint8_t* m = hook::Global<uint8_t*>(0x62c120);
-        if (fx < hook::Global<float>(0x5c8598) || !(fx <= (float)(F<int32_t>(m, 0x2155) - 1))) continue;
-        if (fy < hook::Global<float>(0x5c8598) || !(fy <= (float)(F<int32_t>(m, 0x2159) - 1))) continue;
+        uint8_t* m = g_map;
+        if (fx < g_5c8598 || !(fx <= (float)(F<int32_t>(m, 0x2155) - 1))) continue;
+        if (fy < g_5c8598 || !(fy <= (float)(F<int32_t>(m, 0x2159) - 1))) continue;
         float angle;
         if (tries <= 0x19) angle = (float)((double)(float)SimRand(0, 3) * Fl(0x5c8760) * D(0x5c8628));
         else angle = (float)((double)SimRand(0, 0x3e7) / D(0x5c87f8) * D(0x5c8c08));
-        uint16_t cityId = (uint16_t)Map_CellCity(hook::Global<uint8_t*>(0x62c120), 0, xi, yi);
-        uint8_t* city = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62bae0), 0, cityId);
+        uint16_t cityId = (uint16_t)Map_CellCity(g_map, 0, xi, yi);
+        uint8_t* city = (uint8_t*)Collection_Get(g_cities, 0, cityId);
         if (!city) continue;
         uint32_t out;
         if (Company_BuildBuilding(city, 0, bt, fx, fy, *(uint32_t*)&angle, 0, &out)) {
@@ -244,7 +245,7 @@ RT3_NOINLINE void __stdcall Event_BuildIndustries(const uint8_t* rec) {
             tries = 0;
         }
     }
-    --F<int32_t>(hook::Global<uint8_t*>(0x62bae0), 0x88);
+    --F<int32_t>(hook::As<uint8_t*>(g_cities), 0x88);
 }
 RT3_REPLACE(0x430270, Event_BuildIndustries);
 
@@ -259,14 +260,14 @@ RT3_NOINLINE void __fastcall RuleText_Expand(uint8_t* self, int, const char* src
         if (!co) goto start;
         st = (uint8_t*)Company_Owner(co);
     }
-    if (!co && st && Collection_IsValid(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(st, 0x1dd)))
-        co = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(st, 0x1dd));
+    if (!co && st && Collection_IsValid(g_companies, 0, F<uint32_t>(st, 0x1dd)))
+        co = (uint8_t*)Collection_Get(g_companies, 0, F<uint32_t>(st, 0x1dd));
 start:
     memset(dst, 0, (size_t)size);
     const char* p = src;
     char* out = dst;
     if (!*p) return;
-    CharNextExFn charNext = hook::Global<CharNextExFn>(0x5c8244);
+    CharNextExFn charNext = hook::As<CharNextExFn>(g_5c8244);
     char buf[100], name[200], fmt[700];
     for (;;) {
         if (*p == '[') {
@@ -298,7 +299,7 @@ start:
                     scanned = true;
                     break;
                 }
-                p = hook::Global<int32_t>(0x6d4034) ? charNext(hook::Global<WORD>(0x624328), p, 0) : p + 1;
+                p = g_6d4034 ? charNext(hook::As<WORD>(g_624328), p, 0) : p + 1;
             }
             if (scanned) {
                 char up = (char)ToUpper(name[0]);
@@ -335,14 +336,14 @@ start:
                         out += strlen(buf);
                     }
                 }
-                if (var >= 0x385 && F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x68)) {
+                if (var >= 0x385 && F<int32_t>(g_app, 0x68)) {
                     char warn[0x1f4];
                     FormatText(warn, GetString(0xd4), name, (const char*)self + 0x18, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
                 }
             }
-        } else if (hook::Global<int32_t>(0x6d4034)) {
+        } else if (g_6d4034) {
             const char* from = p;
-            p = charNext(hook::Global<WORD>(0x624328), p, 0);
+            p = charNext(hook::As<WORD>(g_624328), p, 0);
             while (from != p) *out++ = *from++;
         } else *out++ = *p++;
         if ((int32_t)(out - dst) + 2 >= size) {
@@ -359,12 +360,12 @@ RT3_REPLACE(0x430560, RuleText_Expand);
 // 8 = month) with the condition (+0 id, +4 value, +8 kind: 1 = flag, 2 = negated).
 // Optional values a/b/c fill +0x7f0 (else 99), +0x82c and +0x830.
 RT3_NOINLINE void __fastcall Events_AddTimed(uint8_t* self, int, uint8_t* cond, int32_t* a, int32_t* b, int32_t* c) {
-    Collection* t = hook::Global<Collection*>(0x62be18);
+    Collection* t = g_events;
     uint32_t key = Collection_Count(t) + 1;
     char name[0x190];
     Fmt(name, GetString(0xd5), (const char*)self + 0x18);
-    uint8_t* r = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be18), 0,
-                                          Table_AddNamedRecord(hook::Global<Collection*>(0x62be18), 0, name, key));
+    uint8_t* r = (uint8_t*)Collection_Get(g_events, 0,
+                                          Table_AddNamedRecord(g_events, 0, name, key));
     r[0x7ee] = 0;
     r[0x7ef] = World()[0x11] < 0xe ? 2 : 3;
     F<int32_t>(r, 0x7f5) = 1;
@@ -490,13 +491,13 @@ RT3_NOINLINE int32_t __fastcall Scenario_CheckSetup(uint32_t* s, int, char* out)
     for (uint8_t* c = (uint8_t*)(uintptr_t)s[0]; c; c = F<uint8_t*>(c, 0x1a)) {
         const uint32_t kind = F<uint32_t>(c, 0);
         if (kind == 0x3c && (bytes[0x7ef] == 0 || bytes[0x7ef] == 1)) strcat(msg, GetString(0xfd8));
-        if ((F<uint32_t>(c, 0) == 0x4b || F<uint32_t>(c, 0) == 0x4d) && !Collection_IsValid(hook::Global<Collection*>(0x6cfc9c), 0, F<uint32_t>(c, 0xe)))
+        if ((F<uint32_t>(c, 0) == 0x4b || F<uint32_t>(c, 0) == 0x4d) && !Collection_IsValid(g_territories, 0, F<uint32_t>(c, 0xe)))
             strcat(msg, GetString(0xb63));
         const uint32_t k2 = F<uint32_t>(c, 0);
-        if ((k2 == 0x4c || k2 == 0x4e || k2 == 0x35f || k2 == 0x360) && !Collection_IsValid(hook::Global<Collection*>(0x62bae0), 0, F<uint32_t>(c, 0xe)))
+        if ((k2 == 0x4c || k2 == 0x4e || k2 == 0x35f || k2 == 0x360) && !Collection_IsValid(g_cities, 0, F<uint32_t>(c, 0xe)))
             strcat(msg, GetString(0xb64));
         const uint32_t k3 = F<uint32_t>(c, 0);
-        if ((k3 == 0x35f || k3 == 0x360) && !Collection_IsValid(hook::Global<Collection*>(0x62bae0), 0, F<uint32_t>(c, 0x12)))
+        if ((k3 == 0x35f || k3 == 0x360) && !Collection_IsValid(g_cities, 0, F<uint32_t>(c, 0x12)))
             strcat(msg, GetString(0xb65));
     }
     for (int32_t i = 0; i < 4; ++i) {
@@ -603,8 +604,8 @@ RT3_NOINLINE uint32_t __fastcall Event_ShowText(uint8_t* e, int, uint8_t* pl, ui
     switch (e[0x7ee]) {
     case 0:
         RuleText_Expand(e, 0, (const char*)e + 0xe0, text, 0x320, pl, co, st);
-        if (status) StrCopyN((char*)hook::Global<uint8_t*>(0x6cec78) + 0x4b47, text, 0x12c);
-        else World_AddNamedEntry(hook::Global<uint8_t*>(0x6cec78), 0, text, 0, 1, -1, -1, -1, -1);
+        if (status) StrCopyN((char*)g_world + 0x4b47, text, 0x12c);
+        else World_AddNamedEntry(g_world, 0, text, 0, 1, -1, -1, -1, -1);
         return picked;
     case 1: {
         const char* choices[4];
@@ -618,25 +619,25 @@ RT3_NOINLINE uint32_t __fastcall Event_ShowText(uint8_t* e, int, uint8_t* pl, ui
             ++n;
         }
         if (CountHumanPlayers() > 1) {
-            F<int32_t>(hook::Global<uint8_t*>(0x62be18), 0x88) = 1;
+            F<int32_t>(hook::As<uint8_t*>(g_events), 0x88) = 1;
             return 0;
         }
         RuleText_Expand(e, 0, (const char*)e + 0xe0, text, 0x320, pl, co, st);
         Dialog_RunMessage(text, 1, 0xbf800000, 0xbf800000, 0, nullptr, 0, 0.0f, 0, 0, n, choices, &picked, 1, 0, nullptr, 0);
-        F<int32_t>(hook::Global<uint8_t*>(0x62be18), 0x88) = 1;
+        F<int32_t>(hook::As<uint8_t*>(g_events), 0x88) = 1;
         return (uint32_t)picked;
     }
     case 2: {
         char headline[0xc8];
         RuleText_Expand(e, 0, (const char*)e + 0xe0, text, 0x320, pl, co, st);
         RuleText_Expand(e, 0, (const char*)e + 0x401, headline, 0xc8, pl, co, st);
-        News_Add(hook::Global<Collection*>(0x6cea4c), 0, text, headline, 0, 0);
+        News_Add(g_6cea4c, 0, text, headline, 0, 0);
         return picked;
     }
     case 3:
         RuleText_Expand(e, 0, (const char*)e + 0xe0, text, 0x320, pl, co, st);
         strcpy(out, text);
-        Log_Add(hook::Global<Collection*>(0x6acd34), 0, text, 0xb, 0, 0);
+        Log_Add(g_messageLog, 0, text, 0xb, 0, 0);
         return picked;
     case 4:
         RuleText_Expand(e, 0, (const char*)e + 0xe0, text, 0x320, pl, co, st);
@@ -665,37 +666,37 @@ RT3_NOINLINE void __fastcall Effects_Dispatch(uint8_t* fx, int, const int32_t* r
         Event_BuildIndustries((const uint8_t*)rec);
         return;
     }
-    uint8_t* w = hook::Global<uint8_t*>(0x6cec78);
+    uint8_t* w = g_world;
     uint8_t op = ((const uint8_t*)rec)[8];
     switch (kind) {
     case 4: case 5: case 6: case 7: {
         int32_t mp = IsMultiplayer();
-        w = hook::Global<uint8_t*>(0x6cec78);
+        w = g_world;
         if (F<int32_t>(w, 0x4a73)) return;
         if (mp) {
             F<int32_t>(w, 0x4a73) = 4;
             if (*(int32_t*)(0x61039c + rec[0] * 0x6e) == 7) {
-                F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4a73) = 1;
+                F<int32_t>(g_world, 0x4a73) = 1;
             } else if (player) {
-                if (F<int32_t>(player, 0) != Obj_Get25(hook::Global<void*>(0x6cec78))) F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4a73) = 1;
+                if (F<int32_t>(player, 0) != Obj_Get25(hook::As<void*>(g_world))) F<int32_t>(g_world, 0x4a73) = 1;
             } else if (company) {
-                if (F<int32_t>(company, 0) != Obj_Get21(hook::Global<void*>(0x6cec78))) F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4a73) = 1;
+                if (F<int32_t>(company, 0) != Obj_Get21(hook::As<void*>(g_world))) F<int32_t>(g_world, 0x4a73) = 1;
             }
-            hook::Global<uint8_t*>(0x6cec78)[0x4b47] = *(const char*)0x5c87a8;
-            F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4d) = 0;
-            w = hook::Global<uint8_t*>(0x6cec78);
+            g_world[0x4b47] = *(const char*)0x5c87a8;
+            F<int32_t>(g_world, 0x4d) = 0;
+            w = g_world;
             F<int32_t>(w, 0x4c88) = F<int32_t>(w, 0x15);
-            if (hook::Global<uint32_t>(0x6d40dc)) World_SetSpeed(hook::Global<uint8_t*>(0x6cec78), 0, 0, 1, 0);
+            if (hook::As<uint32_t>(g_6d40dc)) World_SetSpeed(g_world, 0, 0, 1, 0);
             return;
         }
         static const int32_t kEnd[] = { 2, 3, 4, 1 };
         F<int32_t>(w, 0x4a73) = kEnd[*(int32_t*)(0x61039c + rec[0] * 0x6e) - 4];
-        w = hook::Global<uint8_t*>(0x6cec78);
+        w = g_world;
         if (F<int32_t>(w, 0x4a73)) {
             F<int32_t>(w, 0x4d) = 0;
-            w = hook::Global<uint8_t*>(0x6cec78);
+            w = g_world;
             F<int32_t>(w, 0x4c88) = F<int32_t>(w, 0x15);
-            w = hook::Global<uint8_t*>(0x6cec78);
+            w = g_world;
         }
         w[0x4b47] = *(const char*)0x5c87a8;
         return;
@@ -711,16 +712,16 @@ RT3_NOINLINE void __fastcall Effects_Dispatch(uint8_t* fx, int, const int32_t* r
         else Company_AddStat(company, 0, 0xd, (float)rec[1]);
         return;
     case 8:
-        if (op == 2) World_SetDifficulty(hook::Global<uint8_t*>(0x6cec78), 0, F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x2d) + rec[1]);
-        else if (rec[1] >= 0) World_SetDifficulty(hook::Global<uint8_t*>(0x6cec78), 0, rec[1]);
+        if (op == 2) World_SetDifficulty(g_world, 0, F<int32_t>(g_world, 0x2d) + rec[1]);
+        else if (rec[1] >= 0) World_SetDifficulty(g_world, 0, rec[1]);
         return;
     case 22:
-        if (hook::Global<uint8_t*>(0x6cec78)) Weather_ScheduleNext(hook::Global<uint8_t*>(0x6cec78), 0, 1);
+        if (g_world) Weather_ScheduleNext(g_world, 0, 1);
         Options_SetWeatherOverride(0, 0);
         return;
     case 25: case 26: case 27: case 28: {
         static const uint32_t kShake[] = { 0x3e800000, 0x3f0ccccd, 0x3f800000, 0x3fcccccd };
-        if (uint8_t* cam = hook::Global<uint8_t*>(0x62be68)) Camera_StartShake(cam, 0, *(const float*)&kShake[kind - 25]);
+        if (uint8_t* cam = g_62be68) Camera_StartShake(cam, 0, *(const float*)&kShake[kind - 25]);
         return;
     }
     case 16: {
@@ -733,7 +734,7 @@ RT3_NOINLINE void __fastcall Effects_Dispatch(uint8_t* fx, int, const int32_t* r
     case 3:
         if (!company || !region) return;
         Company_SetEntryFlag(company, 0, *(int32_t*)region, (uint8_t)rec[1]);
-        if (hook::Global<uint8_t**>(0x6d401c)) Ui_SendEvent5(hook::Global<uint8_t**>(0x6d401c), 0, 0xba, 0x948c, 0, 0, 0);
+        if (hook::As<uint8_t**>(g_windowManager)) Ui_SendEvent5(hook::As<uint8_t**>(g_windowManager), 0, 0xba, 0x948c, 0, 0, 0);
         return;
     case 9: case 10: case 11: case 12: case 23:
         if (!company) return;
@@ -746,26 +747,26 @@ RT3_NOINLINE void __fastcall Effects_Dispatch(uint8_t* fx, int, const int32_t* r
         if (company) Company_Dissolve(company);
         return;
     case 15:
-        for (int32_t i = Collection_Count(hook::Global<Collection*>(0x6cfcbc)) - 1; i >= 0; --i) {
-            Collection* ts = hook::Global<Collection*>(0x6cfcbc);
+        for (int32_t i = Collection_Count(g_trains) - 1; i >= 0; --i) {
+            Collection* ts = g_trains;
             uint8_t* t = (uint8_t*)Collection_Get(ts, 0, Collection_IdAt(ts, 0, (uint32_t)i, 0));
             if (region && *(uint32_t*)region != Obj_CityGridByte(t)) continue;
             if (company && F<int32_t>(company, 0) != F<int32_t>(t, 0x51)) continue;
             if (player && F<int32_t>(player, 0x1dd) != F<int32_t>(t, 0x51)) continue;
-            ts = hook::Global<Collection*>(0x6cfcbc);
+            ts = g_trains;
             CollectionVtbl* vt = ts->vtbl;
-            vt->release(hook::Global<Collection*>(0x6cfcbc), Collection_IdAt(ts, 0, (uint32_t)i, 0));
+            vt->release(g_trains, Collection_IdAt(ts, 0, (uint32_t)i, 0));
         }
         return;
     case 24:
         if (!player) return;
-        F<int32_t>(Obj_Ref25(hook::Global<void*>(0x6cec78)), 0x1e1) = 0;
-        Obj_SetPlayer(hook::Global<void*>(0x6cec78), 0, F<uint32_t>(player, 0));
+        F<int32_t>(Obj_Ref25(hook::As<void*>(g_world)), 0x1e1) = 0;
+        Obj_SetPlayer(hook::As<void*>(g_world), 0, F<uint32_t>(player, 0));
         F<int32_t>(player, 0x1e1) = 1;
         return;
     case 29:
-        StrCopyN((char*)hook::Global<uint8_t*>(0x6cec78) + 0x4f30, (const char*)fx + 0xe0, 0xbb8);
-        StrCopyN((char*)hook::Global<uint8_t*>(0x6cec78) + 0x5ae9, (const char*)fx + 0xe0, 0xbb8);
+        StrCopyN((char*)g_world + 0x4f30, (const char*)fx + 0xe0, 0xbb8);
+        StrCopyN((char*)g_world + 0x5ae9, (const char*)fx + 0xe0, 0xbb8);
         return;
     case 14:
         if (player) F<int32_t>(player, 4) = 0;

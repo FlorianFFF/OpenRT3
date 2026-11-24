@@ -8,6 +8,7 @@
 #include <string.h>
 #include <initializer_list>
 #include "hook/hook.h"
+#include "core/globals.h"
 #include "game/collection.h"
 #include "core/crt.h"
 #include "core/ptrlist.h"
@@ -23,7 +24,6 @@ namespace rt3 {
 
 template <typename T> static inline T& F(void* o, uint32_t off) { return *(T*)((uint8_t*)o + off); }
 double __fastcall Train_Float109(uint8_t* t, int, int32_t i);
-static Collection*& g_trains = hook::Global<Collection*>(0x6cfcbc);
 double __fastcall Train_Float131(uint8_t* t, int, int32_t i);
 int32_t __fastcall Obj_Get21(void* o);
 void __fastcall Widget_SetVtbl(uint8_t* w);
@@ -284,7 +284,7 @@ RT3_NOINLINE uint8_t* __fastcall Button_Construct(uint8_t* w, int, const uint8_t
 
 // 0x5130f0..0x5131a0. The train selected in the current screen (0x6d0818 +0x90).
 static bool SelectedTrainValid() {
-    uint8_t* s = hook::Global<uint8_t*>(0x6d0818);
+    uint8_t* s = g_gameWindow;
     return s && F<int32_t>(s, 0x90) > 0 && Collection_IsValid(g_trains, 0, F<uint32_t>(s, 0x90));
 }
 
@@ -326,7 +326,7 @@ static uint32_t Message_Show(const char* text, int32_t type, int32_t timeout) {
 
 namespace {
 uint8_t* ShownChild466(int32_t id) {
-    uint8_t* g = Widget_FindChild(hook::Global<uint8_t*>(0x6d3b20), 0, id);
+    uint8_t* g = Widget_FindChild(g_6d3b20, 0, id);
     if (!Widget_IsVisible(g)) Widget_SetFlags(g, 0, 1, 0, 0);
     return g;
 }
@@ -339,13 +339,13 @@ uint32_t Message496(uint32_t text, int32_t type, uint32_t px = 0xbf800000) {
 uint8_t* Train496() { return (uint8_t*)SelectedTrain(); }
 int32_t Special496(void* t) { return ((int32_t(__fastcall*)(void*))(void*)&Obj_KindE8Special)(t); }
 // The shown stop list (0x65a3 / 0x65a4 by 0x6d3b24).
-uint8_t* StopList496(uint8_t* w) { return Widget_FindChild(w, 0, hook::Global<int32_t>(0x6d3b24) ? 0x65a3 : 0x65a4); }
+uint8_t* StopList496(uint8_t* w) { return Widget_FindChild(w, 0, g_6d3b24 ? 0x65a3 : 0x65a4); }
 void SendHost496(uint32_t type, uint32_t a) {
     uint32_t req[3];
     req[0] = (uint32_t)Global6d40e4();
     req[1] = (uint32_t)SelectedTrainId();
     req[2] = a;
-    Net_SendToHost(hook::Global<uint8_t*>(0x6cd8d8), 0, type, 0xc, (const uint8_t*)req);
+    Net_SendToHost(g_session, 0, type, 0xc, (const uint8_t*)req);
 }
 }
 
@@ -355,7 +355,7 @@ uint32_t Message497(const char* text, uint32_t px = 0xbf800000) {
 }
 uint8_t* const kOrders497 = (uint8_t*)0x6d3ae8;
 int32_t StopRow497(uint8_t* d) { return F<int32_t>(Widget_FindChild(d, 0, 0x2aff), 0x1d6); }
-bool OwnTrain497(uint8_t* t) { return F<int32_t>(t, 0x51) == Obj_Get21(hook::Global<uint8_t*>(0x6cec78)); }
+bool OwnTrain497(uint8_t* t) { return F<int32_t>(t, 0x51) == Obj_Get21(g_world); }
 }
 
 // 0x510b60 (filter callback). Marks which trains (0x6d1aa8 by +0x25) the
@@ -363,14 +363,14 @@ bool OwnTrain497(uint8_t* t) { return F<int32_t>(t, 0x51) == Obj_Get21(hook::Glo
 // 0x388 entry) is x (EDX, 0x3e8 any) and, with the age filter 0x275a, old
 // enough (world year - +0xd4). Then refreshes the list and the cost text.
 void __fastcall TrainList_FilterCb(int32_t v, int32_t x) {
-    if (v == -1 || hook::Global<uint8_t>(0x6d3ae0)) return;
-    for (int32_t i = 0; i < Collection_Count(hook::Global<Collection*>(0x6cfcbc)); ++i) {
-        Collection* c = hook::Global<Collection*>(0x6cfcbc);
+    if (v == -1 || g_6d3ae0) return;
+    for (int32_t i = 0; i < Collection_Count(g_trains); ++i) {
+        Collection* c = g_trains;
         uint8_t* t = (uint8_t*)Collection_Get(c, 0, Collection_IdAt(c, 0, (uint32_t)i, 1));
         const uint32_t slot = F<uint32_t>(t, 0x25);
         if (slot >= 0x2000) continue;
         uint8_t* mark = (uint8_t*)(0x6d1aa8 + slot);
-        if (F<int32_t>(t, 0x51) != Obj_Get21(hook::Global<uint8_t*>(0x6cec78))) {
+        if (F<int32_t>(t, 0x51) != Obj_Get21(g_world)) {
             *mark = 0;
             continue;
         }
@@ -379,15 +379,15 @@ void __fastcall TrainList_FilterCb(int32_t v, int32_t x) {
             *(uint8_t*)(0x6d1aa8 + F<uint32_t>(t, 0x25)) = 0;
             continue;
         }
-        if (F<int32_t>(Widget_FindChild(hook::Global<uint8_t*>(0x6d3ac8), 0, 0x275a), 0x1d6) <= 0) {
+        if (F<int32_t>(Widget_FindChild(g_6d3ac8, 0, 0x275a), 0x1d6) <= 0) {
             *(uint8_t*)(0x6d1aa8 + F<uint32_t>(t, 0x25)) = 1;
             continue;
         }
-        const int32_t age = (int32_t)TreeView_SelectedData(Widget_FindChild(hook::Global<uint8_t*>(0x6d3ac8), 0, 0x275a));
-        const int32_t years = F<uint16_t>(hook::Global<uint8_t*>(0x6cec78), 0xd) - F<int32_t>(t, 0xd4);
+        const int32_t age = (int32_t)TreeView_SelectedData(Widget_FindChild(g_6d3ac8, 0, 0x275a));
+        const int32_t years = F<uint16_t>(g_world, 0xd) - F<int32_t>(t, 0xd4);
         *(uint8_t*)(0x6d1aa8 + F<uint32_t>(t, 0x25)) = years >= age ? 1 : 0;
     }
-    ListView_Refresh(Widget_FindChild(hook::Global<uint8_t*>(0x6d3ac8), 0, 0x275d), 0, 0);
+    ListView_Refresh(Widget_FindChild(g_6d3ac8, 0, 0x275d), 0, 0);
     UpgradeDialog_UpdateCostText();
 }
 RT3_REPLACE(0x510b60, TrainList_FilterCb);
@@ -398,28 +398,28 @@ RT3_REPLACE(0x510b60, TrainList_FilterCb);
 // list 0x2759 (0x3e8 any) only those whose city's 0x388 entry (+0x126) has
 // it. Then refreshes the list 0x275d and the cost text.
 void __fastcall TrainList_AgeFilterCb(int32_t on, int32_t years) {
-    if (on == -1 || hook::Global<uint8_t>(0x6d3ae0)) return;
-    for (int32_t i = 0; i < Collection_Count(hook::Global<Collection*>(0x6cfcbc)); ++i) {
-        Collection* c = hook::Global<Collection*>(0x6cfcbc);
+    if (on == -1 || g_6d3ae0) return;
+    for (int32_t i = 0; i < Collection_Count(g_trains); ++i) {
+        Collection* c = g_trains;
         uint8_t* t = (uint8_t*)Collection_Get(c, 0, Collection_IdAt(c, 0, (uint32_t)i, 1));
         if (F<uint32_t>(t, 0x25) >= 0x2000) continue;
-        if (F<int32_t>(t, 0x51) != Obj_Get21(hook::Global<uint8_t*>(0x6cec78))) {
+        if (F<int32_t>(t, 0x51) != Obj_Get21(g_world)) {
             *(uint8_t*)(0x6d1aa8 + F<uint32_t>(t, 0x25)) = 0;
             continue;
         }
-        if (on && F<uint16_t>(hook::Global<uint8_t*>(0x6cec78), 0xd) - F<int32_t>(t, 0xd4) < years) {
+        if (on && F<uint16_t>(g_world, 0xd) - F<int32_t>(t, 0xd4) < years) {
             *(uint8_t*)(0x6d1aa8 + F<uint32_t>(t, 0x25)) = 0;
             continue;
         }
-        if (F<int32_t>(Widget_FindChild(hook::Global<uint8_t*>(0x6d3ac8), 0, 0x2759), 0x1d6) <= 0) {
+        if (F<int32_t>(Widget_FindChild(g_6d3ac8, 0, 0x2759), 0x1d6) <= 0) {
             *(uint8_t*)(0x6d1aa8 + F<uint32_t>(t, 0x25)) = 1;
             continue;
         }
-        const int32_t kind = (int32_t)TreeView_SelectedData(Widget_FindChild(hook::Global<uint8_t*>(0x6d3ac8), 0, 0x2759));
+        const int32_t kind = (int32_t)TreeView_SelectedData(Widget_FindChild(g_6d3ac8, 0, 0x2759));
         uint8_t* e = (uint8_t*)Obj_Ref388(Obj_City41(t));
         *(uint8_t*)(0x6d1aa8 + F<uint32_t>(t, 0x25)) = F<int32_t>(e, 0x126) == kind || kind == 0x3e8 ? 1 : 0;
     }
-    ListView_Refresh(Widget_FindChild(hook::Global<uint8_t*>(0x6d3ac8), 0, 0x275d), 0, 0);
+    ListView_Refresh(Widget_FindChild(g_6d3ac8, 0, 0x275d), 0, 0);
     UpgradeDialog_UpdateCostText();
 }
 RT3_REPLACE(0x510cc0, TrainList_AgeFilterCb);
@@ -435,7 +435,7 @@ RT3_REPLACE(0x510e20, Thunk510e20);
 // x + 0x5d1970; then "<rank>) <destination>" (format 0x5d06e8) in the world's
 // label font.
 RT3_NOINLINE void __fastcall TrainList_DrawRow(int32_t, uint32_t id, float x, float y, float w, float h, int32_t) {
-    uint8_t* train = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfcbc), 0, id);
+    uint8_t* train = (uint8_t*)Collection_Get(g_trains, 0, id);
     if (!train) return;
     float cx = (float)((double)x + D(0x5c9ba0));
     for (uint8_t* car = (uint8_t*)Obj_City41(train); car; car = (uint8_t*)Obj_City352(car)) {
@@ -459,7 +459,7 @@ RT3_NOINLINE void __fastcall TrainList_DrawRow(int32_t, uint32_t id, float x, fl
     float lh = (float)(h * D(0x5c8628));
     float lw = (float)((double)w - D(0x5d1960));
     float ly = (float)((double)y - D(0x5d0250));
-    Font_DrawTextBox(F<uint8_t*>(hook::Global<uint8_t*>(0x6cec78), 0x46a98), 0, text, lx, ly, lw, lh, 0xffffffff, 2, 0, 0, 1.0f);
+    Font_DrawTextBox(F<uint8_t*>(g_world, 0x46a98), 0, text, lx, ly, lw, lh, 0xffffffff, 2, 0, 0, 1.0f);
 }
 RT3_REPLACE(0x510e30, TrainList_DrawRow);
 
@@ -496,14 +496,14 @@ RT3_REPLACE(0x511050, Dialog_AddFilterToggle);
 // and disabled); label 0x2b05 shows string 0x551 when the array is empty.
 RT3_NOINLINE void __fastcall TrainList_UpdateButtons(uint8_t* w) {
     bool none = F<int32_t>(Widget_FindChild(w, 0, 0x2aff), 0x1d6) < 0;
-    if (hook::Global<uint8_t>(0x6d3ae1)) return;
+    if (g_6d3ae1) return;
     uint8_t* r = nullptr;
     char text[0x1f8];
     if (!none) {
         r = (uint8_t*)Array33_At((void*)0x6d3ae8, 0, (int32_t)TreeView_SelectedData(Widget_FindChild(w, 0, 0x2aff)));
         if ((int8_t)r[0x28] < 0) FormatText(text, GetString(0x54c), 0, 0, 0, 0, 0, 0, 0, 0);
         else {
-            uint8_t* st = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cec20), 0, F<uint16_t>(r, 0x29));
+            uint8_t* st = (uint8_t*)Collection_Get(g_stations, 0, F<uint16_t>(r, 0x29));
             FormatText(text, GetString(0x54d), (const char*)st + 0x46b, 0, 0, 0, 0, 0, 0, 0);
         }
     }
@@ -512,17 +512,17 @@ RT3_NOINLINE void __fastcall TrainList_UpdateButtons(uint8_t* w) {
     bool none2 = none;
     if (!none) {
         if ((int8_t)r[0x28] < 0 ||
-            !Obj_BuildingStateActive(Collection_Get(hook::Global<Collection*>(0x6cec20), 0, F<uint16_t>(r, 0x29))))
+            !Obj_BuildingStateActive(Collection_Get(g_stations, 0, F<uint16_t>(r, 0x29))))
             none2 = true;
         else {
-            uint8_t* st = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cec20), 0, F<uint16_t>(r, 0x29));
+            uint8_t* st = (uint8_t*)Collection_Get(g_stations, 0, F<uint16_t>(r, 0x29));
             FormatText(text, GetString(0x54f), (const char*)st + 0x46b, 0, 0, 0, 0, 0, 0, 0);
         }
     }
     Window_SendEvent5(w, 0, none2 ? 0x87 : 0x65, 0x2b04, 2, 0, 0);
     Window_SendEvent5(w, 0, 0x6e, 0x2b04, (uint32_t)(uintptr_t)(none2 ? GetString(0x550) : text), 0, 0);
     char empty[0x130];
-    if (hook::Global<int32_t>(0x6d3aec) > 0) empty[0] = 0;
+    if (g_6d3aec > 0) empty[0] = 0;
     else strcpy(empty, GetString(0x551));
     Window_SendEvent5(w, 0, 0x6f, 0x2b05, (uint32_t)(uintptr_t)empty, 0, 0);
 }
@@ -537,27 +537,27 @@ RT3_REPLACE(0x511170, TrainList_UpdateButtons);
 // player} and empties the array.
 RT3_NOINLINE void __fastcall UpgradeDialog_SendTrains(uint8_t* d) {
     F<int32_t>(d, 0x78) = 1;
-    uint8_t* cursor = hook::Global<uint8_t*>(0xccbb20);
-    hook::Global<int32_t>(0x6d1aa4) = 0;
-    hook::Global<uint32_t>(0x6d3ab8) = F<uint32_t>(cursor, 4);
+    uint8_t* cursor = g_cursorManager;
+    g_6d1aa4 = 0;
+    g_6d3ab8 = F<uint32_t>(cursor, 4);
     Cursor_Set(cursor, 0, 6, 0, 0);
-    const int32_t count = hook::Global<int32_t>(0x6d3aec);
+    const int32_t count = g_6d3aec;
     const int32_t size = count * 0x33 + 0x14;
     uint32_t* buf = (uint32_t*)Malloc((size_t)size);
     buf[0] = (uint32_t)count;
     uint32_t engine = 0;
-    if (hook::Global<uint8_t*>(0x6d3ac8)) {
-        uint8_t* list = Widget_FindChild(hook::Global<uint8_t*>(0x6d3ac8), 0, 0x2afe);
+    if (g_6d3ac8) {
+        uint8_t* list = Widget_FindChild(g_6d3ac8, 0, 0x2afe);
         if (F<int32_t>(list, 0x1d6) >= 0) engine = TreeView_SelectedData(list);
     }
     buf[1] = engine;
-    buf[2] = hook::Global<uint32_t>(0x6d3aa8);
-    buf[4] = (uint32_t)Obj_Get21(hook::Global<uint8_t*>(0x6cec78));
+    buf[2] = g_6d3aa8;
+    buf[4] = (uint32_t)Obj_Get21(g_world);
     buf[3] = (uint32_t)Global6d40e4();
     uint8_t* out = (uint8_t*)buf + 0x14;
     for (int32_t i = 0; i < count; ++i, out += 0x33) memcpy(out, Array33_At((void*)0x6d3ae8, 0, i), 0x33);
     for (int32_t i = count; i > 0; --i) TrainOrders_Remove((uint8_t*)0x6d3ae8, 0, 0);
-    uint8_t* gs = hook::Global<uint8_t*>(0x6cd8d8);
+    uint8_t* gs = g_session;
     Net_Send(gs, 0, (const char*)gs + 0x8f48, 0x16, size, (const uint8_t*)buf, 5, 0);
     Free(buf);
 }
@@ -568,15 +568,15 @@ RT3_REPLACE(0x511360, UpgradeDialog_SendTrains);
 // the sender's cursor resets.
 RT3_NOINLINE void __fastcall NetMsg_ReplaceEngines(uint8_t* m) {
     for (int32_t i = 0; i < F<uint16_t>(m, 8); ++i) {
-        uint8_t* t = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfcbc), 0, F<uint16_t>(m, 0xa + i * 2));
+        uint8_t* t = (uint8_t*)Collection_Get(g_trains, 0, F<uint16_t>(m, 0xa + i * 2));
         if (t) ((void(__fastcall*)(uint8_t*, int, uint32_t, int32_t))0x4aefb0)(t, 0, F<uint32_t>(m, 4), 0);
     }
-    if (Obj_Get25(hook::Global<void*>(0x6cec78)) == F<int32_t>(m, 0)) Cursor_Set(hook::Global<uint8_t*>(0xccbb20), 0, 1, 0, 0);
+    if (Obj_Get25(hook::As<void*>(g_world)) == F<int32_t>(m, 0)) Cursor_Set(g_cursorManager, 0, 1, 0, 0);
 }
 RT3_REPLACE(0x511490, NetMsg_ReplaceEngines);
 
 // 0x5114f0 (callback). Updates the buttons of the train list 0x6d3ac8.
-void TrainList_UpdateOpenButtons() { TrainList_UpdateButtons(hook::Global<uint8_t*>(0x6d3ac8)); }
+void TrainList_UpdateOpenButtons() { TrainList_UpdateButtons(g_6d3ac8); }
 RT3_REPLACE(0x5114f0, TrainList_UpdateOpenButtons);
 
 // 0x511500. Opens the train buying window (it becomes 0x6d3ac8, with its three
@@ -589,24 +589,24 @@ RT3_REPLACE(0x5114f0, TrainList_UpdateOpenButtons);
 // 0x2aff. Finally the era's speed steps (0x6d3aac, mph / km/h / ...) go to
 // the unit buttons' tooltips.
 RT3_NOINLINE void __fastcall TrainBuy_Init(uint8_t* w) {
-    Window_Load(w, 0, hook::Global<int32_t>(0x6d3b4c) ? BitsF(0x3e875c29) : BitsF(0x3dfd70a4), BitsF(0x3d64b17e), (const char*)0x5d1978);
-    int32_t lang = hook::Global<int32_t>(0x6d3c84);
+    Window_Load(w, 0, g_6d3b4c ? BitsF(0x3e875c29) : BitsF(0x3dfd70a4), BitsF(0x3d64b17e), (const char*)0x5d1978);
+    int32_t lang = g_language;
     if (lang == 4 || lang == 1) {
         Window_SendEvent5(w, 0, 0x78, 0x2afa, 0x12, 0, 0);
         Window_SendEvent5(w, 0, 0x78, 0x2afb, 0x12, 0, 0);
     }
-    hook::Global<uint8_t*>(0x6d3ac8) = w;
-    hook::Global<uint8_t*>(0x6d3abc) = Pack_AcquireFont(hook::Global<uint8_t*>(0x6d4020), 0, 2);
-    hook::Global<uint8_t*>(0x6d3ac0) = Pack_AcquireFont(hook::Global<uint8_t*>(0x6d4020), 0, 1);
-    hook::Global<uint8_t*>(0x6d3ac4) = Pack_AcquireFont(hook::Global<uint8_t*>(0x6d4020), 0, 0x14);
+    g_6d3ac8 = w;
+    g_6d3abc = Pack_AcquireFont(g_pack, 0, 2);
+    g_6d3ac0 = Pack_AcquireFont(g_pack, 0, 1);
+    g_6d3ac4 = Pack_AcquireFont(g_pack, 0, 0x14);
     uint8_t used[0x5dc];
     memset(used, 0, sizeof used);
     int32_t shown = 0, preselect = 0;
-    auto engines = [] { return hook::Global<Collection*>(0x6ada84); };
-    auto types = [] { return hook::Global<Collection*>(0x62ba88); };
+    auto engines = [] { return g_6ada84; };
+    auto types = [] { return g_carTypes; };
     auto who = [](uint32_t& company, uint32_t& player) {
-        player = (uint32_t)Obj_Get25(hook::Global<uint8_t*>(0x6cec78));
-        company = (uint32_t)Obj_Get21(hook::Global<uint8_t*>(0x6cec78));
+        player = (uint32_t)Obj_Get25(g_world);
+        company = (uint32_t)Obj_Get21(g_world);
     };
     for (;;) {
         int32_t best = -1, bestVal = -1;
@@ -633,7 +633,7 @@ RT3_NOINLINE void __fastcall TrainBuy_Init(uint8_t* w) {
         if (best < 0) break;
         Window_SendEvent5(w, 0, 0x88, 0x2afe, 0x5c87a8, Collection_IdAt(engines(), 0, best, 0), 0);
         used[best] = 1;
-        if (hook::Global<uint32_t>(0x6d1aa0) == Collection_IdAt(engines(), 0, best, 0)) preselect = shown;
+        if (g_6d1aa0 == Collection_IdAt(engines(), 0, best, 0)) preselect = shown;
         ++shown;
     }
     if (!shown) Window_SendEvent5(w, 0, 0x88, 0x2afe, 0x5c87a8, EngineTypes_PickForYear(engines()), 0);
@@ -646,10 +646,10 @@ RT3_NOINLINE void __fastcall TrainBuy_Init(uint8_t* w) {
     Window_SendEvent5(w, 0, 0xba, 0x2afc, 0, 0, 0);
     if (Collection_Count(engines())) Window_SendEvent5(w, 0, 0x66, 0x2afe, preselect, 0, 0);
     char num[0x40], text[0x220], tip[0x220];
-    if (hook::Global<uint32_t>(0x6d3acc)) {
+    if (g_6d3acc) {
         Window_SendEvent5(w, 0, 0x86, 0x2b3e, 3, 0, 0);
         Window_SendEvent5(w, 0, 0x6d, 0x2b3f, 3, 0, 0);
-        bool simple = hook::Global<uint8_t*>(0x6cec7c)[0x82] || F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4aef);
+        bool simple = g_newGame[0x82] || F<int32_t>(g_world, 0x4aef);
         Window_SendEvent5(w, 0, simple ? 0x87 : 0x65, 0x275c, 3, 0, 0);
         uint8_t* c = Widget_FindChild(w, 0, 0x2afa);
         String_Assign(&F<char*>(c, 0xce), GetString(0x540));
@@ -675,12 +675,12 @@ RT3_NOINLINE void __fastcall TrainBuy_Init(uint8_t* w) {
         Window_SendEvent5(w, 0, 0x66, 0x275a, 0, 0, 0);
         Window_SendEvent5(w, 0, 0x88, 0x2759, (uint32_t)(uintptr_t)GetString(0xe4), 0, 0);
         Window_SendEvent5(w, 0, 0x88, 0x2759, (uint32_t)(uintptr_t)GetString(0x545), 0x3e8, 0);
-        uint8_t* cur = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfcbc), 0, hook::Global<uint32_t>(0x6d3acc));
+        uint8_t* cur = (uint8_t*)Collection_Get(g_trains, 0, g_6d3acc);
         if (cur) {
             const char* n = LocalizeName((const char*)Obj_Ref388(Obj_City41(cur)) + 0x45);
             Window_SendEvent5(w, 0, 0x88, 0x2759, (uint32_t)(uintptr_t)n, F<uint32_t>(Obj_Ref388(Obj_City41(cur)), 0x126), 0);
         }
-        auto trains = [] { return hook::Global<Collection*>(0x6cfcbc); };
+        auto trains = [] { return g_trains; };
         for (int32_t i = 0; i < Collection_Count(engines()); ++i) {
             uint32_t typeId = Collection_IdAt(engines(), 0, i, 0);
             for (int32_t j = 0; j < Collection_Count(trains()); ++j) {
@@ -701,10 +701,10 @@ RT3_NOINLINE void __fastcall TrainBuy_Init(uint8_t* w) {
         for (int32_t i = 0; i < Collection_Count(trains()); ++i) {
             uint8_t* t = (uint8_t*)Collection_Get(trains(), 0, Collection_IdAt(trains(), 0, i, 1));
             int32_t owner = F<int32_t>(t, 0x51);
-            if (owner != Obj_Get21(hook::Global<uint8_t*>(0x6cec78))) continue;
+            if (owner != Obj_Get21(g_world)) continue;
             uint32_t id = F<uint32_t>(t, 0x25);
             if (id >= 0x2000) continue;
-            if (id == hook::Global<uint32_t>(0x6d3acc)) hook::Global<uint8_t>(0x6d1aa8 + id) = 1;
+            if (id == g_6d3acc) hook::Global<uint8_t>(0x6d1aa8 + id) = 1;
             Window_SendEvent5(w, 0, 0x88, 0x275d, 0x5c87a8, Collection_IdAt(trains(), 0, i, 1), 0);
         }
         Window_SendEvent5(w, 0, 0x79, 0x2759, 0x510b60, 0, 0);
@@ -715,18 +715,18 @@ RT3_NOINLINE void __fastcall TrainBuy_Init(uint8_t* w) {
     } else {
         Window_SendEvent5(w, 0, 0x86, 0x2b3f, 3, 0, 0);
         Window_SendEvent5(w, 0, 0x6d, 0x2b3e, 3, 0, 0);
-        for (int32_t i = 0; i < hook::Global<int32_t>(0x6d3aec); ++i) Window_SendEvent5(w, 0, 0x88, 0x2aff, 0, i, 0);
+        for (int32_t i = 0; i < g_6d3aec; ++i) Window_SendEvent5(w, 0, 0x88, 0x2aff, 0, i, 0);
         Window_SendEvent5(w, 0, 0x7a, 0x2aff, 0x50f660, 0, 0);
         Window_SendEvent5(w, 0, 0x7e, 0x2aff, 0x50f650, 0, 0);
         Window_SendEvent5(w, 0, 0x7f, 0x2aff, 0x50f640, 0, 0);
         Window_SendEvent5(w, 0, 0x79, 0x2aff, 0x5114f0, 0, 0);
     }
-    uint16_t year = F<uint16_t>(hook::Global<uint8_t*>(0x6cec78), 0xd);
+    uint16_t year = F<uint16_t>(g_world, 0xd);
     int32_t rate = year < 0x73a ? 10 : year < 0x76c ? 20 : year < 0x79e ? 40 : 80;
-    hook::Global<int32_t>(0x6d3aac) = rate;
-    hook::Global<int32_t>(0x6d3ab0) = Ftol((double)rate * D(0x5d12f8) + D(0x5c8628));
-    int32_t sum = hook::Global<int32_t>(0x6d3ab0) + rate;
-    hook::Global<int32_t>(0x6d3ab4) = Ftol((double)sum / D(0x5c85d0) + D(0x5c8628));
+    g_6d3aac = rate;
+    g_6d3ab0 = Ftol((double)rate * D(0x5d12f8) + D(0x5c8628));
+    int32_t sum = g_6d3ab0 + rate;
+    g_6d3ab4 = Ftol((double)sum / D(0x5c85d0) + D(0x5c8628));
     for (int32_t k = 0; k < 3; ++k) {
         Num_Format(num, 1, (double)hook::Global<int32_t>(0x6d3aac + k * 4), 10, 1, 0, 0);
         FormatText(tip, GetString(0x546 + k), num, 0, 0, 0, 0, 0, 0, 0);
@@ -743,18 +743,18 @@ RT3_REPLACE(0x511500, TrainBuy_Init);
 // scroll position (+0x1e2), ticks sort button 0x2761 + 0x622b28, then updates the
 // station buttons.
 RT3_NOINLINE void __fastcall TrainList_Refill(uint8_t* w) {
-    hook::Global<uint8_t>(0x6d3ae1) = 1;
+    g_6d3ae1 = 1;
     int32_t sel = F<int32_t>(Widget_FindChild(w, 0, 0x2aff), 0x1d6);
     uint32_t scroll = F<uint32_t>(Widget_FindChild(w, 0, 0x2aff), 0x1e2);
     Window_SendEvent5(w, 0, 0x8b, 0x2aff, 0, 0, 0);
-    for (int32_t i = 0; i < hook::Global<int32_t>(0x6d3aec); ++i) Window_SendEvent5(w, 0, 0x88, 0x2aff, 0, (uint32_t)i, 0);
-    int32_t n = hook::Global<int32_t>(0x6d3aec);
+    for (int32_t i = 0; i < g_6d3aec; ++i) Window_SendEvent5(w, 0, 0x88, 0x2aff, 0, (uint32_t)i, 0);
+    int32_t n = g_6d3aec;
     if (sel >= n) sel = n - 1;
     if (sel < 0 && n > 0) sel = 0;
-    Window_SendEvent5(w, 0, 0x74, hook::Global<uint32_t>(0x622b28) + 0x2761, 1, 0, 0);
+    Window_SendEvent5(w, 0, 0x74, hook::As<uint32_t>(g_622b28) + 0x2761, 1, 0, 0);
     Window_SendEvent5(w, 0, 0x67, 0x2aff, (uint32_t)sel, 0, 0);
     Window_SendEvent5(w, 0, 0x6b, 0x2aff, scroll, 0, 0);
-    hook::Global<uint8_t>(0x6d3ae1) = 0;
+    g_6d3ae1 = 0;
     TrainList_UpdateButtons(w);
 }
 RT3_REPLACE(0x512080, TrainList_Refill);
@@ -778,13 +778,13 @@ RT3_REPLACE(0x512080, TrainList_Refill);
 // buttons 0x2b0c.., the train ticks 0x2774.. and the sort 0x2761...
 int32_t __fastcall ConsistDialog_HandleEvent(uint8_t* d, int, uint32_t* msg) {
     if (F<int32_t>(d, 0x78)) {
-        if (hook::Global<int32_t>(0x6d1aa4) == -1) {
-            hook::Global<int32_t>(0x6d1aa4) = 0;
+        if (g_6d1aa4 == -1) {
+            g_6d1aa4 = 0;
             Message497(GetString(0x549));
             msg[0] = 0xc9;
             return 1;
         }
-        if (hook::Global<int32_t>(0x6d1aa4)) msg[0] = 0xc9;
+        if (g_6d1aa4) msg[0] = 0xc9;
         return 1;
     }
     auto close = [&]() {
@@ -796,13 +796,13 @@ int32_t __fastcall ConsistDialog_HandleEvent(uint8_t* d, int, uint32_t* msg) {
         return 0;
     };
     auto camera = [&](uint32_t type, uint32_t a, uint32_t b, uint32_t c) {
-        Ui_SendEvent5(hook::Global<uint8_t**>(0x6d401c), 0, type, 0x2afc, a, b, c);
+        Ui_SendEvent5(hook::As<uint8_t**>(g_windowManager), 0, type, 0x2afc, a, b, c);
         return 0;
     };
     const int32_t id = (int32_t)msg[1];
     switch (msg[0]) {
     case 0:
-        if (hook::Global<int32_t>(0x6d3adc)) {
+        if (g_6d3adc) {
             msg[1] = 0x2afb;
             return close();
         }
@@ -814,10 +814,10 @@ int32_t __fastcall ConsistDialog_HandleEvent(uint8_t* d, int, uint32_t* msg) {
                 uint8_t& tick = *(uint8_t*)(0x6d1aa8 + train);
                 tick = tick == 0;
             }
-            hook::Global<uint8_t>(0x6d3ae0) = 1;
+            g_6d3ae0 = 1;
             Window_SendEvent5(d, 0, 0x66, 0x2759, 0, 0, 0);
             Window_SendEvent5(d, 0, 0x66, 0x275a, 0, 0, 0);
-            hook::Global<uint8_t>(0x6d3ae0) = 0;
+            g_6d3ae0 = 0;
             UpgradeDialog_UpdateCostText();
             return 0;
         }
@@ -829,14 +829,14 @@ int32_t __fastcall ConsistDialog_HandleEvent(uint8_t* d, int, uint32_t* msg) {
             return 0;
         }
         if (id == 0x2aff) {
-            if (hook::Global<int32_t>(0x6d3b4c) && msg[1] != hook::Global<uint32_t>(0x622b38)) return locked(0xe03);
+            if (g_6d3b4c && msg[1] != g_622b38) return locked(0xe03);
             TrainList_UpdateButtons(d);
             IndustryEditor_Run((uint32_t)(uintptr_t)kOrders497, (uint8_t*)Array33_At(kOrders497, 0, (int32_t)msg[2]), msg[2]);
             TrainList_Refill(d);
             return 0;
         }
         if (id >= 0x2761 && id <= 0x2763) {
-            hook::Global<int32_t>(0x622b28) = id - 0x2761;
+            g_622b28 = id - 0x2761;
             return 0;
         }
         return 1;
@@ -847,7 +847,7 @@ int32_t __fastcall ConsistDialog_HandleEvent(uint8_t* d, int, uint32_t* msg) {
     }
     if (id >= 0x28a0 && id < 0x2968) {
         const bool up = id < 0x2904;
-        uint8_t* scheme = (uint8_t*)Obj_Cargo72((uint8_t*)Collection_Get(hook::Global<Collection*>(0x6ada84), 0, (uint32_t)(id - (up ? 0x28a0 : 0x2904))));
+        uint8_t* scheme = (uint8_t*)Obj_Cargo72((uint8_t*)Collection_Get(g_6ada84, 0, (uint32_t)(id - (up ? 0x28a0 : 0x2904))));
         if (up) {
             ++F<int32_t>(scheme, 0x262);
             if (F<int32_t>(scheme, 0x262) == Collection_Count(F<Collection*>(scheme, 0x196))) F<int32_t>(scheme, 0x262) = -1;
@@ -864,11 +864,11 @@ int32_t __fastcall ConsistDialog_HandleEvent(uint8_t* d, int, uint32_t* msg) {
     case 0x2b00: return camera(0xad, 0xfffff490, 0, 0);
     case 0x2b01: return camera(0xad, 0x102e, 0, 0);
     case 0x2afb:
-        if (hook::Global<int32_t>(0x6d3b4c)) return locked(0xe8c);
+        if (g_6d3b4c) return locked(0xe8c);
         return close();
     case 0x2b02: {
-        if (hook::Global<int32_t>(0x6d3b4c)) return locked(0xe8c);
-        const bool insert = (F<uint8_t>(hook::Global<uint8_t*>(0x6d4018), 0xa8c) & 3) != 0;
+        if (g_6d3b4c) return locked(0xe8c);
+        const bool insert = (F<uint8_t>(g_input, 0xa8c) & 3) != 0;
         const int32_t station = StationPick_Run(0);
         if (station <= -1) return 0;
         uint8_t stop[0x33] = {};
@@ -885,14 +885,14 @@ int32_t __fastcall ConsistDialog_HandleEvent(uint8_t* d, int, uint32_t* msg) {
         return 0;
     }
     case 0x2b03: {
-        if (hook::Global<int32_t>(0x6d3b4c)) return locked(0xe8c);
+        if (g_6d3b4c) return locked(0xe8c);
         const int32_t row = StopRow497(d);
         if (row < 0) return 0;
         TrainOrders_Remove(kOrders497, 0, row);
         return 0;
     }
     case 0x2b04: {
-        if (hook::Global<int32_t>(0x6d3b4c) && msg[1] != hook::Global<uint32_t>(0x622b38)) return locked(0xe03);
+        if (g_6d3b4c && msg[1] != g_622b38) return locked(0xe03);
         const int32_t row = StopRow497(d);
         if (row >= 0) IndustryEditor_Run((uint32_t)(uintptr_t)kOrders497, (uint8_t*)Array33_At(kOrders497, 0, row), (uint32_t)row);
         TrainList_Refill(d);
@@ -904,20 +904,20 @@ int32_t __fastcall ConsistDialog_HandleEvent(uint8_t* d, int, uint32_t* msg) {
         return 1;
     }
     // Buy / upgrade.
-    if (hook::Global<int32_t>(0x6d3b4c) && msg[1] != hook::Global<uint32_t>(0x622b38)) return locked(0xe03);
+    if (g_6d3b4c && msg[1] != g_622b38) return locked(0xe03);
     int32_t total, count;
-    if (hook::Global<int32_t>(0x6d3acc)) {
+    if (hook::As<int32_t>(g_6d3acc)) {
         Editor_SelectionCost(&total, &count);
     } else {
-        uint8_t* engine = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6ada84), 0, TrainList_Selected());
-        const uint32_t player = (uint32_t)Obj_Get25(hook::Global<uint8_t*>(0x6cec78));
-        const uint32_t company = (uint32_t)Obj_Get21(hook::Global<uint8_t*>(0x6cec78));
+        uint8_t* engine = (uint8_t*)Collection_Get(g_6ada84, 0, TrainList_Selected());
+        const uint32_t player = (uint32_t)Obj_Get25(g_world);
+        const uint32_t company = (uint32_t)Obj_Get21(g_world);
         total = (int32_t)Obj_EffectScale(engine, 0, company, player);
         count = 1;
     }
-    const float cash = (float)Company_Stat((uint8_t*)Obj_Company21(hook::Global<uint8_t*>(0x6cec78)), 0, 0xd, 0x2329);
+    const float cash = (float)Company_Stat((uint8_t*)Obj_Company21(g_world), 0, 0xd, 0x2329);
     const float price = (float)total;
-    if (cash + BitsF(0x43fa0000) < price && !hook::Global<uint8_t*>(0x6cec7c)[0x82] && !F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4aef)) {
+    if (cash + BitsF(0x43fa0000) < price && !g_newGame[0x82] && !F<int32_t>(g_world, 0x4aef)) {
         char need[0xc8], have[0xc8], many[0xc8], text[0x1e4];
         Num_FormatSimple2(need, 0xb, (double)total, 0xb);
         Num_FormatSimple2(have, 0xb, cash, 0xb);
@@ -927,15 +927,15 @@ int32_t __fastcall ConsistDialog_HandleEvent(uint8_t* d, int, uint32_t* msg) {
         } else {
             FormatText(text, GetString(0xc70), need, have, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
         }
-        if (!F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4a8b)) strcat(text, GetString(0xc71));
+        if (!F<int32_t>(g_world, 0x4a8b)) strcat(text, GetString(0xc71));
         Message497(text);
         return 0;
     }
-    if (hook::Global<int32_t>(0x6d3acc)) {
+    if (hook::As<int32_t>(g_6d3acc)) {
         if (!IsMultiplayer()) {
             for (int32_t i = 0; i < 0x2000; ++i) {
                 if (!*(uint8_t*)(0x6d1aa8 + i)) continue;
-                uint8_t* t = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfcbc), 0, (uint32_t)i);
+                uint8_t* t = (uint8_t*)Collection_Get(g_trains, 0, (uint32_t)i);
                 if (!t || !OwnTrain497(t)) continue;
                 Train_ReplaceEngine(t, 0, TrainList_Selected(), 0);
                 Train_ApplyLivery(t);
@@ -943,36 +943,36 @@ int32_t __fastcall ConsistDialog_HandleEvent(uint8_t* d, int, uint32_t* msg) {
             return close();
         }
         uint8_t* req = ((uint8_t*(__cdecl*)(size_t))0x5a125d)(0x400a);
-        F<int32_t>(req, 0) = Obj_Get25(hook::Global<uint8_t*>(0x6cec78));
+        F<int32_t>(req, 0) = Obj_Get25(g_world);
         F<uint32_t>(req, 4) = TrainList_Selected();
         int32_t n = 0;
         for (int32_t i = 0; i < 0x2000; ++i) {
             if (!*(uint8_t*)(0x6d1aa8 + i)) continue;
-            uint8_t* t = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfcbc), 0, (uint32_t)i);
+            uint8_t* t = (uint8_t*)Collection_Get(g_trains, 0, (uint32_t)i);
             if (!t || !OwnTrain497(t)) continue;
             F<uint16_t>(req, 0xa + n * 2) = (uint16_t)i;
             ++n;
         }
         F<uint16_t>(req, 8) = (uint16_t)n;
-        Cursor_Set(hook::Global<uint8_t*>(0xccbb20), 0, 6, 0, 0);
-        Net_SendToHost(hook::Global<uint8_t*>(0x6cd8d8), 0, 0x39, n * 2 + 0xa, req);
+        Cursor_Set(g_cursorManager, 0, 6, 0, 0);
+        Net_SendToHost(g_session, 0, 0x39, n * 2 + 0xa, req);
         ((void(__cdecl*)(void*))0x5a1145)(req);
         return close();
     }
     int32_t electric = 0;
-    if (Collection_IsValid(hook::Global<Collection*>(0x6ada84), 0, TrainList_Selected()))
-        electric = F<int32_t>(Collection_Get(hook::Global<Collection*>(0x6ada84), 0, TrainList_Selected()), 0x10) == 2;
+    if (Collection_IsValid(g_6ada84, 0, TrainList_Selected()))
+        electric = F<int32_t>(Collection_Get(g_6ada84, 0, TrainList_Selected()), 0x10) == 2;
     if (OrderList_CountPlain(kOrders497) < 2) {
         Message497(GetString(0x54b));
         return 0;
     }
-    if (!Orders_Drivable((uint32_t*)kOrders497, 0, nullptr, -1, electric, 0, Obj_Get21(hook::Global<uint8_t*>(0x6cec78)))) {
+    if (!Orders_Drivable((uint32_t*)kOrders497, 0, nullptr, -1, electric, 0, Obj_Get21(g_world))) {
         char text[0x1e4];
         if (!Orders_Drivable((uint32_t*)kOrders497, 0, nullptr, -1, 0, 0, 0)) {
             const char* why = GetString(0xc11);
             FormatText(text, (const char*)0x5c8730, GetString(0xc0e), why, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
         } else {
-            const bool own = Orders_Drivable((uint32_t*)kOrders497, 0, nullptr, -1, 0, 0, Obj_Get21(hook::Global<uint8_t*>(0x6cec78))) != 0;
+            const bool own = Orders_Drivable((uint32_t*)kOrders497, 0, nullptr, -1, 0, 0, Obj_Get21(g_world)) != 0;
             const char* why = GetString(own ? 0xc0f : 0xc10);
             FormatText(text, (const char*)0x5d1988, GetString(0xc0e), why, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
         }
@@ -983,21 +983,21 @@ int32_t __fastcall ConsistDialog_HandleEvent(uint8_t* d, int, uint32_t* msg) {
         UpgradeDialog_SendTrains(d);
         return 0;
     }
-    hook::Global<uint32_t>(0x6d1aa4) = Train_Create(TrainList_Selected(), kOrders497, 1, -1);
-    uint8_t* t = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfcbc), 0, hook::Global<uint32_t>(0x6d1aa4));
+    hook::As<uint32_t>(g_6d1aa4) = Train_Create(TrainList_Selected(), kOrders497, 1, -1);
+    uint8_t* t = (uint8_t*)Collection_Get(g_trains, 0, hook::As<uint32_t>(g_6d1aa4));
     if (!t) return close();
-    if (hook::Global<int32_t>(0x6d3aa8) >= 0) Train_SetRunning(t, 0, hook::Global<int32_t>(0x6d3aa8));
+    if (hook::As<int32_t>(g_6d3aa8) >= 0) Train_SetRunning(t, 0, hook::As<int32_t>(g_6d3aa8));
     bool named = false;
-    if (hook::Global<int32_t>(0x6d3ad0) && hook::Global<char*>(0x6d3ad8)) {
+    if (hook::As<int32_t>(g_6d3ad0) && g_6d3ad8) {
         t[0x1a1] = 1;
         named = true;
-    } else if (hook::Global<int32_t>(0x6d3ad4) && hook::Global<char*>(0x6d3ad8)) {
+    } else if (hook::As<int32_t>(g_6d3ad4) && g_6d3ad8) {
         t[0x1ce] |= 1;
         named = true;
     }
-    if (named) StrCopyN((char*)t + 0x69, hook::Global<char*>(0x6d3ad8), 0x1e);
-    if (hook::Global<int32_t>(0x622b24) != -1)
-        Collection_SetKey1(hook::Global<Collection*>(0x6cfcbc), 0, hook::Global<uint32_t>(0x6d1aa4), hook::Global<uint32_t>(0x622b24));
+    if (named) StrCopyN((char*)t + 0x69, g_6d3ad8, 0x1e);
+    if (g_622b24 != -1)
+        Collection_SetKey1(g_trains, 0, hook::As<uint32_t>(g_6d1aa4), hook::As<uint32_t>(g_622b24));
     Train_ApplyLivery(t);
     return close();
 }
@@ -1013,22 +1013,22 @@ RT3_REPLACE(0x512160, ConsistDialog_HandleEvent);
 // (0x2afb, or 0x6d3adc) drops the copy. Afterwards the train view reopens
 // on 0x6d1aa4 and the cursor follows 0x6d3ab8.
 RT3_NOINLINE void __fastcall ConsistEditor_Run(uint8_t* owner, uint8_t* train, uint8_t* orders, uint32_t a2, uint32_t a3, uint32_t a4, uint32_t a5, uint32_t a6, uint32_t a7) {
-    if (hook::Global<int32_t>(0x6d3ae4)) return;
-    hook::Global<int32_t>(0x6d3ae4) = 1;
-    hook::Global<int32_t>(0x6d3adc) = 0;
+    if (g_6d3ae4) return;
+    g_6d3ae4 = 1;
+    g_6d3adc = 0;
     *(uint8_t*)0x6d3ae2 = 0;
-    hook::Global<uint32_t>(0x6d3ad0) = 0, hook::Global<uint32_t>(0x6d3ad4) = 0, hook::Global<uint32_t>(0x6d3ad8) = 0;
-    hook::Global<int32_t>(0x622b24) = -1;
+    g_6d3ad0 = 0, g_6d3ad4 = 0, hook::As<uint32_t>(g_6d3ad8) = 0;
+    g_622b24 = -1;
     if (!IsMultiplayer()) {
-        hook::Global<uint32_t>(0x6d3ad0) = a4;
-        hook::Global<uint32_t>(0x6d3ad4) = a5;
-        hook::Global<uint32_t>(0x6d3ad8) = a6;
-        hook::Global<uint32_t>(0x622b24) = a7;
+        g_6d3ad0 = a4;
+        g_6d3ad4 = a5;
+        hook::As<uint32_t>(g_6d3ad8) = a6;
+        hook::As<uint32_t>(g_622b24) = a7;
     }
-    hook::Global<uint32_t>(0x6d3acc) = owner ? F<uint32_t>(owner, 0x25) : 0;
-    hook::Global<uint32_t>(0x6d1aa0) = a2;
-    hook::Global<uint32_t>(0x6d3aa8) = a3;
-    hook::Global<uint32_t>(0x6d1aa4) = 0;
+    g_6d3acc = owner ? F<uint32_t>(owner, 0x25) : 0;
+    g_6d1aa0 = a2;
+    g_6d3aa8 = a3;
+    hook::As<uint32_t>(g_6d1aa4) = 0;
     uint8_t* work = (uint8_t*)0x6d3ae8;
     OrderList_Init(work);
     uint8_t* src = orders;
@@ -1036,16 +1036,16 @@ RT3_NOINLINE void __fastcall ConsistEditor_Run(uint8_t* owner, uint8_t* train, u
         src = (uint8_t*)Identity(train);
         uint8_t* city = (uint8_t*)Obj_CityRef(train);
         uint32_t ty = F<uint32_t>(city, 0x72);
-        uint8_t* t = ty ? (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba88), 0, ty) : nullptr;
-        hook::Global<uint32_t>(0x6d1aa0) = F<uint32_t>(t, 0x126);
-        hook::Global<uint32_t>(0x6d3aa8) = F<uint32_t>(train, 0xd8);
+        uint8_t* t = ty ? (uint8_t*)Collection_Get(g_carTypes, 0, ty) : nullptr;
+        g_6d1aa0 = F<uint32_t>(t, 0x126);
+        g_6d3aa8 = F<uint32_t>(train, 0xd8);
     }
     if (src) {
         for (int32_t i = 0; i < F<int32_t>(src, 4); ++i) TrainOrders_Insert(work, 0, i, (uint8_t*)Array33_At(src, 0, i));
-        hook::Global<int32_t>(0x6d3af0) = F<int32_t>(src, 8);
+        g_6d3af0 = F<int32_t>(src, 8);
         *(uint8_t*)0x6d3af4 = src[0xc];
     }
-    if (!owner) ((void(__fastcall*)(uint8_t*, int, int32_t, int32_t))0x4ddbd0)(hook::Global<uint8_t*>(0x6d0818), 0, 0, 0);
+    if (!owner) ((void(__fastcall*)(uint8_t*, int, int32_t, int32_t))0x4ddbd0)(g_gameWindow, 0, 0, 0);
     uint8_t* w = ((uint8_t*(__cdecl*)(size_t))0x53b070)(0x80);
     if (w) {
         Widget_SetVtblRet(w);
@@ -1053,29 +1053,29 @@ RT3_NOINLINE void __fastcall ConsistEditor_Run(uint8_t* owner, uint8_t* train, u
         TrainBuy_Init(w);
         F<int32_t>(w, 0x78) = 0;
     }
-    hook::Global<uint8_t*>(0x6d3ac8) = w;
+    g_6d3ac8 = w;
     TrainList_Refill(w);
-    PauseLock_Push(hook::Global<int32_t*>(0x6cec74));
-    uint32_t r = Ui_RunModal(hook::Global<uint8_t**>(0x6d401c), 0, hook::Global<uint8_t*>(0x6d3ac8), 1, 0, 0x14, 0);
-    PauseLock_Pop(hook::Global<int32_t*>(0x6cec74));
-    Windows_Remove(hook::Global<uint8_t*>(0x6d401c), 0, hook::Global<uint8_t*>(0x6d3ac8));
-    if ((r == 0x2afb || hook::Global<int32_t>(0x6d3adc)) && hook::Global<void*>(0x6d3ae8)) {
-        ((void(__cdecl*)(void*))0x5a1145)(hook::Global<void*>(0x6d3ae8));
+    PauseLock_Push(hook::As<int32_t*>(g_app));
+    uint32_t r = Ui_RunModal(hook::As<uint8_t**>(g_windowManager), 0, g_6d3ac8, 1, 0, 0x14, 0);
+    PauseLock_Pop(hook::As<int32_t*>(g_app));
+    Windows_Remove(g_windowManager, 0, g_6d3ac8);
+    if ((r == 0x2afb || g_6d3adc) && g_6d3ae8) {
+        ((void(__cdecl*)(void*))0x5a1145)(g_6d3ae8);
         OrderList_Init(work);
     }
-    uint8_t* win = hook::Global<uint8_t*>(0x6d3ac8);
-    hook::Global<int32_t>(0x6d3adc) = 0;
+    uint8_t* win = g_6d3ac8;
+    g_6d3adc = 0;
     if (win) {
         F<uint32_t>(win, 0) = 0x5d193c;
         Panel_ReleaseImages(win);
         Widget_SetVtbl(win);
         ((void(__cdecl*)(void*))0x53b080)(win);
     }
-    hook::Global<uint8_t*>(0x6d3ac8) = nullptr;
-    if (hook::Global<int32_t>(0x6d1aa4))
-        ((void(__fastcall*)(uint8_t*, int, int32_t, int32_t))0x4ddbd0)(hook::Global<uint8_t*>(0x6d0818), 0, 2, hook::Global<int32_t>(0x6d1aa4));
-    if (int32_t c = hook::Global<int32_t>(0x6d3ab8)) Cursor_Set(hook::Global<uint8_t*>(0xccbb20), 0, c, 0, 0);
-    hook::Global<int32_t>(0x6d3ae4) = 0;
+    g_6d3ac8 = nullptr;
+    if (g_6d1aa4)
+        ((void(__fastcall*)(uint8_t*, int, int32_t, int32_t))0x4ddbd0)(g_gameWindow, 0, 2, g_6d1aa4);
+    if (int32_t c = hook::As<int32_t>(g_6d3ab8)) Cursor_Set(g_cursorManager, 0, c, 0, 0);
+    g_6d3ae4 = 0;
 }
 RT3_REPLACE(0x512c50, ConsistEditor_Run);
 
@@ -1095,10 +1095,10 @@ RT3_REPLACE(0x512ec0, TrainOrders_Copy);
 void __fastcall TrainDetail_Destruct(uint8_t* w) {
     F<uint32_t>(w, 0) = 0x5d1990;
     Window_DeleteChildren(w, 0, 0x65c2, 0x65d4, 0);
-    Pack_Release(hook::Global<uint8_t*>(0x6d4020), 0, hook::Global<void*>(0x6d3b14));
-    Pack_Release(hook::Global<uint8_t*>(0x6d4020), 0, hook::Global<void*>(0x6d3b18));
-    Pack_Release(hook::Global<uint8_t*>(0x6d4020), 0, hook::Global<void*>(0x6d3b1c));
-    hook::Global<int32_t>(0x6d3b20) = 0;
+    Pack_Release(g_pack, 0, hook::As<void*>(g_6d3b14));
+    Pack_Release(g_pack, 0, g_6d3b18);
+    Pack_Release(g_pack, 0, g_6d3b1c);
+    hook::As<int32_t>(g_6d3b20) = 0;
     Widget_SetVtbl(w);
 }
 RT3_REPLACE(0x512f10, TrainDetail_Destruct);
@@ -1107,7 +1107,7 @@ RT3_REPLACE(0x512f10, TrainDetail_Destruct);
 // 0x659d (event 0x9e) to 508 or 292 pixels (of 1600 x 1200) and swaps which of the
 // buttons 0x6594 / 0x6593 is enabled.
 RT3_NOINLINE void __fastcall Window_SetLargeLayout(uint8_t* w, int, int32_t large) {
-    hook::Global<int32_t>(0x6d3b28) = large;
+    g_6d3b28 = large;
     double px = (double)(large ? 0x1fc : 0x124);
     uint32_t ev[12] = {};
     ev[0] = 0x9e;
@@ -1115,8 +1115,8 @@ RT3_NOINLINE void __fastcall Window_SetLargeLayout(uint8_t* w, int, int32_t larg
     *(float*)&ev[6] = (float)(px / D(0x5ca2c8));
     *(float*)&ev[7] = (float)(px / D(0x5ca2d0));
     Window_HandleEvent(w, 0, ev);
-    Window_SendEvent5(w, 0, hook::Global<int32_t>(0x6d3b28) ? 0x86 : 0x6d, 0x6594, 3, 0, 0);
-    Window_SendEvent5(w, 0, hook::Global<int32_t>(0x6d3b28) ? 0x6d : 0x86, 0x6593, 3, 0, 0);
+    Window_SendEvent5(w, 0, g_6d3b28 ? 0x86 : 0x6d, 0x6594, 3, 0, 0);
+    Window_SendEvent5(w, 0, g_6d3b28 ? 0x6d : 0x86, 0x6593, 3, 0, 0);
 }
 RT3_REPLACE(0x512f80, Window_SetLargeLayout);
 
@@ -1124,11 +1124,11 @@ RT3_REPLACE(0x512f80, Window_SetLargeLayout);
 // the sender the cursor resets, the view leaves the train window and input
 // event 0x3e8 goes out.
 RT3_NOINLINE void __fastcall NetMsg_SellTrain(uint8_t* m) {
-    Collection* trains = hook::Global<Collection*>(0x6cfcbc);
+    Collection* trains = g_trains;
     trains->vtbl->release(trains, F<uint32_t>(m, 4));
-    if (Obj_Get25(hook::Global<void*>(0x6cec78)) != F<int32_t>(m, 0)) return;
-    Cursor_Set(hook::Global<uint8_t*>(0xccbb20), 0, 1, 0, 0);
-    ((void(__fastcall*)(uint8_t*, int, int32_t, int32_t))0x4ddbd0)(hook::Global<uint8_t*>(0x6d0818), 0, 2, 0);
+    if (Obj_Get25(hook::As<void*>(g_world)) != F<int32_t>(m, 0)) return;
+    Cursor_Set(g_cursorManager, 0, 1, 0, 0);
+    ((void(__fastcall*)(uint8_t*, int, int32_t, int32_t))0x4ddbd0)(g_gameWindow, 0, 2, 0);
     Game_PostInputEvent(0x3e8, 0, 0, 0, 0);
 }
 RT3_REPLACE(0x513050, NetMsg_SellTrain);
@@ -1141,11 +1141,11 @@ RT3_REPLACE(0x5130d0, Train_Total131);
 
 RT3_NOINLINE void* SelectedTrain() {
     if (!SelectedTrainValid()) return nullptr;
-    return Collection_Get(g_trains, 0, F<uint32_t>(hook::Global<uint8_t*>(0x6d0818), 0x90));
+    return Collection_Get(g_trains, 0, F<uint32_t>(g_gameWindow, 0x90));
 }
 RT3_REPLACE(0x5130f0, SelectedTrain);
 
-RT3_NOINLINE int32_t SelectedTrainId() { return SelectedTrainValid() ? F<int32_t>(hook::Global<uint8_t*>(0x6d0818), 0x90) : -1; }
+RT3_NOINLINE int32_t SelectedTrainId() { return SelectedTrainValid() ? F<int32_t>(g_gameWindow, 0x90) : -1; }
 RT3_REPLACE(0x513130, SelectedTrainId);
 
 RT3_NOINLINE int32_t HasSelectedTrain() { return SelectedTrainValid() ? 1 : 0; }
@@ -1153,9 +1153,9 @@ RT3_REPLACE(0x513170, HasSelectedTrain);
 
 RT3_NOINLINE int32_t SelectedTrainIsOwn() {
     if (!SelectedTrainValid() || !SelectedTrainValid()) return 0;
-    uint8_t* t = (uint8_t*)Collection_Get(g_trains, 0, F<uint32_t>(hook::Global<uint8_t*>(0x6d0818), 0x90));
+    uint8_t* t = (uint8_t*)Collection_Get(g_trains, 0, F<uint32_t>(g_gameWindow, 0x90));
     if (!t) return 0;
-    return F<int32_t>(t, 0x51) == Obj_Get21(hook::Global<void*>(0x6cec78)) ? 1 : 0;
+    return F<int32_t>(t, 0x51) == Obj_Get21(hook::As<void*>(g_world)) ? 1 : 0;
 }
 RT3_REPLACE(0x5131a0, SelectedTrainIsOwn);
 
@@ -1163,13 +1163,13 @@ RT3_REPLACE(0x5131a0, SelectedTrainIsOwn);
 // +0x90 in 0x6cfcbc) with the name of its company.
 RT3_NOINLINE void TrainWindow_ShowOwnerMessage() {
     auto selected = []() {
-        uint8_t* v = hook::Global<uint8_t*>(0x6d0818);
-        return v && F<int32_t>(v, 0x90) > 0 && Collection_IsValid(hook::Global<Collection*>(0x6cfcbc), 0, F<uint32_t>(v, 0x90));
+        uint8_t* v = g_gameWindow;
+        return v && F<int32_t>(v, 0x90) > 0 && Collection_IsValid(g_trains, 0, F<uint32_t>(v, 0x90));
     };
     if (!selected()) return;
     const char* name = (const char*)0x5c87a8;
     if (selected()) {
-        if (void* t = Collection_Get(hook::Global<Collection*>(0x6cfcbc), 0, F<uint32_t>(hook::Global<uint8_t*>(0x6d0818), 0x90)))
+        if (void* t = Collection_Get(g_trains, 0, F<uint32_t>(g_gameWindow, 0x90)))
             if (uint8_t* c = (uint8_t*)Train_Company(t)) name = (const char*)c + 4;
     }
     char text[0x1f4];
@@ -1181,12 +1181,12 @@ RT3_REPLACE(0x513220, TrainWindow_ShowOwnerMessage);
 // 0x513310 (draw callback). Draws the focused train's row highlighted,
 // inset by 0x5d0100.
 void __fastcall TrainView_DrawRowCb(void*, int, float x, float y, float w, float h, int32_t) {
-    uint8_t* v = hook::Global<uint8_t*>(0x6d0818);
-    if (!v || F<int32_t>(v, 0x90) <= 0 || !Collection_IsValid(hook::Global<Collection*>(0x6cfcbc), 0, F<uint32_t>(v, 0x90))) return;
+    uint8_t* v = g_gameWindow;
+    if (!v || F<int32_t>(v, 0x90) <= 0 || !Collection_IsValid(g_trains, 0, F<uint32_t>(v, 0x90))) return;
     uint8_t* t = nullptr;
-    v = hook::Global<uint8_t*>(0x6d0818);
-    if (v && F<int32_t>(v, 0x90) > 0 && Collection_IsValid(hook::Global<Collection*>(0x6cfcbc), 0, F<uint32_t>(v, 0x90)))
-        t = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfcbc), 0, F<uint32_t>(hook::Global<uint8_t*>(0x6d0818), 0x90));
+    v = g_gameWindow;
+    if (v && F<int32_t>(v, 0x90) > 0 && Collection_IsValid(g_trains, 0, F<uint32_t>(v, 0x90)))
+        t = (uint8_t*)Collection_Get(g_trains, 0, F<uint32_t>(g_gameWindow, 0x90));
     const float iw = (float)((double)w - Fl(0x5d0100));
     const float ix = (float)((double)x + Fl(0x5d0100));
     TrainList_DrawEntry(t, 1, ix, y, iw, h);
@@ -1196,13 +1196,13 @@ RT3_REPLACE(0x513310, TrainView_DrawRowCb);
 // 0x5133b0 (draw callback). Draws stop label idx (EDX) of the focused
 // train.
 void __fastcall TrainView_DrawStopCb(void*, int32_t idx, float x, float y, int32_t a, float h, int32_t) {
-    uint8_t* v = hook::Global<uint8_t*>(0x6d0818);
-    if (!v || F<int32_t>(v, 0x90) <= 0 || !Collection_IsValid(hook::Global<Collection*>(0x6cfcbc), 0, F<uint32_t>(v, 0x90))) return;
-    if (!Collection_Get(hook::Global<Collection*>(0x6cfcbc), 0, F<uint32_t>(hook::Global<uint8_t*>(0x6d0818), 0x90))) return;
+    uint8_t* v = g_gameWindow;
+    if (!v || F<int32_t>(v, 0x90) <= 0 || !Collection_IsValid(g_trains, 0, F<uint32_t>(v, 0x90))) return;
+    if (!Collection_Get(g_trains, 0, F<uint32_t>(g_gameWindow, 0x90))) return;
     uint8_t* t = nullptr;
-    v = hook::Global<uint8_t*>(0x6d0818);
-    if (v && F<int32_t>(v, 0x90) > 0 && Collection_IsValid(hook::Global<Collection*>(0x6cfcbc), 0, F<uint32_t>(v, 0x90)))
-        t = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfcbc), 0, F<uint32_t>(hook::Global<uint8_t*>(0x6d0818), 0x90));
+    v = g_gameWindow;
+    if (v && F<int32_t>(v, 0x90) > 0 && Collection_IsValid(g_trains, 0, F<uint32_t>(v, 0x90)))
+        t = (uint8_t*)Collection_Get(g_trains, 0, F<uint32_t>(g_gameWindow, 0x90));
     StopList_DrawLabel(Identity(t), idx, x, y, a, h);
 }
 RT3_REPLACE(0x5133b0, TrainView_DrawStopCb);
@@ -1210,8 +1210,8 @@ RT3_REPLACE(0x5133b0, TrainView_DrawStopCb);
 // 0x513460 (callback). Deletes widget w's generated rows while a train is
 // focused.
 void __fastcall TrainView_DeleteRowsCb(uint8_t* w, int32_t e, int32_t a) {
-    uint8_t* v = hook::Global<uint8_t*>(0x6d0818);
-    if (!v || F<int32_t>(v, 0x90) <= 0 || !Collection_IsValid(hook::Global<Collection*>(0x6cfcbc), 0, F<uint32_t>(v, 0x90))) return;
+    uint8_t* v = g_gameWindow;
+    if (!v || F<int32_t>(v, 0x90) <= 0 || !Collection_IsValid(g_trains, 0, F<uint32_t>(v, 0x90))) return;
     Widget_DeleteGeneratedRows(w, e, a);
 }
 RT3_REPLACE(0x513460, TrainView_DeleteRowsCb);
@@ -1220,9 +1220,9 @@ RT3_REPLACE(0x513460, TrainView_DeleteRowsCb);
 // to row w unless it is the active page button (0x65a4 with 0x6d3b24, else
 // 0x65a3).
 void __fastcall TrainView_AddCargoButtonsCb(uint8_t* w, int32_t type, int32_t, float x, float y, int32_t a, int32_t b) {
-    uint8_t* v = hook::Global<uint8_t*>(0x6d0818);
-    if (!v || F<int32_t>(v, 0x90) <= 0 || !Collection_IsValid(hook::Global<Collection*>(0x6cfcbc), 0, F<uint32_t>(v, 0x90))) return;
-    const uint16_t page = hook::Global<int32_t>(0x6d3b24) ? 0x65a4 : 0x65a3;
+    uint8_t* v = g_gameWindow;
+    if (!v || F<int32_t>(v, 0x90) <= 0 || !Collection_IsValid(g_trains, 0, F<uint32_t>(v, 0x90))) return;
+    const uint16_t page = g_6d3b24 ? 0x65a4 : 0x65a3;
     if (F<uint16_t>(w, 4) == page) return;
     BuildingRow_AddCargoButtons(w, (uint8_t*)Identity(SelectedTrain()), type, x, y, a, b);
 }
@@ -1233,15 +1233,15 @@ RT3_REPLACE(0x5134a0, TrainView_AddCargoButtonsCb);
 // strings 0x256..0x258) and 0x65bf (running cost x 0x5d19a0, string 0x259);
 // other ids show an empty one.
 RT3_NOINLINE void __fastcall TrainDetail_TooltipCb(int32_t id, int, int32_t, int32_t) {
-    uint8_t* sel = hook::Global<uint8_t*>(0x6d0818);
-    if (!sel || F<int32_t>(sel, 0x90) <= 0 || !Collection_IsValid(hook::Global<Collection*>(0x6cfcbc), 0, F<uint32_t>(sel, 0x90))) return;
+    uint8_t* sel = g_gameWindow;
+    if (!sel || F<int32_t>(sel, 0x90) <= 0 || !Collection_IsValid(g_trains, 0, F<uint32_t>(sel, 0x90))) return;
     char frame[0x644];
     char* num = frame + 4;
     char* text = frame + 0x324;
     text[0] = 0;
-    sel = hook::Global<uint8_t*>(0x6d0818);
-    if (!sel || F<int32_t>(sel, 0x90) <= 0 || !Collection_IsValid(hook::Global<Collection*>(0x6cfcbc), 0, F<uint32_t>(sel, 0x90))) return;
-    uint8_t* t = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfcbc), 0, F<uint32_t>(hook::Global<uint8_t*>(0x6d0818), 0x90));
+    sel = g_gameWindow;
+    if (!sel || F<int32_t>(sel, 0x90) <= 0 || !Collection_IsValid(g_trains, 0, F<uint32_t>(sel, 0x90))) return;
+    uint8_t* t = (uint8_t*)Collection_Get(g_trains, 0, F<uint32_t>(g_gameWindow, 0x90));
     if (!t) return;
     int32_t str = 0;
     if (id == 0x65b6) {
@@ -1258,7 +1258,7 @@ RT3_NOINLINE void __fastcall TrainDetail_TooltipCb(int32_t id, int, int32_t, int
         str = 0x259;
     }
     if (str) FormatText(text, GetString(str), num, 0, 0, 0, 0, 0, 0, 0);
-    Ui_ShowTooltip(hook::Global<uint8_t*>(0x6d401c), 0, text, 1, 1, -1);
+    Ui_ShowTooltip(g_windowManager, 0, text, 1, 1, -1);
 }
 RT3_REPLACE(0x513520, TrainDetail_TooltipCb);
 
@@ -1266,7 +1266,7 @@ RT3_REPLACE(0x513520, TrainDetail_TooltipCb);
 // 0x6d3b24 is clear) has a selection, and captions them accordingly (strings
 // 0x25b / 0x25d without one, 0x25c / 0x25e with).
 RT3_NOINLINE void __fastcall Window_UpdateListButtons(uint8_t* w) {
-    uint8_t* list = Widget_FindChild(w, 0, hook::Global<int32_t>(0x6d3b24) ? 0x65a3 : 0x65a4);
+    uint8_t* list = Widget_FindChild(w, 0, g_6d3b24 ? 0x65a3 : 0x65a4);
     bool none = F<int32_t>(list, 0x1d6) < 0;
     uint32_t type = none ? 0x87 : 0x65;
     Window_SendEvent5(w, 0, type, 0x65a1, 2, 0, 0);
@@ -1283,15 +1283,15 @@ RT3_REPLACE(0x513720, Window_UpdateListButtons);
 // money rows +0x109 / +0x131 / +0x159 and their sum, negative values in red,
 // the sum row underlined.
 void __fastcall TrainView_DrawIncomeTable(void*, int, float x, float y, float, float, int32_t) {
-    uint8_t* view = hook::Global<uint8_t*>(0x6d0818);
-    if (!view || F<int32_t>(view, 0x90) <= 0 || !Collection_IsValid(hook::Global<Collection*>(0x6cfcbc), 0, F<uint32_t>(view, 0x90))) return;
-    view = hook::Global<uint8_t*>(0x6d0818);
-    if (!view || F<int32_t>(view, 0x90) <= 0 || !Collection_IsValid(hook::Global<Collection*>(0x6cfcbc), 0, F<uint32_t>(view, 0x90))) return;
-    uint8_t* t = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfcbc), 0, F<uint32_t>(hook::Global<uint8_t*>(0x6d0818), 0x90));
-    if (!t || hook::Global<uint8_t*>(0x6cec7c)[0x82] || F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4aef)) return;
+    uint8_t* view = g_gameWindow;
+    if (!view || F<int32_t>(view, 0x90) <= 0 || !Collection_IsValid(g_trains, 0, F<uint32_t>(view, 0x90))) return;
+    view = g_gameWindow;
+    if (!view || F<int32_t>(view, 0x90) <= 0 || !Collection_IsValid(g_trains, 0, F<uint32_t>(view, 0x90))) return;
+    uint8_t* t = (uint8_t*)Collection_Get(g_trains, 0, F<uint32_t>(g_gameWindow, 0x90));
+    if (!t || g_newGame[0x82] || F<int32_t>(g_world, 0x4aef)) return;
     static const int32_t labels[5] = { 3, 0x25f, 0x260, 0x261, 0x262 };
     static const uint32_t colX[5] = { 0x3b83126f, 0x3dd2f1aa, 0x3e3126e9, 0x3e78d4fe, 0x3ea04189 };
-    int32_t cols = F<uint16_t>(hook::Global<uint8_t*>(0x6cec78), 0xd) - F<int32_t>(t, 0xd0) + 3;
+    int32_t cols = F<uint16_t>(g_world, 0xd) - F<int32_t>(t, 0xd0) + 3;
     if (cols > 4) cols = 4;
     float top = (float)((double)y + D(0x5cfdd8));
     char text[0x184];
@@ -1307,7 +1307,7 @@ void __fastcall TrainView_DrawIncomeTable(void*, int, float x, float y, float, f
                 strcpy(text, GetString(labels[r]));
             } else if (r == 0) {
                 if (c == cols - 1) strcpy(text, GetString(0x263));
-                else Num_Format(text, 8, (double)(F<uint16_t>(hook::Global<uint8_t*>(0x6cec78), 0xd) - (c - 1)), 10, 1, 0, 0);
+                else Num_Format(text, 8, (double)(F<uint16_t>(g_world, 0xd) - (c - 1)), 10, 1, 0, 0);
             } else {
                 bool total = c == cols - 1;
                 float v = 0.0f;
@@ -1321,7 +1321,7 @@ void __fastcall TrainView_DrawIncomeTable(void*, int, float x, float y, float, f
                 Num_FormatSimple2(text, 0xb, (double)v, 0xb);
                 if (r == 3) flags = 4;
             }
-            Font_DrawTextBox(hook::Global<uint8_t*>(0x6d3b14), 0, text, cx, rowY, cw, BitsF(0x3ca3d70a), color, align, 0, (uint32_t)flags, 1.0f);
+            Font_DrawTextBox(g_6d3b14, 0, text, cx, rowY, cw, BitsF(0x3ca3d70a), color, align, 0, (uint32_t)flags, 1.0f);
             rowY = (float)((double)rowY + D(0x5d10f0));
             if (r == 0) rowY = (float)((double)rowY + D(0x5d1150));
             else if (r == 3) rowY = (float)((double)rowY + D(0x5d0818));
@@ -1339,25 +1339,25 @@ RT3_REPLACE(0x5137d0, TrainView_DrawIncomeTable);
 // with +0x10) and +0xe4 (0x65ba / 0x65bb), hiding empty ones; the second
 // shows its legend 0x65b9 / 0x65bd swapped for such cargo.
 void __fastcall TrainGauges_DrawCb(void*, int, float x, float y, float w, float h, int32_t) {
-    uint8_t* sel = hook::Global<uint8_t*>(0x6d0818);
-    if (!sel || F<int32_t>(sel, 0x90) <= 0 || !Collection_IsValid(hook::Global<Collection*>(0x6cfcbc), 0, F<uint32_t>(sel, 0x90))) return;
-    sel = hook::Global<uint8_t*>(0x6d0818);
-    if (!sel || F<int32_t>(sel, 0x90) <= 0 || !Collection_IsValid(hook::Global<Collection*>(0x6cfcbc), 0, F<uint32_t>(sel, 0x90))) return;
-    uint8_t* t = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfcbc), 0, F<uint32_t>(hook::Global<uint8_t*>(0x6d0818), 0x90));
+    uint8_t* sel = g_gameWindow;
+    if (!sel || F<int32_t>(sel, 0x90) <= 0 || !Collection_IsValid(g_trains, 0, F<uint32_t>(sel, 0x90))) return;
+    sel = g_gameWindow;
+    if (!sel || F<int32_t>(sel, 0x90) <= 0 || !Collection_IsValid(g_trains, 0, F<uint32_t>(sel, 0x90))) return;
+    uint8_t* t = (uint8_t*)Collection_Get(g_trains, 0, F<uint32_t>(g_gameWindow, 0x90));
     if (!t) return;
     const float tx = (float)((double)x + D(0x5d0818));
     const float ty = (float)((double)y + D(0x5d00a8));
     const float rh = BitsF(0x3ca3d70a);
-    Font_DrawTextBox(hook::Global<uint8_t*>(0x6d3b14), 0, GetString(0x264), tx, ty, BitsF(0x3d3851ec), rh, 0xffffffff, 2, 0, 0, 1.0f);
-    int32_t age = F<uint16_t>(hook::Global<uint8_t*>(0x6cec78), 0xd) - F<int32_t>(t, 0xd4);
-    if (F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4aeb)) age = 0;
+    Font_DrawTextBox(g_6d3b14, 0, GetString(0x264), tx, ty, BitsF(0x3d3851ec), rh, 0xffffffff, 2, 0, 0, 1.0f);
+    int32_t age = F<uint16_t>(g_world, 0xd) - F<int32_t>(t, 0xd4);
+    if (F<int32_t>(g_world, 0x4aeb)) age = 0;
     char frame[0xcc];
     char* num = frame + 0xc;
     char* text = frame + 0x4c;
     Num_Format(num, 8, (double)age, 10, 1, 0, 0);
     FormatText(text, GetString(0x265), num, 0, 0, 0, 0, 0, 0, 0);
     const float ax = (float)((double)tx + D(0x5d19b8));
-    Font_DrawTextBox(hook::Global<uint8_t*>(0x6d3b14), 0, text, ax, ty, BitsF(0x3d99999a), rh, 0xffffffff, 2, 0, 0, 1.0f);
+    Font_DrawTextBox(g_6d3b14, 0, text, ax, ty, BitsF(0x3d99999a), rh, 0xffffffff, 2, 0, 0, 1.0f);
     uint8_t* bar = ShownChild466(0x65b1);
     float cost = Train_RunningCost(t);
     cost = (float)((double)cost * D(0x5d19a0));
@@ -1366,7 +1366,7 @@ void __fastcall TrainGauges_DrawCb(void*, int, float x, float y, float w, float 
     cost = (float)(((double)cost + Fl(0x5c8568)) / Fl(0x5ca198));
     Widget_SetClip(bar, 0, 0x3f5ee148, 0x3f281b4f, Bits(cost), 0x3f2aaaab);
     F<float>(ShownChild466(0x65b2), 0xb) = cost;
-    uint8_t* g = Widget_FindChild(hook::Global<uint8_t*>(0x6d3b20), 0, 0x65b4);
+    uint8_t* g = Widget_FindChild(g_6d3b20, 0, 0x65b4);
     if (F<float>(t, 0xdc) != Fl(0x5c8598)) {
         if (!Widget_IsVisible(g)) Widget_SetFlags(g, 0, 1, 0, 0);
         const float top = (float)(Fl(0x5d19a8) - (double)F<float>(t, 0xdc) * Fl(0x5d19ac));
@@ -1374,10 +1374,10 @@ void __fastcall TrainGauges_DrawCb(void*, int, float x, float y, float w, float 
         F<float>(ShownChild466(0x65b5), 0xf) = (float)(((double)top - Fl(0x5c8554)) / Fl(0x5ca164));
     } else {
         Widget_ClearFlags(g, 0, 1);
-        Window_SendEvent5(hook::Global<uint8_t*>(0x6d3b20), 0, 0x87, 0x65b5, 1, 0, 0);
+        Window_SendEvent5(g_6d3b20, 0, 0x87, 0x65b5, 1, 0, 0);
     }
-    uint8_t* cls = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6ada84), 0, F<uint32_t>(Obj_Ref388(Obj_City41(t)), 0x126));
-    g = Widget_FindChild(hook::Global<uint8_t*>(0x6d3b20), 0, 0x65b7);
+    uint8_t* cls = (uint8_t*)Collection_Get(g_6ada84, 0, F<uint32_t>(Obj_Ref388(Obj_City41(t)), 0x126));
+    g = Widget_FindChild(g_6d3b20, 0, 0x65b7);
     bool swapped = false;
     if (F<float>(t, 0xe0) != Fl(0x5c8598) && !F<uint32_t>(cls, 0x10)) {
         if (!Widget_IsVisible(g)) Widget_SetFlags(g, 0, 1, 0, 0);
@@ -1386,17 +1386,17 @@ void __fastcall TrainGauges_DrawCb(void*, int, float x, float y, float w, float 
         F<float>(ShownChild466(0x65b8), 0xf) = (float)(((double)top - Fl(0x5c8554)) / Fl(0x5ca164));
     } else {
         Widget_ClearFlags(g, 0, 1);
-        Window_SendEvent5(hook::Global<uint8_t*>(0x6d3b20), 0, 0x87, 0x65b8, 1, 0, 0);
+        Window_SendEvent5(g_6d3b20, 0, 0x87, 0x65b8, 1, 0, 0);
         swapped = F<uint32_t>(cls, 0x10) != 0;
     }
     if (swapped) {
-        Window_SendEvent5(hook::Global<uint8_t*>(0x6d3b20), 0, 0x87, 0x65b9, 1, 0, 0);
-        Window_SendEvent5(hook::Global<uint8_t*>(0x6d3b20), 0, 0x65, 0x65bd, 3, 0, 0);
+        Window_SendEvent5(g_6d3b20, 0, 0x87, 0x65b9, 1, 0, 0);
+        Window_SendEvent5(g_6d3b20, 0, 0x65, 0x65bd, 3, 0, 0);
     } else {
-        Window_SendEvent5(hook::Global<uint8_t*>(0x6d3b20), 0, 0x65, 0x65b9, 1, 0, 0);
-        Window_SendEvent5(hook::Global<uint8_t*>(0x6d3b20), 0, 0x87, 0x65bd, 3, 0, 0);
+        Window_SendEvent5(g_6d3b20, 0, 0x65, 0x65b9, 1, 0, 0);
+        Window_SendEvent5(g_6d3b20, 0, 0x87, 0x65bd, 3, 0, 0);
     }
-    g = Widget_FindChild(hook::Global<uint8_t*>(0x6d3b20), 0, 0x65ba);
+    g = Widget_FindChild(g_6d3b20, 0, 0x65ba);
     if (F<float>(t, 0xe4) != Fl(0x5c8598)) {
         if (!Widget_IsVisible(g)) Widget_SetFlags(g, 0, 1, 0, 0);
         const float top = (float)(Fl(0x5d19a8) - (double)F<float>(t, 0xe4) * Fl(0x5d19ac));
@@ -1404,7 +1404,7 @@ void __fastcall TrainGauges_DrawCb(void*, int, float x, float y, float w, float 
         F<float>(ShownChild466(0x65bb), 0xf) = (float)(((double)top - Fl(0x5c8554)) / Fl(0x5ca164));
     } else {
         Widget_ClearFlags(g, 0, 1);
-        Window_SendEvent5(hook::Global<uint8_t*>(0x6d3b20), 0, 0x87, 0x65bb, 1, 0, 0);
+        Window_SendEvent5(g_6d3b20, 0, 0x87, 0x65bb, 1, 0, 0);
     }
 }
 RT3_REPLACE(0x513b50, TrainGauges_DrawCb);
@@ -1412,10 +1412,10 @@ RT3_REPLACE(0x513b50, TrainGauges_DrawCb);
 // 0x514110 (hover callback). Shows the pick tooltip of child 0x659d of
 // 0x6d3b20 for the focused train while the first argument is set.
 void __fastcall Train_PickTooltipCb(void*, int, int32_t on, int32_t, int32_t, int32_t, int32_t) {
-    uint8_t* v = hook::Global<uint8_t*>(0x6d0818);
+    uint8_t* v = g_gameWindow;
     if (!v || F<int32_t>(v, 0x90) <= 0) return;
-    if (!Collection_IsValid(hook::Global<Collection*>(0x6cfcbc), 0, F<uint32_t>(v, 0x90)) || !on) return;
-    Map_ShowPickTooltip(Widget_FindChild(hook::Global<uint8_t*>(0x6d3b20), 0, 0x659d));
+    if (!Collection_IsValid(g_trains, 0, F<uint32_t>(v, 0x90)) || !on) return;
+    Map_ShowPickTooltip(Widget_FindChild(g_6d3b20, 0, 0x659d));
 }
 RT3_REPLACE(0x514110, Train_PickTooltipCb);
 
@@ -1425,19 +1425,19 @@ RT3_REPLACE(0x514110, Train_PickTooltipCb);
 // cell callbacks, the "no orders" text 0x25a, the header row, then the list
 // buttons.
 RT3_NOINLINE void __fastcall TrainWindow_Refresh(uint8_t* win) {
-    uint32_t listId = hook::Global<int32_t>(0x6d3b24) ? 0x65a3 : 0x65a4;
+    uint32_t listId = g_6d3b24 ? 0x65a3 : 0x65a4;
     int32_t sel = F<int32_t>(Widget_FindChild(win, 0, (int32_t)listId), 0x1d6);
     int32_t scroll = F<int32_t>(Widget_FindChild(win, 0, (int32_t)listId), 0x1e2);
     auto send = [&](uint32_t type, uint32_t id, uint32_t a, uint32_t b) { Window_SendEvent5(win, 0, type, id, a, b, 0); };
     send(0x8b, 0x65a3, 0, 0);
     send(0x8b, 0x65a4, 0, 0);
     Window_DeleteChildren(win, 0, 0x65c2, 0x6946, 0);
-    Collection* trains = hook::Global<Collection*>(0x6cfcbc);
+    Collection* trains = g_trains;
     for (int k = 0; k < 2; ++k) {
-        uint8_t* view = hook::Global<uint8_t*>(0x6d0818);
-        if (!view || F<int32_t>(view, 0x90) <= 0 || !Collection_IsValid(trains, 0, F<uint32_t>(hook::Global<uint8_t*>(0x6d0818), 0x90))) return;
+        uint8_t* view = g_gameWindow;
+        if (!view || F<int32_t>(view, 0x90) <= 0 || !Collection_IsValid(trains, 0, F<uint32_t>(g_gameWindow, 0x90))) return;
     }
-    uint8_t* t = (uint8_t*)Collection_Get(trains, 0, F<uint32_t>(hook::Global<uint8_t*>(0x6d0818), 0x90));
+    uint8_t* t = (uint8_t*)Collection_Get(trains, 0, F<uint32_t>(g_gameWindow, 0x90));
     if (!t) return;
     for (int32_t i = 0; i < F<int32_t>(t, 4); ++i) {
         send(0x88, 0x65a3, 0, (uint32_t)i);
@@ -1464,7 +1464,7 @@ RT3_REPLACE(0x514160, TrainWindow_Refresh);
 
 // 0x514410. Refreshes the train window when it is open.
 RT3_NOINLINE void TrainWindow_RefreshOpen() {
-    if (hook::Global<uint8_t*>(0x6d3b20)) TrainWindow_Refresh(hook::Global<uint8_t*>(0x6d3b20));
+    if (g_6d3b20) TrainWindow_Refresh(g_6d3b20);
 }
 RT3_REPLACE(0x514410, TrainWindow_RefreshOpen);
 
@@ -1476,21 +1476,21 @@ RT3_REPLACE(0x514410, TrainWindow_RefreshOpen);
 RT3_NOINLINE uint8_t* __fastcall TrainWindow_Construct(uint8_t* w) {
     Widget_SetVtblRet(w);
     F<uint32_t>(w, 0) = 0x5d1990;
-    hook::Global<uint8_t*>(0x6d3b20) = w;
-    hook::Global<uint8_t*>(0x6d3b14) = Pack_AcquireFont(hook::Global<uint8_t*>(0x6d4020), 0, 2);
-    hook::Global<uint8_t*>(0x6d3b18) = Pack_AcquireFont(hook::Global<uint8_t*>(0x6d4020), 0, 1);
-    hook::Global<uint8_t*>(0x6d3b1c) = Pack_AcquireNamed(hook::Global<uint8_t*>(0x6d4020), 0, (const char*)0x5c9ee8);
+    g_6d3b20 = w;
+    g_6d3b14 = Pack_AcquireFont(g_pack, 0, 2);
+    hook::As<uint8_t*>(g_6d3b18) = Pack_AcquireFont(g_pack, 0, 1);
+    hook::As<uint8_t*>(g_6d3b1c) = Pack_AcquireNamed(g_pack, 0, (const char*)0x5c9ee8);
     Window_Load(w, 0, 0.0f, 0.0f, (const char*)0x5d19c0);
     static const uint32_t events[][3] = { { 0xba, 0x659d, 0 },        { 0x7e, 0x65a3, 0x5134a0 }, { 0x7f, 0x65a3, 0x513460 }, { 0x7e, 0x65a4, 0x5134a0 },
                                           { 0x7f, 0x65a4, 0x513460 }, { 0x7a, 0x65ab, 0x5137d0 }, { 0x7a, 0x65ac, 0x513b50 }, { 0x7a, 0x659c, 0x513310 },
                                           { 0x7b, 0x659d, 0x514110 } };
     for (const auto& e : events) Window_SendEvent5(w, 0, e[0], e[1], e[2], 0, 0);
-    Window_SendEvent5(w, 0, hook::Global<int32_t>(0x6d3b24) ? 0x86 : 0x6d, 0x6592, 3, 0, 0);
-    Window_SendEvent5(w, 0, hook::Global<int32_t>(0x6d3b24) ? 0x6d : 0x86, 0x6591, 3, 0, 0);
-    uint32_t type = hook::Global<uint8_t*>(0x6cec7c)[0x82] || F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4aef) ? 0x87 : 0x65;
+    Window_SendEvent5(w, 0, g_6d3b24 ? 0x86 : 0x6d, 0x6592, 3, 0, 0);
+    Window_SendEvent5(w, 0, g_6d3b24 ? 0x6d : 0x86, 0x6591, 3, 0, 0);
+    uint32_t type = g_newGame[0x82] || F<int32_t>(g_world, 0x4aef) ? 0x87 : 0x65;
     Window_SendEvent5(w, 0, type, 0x65ab, 3, 0, 0);
-    if (hook::Global<uint8_t*>(0x6cec7c)[0x82]) hook::Global<int32_t>(0x6d3b28) = 1;
-    Window_SetLargeLayout(w, 0, hook::Global<int32_t>(0x6d3b28));
+    if (g_newGame[0x82]) g_6d3b28 = 1;
+    Window_SetLargeLayout(w, 0, g_6d3b28);
     TrainWindow_Refresh(w);
     Window_SendEvent5(w, 0, 0x6e, 0x65a0, (uint32_t)(uintptr_t)GetString(0xfe5), 0, 0);
     return w;
@@ -1502,13 +1502,13 @@ RT3_REPLACE(0x514420, TrainWindow_Construct);
 // refreshed and the cursor reset. Returns whether the train exists.
 RT3_NOINLINE int32_t __fastcall TrainCmd_Apply(uint32_t* cmd) {
     int32_t ok = 0;
-    if (Collection_IsValid(hook::Global<Collection*>(0x6cfcbc), 0, cmd[1])) {
-        Train_SetBuffer1c6((uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfcbc), 0, cmd[1]), 0, (const uint8_t*)cmd);
+    if (Collection_IsValid(g_trains, 0, cmd[1])) {
+        Train_SetBuffer1c6((uint8_t*)Collection_Get(g_trains, 0, cmd[1]), 0, (const uint8_t*)cmd);
         ok = 1;
     }
-    if (hook::Global<uint8_t*>(0x6d3b20) && Global6d40e4() == (int32_t)cmd[0]) {
-        TrainWindow_Refresh(hook::Global<uint8_t*>(0x6d3b20));
-        Cursor_Set(hook::Global<uint8_t*>(0xccbb20), 0, 1, 0, 0);
+    if (g_6d3b20 && Global6d40e4() == (int32_t)cmd[0]) {
+        TrainWindow_Refresh(g_6d3b20);
+        Cursor_Set(g_cursorManager, 0, 1, 0, 0);
     }
     return ok;
 }
@@ -1523,40 +1523,40 @@ RT3_REPLACE(0x514620, TrainCmd_Apply);
 // camera at its leader (mode option +0x311).
 RT3_NOINLINE void __fastcall Vehicles_SelectNext(int32_t dir) {
     int32_t follow = 0, consist = 0;
-    uint8_t* panel = hook::Global<uint8_t*>(0x6d0818);
+    uint8_t* panel = g_gameWindow;
     if (F<int32_t>(panel, 0x8c) == 2) {
-        if (F<int32_t>(panel, 0x90) <= 0 || !Collection_IsValid(hook::Global<Collection*>(0x6cfcbc), 0, F<uint32_t>(panel, 0x90))) return;
+        if (F<int32_t>(panel, 0x90) <= 0 || !Collection_IsValid(g_trains, 0, F<uint32_t>(panel, 0x90))) return;
         uint8_t* tr = (uint8_t*)SelectedTrain();
-        if (Obj_City41(tr) && (int32_t)(uintptr_t)Obj_City41(tr) == F<int32_t>(hook::Global<uint8_t*>(0x62be68), 0x60)) follow = 1;
+        if (Obj_City41(tr) && (int32_t)(uintptr_t)Obj_City41(tr) == F<int32_t>(g_62be68, 0x60)) follow = 1;
         consist = F<int32_t>(tr, 0x51);
-        panel = hook::Global<uint8_t*>(0x6d0818);
+        panel = g_gameWindow;
     }
-    if (F<int32_t>(panel, 0x90) <= 0 || !Collection_IsValid(hook::Global<Collection*>(0x6cfcbc), 0, F<uint32_t>(panel, 0x90))) return;
-    int32_t at = (int32_t)Collection_PositionOf(hook::Global<Collection*>(0x6cfcbc), 0, F<uint32_t>(hook::Global<uint8_t*>(0x6d0818), 0x90), 1);
-    uint32_t sel = F<uint32_t>(hook::Global<uint8_t*>(0x6d0818), 0x90);
+    if (F<int32_t>(panel, 0x90) <= 0 || !Collection_IsValid(g_trains, 0, F<uint32_t>(panel, 0x90))) return;
+    int32_t at = (int32_t)Collection_PositionOf(g_trains, 0, F<uint32_t>(g_gameWindow, 0x90), 1);
+    uint32_t sel = F<uint32_t>(g_gameWindow, 0x90);
     int32_t i = at, steps = 0;
     uint32_t id;
     for (;;) {
         ++steps;
-        i = (Collection_Count(hook::Global<Collection*>(0x6cfcbc)) + i + dir) % Collection_Count(hook::Global<Collection*>(0x6cfcbc));
+        i = (Collection_Count(g_trains) + i + dir) % Collection_Count(g_trains);
         if (i == at) return;
-        id = Collection_IdAt(hook::Global<Collection*>(0x6cfcbc), 0, (uint32_t)i, 1);
+        id = Collection_IdAt(g_trains, 0, (uint32_t)i, 1);
         if (!id) continue;
-        if (consist && F<int32_t>(Collection_Get(hook::Global<Collection*>(0x6cfcbc), 0, id), 0x51) != consist) continue;
-        if (id == sel && steps < Collection_Count(hook::Global<Collection*>(0x6cfcbc))) continue;
+        if (consist && F<int32_t>(Collection_Get(g_trains, 0, id), 0x51) != consist) continue;
+        if (id == sel && steps < Collection_Count(g_trains)) continue;
         break;
     }
-    Panel_SetValue90(hook::Global<uint8_t*>(0x6d0818), 0, (int32_t)id);
+    Panel_SetValue90(g_gameWindow, 0, (int32_t)id);
     ModelPreview_Close();
-    if (uint8_t* w = hook::Global<uint8_t*>(0x6d3b20)) TrainWindow_Refresh(w);
+    if (uint8_t* w = g_6d3b20) TrainWindow_Refresh(w);
     if (follow) {
         uint8_t* tr = (uint8_t*)SelectedTrain();
-        if (Obj_City41(tr)) World_FollowEntity(hook::Global<uint8_t*>(0x6cec78), 0, 1, 1, F<int32_t>(Obj_City41(tr), 0x34a));
+        if (Obj_City41(tr)) World_FollowEntity(g_world, 0, 1, 1, F<int32_t>(Obj_City41(tr), 0x34a));
         return;
     }
-    if (F<int32_t>(hook::Global<uint8_t*>(0x62be68), 0x60)) return;
-    uint8_t* o = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfcbc), 0, id);
-    int32_t mode = F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x311);
+    if (F<int32_t>(g_62be68, 0x60)) return;
+    uint8_t* o = (uint8_t*)Collection_Get(g_trains, 0, id);
+    int32_t mode = F<int32_t>(g_app, 0x311);
     Camera_FollowObject((uint8_t*)Obj_City41(o), mode);
 }
 RT3_REPLACE(0x514690, Vehicles_SelectNext);
@@ -1587,7 +1587,7 @@ RT3_REPLACE(0x514890, Vehicles_SelectNextBack);
 // scenario locks (0x6d3b4c, the world's +0x4a97.. flags) show 0xe8c /
 // 0x251, other owners' trains their owner, busy trains 0x252 .. 0x255.
 int32_t __fastcall TrainWindow_HandleEvent(uint8_t* w, int, uint32_t* msg) {
-    uint8_t* world = hook::Global<uint8_t*>(0x6cec78);
+    uint8_t* world = g_world;
     auto locked = [&]() {
         Message496(0xe8c, 1, 0x3ef5c28f);
         return 0;
@@ -1598,9 +1598,9 @@ int32_t __fastcall TrainWindow_HandleEvent(uint8_t* w, int, uint32_t* msg) {
     };
     // Opens the stop's cargo editor for the selected stop.
     auto editStop = [&]() {
-        if (hook::Global<int32_t>(0x6d3b4c)) return locked();
+        if (g_6d3b4c) return locked();
         if (!HasSelectedTrain()) return 0;
-        if (F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4a9f)) return Message496(0x251, 1), 0;
+        if (F<int32_t>(g_world, 0x4a9f)) return Message496(0x251, 1), 0;
         if (!SelectedTrainIsOwn()) return notOwn();
         if (Special496(Train496())) return Message496(0x255, 1), 0;
         const int32_t row = F<int32_t>(StopList496(w), 0x1d6);
@@ -1608,45 +1608,45 @@ int32_t __fastcall TrainWindow_HandleEvent(uint8_t* w, int, uint32_t* msg) {
             if (IsMultiplayer()) {
                 uint8_t* mem = ((uint8_t*(__cdecl*)(size_t))0x53b070)(0x25);
                 uint8_t* copy = mem ? (uint8_t*)Cursor33_Init(mem) : nullptr;
-                hook::Global<uint8_t*>(0x6d3b10) = copy;
+                g_6d3b10 = copy;
                 OrderList_Init(copy);
-                TrainOrders_Copy((uint8_t*)Identity(Train496()), hook::Global<uint8_t*>(0x6d3b10));
-                uint8_t* stop = (uint8_t*)Array33_At(hook::Global<uint8_t*>(0x6d3b10), 0, row);
-                IndustryEditor_Run((uint32_t)(uintptr_t)hook::Global<uint8_t*>(0x6d3b10), stop, (uint32_t)row);
-                for (int32_t i = F<int32_t>(hook::Global<uint8_t*>(0x6d3b10), 4) - 1; i >= 0; --i)
-                    TrainOrders_Remove(hook::Global<uint8_t*>(0x6d3b10), 0, i);
-                ((void(__cdecl*)(void*))0x53b080)(hook::Global<uint8_t*>(0x6d3b10));
+                TrainOrders_Copy((uint8_t*)Identity(Train496()), g_6d3b10);
+                uint8_t* stop = (uint8_t*)Array33_At(g_6d3b10, 0, row);
+                IndustryEditor_Run((uint32_t)(uintptr_t)g_6d3b10, stop, (uint32_t)row);
+                for (int32_t i = F<int32_t>(g_6d3b10, 4) - 1; i >= 0; --i)
+                    TrainOrders_Remove(g_6d3b10, 0, i);
+                ((void(__cdecl*)(void*))0x53b080)(g_6d3b10);
             } else {
                 uint8_t* stop = (uint8_t*)Array33_At(Train496(), 0, row);
                 IndustryEditor_Run((uint32_t)(uintptr_t)Identity(Train496()), stop, (uint32_t)row);
             }
         }
-        if (hook::Global<int32_t>(0x6d3b20)) TrainWindow_Refresh(w);
+        if (hook::As<int32_t>(g_6d3b20)) TrainWindow_Refresh(w);
         return 0;
     };
     const int32_t id = (int32_t)msg[1];
     switch (msg[0]) {
     case 0: {
         if (world) F<int32_t>(world, 0x4cb6) = SelectedTrainId();
-        if (ClockMs() - hook::Global<int32_t>(0x6d3b2c) > 0x96) {
-            hook::Global<int32_t>(0x6d3b2c) = ClockMs();
-            if (uint8_t* h = F<uint8_t*>(hook::Global<uint8_t*>(0x6d401c), 0xc6d)) {
+        if (ClockMs() - g_6d3b2c > 0x96) {
+            g_6d3b2c = ClockMs();
+            if (uint8_t* h = F<uint8_t*>(g_windowManager, 0xc6d)) {
                 const uint16_t hid = F<uint16_t>(h, 4);
                 if (hid == 0x65bf || hid == 0x65b6 || hid == 0x65b9 || hid == 0x65bc) TrainDetail_TooltipCb(hid, 0, 0, 0);
             }
         }
         TrainPanel_RefreshTooltip();
-        if (!Collection_IsValid(hook::Global<Collection*>(0x6cfcbc), 0, (uint32_t)SelectedTrainId()))
-            View_SetToolMode(hook::Global<uint8_t*>(0x6d0818), 0, 0, -1);
+        if (!Collection_IsValid(g_trains, 0, (uint32_t)SelectedTrainId()))
+            View_SetToolMode(g_gameWindow, 0, 0, -1);
         return 0;
     }
     case 0xca:
         if (id == 0x659c) {
             uint8_t* t = Train496();
-            const uint8_t flags = F<uint8_t>(hook::Global<uint8_t*>(0x6d4018), 0xa8c);
+            const uint8_t flags = F<uint8_t>(g_input, 0xa8c);
             if (flags & 3) {
                 if (Obj_City41(t))
-                    World_FollowEntity(hook::Global<uint8_t*>(0x6cec78), 0, 1, 1, F<int32_t>((uint8_t*)Obj_City41(t), 0x34a));
+                    World_FollowEntity(g_world, 0, 1, 1, F<int32_t>((uint8_t*)Obj_City41(t), 0x34a));
                 return 0;
             }
             if (flags & 4) {
@@ -1662,7 +1662,7 @@ int32_t __fastcall TrainWindow_HandleEvent(uint8_t* w, int, uint32_t* msg) {
             return Train_ReportCb(w, id, id - 0x3296, F<uint32_t>(F<uint8_t*>(msg, 0x2c), 0x4f));
         }
         {
-            const int32_t v = hook::Global<int32_t>(0x6d3b24) ? id : id - 0x64;
+            const int32_t v = g_6d3b24 ? id : id - 0x64;
             if (v < 0x6608 || v > 0x660c) return 1;
             if (!HasSelectedTrain()) return 0;
             if (!SelectedTrainIsOwn()) return notOwn();
@@ -1673,16 +1673,16 @@ int32_t __fastcall TrainWindow_HandleEvent(uint8_t* w, int, uint32_t* msg) {
                 TrainOrders_SetCurrent(Train496(), 0, idx, 1);
                 return 0;
             }
-            if (hook::Global<int32_t>(0x6d3ae4)) return 0;
+            if (g_6d3ae4) return 0;
             SendHost496(0x3d, (uint32_t)idx);
             return 0;
         }
     case 0xcb:
         break;
     case 0x3e9:
-        if (msg[2] == F<uint32_t>(hook::Global<uint8_t*>(0x6d0818), 0x90) &&
-            Collection_IsValid(hook::Global<Collection*>(0x6cfcbc), 0, F<uint32_t>(hook::Global<uint8_t*>(0x6d0818), 0x90))) {
-            View_SetToolMode(hook::Global<uint8_t*>(0x6d0818), 0, 2, 0);
+        if (msg[2] == F<uint32_t>(g_gameWindow, 0x90) &&
+            Collection_IsValid(g_trains, 0, F<uint32_t>(g_gameWindow, 0x90))) {
+            View_SetToolMode(g_gameWindow, 0, 2, 0);
             Game_PostInputEvent(0x3e8, 0, 0, 0, 0);
         }
         return 1;
@@ -1695,7 +1695,7 @@ int32_t __fastcall TrainWindow_HandleEvent(uint8_t* w, int, uint32_t* msg) {
         return TrainRunMode_StepCb(w, id, id - 0x3296, F<uint32_t>(F<uint8_t*>(msg, 0x2c), 0x4f));
     }
     auto camera = [&](uint32_t type, uint32_t a, uint32_t b, uint32_t c) {
-        Ui_SendEvent5(hook::Global<uint8_t**>(0x6d401c), 0, type, 0x659d, a, b, c);
+        Ui_SendEvent5(hook::As<uint8_t**>(g_windowManager), 0, type, 0x659d, a, b, c);
         return 0;
     };
     switch (id) {
@@ -1711,20 +1711,20 @@ int32_t __fastcall TrainWindow_HandleEvent(uint8_t* w, int, uint32_t* msg) {
     case 0x659f: return camera(0xad, 0xfffff490, 0, 0);
     case 0x65a2: return editStop();
     case 0x65a0: {
-        if (hook::Global<int32_t>(0x6d3b4c)) return locked();
+        if (g_6d3b4c) return locked();
         if (!HasSelectedTrain()) return 0;
         if (!SelectedTrainIsOwn()) return notOwn();
         if (Special496(Train496())) return Message496(0x255, 1), 0;
-        const bool insert = (F<uint8_t>(hook::Global<uint8_t*>(0x6d4018), 0xa8c) & 3) != 0;
+        const bool insert = (F<uint8_t>(g_input, 0xa8c) & 3) != 0;
         const int32_t before = SelectedTrainId();
         const int32_t station = StationPick_Run(1);
-        if (before != SelectedTrainId() && Collection_IsValid(hook::Global<Collection*>(0x6cfcbc), 0, (uint32_t)before)) return 0;
+        if (before != SelectedTrainId() && Collection_IsValid(g_trains, 0, (uint32_t)before)) return 0;
         if (station <= -1) return 0;
         if (Train496()) {
-            const uint32_t node = F<uint32_t>(Collection_Get(hook::Global<Collection*>(0x6cec20), 0, (uint32_t)station), 8);
+            const uint32_t node = F<uint32_t>(Collection_Get(g_stations, 0, (uint32_t)station), 8);
             const uint32_t at = F<uint32_t>(Train496(), 0x49);
-            if (Collection_IsValid(hook::Global<Collection*>(0x6cfca8), 0, node) && Collection_IsValid(hook::Global<Collection*>(0x6cfca8), 0, at) &&
-                !Node_SameComponent((uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfca8), 0, node), 0, at)) {
+            if (Collection_IsValid(g_tracks, 0, node) && Collection_IsValid(g_tracks, 0, at) &&
+                !Node_SameComponent((uint8_t*)Collection_Get(g_tracks, 0, node), 0, at)) {
                 Message496(0xc12, 1);
                 return 0;
             }
@@ -1736,12 +1736,12 @@ int32_t __fastcall TrainWindow_HandleEvent(uint8_t* w, int, uint32_t* msg) {
         stop[0x28] &= 0x7f;
         F<uint16_t>(stop, 0x29) = (uint16_t)station;
         F<uint32_t>(stop, 0x2f) = 0x3e395810;
-        if (IsMultiplayer() && !hook::Global<int32_t>(0x6d3ae4)) {
+        if (IsMultiplayer() && !g_6d3ae4) {
             uint32_t* req = ((uint32_t*(__cdecl*)(size_t))0x5a125d)(0x3b);
             req[0] = (uint32_t)Global6d40e4();
             req[1] = (uint32_t)SelectedTrainId();
             memcpy(req + 2, stop, 0x33);
-            Net_SendToHost(hook::Global<uint8_t*>(0x6cd8d8), 0, 0x41, 0x3b, (const uint8_t*)req);
+            Net_SendToHost(g_session, 0, 0x41, 0x3b, (const uint8_t*)req);
             ((void(__cdecl*)(void*))0x5a1145)(req);
             return 0;
         }
@@ -1758,13 +1758,13 @@ int32_t __fastcall TrainWindow_HandleEvent(uint8_t* w, int, uint32_t* msg) {
         return 0;
     }
     case 0x65a1: {
-        if (hook::Global<int32_t>(0x6d3b4c)) return locked();
+        if (g_6d3b4c) return locked();
         if (!HasSelectedTrain()) return 0;
         if (!SelectedTrainIsOwn()) return notOwn();
         if (Special496(Train496())) return Message496(0x255, 1), 0;
         const int32_t row = F<int32_t>(StopList496(w), 0x1d6);
         if (row < 0 || !Train496()) return 0;
-        if (IsMultiplayer() && !hook::Global<int32_t>(0x6d3ae4)) {
+        if (IsMultiplayer() && !g_6d3ae4) {
             SendHost496(0x3f, (uint32_t)row);
             return 0;
         }
@@ -1774,7 +1774,7 @@ int32_t __fastcall TrainWindow_HandleEvent(uint8_t* w, int, uint32_t* msg) {
     case 0x65a5:
     case 0x65a6: {
         const bool second = id == 0x65a5;
-        hook::Global<int32_t>(0x6d3b24) = second ? 1 : 0;
+        g_6d3b24 = second ? 1 : 0;
         Window_SendEvent5(w, 0, 0x6d, second ? 0x6591 : 0x6592, 3, 0, 0);
         Window_SendEvent5(w, 0, 0x86, second ? 0x6592 : 0x6591, 3, 0, 0);
         const uint32_t shown = second ? 0x65a3 : 0x65a4;
@@ -1787,40 +1787,40 @@ int32_t __fastcall TrainWindow_HandleEvent(uint8_t* w, int, uint32_t* msg) {
         Window_SetLargeLayout(w, 0, id == 0x65a7);
         return 0;
     case 0x65a9: {
-        if (hook::Global<int32_t>(0x6d3b4c)) return locked();
+        if (g_6d3b4c) return locked();
         if (!HasSelectedTrain()) return 0;
-        if (F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4a9b)) return Message496(0x251, 1), 0;
+        if (F<int32_t>(g_world, 0x4a9b)) return Message496(0x251, 1), 0;
         if (!SelectedTrainIsOwn()) return notOwn();
         if (Train_StateSpecial(Train496())) return Message496(0x253, 1), 0;
         const int32_t before = SelectedTrainId();
         const uint32_t answer = Message496(0x254, 2);
-        if (before != SelectedTrainId() && Collection_IsValid(hook::Global<Collection*>(0x6cfcbc), 0, (uint32_t)before)) return 0;
+        if (before != SelectedTrainId() && Collection_IsValid(g_trains, 0, (uint32_t)before)) return 0;
         if (answer != 0x3f2) return 0;
-        const uint32_t tid = F<uint32_t>(hook::Global<uint8_t*>(0x6d0818), 0x90);
-        if (!Collection_IsValid(hook::Global<Collection*>(0x6cfcbc), 0, tid)) return 0;
+        const uint32_t tid = F<uint32_t>(g_gameWindow, 0x90);
+        if (!Collection_IsValid(g_trains, 0, tid)) return 0;
         if (!IsMultiplayer()) {
-            Collection* trains = hook::Global<Collection*>(0x6cfcbc);
+            Collection* trains = g_trains;
             ((void(__fastcall**)(Collection*, int, uint32_t))*(void***)trains)[2](trains, 0, tid);
-            View_SetToolMode(hook::Global<uint8_t*>(0x6d0818), 0, 2, 0);
+            View_SetToolMode(g_gameWindow, 0, 2, 0);
             Game_PostInputEvent(0x3e8, 0, 0, 0, 0);
             return 0;
         }
-        if (hook::Global<int32_t>(0x6d3ae4)) return 0;
+        if (g_6d3ae4) return 0;
         uint32_t req[2];
-        req[0] = (uint32_t)Obj_Get25(hook::Global<uint8_t*>(0x6cec78));
-        Cursor_Set(hook::Global<uint8_t*>(0xccbb20), 0, 6, 0, 0);
+        req[0] = (uint32_t)Obj_Get25(g_world);
+        Cursor_Set(g_cursorManager, 0, 6, 0, 0);
         req[1] = tid;
-        Net_SendToHost(hook::Global<uint8_t*>(0x6cd8d8), 0, 0x37, 8, (const uint8_t*)req);
+        Net_SendToHost(g_session, 0, 0x37, 8, (const uint8_t*)req);
         return 0;
     }
     case 0x65aa: {
-        if (hook::Global<int32_t>(0x6d3b4c)) return locked();
+        if (g_6d3b4c) return locked();
         if (!HasSelectedTrain()) return 0;
-        if (F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4a97)) return Message496(0x251, 1), 0;
+        if (F<int32_t>(g_world, 0x4a97)) return Message496(0x251, 1), 0;
         if (!SelectedTrainIsOwn()) return notOwn();
         if (Special496(Train496())) {
             if (Train496()[0x1ce] & 2) return Message496(0xf39, 1), 0;
-            Train_OpenConsistEditor(hook::Global<uint8_t*>(0x6cec78), 0, F<uint32_t>(Train496(), 0x25), nullptr);
+            Train_OpenConsistEditor(g_world, 0, F<uint32_t>(Train496(), 0x25), nullptr);
             return 0;
         }
         if (Train_StateSpecial(Train496())) return Message496(0x252, 1), 0;
@@ -1829,8 +1829,8 @@ int32_t __fastcall TrainWindow_HandleEvent(uint8_t* w, int, uint32_t* msg) {
     }
     case 0x65ad:
     case 0x65ae:
-        if (hook::Global<int32_t>(0x6d3b4c)) return locked();
-        View_SetToolMode(hook::Global<uint8_t*>(0x6d0818), 0, 0, -1);
+        if (g_6d3b4c) return locked();
+        View_SetToolMode(g_gameWindow, 0, 0, -1);
         return 0;
     case 0x65af: {
         if (!HasSelectedTrain()) return 0;
@@ -1843,17 +1843,17 @@ int32_t __fastcall TrainWindow_HandleEvent(uint8_t* w, int, uint32_t* msg) {
         if (!HasSelectedTrain()) return 0;
         uint8_t* t = Train496();
         if (!Obj_City41(t)) return 1;
-        uint8_t* wd = hook::Global<uint8_t*>(0x6cec78);
+        uint8_t* wd = g_world;
         if (F<int32_t>(wd, 0x45) == 1 && F<int32_t>(wd, 0x49) == F<int32_t>((uint8_t*)Obj_City41(t), 0x34a)) {
-            World_SetFollow(hook::Global<uint8_t*>(0x6cec78), 0, 0, nullptr);
+            World_SetFollow(g_world, 0, 0, nullptr);
             return 0;
         }
-        World_FollowEntity(hook::Global<uint8_t*>(0x6cec78), 0, 1, 1, F<int32_t>((uint8_t*)Obj_City41(t), 0x34a));
+        World_FollowEntity(g_world, 0, 1, 1, F<int32_t>((uint8_t*)Obj_City41(t), 0x34a));
         return 0;
     }
     case 0x65be:
-        if (hook::Global<int32_t>(0x6d3b4c)) return locked();
-        if (F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4aa3)) return Message496(0x251, 1), 0;
+        if (g_6d3b4c) return locked();
+        if (F<int32_t>(g_world, 0x4aa3)) return Message496(0x251, 1), 0;
         if (!HasSelectedTrain()) return 0;
         if (!SelectedTrainIsOwn()) return notOwn();
         ConsistEditor_Run(nullptr, Train496(), nullptr, 0xffffffff, 0xffffffff, 0, 0, 0, 0xffffffff);
@@ -1870,25 +1870,25 @@ RT3_REPLACE(0x5148a0, TrainWindow_HandleEvent);
 // 0x515780 (callback). Unless w is the active page button (0x32ca with
 // 0x6d3b30, else 0x32c9), clears the window's children 0x332c..0x36b0.
 void __fastcall Page_ClearChildrenCb(uint8_t* w, int, int32_t) {
-    const uint16_t page = hook::Global<int32_t>(0x6d3b30) ? 0x32ca : 0x32c9;
+    const uint16_t page = g_6d3b30 ? 0x32ca : 0x32c9;
     if (F<uint16_t>(w, 4) != page) Window_DeleteChildren(F<uint8_t*>(w, 0x86), 0, 0x332c, 0x36b0, 0);
 }
 RT3_REPLACE(0x515780, Page_ClearChildrenCb);
 
 void __fastcall Widget5157c0_Destruct(uint8_t* w) {
     F<uint32_t>(w, 0) = 0x5d19d0;
-    hook::Global<int32_t>(0x6d3b34) = 0;
+    hook::As<int32_t>(g_6d3b34) = 0;
     Widget_SetVtbl(w);
 }
 RT3_REPLACE(0x5157c0, Widget5157c0_Destruct);
 
-RT3_NOINLINE int32_t Global6d3b30() { return hook::Global<int32_t>(0x6d3b30); }
+RT3_NOINLINE int32_t Global6d3b30() { return g_6d3b30; }
 RT3_REPLACE(0x5157e0, Global6d3b30);
 
 // 0x5157f0 (draw callback). Draws the train row of train `id` (EDX)
 // unhighlighted.
 void __fastcall TrainList_DrawRowCb(void*, uint32_t id, float x, float y, float w, float h, int32_t) {
-    TrainList_DrawEntry((uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfcbc), 0, id), 0, x, y, w, h);
+    TrainList_DrawEntry((uint8_t*)Collection_Get(g_trains, 0, id), 0, x, y, w, h);
 }
 RT3_REPLACE(0x5157f0, TrainList_DrawRowCb);
 
@@ -1896,22 +1896,22 @@ RT3_REPLACE(0x5157f0, TrainList_DrawRowCb);
 // input flags 3 the world follows its city object, with flag 4 a named
 // train refreshes the picker (0x6d3b34).
 void __fastcall TrainList_SelectCb(void*, uint32_t id) {
-    if (!Collection_IsValid(hook::Global<Collection*>(0x6cfcbc), 0, id)) return;
-    Panel_SetValue90(hook::Global<uint8_t*>(0x6d0818), 0, (int32_t)id);
-    uint8_t* t = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfcbc), 0, id);
-    const uint32_t flags = F<uint32_t>(hook::Global<uint8_t*>(0x6d4018), 0xa8c);
+    if (!Collection_IsValid(g_trains, 0, id)) return;
+    Panel_SetValue90(g_gameWindow, 0, (int32_t)id);
+    uint8_t* t = (uint8_t*)Collection_Get(g_trains, 0, id);
+    const uint32_t flags = F<uint32_t>(g_input, 0xa8c);
     if (flags & 3) {
-        if (Obj_City41(t)) World_FollowEntity(hook::Global<uint8_t*>(0x6cec78), 0, 1, 1, F<int32_t>((uint8_t*)Obj_City41(t), 0x34a));
+        if (Obj_City41(t)) World_FollowEntity(g_world, 0, 1, 1, F<int32_t>((uint8_t*)Obj_City41(t), 0x34a));
         return;
     }
-    if ((flags & 4) && Train_PromptName(t) && hook::Global<uint8_t*>(0x6d3b34)) TrainPicker_Fill(hook::Global<uint8_t*>(0x6d3b34), 0, 0xffffffff);
+    if ((flags & 4) && Train_PromptName(t) && g_6d3b34) TrainPicker_Fill(g_6d3b34, 0, 0xffffffff);
 }
 RT3_REPLACE(0x515820, TrainList_SelectCb);
 
 // 0x5158b0 (callback). Unless w is the active page button, builds the train
 // row of the first argument in slot d (EDX) - +0x1e2.
 void __fastcall Page_BuildTrainRowCb(uint8_t* w, int32_t d, uint32_t train, int32_t, int32_t, int32_t, int32_t) {
-    const uint16_t page = hook::Global<int32_t>(0x6d3b30) ? 0x32ca : 0x32c9;
+    const uint16_t page = g_6d3b30 ? 0x32ca : 0x32c9;
     if (F<uint16_t>(w, 4) != page) TrainRow_Build(F<uint8_t*>(w, 0x86), train, 0, d - F<int32_t>(w, 0x1e2), 0);
 }
 RT3_REPLACE(0x5158b0, Page_BuildTrainRowCb);
@@ -1926,12 +1926,12 @@ RT3_NOINLINE void __fastcall TrainPicker_Fill(uint8_t* w, int, uint32_t exclude)
     int32_t keep = F<int32_t>(w, 0x78);
     Window_SendEvent5(w, 0, 0x8b, 0x32c9, 0, 0, 0);
     Window_SendEvent5(w, 0, 0x8b, 0x32ca, 0, 0, 0);
-    for (int32_t i = 0; i < Collection_Count(hook::Global<Collection*>(0x6cfcbc)); ++i) {
-        Collection* c = hook::Global<Collection*>(0x6cfcbc);
+    for (int32_t i = 0; i < Collection_Count(g_trains); ++i) {
+        Collection* c = g_trains;
         if (Collection_IdAt(c, 0, i, 0) == exclude) continue;
-        c = hook::Global<Collection*>(0x6cfcbc);
+        c = g_trains;
         uint8_t* t = (uint8_t*)Collection_Get(c, 0, Collection_IdAt(c, 0, i, 1));
-        if (F<int32_t>(t, 0x51) != Obj_Get21(hook::Global<uint8_t*>(0x6cec78))) continue;
+        if (F<int32_t>(t, 0x51) != Obj_Get21(g_world)) continue;
         char text[0x1e0];
         FormatText(text, GetString(0xf2e), 0, 0, 0, 0, 0, 0, 0, 0);
         Window_SendEvent5(w, 0, 0x88, 0x32c9, 0, F<uint32_t>(t, 0x25), (uint32_t)(uintptr_t)text);
@@ -1948,25 +1948,25 @@ RT3_NOINLINE void __fastcall TrainPicker_Fill(uint8_t* w, int, uint32_t exclude)
     Window_SendEvent5(w, 0, 0x79, 0x32c9, 0x515820, 0, 0);
     Window_SendEvent5(w, 0, 0x79, 0x32ca, 0x515820, 0, 0);
     F<int32_t>(w, 0x78) = keep;
-    if (Collection_Count(hook::Global<Collection*>(0x6cfcbc)) >= 1) {
+    if (Collection_Count(g_trains) >= 1) {
         Window_SendEvent5(w, 0, 0x66, 0x32c9, F<uint32_t>(w, 0x78), 0, 0);
         Window_SendEvent5(w, 0, 0x66, 0x32ca, F<uint32_t>(w, 0x78), 0, 0);
     }
     char none[0x130];
-    if (Collection_Count(hook::Global<Collection*>(0x6cfcbc)) > 0) none[0] = 0;
+    if (Collection_Count(g_trains) > 0) none[0] = 0;
     else strcpy(none, GetString(0xde));
     Window_SendEvent5(w, 0, 0x6f, 0x32cf, (uint32_t)(uintptr_t)none, 0, 0);
     Window_SendEvent5(w, 0, 0x6f, 0x32d0, (uint32_t)(uintptr_t)none, 0, 0);
-    if (hook::Global<int32_t>(0x622b2c) != -1) {
-        Window_SendEvent5(w, 0, 0x6b, 0x32ca, hook::Global<uint32_t>(0x622b2c), 0, 0);
-        Window_SendEvent5(w, 0, 0x6b, 0x32c9, hook::Global<uint32_t>(0x622b2c), 0, 0);
+    if (g_622b2c != -1) {
+        Window_SendEvent5(w, 0, 0x6b, 0x32ca, hook::As<uint32_t>(g_622b2c), 0, 0);
+        Window_SendEvent5(w, 0, 0x6b, 0x32c9, hook::As<uint32_t>(g_622b2c), 0, 0);
     }
-    uint32_t cur = F<uint32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4cb6);
-    if (!Collection_IsValid(hook::Global<Collection*>(0x6cfcbc), 0, cur)) return;
-    int32_t owner = F<int32_t>(Collection_Get(hook::Global<Collection*>(0x6cfcbc), 0, F<uint32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4cb6)), 0x51);
-    if (owner != Obj_Get21(hook::Global<uint8_t*>(0x6cec78))) return;
-    Window_SendEvent5(w, 0, 0x69, 0x32ca, F<uint32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4cb6), 0, 0);
-    Window_SendEvent5(w, 0, 0x69, 0x32c9, F<uint32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4cb6), 0, 0);
+    uint32_t cur = F<uint32_t>(g_world, 0x4cb6);
+    if (!Collection_IsValid(g_trains, 0, cur)) return;
+    int32_t owner = F<int32_t>(Collection_Get(g_trains, 0, F<uint32_t>(g_world, 0x4cb6)), 0x51);
+    if (owner != Obj_Get21(g_world)) return;
+    Window_SendEvent5(w, 0, 0x69, 0x32ca, F<uint32_t>(g_world, 0x4cb6), 0, 0);
+    Window_SendEvent5(w, 0, 0x69, 0x32c9, F<uint32_t>(g_world, 0x4cb6), 0, 0);
 }
 RT3_REPLACE(0x5158f0, TrainPicker_Fill);
 
@@ -1985,22 +1985,22 @@ int32_t __fastcall TrainList_HandleEvent(uint8_t* w, int, uint32_t* msg) {
     switch (msg[0]) {
     case 0:
         TrainPanel_RefreshTooltip();
-        if (ClockMs() - hook::Global<int32_t>(0x6d3b38) > 0x14) {
-            hook::Global<int32_t>(0x6d3b38) = ClockMs();
-            if (uint8_t* l = Widget_FindChild(w, 0, hook::Global<int32_t>(0x6d3b30) ? 0x32c9 : 0x32ca))
-                hook::Global<int32_t>(0x622b2c) = F<int32_t>(l, 0x1e2);
+        if (ClockMs() - g_6d3b38 > 0x14) {
+            g_6d3b38 = ClockMs();
+            if (uint8_t* l = Widget_FindChild(w, 0, g_6d3b30 ? 0x32c9 : 0x32ca))
+                g_622b2c = F<int32_t>(l, 0x1e2);
             else
-                hook::Global<int32_t>(0x622b2c) = -1;
+                g_622b2c = -1;
         }
         return 1;
     case 0xca:
         if (id >= 0x332c && id <= 0x36b0) return Train_ReportCb(w, id, column(), F<uint32_t>(F<uint8_t*>(msg, 0x2c), 0x4f));
         if (id >= 0x32c9 && id <= 0x32ca) {
-            uint8_t* t = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfcbc), 0, msg[3]);
+            uint8_t* t = (uint8_t*)Collection_Get(g_trains, 0, msg[3]);
             if (!t || !Obj_City41(t)) return 1;
-            F<uint32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4cb6) = F<uint32_t>(t, 0x25);
-            Camera_FollowObject((uint8_t*)Obj_City41(t), F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x311));
-            View_SetToolMode(hook::Global<uint8_t*>(0x6d0818), 0, 2, (int32_t)msg[3]);
+            F<uint32_t>(g_world, 0x4cb6) = F<uint32_t>(t, 0x25);
+            Camera_FollowObject((uint8_t*)Obj_City41(t), F<int32_t>(g_app, 0x311));
+            View_SetToolMode(g_gameWindow, 0, 2, (int32_t)msg[3]);
             return 0;
         }
         return 1;
@@ -2008,7 +2008,7 @@ int32_t __fastcall TrainList_HandleEvent(uint8_t* w, int, uint32_t* msg) {
         if (id >= 0x332c && id <= 0x36b0) return TrainRunMode_StepCb(w, id, column(), F<uint32_t>(F<uint8_t*>(msg, 0x2c), 0x4f));
         if (id != 0x32cd && id != 0x32ce) return 1;
         const bool second = id == 0x32ce;
-        hook::Global<int32_t>(0x6d3b30) = second ? 1 : 0;
+        g_6d3b30 = second ? 1 : 0;
         const uint32_t list = second ? 0x32c9 : 0x32ca;
         Window_SendEvent5(w, 0, 0x66, list, F<uint32_t>(w, 0x78), 0, 0);
         Window_SendEvent5(w, 0, 0x6d, second ? 0x32cc : 0x32cb, 3, 0, 0);
@@ -2019,7 +2019,7 @@ int32_t __fastcall TrainList_HandleEvent(uint8_t* w, int, uint32_t* msg) {
     }
     case 0xce:
         if (id < 0x32c9 || id > 0x32ca) return 1;
-        F<uint32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4cb6) = msg[3];
+        F<uint32_t>(g_world, 0x4cb6) = msg[3];
         return 0;
     case 0x3e9:
         TrainPicker_Fill(w, 0, msg[2]);
@@ -2035,10 +2035,10 @@ RT3_REPLACE(0x515c60, TrainList_HandleEvent);
 uint8_t* __fastcall TrainListDialog_Construct(uint8_t* w) {
     Widget_SetVtblRet(w);
     F<uint32_t>(w, 0) = 0x5d19d0;
-    hook::Global<uint8_t*>(0x6d3b34) = w;
+    g_6d3b34 = w;
     F<int32_t>(w, 0x78) = -1;
     Window_Load(w, 0, 0.0f, 0.0f, (const char*)0x5d19dc);
-    PickerDialog_Setup(w, 0x32c9, 0x32ca, 0x32cb, 0x32cc, hook::Global<int32_t>(0x6d3b30));
+    PickerDialog_Setup(w, 0x32c9, 0x32ca, 0x32cb, 0x32cc, g_6d3b30);
     TrainPicker_Fill(w, 0, 0xffffffff);
     return w;
 }

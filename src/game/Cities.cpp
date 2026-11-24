@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include "hook/hook.h"
+#include "core/globals.h"
 #include "game/collection.h"
 #include "hook/keepregs.h"
 #include "core/stream.h"
@@ -18,17 +19,13 @@
 namespace rt3 {
 
 template <typename T> static inline T& F(void* o, uint32_t off) { return *(T*)((uint8_t*)o + off); }
-static Collection*& g_buildings = hook::Global<Collection*>(0x62b26c);
-static Collection*& g_table62b268 = hook::Global<Collection*>(0x62b268);
 void* __fastcall Table_GetByName(Collection* t, int, const char* name);
 double __fastcall Obj_CellX(void* o);
 double __fastcall Obj_CellY(void* o);
 double __stdcall Distance2D(float x1, float y1, float x2, float y2);
-static uint8_t*& g_world     = hook::Global<uint8_t*>(0x6cec78);
 int32_t __fastcall Table_NearestValue23a(Collection* t, int, float x, float y);
 const char* __fastcall GetString(int32_t id);
 void __fastcall Obj_UpdateAgeFactor(void* o);
-static Collection*& g_table6cec20 = hook::Global<Collection*>(0x6cec20);
 uint8_t* __fastcall Obj_Region(void* o);
 int32_t __fastcall Obj_HasKey(void* o, int, uint16_t k);
 int32_t __fastcall Obj_BuildingStateActive(void* o);
@@ -254,7 +251,7 @@ static int HasEntryNamed(uint8_t* r, const char* name, char first) {
     return 0;
 }
 
-static inline Collection* Stations() { return hook::Global<Collection*>(0x6cec20); }
+static inline Collection* Stations() { return g_stations; }
 
 static inline uint8_t* StationAt(int32_t i) { return (uint8_t*)Collection_Get(Stations(), 0, Collection_IdAt(Stations(), 0, i, 0)); }
 
@@ -339,10 +336,10 @@ RT3_NOINLINE int32_t __fastcall Region_HasConnectedStation(uint8_t* o, int, int3
             if (Obj_Flag3d4(Obj_Building(StationAt(j))) != 1 && ready) continue;
             if (!Node_SameComponent((uint8_t*)Obj_Node8(StationAt(j)), 0, node)) continue;
             uint32_t sid = Collection_IdAt(Stations(), 0, j, 0);
-            Collection* cities = hook::Global<Collection*>(0x62bae0);
+            Collection* cities = g_cities;
             for (int32_t k = 0; k < Collection_Count(cities); ++k) {
-                uint8_t* c = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62bae0), 0,
-                                                      Collection_IdAt(hook::Global<Collection*>(0x62bae0), 0, k, 0));
+                uint8_t* c = (uint8_t*)Collection_Get(g_cities, 0,
+                                                      Collection_IdAt(g_cities, 0, k, 0));
                 if (!F<int32_t>(c, 0x23e) && Obj_HasKey(Obj_Region(c), 0, (uint16_t)sid)) return 1;
             }
         }
@@ -354,13 +351,13 @@ RT3_REPLACE(0x420030, Region_HasConnectedStation);
 // 0x420280. ID of the first 0x6cec20 site in this object's region that is
 // active (or `anyState`) and whose building is flagged (or `anyFlag` is 0).
 uint32_t __fastcall Obj_FindRegionSite(void* o, int, int32_t requireActive, int32_t requireFlag) {
-    for (int32_t i = 0; i < Collection_Count(g_table6cec20); ++i) {
-        uint32_t id = Collection_IdAt(g_table6cec20, 0, i, 0);
+    for (int32_t i = 0; i < Collection_Count(g_stations); ++i) {
+        uint32_t id = Collection_IdAt(g_stations, 0, i, 0);
         if (!Obj_HasKey(Obj_Region(o), 0, (uint16_t)id)) continue;
-        void* r = Collection_Get(g_table6cec20, 0, Collection_IdAt(g_table6cec20, 0, i, 0));
+        void* r = Collection_Get(g_stations, 0, Collection_IdAt(g_stations, 0, i, 0));
         if (!Obj_BuildingStateActive(r) && requireActive) continue;
-        r = Collection_Get(g_table6cec20, 0, Collection_IdAt(g_table6cec20, 0, i, 0));
-        if (Obj_Flag3d4(Obj_Building(r)) == 1 || !requireFlag) return Collection_IdAt(g_table6cec20, 0, i, 0);
+        r = Collection_Get(g_stations, 0, Collection_IdAt(g_stations, 0, i, 0));
+        if (Obj_Flag3d4(Obj_Building(r)) == 1 || !requireFlag) return Collection_IdAt(g_stations, 0, i, 0);
     }
     return 0;
 }
@@ -394,7 +391,7 @@ RT3_NOINLINE void __fastcall Obj_UpdatePortFlags(void* o) {
     F<int32_t>(o, 0x2fe) = 0;
     for (int32_t i = 0; i < Collection_Count(F<Collection*>(o, 0x37f)); ++i) {
         Collection* t = F<Collection*>(o, 0x37f);
-        uint8_t* r = (uint8_t*)Table_GetByName(g_table62b268, 0, (const char*)Collection_Get(t, 0, Collection_IdAt(t, 0, i, 0)));
+        uint8_t* r = (uint8_t*)Table_GetByName(g_62b268, 0, (const char*)Collection_Get(t, 0, Collection_IdAt(t, 0, i, 0)));
         if (!r || (!F<uint8_t>(r, 0xba) && !F<uint8_t>(r, 0xbb))) continue;
         F<int32_t>(o, 0x2f6) = 1;
         if (F<uint8_t>(r, 0xba)) F<int32_t>(o, 0x2fa) = 1;
@@ -411,7 +408,7 @@ RT3_NOINLINE void __fastcall Obj_NumberPorts(void* o, int, int32_t n) {
     for (int32_t i = 0; i < Collection_Count(F<Collection*>(o, 0x37f)); ++i) {
         Collection* t = F<Collection*>(o, 0x37f);
         char* name = (char*)Collection_Get(t, 0, Collection_IdAt(t, 0, i, 0));
-        uint8_t* r = (uint8_t*)Table_GetByName(g_table62b268, 0, name);
+        uint8_t* r = (uint8_t*)Table_GetByName(g_62b268, 0, name);
         if (!r) continue;
         if (F<uint8_t>(r, 0xba)) sprintf_(name, (const char*)0x5c93e8, n);      // "Port%02d"
         else if (F<uint8_t>(r, 0xbb)) sprintf_(name, (const char*)0x5c93d8, n); // "Warehouse%02d"
@@ -516,21 +513,21 @@ RT3_REPLACE(0x4206b0, Obj_SetNamedAmount);
 // scaled; returns 3, else 1); hidden cities (+0x23e) and blocked tooltips
 // (0x62be84) get the generic / no tooltip.
 int32_t __fastcall City_Tooltip(uint8_t* c, int, char* dst, int32_t n, uint32_t* color, uint32_t* scale, uint32_t* icon) {
-    if (hook::Global<int32_t>(0x62be84)) return 0;
+    if (g_62be84) return 0;
     if (F<int32_t>(c, 0x23e))
         return SceneObj_DebugTooltip(c, 0, dst, n, (int32_t)(uintptr_t)color, (int32_t)(uintptr_t)scale, (int32_t)(uintptr_t)icon);
     bool keyed = false, nearStation = false;
     const int32_t fy = Ftol(Obj_CellY(c));
     const int32_t fx = Ftol(Obj_CellX(c));
-    const int32_t fog = Camera_FogAlpha(hook::Global<uint8_t*>(0x62be68), 0, fx, fy);
+    const int32_t fog = Camera_FogAlpha(g_62be68, 0, fx, fy);
     uint8_t* b = nullptr;
-    if (uint8_t* panel = hook::Global<uint8_t*>(0x6d1720)) {
+    if (uint8_t* panel = g_6d1720) {
         const uint32_t id = F<uint32_t>(panel, 0x7c);
-        if (Collection_IsValid(hook::Global<Collection*>(0x62b26c), 0, id)) b = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62b26c), 0, id);
+        if (Collection_IsValid(g_buildings, 0, id)) b = (uint8_t*)Collection_Get(g_buildings, 0, id);
     }
     if (!b) {
-        uint8_t* hover = F<uint8_t*>(hook::Global<uint8_t*>(0x6cec78), 0x66a2);
-        if (hover && ((int32_t(__thiscall*)(uint8_t*))(*(void***)hover)[0x2c / 4])(hover)) b = F<uint8_t*>(hook::Global<uint8_t*>(0x6cec78), 0x66a2);
+        uint8_t* hover = F<uint8_t*>(g_world, 0x66a2);
+        if (hover && ((int32_t(__thiscall*)(uint8_t*))(*(void***)hover)[0x2c / 4])(hover)) b = F<uint8_t*>(g_world, 0x66a2);
     }
     bool opaque = false;
     if (b && ((int32_t(__thiscall*)(uint8_t*))(*(void***)b)[0x70 / 4])(b) && Obj_BuildingStateActive(Obj_Ref2a8(b))) {
@@ -569,7 +566,7 @@ int32_t __fastcall City_Tooltip(uint8_t* c, int, char* dst, int32_t n, uint32_t*
         const float cy = (float)Obj_CellY(c), cx = (float)Obj_CellX(c), by = (float)Obj_CellY(b), bx = (float)Obj_CellX(b);
         if (Distance2D(bx, by, cx, cy) < Fl_207(0x5c9ac8)) {
             int32_t str;
-            if (Region_HasConnectedStation(c, 0, 1, 1, 0, Obj_Get21(hook::Global<uint8_t*>(0x6cec78))))
+            if (Region_HasConnectedStation(c, 0, 1, 1, 0, Obj_Get21(g_world)))
                 str = Obj_Flag3d4(b) == 1 ? 0xf1d : 0xf1e;
             else if (Region_HasConnectedStation(c, 0, 1, 1, 0, 0))
                 str = Obj_Flag3d4(b) == 1 ? 0xf1f : 0xf20;
@@ -579,11 +576,11 @@ int32_t __fastcall City_Tooltip(uint8_t* c, int, char* dst, int32_t n, uint32_t*
         }
     }
     if (!Option2bbActive()) return 1;
-    if (F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x68)) {
+    if (F<int32_t>(g_app, 0x68)) {
         const int32_t idx0 = Ftol((double)F<float>(c, 0x25e) / Fl_207(0x5c9ac4) * Fl_207(0x5c9ac0));
         int32_t idx = idx0 < 0 ? 0 : idx0;
         if (idx > 0x95) idx = 0x95;
-        *icon = Table_Entry(F<uint8_t*>(hook::Global<uint8_t*>(0x6cec78), 0x46a88), 0, idx);
+        *icon = Table_Entry(F<uint8_t*>(g_world, 0x46a88), 0, idx);
         return 3;
     }
     float size = (float)((double)F<float>(c, 0x312) / D_207(0x5c9ab8));
@@ -594,7 +591,7 @@ int32_t __fastcall City_Tooltip(uint8_t* c, int, char* dst, int32_t n, uint32_t*
     const int32_t idx0 = Ftol((double)size * Fl_207(0x5c9aa8));
     int32_t idx = idx0 < 0 ? 0 : idx0;
     if (idx > 0x95) idx = 0x95;
-    *icon = Table_Entry(F<uint8_t*>(hook::Global<uint8_t*>(0x6cec78), 0x46a88), 0, idx);
+    *icon = Table_Entry(F<uint8_t*>(g_world, 0x46a88), 0, idx);
     return 3;
 }
 RT3_REPLACE(0x4207d0, City_Tooltip);
@@ -708,7 +705,7 @@ RT3_NOINLINE void __fastcall City_Init(uint8_t* c, int, uint32_t id, uint32_t x,
     Collection* t = (Collection*)((void*(__cdecl*)(size_t))0x53b070)(0x88);
     F<Collection*>(c, 0x37f) = t ? Collection_Construct(t, 0, 1, 0x22, 2, 2, 0, 0, 0) : nullptr;
     memset(c + 0x262, 0, 0x10);
-    F<int32_t>(c, 0x385) = F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x174) != 0;
+    F<int32_t>(c, 0x385) = F<int32_t>(g_app, 0x174) != 0;
     memset(c + 0x31f, 0, 0xd * 4 + 3);
     strcpy((char*)c + 0x356, GetString(0xcd));
     WorldModel_Init(c, 0, (const char*)0x5c9ad4, nullptr, nullptr, x, y, 0);
@@ -776,7 +773,7 @@ RT3_NOINLINE uint32_t __fastcall Cities_Add(Collection* t, int, uint32_t x, uint
     uint8_t* c = (uint8_t*)Collection_Get(t, 0, id);
     City_Init(c, 0, id, x, y, rural);
     if (name) StrCopyN((char*)c + 0x356, name, 0x28);
-    F<int32_t>(hook::Global<uint8_t*>(0x62c120), 0x2201) = 1;
+    F<int32_t>(g_map, 0x2201) = 1;
     NamedObj41f590_Destructor(tmp);
     return id;
 }
@@ -791,11 +788,11 @@ RT3_DELETE_RECORD(0x421700, BuildingObjs_Delete, BuildingObj_Teardown, uint8_t*)
 // unclaimed blocks go to their region byte's city). Leaves the block height in EAX
 // (a caller passes it on).
 RT3_NOINLINE int32_t __fastcall Cities_AssignBlocks(Collection* cities) {
-    uint8_t* m = hook::Global<uint8_t*>(0x62c120);
+    uint8_t* m = g_map;
     F<int32_t>(m, 0x2201) = 0;
     int32_t W = F<int32_t>(m, 0x214d), H = F<int32_t>(m, 0x2151);
     auto block = [&](int32_t x, int32_t y) {
-        uint8_t* mm = hook::Global<uint8_t*>(0x62c120);
+        uint8_t* mm = g_map;
         return F<uint8_t*>(mm, 0x212d) + (F<int32_t>(mm, 0x214d) * y + x) * 4;
     };
     for (int32_t y = 0; y < H; ++y)
@@ -840,7 +837,7 @@ RT3_NOINLINE int32_t __fastcall Cities_AssignBlocks(Collection* cities) {
     }
     for (int32_t y = 0; y < H; ++y) {
         for (int32_t x = 0; x < W; ++x) {
-            if (Terrain_KindIs1Or4(hook::Global<uint8_t*>(0x62c120), 0, 2 + x * 4, 2 + y * 4)) continue;
+            if (Terrain_KindIs1Or4(g_map, 0, 2 + x * 4, 2 + y * 4)) continue;
             uint8_t* b = block(x, y);
             uint32_t id = F<uint16_t>(b, 1);
             if (!id) id = b[0];
@@ -861,7 +858,7 @@ RT3_REPLACE(0x421730, Cities_AssignBlocks);
 // their blocks.
 RT3_NOINLINE void __fastcall Cities_AddTestRow(Collection* t) {
     for (int32_t i = 0, y = 1; y < 0x31; ++i, y += 2) {
-        Loading_Pump(hook::Global<uint8_t*>(0x6cec74), 0, 0, 0);
+        Loading_Pump(g_app, 0, 0, 0);
         char num[0x20], name[0x120];
         ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)(num, (const char*)0x5c9aec, i);
         FormatText(name, GetString(0xb5c), num, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
@@ -877,15 +874,15 @@ RT3_REPLACE(0x421b60, Cities_AddTestRow);
 // every city's update (0x4235c0, with a / b) inside a +0x88 nesting count,
 // moving the loading bar 30 steps per city spread over the table.
 RT3_NOINLINE void __fastcall Cities_UpdateAll(Collection* t, int, int32_t a, int32_t b) {
-    if (F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x46c38)) return;
+    if (F<int32_t>(g_world, 0x46c38)) return;
     ++F<int32_t>(t, 0x88);
-    int32_t base = hook::Global<int32_t>(0xccb9e8);
+    int32_t base = g_skipCount;
     for (int32_t i = 0, step = 0x1e; i < Collection_Count(t); ++i, step += 0x1e) {
         uint8_t* c = (uint8_t*)Collection_Get(t, 0, Collection_IdAt(t, 0, (uint32_t)i, 0));
         ((void(__fastcall*)(uint8_t*, int, int32_t, int32_t))0x4235c0)(c, 0, a, b);
         int32_t d = Collection_Count(t) < 1 ? 1 : Collection_Count(t);
-        hook::Global<int32_t>(0xccb9e8) = step / d + base;
-        Loading_Pump(hook::Global<uint8_t*>(0x6cec74), 0, 0, 0);
+        g_skipCount = step / d + base;
+        Loading_Pump(g_app, 0, 0, 0);
     }
     --F<int32_t>(t, 0x88);
 }
@@ -901,7 +898,7 @@ RT3_REPLACE(0x421ce0, Cities_LayStreets);
 // 0x421d20 / 0x421e30. Records that list the 0x62b268 type `typeId` by
 // name: count / the n-th (1-based) record.
 RT3_NOINLINE int32_t __fastcall Table_CountListing(Collection* t, int, uint32_t typeId) {
-    const char* name = (const char*)Collection_Get(g_table62b268, 0, typeId) + 4;
+    const char* name = (const char*)Collection_Get(g_62b268, 0, typeId) + 4;
     char first = (char)ToUpper(name[0]);
     int32_t count = 0;
     for (int32_t i = 0; i < Collection_Count(t); ++i)
@@ -911,7 +908,7 @@ RT3_NOINLINE int32_t __fastcall Table_CountListing(Collection* t, int, uint32_t 
 RT3_REPLACE(0x421d20, Table_CountListing);
 
 void* __fastcall Table_NthListing(Collection* t, int, uint32_t typeId, int32_t nth) {
-    const char* name = (const char*)Collection_Get(g_table62b268, 0, typeId) + 4;
+    const char* name = (const char*)Collection_Get(g_62b268, 0, typeId) + 4;
     char first = (char)ToUpper(name[0]);
     int32_t count = 0;
     for (int32_t i = 0; i < Collection_Count(t); ++i) {
@@ -969,13 +966,13 @@ RT3_REPLACE(0x4220b0, Table_NearestName);
 // city without stations gets a growth boom (+0x276, 100000 x 1..6 by its size
 // +0x25e) and a news item.
 void __fastcall Cities_RandomBoom(Collection* c) {
-    uint8_t* w = hook::Global<uint8_t*>(0x6cec78);
+    uint8_t* w = g_world;
     if (F<int32_t>(w, 0x46c38)) return;
     uint16_t year = F<uint16_t>(w, 0xd);
     if (year < F<uint16_t>(w, 5)) return;
     if (year == F<uint16_t>(w, 5) && w[0xf] <= 6) return;
     if (F<int32_t>(w, 0x4aeb)) return;
-    int32_t chance = (0x32 - abs(year - 0x744)) * (0x17318 / F<int32_t>(hook::Global<uint8_t*>(0x62c120), 0x2155)) / 70;
+    int32_t chance = (0x32 - abs(year - 0x744)) * (0x17318 / F<int32_t>(g_map, 0x2155)) / 70;
     if (SimRand(0, 10000) >= chance) return;
     int32_t n = 0;
     for (int32_t i = 0; i < Collection_Count(c); ++i)
@@ -993,7 +990,7 @@ void __fastcall Cities_RandomBoom(Collection* c) {
         else r = SimRand(1, 3);
         int32_t v = r * 100000;
         F<int32_t>(e, 0x276) = v;
-        World_AddNamedEntry(hook::Global<void*>(0x6cec78), 0, (const char*)0x5c87a8, 7, 0, F<int32_t>(e, 0x23a), v, -1, -1);
+        World_AddNamedEntry(hook::As<void*>(g_world), 0, (const char*)0x5c87a8, 7, 0, F<int32_t>(e, 0x23a), v, -1, -1);
         return;
     }
 }
@@ -1006,7 +1003,7 @@ RT3_REPLACE(0x422100, Cities_RandomBoom);
 // the trend, damped by size +0x25e, no shrinking without industry of kind 2 and
 // halved / doubled with one), which then scales the population +0x25e.
 RT3_NOINLINE void __fastcall Cities_Grow(Collection* cities) {
-    if (hook::Global<uint8_t*>(0x6cec7c)[0x82] || F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4aef)) return;
+    if (g_newGame[0x82] || F<int32_t>(g_world, 0x4aef)) return;
     for (int32_t i = 0; i < Collection_Count(cities); ++i)
         Obj_SumBuildings(Collection_Get(cities, 0, Collection_IdAt(cities, 0, i, 0)));
     for (int32_t pass = 0; pass < 2; ++pass) {
@@ -1051,7 +1048,7 @@ RT3_NOINLINE void __fastcall Cities_Grow(Collection* cities) {
                 if (Fl_200(0x5c8598) > rate) rate = 0.0f;
             } else if (industry == 1)
                 rate = (float)(rate * (rate > Fl_200(0x5c8598) ? D_200(0x5c8680) : D_200(0x5c8628)));
-            if (!F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x46c38))
+            if (!F<int32_t>(g_world, 0x46c38))
                 F<float>(c, 0x25e) = (float)(((double)rate + D_200(0x5c8770)) * F<float>(c, 0x25e));
         }
     }
@@ -1127,18 +1124,18 @@ RT3_NOINLINE int32_t __fastcall Company_BuildBuilding(uint8_t* co, int, uint32_t
         x = (float)Ftol(x);
         y = (float)Ftol(y);
     }
-    if (Sites_CanPlace(hook::Global<Collection*>(0x62b2fc), 0, id, x, y, BitsF(angle), 0, 0, nullptr, 0, 1, -1, 0) != 1) return 0;
+    if (Sites_CanPlace(g_buildingTypes, 0, id, x, y, BitsF(angle), 0, 0, nullptr, 0, 1, -1, 0) != 1) return 0;
     if (checkOnly) return 1;
     int32_t yi = Ftol(y);
-    uint16_t city = (uint16_t)Map_CellCity(hook::Global<uint8_t*>(0x62c120), 0, Ftol(x), yi);
+    uint16_t city = (uint16_t)Map_CellCity(g_map, 0, Ftol(x), yi);
     if ((int32_t)city != F<int32_t>(co, 0x23a)) return 0;
-    if (IsMultiplayer() && !F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x46c3c)) {
+    if (IsMultiplayer() && !F<int32_t>(g_world, 0x46c3c)) {
         Queue6cd990_Push((uint16_t)F<int32_t>(co, 0x23a), (int32_t)id, *(int32_t*)&x, *(int32_t*)&y, (int32_t)angle);
         *outId = 0;
         return 1;
     }
-    uint8_t* bt = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62b2fc), 0, id);
-    *outId = Buildings_Add(hook::Global<Collection*>(0x62b26c), 0, bt, x, y, angle, 0, 1);
+    uint8_t* bt = (uint8_t*)Collection_Get(g_buildingTypes, 0, id);
+    *outId = Buildings_Add(g_buildings, 0, bt, x, y, angle, 0, 1);
     return 1;
 }
 RT3_REPLACE(0x422a70, Company_BuildBuilding);
@@ -1155,7 +1152,7 @@ RT3_NOINLINE int32_t __fastcall Owner_PickBuildingToSell(uint8_t* o, int, int32_
     typedef uint8_t*(__thiscall * StateFn)(uint8_t*);
     uint32_t bestBits = 0xbf800000;
     int32_t bestId = -1;
-    Collection* blds = hook::Global<Collection*>(0x62b26c);
+    Collection* blds = g_buildings;
     for (uint32_t id = F<uint16_t>(o, 0x383); id;) {
         uint8_t* b = (uint8_t*)Collection_Get(blds, 0, id);
         id = F<uint16_t>(b, 0x270);
@@ -1163,7 +1160,7 @@ RT3_NOINLINE int32_t __fastcall Owner_PickBuildingToSell(uint8_t* o, int, int32_
         if ((int32_t)st[0x32] != kind || F<uint32_t>(b, 0x276) != 0 || b[0x390]) continue;
         float score;
         if (kind == 2) {
-            int32_t age = (int32_t)F<uint16_t>(hook::Global<uint8_t*>(0x6cec78), 0xd) - F<int32_t>(b, 0x3d5) + 1;
+            int32_t age = (int32_t)F<uint16_t>(g_world, 0xd) - F<int32_t>(b, 0x3d5) + 1;
             if (age < 0 || age < 3) {
                 score = (float)SimRand(1, 0x14);
             } else {
@@ -1200,12 +1197,12 @@ RT3_NOINLINE int32_t __fastcall Owner_PickBuildingToSell(uint8_t* o, int, int32_
     }
     if (bestId <= 0) return 0;
     int32_t value = F<int32_t>(Obj_Ref3cc(Collection_Get(blds, 0, (uint32_t)bestId)), 0x141);
-    if (IsMultiplayer() && !F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x46c3c)) {
-        uint8_t* s = hook::Global<uint8_t*>(0x6cd8d8);
+    if (IsMultiplayer() && !F<int32_t>(g_world, 0x46c3c)) {
+        uint8_t* s = g_session;
         Net_Send(s, 0, (const char*)s + 0x8f48, 0x73, 4, (const uint8_t*)&bestId, 5, 0);
         return value;
     }
-    uint8_t* c = hook::Global<uint8_t*>(0x62b26c);
+    uint8_t* c = hook::As<uint8_t*>(g_buildings);
     ((void(__thiscall*)(uint8_t*, int32_t))(*(void***)c)[2])(c, bestId);
     return value;
 }
@@ -1228,13 +1225,13 @@ RT3_NOINLINE int32_t __fastcall City_BuildIndustry(uint8_t* c, int, const char* 
     if (outId) *outId = 0;
     int32_t era = Bracket5(Ftol(F<float>(c, 0x25e)));
     float typical = *(float*)(0x5ee1e0 + (weighted + era * 2) * 4);
-    int32_t passes = checkOnly || F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x46c3c) ? 0xf : 10;
+    int32_t passes = checkOnly || F<int32_t>(g_world, 0x46c3c) ? 0xf : 10;
     int32_t shore = 0;
     for (int32_t pass = 1; pass <= passes; ++pass) {
-        int32_t n = Table_CountNamedWithBit(hook::Global<Collection*>(0x62b2fc), 0, name, F<int32_t>(c, 0x272));
+        int32_t n = Table_CountNamedWithBit(g_buildingTypes, 0, name, F<int32_t>(c, 0x272));
         if (n <= 0) return 0;
         int32_t seeded = 0;
-        if (pass == passes - 2 && (F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x46c3c) || shore)) {
+        if (pass == passes - 2 && (F<int32_t>(g_world, 0x46c3c) || shore)) {
             seeded = 1;
             PushSeed();
             SetSeed(0xa7);
@@ -1242,8 +1239,8 @@ RT3_NOINLINE int32_t __fastcall City_BuildIndustry(uint8_t* c, int, const char* 
         uint32_t id;
         for (int32_t tries = 1;; ++tries) {
             int32_t r = n > 1 ? SimRand(0, n - 1) : 0;
-            id = Table_NthNamedWithBit(hook::Global<Collection*>(0x62b2fc), 0, name, F<int32_t>(c, 0x272), r + 1);
-            int32_t year = F<int32_t>(Collection_Get(hook::Global<Collection*>(0x62b2fc), 0, id), 0x141);
+            id = Table_NthNamedWithBit(g_buildingTypes, 0, name, F<int32_t>(c, 0x272), r + 1);
+            int32_t year = F<int32_t>(Collection_Get(g_buildingTypes, 0, id), 0x141);
             if (F<int32_t>(c, 0x23e) && tries < 10) {
                 if (year == 1) break;
             } else {
@@ -1251,7 +1248,7 @@ RT3_NOINLINE int32_t __fastcall City_BuildIndustry(uint8_t* c, int, const char* 
                 if (weighted) {
                     if (diff < D_207(0x5c8578)) break;
                     float w = (float)((D_207(0x5c85c8) - diff) / diff * D_207(0x5c85d8));
-                    if (w > hook::Global<float>(0x5c8598) && (float)SimRand(0, 100) < w) break;
+                    if (w > g_5c8598 && (float)SimRand(0, 100) < w) break;
                 } else {
                     int32_t lim = Ftol(Fl_207(0x5c8c28) - (double)diff * Fl_207(0x5c8780));
                     if (tries > 0x14 && lim < 0x14) lim = 0x14;
@@ -1261,12 +1258,12 @@ RT3_NOINLINE int32_t __fastcall City_BuildIndustry(uint8_t* c, int, const char* 
             if (tries >= 0x1e) break;
         }
         if (seeded) PopSeed();
-        uint8_t* bt = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62b2fc), 0, id);
+        uint8_t* bt = (uint8_t*)Collection_Get(g_buildingTypes, 0, id);
         int32_t shaped = bt[0x123] ? 1 : 0;
         int32_t spots = 0x23;
-        if (((uint8_t*)Collection_Get(hook::Global<Collection*>(0x62b268), 0, F<uint32_t>(bt, 0x173)))[0xba]) {
+        if (((uint8_t*)Collection_Get(g_62b268, 0, F<uint32_t>(bt, 0x173)))[0xba]) {
             shore = 1;
-            spots = F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x46c3c) ? 0x2bc : 0x15e;
+            spots = F<int32_t>(g_world, 0x46c3c) ? 0x2bc : 0x15e;
         }
         float base = (float)((double)SimRand(0, 3) / D_207(0x5c87b8) * D_207(0x5c8c08));
         for (int32_t k = 1; k <= spots; ++k) {
@@ -1277,7 +1274,7 @@ RT3_NOINLINE int32_t __fastcall City_BuildIndustry(uint8_t* c, int, const char* 
                     if (j >= 0x78) return 0;
                     xi = SimRand(F<int32_t>(c, 0x246), F<int32_t>(c, 0x24e));
                     yi = SimRand(F<int32_t>(c, 0x24a), F<int32_t>(c, 0x252));
-                    if ((int32_t)(uint16_t)Map_BlockCity(hook::Global<uint8_t*>(0x62c120), 0, xi, yi) == F<int32_t>(c, 0x23a)) break;
+                    if ((int32_t)(uint16_t)Map_BlockCity(g_map, 0, xi, yi) == F<int32_t>(c, 0x23a)) break;
                 }
                 fx = (float)((double)SimRand(0, 0x27) / D_207(0x5c85f0) + (double)(xi * 4));
                 fy = (float)((double)SimRand(0, 0x27) / D_207(0x5c85f0) + (double)(yi * 4));
@@ -1347,10 +1344,10 @@ RT3_REPLACE(0x4234e0, Obj_ProductionRate);
 // a new industry type is announced once (+0x7b0). Then the building weights
 // are summed.
 void __fastcall City_Grow(uint8_t* c, int, float dt, int32_t fast) {
-    if (F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x68)) return;
+    if (F<int32_t>(g_app, 0x68)) return;
     if (F<int32_t>(c, 0x23e) && F<int32_t>(c, 0x242) <= 0) return;
     float period = 9.0f;
-    if (fast || F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x168)) {
+    if (fast || F<int32_t>(g_app, 0x168)) {
         double p = dt > D_207(0x5c9b40) ? (double)dt : 0.08333333333333333;
         period = (float)p;
     }
@@ -1359,7 +1356,7 @@ void __fastcall City_Grow(uint8_t* c, int, float dt, int32_t fast) {
     static const int32_t kClasses[3] = { 2, 3, 0 };
     int32_t pumps = 0;
     int32_t entries = Obj_Count37f(c);
-    int32_t avail = Obj_CountTypesAvailable(c, 0, F<uint16_t>(hook::Global<uint8_t*>(0x6cec78), 0xd), 2);
+    int32_t avail = Obj_CountTypesAvailable(c, 0, F<uint16_t>(g_world, 0xd), 2);
     int32_t target = 0;
     for (int32_t k = 0; k < 3; ++k) {
         int32_t cls = kClasses[k];
@@ -1386,9 +1383,9 @@ void __fastcall City_Grow(uint8_t* c, int, float dt, int32_t fast) {
         }
         float gap = (float)((double)cur - (float)target);
         float want = (float)((double)rate * gap);
-        if (want < hook::Global<float>(0x5c8598)) want = 0.0f;
-        if (fabs((double)gap) <= D_207(0x5c9b38) && !F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x46c38) &&
-            !F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x46c3c)) {
+        if (want < g_5c8598) want = 0.0f;
+        if (fabs((double)gap) <= D_207(0x5c9b38) && !F<int32_t>(g_world, 0x46c38) &&
+            !F<int32_t>(g_world, 0x46c3c)) {
             if (want > Fl_207(0x5c8568)) want = (float)(want * D_207(0x5c8c20));
             else if (want > D_207(0x5c87d8)) want = (float)(want * D_207(0x5c8628));
             else want = (float)(want * D_207(0x5c8da8));
@@ -1397,14 +1394,14 @@ void __fastcall City_Grow(uint8_t* c, int, float dt, int32_t fast) {
         int32_t build = Ftol((double)want);
         float frac = (float)((double)want - (float)build);
         if (!fast && (double)frac > (double)SimRand(0, 0x2710) / D_207(0x5c8d18)) ++build;
-        uint8_t* filter = hook::Global<uint8_t*>(0x62b2fc);
+        uint8_t* filter = hook::As<uint8_t*>(g_buildingTypes);
         if (!F<int32_t>(c, 0x23e)) {
             if (F<int32_t>(c, 0x385) == 1) {
                 F<int32_t>(c, 0x385) = 0;
                 int32_t cy = Ftol(Obj_CellY(c));
                 int32_t cx = Ftol(Obj_CellX(c));
-                TerrainTool_Flatten(hook::Global<uint8_t*>(0x62b2fc), 0, cx, cy, 0xa);
-                BuildingFilter_Reset(hook::Global<uint8_t*>(0x62b2fc), 1);
+                TerrainTool_Flatten(hook::As<uint8_t*>(g_buildingTypes), 0, cx, cy, 0xa);
+                BuildingFilter_Reset(hook::As<uint8_t*>(g_buildingTypes), 1);
             } else {
                 F<int32_t>(filter, 0x9c) = 1;
             }
@@ -1412,7 +1409,7 @@ void __fastcall City_Grow(uint8_t* c, int, float dt, int32_t fast) {
             BuildingFilter_Reset(filter, 0);
         }
         while (build > 0) {
-            if ((pumps++ & 3) == 3) Loading_Pump(hook::Global<uint8_t*>(0x6cec74), 0, 0, 0);
+            if ((pumps++ & 3) == 3) Loading_Pump(g_app, 0, 0, 0);
             char name[0x20];
             uint8_t* ty = nullptr;
             bool found = false;
@@ -1421,7 +1418,7 @@ void __fastcall City_Grow(uint8_t* c, int, float dt, int32_t fast) {
                 int32_t limit = -1;
                 if (cls == 3) {
                     limit = 4;
-                    Types_PickName(hook::Global<Collection*>(0x62b268), 0, name, Ftol((double)F<float>(c, 0x25e)));
+                    Types_PickName(g_62b268, 0, name, Ftol((double)F<float>(c, 0x25e)));
                 } else if (cls == 0) {
                     memcpy(name, (const void*)0x5c9114, 6);
                 } else if (cls == 2) {
@@ -1430,13 +1427,13 @@ void __fastcall City_Grow(uint8_t* c, int, float dt, int32_t fast) {
                     Obj_Entry37f(c, 0, SimRand(1, entries), name, (int32_t*)&weight);
                     if (avail > 1 && weight < (double)SimRand(0, 1000) / D_207(0x5c87f8)) continue;
                 }
-                ty = (uint8_t*)Table_GetByName(hook::Global<Collection*>(0x62b268), 0, name);
-                if (!ty || cls != ty[0x32] || F<uint16_t>(ty, 0x26) > F<uint16_t>(hook::Global<uint8_t*>(0x6cec78), 0xd)) continue;
+                ty = (uint8_t*)Table_GetByName(g_62b268, 0, name);
+                if (!ty || cls != ty[0x32] || F<uint16_t>(ty, 0x26) > F<uint16_t>(g_world, 0xd)) continue;
                 if (ty[0x32] == 2 && !F<int32_t>(ty, 0x7ac)) continue;
                 if (!F<int32_t>(c, 0x23e) && cls != 0) {
                     int32_t kind = F<int32_t>(ty, 0xe4), same = 0;
                     for (uint32_t id = F<uint16_t>(c, 0x383); id;) {
-                        uint8_t* b = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62b26c), 0, id);
+                        uint8_t* b = (uint8_t*)Collection_Get(g_buildings, 0, id);
                         if (F<int32_t>(b, 0x3d0) == kind) ++same;
                         id = F<uint16_t>(b, 0x270);
                     }
@@ -1450,14 +1447,14 @@ void __fastcall City_Grow(uint8_t* c, int, float dt, int32_t fast) {
             uint32_t newId = 0;
             int32_t r = City_BuildIndustry(c, 0, name, cls == 0, 0, &newId);
             build -= r < 1 ? 1 : r;
-            uint8_t* t2 = (uint8_t*)Table_GetByName(hook::Global<Collection*>(0x62b268), 0, name);
+            uint8_t* t2 = (uint8_t*)Table_GetByName(g_62b268, 0, name);
             if (r > 0 && t2[0x32] == 2 && !F<int32_t>(t2, 0x7b0) && !t2[0xba] && !t2[0xbb]) {
-                if (!F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x46c3c) && !IsMultiplayer())
-                    World_AddNamedEntry(hook::Global<void*>(0x6cec78), 0, (const char*)0x5c87a8, 8, 0, F<int32_t>(t2, 0xe4), (int32_t)newId, -1, -1);
+                if (!F<int32_t>(g_world, 0x46c3c) && !IsMultiplayer())
+                    World_AddNamedEntry(hook::As<void*>(g_world), 0, (const char*)0x5c87a8, 8, 0, F<int32_t>(t2, 0xe4), (int32_t)newId, -1, -1);
                 F<int32_t>(t2, 0x7b0) = 1;
             }
         }
-        BuildingFilter_Reset(hook::Global<uint8_t*>(0x62b2fc), 0);
+        BuildingFilter_Reset(hook::As<uint8_t*>(g_buildingTypes), 0);
     }
     Obj_SumBuildingWeights(c);
 }
@@ -1548,7 +1545,7 @@ RT3_REPLACE(0x423fd0, Obj_IncD0f);
 void __fastcall Obj_IncD0b(void* o) { F<int32_t>(o, 0xd0b)++; }
 RT3_REPLACE(0x423fe0, Obj_IncD0b);
 
-RT3_NOINLINE void __stdcall SetGlobal62bae8(uint8_t v) { hook::Global<uint8_t>(0x62bae8) = v; }
+RT3_NOINLINE void __stdcall SetGlobal62bae8(uint8_t v) { g_62bae8 = v; }
 RT3_REPLACE(0x423ff0, SetGlobal62bae8);
 
 }  // namespace rt3

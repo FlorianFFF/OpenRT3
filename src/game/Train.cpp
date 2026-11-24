@@ -8,6 +8,7 @@
 #include <math.h>
 #include <initializer_list>
 #include "hook/hook.h"
+#include "core/globals.h"
 #include "game/collection.h"
 #include "hook/keepregs.h"
 #include "core/stream.h"
@@ -25,27 +26,21 @@ namespace rt3 {
 template <typename T> static inline T& F(void* o, uint32_t off) { return *(T*)((uint8_t*)o + off); }
 
 // Global tables (Collection*) referenced by id from objects.
-static Collection*& g_companies  = hook::Global<Collection*>(0x62be10);
 
-static Collection*& g_cities     = hook::Global<Collection*>(0x62ba84);
 
      // records with +4 != 0 are active
-static Collection*& g_table6ada84 = hook::Global<Collection*>(0x6ada84);
 
 double __fastcall Obj_CellX(void* o);
 double __fastcall Obj_CellY(void* o);
 void* __fastcall Obj_Ref388(void* o);
 uint32_t __fastcall Map_GridByte(void* m, int, float x, float y);
-static Collection*& g_trackNodes = hook::Global<Collection*>(0x6cfca8);
 void __fastcall Node_ClearLinks(void* n, int, int32_t a, int32_t b);
-static Collection*& g_trains      = hook::Global<Collection*>(0x6cfcbc);
 void __fastcall Node_SetLinkPair(void* n, int, int32_t a, int32_t b, int32_t first);
 void* __fastcall Cursor33_Init(uint8_t* c);
 void* __fastcall Obj_City352(void* o);
 double __fastcall Obj_Ref388Float10d(void* o);
 int32_t __fastcall Node_GetLink(void* n, int, int32_t first);
 void* __fastcall Array33_Current(void* a);
-static Collection*& g_table6cec20 = hook::Global<Collection*>(0x6cec20);
 uint8_t* __fastcall Obj_Region(void* o);
 int32_t __fastcall Obj_CityRef10(void* o);
 float __fastcall Company_QualityFactor(void* c);
@@ -433,7 +428,7 @@ static int32_t __fastcall Obj_KindE8Special_Impl(void* o) {
 
 static inline void* FirstCar(uint8_t* t) {
     int32_t id = F<int32_t>(t, 0x41);
-    return id != -1 ? Collection_Get(g_cities, 0, id) : nullptr;
+    return id != -1 ? Collection_Get(g_62ba84, 0, id) : nullptr;
 }
 
 // 0x4a8ec0. Smooths the displayed speeds +0x18e (and +0x18a in state 0)
@@ -450,15 +445,15 @@ static void Smooth(uint8_t* t, uint32_t off) {
 // 0x4aadd0 / 0x4aae40. Leaves / enters the station site +0xa4 (its train counter +0x58c).
 static uint8_t* StationSite(uint8_t* t) {
     int32_t id = F<int32_t>(t, 0xa4);
-    if (id == -1 || !Collection_IsValid(g_table6cec20, 0, id) || Obj_CityRef10(t)) return nullptr;
-    return (uint8_t*)Collection_Get(g_table6cec20, 0, F<uint32_t>(t, 0xa4));
+    if (id == -1 || !Collection_IsValid(g_stations, 0, id) || Obj_CityRef10(t)) return nullptr;
+    return (uint8_t*)Collection_Get(g_stations, 0, F<uint32_t>(t, 0xa4));
 }
 
 static inline double D(uint32_t a) { return *(const double*)a; }
 
 static inline float Fl(uint32_t a) { return *(const float*)a; }
 
-static inline uint8_t* World() { return hook::Global<uint8_t*>(0x6cec78); }
+static inline uint8_t* World() { return g_world; }
 
 // Copies template entry src into array entry e (0x33-byte entries).
 static void CopyEntry(uint8_t* e, uint8_t* src) {
@@ -473,11 +468,11 @@ static void CopyEntry(uint8_t* e, uint8_t* src) {
     e[0x28] ^= (uint8_t)((e[0x28] ^ src[0x28]) & 0x10);
 }
 
-static inline uint8_t* Snd() { return hook::Global<uint8_t*>(0x6d402c); }
+static inline uint8_t* Snd() { return g_sound; }
 
 static inline float FromBits(uint32_t u) { return *(float*)&u; }
 
-static inline Collection* Nodes() { return hook::Global<Collection*>(0x6cfca8); }
+static inline Collection* Nodes() { return g_tracks; }
 
 static inline uint8_t* Node(uint32_t id) { return (uint8_t*)Collection_Get(Nodes(), 0, id); }
 
@@ -499,16 +494,16 @@ static inline int32_t Blocking(uint8_t* t, int32_t s) {
     return s;
 }
 
-static inline Collection* Players() { return hook::Global<Collection*>(0x62be10); }
+static inline Collection* Players() { return g_companies; }
 
-static inline Collection* Stations() { return hook::Global<Collection*>(0x6cec20); }
+static inline Collection* Stations() { return g_stations; }
 
 static inline uint8_t* Engine(uint8_t* t) {
-    return F<int32_t>(t, 0x41) != -1 ? (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba84), 0, F<uint32_t>(t, 0x41)) : nullptr;
+    return F<int32_t>(t, 0x41) != -1 ? (uint8_t*)Collection_Get(g_62ba84, 0, F<uint32_t>(t, 0x41)) : nullptr;
 }
 
 static inline uint8_t* EngineType(uint8_t* e) {
-    return (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6ada84), 0, F<uint32_t>(Obj_Ref388(e), 0x126));
+    return (uint8_t*)Collection_Get(g_6ada84, 0, F<uint32_t>(Obj_Ref388(e), 0x126));
 }
 
 // Share divisor: the train's +0x39, at least 1.
@@ -518,7 +513,7 @@ static inline uint32_t EngineRegion(uint8_t* t) {
     uint8_t* e = Engine(t);
     if (!e) return 0;
     float y = (float)Obj_CellY(e);
-    return Map_GridByte(hook::Global<void*>(0x62c120), 0, (float)Obj_CellX(e), y);
+    return Map_GridByte(hook::As<void*>(g_map), 0, (float)Obj_CellX(e), y);
 }
 
 static inline double Fl_195(uint32_t a) { return *(const float*)a; }
@@ -537,7 +532,7 @@ static float Bend(float h, uint8_t* next) {
 
 namespace {
 inline uint8_t* TrainLead(uint8_t* t) {
-    return F<int32_t>(t, 0x41) == -1 ? nullptr : (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba84), 0, F<uint32_t>(t, 0x41));
+    return F<int32_t>(t, 0x41) == -1 ? nullptr : (uint8_t*)Collection_Get(g_62ba84, 0, F<uint32_t>(t, 0x41));
 }
 // Stops train t for good: the lead car flagged (+carFlag) with its effect
 // and sound, the train's ghosting (+0xf4) undone on every car, state `state`
@@ -547,9 +542,9 @@ inline uint8_t* TrainLead(uint8_t* t) {
 void TrainStop(uint8_t* t, int32_t forced, uint32_t carFlag, void(__fastcall* effect)(uint8_t*, int, int32_t), int32_t sound, int32_t state, int32_t msg,
                void(__fastcall* tally)(void*), bool event) {
     if (!forced) {
-        if (F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0xfc)) return;
-        if (hook::Global<uint8_t*>(0x6cec78)[0x4c8e]) return;
-        if (hook::Global<uint8_t*>(0x6cec7c)[0x82] && F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x243)) return;
+        if (F<int32_t>(g_app, 0xfc)) return;
+        if (g_world[0x4c8e]) return;
+        if (g_newGame[0x82] && F<int32_t>(g_app, 0x243)) return;
     }
     if (F<int32_t>(t, 0xe8)) return;
     F<int32_t>(TrainLead(t), carFlag) = 1;
@@ -563,11 +558,11 @@ void TrainStop(uint8_t* t, int32_t forced, uint32_t carFlag, void(__fastcall* ef
     int32_t was = t[0xf4];
     if (was) {
         t[0xf4] = 0;
-        for (uint8_t* c = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba84), 0, F<uint32_t>(t, 0x41)); c;) {
+        for (uint8_t* c = (uint8_t*)Collection_Get(g_62ba84, 0, F<uint32_t>(t, 0x41)); c;) {
             SceneObj_SetAlpha(c, 0, 0xff, 1);
             Model_SetOpacity(c, 0, (float)(t[0xf4] ? 0.25 : 1.0));
             if (F<int32_t>(c, 0x352) == -1) break;
-            c = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba84), 0, F<uint32_t>(c, 0x352));
+            c = (uint8_t*)Collection_Get(g_62ba84, 0, F<uint32_t>(c, 0x352));
         }
         if (was != t[0xf4]) Station_RelinkNodes(t);
     }
@@ -576,11 +571,11 @@ void TrainStop(uint8_t* t, int32_t forced, uint32_t carFlag, void(__fastcall* ef
     F<uint32_t>(t, 0xec) = 0x46924000;
     char text[0xc0];
     FormatText(text, GetString(msg), Train_DisplayName(t, 0, 0), nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
-    if (F<int32_t>(t, 0x51) == Obj_Get21(hook::Global<void*>(0x6cec78))) Log_Add(hook::Global<Collection*>(0x6acd34), 0, text, 1, F<int32_t>(t, 0x25), 0);
-    if (Collection_Get(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(t, 0x51)))
-        tally(Collection_Get(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(t, 0x51)));
-    if (event && !forced && F<int32_t>(t, 0x51) == Obj_Get21(hook::Global<void*>(0x6cec78)))
-        World_AddNamedEntry(hook::Global<void*>(0x6cec78), 0, text, 6, 1, F<int32_t>(t, 0x25), -1, -1, -1);
+    if (F<int32_t>(t, 0x51) == Obj_Get21(hook::As<void*>(g_world))) Log_Add(g_messageLog, 0, text, 1, F<int32_t>(t, 0x25), 0);
+    if (Collection_Get(g_companies, 0, F<uint32_t>(t, 0x51)))
+        tally(Collection_Get(g_companies, 0, F<uint32_t>(t, 0x51)));
+    if (event && !forced && F<int32_t>(t, 0x51) == Obj_Get21(hook::As<void*>(g_world)))
+        World_AddNamedEntry(hook::As<void*>(g_world), 0, text, 6, 1, F<int32_t>(t, 0x25), -1, -1, -1);
 }
 }
 
@@ -588,11 +583,11 @@ namespace {
 // The map region byte under train t's lead car (0 without one).
 uint32_t TrainRegion(uint8_t* t) {
     if (F<int32_t>(t, 0x41) == -1) return 0;
-    uint8_t* c = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba84), 0, F<uint32_t>(t, 0x41));
+    uint8_t* c = (uint8_t*)Collection_Get(g_62ba84, 0, F<uint32_t>(t, 0x41));
     if (!c) return 0;
     float y = (float)Obj_CellY(c);
     float x = (float)Obj_CellX(c);
-    return Map_GridByte(hook::Global<void*>(0x62c120), 0, x, y);
+    return Map_GridByte(hook::As<void*>(g_map), 0, x, y);
 }
 // Wears meter *m down by `by` (more, x 0x5c88e8, below 0x5c8628 when
 // `harsh`), not below 0.
@@ -627,13 +622,13 @@ static inline int32_t Ftol_205(double v) {
 // Shared by the train ghosting functions: every car (vehicles 0x62ba84 from +0x41,
 // next car +0x352) gets scene alpha `alpha` and opacity 0.25 (ghosted, +0xf4) or 1.
 static void Train_ApplyGhost(uint8_t* train, uint32_t alpha) {
-    Collection* cars = hook::Global<Collection*>(0x62ba84);
+    Collection* cars = g_62ba84;
     for (uint8_t* car = (uint8_t*)Collection_Get(cars, 0, F<uint32_t>(train, 0x41)); car;) {
         SceneObj_SetAlpha(car, 0, alpha, 1);
         Model_SetOpacity(car, 0, (float)(train[0xf4] ? 0.25 : 1.0));
         int32_t next = F<int32_t>(car, 0x352);
         if (next == -1) break;
-        car = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba84), 0, (uint32_t)next);
+        car = (uint8_t*)Collection_Get(g_62ba84, 0, (uint32_t)next);
     }
 }
 
@@ -650,7 +645,7 @@ static inline int32_t Ftol_207(double v) {
     return r;
 }
 
-static inline uint8_t* TrackNode(int32_t id) { return (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfca8), 0, (uint32_t)id); }
+static inline uint8_t* TrackNode(int32_t id) { return (uint8_t*)Collection_Get(g_tracks, 0, (uint32_t)id); }
 
 static inline float BitsF(uint32_t b) { return *(float*)&b; }
 
@@ -666,8 +661,8 @@ static int32_t Train_OrderNode(uint8_t* t, bool* bad) {
     if (!o) return -1;
     *bad = false;
     if ((int8_t)o[0x28] < 0) return F<int32_t>(o, 0x2b);
-    if (!Collection_IsValid(hook::Global<Collection*>(0x6cec20), 0, F<uint16_t>(o, 0x29))) return F<int32_t>(t, 0x94);
-    uint8_t* s = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cec20), 0, F<uint16_t>(o, 0x29));
+    if (!Collection_IsValid(g_stations, 0, F<uint16_t>(o, 0x29))) return F<int32_t>(t, 0x94);
+    uint8_t* s = (uint8_t*)Collection_Get(g_stations, 0, F<uint16_t>(o, 0x29));
     if (!s) return *bad = true, -1;
     return F<int32_t>(s, 8);
 }
@@ -681,7 +676,7 @@ inline void CrtFree485(void* p) { ((void(__cdecl*)(void*))0x5a1145)(p); }
 // max steps and returns the steps taken when node target is reached, -1 otherwise.
 // The node checked trails the walk by one segment, as in the original.
 static int32_t __cdecl Train_StepsToNodeImpl(uint8_t* o, int32_t target, int32_t max) {
-    uint8_t* r = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfca8), 0, F<uint32_t>(o, 0x356));
+    uint8_t* r = (uint8_t*)Collection_Get(g_tracks, 0, F<uint32_t>(o, 0x356));
     int32_t node = F<int32_t>(r, 0x202);
     int32_t flag = F<int32_t>(o, 0x35a);
     int32_t n = 0;
@@ -691,7 +686,7 @@ static int32_t __cdecl Train_StepsToNodeImpl(uint8_t* o, int32_t target, int32_t
         bool useA = i == 0 ? flag == 0 : b == node;
         int32_t next = useA ? a : b;
         if (next == -1) return -1;
-        r = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfca8), 0, (uint32_t)next);
+        r = (uint8_t*)Collection_Get(g_tracks, 0, (uint32_t)next);
         ++n;
         node = here;
     }
@@ -724,11 +719,11 @@ static void Stat(uint8_t* train, int32_t stat, float amount) {
 
 static uint32_t AddCar(uint8_t* type, float x, float y) {
     return hook::Orig<uint32_t(__fastcall*)(void*, int, uint8_t*, uint32_t, float, float, uint32_t)>(0x41d340)(
-        hook::Global<void*>(0x62ba84), 0, type, 0, x, y, 0);
+        hook::As<void*>(g_62ba84), 0, type, 0, x, y, 0);
 }
 
 static void DeleteCar(uint8_t* car) {
-    void* table = hook::Global<void*>(0x62ba84);
+    void* table = hook::As<void*>(g_62ba84);
     void** vtable = F<void**>(table, 0);
     ((void(__fastcall*)(void*, int, uint32_t))vtable[2])(table, 0, F<uint32_t>(car, 0x34a));
 }
@@ -747,7 +742,7 @@ static void Append(uint8_t* t, uint32_t type) {
 }
 
 static uint32_t FindType(int32_t category) {
-    return hook::Orig<uint32_t(__fastcall*)(void*, int, int32_t)>(0x41e100)(hook::Global<void*>(0x62ba88), 0, category);
+    return hook::Orig<uint32_t(__fastcall*)(void*, int, int32_t)>(0x41e100)(hook::As<void*>(g_carTypes), 0, category);
 }
 
 static void Load(uint8_t* car, uint8_t* station, uint32_t* destination) {
@@ -768,7 +763,7 @@ static uint32_t Coordinate(uint8_t* car, uint32_t target) {
 static inline float Fl_train_station(uint32_t a) { return *(float*)a; }
 
 static int32_t Valid(uint32_t id) {
-    return hook::Orig<int32_t(__fastcall*)(void*, int, uint32_t)>(0x517d40)(hook::Global<void*>(0x6cec20), 0, id);
+    return hook::Orig<int32_t(__fastcall*)(void*, int, uint32_t)>(0x517d40)(hook::As<void*>(g_stations), 0, id);
 }
 
 static uint32_t Location(uint8_t* row) {
@@ -819,7 +814,7 @@ RT3_REPLACE(0x4a6320, Routes_Component);
 // end node in another route that Routes_CanMerge allows, merges the current
 // route into it (and follows it). Not while frozen (+0x90 / nodes +0xf1).
 RT3_NOINLINE void __fastcall Routes_TryMergeAt(Collection* t, int, uint32_t id) {
-    if (F<int32_t>(t, 0x90) || F<int32_t>(hook::Global<uint8_t*>(0x6cfca8), 0xf1)) return;
+    if (F<int32_t>(t, 0x90) || F<int32_t>(hook::As<uint8_t*>(g_tracks), 0xf1)) return;
     if (!Collection_IsValid(t, 0, id)) return;
     uint8_t* S = (uint8_t*)Collection_Get(t, 0, id);
     if (!S[0x1d]) return;
@@ -875,12 +870,12 @@ RT3_NOINLINE int32_t __fastcall Route_NextStep(Collection* routes, int, int32_t 
         *cost = 0xffffffff;
         return -1;
     }
-    Collection* nodes = hook::Global<Collection*>(0x6cfca8);
+    Collection* nodes = g_tracks;
     auto node = [&](int32_t id) { return (uint8_t*)Collection_Get(nodes, 0, (uint32_t)id); };
     uint8_t* p1 = node(from);
     uint8_t* p2 = node(to);
-    if (!Collection_IsValid(hook::Global<Collection*>(0x6cfcb4), 0, F<uint32_t>(p1, 0x212)) ||
-        !Collection_IsValid(hook::Global<Collection*>(0x6cfcb4), 0, F<uint32_t>(p2, 0x212))) {
+    if (!Collection_IsValid(g_routes, 0, F<uint32_t>(p1, 0x212)) ||
+        !Collection_IsValid(g_routes, 0, F<uint32_t>(p2, 0x212))) {
         *cost = 0xffffffff;
         return -1;
     }
@@ -995,8 +990,8 @@ RT3_REPLACE(0x4a6630, Route_NextStep);
 // over routes with +0x1c, `needFlag`) and the first step is a real node.
 RT3_NOINLINE int32_t __stdcall Route_CanReach(int32_t from, int32_t to, int32_t needFlag) {
     uint32_t cost;
-    int32_t step = Route_NextStep(hook::Global<Collection*>(0x6cfcb4), 0, from, to, &cost, needFlag, nullptr, nullptr, 0);
-    return cost != 0xffffffff && Collection_IsValid(hook::Global<Collection*>(0x6cfca8), 0, (uint32_t)step) ? 1 : 0;
+    int32_t step = Route_NextStep(g_routes, 0, from, to, &cost, needFlag, nullptr, nullptr, 0);
+    return cost != 0xffffffff && Collection_IsValid(g_tracks, 0, (uint32_t)step) ? 1 : 0;
 }
 RT3_REPLACE(0x4a6e00, Route_CanReach);
 
@@ -1075,12 +1070,12 @@ RT3_REPLACE(0x4a7030, Array33_Save);
 // in multiplayer only for the local player's trains (+0x51).
 RT3_NOINLINE void __fastcall Train_Whistle(uint8_t* o, int, int32_t n) {
     if (n <= 0) return;
-    if (IsMultiplayer() && Obj_Get21(hook::Global<void*>(0x6cec78)) != F<int32_t>(o, 0x51)) return;
+    if (IsMultiplayer() && Obj_Get21(hook::As<void*>(g_world)) != F<int32_t>(o, 0x51)) return;
     int32_t idx = Rand(0, 3) + 0x3a;
     const uint32_t* e = (const uint32_t*)(0x5f0828 + idx * 8);
     int32_t delay = 0;
     for (; n; --n, delay += 0x7d) {
-        int32_t level = 10 - F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x31d);
+        int32_t level = 10 - F<int32_t>(g_app, 0x31d);
         float vol = (float)((double)level / *(const double*)0x5c85f0 * FromBits(e[0]));
         if (vol <= *(const float*)0x5c8598) continue;
         uint32_t key = Sound_Play2D(Snd(), 0, (const char*)e[1], vol, 0x3f000000, 0, 1, nullptr);
@@ -1213,8 +1208,8 @@ void __fastcall Train_Init(uint8_t* t, int, int32_t id, int32_t owner) {
     F<int32_t>(t, 0xcc) = 0;
     const uint32_t minusOne1[4] = { 0x1ca, 0x41, 0x49, 0x4d };
     for (uint32_t o : minusOne1) F<int32_t>(t, o) = -1;
-    F<int32_t>(t, 0xd0) = F<uint16_t>(hook::Global<uint8_t*>(0x6cec78), 0xd);
-    F<int32_t>(t, 0xd4) = F<uint16_t>(hook::Global<uint8_t*>(0x6cec78), 0xd);
+    F<int32_t>(t, 0xd0) = F<uint16_t>(g_world, 0xd);
+    F<int32_t>(t, 0xd4) = F<uint16_t>(g_world, 0xd);
     t[0x1ce] = flags & 0xfd;
     F<uint32_t>(t, 0xdc) = F<uint32_t>(t, 0xe0) = F<uint32_t>(t, 0xe4) = 0x3f800000;
     F<int32_t>(t, 4) = 0;
@@ -1287,7 +1282,7 @@ RT3_REPLACE(0x4a7410, Train_Init);
 // is not 2 or 3, and the count of the latter.
 RT3_NOINLINE void* __fastcall Train_NthCarKind1(uint8_t* t, int, int32_t n) {
     if (n > t[0xfa]) return nullptr;
-    for (void* c = Collection_Get(g_cities, 0, F<uint32_t>(t, 0x41)); c; c = Obj_City352(c)) {
+    for (void* c = Collection_Get(g_62ba84, 0, F<uint32_t>(t, 0x41)); c; c = Obj_City352(c)) {
         if (F<int32_t>(Obj_Ref388(c), 0x41) == 1) --n;
         if (n <= 0) return c;
     }
@@ -1296,7 +1291,7 @@ RT3_NOINLINE void* __fastcall Train_NthCarKind1(uint8_t* t, int, int32_t n) {
 RT3_REPLACE(0x4a76a0, Train_NthCarKind1);
 
 RT3_NOINLINE void* __fastcall Train_NthCarOther(uint8_t* t, int, int32_t n) {
-    for (void* c = Collection_Get(g_cities, 0, F<uint32_t>(t, 0x41)); c; c = Obj_City352(c)) {
+    for (void* c = Collection_Get(g_62ba84, 0, F<uint32_t>(t, 0x41)); c; c = Obj_City352(c)) {
         if (F<int32_t>(Obj_Ref388(c), 0x41) != 2 && F<int32_t>(Obj_Ref388(c), 0x41) != 3) --n;
         if (n <= 0) return c;
     }
@@ -1306,20 +1301,20 @@ RT3_REPLACE(0x4a7700, Train_NthCarOther);
 
 int32_t __fastcall Train_CountCarsOther(uint8_t* t) {
     int32_t n = 0;
-    for (void* c = Collection_Get(g_cities, 0, F<uint32_t>(t, 0x41)); c; c = Obj_City352(c))
+    for (void* c = Collection_Get(g_62ba84, 0, F<uint32_t>(t, 0x41)); c; c = Obj_City352(c))
         if (F<int32_t>(Obj_Ref388(c), 0x41) != 2 && F<int32_t>(Obj_Ref388(c), 0x41) != 3) ++n;
     return n;
 }
 RT3_REPLACE(0x4a7760, Train_CountCarsOther);
 
-RT3_NOINLINE void* __fastcall Obj_City41(void* o) { return RefNotMinus1(g_cities, F<int32_t>(o, 0x41)); }
+RT3_NOINLINE void* __fastcall Obj_City41(void* o) { return RefNotMinus1(g_62ba84, F<int32_t>(o, 0x41)); }
 RT3_REPLACE(0x4a77b0, Obj_City41);
 
 // 0x4a77d0. Rear point of the train's first car; (10, 10) without cars.
 RT3_NOINLINE void __fastcall Train_RearPoint(uint8_t* t, int, float* x, float* y) {
     int32_t id = F<int32_t>(t, 0x41);
     if (id != -1) {
-        Car_RearPoint((uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba84), 0, id), 0, x, y);
+        Car_RearPoint((uint8_t*)Collection_Get(g_62ba84, 0, id), 0, x, y);
         return;
     }
     *y = 10.0f;
@@ -1331,7 +1326,7 @@ RT3_REPLACE(0x4a77d0, Train_RearPoint);
 // the special-named ones at full speed, the others paused (+0x1d8).
 RT3_NOINLINE void __fastcall Train_ResetCarAnimations(uint8_t* t) {
     int32_t id = F<int32_t>(t, 0x41);
-    uint8_t* car = id != -1 ? (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba84), 0, id) : nullptr;
+    uint8_t* car = id != -1 ? (uint8_t*)Collection_Get(g_62ba84, 0, id) : nullptr;
     for (int32_t i = 0; i < F<int32_t>(car, 0x31a); ++i)
         for (int k = 0; k < 8; ++k) {
             uint8_t* sub = F<uint8_t*>(F<uint8_t*>(car, 0x316), 0x10 + i * 0xc0 + k * 4);
@@ -1381,8 +1376,8 @@ RT3_REPLACE(0x4a7970, Obj_FarFromSiteBuilding);
 // sets *out to the first one (or the next one after *out; with `check`, only those
 // far enough per Obj_FarFromSiteBuilding); -1 at a junction (+0x20e) or after 15.
 void __fastcall Train_FindStationAhead(uint8_t* o, int, int32_t* out, int32_t kind, int32_t check) {
-    uint8_t* car = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba84), 0, F<uint32_t>(o, 0x41));
-    Collection* nodes = hook::Global<Collection*>(0x6cfca8);
+    uint8_t* car = (uint8_t*)Collection_Get(g_62ba84, 0, F<uint32_t>(o, 0x41));
+    Collection* nodes = g_tracks;
     uint8_t* s = (uint8_t*)Collection_Get(nodes, 0, F<uint32_t>(car, 0x356));
     int32_t prevId = F<int32_t>(s, 0x202);
     int32_t dir = F<int32_t>(car, 0x35a);
@@ -1390,7 +1385,7 @@ void __fastcall Train_FindStationAhead(uint8_t* o, int, int32_t* out, int32_t ki
     for (;;) {
         int32_t sid = F<int32_t>(s, 0x222);
         if (sid != -1) {
-            void* bld = Collection_Get(hook::Global<Collection*>(0x6cec20), 0, sid);
+            void* bld = Collection_Get(g_stations, 0, sid);
             if (bld) {
                 uint8_t* b = (uint8_t*)Obj_Building(bld);
                 uint8_t* type = ((uint8_t*(__thiscall*)(void*))(*(void***)b)[0x80 / 4])(b);
@@ -1401,7 +1396,7 @@ void __fastcall Train_FindStationAhead(uint8_t* o, int, int32_t* out, int32_t ki
                             break;
                         }
                     } else {
-                        if (Collection_Get(hook::Global<Collection*>(0x6cec20), 0, *out) == bld) break;
+                        if (Collection_Get(g_stations, 0, *out) == bld) break;
                         if (!check || Obj_FarFromSiteBuilding(car, bld) == 1) {
                             *out = F<int32_t>(s, 0x222);
                             break;
@@ -1424,7 +1419,7 @@ void __fastcall Train_FindStationAhead(uint8_t* o, int, int32_t* out, int32_t ki
             next = b == prevId ? a : b;
             if (next == -1) break;
         }
-        s = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfca8), 0, next);
+        s = (uint8_t*)Collection_Get(g_tracks, 0, next);
         ++steps;
         prevId = self;
         if (steps >= 0xf) break;
@@ -1436,7 +1431,7 @@ RT3_REPLACE(0x4a7a30, Train_FindStationAhead);
 // 0x4a7bc0. For a signal node (+0x94, kind 4): 1 when `other`'s position (+0x1e2,
 // +0x1ea) is behind it for the car's direction (+0x35a), else 0; 2 for other kinds.
 RT3_NOINLINE int32_t __fastcall Signal_IsBehind(uint8_t* o, int, uint8_t* car, uint8_t* other) {
-    uint8_t* e = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfca8), 0, F<uint32_t>(o, 0x94));
+    uint8_t* e = (uint8_t*)Collection_Get(g_tracks, 0, F<uint32_t>(o, 0x94));
     if (e[0x218] != 4) return 2;
     return !Effect_PointOnSide(e, 0, F<int32_t>(car, 0x35a), F<float>(other, 0x1e2), F<float>(other, 0x1ea)) ? 1 : 0;
 }
@@ -1448,7 +1443,7 @@ RT3_REPLACE(0x4a7bc0, Signal_IsBehind);
 // over +0x28, x +0x20 and the effects 0x51 and 0x52 + kind; at least 1, doubled
 // when world +0x4c8f.
 RT3_NOINLINE float __fastcall Cargo_DeliveryPayment(uint8_t* o, int32_t year, float v, uint32_t company, uint32_t region) {
-    uint32_t player = company ? F<uint32_t>(Collection_Get(hook::Global<Collection*>(0x62be10), 0, company), 0x3b) : 0;
+    uint32_t player = company ? F<uint32_t>(Collection_Get(g_companies, 0, company), 0x3b) : 0;
     float m1 = Effects_Multiplier(World(), 0, F<int32_t>(o, 0x10) + 0x5a, company, player, region);
     float m = (float)((double)Effects_Multiplier(World(), 0, 0x59, company, player, region) * m1);
     double d = (double)m > D(0x5c8918) ? (double)m : D(0x5c8918);
@@ -1471,11 +1466,11 @@ RT3_REPLACE(0x4a7c10, Cargo_DeliveryPayment);
 // 0x4a7db0. Sum of the cars' type value +0x10d over the consist chain (next +0x352).
 RT3_NOINLINE float __fastcall Train_SumCarValues(uint8_t* t) {
     float s = 0.0f;
-    for (uint8_t* c = (uint8_t*)Collection_Get(g_cities, 0, F<uint32_t>(t, 0x41)); c; ) {
+    for (uint8_t* c = (uint8_t*)Collection_Get(g_62ba84, 0, F<uint32_t>(t, 0x41)); c; ) {
         s = (float)(Obj_Ref388Float10d(c) + s);
         int32_t next = F<int32_t>(c, 0x352);
         if (next == -1) break;
-        c = (uint8_t*)Collection_Get(g_cities, 0, next);
+        c = (uint8_t*)Collection_Get(g_62ba84, 0, next);
     }
     return s;
 }
@@ -1499,7 +1494,7 @@ RT3_REPLACE(0x4a7e10, Train_IsRunning);
 RT3_NOINLINE int32_t __fastcall Train_SignalsClear(uint8_t* t) {
     int32_t cur = F<int32_t>(t, 0x49);
     if (cur == -1) return 1;
-    int32_t fwd = F<int32_t>(Collection_Get(hook::Global<Collection*>(0x62ba84), 0, F<uint32_t>(t, 0x41)), 0x35a) == 0;
+    int32_t fwd = F<int32_t>(Collection_Get(g_62ba84, 0, F<uint32_t>(t, 0x41)), 0x35a) == 0;
     int32_t s = Node_GetLink(Node(F<uint32_t>(t, 0x49)), 0, !fwd);
     float lim = Train_SumCarValues(t);
     float dist = 0.0f;
@@ -1519,7 +1514,7 @@ RT3_NOINLINE int32_t __fastcall Train_SignalsClear(uint8_t* t) {
     }
     for (;;) {
 check:
-        if (s != -1 && s != F<int32_t>(t, 0x25)) return F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x1b3) != 0;
+        if (s != -1 && s != F<int32_t>(t, 0x25)) return F<int32_t>(g_app, 0x1b3) != 0;
 end:
         if (cur == F<int32_t>(t, 0x4d)) return 1;
         int32_t prev = cur;
@@ -1537,8 +1532,8 @@ RT3_REPLACE(0x4a7e90, Train_SignalsClear);
 // 0x4a80a0. Drops the pending node +0x1cf once its link (side from +0x1ce bit 2)
 // is gone or points at +0x25. 0 while still pending.
 RT3_NOINLINE int32_t __fastcall Train_CheckPendingNode(uint8_t* t) {
-    if (!Collection_IsValid(g_trackNodes, 0, F<uint32_t>(t, 0x1cf))) return 1;
-    void* n = Collection_Get(g_trackNodes, 0, F<uint32_t>(t, 0x1cf));
+    if (!Collection_IsValid(g_tracks, 0, F<uint32_t>(t, 0x1cf))) return 1;
+    void* n = Collection_Get(g_tracks, 0, F<uint32_t>(t, 0x1cf));
     int32_t link = Node_GetLink(n, 0, (t[0x1ce] >> 2) & 1);
     if (link != -1 && link != F<int32_t>(t, 0x25)) return 0;
     F<int32_t>(t, 0x1cf) = -1;
@@ -1550,14 +1545,14 @@ RT3_REPLACE(0x4a80a0, Train_CheckPendingNode);
 // with the cities' +0x35a values.
 RT3_NOINLINE void __fastcall Station_RelinkNodes(void* s) {
     if (F<int32_t>(s, 0x49) == -1) return;
-    int32_t a = F<int32_t>(Collection_Get(g_cities, 0, F<uint32_t>(s, 0x41)), 0x35a);
-    int32_t b = F<int32_t>(Collection_Get(g_cities, 0, F<uint32_t>(s, 0x45)), 0x35a);
+    int32_t a = F<int32_t>(Collection_Get(g_62ba84, 0, F<uint32_t>(s, 0x41)), 0x35a);
+    int32_t b = F<int32_t>(Collection_Get(g_62ba84, 0, F<uint32_t>(s, 0x45)), 0x35a);
     int32_t n1 = F<int32_t>(s, 0x49);
-    if (n1 != -1 && Collection_IsValid(g_trackNodes, 0, n1))
-        Node_SetLinkPair(Collection_Get(g_trackNodes, 0, F<uint32_t>(s, 0x49)), 0, F<int32_t>(s, 0x25), -2, a);
+    if (n1 != -1 && Collection_IsValid(g_tracks, 0, n1))
+        Node_SetLinkPair(Collection_Get(g_tracks, 0, F<uint32_t>(s, 0x49)), 0, F<int32_t>(s, 0x25), -2, a);
     int32_t n2 = F<int32_t>(s, 0x4d);
-    if (n2 != -1 && Collection_IsValid(g_trackNodes, 0, n2))
-        Node_SetLinkPair(Collection_Get(g_trackNodes, 0, F<uint32_t>(s, 0x4d)), 0, F<int32_t>(s, 0x25), -3, b);
+    if (n2 != -1 && Collection_IsValid(g_tracks, 0, n2))
+        Node_SetLinkPair(Collection_Get(g_tracks, 0, F<uint32_t>(s, 0x4d)), 0, F<int32_t>(s, 0x25), -3, b);
 }
 RT3_REPLACE(0x4a8100, Station_RelinkNodes);
 
@@ -1565,12 +1560,12 @@ RT3_REPLACE(0x4a8100, Station_RelinkNodes);
 RT3_NOINLINE void __fastcall Station_UnlinkNodes(void* s) {
     int32_t a = F<int32_t>(s, 0x49);
     if (a == -1) return;
-    if (Collection_IsValid(g_trackNodes, 0, a))
-        Node_ClearLinks(Collection_Get(g_trackNodes, 0, F<uint32_t>(s, 0x49)), 0, F<int32_t>(s, 0x25), -2);
+    if (Collection_IsValid(g_tracks, 0, a))
+        Node_ClearLinks(Collection_Get(g_tracks, 0, F<uint32_t>(s, 0x49)), 0, F<int32_t>(s, 0x25), -2);
     int32_t b = F<int32_t>(s, 0x4d);
     if (b == -1) return;
-    if (Collection_IsValid(g_trackNodes, 0, b))
-        Node_ClearLinks(Collection_Get(g_trackNodes, 0, F<uint32_t>(s, 0x4d)), 0, F<int32_t>(s, 0x25), -3);
+    if (Collection_IsValid(g_tracks, 0, b))
+        Node_ClearLinks(Collection_Get(g_tracks, 0, F<uint32_t>(s, 0x4d)), 0, F<int32_t>(s, 0x25), -3);
 }
 RT3_REPLACE(0x4a81b0, Station_UnlinkNodes);
 
@@ -1590,19 +1585,19 @@ RT3_REPLACE(0x4a8220, Train_SetGhost);
 // 0x4a8310. Calls virtual slot 22 (a, b, c) on this object's city and each
 // city linked from it via +0x352.
 void __fastcall Obj_ForCityChain(void* o, int, int32_t a, int32_t b, int32_t c) {
-    uint8_t* city = (uint8_t*)Collection_Get(g_cities, 0, F<uint32_t>(o, 0x41));
+    uint8_t* city = (uint8_t*)Collection_Get(g_62ba84, 0, F<uint32_t>(o, 0x41));
     while (city) {
         ((void(__thiscall*)(void*, int32_t, int32_t, int32_t))(*(void***)city)[0x58 / 4])(city, a, b, c);
         int32_t next = F<int32_t>(city, 0x352);
         if (next == -1) break;
-        city = (uint8_t*)Collection_Get(g_cities, 0, next);
+        city = (uint8_t*)Collection_Get(g_62ba84, 0, next);
     }
 }
 RT3_REPLACE(0x4a8310, Obj_ForCityChain);
 
 // 0x4a8370. Refreshes the train window when it shows this train (view mode 2).
 RT3_NOINLINE void __fastcall Train_RefreshWindowIfShown(uint8_t* t) {
-    uint8_t* view = hook::Global<uint8_t*>(0x6d0818);
+    uint8_t* view = g_gameWindow;
     if (view && F<int32_t>(view, 0x8c) == 2 && F<int32_t>(view, 0x90) == F<int32_t>(t, 0x25)) TrainWindow_RefreshOpen();
 }
 RT3_REPLACE(0x4a8370, Train_RefreshWindowIfShown);
@@ -1615,11 +1610,11 @@ RT3_NOINLINE int32_t __fastcall Train_OrderTarget(uint8_t* t, int, int32_t* dist
     uint8_t* c = (uint8_t*)Array33_Current(t);
     if (!c) return -1;
     if ((int8_t)c[0x28] < 0) {
-        if (preferStop && Collection_IsValid(g_trackNodes, 0, F<uint32_t>(t, 0x94))) return F<int32_t>(t, 0x94);
+        if (preferStop && Collection_IsValid(g_tracks, 0, F<uint32_t>(t, 0x94))) return F<int32_t>(t, 0x94);
         if (dist) *dist = F<int32_t>(c, 0x2f);
         return F<int32_t>(c, 0x2b);
     }
-    Collection* sites = hook::Global<Collection*>(0x6cec20);
+    Collection* sites = g_stations;
     if (!Collection_IsValid(sites, 0, F<uint16_t>(c, 0x29))) return F<int32_t>(t, 0x94);
     uint8_t* s = (uint8_t*)Collection_Get(sites, 0, F<uint16_t>(c, 0x29));
     if (!s) return -1;
@@ -1635,7 +1630,7 @@ RT3_NOINLINE int32_t __fastcall Train_CurrentOrderNode(uint8_t* t) {
     uint8_t* c = OrderList_Current(t);
     if (!c) return -1;
     if ((int8_t)c[0x28] < 0) return F<int32_t>(c, 0x2b);
-    uint8_t* s = (uint8_t*)Collection_Get(g_table6cec20, 0, F<uint16_t>(c, 0x29));
+    uint8_t* s = (uint8_t*)Collection_Get(g_stations, 0, F<uint16_t>(c, 0x29));
     return s ? F<int32_t>(s, 8) : -1;
 }
 RT3_REPLACE(0x4a8470, Train_CurrentOrderNode);
@@ -1667,7 +1662,7 @@ RT3_NOINLINE void __fastcall Train_DestinationText(void* train, int, char* dst, 
         return;
     }
     if ((int8_t)stop[0x28] < 0) {
-        uint8_t* node = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfca8), 0, F<uint32_t>(stop, 0x2b));
+        uint8_t* node = (uint8_t*)Collection_Get(g_tracks, 0, F<uint32_t>(stop, 0x2b));
         char ys[0x12c], xs[0x130], text[0x12c];
         Num_Format(ys, 1, (double)Ftol_205(Obj_CenterCellY(node)), 10, 1, 0, 0);
         Num_Format(xs, 1, (double)Ftol_205(Obj_CenterCellX(node)), 10, 1, 0, 0);
@@ -1675,7 +1670,7 @@ RT3_NOINLINE void __fastcall Train_DestinationText(void* train, int, char* dst, 
         StrCopyN(dst, text, n - 1);
         return;
     }
-    StrCopyN(dst, (const char*)Collection_Get(hook::Global<Collection*>(0x6cec20), 0, F<uint16_t>(stop, 0x29)) + 0x46b, n - 1);
+    StrCopyN(dst, (const char*)Collection_Get(g_stations, 0, F<uint16_t>(stop, 0x29)) + 0x46b, n - 1);
 }
 RT3_REPLACE(0x4a8540, Train_DestinationText);
 
@@ -1700,14 +1695,14 @@ RT3_REPLACE(0x4a8690, Train_Rank);
 // last one (+0xc8); not in the editor (0x6cec7c +0x82) or with +0x4aef, and
 // in multiplayer only for the local player's (+0x51) stations.
 RT3_NOINLINE void __fastcall Station_ShowCargoMoney(uint8_t* s, int, int32_t amount) {
-    if (hook::Global<uint8_t*>(0x6cec7c)[0x82]) return;
-    if (F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4aef)) return;
+    if (g_newGame[0x82]) return;
+    if (F<int32_t>(g_world, 0x4aef)) return;
     if (amount <= 0) return;
-    if (IsMultiplayer() && Obj_Get21(hook::Global<void*>(0x6cec78)) != F<int32_t>(s, 0x51)) return;
+    if (IsMultiplayer() && Obj_Get21(hook::As<void*>(g_world)) != F<int32_t>(s, 0x51)) return;
     if (F<uint32_t*>(s, 0xc8)) Effect_Free(F<uint32_t*>(s, 0xc8));
     if (F<int32_t>(s, 0xac) == -1) return;
-    if (!Collection_IsValid(hook::Global<Collection*>(0x6cec20), 0, F<uint32_t>(s, 0xac))) return;
-    uint8_t* parent = (uint8_t*)Obj_Building(Collection_Get(hook::Global<Collection*>(0x6cec20), 0, F<uint32_t>(s, 0xac)));
+    if (!Collection_IsValid(g_stations, 0, F<uint32_t>(s, 0xac))) return;
+    uint8_t* parent = (uint8_t*)Obj_Building(Collection_Get(g_stations, 0, F<uint32_t>(s, 0xac)));
     uint8_t* e = Effect_Create(parent, 7, 1.0f, 0x100000, 0);
     F<uint8_t*>(s, 0xc8) = e;
     if (!e) return;
@@ -1722,9 +1717,9 @@ RT3_REPLACE(0x4a8720, Station_ShowCargoMoney);
 // 0x4a8840. The 0x6ada84 record of this object's city (via the city's +0x388 ref).
 RT3_NOINLINE void* __fastcall Obj_CityRef(void* o) {
     int32_t id = F<int32_t>(o, 0x41);
-    void* city = id != -1 ? Collection_Get(g_cities, 0, id) : nullptr;
+    void* city = id != -1 ? Collection_Get(g_62ba84, 0, id) : nullptr;
     if (!city) return nullptr;
-    return Collection_Get(g_table6ada84, 0, F<uint32_t>(Obj_Ref388(city), 0x126));
+    return Collection_Get(g_6ada84, 0, F<uint32_t>(Obj_Ref388(city), 0x126));
 }
 RT3_REPLACE(0x4a8840, Obj_CityRef);
 
@@ -1746,14 +1741,14 @@ RT3_REPLACE(0x4a88b0, Train_FirstCarRegion);
 // cargo kind 0x62ba8c+0x88 (+0x38c); 0 without a next stop.
 RT3_NOINLINE float __fastcall Train_CargoRate(uint8_t* t, int, int32_t onlyLocal) {
     uint8_t* st = TrainOrders_NextStop(t, 0, 0, 0);
-    if (!st) return hook::Global<float>(0x5c8598);
+    if (!st) return g_5c8598;
     Obj_BuildingRegion(st);
     float sum = 0.0f;
     if (F<int32_t>(t, 0x41) == -1) return sum;
-    for (uint8_t* car = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba84), 0, F<uint32_t>(t, 0x41)); car; car = (uint8_t*)Obj_City352(car)) {
+    for (uint8_t* car = (uint8_t*)Collection_Get(g_62ba84, 0, F<uint32_t>(t, 0x41)); car; car = (uint8_t*)Obj_City352(car)) {
         if (F<int32_t>(Obj_Ref388(car), 0x41) != 1) continue;
-        if (onlyLocal && F<int32_t>(car, 0x38c) != F<uint16_t>(hook::Global<uint8_t*>(0x62ba8c), 0x88)) continue;
-        if (!(F<float>(car, 0x398) == hook::Global<float>(0x5c8598))) sum = (float)(Obj_Rate(car) + sum);
+        if (onlyLocal && F<int32_t>(car, 0x38c) != F<uint16_t>(hook::As<uint8_t*>(g_cargoTypes), 0x88)) continue;
+        if (!(F<float>(car, 0x398) == g_5c8598)) sum = (float)(Obj_Rate(car) + sum);
     }
     return sum;
 }
@@ -1777,7 +1772,7 @@ RT3_NOINLINE void __fastcall Route_LinkStations(uint8_t* o) {
             uint8_t* e = F<uint8_t*>(o, 0) + i * 0x33;
             if ((int8_t)e[0x28] >= 0) {
                 int32_t st = F<uint16_t>(e, 0x29);
-                uint8_t* s = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cec20), 0, st);
+                uint8_t* s = (uint8_t*)Collection_Get(g_stations, 0, st);
                 if (Obj_BuildingStateActive(s) && st != prev) {
                     for (int32_t k = 0; k < 3; ++k) {
                         if (prev == -1 || !flags[k]) continue;
@@ -1785,11 +1780,11 @@ RT3_NOINLINE void __fastcall Route_LinkStations(uint8_t* o) {
                         if (d < 1) d = 1;
                         float t1 = (float)((double)d / D(0x5caad8));
                         float f = (float)(((double)t1 + D(0x5c88e8)) * D(0x5d0060));
-                        Site_RecordMin((uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cec20), 0, prev), 0, st, k, f);
+                        Site_RecordMin((uint8_t*)Collection_Get(g_stations, 0, prev), 0, st, k, f);
                     }
                     prev = st;
                     for (int32_t k = 0; k < 3; ++k) {
-                        uint8_t* cargos = hook::Global<uint8_t*>(0x62ba8c);
+                        uint8_t* cargos = hook::As<uint8_t*>(g_cargoTypes);
                         void* ct = Collection_Get((Collection*)cargos, 0, F<uint32_t>(cargos, 0x8e + k * 4));
                         px = Ftol(Obj_NodeCenterX(s));
                         py = Ftol(Obj_NodeCenterY(s));
@@ -1820,9 +1815,9 @@ RT3_NOINLINE void __fastcall Train_UpdateEngineEffects(uint8_t* t, int, float th
     float top;
     bool have = false;
     if (F<int32_t>(t, 0x41) != -1) {
-        void* e = Collection_Get(hook::Global<Collection*>(0x62ba84), 0, F<uint32_t>(t, 0x41));
+        void* e = Collection_Get(g_62ba84, 0, F<uint32_t>(t, 0x41));
         if (e) {
-            et = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6ada84), 0, F<uint32_t>(Obj_Ref388(e), 0x126));
+            et = (uint8_t*)Collection_Get(g_6ada84, 0, F<uint32_t>(Obj_Ref388(e), 0x126));
             if (et) {
                 top = F<float>(et, 0x20);
                 have = true;
@@ -1834,7 +1829,7 @@ RT3_NOINLINE void __fastcall Train_UpdateEngineEffects(uint8_t* t, int, float th
         top = 100.0f;
     }
     if (F<int32_t>(t, 0x41) == -1) return;
-    uint8_t* e = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba84), 0, F<uint32_t>(t, 0x41));
+    uint8_t* e = (uint8_t*)Collection_Get(g_62ba84, 0, F<uint32_t>(t, 0x41));
     if (!e) return;
     int32_t kind = F<int32_t>(et, 0x10);
     float k1, k2;
@@ -1884,17 +1879,17 @@ RT3_REPLACE(0x4a8ec0, Train_SmoothSpeed);
 // header (view mode 2 on this train, window 0x6d3b20) and its row in the train
 // list (view mode 1, window 0x6d3b34) when the row is on screen.
 RT3_NOINLINE void __fastcall Train_RefreshRows(uint8_t* t) {
-    uint8_t* view = hook::Global<uint8_t*>(0x6d0818);
+    uint8_t* view = g_gameWindow;
     if (!view) return;
-    if (F<int32_t>(view, 0x8c) == 2 && F<int32_t>(view, 0x90) == F<int32_t>(t, 0x25) && hook::Global<uint8_t*>(0x6d3b20))
-        TrainRow_Build(hook::Global<uint8_t*>(0x6d3b20), F<uint32_t>(t, 0x25), 1, 0, 1);
-    view = hook::Global<uint8_t*>(0x6d0818);
-    if (F<int32_t>(view, 0x8c) != 1 || !hook::Global<uint8_t*>(0x6d3b34)) return;
-    uint8_t* list = Widget_FindChild(hook::Global<uint8_t*>(0x6d3b34), 0, Global6d3b30() ? 0x32c9 : 0x32ca);
+    if (F<int32_t>(view, 0x8c) == 2 && F<int32_t>(view, 0x90) == F<int32_t>(t, 0x25) && g_6d3b20)
+        TrainRow_Build(g_6d3b20, F<uint32_t>(t, 0x25), 1, 0, 1);
+    view = g_gameWindow;
+    if (F<int32_t>(view, 0x8c) != 1 || !g_6d3b34) return;
+    uint8_t* list = Widget_FindChild(g_6d3b34, 0, Global6d3b30() ? 0x32c9 : 0x32ca);
     for (int32_t i = 0; i < F<int32_t>(list, 0xa2); ++i) {
         int32_t row = F<int32_t>(list, 0x1e2) + i;
         if (row < F<int32_t>(list, 0x1d2) && TreeView_NodeData(list, 0, row) == F<uint32_t>(t, 0x25)) {
-            TrainRow_Build(hook::Global<uint8_t*>(0x6d3b34), F<uint32_t>(t, 0x25), 0, i, 1);
+            TrainRow_Build(g_6d3b34, F<uint32_t>(t, 0x25), 0, i, 1);
             return;
         }
     }
@@ -1904,9 +1899,9 @@ RT3_REPLACE(0x4a8f50, Train_RefreshRows);
 // 0x4a9020. Field +0x10 of this object's city's 0x6ada84 record (0 if no city).
 RT3_NOINLINE int32_t __fastcall Obj_CityRef10(void* o) {
     int32_t id = F<int32_t>(o, 0x41);
-    void* city = id != -1 ? Collection_Get(g_cities, 0, id) : nullptr;
+    void* city = id != -1 ? Collection_Get(g_62ba84, 0, id) : nullptr;
     if (!city) return 0;
-    return F<int32_t>(Collection_Get(g_table6ada84, 0, F<uint32_t>(Obj_Ref388(city), 0x126)), 0x10);
+    return F<int32_t>(Collection_Get(g_6ada84, 0, F<uint32_t>(Obj_Ref388(city), 0x126)), 0x10);
 }
 RT3_REPLACE(0x4a9020, Obj_CityRef10);
 
@@ -1929,7 +1924,7 @@ void __fastcall Train_DefaultName(uint8_t* t) {
     float x, y;
     int32_t id = F<int32_t>(t, 0x41);
     if (id != -1) {
-        Car_RearPoint((uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba84), 0, id), 0, &x, &y);
+        Car_RearPoint((uint8_t*)Collection_Get(g_62ba84, 0, id), 0, &x, &y);
     } else {
         x = 10.0f;
         y = 10.0f;
@@ -1939,7 +1934,7 @@ void __fastcall Train_DefaultName(uint8_t* t) {
     uint16_t r = Regions_NearestValue(xi, yi);
     const char* name = (const char*)0x5c87a8;
     if (r) {
-        uint8_t* reg = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62bae0), 0, r);
+        uint8_t* reg = (uint8_t*)Collection_Get(g_cities, 0, r);
         if (reg) name = (const char*)reg + 0x356;
     }
     const char* suffix = GetString(((const int32_t*)0x621aa8)[Rand(0, 4)]);
@@ -1958,16 +1953,16 @@ RT3_NOINLINE int32_t __fastcall Train_CanReachOrder(uint8_t* t, int, int32_t any
     int32_t target;
     if ((int8_t)order[0x28] < 0) target = F<int32_t>(order, 0x2b);
     else {
-        if (!Collection_IsValid(hook::Global<Collection*>(0x6cec20), 0, F<uint16_t>(order, 0x29))) return 0;
-        target = F<int32_t>(Collection_Get(hook::Global<Collection*>(0x6cec20), 0, F<uint16_t>(order, 0x29)), 8);
+        if (!Collection_IsValid(g_stations, 0, F<uint16_t>(order, 0x29))) return 0;
+        target = F<int32_t>(Collection_Get(g_stations, 0, F<uint16_t>(order, 0x29)), 8);
     }
-    if (!Collection_IsValid(hook::Global<Collection*>(0x6cfca8), 0, (uint32_t)target)) return 0;
-    if (!Collection_IsValid(hook::Global<Collection*>(0x6cfca8), 0, F<uint32_t>(t, 0x49))) return 0;
+    if (!Collection_IsValid(g_tracks, 0, (uint32_t)target)) return 0;
+    if (!Collection_IsValid(g_tracks, 0, F<uint32_t>(t, 0x49))) return 0;
     int32_t need = F<int32_t>(Obj_CityRef(t), 0x10) == 2;
     if (anyElectric) need = 0;
-    uint32_t* co = (uint32_t*)Collection_Get(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(t, 0x51));
+    uint32_t* co = (uint32_t*)Collection_Get(g_companies, 0, F<uint32_t>(t, 0x51));
     uint32_t cost;
-    int32_t step = Route_NextStep(hook::Global<Collection*>(0x6cfcb4), 0, target, F<int32_t>(t, 0x49), &cost, need, co, nullptr, 0);
+    int32_t step = Route_NextStep(g_routes, 0, target, F<int32_t>(t, 0x49), &cost, need, co, nullptr, 0);
     return cost != 0xffffffff && step != -1 ? 1 : 0;
 }
 RT3_REPLACE(0x4a91b0, Train_CanReachOrder);
@@ -1975,11 +1970,11 @@ RT3_REPLACE(0x4a91b0, Train_CanReachOrder);
 // 0x4a92a0. Region-grid byte at this object's city.
 RT3_NOINLINE uint32_t __fastcall Obj_CityGridByte(void* o) {
     int32_t id = F<int32_t>(o, 0x41);
-    void* city = id != -1 ? Collection_Get(g_cities, 0, id) : nullptr;
+    void* city = id != -1 ? Collection_Get(g_62ba84, 0, id) : nullptr;
     if (!city) return 0;
     float y = (float)Obj_CellY(city);
     float x = (float)Obj_CellX(city);
-    return Map_GridByte(hook::Global<void*>(0x62c120), 0, x, y);
+    return Map_GridByte(hook::As<void*>(g_map), 0, x, y);
 }
 RT3_REPLACE(0x4a92a0, Obj_CityGridByte);
 
@@ -1987,11 +1982,11 @@ RT3_REPLACE(0x4a92a0, Obj_CityGridByte);
 RT3_NOINLINE uint32_t __fastcall Train_GridByteAtCar45(uint8_t* t) {
     int32_t id = F<int32_t>(t, 0x45);
     if (id == -1) return 0;
-    void* c = Collection_Get(g_cities, 0, id);
+    void* c = Collection_Get(g_62ba84, 0, id);
     if (!c) return 0;
     float y = (float)Obj_CellY(c);
     float x = (float)Obj_CellX(c);
-    return Map_GridByte(hook::Global<void*>(0x62c120), 0, x, y);
+    return Map_GridByte(hook::As<void*>(g_map), 0, x, y);
 }
 RT3_REPLACE(0x4a92f0, Train_GridByteAtCar45);
 
@@ -2025,7 +2020,7 @@ RT3_REPLACE(0x4a9360, Train_DisplayName);
 RT3_NOINLINE int32_t __fastcall Train_OnOwnTrack(uint8_t* t) {
     int32_t id = F<int32_t>(t, 0x49);
     if (id == -1) return 0;
-    uint8_t* n = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfca8), 0, id);
+    uint8_t* n = (uint8_t*)Collection_Get(g_tracks, 0, id);
     if (!n) return 0;
     return F<uint16_t>(n, 0x22e) == F<int32_t>(t, 0x51) ? 1 : 0;
 }
@@ -2035,8 +2030,8 @@ RT3_REPLACE(0x4a9430, Train_OnOwnTrack);
 RT3_NOINLINE int32_t __fastcall Obj_CityKindIs2(void* o) {
     int32_t v = 0;
     int32_t id = F<int32_t>(o, 0x41);
-    void* city = id != -1 ? Collection_Get(g_cities, 0, id) : nullptr;
-    if (city) v = F<int32_t>(Collection_Get(g_table6ada84, 0, F<uint32_t>(Obj_Ref388(city), 0x126)), 0x10);
+    void* city = id != -1 ? Collection_Get(g_62ba84, 0, id) : nullptr;
+    if (city) v = F<int32_t>(Collection_Get(g_6ada84, 0, F<uint32_t>(Obj_Ref388(city), 0x126)), 0x10);
     return v == 2 ? 1 : 0;
 }
 RT3_REPLACE(0x4a9460, Obj_CityKindIs2);
@@ -2061,7 +2056,7 @@ RT3_REPLACE(0x4a94b0, Obj_ApplyPendingTemplate);
 // (+0x109/+0x131/+0x159, newest first; weights 6 - age, this year scaled by the
 // month): (a + b + c) / a, scaled, plus 0.5, clamped to 0..1.
 float __fastcall Obj_YearlyRatio(uint8_t* o) {
-    uint8_t* w = hook::Global<uint8_t*>(0x6cec78);
+    uint8_t* w = g_world;
     int32_t n = F<uint16_t>(w, 0xd) - F<int32_t>(o, 0xd0) + 1;
     if (n > 5) n = 5;
     float W = 0.0f, X = 0.0f, Y = 0.0f;
@@ -2096,9 +2091,9 @@ RT3_REPLACE(0x4a9630, Obj_YearlyRatio);
 // lookup and leave the three stack-sensitive car routines in the original exe.
 RT3_NOINLINE void __fastcall Train_ReanchorConsist(uint8_t* t) {
     int32_t id = F<int32_t>(t, 0x41);
-    if (id == -1 || !Collection_Get(hook::Global<Collection*>(0x62ba84), 0, (uint32_t)id)) return;
+    if (id == -1 || !Collection_Get(g_62ba84, 0, (uint32_t)id)) return;
     id = F<int32_t>(t, 0x41);
-    uint8_t* car = id == -1 ? nullptr : (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba84), 0, (uint32_t)id);
+    uint8_t* car = id == -1 ? nullptr : (uint8_t*)Collection_Get(g_62ba84, 0, (uint32_t)id);
     hook::Orig<void(__fastcall*)(uint8_t*, int, uint32_t, uint32_t)>(0x41c700)(car, 0, F<uint32_t>(car, 0x356), 0x3e395810);
     hook::Orig<void(__fastcall*)(uint8_t*, int, uint32_t)>(0x41b080)(car, 0, 0);
     do {
@@ -2120,14 +2115,14 @@ RT3_REPLACE(0x4a9840, Train_ReanchorConsist);
 RT3_NOINLINE void __fastcall Train_ApplyLivery(uint8_t* t) {
     if (IsMultiplayer()) return;
     auto lead = [&]() -> uint8_t* {
-        return F<int32_t>(t, 0x41) == -1 ? nullptr : (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba84), 0, F<uint32_t>(t, 0x41));
+        return F<int32_t>(t, 0x41) == -1 ? nullptr : (uint8_t*)Collection_Get(g_62ba84, 0, F<uint32_t>(t, 0x41));
     };
     auto engine = [&]() -> uint8_t* {
         uint8_t* car = lead();
-        return car ? (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6ada84), 0, F<uint32_t>(Obj_Ref388(car), 0x126)) : nullptr;
+        return car ? (uint8_t*)Collection_Get(g_6ada84, 0, F<uint32_t>(Obj_Ref388(car), 0x126)) : nullptr;
     };
     const uint32_t schemeId = F<uint32_t>(engine(), 0x72);
-    uint8_t* scheme = schemeId ? (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba88), 0, schemeId) : nullptr;
+    uint8_t* scheme = schemeId ? (uint8_t*)Collection_Get(g_carTypes, 0, schemeId) : nullptr;
     const int32_t entry = F<int32_t>(scheme, 0x262);
     if (entry == -1) return;
     auto name = [&]() {
@@ -2143,15 +2138,15 @@ RT3_NOINLINE void __fastcall Train_ApplyLivery(uint8_t* t) {
             tender[0x3cc] = 1;
         }
     }
-    for (int32_t i = 0; i < Collection_Count(F<Collection*>(hook::Global<uint8_t*>(0x6d4020), 0x429b8)); ++i) {
-        Collection* skins = F<Collection*>(hook::Global<uint8_t*>(0x6d4020), 0x429b8);
+    for (int32_t i = 0; i < Collection_Count(F<Collection*>(g_pack, 0x429b8)); ++i) {
+        Collection* skins = F<Collection*>(g_pack, 0x429b8);
         uint8_t* skin = (uint8_t*)Collection_Get(skins, 0, Collection_IdAt(skins, 0, (uint32_t)i, 0));
         if (((int(__cdecl*)(const char*, const char*))0x5a57cf)((const char*)lead() + 0x3ac, (const char*)skin)) continue;
         Obj_SetTexture(lead(), 0, (const char*)skin + 0x60);
         if (!engine()[0x7a]) return;
         uint8_t* second = nullptr;
         if (t[0xf9] >= 2) {
-            second = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba84), 0, F<uint32_t>(t, 0x41));
+            second = (uint8_t*)Collection_Get(g_62ba84, 0, F<uint32_t>(t, 0x41));
             if (second) second = (uint8_t*)Obj_City352(second);
         }
         Obj_SetTexture(second, 0, (const char*)skin + 0xa0);
@@ -2165,15 +2160,15 @@ RT3_REPLACE(0x4a98c0, Train_ApplyLivery);
 // weight, car/cargo counts, and the remaining cars' predecessor positions.
 // +0x1ab suppresses the final positioning and UI refresh while bulk-editing.
 RT3_NOINLINE void __fastcall Train_DetachCar(uint8_t* t, int, uint32_t id) {
-    uint8_t* car = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba84), 0, id);
+    uint8_t* car = (uint8_t*)Collection_Get(g_62ba84, 0, id);
     int32_t prev = F<int32_t>(car, 0x34e);
     if (prev != -1) {
-        void* p = Collection_Get(hook::Global<Collection*>(0x62ba84), 0, (uint32_t)prev);
+        void* p = Collection_Get(g_62ba84, 0, (uint32_t)prev);
         F<uint32_t>(p, 0x352) = F<uint32_t>(car, 0x352);
     }
     int32_t next = F<int32_t>(car, 0x352);
     if (next != -1) {
-        void* p = Collection_Get(hook::Global<Collection*>(0x62ba84), 0, (uint32_t)next);
+        void* p = Collection_Get(g_62ba84, 0, (uint32_t)next);
         F<uint32_t>(p, 0x34e) = F<uint32_t>(car, 0x34e);
     }
     if (F<uint32_t>(t, 0x41) == id) F<uint32_t>(t, 0x41) = F<uint32_t>(car, 0x352);
@@ -2185,14 +2180,14 @@ RT3_NOINLINE void __fastcall Train_DetachCar(uint8_t* t, int, uint32_t id) {
     if (F<int32_t>(type, 0x41) == 1) {
         --t[0xfa];
         uint32_t cargo = F<uint32_t>(car, 0x38c);
-        if (cargo && ((uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba8c), 0, cargo))[0x47]) --t[0xfb];
+        if (cargo && ((uint8_t*)Collection_Get(g_cargoTypes, 0, cargo))[0x47]) --t[0xfb];
     }
-    Collection* cars = hook::Global<Collection*>(0x62ba84);
+    Collection* cars = g_62ba84;
     cars->vtbl->release(cars, id);
     if (!t[0x1ab]) {
         int32_t head = F<int32_t>(t, 0x41);
         if (head != -1) {
-            uint8_t* first = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba84), 0, (uint32_t)head);
+            uint8_t* first = (uint8_t*)Collection_Get(g_62ba84, 0, (uint32_t)head);
             for (uint8_t* c = (uint8_t*)Obj_City352(first); c; c = (uint8_t*)Obj_City352(c))
                 hook::Orig<int32_t(__fastcall*)(uint8_t*, int, void*)>(0x41c790)(c, 0, nullptr);
         }
@@ -2214,7 +2209,7 @@ RT3_REPLACE(0x4a9e00, Train_DetachCar);
 // building in multiplayer before version 101, else from the track node (x,
 // z, with both heights taken as 0).
 void __fastcall Train_HeadForNearestStop(uint8_t* t, int, uint8_t* v) {
-    Collection* stations = hook::Global<Collection*>(0x6cec20);
+    Collection* stations = g_stations;
     float p0[3], p1[3];
     SceneObj_GetPos(v, 0, (uint32_t*)&p0[0], (uint32_t*)&p0[1], (uint32_t*)&p0[2]);
     int32_t haveA = 0, haveB = 0;
@@ -2223,11 +2218,11 @@ void __fastcall Train_HeadForNearestStop(uint8_t* t, int, uint8_t* v) {
     uint8_t* seg = (uint8_t*)Array33_Current(t);
     if (!seg) return;
     auto dist = [&](int32_t id) {
-        uint8_t* b = (uint8_t*)Obj_Building(Collection_Get(hook::Global<Collection*>(0x6cec20), 0, (uint32_t)id));
+        uint8_t* b = (uint8_t*)Obj_Building(Collection_Get(g_stations, 0, (uint32_t)id));
         if (IsMultiplayer() && Game_EffectiveVersion() <= 100) SceneObj_GetPos(b, 0, (uint32_t*)&p1[0], (uint32_t*)&p1[1], (uint32_t*)&p1[2]);
         else {
-            uint8_t* st = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cec20), 0, (uint32_t)id);
-            uint8_t* n = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfca8), 0, F<uint32_t>(st, 8));
+            uint8_t* st = (uint8_t*)Collection_Get(g_stations, 0, (uint32_t)id);
+            uint8_t* n = (uint8_t*)Collection_Get(g_tracks, 0, F<uint32_t>(st, 8));
             memcpy(&p1[0], n + 0xc, 4);
             memcpy(&p1[2], n + 0x10, 4);
             p1[1] = 0;
@@ -2239,7 +2234,7 @@ void __fastcall Train_HeadForNearestStop(uint8_t* t, int, uint8_t* v) {
         return (float)((double)dx * dx + (double)dy * dy + (double)dz * dz);
     };
     auto curKind = [&]() {
-        uint8_t* b = (uint8_t*)Obj_Building(Collection_Get(hook::Global<Collection*>(0x6cec20), 0, (uint32_t)target));
+        uint8_t* b = (uint8_t*)Obj_Building(Collection_Get(g_stations, 0, (uint32_t)target));
         uint8_t* k = ((uint8_t*(__fastcall*)(uint8_t*))(*(void***)b)[0x80 / 4])(b);
         return k[0x8c];
     };
@@ -2248,12 +2243,12 @@ void __fastcall Train_HeadForNearestStop(uint8_t* t, int, uint8_t* v) {
         if (Collection_IsValid(stations, 0, (uint32_t)target)) dCur = dist(target);
         else dCur = 0;
     }
-    if (F<int32_t>(t, 0xa4) != -1 && Collection_IsValid(hook::Global<Collection*>(0x6cec20), 0, F<uint32_t>(t, 0xa4)) &&
+    if (F<int32_t>(t, 0xa4) != -1 && Collection_IsValid(g_stations, 0, F<uint32_t>(t, 0xa4)) &&
         ((seg[0x28] & 0x80) || curKind() != 3)) {
         dA = dist(F<int32_t>(t, 0xa4));
         haveA = 1;
     }
-    if (F<int32_t>(t, 0xa8) != -1 && Collection_IsValid(hook::Global<Collection*>(0x6cec20), 0, F<uint32_t>(t, 0xa8)) &&
+    if (F<int32_t>(t, 0xa8) != -1 && Collection_IsValid(g_stations, 0, F<uint32_t>(t, 0xa8)) &&
         ((seg[0x28] & 0x80) || curKind() != 4)) {
         dB = dist(F<int32_t>(t, 0xa8));
         haveB = 1;
@@ -2263,8 +2258,8 @@ void __fastcall Train_HeadForNearestStop(uint8_t* t, int, uint8_t* v) {
         target = F<int32_t>(t, 0xa4);
         if (haveB == 1 && dB < dA) pickB = true;
         else {
-            uint8_t* b = (uint8_t*)Obj_Building(Collection_Get(hook::Global<Collection*>(0x6cec20), 0, (uint32_t)target));
-            if (!Obj_ClearAttachSlot(b, 0, -1) && !F<int32_t>(Collection_Get(hook::Global<Collection*>(0x6cec20), 0, (uint32_t)target), 0x58c) &&
+            uint8_t* b = (uint8_t*)Obj_Building(Collection_Get(g_stations, 0, (uint32_t)target));
+            if (!Obj_ClearAttachSlot(b, 0, -1) && !F<int32_t>(Collection_Get(g_stations, 0, (uint32_t)target), 0x58c) &&
                 Obj_BeginBlocks(b) == 0xffffffff)
                 Obj_SetBlockFlags(b, 0, 2, 1);
         }
@@ -2273,39 +2268,39 @@ void __fastcall Train_HeadForNearestStop(uint8_t* t, int, uint8_t* v) {
     if (pickB) target = F<int32_t>(t, 0xa8);
     if (target == -1) return;
     if (F<int32_t>(t, 0xac) == target && F<int32_t>(t, 0x94) != -1) return;
-    if (!Collection_IsValid(hook::Global<Collection*>(0x6cec20), 0, (uint32_t)target)) return;
+    if (!Collection_IsValid(g_stations, 0, (uint32_t)target)) return;
     F<int32_t>(t, 0xac) = target;
-    int32_t nodeId = F<int32_t>((uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cec20), 0, (uint32_t)target), 8);
+    int32_t nodeId = F<int32_t>((uint8_t*)Collection_Get(g_stations, 0, (uint32_t)target), 8);
     if (nodeId == -1) return;
-    uint8_t* node = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfca8), 0, (uint32_t)nodeId);
-    if (F<int32_t>(Collection_Get(hook::Global<Collection*>(0x6cfcb4), 0, F<uint32_t>(node, 0x212)), 0x10) > 1) {
+    uint8_t* node = (uint8_t*)Collection_Get(g_tracks, 0, (uint32_t)nodeId);
+    if (F<int32_t>(Collection_Get(g_routes, 0, F<uint32_t>(node, 0x212)), 0x10) > 1) {
         if (F<int32_t>(node, 0x206) != -1) {
             uint32_t r = F<uint32_t>(node, 0x212);
-            if (r == F<uint32_t>(Collection_Get(hook::Global<Collection*>(0x6cfca8), 0, F<uint32_t>(node, 0x206)), 0x212))
-                Routes_SplitAtNode(hook::Global<Collection*>(0x6cfcb4), 0, node, 1);
+            if (r == F<uint32_t>(Collection_Get(g_tracks, 0, F<uint32_t>(node, 0x206)), 0x212))
+                Routes_SplitAtNode(g_routes, 0, node, 1);
         }
         if (F<int32_t>(node, 0x20a) != -1) {
             uint32_t r = F<uint32_t>(node, 0x212);
-            if (r == F<uint32_t>(Collection_Get(hook::Global<Collection*>(0x6cfca8), 0, F<uint32_t>(node, 0x20a)), 0x212))
-                Routes_SplitAtNode(hook::Global<Collection*>(0x6cfcb4), 0, node, 0);
+            if (r == F<uint32_t>(Collection_Get(g_tracks, 0, F<uint32_t>(node, 0x20a)), 0x212))
+                Routes_SplitAtNode(g_routes, 0, node, 0);
         }
     }
     int32_t n206 = F<int32_t>(node, 0x206), n20a = F<int32_t>(node, 0x20a);
     uint32_t cost206, cost20a;
     int32_t from = F<int32_t>(v, 0x356);
-    uint32_t* co = (uint32_t*)Collection_Get(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(t, 0x51));
-    Route_NextStep(hook::Global<Collection*>(0x6cfcb4), 0, from, n206, &cost206, F<int32_t>(Obj_CityRef(t), 0x10) == 2, co, nullptr, 0);
+    uint32_t* co = (uint32_t*)Collection_Get(g_companies, 0, F<uint32_t>(t, 0x51));
+    Route_NextStep(g_routes, 0, from, n206, &cost206, F<int32_t>(Obj_CityRef(t), 0x10) == 2, co, nullptr, 0);
     from = F<int32_t>(v, 0x356);
-    co = (uint32_t*)Collection_Get(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(t, 0x51));
-    Route_NextStep(hook::Global<Collection*>(0x6cfcb4), 0, from, n20a, &cost20a, F<int32_t>(Obj_CityRef(t), 0x10) == 2, co, nullptr, 0);
+    co = (uint32_t*)Collection_Get(g_companies, 0, F<uint32_t>(t, 0x51));
+    Route_NextStep(g_routes, 0, from, n20a, &cost20a, F<int32_t>(Obj_CityRef(t), 0x10) == 2, co, nullptr, 0);
     int32_t pick = cost206 > cost20a ? n206 : n20a;
     int32_t dest;
-    if (F<int32_t>(node, 0x20e) == -1 && F<int32_t>(Collection_Get(hook::Global<Collection*>(0x6cfca8), 0, (uint32_t)n206), 0x20e) == -1 &&
-        F<int32_t>(Collection_Get(hook::Global<Collection*>(0x6cfca8), 0, (uint32_t)n20a), 0x20e) == -1)
+    if (F<int32_t>(node, 0x20e) == -1 && F<int32_t>(Collection_Get(g_tracks, 0, (uint32_t)n206), 0x20e) == -1 &&
+        F<int32_t>(Collection_Get(g_tracks, 0, (uint32_t)n20a), 0x20e) == -1)
         dest = pick;
     else
         dest = F<int32_t>(node, 0x202);
-    Collection_Get(hook::Global<Collection*>(0x6cfca8), 0, (uint32_t)dest);
+    Collection_Get(g_tracks, 0, (uint32_t)dest);
     F<int32_t>(t, 0x1ba) = F<int32_t>(t, 0x94);
     F<int32_t>(t, 0x94) = dest;
 }
@@ -2322,7 +2317,7 @@ RT3_REPLACE(0x4a9f40, Train_HeadForNearestStop);
 int32_t __fastcall Train_UpdateApproachFactor(uint8_t* o, int, uint8_t* obj) {
     F<uint8_t>(o, 0x8b) = 0;
     if (F<int32_t>(o, 0xac) == -1 || F<int32_t>(o, 0x94) == -1) return 0;
-    if (!Collection_IsValid(hook::Global<Collection*>(0x6cec20), 0, F<uint32_t>(o, 0xac))) return 0;
+    if (!Collection_IsValid(g_stations, 0, F<uint32_t>(o, 0xac))) return 0;
     int32_t target = F<int32_t>(o, 0x94), steps;
     __asm {
         push 5
@@ -2345,7 +2340,7 @@ int32_t __fastcall Train_UpdateApproachFactor(uint8_t* o, int, uint8_t* obj) {
         F<uint32_t>(o, 0x8c) = 0xbf800000;
         return 0;
     }
-    Collection* nodes = hook::Global<Collection*>(0x6cfca8);
+    Collection* nodes = g_tracks;
     uint32_t from = F<uint32_t>(o, 0x1ca);
     double share;
     if (from == 0xffffffff || from == 0 || !Collection_IsValid(nodes, 0, from)) {
@@ -2421,8 +2416,8 @@ RT3_NOINLINE float __fastcall Vehicle_GradeSpeed(uint8_t* o, int, uint8_t* so) {
     float s = (float)((double)a * a + (double)c * c + (double)b * Fl(0x5c8598));
     uint8_t* type = nullptr;
     int32_t id = F<int32_t>(o, 0x41);
-    void* car = id != -1 ? Collection_Get(hook::Global<Collection*>(0x62ba84), 0, id) : nullptr;
-    if (car) type = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6ada84), 0, F<uint32_t>(Obj_Ref388(car), 0x126));
+    void* car = id != -1 ? Collection_Get(g_62ba84, 0, id) : nullptr;
+    if (car) type = (uint8_t*)Collection_Get(g_6ada84, 0, F<uint32_t>(Obj_Ref388(car), 0x126));
     float ratio = (float)((double)F<float>(o, 0xcc) / F<float>(type, 0x20));
     double flat = (double)Fl(0x5c85b4) - s;
     if (b < Fl(0x5c8598)) {
@@ -2443,8 +2438,8 @@ RT3_REPLACE(0x4aa990, Vehicle_GradeSpeed);
 // attachment, and flags the block when only side 2 remains free).
 RT3_NOINLINE void __fastcall Train_EnterBlock(uint8_t* t, int, uint8_t* car, uint8_t* other) {
     if (F<int32_t>(t, 0x41) != -1) {
-        void* e = Collection_Get(hook::Global<Collection*>(0x62ba84), 0, F<uint32_t>(t, 0x41));
-        if (e && F<int32_t>(Collection_Get(hook::Global<Collection*>(0x6ada84), 0, F<uint32_t>(Obj_Ref388(e), 0x126)), 0x10)) return;
+        void* e = Collection_Get(g_62ba84, 0, F<uint32_t>(t, 0x41));
+        if (e && F<int32_t>(Collection_Get(g_6ada84, 0, F<uint32_t>(Obj_Ref388(e), 0x126)), 0x10)) return;
     }
     if (!(Fl_205(0x5c85b4) > F<float>(t, 0xe0))) {
         F<int32_t>(t, 0x192) = -1;
@@ -2477,18 +2472,18 @@ RT3_REPLACE(0x4aaad0, Train_EnterBlock);
 // reset when still claimed).
 RT3_NOINLINE void __fastcall Train_LeaveBlock(uint8_t* t) {
     if (F<int32_t>(t, 0xac) == -1 || t[0x1a2] != 1) return;
-    if (!Collection_IsValid(hook::Global<Collection*>(0x6cec20), 0, F<uint32_t>(t, 0xac))) return;
-    void* st = Collection_Get(hook::Global<Collection*>(0x6cec20), 0, F<uint32_t>(t, 0xac));
+    if (!Collection_IsValid(g_stations, 0, F<uint32_t>(t, 0xac))) return;
+    void* st = Collection_Get(g_stations, 0, F<uint32_t>(t, 0xac));
     if (!Obj_CityRef10(t)) {
         uint8_t* b = (uint8_t*)Obj_Building(st);
         if (!Obj_ClearAttachSlot(b, 0, -1) && F<int32_t>(t, 0x192) == F<int32_t>(b, 0x262) && Obj_BeginBlocks(b) == 0xffffffff)
             Obj_SetBlockFlags(b, 0, 2, 1);
     }
     t[0x1a2] = 0;
-    Collection* sts = hook::Global<Collection*>(0x6cec20);
+    Collection* sts = g_stations;
     if (Collection_IsValid(sts, 0, F<uint32_t>(t, 0xa4)) && F<int32_t>(Collection_Get(sts, 0, F<uint32_t>(t, 0xa4)), 0x58c)) {
-        Obj_Dec58c((uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cec20), 0, F<uint32_t>(t, 0xa4)));
-        if (F<int32_t>(Collection_Get(hook::Global<Collection*>(0x6cec20), 0, F<uint32_t>(t, 0xa4)), 0x58c)) F<int32_t>(t, 0x192) = -1;
+        Obj_Dec58c((uint8_t*)Collection_Get(g_stations, 0, F<uint32_t>(t, 0xa4)));
+        if (F<int32_t>(Collection_Get(g_stations, 0, F<uint32_t>(t, 0xa4)), 0x58c)) F<int32_t>(t, 0x192) = -1;
     }
     F<int32_t>(t, 0xa4) = -1;
 }
@@ -2498,14 +2493,14 @@ RT3_REPLACE(0x4aac00, Train_LeaveBlock);
 // is not in a city: clears the signal's block slot for the side it came from.
 RT3_NOINLINE void __fastcall Vehicle_PassSignal(uint8_t* o) {
     int32_t id = F<int32_t>(o, 0xa4);
-    Collection* sites = hook::Global<Collection*>(0x6cec20);
+    Collection* sites = g_stations;
     if (id == -1 || !Collection_IsValid(sites, 0, id)) return;
     if (!Obj_CityRef10(o) && !o[0x1a2]) {
-        uint8_t* b = (uint8_t*)Obj_Building(Collection_Get(hook::Global<Collection*>(0x6cec20), 0, F<uint32_t>(o, 0xa4)));
-        uint8_t* s = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cec20), 0, F<uint32_t>(o, 0xa4));
-        Collection_Get(hook::Global<Collection*>(0x6cfca8), 0, F<uint32_t>(s, 8));
+        uint8_t* b = (uint8_t*)Obj_Building(Collection_Get(g_stations, 0, F<uint32_t>(o, 0xa4)));
+        uint8_t* s = (uint8_t*)Collection_Get(g_stations, 0, F<uint32_t>(o, 0xa4));
+        Collection_Get(g_tracks, 0, F<uint32_t>(s, 8));
         int32_t car = F<int32_t>(o, 0x41);
-        uint8_t* c = car != -1 ? (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba84), 0, car) : nullptr;
+        uint8_t* c = car != -1 ? (uint8_t*)Collection_Get(g_62ba84, 0, car) : nullptr;
         Obj_MarkBlockSlot(b, 0, 0, Signal_IsBehind(o, 0, c, b), 0);
     }
     o[0x1a2] = 1;
@@ -2515,7 +2510,7 @@ RT3_REPLACE(0x4aad20, Vehicle_PassSignal);
 void __fastcall Train_LeaveSite(uint8_t* t) {
     uint8_t* s = StationSite(t);
     if (!s || F<int32_t>(s, 0x58c) <= 0) return;
-    s = (uint8_t*)Collection_Get(g_table6cec20, 0, F<uint32_t>(t, 0xa4));
+    s = (uint8_t*)Collection_Get(g_stations, 0, F<uint32_t>(t, 0xa4));
     if (F<int32_t>(s, 0x58c) > 0) F<int32_t>(s, 0x58c)--;
 }
 RT3_REPLACE(0x4aadd0, Train_LeaveSite);
@@ -2546,11 +2541,11 @@ RT3_REPLACE(0x4aae90, Train_PassSignal);
 RT3_NOINLINE float __fastcall Train_ConsistWeight(uint8_t* t, int, int32_t quiet, int32_t slope, int32_t curves, int32_t withEngines,
                                      float* meanBend, float* maxBend, float* meanTilt) {
     if (F<int32_t>(t, 0x41) == -1) return 0.0f;
-    Collection* cars = hook::Global<Collection*>(0x62ba84);
+    Collection* cars = g_62ba84;
     float weightSum = 0.0f, tiltSum = 0.0f;
     if (!quiet) {
         if (uint8_t* c = (uint8_t*)Collection_Get(cars, 0, F<uint32_t>(t, 0x41)))
-            Collection_Get(hook::Global<Collection*>(0x6ada84), 0, F<uint32_t>((uint8_t*)Obj_Ref388(c), 0x126));
+            Collection_Get(g_6ada84, 0, F<uint32_t>((uint8_t*)Obj_Ref388(c), 0x126));
     }
     uint8_t* car = (uint8_t*)Collection_Get(cars, 0, F<uint32_t>(t, 0x41));
     float total = 0.0f, bendSum = 0.0f, bendCount = 0.001f, bendMax = 0.0f;
@@ -2580,7 +2575,7 @@ RT3_NOINLINE float __fastcall Train_ConsistWeight(uint8_t* t, int, int32_t quiet
         if (curves) {
             float k = 1.0f;
             if (F<int32_t>(car, 0x356) != -1) {
-                Collection* nodes = hook::Global<Collection*>(0x6cfca8);
+                Collection* nodes = g_tracks;
                 uint8_t* node = (uint8_t*)Collection_Get(nodes, 0, F<uint32_t>(car, 0x356));
                 float h = Vehicle_Heading(node, 0, 1);
                 float bend = 0.0f;
@@ -2616,7 +2611,7 @@ RT3_REPLACE(0x4aaee0, Train_ConsistWeight);
 // and the far ends agree. Taking a switch records it. The result must be a node the
 // train can enter, else -1 (switch record cleared).
 RT3_NOINLINE int32_t __fastcall Train_NextNode(uint8_t* t, int, int32_t forward, uint32_t prev, uint32_t curId, int32_t* switched) {
-    Collection* nodes = hook::Global<Collection*>(0x6cfca8);
+    Collection* nodes = g_tracks;
     uint8_t* prevN = prev == 0xffffffff ? nullptr : (uint8_t*)Collection_Get(nodes, 0, prev);
     uint8_t* cur = (uint8_t*)Collection_Get(nodes, 0, curId);
     *switched = 0;
@@ -2695,7 +2690,7 @@ RT3_REPLACE(0x4ab2d0, Train_NextNode);
 // by giving it a sort key (list 1) between its new neighbours.
 RT3_NOINLINE void __fastcall Train_SetRank(uint8_t* t, int, int32_t rank) {
     if (rank == Train_Rank(t)) return;
-    Collection* trains = hook::Global<Collection*>(0x6cfcbc);
+    Collection* trains = g_trains;
     uint32_t prevKey = 1;
     for (int32_t i = 0; i < Collection_Count(trains); ++i) {
         uint8_t* tr = (uint8_t*)Collection_Get(trains, 0, Collection_IdAt(trains, 0, i, 1));
@@ -2723,27 +2718,27 @@ RT3_REPLACE(0x4ab730, Train_SetRank);
 RT3_NOINLINE void __fastcall Train_ClearBreakdown(uint8_t* t) {
     if (F<int32_t>(t, 0xa0)) {
         F<int32_t>(t, 0x9c) = F<int32_t>(t, 0xa0);
-        F<uint32_t>(t, 0xb0) = F<uint32_t>(hook::Global<uint8_t*>(0x6cec78), 0x15);
+        F<uint32_t>(t, 0xb0) = F<uint32_t>(g_world, 0x15);
         F<int32_t>(t, 0xa0) = 0;
         F<int32_t>(t, 0x39) = 0;
         t[0x1b8] = 0;
         F<int32_t>(t, 0x3d) = 0;
         float sum = 0.0f;
         if (F<int32_t>(t, 0x41) != -1) {
-            if (uint8_t* c = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba84), 0, F<uint32_t>(t, 0x41)))
-                Collection_Get(hook::Global<Collection*>(0x6ada84), 0, F<uint32_t>((uint8_t*)Obj_Ref388(c), 0x126));
-            for (uint8_t* c = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba84), 0, F<uint32_t>(t, 0x41)); c;) {
+            if (uint8_t* c = (uint8_t*)Collection_Get(g_62ba84, 0, F<uint32_t>(t, 0x41)))
+                Collection_Get(g_6ada84, 0, F<uint32_t>((uint8_t*)Obj_Ref388(c), 0x126));
+            for (uint8_t* c = (uint8_t*)Collection_Get(g_62ba84, 0, F<uint32_t>(t, 0x41)); c;) {
                 sum = (float)((double)F<float>(c, 0x394) + sum);
                 if (F<int32_t>(c, 0x352) == -1) break;
-                c = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba84), 0, F<uint32_t>(c, 0x352));
+                c = (uint8_t*)Collection_Get(g_62ba84, 0, F<uint32_t>(c, 0x352));
             }
         }
         F<float>(t, 0xb4) = sum;
         F<float>(t, 0xb8) = Train_ConsistWeight(t, 0, 0, 0, 0, 0, nullptr, nullptr, nullptr);
     }
-    if (F<int32_t>(t, 0x41) == -1 || !Collection_Get(hook::Global<Collection*>(0x62ba84), 0, F<uint32_t>(t, 0x41))) return;
-    Car_SetBrokenDown(F<int32_t>(t, 0x41) == -1 ? nullptr : (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba84), 0, F<uint32_t>(t, 0x41)), 0, 0);
-    Vehicle_SelectSound(F<int32_t>(t, 0x41) == -1 ? nullptr : (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba84), 0, F<uint32_t>(t, 0x41)), 0, 0);
+    if (F<int32_t>(t, 0x41) == -1 || !Collection_Get(g_62ba84, 0, F<uint32_t>(t, 0x41))) return;
+    Car_SetBrokenDown(F<int32_t>(t, 0x41) == -1 ? nullptr : (uint8_t*)Collection_Get(g_62ba84, 0, F<uint32_t>(t, 0x41)), 0, 0);
+    Vehicle_SelectSound(F<int32_t>(t, 0x41) == -1 ? nullptr : (uint8_t*)Collection_Get(g_62ba84, 0, F<uint32_t>(t, 0x41)), 0, 0);
 }
 RT3_REPLACE(0x4ab830, Train_ClearBreakdown);
 
@@ -2781,12 +2776,12 @@ RT3_NOINLINE int32_t __fastcall Train_SetState(uint8_t* t, int, int32_t state, f
         uint8_t old = t[0xf4];
         if (old != (hide ? 1 : 0)) {
             t[0xf4] = hide ? 1 : 0;
-            for (uint8_t* car = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba84), 0, F<uint32_t>(t, 0x41)); car;) {
+            for (uint8_t* car = (uint8_t*)Collection_Get(g_62ba84, 0, F<uint32_t>(t, 0x41)); car;) {
                 SceneObj_SetAlpha(car, 0, hide ? 0x3f : 0xff, 1);
                 Model_SetOpacity(car, 0, t[0xf4] ? 0.25f : 1.0f);
                 int32_t next = F<int32_t>(car, 0x352);
                 if (next == -1) break;
-                car = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba84), 0, (uint32_t)next);
+                car = (uint8_t*)Collection_Get(g_62ba84, 0, (uint32_t)next);
             }
             if (old != t[0xf4]) {
                 if (hide) Station_UnlinkNodes(t);
@@ -2812,13 +2807,13 @@ RT3_REPLACE(0x4ab980, Train_SetState);
 RT3_NOINLINE void __fastcall Train_RetargetRegion(uint8_t* t) {
     uint8_t* cell = nullptr;
     if (F<int32_t>(t, 0x181) != -1) {
-        uint8_t* m = hook::Global<uint8_t*>(0x62c120);
+        uint8_t* m = g_map;
         cell = F<uint8_t*>(m, 0x2129) + (F<int32_t>(m, 0x2145) * F<int32_t>(t, 0x185) + F<int32_t>(t, 0x181)) * 0x1d7;
     }
     uint8_t* st = TrainOrders_NextStop(t, 0, 0, 0);
     uint8_t* region = st ? Obj_BuildingRegion(st) : nullptr;
     if (region != cell && F<int32_t>(t, 0x41) != -1)
-        for (uint8_t* car = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba84), 0, F<uint32_t>(t, 0x41)); car; car = (uint8_t*)Obj_City352(car))
+        for (uint8_t* car = (uint8_t*)Collection_Get(g_62ba84, 0, F<uint32_t>(t, 0x41)); car; car = (uint8_t*)Obj_City352(car))
             Car_SetCargoValue(car, 0, region);
     if (st) {
         F<int32_t>(t, 0x181) = Obj_BuildingQuarterX(st);
@@ -2837,10 +2832,10 @@ RT3_REPLACE(0x4abca0, Train_RetargetRegion);
 RT3_NOINLINE void __fastcall Train_SetRunning(uint8_t* train, int, int32_t running) {
     if (F<int32_t>(train, 0xd8) == running) return;
     F<int32_t>(train, 0xd8) = running;
-    if (F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x287) && F<int32_t>(train, 0x41) != -1 &&
-        Collection_Get(hook::Global<Collection*>(0x62ba84), 0, F<uint32_t>(train, 0x41))) {
+    if (F<int32_t>(g_app, 0x287) && F<int32_t>(train, 0x41) != -1 &&
+        Collection_Get(g_62ba84, 0, F<uint32_t>(train, 0x41))) {
         int32_t lead = F<int32_t>(train, 0x41);
-        uint8_t* car = lead == -1 ? nullptr : (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba84), 0, (uint32_t)lead);
+        uint8_t* car = lead == -1 ? nullptr : (uint8_t*)Collection_Get(g_62ba84, 0, (uint32_t)lead);
         Model_SetAttachmentsFlag(car, 0, F<int32_t>(train, 0xd8) ? 0 : 1);
     }
     if (F<int32_t>(train, 0xd8) || F<int32_t>(train, 0xe8)) return;
@@ -2924,38 +2919,38 @@ RT3_REPLACE(0x4abf00, Train_ShareRevenue);
 // engine kind (at the car's region) and 0x4d and the company's quality factor,
 // added to +0x131 and posted to the company (+0x51) as stat 7. Not when paused (+0x82).
 RT3_NOINLINE void __fastcall Train_EarnRevenue(uint8_t* o, int, float amount) {
-    if (hook::Global<uint8_t*>(0x6cec7c)[0x82]) return;
+    if (g_newGame[0x82]) return;
     auto regionOf = [&]() -> uint32_t {
         int32_t id = F<int32_t>(o, 0x41);
-        void* car = id != -1 ? Collection_Get(hook::Global<Collection*>(0x62ba84), 0, id) : nullptr;
+        void* car = id != -1 ? Collection_Get(g_62ba84, 0, id) : nullptr;
         if (!car) return 0;
         float y = (float)Obj_CellY(car);
         float x = (float)Obj_CellX(car);
-        return Map_GridByte(hook::Global<void*>(0x62c120), 0, x, y);
+        return Map_GridByte(hook::As<void*>(g_map), 0, x, y);
     };
-    Collection* companies = hook::Global<Collection*>(0x62be10);
+    Collection* companies = g_companies;
     uint32_t region1 = regionOf();
     uint32_t player1 = F<uint32_t>(Collection_Get(companies, 0, F<uint32_t>(o, 0x51)), 0x3b);
     uint32_t region2 = regionOf();
-    uint32_t player2 = F<uint32_t>(Collection_Get(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(o, 0x51)), 0x3b);
+    uint32_t player2 = F<uint32_t>(Collection_Get(g_companies, 0, F<uint32_t>(o, 0x51)), 0x3b);
     uint8_t* type = nullptr;
     int32_t id = F<int32_t>(o, 0x41);
-    void* car = id != -1 ? Collection_Get(hook::Global<Collection*>(0x62ba84), 0, id) : nullptr;
-    if (car) type = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6ada84), 0, F<uint32_t>(Obj_Ref388(car), 0x126));
+    void* car = id != -1 ? Collection_Get(g_62ba84, 0, id) : nullptr;
+    if (car) type = (uint8_t*)Collection_Get(g_6ada84, 0, F<uint32_t>(Obj_Ref388(car), 0x126));
     float m1 = Effects_Multiplier(World(), 0, F<int32_t>(type, 0x10) + 0x4e, F<uint32_t>(o, 0x51), player2, region2);
     float m = (float)((double)Effects_Multiplier(World(), 0, 0x4d, F<uint32_t>(o, 0x51), player1, region1) * m1);
     amount = (float)((double)m * amount);
-    void* comp = Collection_Get(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(o, 0x51));
+    void* comp = Collection_Get(g_companies, 0, F<uint32_t>(o, 0x51));
     amount = (float)((double)Company_QualityFactor(comp) * amount);
     F<float>(o, 0x131) = (float)((double)amount + F<float>(o, 0x131));
-    Company_PostStat(Collection_Get(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(o, 0x51)), 0, 7, amount, 1);
+    Company_PostStat(Collection_Get(g_companies, 0, F<uint32_t>(o, 0x51)), 0, 7, amount, 1);
 }
 RT3_REPLACE(0x4ac250, Train_EarnRevenue);
 
 // 0x4ac3f0. Books a train expense (scaled by the company's quality factor)
 // into +0x159 and the company's stat 8 (not in the editor).
 RT3_NOINLINE void __fastcall Train_AddExpense(uint8_t* t, int, float amount) {
-    if (hook::Global<uint8_t*>(0x6cec7c)[0x82]) return;
+    if (g_newGame[0x82]) return;
     float v = (float)((double)Company_QualityFactor(Collection_Get(g_companies, 0, F<uint32_t>(t, 0x51))) * amount);
     F<float>(t, 0x159) = (float)((double)v + F<float>(t, 0x159));
     Company_PostStat(Collection_Get(g_companies, 0, F<uint32_t>(t, 0x51)), 0, 8, v, 1);
@@ -2980,7 +2975,7 @@ RT3_NOINLINE float __fastcall Train_RunningCost(uint8_t* t) {
     else v = (float)((D(0x5c8770) - F<float>(t, 0xdc) + D(0x5c8770)) * v);
     uint32_t r1 = EngineRegion(t);
     uint32_t r2 = EngineRegion(t);
-    void* w = hook::Global<void*>(0x6cec78);
+    void* w = hook::As<void*>(g_world);
     int32_t p = Obj_Get25(w);
     int32_t b = Obj_CargoBonus(w, 0, F<int32_t>(et, 0x10) + 0x56, Obj_Get21(w), p, r2);
     p = Obj_Get25(w);
@@ -3054,14 +3049,14 @@ RT3_NOINLINE int32_t __fastcall Train_LoadConsist(uint8_t* train, int, uint8_t* 
             break;
         }
         float cost = count ? 3456.0f : 8064.0f;
-        if (F_train_loading<int32_t>(hook::Global<void*>(0x6cec74), 0x24f)) {
+        if (F_train_loading<int32_t>(hook::As<void*>(g_app), 0x24f)) {
             __asm {
                 fld cost
                 fmul qword ptr ds:[0x5c9ba0]
                 fstp cost
             }
         }
-        uint8_t* world = hook::Global<uint8_t*>(0x6cec78);
+        uint8_t* world = g_world;
         __asm {
             mov eax, world
             fld cost
@@ -3075,11 +3070,11 @@ RT3_NOINLINE int32_t __fastcall Train_LoadConsist(uint8_t* train, int, uint8_t* 
             uint32_t y = Coordinate(car, 0x455810);
             uint32_t x = Coordinate(car, 0x455800);
             region = hook::Orig<uint32_t(__fastcall*)(void*, int, uint32_t, uint32_t)>(0x44ad60)(
-                hook::Global<void*>(0x62c120), 0, x, y);
+                hook::As<void*>(g_map), 0, x, y);
         }
         uint8_t* company = Get(0x62be10, F_train_loading<uint32_t>(train, 0x51));
         uint32_t player = F_train_loading<uint32_t>(company, 0x3b), owner = F_train_loading<uint32_t>(train, 0x51);
-        world = hook::Global<uint8_t*>(0x6cec78);
+        world = g_world;
         __asm {
             push region
             push player
@@ -3134,7 +3129,7 @@ RT3_NOINLINE void __fastcall Train_AutoAddCars(uint8_t* t) {
         uint32_t type = FindType(0);
         if (type) Append(t, type);
     }
-    if (F_train_initialization<int32_t>(hook::Global<void*>(0x6cec78), 0x4af3)) {
+    if (F_train_initialization<int32_t>(hook::As<void*>(g_world), 0x4af3)) {
         uint32_t type = FindType(5);
         if (type) {
             while (hook::Orig<int32_t(__fastcall*)(uint8_t*)>(0x4a7760)(t) < 8) Append(t, type);
@@ -3149,7 +3144,7 @@ RT3_REPLACE(0x4acaf0, Train_AutoAddCars);
 // else becomes its custom name (+0x69, 30 characters). Unnamed trains
 // (+0x1a1 clear, no custom name) show their rank number first.
 RT3_NOINLINE uint32_t __fastcall Train_PromptName(uint8_t* t) {
-    Ui_SendEvent5(hook::Global<uint8_t**>(0x6d401c), 0, 0xbe, 0, 0, 0, 0);
+    Ui_SendEvent5(hook::As<uint8_t**>(g_windowManager), 0, 0xbe, 0, 0, 0, 0);
     if (!t[0x1a1] && !(t[0x1ce] & 1)) Num_Format((char*)t + 0x69, 1, (double)(Train_Rank(t) + 1), 10, 1, 0, 0);
     char name[0x1f4], prompt[0x1f4], orig[0x1f4];
     strcpy(name, (const char*)t + 0x69);
@@ -3196,17 +3191,17 @@ void __fastcall Train_Teardown(uint8_t* t) {
         CrtFree485(path);
         F<void*>(t, 0x1c6) = nullptr;
     }
-    const uint32_t player = F<uint32_t>(Collection_Get(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(t, 0x51)), 0x3b);
+    const uint32_t player = F<uint32_t>(Collection_Get(g_companies, 0, F<uint32_t>(t, 0x51)), 0x3b);
     uint8_t* engine = nullptr;
     if (F<int32_t>(t, 0x41) != -1) {
-        if (void* car = Collection_Get(hook::Global<Collection*>(0x62ba84), 0, F<uint32_t>(t, 0x41)))
-            engine = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6ada84), 0, F<uint32_t>(Obj_Ref388(car), 0x126));
+        if (void* car = Collection_Get(g_62ba84, 0, F<uint32_t>(t, 0x41)))
+            engine = (uint8_t*)Collection_Get(g_6ada84, 0, F<uint32_t>(Obj_Ref388(car), 0x126));
     }
     const float value = Obj_EffectScale(engine, 0, F<uint32_t>(t, 0x51), player);
-    if (Collection_Get(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(t, 0x51)) && !hook::Global<uint8_t*>(0x6cec7c)[0x82]) {
+    if (Collection_Get(g_companies, 0, F<uint32_t>(t, 0x51)) && !g_newGame[0x82]) {
         const float refund = -value;
-        Company_AddStat(Collection_Get(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(t, 0x51)), 0, 0x10, refund);
-        Company_PostStat(Collection_Get(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(t, 0x51)), 0, 0xc, refund, 0);
+        Company_AddStat(Collection_Get(g_companies, 0, F<uint32_t>(t, 0x51)), 0, 0x10, refund);
+        Company_PostStat(Collection_Get(g_companies, 0, F<uint32_t>(t, 0x51)), 0, 0xc, refund, 0);
     }
     Station_UnlinkNodes(t);
     while (F<int32_t>(t, 0x41) != -1) Train_DetachCar(t, 0, F<uint32_t>(t, 0x41));
@@ -3214,9 +3209,9 @@ void __fastcall Train_Teardown(uint8_t* t) {
         CrtFree485(cars);
         F<void*>(t, 0) = nullptr;
     }
-    if (hook::Global<Collection*>(0x6ada90)) Table_ReleaseKey8(hook::Global<Collection*>(0x6ada90), 0, F<int32_t>(t, 0x25));
+    if (g_6ada90) Table_ReleaseKey8(g_6ada90, 0, F<int32_t>(t, 0x25));
     if (uint32_t* fx = F<uint32_t*>(t, 0xc8)) Effect_Free(fx);
-    Nop436060(hook::Global<uint8_t*>(0x6cec78), 0, F<int32_t>(t, 0x25));
+    Nop436060(g_world, 0, F<int32_t>(t, 0x25));
 }
 RT3_REPLACE(0x4acda0, Train_Teardown);
 
@@ -3224,7 +3219,7 @@ RT3_REPLACE(0x4acda0, Train_Teardown);
 // engine sound and animation from its grade-adjusted speed and the train speed.
 RT3_NOINLINE void __fastcall Train_UpdateSound(uint8_t* t) {
     if (F<int32_t>(t, 0x41) == -1) return;
-    uint8_t* e = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba84), 0, F<uint32_t>(t, 0x41));
+    uint8_t* e = (uint8_t*)Collection_Get(g_62ba84, 0, F<uint32_t>(t, 0x41));
     if (!e) return;
     Obj_MoveChannels(e);
     Vehicle_UpdateHorn(e, 0, 0x3f800000);
@@ -3267,13 +3262,13 @@ RT3_NOINLINE void __fastcall Train_SetState5(uint8_t* t, int, void*, uint8_t* ta
     uint8_t old = t[0xf4];
     if (old != 1) {
         t[0xf4] = 1;
-        uint8_t* car = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba84), 0, F<uint32_t>(t, 0x41));
+        uint8_t* car = (uint8_t*)Collection_Get(g_62ba84, 0, F<uint32_t>(t, 0x41));
         while (car) {
             SceneObj_SetAlpha(car, 0, 0x3f, 1);
             Model_SetOpacity(car, 0, t[0xf4] ? 0.25f : 1.0f);
             int32_t next = F<int32_t>(car, 0x352);
             if (next == -1) break;
-            car = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba84), 0, (uint32_t)next);
+            car = (uint8_t*)Collection_Get(g_62ba84, 0, (uint32_t)next);
         }
         if (old != t[0xf4]) Station_UnlinkNodes(t);
     }
@@ -3320,29 +3315,29 @@ RT3_NOINLINE void __fastcall Train_Route(uint8_t* t) {
     }
     int32_t st = F<int32_t>(t, 0xe8);
     if (st == 8 || st == 9 || st == 0xa || st == 0x13) Train_SetState(t, 0, 0, 0.0f);
-    uint8_t* lead = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba84), 0, F<uint32_t>(t, 0x41));
+    uint8_t* lead = (uint8_t*)Collection_Get(g_62ba84, 0, F<uint32_t>(t, 0x41));
     uint32_t companyId = F<uint32_t>(t, 0x51);
     int32_t node = F<int32_t>(lead, 0x356);
-    Collection* companies = hook::Global<Collection*>(0x62be10);
+    Collection* companies = g_companies;
     uint8_t* engine = nullptr;
     if (F<int32_t>(t, 0x41) != -1)
-        if (uint8_t* car = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba84), 0, F<uint32_t>(t, 0x41)))
-            engine = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6ada84), 0, F<uint32_t>(Obj_Ref388(car), 0x126));
+        if (uint8_t* car = (uint8_t*)Collection_Get(g_62ba84, 0, F<uint32_t>(t, 0x41)))
+            engine = (uint8_t*)Collection_Get(g_6ada84, 0, F<uint32_t>(Obj_Ref388(car), 0x126));
     int32_t to = Train_OrderNode(t, &bad);
     uint32_t* co = (uint32_t*)Collection_Get(companies, 0, companyId);
     uint32_t cost;
-    int32_t next = Route_NextStep(hook::Global<Collection*>(0x6cfcb4), 0, node, to, &cost, F<int32_t>(engine, 0x10) == 2 ? 1 : 0, co, nullptr, 0);
+    int32_t next = Route_NextStep(g_routes, 0, node, to, &cost, F<int32_t>(engine, 0x10) == 2 ? 1 : 0, co, nullptr, 0);
     int32_t dir = F<int32_t>(lead, 0x35a);
-    uint8_t* n = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfca8), 0, F<uint32_t>(lead, 0x356));
+    uint8_t* n = (uint8_t*)Collection_Get(g_tracks, 0, F<uint32_t>(lead, 0x356));
     Station_UnlinkNodes(t);
     if ((F<int32_t>(n, 0x206) == next && dir) || (F<int32_t>(n, 0x20a) == next && !dir)) Obj_Toggle35a(lead);
     F<int32_t>(t, 0x35) = 0;
     if (next != -1 && (int32_t)cost != -1) return;
     companyId = F<uint32_t>(t, 0x51);
-    companies = hook::Global<Collection*>(0x62be10);
+    companies = g_companies;
     to = Train_OrderNode(t, &bad);
     co = (uint32_t*)Collection_Get(companies, 0, companyId);
-    Route_NextStep(hook::Global<Collection*>(0x6cfcb4), 0, node, to, &cost, 0, co, nullptr, 0);
+    Route_NextStep(g_routes, 0, node, to, &cost, 0, co, nullptr, 0);
     if ((int32_t)cost != -1 && Obj_CityKindIs2(t)) Train_SetState(t, 0, 0x13, 0.0f);
     else Train_SetState(t, 0, 0xa, 0.0f);
 }
@@ -3376,7 +3371,7 @@ RT3_NOINLINE void __fastcall Train_SetupNextStop(uint8_t* t) {
         return;
     }
     if (F<int32_t>(t, 0x41) != -1)
-        if (void* r = Collection_Get(hook::Global<Collection*>(0x62ba84), 0, F<uint32_t>(t, 0x41))) Obj_Region(r);
+        if (void* r = Collection_Get(g_62ba84, 0, F<uint32_t>(t, 0x41))) Obj_Region(r);
     t[0x1bf] = 0;
     F<uint16_t>(t, 0x1c0) = 0;
     t[0x1c2] = 0;
@@ -3384,19 +3379,19 @@ RT3_NOINLINE void __fastcall Train_SetupNextStop(uint8_t* t) {
     F<uint32_t>(t, 0xf0) = 0;
     uint8_t* stop = TrainOrders_NextStop(t, 0, 1, 1);
     if (!stop) {
-        if (F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4af3)) Train_AutoAddCars(t);
+        if (F<int32_t>(g_world, 0x4af3)) Train_AutoAddCars(t);
         return;
     }
     uint8_t* cur = (uint8_t*)Array33_Current(t);
     if (cur && (int8_t)cur[0x28] >= 0) {
-        uint8_t* st = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cec20), 0, F<uint16_t>(cur, 0x29));
+        uint8_t* st = (uint8_t*)Collection_Get(g_stations, 0, F<uint16_t>(cur, 0x29));
         Station_LearnDemand(st, 0, F<uint32_t>(stop, 0), cur);
         F<int32_t>(t, 0x181) = Obj_BuildingQuarterX(stop);
         F<int32_t>(t, 0x185) = Obj_BuildingQuarterY(stop);
         for (int32_t k = 0; k < 3; ++k) {
             uint8_t* flag = t + 0x88 + k;
             *flag = 0;
-            Collection* classes = hook::Global<Collection*>(0x62ba8c);
+            Collection* classes = g_cargoTypes;
             void* cls = Collection_Get(classes, 0, F<uint32_t>(classes, 0x8e + k * 4));
             if (cur[0x28] & 0x40) {
                 for (int32_t j = 0; j < cur[0]; ++j)
@@ -3418,7 +3413,7 @@ RT3_REPLACE(0x4adc30, Train_SetupNextStop);
 // 0x6cfcb8), then it sets up for its next stop.
 RT3_NOINLINE void __fastcall Train_Arrive(uint8_t* t) {
     if (F<int32_t>(t, 0x41) != -1) {
-        for (uint8_t* car = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba84), 0, F<uint32_t>(t, 0x41)); car;) {
+        for (uint8_t* car = (uint8_t*)Collection_Get(g_62ba84, 0, F<uint32_t>(t, 0x41)); car;) {
             uint8_t* next = (uint8_t*)Obj_City352(car);
             if (F<int32_t>(Obj_Ref388(car), 0x41) == 1 || F<int32_t>(Obj_Ref388(car), 0x41) == 4 || F<int32_t>(Obj_Ref388(car), 0x41) == 5 ||
                 !F<int32_t>(Obj_Ref388(car), 0x41))
@@ -3427,17 +3422,17 @@ RT3_NOINLINE void __fastcall Train_Arrive(uint8_t* t) {
         }
     }
     uint8_t* st = nullptr;
-    if (Collection_IsValid(hook::Global<Collection*>(0x6cec20), 0, F<uint32_t>(t, 0xa0)))
-        st = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cec20), 0, F<uint32_t>(t, 0xa0));
+    if (Collection_IsValid(g_stations, 0, F<uint32_t>(t, 0xa0)))
+        st = (uint8_t*)Collection_Get(g_stations, 0, F<uint32_t>(t, 0xa0));
     for (uint32_t id = F<uint32_t>(t, 0x29); id;) {
-        uint8_t* load = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6ada90), 0, id);
+        uint8_t* load = (uint8_t*)Collection_Get(g_6ada90, 0, id);
         const uint32_t next = F<uint32_t>(load, 4);
         Load_Unlink((uint32_t*)load);
-        uint8_t* b = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62b26c), 0, F<uint16_t>(load, 0xe));
+        uint8_t* b = (uint8_t*)Collection_Get(g_buildings, 0, F<uint16_t>(load, 0xe));
         if (st) {
             if (Obj_HasKey(Obj_RegionAt(b), 0, F<uint16_t>(st, 0))) {
                 Route_ChargeRandomBuilding(load, 0, st, 2);
-                Collection* loads = hook::Global<Collection*>(0x6ada90);
+                Collection* loads = g_6ada90;
                 ((void(__thiscall*)(Collection*, uint32_t))(*(void***)loads)[2])(loads, id);
             } else {
                 Route_ChargeRandomBuilding(load, 0, st, 1);
@@ -3446,7 +3441,7 @@ RT3_NOINLINE void __fastcall Train_Arrive(uint8_t* t) {
         }
         id = next;
     }
-    if (!hook::Global<int32_t>(0x6cfcb8)) AiTrain_NextOrder(t);
+    if (!g_6cfcb8) AiTrain_NextOrder(t);
     Train_SetupNextStop(t);
 }
 RT3_REPLACE(0x4adde0, Train_Arrive);
@@ -3461,19 +3456,19 @@ RT3_REPLACE(0x4adde0, Train_Arrive);
 // is the wait (state 2). A delivery whistles (up to 10, the player's trains)
 // and shows the money. Returns the payout.
 float __fastcall Train_ArriveStation(uint8_t* t, int, uint32_t station) {
-    ++hook::Global<int32_t>(0x6d3b58);
+    ++g_6d3b58;
     F<uint32_t>(t, 0xa0) = station;
-    if (t[0x189] && Collection_IsValid(hook::Global<Collection*>(0x6cec20), 0, station) &&
-        Collection_IsValid(hook::Global<Collection*>(0x6cec20), 0, F<uint32_t>(t, 0x9c)) && F<uint32_t>(t, 0xa0) != F<uint32_t>(t, 0x9c))
+    if (t[0x189] && Collection_IsValid(g_stations, 0, station) &&
+        Collection_IsValid(g_stations, 0, F<uint32_t>(t, 0x9c)) && F<uint32_t>(t, 0xa0) != F<uint32_t>(t, 0x9c))
         for (int32_t k = 0; k < 3; ++k) {
             if (!t[0x88 + k]) continue;
-            int32_t now = F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x15);
-            uint8_t* from = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cec20), 0, F<uint32_t>(t, 0x9c));
+            int32_t now = F<int32_t>(g_world, 0x15);
+            uint8_t* from = (uint8_t*)Collection_Get(g_stations, 0, F<uint32_t>(t, 0x9c));
             Site_RecordMin(from, 0, F<int32_t>(t, 0xa0), k, (float)(now - F<int32_t>(t, 0xb0)));
         }
     float load = 0.0f, pay = 0.0f;
     if (F<int32_t>(t, 0x41) != -1)
-        for (uint8_t* car = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba84), 0, F<uint32_t>(t, 0x41)); car; car = (uint8_t*)Obj_City352(car)) {
+        for (uint8_t* car = (uint8_t*)Collection_Get(g_62ba84, 0, F<uint32_t>(t, 0x41)); car; car = (uint8_t*)Obj_City352(car)) {
             if (F<int32_t>(Obj_Ref388(car), 0x41) != 1) continue;
             load = (float)(F<float>(car, 0x398) + (double)load);
             pay = (float)(Load_PayOut(car) + (double)pay);
@@ -3483,18 +3478,18 @@ float __fastcall Train_ArriveStation(uint8_t* t, int, uint32_t station) {
         double r = (double)SimRand(0x4b, 0x7d) / D(0x5c85d8);
         wait = Ftol_207(r * (double)wait);
     }
-    if (load == hook::Global<float>(0x5c8598)) wait = 0;
-    if (F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x24f)) wait = Ftol_207((double)wait * D(0x5c9ba0));
-    wait = Ftol_207((double)(float)wait * F<float>(hook::Global<uint8_t*>(0x6cec78), 0x4ca2));
+    if (load == g_5c8598) wait = 0;
+    if (F<int32_t>(g_app, 0x24f)) wait = Ftol_207((double)wait * D(0x5c9ba0));
+    wait = Ftol_207((double)(float)wait * F<float>(g_world, 0x4ca2));
     uint32_t region = 0;
     if (F<int32_t>(t, 0x41) != -1)
-        if (uint8_t* car = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba84), 0, F<uint32_t>(t, 0x41))) {
+        if (uint8_t* car = (uint8_t*)Collection_Get(g_62ba84, 0, F<uint32_t>(t, 0x41))) {
             float cy = (float)Obj_CellY(car);
             float cx = (float)Obj_CellX(car);
-            region = Map_GridByte(hook::Global<void*>(0x62c120), 0, cx, cy);
+            region = Map_GridByte(hook::As<void*>(g_map), 0, cx, cy);
         }
-    uint32_t player = F<uint32_t>(Collection_Get(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(t, 0x51)), 0x3b);
-    float f = Effects_Multiplier(hook::Global<uint8_t*>(0x6cec78), 0, 0x61, F<uint32_t>(t, 0x51), player, region);
+    uint32_t player = F<uint32_t>(Collection_Get(g_companies, 0, F<uint32_t>(t, 0x51)), 0x3b);
+    float f = Effects_Multiplier(g_world, 0, 0x61, F<uint32_t>(t, 0x51), player, region);
     wait = Ftol_207((double)f * (float)wait);
     Train_SetState(t, 0, 2, (float)wait);
     if (!t[0x189]) return pay;
@@ -3502,7 +3497,7 @@ float __fastcall Train_ArriveStation(uint8_t* t, int, uint32_t station) {
     int32_t money = whistles;
     if (!whistles && pay > Fl_207(0x5c85b4)) whistles = 1;
     if (!money && pay > Fl_207(0x5c85b4)) money = 1;
-    if (whistles && F<int32_t>(t, 0x51) == Obj_Get21(hook::Global<void*>(0x6cec78))) Train_Whistle(t, 0, whistles > 10 ? 10 : whistles);
+    if (whistles && F<int32_t>(t, 0x51) == Obj_Get21(hook::As<void*>(g_world))) Train_Whistle(t, 0, whistles > 10 ? 10 : whistles);
     if (money) Station_ShowCargoMoney(t, 0, money);
     return pay;
 }
@@ -3583,7 +3578,7 @@ RT3_NOINLINE int32_t __fastcall Train_ProcessStop(uint8_t* t, int, int32_t force
         if (!t[0x1a1]) {
             uint8_t* company = Get(0x62be10, F_train_station<uint32_t>(t, 0x51));
             if (F_train_station<float>(company, 0x347) < F_train_station<float>(t, 0x199) && t[0xfb] &&
-                !F_train_station<int32_t>(hook::Global<void*>(0x6cec78), 0x4aeb)) {
+                !F_train_station<int32_t>(hook::As<void*>(g_world), 0x4aeb)) {
                 company = Get(0x62be10, F_train_station<uint32_t>(t, 0x51));
                 uint32_t old = F_train_station<uint32_t>(company, 0x347);
                 float delta;
@@ -3597,7 +3592,7 @@ RT3_NOINLINE int32_t __fastcall Train_ProcessStop(uint8_t* t, int, int32_t force
                 if ((profit < Fl_train_station(0x5c8c28) && delta > Fl_train_station(0x5c8554)) || (profit >= Fl_train_station(0x5c8c28) && delta > Fl_train_station(0x5c85f8))) {
                     hook::Orig<void(__fastcall*)(uint8_t*)>(0x4a90d0)(t);
                     company = Get(0x62be10, F_train_station<uint32_t>(t, 0x51));
-                    if (company == hook::Orig<void*(__fastcall*)(void*)>(0x434870)(hook::Global<void*>(0x6cec78))) {
+                    if (company == hook::Orig<void*(__fastcall*)(void*)>(0x434870)(hook::As<void*>(g_world))) {
                         int32_t amount;
                         __asm {
                             mov eax, t
@@ -3607,7 +3602,7 @@ RT3_NOINLINE int32_t __fastcall Train_ProcessStop(uint8_t* t, int, int32_t force
                             mov amount, eax
                         }
                         hook::Orig<void(__fastcall*)(void*, int, const char*, int32_t, int32_t, uint32_t, int32_t, int32_t, int32_t)>(0x4337c0)(
-                            hook::Global<void*>(0x6cec78), 0, (const char*)0x5c87a8, 3, 1, F_train_station<uint32_t>(t, 0x25), amount, -1, -1);
+                            hook::As<void*>(g_world), 0, (const char*)0x5c87a8, 3, 1, F_train_station<uint32_t>(t, 0x25), amount, -1, -1);
                     }
                     company = Get(0x62be10, F_train_station<uint32_t>(t, 0x51));
                     F_train_station<uint32_t>(company, 0x347) = F_train_station<uint32_t>(t, 0x199);
@@ -3620,9 +3615,9 @@ RT3_NOINLINE int32_t __fastcall Train_ProcessStop(uint8_t* t, int, int32_t force
             hook::Orig<void(__fastcall*)(uint8_t*)>(0x4a7810)(t);
             fare = hook::Orig<float(__fastcall*)(uint8_t*, int, uint32_t)>(0x4adf30)(t, 0, F_train_station<uint32_t>(site, 0));
         } else if (id == F_train_station<uint16_t>(row, 0x29)) Next_train_station(t);
-        if (hook::Global<uint8_t*>(0x6cec7c)[0x82] || F_train_station<int32_t>(hook::Global<void*>(0x6cec78), 0x4aef)) fare = 0.0f;
+        if (g_newGame[0x82] || F_train_station<int32_t>(hook::As<void*>(g_world), 0x4aef)) fare = 0.0f;
         uint32_t owner = F_train_station<uint32_t>(t, 0x51);
-        uint32_t player = hook::Orig<uint32_t(__fastcall*)(void*)>(0x4337a0)(hook::Global<void*>(0x6cec78));
+        uint32_t player = hook::Orig<uint32_t(__fastcall*)(void*)>(0x4337a0)(hook::As<void*>(g_world));
         if (owner == player && t[0x189] && hook::Orig<int32_t(__fastcall*)(uint8_t*)>(0x47fd50)(site)) {
             char message[200], line[200], money[200], arrival[200];
             message[0] = 0;
@@ -3676,7 +3671,7 @@ RT3_NOINLINE int32_t __fastcall Train_ProcessStop(uint8_t* t, int, int32_t force
                 }
             }
             hook::Orig<void(__fastcall*)(void*, int, const char*, int32_t, uint32_t, int32_t)>(0x4554e0)(
-                hook::Global<void*>(0x6acd34), 0, message, 0, F_train_station<uint32_t>(t, 0x25), 0);
+                hook::As<void*>(g_messageLog), 0, message, 0, F_train_station<uint32_t>(t, 0x25), 0);
         }
         t[0x189] = 1;
         F_train_station<uint32_t>(t, 0x8c) = 0xbf800000;
@@ -3714,7 +3709,7 @@ void __fastcall Train_YearlyUpkeep(uint8_t* t) {
     uint32_t pl2 = F<uint32_t>(Collection_Get(Players(), 0, F<uint32_t>(t, 0x51)), 0x3b);
     uint8_t* e2 = Engine(t);
     uint8_t* et2 = e2 ? EngineType(e2) : nullptr;
-    void* w = hook::Global<void*>(0x6cec78);
+    void* w = hook::As<void*>(g_world);
     uint32_t r = Obj_CityGridByte(t);
     int32_t a = Obj_CargoBonus(w, 0, F<int32_t>(et2, 0x10) + 0x4a, F<uint32_t>(t, 0x51), pl2, r);
     r = Obj_CityGridByte(t);
@@ -3752,7 +3747,7 @@ RT3_NOINLINE float __fastcall Train_StepAtStation(uint8_t* t, int, float dt) {
     if (t[0x1b9]) {
         Train_SetState(t, 0, 0, 0.0f);
         if (TrainOrders_NextStop(t, 0, 1, 0)) {
-            uint8_t* r = F<int32_t>(t, 0x41) != -1 ? (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba84), 0, F<uint32_t>(t, 0x41)) : nullptr;
+            uint8_t* r = F<int32_t>(t, 0x41) != -1 ? (uint8_t*)Collection_Get(g_62ba84, 0, F<uint32_t>(t, 0x41)) : nullptr;
             F<int32_t>(r, 0x33a) = 1;
         }
         return Fl_207(0x5c8598);
@@ -3761,15 +3756,15 @@ RT3_NOINLINE float __fastcall Train_StepAtStation(uint8_t* t, int, float dt) {
     if (!stop) return Fl_207(0x5c8598);
     uint8_t* here = nullptr;
     if (F<int32_t>(t, 0x41) != -1)
-        if (void* r = Collection_Get(hook::Global<Collection*>(0x62ba84), 0, F<uint32_t>(t, 0x41))) here = Obj_Region(r);
+        if (void* r = Collection_Get(g_62ba84, 0, F<uint32_t>(t, 0x41))) here = Obj_Region(r);
     uint8_t* there = Obj_BuildingRegion(stop);
     uint8_t* cur = (uint8_t*)Array33_Current(t);
     if (here == there || (int8_t)cur[0x28] < 0) {
         Train_SetState(t, 0, 0, 0.0f);
         return Fl_207(0x5c8598);
     }
-    uint8_t* st = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cec20), 0, F<uint16_t>(cur, 0x29));
-    F<uint32_t>(st, 0x5c5) = F<uint32_t>(hook::Global<uint8_t*>(0x6cec78), 0x15);
+    uint8_t* st = (uint8_t*)Collection_Get(g_stations, 0, F<uint16_t>(cur, 0x29));
+    F<uint32_t>(st, 0x5c5) = F<uint32_t>(g_world, 0x15);
     if (Obj_BuildingRegion(st) == there) {
         Train_SetState(t, 0, 0, 0.0f);
         return Fl_207(0x5c8598);
@@ -3813,7 +3808,7 @@ RT3_NOINLINE void __fastcall Train_ReplaceEngine(uint8_t* train, int, uint32_t t
     uint32_t head = F<uint32_t>(train, 0x41);
     if (head == 0xffffffff) return;
     bool selected = false;
-    uint8_t* world = hook::Global<uint8_t*>(0x6cec78);
+    uint8_t* world = g_world;
     if (F<int32_t>(world, 0x45) == 1) {
         uint32_t selectedId = F<uint32_t>(world, 0x49);
         selected = selectedId == F<uint32_t>(Record(0x62ba84, head), 0x34a);
@@ -3822,7 +3817,7 @@ RT3_NOINLINE void __fastcall Train_ReplaceEngine(uint8_t* train, int, uint32_t t
     uint32_t node = F<uint32_t>(old, 0x356);
     hook::Orig<void(__fastcall*)(uint8_t*)>(0x4aae90)(train);
     uint8_t* following = F<int32_t>(old, 0x352) == -1 ? nullptr : Record(0x62ba84, F<uint32_t>(old, 0x352));
-    if (!F<uint8_t>(hook::Global<void*>(0x6cec7c), 0x82) && !freeUpgrade) {
+    if (!F<uint8_t>(hook::As<void*>(g_newGame), 0x82) && !freeUpgrade) {
         uint32_t player = F<uint32_t>(Record(0x62be10, F<uint32_t>(train, 0x51)), 0x3b);
         uint8_t* definition = Record(0x6ada84, typeId);
         float cost = Price(definition, F<uint32_t>(train, 0x51), player);
@@ -3855,7 +3850,7 @@ RT3_NOINLINE void __fastcall Train_ReplaceEngine(uint8_t* train, int, uint32_t t
     DeleteCar(old);
     type = Asset(F<uint32_t>(definition, 0x72));
     F<float>(train, 0xf5) = F<float>(type, 0xfd) + F<float>(train, 0xf5);
-    uint32_t stamp = F<uint16_t>(hook::Global<void*>(0x6cec78), 0xd);
+    uint32_t stamp = F<uint16_t>(hook::As<void*>(g_world), 0xd);
     F<uint32_t>(train, 0xdc) = F<uint32_t>(train, 0xe0) = F<uint32_t>(train, 0xe4) = 0x3f800000;
     F<uint32_t>(train, 0xd4) = stamp;
     F<uint32_t>(lead, 0x390) = F<uint32_t>(train, 0x25);
@@ -3906,12 +3901,12 @@ RT3_NOINLINE void __fastcall Train_ReplaceEngine(uint8_t* train, int, uint32_t t
         uint8_t* car = F<int32_t>(train, 0x41) == -1 ? nullptr : Record(0x62ba84, F<uint32_t>(train, 0x41));
         uint32_t carId = F<uint32_t>(car, 0x34a);
         hook::Orig<void(__fastcall*)(void*, int, int32_t, int32_t, uint32_t)>(0x437a90)(
-            hook::Global<void*>(0x6cec78), 0, 1, 1, carId);
+            hook::As<void*>(g_world), 0, 1, 1, carId);
     }
     if (F<int32_t>(train, 0xe8) != 1 && F<int32_t>(train, 0xe8) != 2 && oldElectric != newElectric)
         hook::Orig<void(__fastcall*)(uint8_t*)>(0x4ad260)(train);
     hook::Orig<void(__fastcall*)(uint8_t*, int, uint32_t, uint32_t)>(0x4a8be0)(train, 0, 0, F<uint32_t>(train, 0xcc));
-    void* owner = hook::Global<void*>(0x62be68);
+    void* owner = hook::As<void*>(g_62be68);
     void** vtable = F<void**>(owner, 0);
     ((void(__fastcall*)(void*))vtable[0])(owner);
     hook::Orig<void(__fastcall*)(uint8_t*, int, uint32_t, int32_t)>(0x4a8220)(train, 0, train[0xf4], 1);
@@ -3939,12 +3934,12 @@ RT3_NOINLINE void __fastcall Train_DropStation(uint8_t* t, int, int32_t station)
     uint8_t old = t[0xf4];
     if (old != 1) {
         t[0xf4] = 1;
-        for (uint8_t* car = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba84), 0, F<uint32_t>(t, 0x41)); car;) {
+        for (uint8_t* car = (uint8_t*)Collection_Get(g_62ba84, 0, F<uint32_t>(t, 0x41)); car;) {
             SceneObj_SetAlpha(car, 0, 0x3f, 1);
             Model_SetOpacity(car, 0, (float)(t[0xf4] ? 0.25 : 1.0));
             int32_t next = F<int32_t>(car, 0x352);
             if (next == -1) break;
-            car = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba84), 0, (uint32_t)next);
+            car = (uint8_t*)Collection_Get(g_62ba84, 0, (uint32_t)next);
         }
         if (old != t[0xf4]) Station_UnlinkNodes(t);
     }
@@ -3971,12 +3966,12 @@ RT3_NOINLINE void __fastcall Train_DropWaypoint(uint8_t* t, int, int32_t node) {
     uint8_t old = t[0xf4];
     if (old != 1) {
         t[0xf4] = 1;
-        for (uint8_t* car = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba84), 0, F<uint32_t>(t, 0x41)); car;) {
+        for (uint8_t* car = (uint8_t*)Collection_Get(g_62ba84, 0, F<uint32_t>(t, 0x41)); car;) {
             SceneObj_SetAlpha(car, 0, 0x3f, 1);
             Model_SetOpacity(car, 0, (float)(t[0xf4] ? 0.25 : 1.0));
             int32_t next = F<int32_t>(car, 0x352);
             if (next == -1) break;
-            car = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba84), 0, (uint32_t)next);
+            car = (uint8_t*)Collection_Get(g_62ba84, 0, (uint32_t)next);
         }
         if (old != t[0xf4]) Station_UnlinkNodes(t);
     }
@@ -3991,16 +3986,16 @@ RT3_REPLACE(0x4af760, Train_DropWaypoint);
 // built within 3 years (+0xd4), else a breakdown; only breakdowns with
 // +0x4aff or in multiplayer.
 RT3_NOINLINE void __fastcall Train_RandomMishap(uint8_t* t) {
-    uint8_t* w = hook::Global<uint8_t*>(0x6cec78);
+    uint8_t* w = g_world;
     if (F<int32_t>(w, 0x4b03)) return;
     uint16_t year = F<uint16_t>(w, 0xd);
     int32_t base = year >= 0x7b2 ? 0x8c : (year < 0x780 ? 0xc8 : 0xaa);
-    int32_t n = Collection_Count(hook::Global<Collection*>(0x6cfcbc));
+    int32_t n = Collection_Count(g_trains);
     uint32_t k = n > 0x2bc ? 0x5c8988 : n > 0x1f4 ? 0x5c9c50 : n > 0xfa ? 0x5c88c8 : n > 0x50 ? 0x5c8628 : n > 0x28 ? 0x5c8680 : n > 0x14 ? 0x5c85a0 : 0;
     if (k) base = (int32_t)((double)base * *(const double*)k);
     int32_t chance = (int32_t)((double)base * *(const double*)0x5c8680);
-    if ((int32_t)F<uint16_t>(hook::Global<uint8_t*>(0x6cec78), 0xd) <= F<int32_t>(t, 0xd4) + 3) chance = -1;
-    if (F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4aff) || IsMultiplayer()) {
+    if ((int32_t)F<uint16_t>(g_world, 0xd) <= F<int32_t>(t, 0xd4) + 3) chance = -1;
+    if (F<int32_t>(g_world, 0x4aff) || IsMultiplayer()) {
         Train_BreakDown(t, 0, 0);
         return;
     }
@@ -4021,31 +4016,31 @@ RT3_REPLACE(0x4af8a0, Train_RandomMishap);
 // none on friendly track, for new trains or while stopped / wrecked).
 RT3_NOINLINE void __fastcall Train_TickWear(uint8_t* t) {
     bool harsh = false;
-    if (Game_EffectiveVersion() >= 0x67 && !Company_OwnerFlag1e1(Collection_Get(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(t, 0x51))))
+    if (Game_EffectiveVersion() >= 0x67 && !Company_OwnerFlag1e1(Collection_Get(g_companies, 0, F<uint32_t>(t, 0x51))))
         harsh = true;
-    uint8_t* tp = (uint8_t*)Obj_Ref388(F<int32_t>(t, 0x41) == -1 ? nullptr : Collection_Get(hook::Global<Collection*>(0x62ba84), 0, F<uint32_t>(t, 0x41)));
-    uint8_t* eng = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6ada84), 0, F<uint32_t>(tp, 0x126));
+    uint8_t* tp = (uint8_t*)Obj_Ref388(F<int32_t>(t, 0x41) == -1 ? nullptr : Collection_Get(g_62ba84, 0, F<uint32_t>(t, 0x41)));
+    uint8_t* eng = (uint8_t*)Collection_Get(g_6ada84, 0, F<uint32_t>(tp, 0x126));
     const float zero = *(const float*)0x5c8598;
     if (!F<int32_t>(eng, 0x10) && F<float>(t, 0xe0) > zero) {
-        uint32_t player = F<uint32_t>((uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(t, 0x51)), 0x3b);
+        uint32_t player = F<uint32_t>((uint8_t*)Collection_Get(g_companies, 0, F<uint32_t>(t, 0x51)), 0x3b);
         uint32_t grid = Obj_CityGridByte(t);
-        float by = (float)((double)Effects_Multiplier(hook::Global<uint8_t*>(0x6cec78), 0, 100, F<uint32_t>(t, 0x51), player, grid) * *(const float*)0x5d00b4);
+        float by = (float)((double)Effects_Multiplier(g_world, 0, 100, F<uint32_t>(t, 0x51), player, grid) * *(const float*)0x5d00b4);
         TrainWear(&F<float>(t, 0xe0), by, harsh);
     }
     if (F<float>(t, 0xdc) > zero) {
         uint32_t region = TrainRegion(t);
-        uint32_t player = F<uint32_t>((uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(t, 0x51)), 0x3b);
-        float by = (float)((double)Effects_Multiplier(hook::Global<uint8_t*>(0x6cec78), 0, 0x62, F<uint32_t>(t, 0x51), player, region) * *(const float*)0x5d00b0);
+        uint32_t player = F<uint32_t>((uint8_t*)Collection_Get(g_companies, 0, F<uint32_t>(t, 0x51)), 0x3b);
+        float by = (float)((double)Effects_Multiplier(g_world, 0, 0x62, F<uint32_t>(t, 0x51), player, region) * *(const float*)0x5d00b0);
         TrainWear(&F<float>(t, 0xdc), by, harsh);
     }
     if (F<float>(t, 0xe4) > zero) {
         float tilt;
-        Model_GetAngles(F<int32_t>(t, 0x41) == -1 ? nullptr : (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba84), 0, F<uint32_t>(t, 0x41)), 0,
+        Model_GetAngles(F<int32_t>(t, 0x41) == -1 ? nullptr : (uint8_t*)Collection_Get(g_62ba84, 0, F<uint32_t>(t, 0x41)), 0,
                         (uint32_t*)&tilt, nullptr, nullptr);
         tilt = (float)((double(__cdecl*)(double))0x5a152e)(tilt);
         uint32_t region = TrainRegion(t);
-        uint32_t player = F<uint32_t>((uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(t, 0x51)), 0x3b);
-        float mult = Effects_Multiplier(hook::Global<uint8_t*>(0x6cec78), 0, 0x63, F<uint32_t>(t, 0x51), player, region);
+        uint32_t player = F<uint32_t>((uint8_t*)Collection_Get(g_companies, 0, F<uint32_t>(t, 0x51)), 0x3b);
+        float mult = Effects_Multiplier(g_world, 0, 0x63, F<uint32_t>(t, 0x51), player, region);
         float by = (float)((double)tilt * *(const double*)0x5d00a8 * mult);
         by = (float)((double)by * *(const double*)0x5c87f0);
         TrainWear(&F<float>(t, 0xe4), by, harsh);
@@ -4053,14 +4048,14 @@ RT3_NOINLINE void __fastcall Train_TickWear(uint8_t* t) {
     if (++t[0x1c5] < 0x28) return;
     t[0x1c5] = 0;
     float chance = Train_RunningCost(t);
-    if (F<int32_t>(t, 0x41) != -1 && Collection_Get(hook::Global<Collection*>(0x62ba84), 0, F<uint32_t>(t, 0x41))) {
-        uint8_t* lead = F<int32_t>(t, 0x41) == -1 ? nullptr : (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba84), 0, F<uint32_t>(t, 0x41));
+    if (F<int32_t>(t, 0x41) != -1 && Collection_Get(g_62ba84, 0, F<uint32_t>(t, 0x41))) {
+        uint8_t* lead = F<int32_t>(t, 0x41) == -1 ? nullptr : (uint8_t*)Collection_Get(g_62ba84, 0, F<uint32_t>(t, 0x41));
         uint32_t track = F<uint32_t>(lead, 0x356);
-        if (Collection_IsValid(hook::Global<Collection*>(0x6cfca8), 0, track)) {
-            uint32_t owner = F<uint16_t>((uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfca8), 0, track), 0x22e);
+        if (Collection_IsValid(g_tracks, 0, track)) {
+            uint32_t owner = F<uint16_t>((uint8_t*)Collection_Get(g_tracks, 0, track), 0x22e);
             if (owner != F<uint32_t>(t, 0x51)) {
-                if (Collection_IsValid(hook::Global<Collection*>(0x62be10), 0, owner) &&
-                    Company_OwnerFlag1e1(Collection_Get(hook::Global<Collection*>(0x62be10), 0, owner)))
+                if (Collection_IsValid(g_companies, 0, owner) &&
+                    Company_OwnerFlag1e1(Collection_Get(g_companies, 0, owner)))
                     chance = 0.0f;
                 else
                     chance = (float)((double)chance * *(const double*)0x5c8628);
@@ -4068,7 +4063,7 @@ RT3_NOINLINE void __fastcall Train_TickWear(uint8_t* t) {
         }
     }
     chance = (float)((double)chance * *(const float*)0x5c8d4c);
-    uint8_t* w = hook::Global<uint8_t*>(0x6cec78);
+    uint8_t* w = g_world;
     int32_t year = F<uint16_t>(w, 0xd);
     if (year <= F<int32_t>(t, 0xd4) || (year == F<int32_t>(t, 0xd4) + 1 && w[0xf] <= 6)) chance = 0.0f;
     int32_t st = F<int32_t>(t, 0xe8);
@@ -4091,11 +4086,11 @@ RT3_REPLACE(0x4afa10, Train_TickWear);
 // Trains_ResolveClash; QUIRK: on its own id the old +0x4d decides whether to
 // go on. The nodes' train links move along (-2 lead, -3 tail).
 RT3_NOINLINE void __fastcall Train_Advance(uint8_t* t) {
-    Collection* nodes = hook::Global<Collection*>(0x6cfca8);
+    Collection* nodes = g_tracks;
     int32_t oldA = F<int32_t>(t, 0x49);
     int32_t oldB = F<int32_t>(t, 0x4d);
-    uint8_t* lead = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba84), 0, F<uint32_t>(t, 0x41));
-    uint8_t* last = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba84), 0, F<uint32_t>(t, 0x45));
+    uint8_t* lead = (uint8_t*)Collection_Get(g_62ba84, 0, F<uint32_t>(t, 0x41));
+    uint8_t* last = (uint8_t*)Collection_Get(g_62ba84, 0, F<uint32_t>(t, 0x45));
     float hA = (float)(F<float>(Obj_Ref388(lead), 0x10d) / Fl_207(0x5c878c));
     float hB = (float)(F<float>(Obj_Ref388(last), 0x10d) / Fl_207(0x5c878c));
     uint8_t* nA = (uint8_t*)Collection_Get(nodes, 0, F<uint32_t>(lead, 0x356));
@@ -4112,7 +4107,7 @@ RT3_NOINLINE void __fastcall Train_Advance(uint8_t* t) {
         int32_t sw = oldA;
         int32_t other = Train_NextNode(t, 0, dir, (uint32_t)oldA, F<uint32_t>(t, 0x49), &sw);
         if (other != -1) {
-            if (Train_StateSpecial((uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfcbc), 0, (uint32_t)other)) && other != F<int32_t>(t, 0x25)) {
+            if (Train_StateSpecial((uint8_t*)Collection_Get(g_trains, 0, (uint32_t)other)) && other != F<int32_t>(t, 0x25)) {
                 F<int32_t>(t, 0x98) = other;
                 F<int32_t>(t, 0xcc) = 0;
                 return;
@@ -4123,7 +4118,7 @@ RT3_NOINLINE void __fastcall Train_Advance(uint8_t* t) {
                     Train_StopAndGhost(t);
                     return;
                 }
-                go = Trains_ResolveClash(hook::Global<Collection*>(0x6cfcbc), 0, F<uint32_t>(t, 0x25), (uint32_t)other);
+                go = Trains_ResolveClash(g_trains, 0, F<uint32_t>(t, 0x25), (uint32_t)other);
             } else {
                 go = oldB;
             }
@@ -4151,14 +4146,14 @@ RT3_NOINLINE void __fastcall Train_PlaceInitialEngine(uint8_t* t, int, uint32_t 
     uint32_t assetId = F_train_initialization<uint32_t>(model, 0x72);
     uint8_t* asset = assetId ? Get(0x62ba88, assetId) : nullptr;
     uint32_t carId = hook::Orig<uint32_t(__fastcall*)(void*, int, uint8_t*, uint32_t, uint32_t, uint32_t, uint32_t)>(0x41d340)(
-        hook::Global<void*>(0x62ba84), 0, asset, 0, x, z, end);
+        hook::As<void*>(g_62ba84), 0, asset, 0, x, z, end);
     F_train_initialization<uint32_t>(t, 0x41) = carId;
     F_train_initialization<uint32_t>(t, 0x45) = carId;
     uint8_t* car = Get(0x62ba84, carId);
     F_train_initialization<uint32_t>(car, 0x390) = F_train_initialization<uint32_t>(t, 0x25);
     hook::Orig<void(__fastcall*)(uint8_t*, int, uint32_t, uint32_t)>(0x41c700)(
         car, 0, F_train_initialization<uint32_t>(node, 0x202), 0x3e395810);
-    if (hook::Global<void*>(0x6cec78) &&
+    if (hook::As<void*>(g_world) &&
         hook::Orig<int32_t(__cdecl*)()>(0x434050)() &&
         hook::Orig<int32_t(__stdcall*)(uint32_t)>(0x46d2b0)(0x3f828f5c)) {
         hook::Orig<void(__fastcall*)(uint8_t*, int, uint32_t)>(0x41b080)(car, 0, 0);
@@ -4176,7 +4171,7 @@ RT3_NOINLINE void __fastcall Train_PlaceInitialEngine(uint8_t* t, int, uint32_t 
         fstp dword ptr [ecx + 0xf5]
     }
     if (model[0x7a]) Append(t, F_train_initialization<uint32_t>(model, 0x76));
-    if (!F_train_initialization<uint8_t>(hook::Global<void*>(0x6cec7c), 0x82)) {
+    if (!F_train_initialization<uint8_t>(hook::As<void*>(g_newGame), 0x82)) {
         uint8_t* pricedModel = Get(0x6ada84, typeId);
         uint8_t* company = Get(0x62be10, F_train_initialization<uint32_t>(t, 0x51));
         float price = hook::Orig<float(__fastcall*)(uint8_t*, int, uint32_t, uint32_t)>(0x4619c0)(
@@ -4210,14 +4205,14 @@ RT3_REPLACE(0x4b0140, Train_PlaceInitialEngine);
 // A train following another (+0x98) only checks that the other still runs.
 RT3_NOINLINE void __fastcall Train_Step(uint8_t* t, int, float dt, int32_t force) {
     if (F<int32_t>(t, 0x98) != -1 && F<int32_t>(t, 0x98) != F<int32_t>(t, 0x25)) {
-        Collection* trains = hook::Global<Collection*>(0x6cfcbc);
+        Collection* trains = g_trains;
         uint8_t* other;
         if (!Collection_IsValid(trains, 0, F<uint32_t>(t, 0x98)) ||
-            !(other = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfcbc), 0, F<uint32_t>(t, 0x98))) || !Train_StateSpecial(other))
+            !(other = (uint8_t*)Collection_Get(g_trains, 0, F<uint32_t>(t, 0x98))) || !Train_StateSpecial(other))
             F<int32_t>(t, 0x98) = -1;
         return;
     }
-    auto cars = []() { return hook::Global<Collection*>(0x62ba84); };
+    auto cars = []() { return g_62ba84; };
     // Shows (0x3f, a quarter opaque) or hides (0xff) the cars and links or
     // unlinks the station nodes when that changes.
     auto setCars = [&](uint8_t hidden) {
@@ -4254,7 +4249,7 @@ RT3_NOINLINE void __fastcall Train_Step(uint8_t* t, int, float dt, int32_t force
     };
     auto clamp1 = [](float v) { return (float)(v > D(0x5c8770) ? D(0x5c8770) : (double)v); };
     auto rate = [](double scale) {
-        const float k = F<float>(hook::Global<uint8_t*>(0x6cec78), 0x4ca2);
+        const float k = F<float>(g_world, 0x4ca2);
         return (k < D(0x5c85b8) ? D(0x5c85b8) : (double)k) * scale;
     };
     for (;;) {
@@ -4273,7 +4268,7 @@ RT3_NOINLINE void __fastcall Train_Step(uint8_t* t, int, float dt, int32_t force
         if (!(dt > 0.0f) && !(dt != dt) && !force) return;
     run:
         force = 0;
-        float top = World_Value4cbe(hook::Global<void*>(0x6cec78));
+        float top = World_Value4cbe(hook::As<void*>(g_world));
         if (IsMultiplayer()) top = (float)Ftol_207(top);
         if (!modern()) {
             const float speed = F<float>(t, 0xcc);

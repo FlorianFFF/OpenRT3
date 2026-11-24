@@ -8,6 +8,7 @@
 #include <windows.h>
 #include <initializer_list>
 #include "hook/hook.h"
+#include "core/globals.h"
 #include "core/ptrlist.h"
 #include "core/crt.h"
 #include "hook/keepregs.h"
@@ -467,7 +468,7 @@ static void Emitter_SortPoints(uint8_t* e, float x, float y, float z) {
 }
 
 static inline void EngineDevRenderState(uint32_t state, uint32_t value) {
-    void* dev = F<void*>(hook::Global<uint8_t*>(0x6d4024), 8);
+    void* dev = F<void*>(g_engine, 8);
     (*(int32_t(__stdcall**)(void*, uint32_t, uint32_t))(*(uint8_t**)dev + 0xc8))(dev, state, value);
 }
 
@@ -496,7 +497,7 @@ static inline double Fsqrt(double v) {
 
 // The device's render state call (method 0x32) behind the engine (+8).
 static void Scene_DeviceRs(int32_t state, int32_t v) {
-    void* dev = F<void*>(hook::Global<uint8_t*>(0x6d4024), 8);
+    void* dev = F<void*>(g_engine, 8);
     ((int32_t(__stdcall*)(void*, int32_t, int32_t))(*(void***)dev)[0xc8 / 4])(dev, state, v);
 }
 
@@ -729,7 +730,7 @@ RT3_NOINLINE void __fastcall Scene_EmitScenery(uint8_t* sc, int, uint8_t* src, u
                 int32_t row = r4 + gi;
                 for (int32_t gj = 0; gj < 4; ++gj, b += 8) {
                     if ((b[0] & 0x70) && (b[0] & 0xf) != 0xf) {
-                        hook::Global<int32_t>(0xcc3b3c) += (b[0] >> 4) & 7;
+                        g_cc3b3c += (b[0] >> 4) & 7;
                         for (int32_t k = 0; k < ((b[0] >> 4) & 7); ++k) {
                             int32_t colIdx = c4 + gj;
                             float ox, oz;
@@ -781,7 +782,7 @@ RT3_REPLACE(0x524780, Scene_EmitScenery);
 // restarting near the end), then the states are restored and the queue
 // emptied.
 RT3_NOINLINE void __fastcall Particles_Render(uint8_t* v, int, uint8_t* cam) {
-    if (!F<uint8_t*>(v, 0x29)[0x5e] || F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x114262)) {
+    if (!F<uint8_t*>(v, 0x29)[0x5e] || F<int32_t>(g_engine, 0x114262)) {
         PtrList_Clear(F<PtrList*>(v, 0x89));
         return;
     }
@@ -1002,7 +1003,7 @@ RT3_NOINLINE void __fastcall Terrain_BuildMesh(uint8_t* sc, int, uint8_t shift, 
     const uint8_t* types = (const uint8_t*)(uintptr_t)Terrain_Get1655(t);
     Terrain_Get1659(t);
     uint32_t* vb = (uint32_t*)Render_LockVb2(F<uint8_t*>(sc, 0x2d));
-    uint16_t& next = hook::Global<uint16_t>(0xcc3b34);
+    uint16_t& next = g_cc3b34;
     next = 1;
     uint32_t lastIdx = 0xffff;
     uint16_t** slotList = (uint16_t**)0xc43b38;
@@ -1031,7 +1032,7 @@ RT3_NOINLINE void __fastcall Terrain_BuildMesh(uint8_t* sc, int, uint8_t shift, 
             const int16_t* tri = (const int16_t*)(F<uint8_t*>(sc, 0x65) + 8);
             uint32_t type;
             if (!batch) {
-                if (hook::Global<uint8_t*>(0x6d4024)[0x1146eb])
+                if (g_engine[0x1146eb])
                     type = types[(tri[0] + tri[2] + tri[4]) / 3 + ((tri[1] + tri[3] + tri[5]) / 3) * (w + 1)];
                 else
                     type = defType;
@@ -1048,7 +1049,7 @@ RT3_NOINLINE void __fastcall Terrain_BuildMesh(uint8_t* sc, int, uint8_t shift, 
                 if (same > 3) continue;
                 int32_t cx = (vx[2] + vx[1] + vx[0]) / 3;
                 int32_t cy = (vy[2] + vy[1] + vy[0]) / 3;
-                if (hook::Global<uint8_t*>(0x6d4024)[0x1146eb]) type = types[(w + 1) * cy + cx];
+                if (g_engine[0x1146eb]) type = types[(w + 1) * cy + cx];
                 else type = defType;
                 if (F<int32_t>(batch, 0x21) <= 3 || prevType != type || prevTex != tex) {
                     if ((uint16_t)lastIdx != 0xffff) {
@@ -1211,7 +1212,7 @@ RT3_NOINLINE void __fastcall TerrainLod_Mark(uint8_t* self, int, int32_t levelAr
     const int16_t* thrTable = (const int16_t*)0xc33d38;
     uint8_t mark = (uint8_t)(levelArg + 1);
     auto threshold = [&](uint16_t d) {
-        int32_t i = Ftol((double)(int16_t)d * hook::Global<float>(0x6d9090)) + hook::Global<int32_t>(0xaf3528);
+        int32_t i = Ftol((double)(int16_t)d * g_6d9090) + g_af3528;
         return (int32_t)thrTable[(int16_t)i];
     };
     for (int32_t u = u0, ui = (int16_t)u0; (int16_t)u < uEnd; ++u, ++ui) {
@@ -1287,7 +1288,7 @@ RT3_NOINLINE void __fastcall TerrainLod_Build(uint8_t* self, int, int32_t levelA
     const uint16_t* var = (const uint16_t*)(uintptr_t)Terrain_Get1619(t, 0, (int8_t)levelArg);
     int32_t W = (Terrain_Rows(t) >> (level & 31)) + 1;
     uint8_t* out = self + 0x374f;
-    hook::Global<int32_t>(0xaf3528) = Ftol((double)hook::Global<float>(0x8f2518) * hook::Global<float>(0x5dd000));
+    g_af3528 = Ftol((double)g_8f2518 * g_5dd000);
     if (!((int16_t)u0 < (int16_t)uEnd)) return;
     int32_t rowOff0 = (int32_t)(int16_t)v0 << (sh & 31);
     int32_t rowOff1 = ((int32_t)(int16_t)v0 + 1) << (sh & 31);
@@ -1335,7 +1336,7 @@ RT3_NOINLINE void __fastcall TerrainLod_Build(uint8_t* self, int, int32_t levelA
                     keep = true;
                 if (keep) {
                     int32_t dd = (int16_t)*dp;
-                    int32_t thr = Ftol((double)dd * hook::Global<float>(0x6d9090)) + hook::Global<int32_t>(0xaf3528);
+                    int32_t thr = Ftol((double)dd * g_6d9090) + g_af3528;
                     F<int32_t>(out, 0) = ub;
                     F<int32_t>(out, 4) = vi;
                     F<int32_t>(out, 8) = Render_GridCell(t, 0, ub, vi);
@@ -1492,10 +1493,10 @@ RT3_REPLACE(0x5275e0, TimeOfDay_Split);
 // texture changes per frame. The ten number slots sit 16 bytes apart in the
 // frame, as in the original.
 RT3_NOINLINE void __fastcall SceneStats_Draw(uint8_t* s, int, float dt) {
-    if (ClockMs() - 0x96 < hook::Global<int32_t>(0xcc3b48)) dt = hook::Global<float>(0xcc3b44);
+    if (ClockMs() - 0x96 < g_cc3b48) dt = g_cc3b44;
     else {
-        hook::Global<float>(0xcc3b44) = dt;
-        hook::Global<int32_t>(0xcc3b48) = ClockMs();
+        g_cc3b44 = dt;
+        g_cc3b48 = ClockMs();
     }
     char text[0x400];
     text[0] = 0;
@@ -1507,7 +1508,7 @@ RT3_NOINLINE void __fastcall SceneStats_Draw(uint8_t* s, int, float dt) {
     for (int32_t i = 0; i < 7; ++i) slot[i] = area + i * 0x10;
     char big[0x200];
     auto nf = [](char* b, int32_t style, double v) { return Num_Format(b, style, v, 10, 1, 0, 0); };
-    if (hook::Global<uint8_t*>(0x6d4024)[0x114206]) {
+    if (g_engine[0x114206]) {
         int32_t rate = Ftol((double)tris * fps);
         if (F<int32_t>(F<uint8_t*>(s, 0x29), 0x8c)) {
             char* n = nf(big, 4, (double)fps);
@@ -1522,15 +1523,15 @@ RT3_NOINLINE void __fastcall SceneStats_Draw(uint8_t* s, int, float dt) {
             char* n2 = nf(slot[6], 8, (double)F<int32_t>(s, 0x22b7b));
             char* n3 = nf(slot[1], 3, (double)rate * Fl(0x5dd14c));
             char* n4 = nf(slot[3], 8, (double)tris);
-            char* n5 = nf(slot[2], 8, (double)hook::Global<uint16_t>(0xcc3b34));
+            char* n5 = nf(slot[2], 8, (double)g_cc3b34);
             char* n6 = nf(slot[4], 4, D(0x5c87f8) / fpsC);
             char* n7 = nf(slot[0], 4, (double)fps);
             FormatText(text, (const char*)0x5dd0d8, n7, n6, n5, n4, n3, n2, n1, 0);
             char* m1 = nf(slot[1], 3, (double)F<int32_t>(s, 0xd) * Fl(0x5dcfb8));
-            char* m2 = nf(slot[3], 8, (double)hook::Global<int32_t>(0xccd81c));
-            char* m3 = nf(slot[2], 8, (double)hook::Global<int32_t>(0xccd818));
-            char* m4 = nf(slot[4], 8, (double)hook::Global<int32_t>(0xcc3b38));
-            char* m5 = nf(slot[0], 8, (double)hook::Global<int32_t>(0xcc3b3c));
+            char* m2 = nf(slot[3], 8, (double)g_ccd81c);
+            char* m3 = nf(slot[2], 8, (double)hook::As<int32_t>(g_ccd818));
+            char* m4 = nf(slot[4], 8, (double)g_cc3b38);
+            char* m5 = nf(slot[0], 8, (double)g_cc3b3c);
             FormatText(text, (const char*)0x5dd090, text, m5, m4, m3, m2, m1, 0, 0);
         }
     }
@@ -1538,8 +1539,8 @@ RT3_NOINLINE void __fastcall SceneStats_Draw(uint8_t* s, int, float dt) {
         memcpy(text + strlen(text), (const void*)0x5c9ce8, 2);
         int32_t video, resident;
         Textures_MemoryTotals(&video, &resident, nullptr);
-        int32_t total = Engine_TotalTextureMem(hook::Global<void*>(0x6d4024));
-        int32_t used = (total - Engine_FreeTextureMem(hook::Global<void*>(0x6d4024))) / 1024;
+        int32_t total = Engine_TotalTextureMem(hook::As<void*>(g_engine));
+        int32_t used = (total - Engine_FreeTextureMem(hook::As<void*>(g_engine))) / 1024;
         char* l1 = nf(slot[1], 1, (double)(resident / 1024));
         char* l2 = nf(slot[3], 1, (double)(video / 1024));
         char* l3 = nf(slot[2], 1, (double)used);
@@ -1566,7 +1567,7 @@ RT3_REPLACE(0x527c20, Clock_Set11);
 void __fastcall Clock_SetD(uint8_t* o, int, int32_t h, int32_t m, int32_t s) {
     int32_t v = SecondsOfDay(h, m, s);
     F<int32_t>(o, 0xd) = v;
-    Engine_Set1146f6(hook::Global<void*>(0x6d4024), 0, v);
+    Engine_Set1146f6(hook::As<void*>(g_engine), 0, v);
 }
 RT3_REPLACE(0x527c70, Clock_SetD);
 
@@ -1579,25 +1580,25 @@ RT3_NOINLINE void __fastcall Scene_SetupVisitGrid(uint8_t* s, int, uint8_t* t) {
     int32_t rows = Terrain_Rows(t);
     int32_t cols = Terrain_Cols(t);
     if (F<void*>(s, 0x65)) {
-        if (hook::Global<int32_t>(0x624d40) == rows && hook::Global<int32_t>(0x624d3c) == cols &&
-            hook::Global<int32_t>(0x624d38) == F<int32_t>(t, 0x2121))
+        if (g_624d40 == rows && g_624d3c == cols &&
+            g_624d38 == F<int32_t>(t, 0x2121))
             return;
         Render_FixTileSeams(t);
         F<int32_t>(s, 5) = 0;
         int32_t v = F<int32_t>(t, 0x2121);
         uint8_t* old = F<uint8_t*>(s, 0x65);
-        hook::Global<int32_t>(0x624d40) = rows;
-        hook::Global<int32_t>(0x624d3c) = cols;
-        hook::Global<int32_t>(0x624d38) = v;
+        g_624d40 = rows;
+        g_624d3c = cols;
+        g_624d38 = v;
         if (old) {
             VisitGrid_Free(old);
             ExeDelete(old);
         }
     } else {
         Render_FixTileSeams(t);
-        hook::Global<int32_t>(0x624d40) = rows;
-        hook::Global<int32_t>(0x624d3c) = cols;
-        hook::Global<int32_t>(0x624d38) = F<int32_t>(t, 0x2121);
+        g_624d40 = rows;
+        g_624d3c = cols;
+        g_624d38 = F<int32_t>(t, 0x2121);
     }
     int32_t n = cols > rows ? cols : rows;
     s[0x3749] = 1;
@@ -1668,7 +1669,7 @@ RT3_NOINLINE uint8_t __fastcall Scene_ViewNeedsRebuild(uint8_t* s, int, uint8_t*
     float moved = (float)movedExact;
     int32_t changed = 0;
     if (movedExact > *(const double*)0x5c86b8) {
-        double h = Terrain_HeightAt((uint8_t*)Engine_Get1C(hook::Global<void*>(0x6d4024)), 0, pos[0], pos[2]);
+        double h = Terrain_HeightAt((uint8_t*)Engine_Get1C(hook::As<void*>(g_engine)), 0, pos[0], pos[2]);
         double q = ((double)pos[1] - h) * *(const double*)0x5c8918;
         if (moved > q) changed = 1;
         if (q < fabs((double)dist - F<float>(s, 0x36b8))) changed = 1;
@@ -1692,17 +1693,17 @@ RT3_NOINLINE uint8_t __fastcall Scene_ViewNeedsRebuild(uint8_t* s, int, uint8_t*
                 mov limit, eax
             }
         }
-        bool slow = (int32_t)(tick - hook::Global<uint32_t>(0xcc3b4c)) / 10 > limit;
+        bool slow = (int32_t)(tick - g_cc3b4c) / 10 > limit;
         int32_t wait = (F<int32_t>(s, 0x368a) >> 6) - (load >> 1) + 1000;
         if (wait < 0) wait = 0;
         else if (wait > 0x5dc) wait = 0x5dc;
-        int32_t now = F<int32_t>(s, 0xd), last = hook::Global<int32_t>(0x624d44);
+        int32_t now = F<int32_t>(s, 0xd), last = g_624d44;
         int32_t t = now;
         if (last > t) t += 0x15180;
-        if (t - last > wait + 0x40) hook::Global<int32_t>(0x624d44) = now;
+        if (t - last > wait + 0x40) g_624d44 = now;
         else if (load < 0x180 || !slow) return 0;
     }
-    hook::Global<uint32_t>(0xcc3b4c) = tick;
+    g_cc3b4c = tick;
     F<float>(s, 0x36c4) = pos[0];
     F<float>(s, 0x36c8) = pos[1];
     F<float>(s, 0x36cc) = pos[2];
@@ -1730,7 +1731,7 @@ RT3_NOINLINE void __fastcall Scene_VisitTerrain(uint8_t* s, int, uint8_t* visito
     int32_t limit = r < 1000 ? 1 : 0;
     int32_t rr = (int32_t)((uint32_t)r * (uint32_t)r);
     float cam[3];
-    Obj_GetXYZ1c(F<uint8_t*>(hook::Global<uint8_t*>(0x6d4024), 0x28), 0, (uint32_t*)&cam[0], (uint32_t*)&cam[1],
+    Obj_GetXYZ1c(F<uint8_t*>(g_engine, 0x28), 0, (uint32_t*)&cam[0], (uint32_t*)&cam[1],
                  (uint32_t*)&cam[2]);
     double k = *(const float*)0x5dcfe8;
     int32_t camX, camZ;
@@ -1759,7 +1760,7 @@ RT3_NOINLINE void __fastcall Scene_VisitTerrain(uint8_t* s, int, uint8_t* visito
                 ((VisitFn)(*(void***)visitor)[3])(visitor, *(uint32_t*)&ox, *(uint32_t*)&oy, *(uint32_t*)&oz, x, y);
         }
     }
-    Engine_ResetTextureQueue(hook::Global<void*>(0x6d4024));
+    Engine_ResetTextureQueue(hook::As<void*>(g_engine));
 }
 RT3_REPLACE(0x528190, Scene_VisitTerrain);
 
@@ -1845,7 +1846,7 @@ RT3_REPLACE(0x528360, View_PickTerrain);
 // 0x5c8948), unlit and alpha tested at the point (+0x3734..) tinted -+0x3728,
 // turning with the clock (GetTickCount & 0x1fff x 0x5dd178 x 0x5c8768).
 RT3_NOINLINE void __fastcall Marker_Render(uint8_t* s, int, uint8_t* cam, uint8_t* terrain) {
-    uint32_t ticks = ((uint32_t(__stdcall*)())hook::Global<void*>(0x5c8068))() & 0x1fff;
+    uint32_t ticks = ((uint32_t(__stdcall*)())g_5c8068)() & 0x1fff;
     float spin = (float)((double)(int32_t)ticks * *(const float*)0x5dd178 * *(const float*)0x5c8768);
     if (!s[0x3745]) return;
     if (!F<int32_t>(s, 0x3730)) View_PickTerrain(s, 0, cam, terrain);
@@ -1896,7 +1897,7 @@ RT3_NOINLINE void __fastcall Sky_Render(uint8_t* s, int, float fog) {
     Render_ZWriteOff(F<uint8_t*>(s, 0x2d));
     Render_CullNone(F<uint8_t*>(s, 0x2d));
     Render_UseView1(F<uint8_t*>(s, 0x2d));
-    uint8_t* e = hook::Global<uint8_t*>(0x6d4024);
+    uint8_t* e = g_engine;
     if (e[0x114251] && e[0x114250]) {
         Render_PushStages(F<uint8_t*>(s, 0x2d), 0, F<const uint32_t*>(s, 0x49));
         Render_SetFactorAlpha(F<uint8_t*>(s, 0x2d), 0, 0);
@@ -1931,8 +1932,8 @@ RT3_NOINLINE void __fastcall Sky_Render(uint8_t* s, int, float fog) {
         Render_SetTextureFactor(F<uint8_t*>(s, 0x2d), 0, fade << 24);
         int32_t n = Fx_Intensity(s) + 0x40;
         if (n < 0x14) n = 0x14;
-        uint32_t seed = hook::Global<uint32_t>(0x624324) * 0x19660d + 0x3c6ef35f;
-        hook::Global<uint32_t>(0x624324) = seed;
+        uint32_t seed = g_lcg * 0x19660d + 0x3c6ef35f;
+        g_lcg = seed;
         int32_t twinkle = (int32_t)(seed & 7) + n;
         Renderer_SetFog(F<uint8_t*>(s, 0x2d), 0, (float)twinkle, 1.0f, 1.0f, 1.0f);
         Renderer_SetTexture(F<uint8_t*>(s, 0x2d), 0, 0, (uint8_t*)(uintptr_t)Obj_Get1c(F<uint8_t*>(s, 0xa5)));
@@ -1960,7 +1961,7 @@ RT3_NOINLINE void __fastcall Sky_Render(uint8_t* s, int, float fog) {
             } else {
                 float cam[3] = { F<float>(s, 0x369c), F<float>(s, 0x36a0), F<float>(s, 0x36a4) };
                 Render_TransformWorld(F<uint8_t*>(s, 0x2d), 0, v);
-                vis += Terrain_RayOcclusion((uint8_t*)Engine_Get1C(hook::Global<void*>(0x6d4024)), cam, v);
+                vis += Terrain_RayOcclusion((uint8_t*)Engine_Get1C(hook::As<void*>(g_engine)), cam, v);
                 if (vis > 0xff) vis = 0xff;
                 else if (vis < 0x40) vis = 0x40;
             }
@@ -2031,7 +2032,7 @@ RT3_NOINLINE void __fastcall Scene_QueueNode(uint8_t* r, int, uint8_t* n, uint8_
             if (F<int32_t>(n, 0x3e) >= 0 && lod > F<int32_t>(n, 0x3e)) return;
             if (n[0x5c] & 2) return;
         }
-        ++hook::Global<int32_t>(0xcc3b38);
+        ++g_cc3b38;
     }
     F<uint32_t>(n, 0x65) = F<uint32_t>(r, 5);
     if (hasMesh) {
@@ -2128,8 +2129,8 @@ RT3_REPLACE(0x528d90, Scene_QueueNode);
 // QUIRK: in the shadow pass the ray handed to Scene_QueueNode is stack
 // residue (unused there); zero here.
 RT3_NOINLINE void __fastcall Scene_QueueWorld(uint8_t* r, int, uint8_t* cam, uint8_t* ter, uint8_t shadow) {
-    hook::Global<int32_t>(0xcc3b38) = 0;
-    if (!F<uint8_t*>(r, 0x29)[0x5b] || F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x114266)) return;
+    g_cc3b38 = 0;
+    if (!F<uint8_t*>(r, 0x29)[0x5b] || F<int32_t>(g_engine, 0x114266)) return;
     int32_t maxDist = (int32_t)Render_Get1534(ter);
     float c[3];
     Obj_GetXYZ1c(cam, 0, (uint32_t*)&c[0], (uint32_t*)&c[1], (uint32_t*)&c[2]);
@@ -2279,7 +2280,7 @@ RT3_REPLACE(0x529840, Scene_DrawCellQuads);
 // mirror point and without tops). Needs the scene option +0x29 +0x63.
 RT3_NOINLINE void __fastcall Scene_DrawCellBoxes(uint8_t* s, int, uint8_t* c, uint8_t* t, uint8_t reflected) {
     if (!F<uint8_t*>(s, 0x29)[0x63]) return;
-    uint8_t* e = hook::Global<uint8_t*>(0x6d4024);
+    uint8_t* e = g_engine;
     if (F<int32_t>(e, 0x11426a)) return;
     if (F<int32_t>(e, 0x114272) && F<float>(c, 0x20) > Fl(0x5dd198)) return;
     uint32_t cells = F<uint32_t>(s, 0x22b53);
@@ -2304,7 +2305,7 @@ RT3_NOINLINE void __fastcall Scene_DrawCellBoxes(uint8_t* s, int, uint8_t* c, ui
         if (dx < 0) dx = -dx;
         if (dy < 0) dy = -dy;
         int32_t dist = hook::Global<uint16_t>(0x6d9098 + (dx * 0x418 + dy) * 2);
-        if (F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x114272)) dist = 0;
+        if (F<int32_t>(g_engine, 0x114272)) dist = 0;
         if (dist > range) continue;
         PtrList* list = Terrain_Cell1675(t, 0, cx, cy);
         PtrList_Rewind(list);
@@ -2337,7 +2338,7 @@ RT3_NOINLINE void __fastcall Scene_DrawCellBoxes(uint8_t* s, int, uint8_t* c, ui
             int32_t ix = Ftol((fx < 0 ? -fx : fx) * D(0x5dd190));
             int32_t iz = Ftol((fz < 0 ? -fz : fz) * D(0x5dd190));
             int32_t d = *(const uint16_t*)(uintptr_t)(0x6d9098 - (uint32_t)((ix * 0x418 + iz) << 1));
-            if (F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x114272)) d = 0;
+            if (F<int32_t>(g_engine, 0x114272)) d = 0;
             if (d >= range) continue;
             if ((*(int32_t(__fastcall**)(uint8_t*))(*(uint8_t**)o + 0xc))(o)) continue;
             Obj_SetAlpha5b(o, 0, (uint8_t)Ftol((double)d / range * Fl(0x5ca0ec)));
@@ -2435,10 +2436,10 @@ RT3_REPLACE(0x529fd0, Scene_DrawCellLayer);
 // the scene option +0x29 +0x5d and t's scenery (+0x1691).
 RT3_NOINLINE void __fastcall Scene_DrawScenery(uint8_t* s, int, uint8_t* cam, uint8_t* t) {
     if (!F<uint8_t*>(s, 0x29)[0x5d]) return;
-    uint8_t* e = hook::Global<uint8_t*>(0x6d4024);
+    uint8_t* e = g_engine;
     if (F<int32_t>(e, 0x11425e) || F<int32_t>(e, 0x114276)) return;
     if (!F<int32_t>(t, 0x1691)) return;
-    hook::Global<int32_t>(0xcc3b3c) = 0;
+    g_cc3b3c = 0;
     int32_t range = (int32_t)Render_Get1540(t);
     double f = Scene_FogFactor(s, 0, t);
     int32_t alpha = Ftol(Fl(0x5ca0ec) * f);
@@ -2504,7 +2505,7 @@ RT3_REPLACE(0x52a2f0, Scene_DrawScenery);
 // then the others (+0x81), both lists emptied; unlit, blended, alpha
 // tested, clamped, without z writes, texture 0xd9399c. Option +0x29 +0x5e.
 RT3_NOINLINE void __fastcall Scene_DrawEmitters(uint8_t* s, int, uint8_t* cam) {
-    if (!F<uint8_t*>(s, 0x29)[0x5e] || F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x114262)) {
+    if (!F<uint8_t*>(s, 0x29)[0x5e] || F<int32_t>(g_engine, 0x114262)) {
         PtrList_Clear(F<PtrList*>(s, 0x81));
         PtrList_Clear(F<PtrList*>(s, 0x85));
         return;
@@ -2523,7 +2524,7 @@ RT3_NOINLINE void __fastcall Scene_DrawEmitters(uint8_t* s, int, uint8_t* cam) {
     if (lr > D(0x5c8750)) lr = 0.75f;
     if (lg > D(0x5c8750)) lg = 0.75f;
     if (v > D(0x5c8750)) lb = 0.75f;
-    Ambience_Visit(hook::Global<uint8_t*>(0x6d4030), 0, *(uint32_t*)&lr, *(uint32_t*)&lg, *(uint32_t*)&lb);
+    Ambience_Visit(g_models, 0, *(uint32_t*)&lr, *(uint32_t*)&lg, *(uint32_t*)&lb);
     Render_LightingOff(F<uint8_t*>(s, 0x2d));
     Render_PushStages(F<uint8_t*>(s, 0x2d), 0, F<const uint32_t*>(s, 0x45));
     Render_BlendDefault(F<uint8_t*>(s, 0x2d));
@@ -2783,7 +2784,7 @@ RT3_NOINLINE void __fastcall Scene_DrawFogPatch(uint8_t* s, int, uint8_t* t, uin
         uint8_t* r = F<uint8_t*>(s, 0x2d);
         float u = 0, vv = 0;
         int32_t cx = Ftol((double)F<float>(r, 0x3701) * Fl(0x5dcfe8));
-        hook::Global<uint16_t>(0xcc3b54) = 0;
+        g_cc3b54 = 0;
         float fz0 = F<float>(r, 0x3709);
         int32_t cz = Ftol((double)fz0 * Fl(0x5dcfe8));
         int32_t midX = (F<int32_t>(s, 0x3682) + cx) >> 1;
@@ -2816,7 +2817,7 @@ RT3_NOINLINE void __fastcall Scene_DrawFogPatch(uint8_t* s, int, uint8_t* t, uin
                 Render_ProjectSimple(F<uint8_t*>(s, 0x2d), 0, fx, y, fz, &u, &vv);
                 u = (float)(u * D(0x5c8628));
                 v += 6;
-                ++hook::Global<uint16_t>(0xcc3b54);
+                ++g_cc3b54;
                 vv = (float)(vv * D(0x5ca180));
                 v[-2] = (float)(u + D(0x5c8628));
                 v[-1] = (float)(vv + D(0x5c8628));
@@ -2825,10 +2826,10 @@ RT3_NOINLINE void __fastcall Scene_DrawFogPatch(uint8_t* s, int, uint8_t* t, uin
         Render_UnlockVb264f(F<uint8_t*>(s, 0x2d));
     }
     if (!s[0x374b]) {
-        hook::Global<uint16_t>(0xcc3b50) = 0;
+        g_cc3b50 = 0;
         s[0x374b] = 1;
         uint16_t* ix = (uint16_t*)Render_LockVb2653(F<uint8_t*>(s, 0x2d));
-        hook::Global<uint16_t>(0xcc3b50) += 0x1116;
+        g_cc3b50 += 0x1116;
         for (int32_t row = 0; row < 0x2f4; row += 0x1c)
             for (int32_t c = 0; c < 0x1b; ++c) {
                 uint16_t a = (uint16_t)(row + c);
@@ -2852,7 +2853,7 @@ RT3_NOINLINE void __fastcall Scene_DrawFogPatch(uint8_t* s, int, uint8_t* t, uin
         Render_AddressBorder(F<uint8_t*>(s, 0x2d));
         Render_BindPair264f(F<uint8_t*>(s, 0x2d));
         EngineDevRenderState(0x2f, 1);
-        Render_DrawIndexed(F<uint8_t*>(s, 0x2d), 0, hook::Global<uint16_t>(0xcc3b50), 0, hook::Global<uint16_t>(0xcc3b54));
+        Render_DrawIndexed(F<uint8_t*>(s, 0x2d), 0, g_cc3b50, 0, g_cc3b54);
         EngineDevRenderState(0x2f, 0);
         Render_AddressWrap(F<uint8_t*>(s, 0x2d));
         Render_ZWriteOn(F<uint8_t*>(s, 0x2d));
@@ -2865,7 +2866,7 @@ RT3_NOINLINE void __fastcall Scene_DrawFogPatch(uint8_t* s, int, uint8_t* t, uin
     Render_AlphaTestOff(F<uint8_t*>(s, 0x2d));
     Render_BindPair264f(F<uint8_t*>(s, 0x2d));
     Renderer_SetTexture(F<uint8_t*>(s, 0x2d), 0, 0, nullptr);
-    Render_DrawIndexed(F<uint8_t*>(s, 0x2d), 0, hook::Global<uint16_t>(0xcc3b50), 0, hook::Global<uint16_t>(0xcc3b54));
+    Render_DrawIndexed(F<uint8_t*>(s, 0x2d), 0, g_cc3b50, 0, g_cc3b54);
     Render_CullCcw(F<uint8_t*>(s, 0x2d));
     Render_LightingDefault(F<uint8_t*>(s, 0x2d));
 }
@@ -2887,22 +2888,22 @@ RT3_REPLACE(0x52b4a0, Scene_DrawFogPatch);
 // overlay; frame counter +5.
 RT3_NOINLINE void __fastcall Scene_RenderFrame(uint8_t* s, int, uint8_t* cam, uint8_t* ter, uint8_t second) {
     uint8_t* r = F<uint8_t*>(s, 0x2d);
-    uint8_t* eng = hook::Global<uint8_t*>(0x6d4024);
+    uint8_t* eng = g_engine;
     uint8_t st = Render_DeviceState(F<uint8_t*>(s, 0x2d));
     if (st == 1) {
         while (Render_DeviceState(F<uint8_t*>(s, 0x2d)) == 1) PumpMessages();
         return;
     }
     if (st == 2) {
-        if (hook::Global<uint8_t*>(0x6d4020) && hook::Global<int32_t>(0x6d4034)) Pack_ReleaseFontHandles(hook::Global<uint8_t*>(0x6d4020));
+        if (g_pack && g_6d4034) Pack_ReleaseFontHandles(g_pack);
         Display_DestroyRenderer(s);
         Scene_CreateRenderer(s);
-        if (hook::Global<uint8_t*>(0x6d4020) && hook::Global<int32_t>(0x6d4034)) Pack_RecreateFonts(hook::Global<uint8_t*>(0x6d4020));
+        if (g_pack && g_6d4034) Pack_RecreateFonts(g_pack);
     }
-    hook::Global<uint8_t*>(0x6d4024)[0x11369c] = 1;
+    g_engine[0x11369c] = 1;
     Fade_StartFast();
     if (F<int32_t>(s, 1) != 1) return;
-    eng = hook::Global<uint8_t*>(0x6d4024);
+    eng = g_engine;
     int32_t frame = (int32_t)Render_Get1554(ter);
     Scene_SetupVisitGrid(s, 0, ter);
     uint8_t full = second == 0;
@@ -2947,17 +2948,17 @@ RT3_NOINLINE void __fastcall Scene_RenderFrame(uint8_t* s, int, uint8_t* cam, ui
         clampNear(0x5c8880);
         Render_ApplyFilterStates(F<uint8_t*>(s, 0x2d));
         Render_TargetChanged(F<uint8_t*>(s, 0x2d));
-        Texture_BindTarget(F<uint8_t*>(ter, 8), 0, F<void*>(hook::Global<uint8_t*>(0x6d4024), 8));
-        hook::Global<int32_t>(0x624d54) = 0;
+        Texture_BindTarget(F<uint8_t*>(ter, 8), 0, F<void*>(g_engine, 8));
+        g_624d54 = 0;
         Renderer_SetupViews(F<uint8_t*>(s, 0x2d), 0, cam, 1);
     } else {
         Renderer_SetupViews(F<uint8_t*>(s, 0x2d), 0, cam, 0);
         Mat16 m;
         memcpy(&m, F<uint8_t*>(s, 0x2d) + 0x346f, sizeof m);
-        Sound_SetMatrix(hook::Global<uint8_t*>(0x6d402c), 0, m);
+        Sound_SetMatrix(g_sound, 0, m);
         ((void(__fastcall*)(uint8_t*))(*(void***)cam)[5])(cam);
         view = F<uint8_t*>(s, 0x29);
-        eng = hook::Global<uint8_t*>(0x6d4024);
+        eng = g_engine;
         bool shown = (view[0x65] || view[0x66]) && eng[0x11422e] && !eng[0x11424f] && F<int32_t>(s, 5) && fogDense;
         if (shown) {
             int32_t c = ++F<int32_t>(s, 0x22b6f);
@@ -2975,10 +2976,10 @@ RT3_NOINLINE void __fastcall Scene_RenderFrame(uint8_t* s, int, uint8_t* cam, ui
             F<int32_t>(s, 0x22b77) = 0;
             int32_t k = F<int32_t>(ter, 0x1558);
             Render_TargetChanged(F<uint8_t*>(s, 0x2d));
-            Texture_BindTarget(F<uint8_t*>(ter, 8 + k * 4), 0, F<void*>(hook::Global<uint8_t*>(0x6d4024), 8));
+            Texture_BindTarget(F<uint8_t*>(ter, 8 + k * 4), 0, F<void*>(g_engine, 8));
             Render_BeginFrame(F<uint8_t*>(s, 0x2d), 0, 0);
             Render_UseView2(F<uint8_t*>(s, 0x2d));
-            uint8_t zb = hook::Global<uint8_t*>(0x6d4024)[0x11421a];
+            uint8_t zb = g_engine[0x11421a];
             if (zb) {
                 Render_SetZEnable(F<uint8_t*>(s, 0x2d), 0, 1);
                 Render_ZWriteOn(F<uint8_t*>(s, 0x2d));
@@ -3037,12 +3038,12 @@ RT3_NOINLINE void __fastcall Scene_RenderFrame(uint8_t* s, int, uint8_t* cam, ui
             Render_ApplyFilterStates(F<uint8_t*>(s, 0x2d));
         }
         Render_RestoreTarget(F<uint8_t*>(s, 0x2d));
-        uint8_t* e = hook::Global<uint8_t*>(0x6d4024);
+        uint8_t* e = g_engine;
         const int32_t* vp = (const int32_t*)(F<uint8_t*>(e, 0x34) + F<int32_t>(e, 0x11421e) * 0x15);
-        hook::Global<int32_t>(0x624d54) = 1;
+        g_624d54 = 1;
         Render_SetPixelViewport(F<uint8_t*>(s, 0x2d), 0, 0, 0, vp[0], vp[1]);
     }
-    eng = hook::Global<uint8_t*>(0x6d4024);
+    eng = g_engine;
     if (!eng[0x114251] || !eng[0x114250]) Render_Clear(F<uint8_t*>(s, 0x2d), 0, 1, 1, 0x3f800000);
     Render_BeginFrame(F<uint8_t*>(s, 0x2d), 0, 1);
     int32_t div = F<int32_t>(s, 0x22b6b) < 1 ? 1 : F<int32_t>(s, 0x22b6b);
@@ -3052,19 +3053,19 @@ RT3_NOINLINE void __fastcall Scene_RenderFrame(uint8_t* s, int, uint8_t* cam, ui
     Render_SetCameraViewport(F<uint8_t*>(s, 0x2d), 0, cam, full ? 1 : 0);
     if ((double)F<float>(s, 0x21) < D(0x5dd180)) Render_AllowTranslucency(F<uint8_t*>(s, 0x2d));
     else Render_NoTranslucency(F<uint8_t*>(s, 0x2d));
-    Engine_Set1146f6(hook::Global<uint8_t*>(0x6d4024), 0, F<int32_t>(s, 0xd));
+    Engine_Set1146f6(g_engine, 0, F<int32_t>(s, 0xd));
     int32_t t = F<int32_t>(s, 0xd);
     double a = (double)t * D(0x5dd1b0) - D(0x5cb4a0);
     F<float>(s, 0x1d) = (float)a;
     F<float>(s, 0x21) = (float)cos(-a);
-    if (t != hook::Global<int32_t>(0x624d50) || !F<int32_t>(s, 5) || Fx_Intensity(s) != hook::Global<int32_t>(0x624d4c)) {
+    if (t != g_624d50 || !F<int32_t>(s, 5) || Fx_Intensity(s) != g_624d4c) {
         int32_t fx = Fx_Intensity(s);
         Renderer_SetTimeOfDay(F<uint8_t*>(s, 0x2d), 0, F<int32_t>(s, 0xd), fx);
-        int32_t now = F<int32_t>(s, 0xd), last = hook::Global<int32_t>(0x624d48), d = now;
+        int32_t now = F<int32_t>(s, 0xd), last = g_624d48, d = now;
         if (last > d) d += 0x15180;
-        if (d - last > 0x3c) hook::Global<int32_t>(0x624d48) = now;
-        hook::Global<int32_t>(0x624d50) = now;
-        hook::Global<int32_t>(0x624d4c) = Fx_Intensity(s);
+        if (d - last > 0x3c) g_624d48 = now;
+        g_624d50 = now;
+        g_624d4c = Fx_Intensity(s);
     }
     F<uint8_t*>(s, 0x3672) = cam;
     Textures_Manage(0, 0);
@@ -3094,8 +3095,8 @@ RT3_NOINLINE void __fastcall Scene_RenderFrame(uint8_t* s, int, uint8_t* cam, ui
                 Scene_VisibleBounds(s, 0, &x0, &y0, &x1, &y1, ter, 4);
                 float v = (float)((double)F<float>(s, 0x36a0) / F<float>(s, 0x22b67));
                 if (!(v < Fl(0x5c85b4))) v = BitsF(*(const uint32_t*)0x5c85b4);
-                hook::Global<float>(0x8f2518) = (float)((double)v * v);
-                hook::Global<float>(0x6d9090) = (float)(Fl(0x5c85b4) - hook::Global<float>(0x8f2518));
+                g_8f2518 = (float)((double)v * v);
+                g_6d9090 = (float)(Fl(0x5c85b4) - g_8f2518);
                 F<int32_t>(s, 0x22b53) = 0;
                 TerrainLod_Build(s, 0, 4, ter, x0, y0, x1, y1);
                 Scene_SortEntries(s);
@@ -3108,19 +3109,19 @@ RT3_NOINLINE void __fastcall Scene_RenderFrame(uint8_t* s, int, uint8_t* cam, ui
     }
     bool objects = true;
     if (F<uint8_t*>(s, 0x29)[0x57]) {
-        Render_SetFiltering(F<uint8_t*>(s, 0x2d), 0, F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x114212) == 0, -1);
+        Render_SetFiltering(F<uint8_t*>(s, 0x2d), 0, F<int32_t>(g_engine, 0x114212) == 0, -1);
         F<float>(F<uint8_t*>(s, 0x2d), 0x36fd) = (float)(D(0x5c8770) / F<float>(ter, 0x1651) * D(0x5c8c48));
         Render_CullCcw(F<uint8_t*>(s, 0x2d));
         uint8_t* anim = (uint8_t*)(uintptr_t)Render_AnimFrameA(ter);
-        hook::Global<int32_t>(0xccd818) = 0;
-        hook::Global<int32_t>(0xccd81c) = 0;
-        eng = hook::Global<uint8_t*>(0x6d4024);
+        hook::As<int32_t>(g_ccd818) = 0;
+        g_ccd81c = 0;
+        eng = g_engine;
         uint8_t* tex = F<uint8_t*>(ter, 8 + frame * 4);
         auto R = [&]() { return F<uint8_t*>(s, 0x2d); };
         bool pop = true;
         if (!eng[0x11422e]) {
             Render_PushStages(R(), 0, F<const uint32_t*>(s, eng[0x114250] ? 0x35 : 0x45));
-            Terrain_DrawChunksFixed(R(), 0, hook::Global<uint16_t>(0xcc3b34), F<uint8_t*>(ter, 8 + frame * 4), 1, nullptr, 0);
+            Terrain_DrawChunksFixed(R(), 0, g_cc3b34, F<uint8_t*>(ter, 8 + frame * 4), 1, nullptr, 0);
         } else if (eng[0x11422d]) {
             pop = false;
             if (F<uint8_t*>(s, 0x29)[0x61]) {
@@ -3163,13 +3164,13 @@ RT3_NOINLINE void __fastcall Scene_RenderFrame(uint8_t* s, int, uint8_t* cam, ui
             Render_SetShaderOffset(R(), 0, ox, oy, sx, sy);
             if (!ter[0x159a]) Render_SetFiltering(R(), 0, 0, -1);
             Scene_DeviceRs(0x2f, 1);
-            Terrain_DrawChunks(R(), 0, hook::Global<uint16_t>(0xcc3b34));
+            Terrain_DrawChunks(R(), 0, g_cc3b34);
             Scene_DeviceRs(0x2f, 0);
             if (!ter[0x159a]) Render_SetFiltering(R(), 0, 1, -1);
             Render_SetShaderOffset(R(), 0, 0.0f, 0.0f, 1.0f, 1.0f);
             Render_AddressWrap(R());
         }
-        if (F<uint8_t*>(s, 0x29)[0x64] && !F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x11426e) && !full) Scene_DrawDetailLayers(s, 0, ter, cam);
+        if (F<uint8_t*>(s, 0x29)[0x64] && !F<int32_t>(g_engine, 0x11426e) && !full) Scene_DrawDetailLayers(s, 0, ter, cam);
         if (F<uint8_t*>(s, 0x29)[0x5c] && !full && F<int32_t>(s, 0x3abb7)) {
             Render_BindVb2647(R());
             Render_LightingOff(R());
@@ -3210,7 +3211,7 @@ RT3_NOINLINE void __fastcall Scene_RenderFrame(uint8_t* s, int, uint8_t* cam, ui
         PtrList_Rewind(l);
         for (uint8_t* o = (uint8_t*)PtrList_Next(F<PtrList*>(s, 0x79)); o; o = (uint8_t*)PtrList_Next(F<PtrList*>(s, 0x79)))
             ((void(__fastcall*)(uint8_t*))(*(void***)o)[1])(o);
-        int32_t cull = F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x11420a);
+        int32_t cull = F<int32_t>(g_engine, 0x11420a);
         if (cull == 0) Render_CullNone(R());
         else if (cull == 1) Render_CullCw(R());
         else if (cull == 2) Render_CullCcw(R());
@@ -3218,7 +3219,7 @@ RT3_NOINLINE void __fastcall Scene_RenderFrame(uint8_t* s, int, uint8_t* cam, ui
         Scene_DrawCellLayer(s, 0, cam, ter, 0);
         Scene_DrawCellLayer(s, 0, cam, ter, 1);
         uint8_t* v = F<uint8_t*>(s, 0x29);
-        eng = hook::Global<uint8_t*>(0x6d4024);
+        eng = g_engine;
         if ((v[0x65] || v[0x66]) && eng[0x11422e] && !eng[0x11424f] && ((s[0x3748] && F<int32_t>(s, 5) >= 0) || F<int32_t>(s, 5) > 3) && fogDense) {
             Scene_DrawFogPatch(s, 0, ter, 0);
             F<uint8_t*>(s, 0x2d)[0x36f7] = 0;
@@ -3231,16 +3232,16 @@ RT3_NOINLINE void __fastcall Scene_RenderFrame(uint8_t* s, int, uint8_t* cam, ui
         Particles_Render(s, 0, cam);
         Render_CullCcw(R());
     } else {
-        eng = hook::Global<uint8_t*>(0x6d4024);
+        eng = g_engine;
         if (eng[0x11422e]) {
             Render_CullCw(R());
             Render_BlendOff(R());
             Render_AlphaTestOff(R());
-            uint8_t keep = hook::Global<uint8_t*>(0x6d4024)[0x11422d];
-            hook::Global<uint8_t*>(0x6d4024)[0x11422d] = 0;
+            uint8_t keep = g_engine[0x11422d];
+            g_engine[0x11422d] = 0;
             Render_ColorWriteOff(R());
             Terrain_DrawChunksPaired(R(), 0, F<uint8_t*>(ter, 8), 2, nullptr, 0, 0);
-            hook::Global<uint8_t*>(0x6d4024)[0x11422d] = keep;
+            g_engine[0x11422d] = keep;
             Render_ColorWriteOn(R());
             Render_BlendDefault(R());
             Render_AlphaTestOn(R(), 0, 1);
@@ -3259,16 +3260,16 @@ RT3_NOINLINE void __fastcall Scene_RenderFrame(uint8_t* s, int, uint8_t* cam, ui
         if (Render_FogEnabled(ter)) Scene_VisitTerrain(s, 0, ter);
         Marker_Render(s, 0, cam, ter);
         Scene_UpdateLensFlare(s);
-        Cursor_Draw(hook::Global<uint8_t*>(0xccbb20));
-        float dt = (float)Engine_AverageFrameMs(hook::Global<uint8_t*>(0x6d4024));
+        Cursor_Draw(g_cursorManager);
+        float dt = (float)Engine_AverageFrameMs(g_engine);
         SceneStats_Draw(s, 0, dt);
         Scene_DrawOverlay(s, 0, 0);
         s[0x3749] = 0;
     }
-    if (!hook::Global<int32_t>(0x624d54)) hook::Global<int32_t>(0x624d54) = 1;
+    if (!g_624d54) g_624d54 = 1;
     Render_PopStages(R(), 0, 1);
     Render_EndFrame(R(), 0, full);
-    Engine_SampleTextureMem(hook::Global<uint8_t*>(0x6d4024));
+    Engine_SampleTextureMem(g_engine);
     if (full) {
         Camera_SetLock65(cam, 0, 0);
         F<int32_t>(s, 0x22b7b) = F<int32_t>(R(), 0x3711);
@@ -3276,14 +3277,14 @@ RT3_NOINLINE void __fastcall Scene_RenderFrame(uint8_t* s, int, uint8_t* cam, ui
         Render_RestoreTarget(R());
     } else {
         Render_SetCameraViewport(R(), 0, cam, 0);
-        Engine_UpdateFrameTime(hook::Global<uint8_t*>(0x6d4024));
+        Engine_UpdateFrameTime(g_engine);
     }
     ++F<int32_t>(s, 5);
     if (full) {
         F<uint32_t>(F<uint8_t*>(s, 0x29), 0x25) = keepNear;
         Render_ApplyFilterStates(R());
     }
-    hook::Global<uint8_t*>(0x6d4024)[0x11369c] = 0;
+    g_engine[0x11369c] = 0;
     if (full) Scene_RenderFrame(s, 0, cam, ter, 1);
     Render_UseView3(R());
     (void)r;

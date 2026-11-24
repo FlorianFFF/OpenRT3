@@ -8,6 +8,7 @@
 #include <windows.h>
 #include <initializer_list>
 #include "hook/hook.h"
+#include "core/globals.h"
 #include "game/collection.h"
 #include "hook/keepregs.h"
 #include "core/stream.h"
@@ -380,7 +381,7 @@ RT3_NOINLINE void __fastcall Timer_SetBudget(uint8_t* t, int, uint32_t v);
 
 namespace {
 inline void* ExeNew(size_t n) { return ((void*(__cdecl*)(size_t))0x53b070)(n); }
-inline int32_t PackHas(const char* path) { return NameTable_ContainsName(hook::Global<uint8_t*>(0x6d4020), 0, path, 0, nullptr); }
+inline int32_t PackHas(const char* path) { return NameTable_ContainsName(g_pack, 0, path, 0, nullptr); }
 // A scene object of model `path` (texture `tex`), or none when out of memory.
 inline uint8_t* NewSceneObj(const char* path, const char* tex) {
     uint8_t* m = (uint8_t*)ExeNew(0x206);
@@ -395,7 +396,7 @@ inline uint8_t* NewLight(const char* path, uint8_t* owner) {
 inline void ShowLight(uint8_t* c) { c[0x24] = (uint8_t)((c[0x24] & 0xf) | 0x10); }
 inline uint8_t* NewSound(const char* path, uint8_t* v, float vol) {
     uint8_t* m = (uint8_t*)ExeNew(0x141);
-    return m ? Channel_Setup(m, 0, path, hook::Global<uint8_t*>(0x62c120), F<float>(v, 0x1e2), F<float>(v, 0x1e6), F<float>(v, 0x1ea), -1,
+    return m ? Channel_Setup(m, 0, path, g_map, F<float>(v, 0x1e2), F<float>(v, 0x1e6), F<float>(v, 0x1ea), -1,
                              0, vol)
              : nullptr;
 }
@@ -475,8 +476,8 @@ static int32_t Options_DetailFor(int32_t which, int32_t v) {
 namespace {
 // The music and effects volumes from the options (+0x1146fa, +0x1146fe x 0.24).
 void Scenario_RestoreVolumes() {
-    Sound_SetVolume(hook::Global<uint8_t*>(0x6d402c), 0, F<float>(hook::Global<uint8_t*>(0x6d4024), 0x1146fa), 2);
-    Sound_SetVolume(hook::Global<uint8_t*>(0x6d402c), 0, (float)((double)F<float>(hook::Global<uint8_t*>(0x6d4024), 0x1146fe) * D(0x5c9c80)), 0);
+    Sound_SetVolume(g_sound, 0, F<float>(g_engine, 0x1146fa), 2);
+    Sound_SetVolume(g_sound, 0, (float)((double)F<float>(g_engine, 0x1146fe) * D(0x5c9c80)), 0);
 }
 }
 
@@ -519,10 +520,10 @@ void App_DestroyScreen(int32_t screen, uint8_t* w) {
 
 namespace {
 void App_CloseSession() {
-    if (uint8_t* s = hook::Global<uint8_t*>(0x6cd8d8)) {
+    if (uint8_t* s = g_session) {
         Session_Shutdown(s);
         App_Delete(s);
-        hook::Global<uint8_t*>(0x6cd8d8) = nullptr;
+        g_session = nullptr;
     }
 }
 }
@@ -556,7 +557,7 @@ static void Call(uint32_t address) { hook::Orig<void(*)()>(address)(); }
 
 // 0x482150. Input_PostEvent on the game's input (0x6d4018).
 RT3_NOINLINE void __stdcall Game_PostInputEvent(uint32_t type, uint32_t a, uint32_t b, uint32_t c, uint32_t d) {
-    Input_PostEvent(hook::Global<uint8_t*>(0x6d4018), 0, type, a, b, c, d);
+    Input_PostEvent(g_input, 0, type, a, b, c, d);
 }
 RT3_REPLACE(0x482150, Game_PostInputEvent);
 
@@ -565,12 +566,12 @@ RT3_REPLACE(0x482150, Game_PostInputEvent);
 // the lobby queue (0x6cd8d8), then the engine frame.
 RT3_NOINLINE void __fastcall App_Redraw(uint8_t* a) {
     ++F<int32_t>(a, 0x64);
-    if (hook::Global<void*>(0x6cec78)) Engine_RequestRepaint(hook::Global<void*>(0x6d4024));
-    if (hook::Global<uint8_t*>(0x6d401c)) {
-        if (!F<int32_t>(a, 0xa0)) WindowManager_Draw(hook::Global<uint8_t*>(0x6d401c));
-        if (hook::Global<void*>(0x6cec78) && IsMultiplayer() && hook::Global<uint8_t*>(0x6cd8d8)) Lobby_DrawQueue(hook::Global<uint8_t*>(0x6cd8d8));
+    if (hook::As<void*>(g_world)) Engine_RequestRepaint(hook::As<void*>(g_engine));
+    if (g_windowManager) {
+        if (!F<int32_t>(a, 0xa0)) WindowManager_Draw(g_windowManager);
+        if (hook::As<void*>(g_world) && IsMultiplayer() && g_session) Lobby_DrawQueue(g_session);
     }
-    Engine_DrawFrame(hook::Global<uint8_t*>(0x6d4024));
+    Engine_DrawFrame(g_engine);
     --F<int32_t>(a, 0x64);
 }
 RT3_REPLACE(0x482160, App_Redraw);
@@ -612,7 +613,7 @@ RT3_NOINLINE void __fastcall Lighting_Rebuild(uint8_t* opts) {
                 *(uint32_t*)&range = *(const uint32_t*)(cur + 0xc);
             }
         }
-        double d = (double)F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x319) / D(0x5c85f0);
+        double d = (double)F<int32_t>(g_app, 0x319) / D(0x5c85f0);
         double sd = D(0x5c8770) < d ? D(0x5c8770) : d;
         float s = (float)sd;
         float tmp = (float)((double)s * K(fixed, 0));
@@ -637,20 +638,20 @@ RT3_NOINLINE void __fastcall Lighting_Rebuild(uint8_t* opts) {
         else if (Fl_205(0x5c85b4) < amb) amb = 1.0f;
         float r = (float)((double)range * D(0x5cecd8));
         p = (float)((double)p * D(0x5cecd0));
-        Scene_SetLightPair1((uint8_t*)Engine_Renderer(hook::Global<uint8_t*>(0x6d4024)), 0, i, ambTop, qc);
-        Scene_SetLightPair0((uint8_t*)Engine_Renderer(hook::Global<uint8_t*>(0x6d4024)), 0, i, amb, p);
-        Scene_SetLightRange((uint8_t*)Engine_Renderer(hook::Global<uint8_t*>(0x6d4024)), 0, i, r);
+        Scene_SetLightPair1((uint8_t*)Engine_Renderer(g_engine), 0, i, ambTop, qc);
+        Scene_SetLightPair0((uint8_t*)Engine_Renderer(g_engine), 0, i, amb, p);
+        Scene_SetLightRange((uint8_t*)Engine_Renderer(g_engine), 0, i, r);
     }
-    Scene_ApplyLighting((uint8_t*)Engine_Renderer(hook::Global<uint8_t*>(0x6d4024)));
+    Scene_ApplyLighting((uint8_t*)Engine_Renderer(g_engine));
 }
 RT3_REPLACE(0x4821d0, Lighting_Rebuild);
 
 // 0x4825d0. Minutes of the scene clock since 5:15 (wrapping past midnight); 0 without a renderer.
 RT3_NOINLINE float SceneClock_MinutesSinceDawn() {
-    void* e = hook::Global<void*>(0x6d4024);
+    void* e = hook::As<void*>(g_engine);
     if (!e || !Engine_Renderer(e)) return *(const float*)0x5c8598;
     int32_t h, m, s;
-    Clock_SplitD((uint8_t*)Engine_Renderer(hook::Global<void*>(0x6d4024)), 0, &h, &m, &s);
+    Clock_SplitD((uint8_t*)Engine_Renderer(hook::As<void*>(g_engine)), 0, &h, &m, &s);
     double v = (double)m / *(const double*)0x5c88a8 + (double)s / *(const double*)0x5c9f30;
     float f = (float)(v + (double)h);
     if ((double)f < *(const double*)0x5cecf0) f = (float)((double)f + *(const float*)0x5c8968);
@@ -661,10 +662,10 @@ RT3_REPLACE(0x4825d0, SceneClock_MinutesSinceDawn);
 // 0x482690. Night factor (0 day .. 1 night) for the renderer clock: full night
 // before 4:20 and after 20:51, ramps through dawn (to 6:51) and dusk (from 18:25).
 RT3_NOINLINE float __cdecl Sky_NightFactor() {
-    void* eng = hook::Global<void*>(0x6d4024);
+    void* eng = hook::As<void*>(g_engine);
     if (!eng || !Engine_Renderer(eng)) return *(const float*)0x5c8598;
     int32_t h, m, s;
-    Clock_SplitD((uint8_t*)Engine_Renderer(hook::Global<void*>(0x6d4024)), 0, &h, &m, &s);
+    Clock_SplitD((uint8_t*)Engine_Renderer(hook::As<void*>(g_engine)), 0, &h, &m, &s);
     float t;
     __asm {
         fild m
@@ -693,35 +694,35 @@ RT3_NOINLINE float __cdecl Sky_NightFactor() {
 }
 RT3_REPLACE(0x482690, Sky_NightFactor);
 
-RT3_NOINLINE int32_t Option1df() { return F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x1df); }
+RT3_NOINLINE int32_t Option1df() { return F<int32_t>(g_app, 0x1df); }
 RT3_REPLACE(0x482840, Option1df);
 
 // 0x482850. Sets the fixed weather override (options +0x1df on/off, level +0x1e3)
 // and reapplies the weather intensity.
 RT3_NOINLINE void __stdcall Options_SetWeatherOverride(int32_t on, int32_t level) {
-    F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x1df) = on;
-    F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x1e3) = level;
-    if (uint8_t* w = hook::Global<uint8_t*>(0x6cec78)) Weather_ApplyIntensity(w);
+    F<int32_t>(g_app, 0x1df) = on;
+    F<int32_t>(g_app, 0x1e3) = level;
+    if (uint8_t* w = g_world) Weather_ApplyIntensity(w);
 }
 RT3_REPLACE(0x482850, Options_SetWeatherOverride);
 
 // 0x482880. Fixes the game's time of day (+0x124 on/off, +0x128 hour) and
 // refreshes the world clock.
 RT3_NOINLINE void __stdcall Game_SetFixedTime(int32_t on, int32_t hour) {
-    F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x124) = on;
-    F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x128) = hour;
-    if (uint8_t* w = hook::Global<uint8_t*>(0x6cec78)) World_RefreshTime(w);
+    F<int32_t>(g_app, 0x124) = on;
+    F<int32_t>(g_app, 0x128) = hour;
+    if (uint8_t* w = g_world) World_RefreshTime(w);
 }
 RT3_REPLACE(0x482880, Game_SetFixedTime);
 
 // 0x4828b0 (dev command). Cycles the cursor between game drawn, Windows
 // (engine +0x11473a) and system, saving the options.
 int32_t Cmd_CycleCursor() {
-    uint8_t* c = hook::Global<uint8_t*>(0xccbb20);
-    if (!Obj_Get18(c)) Cursor_UseGameDrawn(hook::Global<uint8_t*>(0xccbb20));
-    else if (F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x11473a)) Cursor_UseWindows(hook::Global<uint8_t*>(0xccbb20));
-    else Cursor_UseSystem(hook::Global<uint8_t*>(0xccbb20));
-    Options_Save(hook::Global<uint8_t*>(0x6cec74), 0, 1);
+    uint8_t* c = g_cursorManager;
+    if (!Obj_Get18(c)) Cursor_UseGameDrawn(g_cursorManager);
+    else if (F<int32_t>(g_engine, 0x11473a)) Cursor_UseWindows(g_cursorManager);
+    else Cursor_UseSystem(g_cursorManager);
+    Options_Save(g_app, 0, 1);
     return 0;
 }
 RT3_REPLACE(0x4828b0, Cmd_CycleCursor);
@@ -730,16 +731,16 @@ RT3_REPLACE(0x4828b0, Cmd_CycleCursor);
 // as "off"), reports the new value on the status line for 3 s, refreshes the menu
 // checks and saves the options.
 RT3_NOINLINE int32_t __fastcall Engine_StepSetting(int32_t delta) {
-    F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x1146c2) += delta;
-    if (F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x1146c2) > 4) F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x1146c2) = -1;
-    if (F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x1146c2) < -1) F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x1146c2) = 4;
-    int32_t v = F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x1146c2);
+    F<int32_t>(g_engine, 0x1146c2) += delta;
+    if (F<int32_t>(g_engine, 0x1146c2) > 4) F<int32_t>(g_engine, 0x1146c2) = -1;
+    if (F<int32_t>(g_engine, 0x1146c2) < -1) F<int32_t>(g_engine, 0x1146c2) = 4;
+    int32_t v = F<int32_t>(g_engine, 0x1146c2);
     char num[0x12c], msg[0x12c];
     const char* text = v == -1 ? GetString(0x2f8) : Num_Format(num, 1, (double)v, 10, 1, 0, 0);
     FormatText(msg, GetString(0x2f7), text, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
-    StatusLine_Set(hook::Global<uint8_t*>(0x6d401c), 0, msg, 3000);
-    Menu_UpdateChecks(hook::Global<HMENU*>(0x6ada8c), 0, 0);
-    Options_Save(hook::Global<uint8_t*>(0x6cec74), 0, 1);
+    StatusLine_Set(g_windowManager, 0, msg, 3000);
+    Menu_UpdateChecks(hook::As<HMENU*>(g_6ada8c), 0, 0);
+    Options_Save(g_app, 0, 1);
     return 0;
 }
 RT3_REPLACE(0x482920, Engine_StepSetting);
@@ -756,14 +757,14 @@ RT3_REPLACE(0x482a20, Hotkey_SettingDown);
 // levels), shows it for three seconds (0x2fa), updates the menu and saves
 // the options.
 RT3_NOINLINE int32_t __fastcall Options_StepDetail(int32_t dir) {
-    int32_t level = (Obj_ArrayAc2(hook::Global<void*>(0x6cec74), 0, 0) + dir + 0x15) % 0x15;
-    Options_SetDetail(hook::Global<uint8_t*>(0x6cec74), 0, 0, level, 1);
+    int32_t level = (Obj_ArrayAc2(hook::As<void*>(g_app), 0, 0) + dir + 0x15) % 0x15;
+    Options_SetDetail(g_app, 0, 0, level, 1);
     char num[0x40], text[0x12c];
     const char* s = Num_Format(num, 1, (double)level, 10, 1, 0, 0);
     ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)(text, GetString(0x2fa), s);
-    StatusLine_Set(hook::Global<uint8_t*>(0x6d401c), 0, text, 0xbb8);
-    Menu_UpdateChecks(hook::Global<HMENU*>(0x6ada8c), 0, 0);
-    Options_Save(hook::Global<uint8_t*>(0x6cec74), 0, 1);
+    StatusLine_Set(g_windowManager, 0, text, 0xbb8);
+    Menu_UpdateChecks(hook::As<HMENU*>(g_6ada8c), 0, 0);
+    Options_Save(g_app, 0, 1);
     return 0;
 }
 RT3_REPLACE(0x482a30, Options_StepDetail);
@@ -784,10 +785,10 @@ RT3_REPLACE(0x482b00, Hotkey_Options);
 // 0x482b20 (hotkey). Takes a screenshot (sound 0x3e in full screen; the
 // cursor hidden in view mode 0x25); failure shows 0x2fb.
 int32_t Hotkey_Screenshot() {
-    if (!hook::Global<uint8_t*>(0x6d4024)) return 0;
-    if (Engine_IsFullscreen(hook::Global<void*>(0x6d4024))) Ui_PlaySound(0x3e, 0, 0x3f000000);
-    const int32_t hide = hook::Global<uint8_t*>(0x6cec78) && Global6d0818Is25() ? 1 : 0;
-    if (!Engine_Screenshot(hook::Global<uint8_t*>(0x6d4024), 0, hide)) Message_Dialog444(GetString(0x2fb));
+    if (!g_engine) return 0;
+    if (Engine_IsFullscreen(hook::As<void*>(g_engine))) Ui_PlaySound(0x3e, 0, 0x3f000000);
+    const int32_t hide = g_world && Global6d0818Is25() ? 1 : 0;
+    if (!Engine_Screenshot(g_engine, 0, hide)) Message_Dialog444(GetString(0x2fb));
     return 0;
 }
 RT3_REPLACE(0x482b20, Hotkey_Screenshot);
@@ -795,33 +796,33 @@ RT3_REPLACE(0x482b20, Hotkey_Screenshot);
 // 0x482bb0 (dev command). Takes a poster screenshot (sound 0x3e) in full
 // screen with a view; else says why (0x2fc / 0x2fd).
 int32_t Cmd_PosterScreenshot() {
-    if (!Engine_IsFullscreen(hook::Global<void*>(0x6d4024))) {
+    if (!Engine_IsFullscreen(hook::As<void*>(g_engine))) {
         Message_Dialog(GetString(0x2fc), 0xbf800000);
         return 0;
     }
-    if (!hook::Global<uint8_t*>(0x6d0818)) {
+    if (!g_gameWindow) {
         Message_Dialog(GetString(0x2fd), 0xbf800000);
         return 0;
     }
     Ui_PlaySound(0x3e, 0, 0x3f000000);
-    Engine_PosterScreenshot(hook::Global<uint8_t*>(0x6d4024));
+    Engine_PosterScreenshot(g_engine);
     return 0;
 }
 RT3_REPLACE(0x482bb0, Cmd_PosterScreenshot);
 
-int32_t Cmd_ToggleSysInfo() { return hook::Global<int32_t>(0x6cec60) = !hook::Global<int32_t>(0x6cec60), 0; }
+int32_t Cmd_ToggleSysInfo() { return g_6cec60 = !g_6cec60, 0; }
 RT3_REPLACE(0x482c30, Cmd_ToggleSysInfo);
 
-int32_t Cmd_ToggleEngineText1() { return hook::Global<int32_t>(0x6cec64) = !hook::Global<int32_t>(0x6cec64), 0; }
+int32_t Cmd_ToggleEngineText1() { return g_6cec64 = !g_6cec64, 0; }
 RT3_REPLACE(0x482c50, Cmd_ToggleEngineText1);
 
-int32_t Cmd_ToggleEngineText2() { return hook::Global<int32_t>(0x6cec68) = !hook::Global<int32_t>(0x6cec68), 0; }
+int32_t Cmd_ToggleEngineText2() { return g_6cec68 = !g_6cec68, 0; }
 RT3_REPLACE(0x482c70, Cmd_ToggleEngineText2);
 
 // 0x41c700. Moves a train car onto track segment seg (-1: off the track) facing
 // dir: relinks it, and when the segment changes marks the new one worn and blocked.
 void __fastcall Car_MoveToSegment(uint8_t* car, int, int32_t seg, int32_t dir) {
-    uint8_t* s = seg != -1 ? (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfca8), 0, (uint32_t)seg) : nullptr;
+    uint8_t* s = seg != -1 ? (uint8_t*)Collection_Get(g_tracks, 0, (uint32_t)seg) : nullptr;
     Obj_UnlinkFromNode(car);
     Car_LinkToNode(car, 0, seg, F<int32_t>(car, 0x35a));
     if (F<int32_t>(car, 0x356) != seg) {
@@ -844,13 +845,13 @@ void __fastcall Car_MoveToSegment(uint8_t* car, int, int32_t seg, int32_t dir) {
 // == 2, not flagged +0xba / +0xbb) by the scenario's named list, all others always;
 // then updates the cargo types.
 void __fastcall IndustryTypes_MarkAvailable(Collection* t) {
-    if (!hook::Global<void*>(0x6cec78)) return;
+    if (!hook::As<void*>(g_world)) return;
     for (int32_t i = 0; i < Collection_Count(t); ++i) {
         uint8_t* r = (uint8_t*)Collection_Get(t, 0, Collection_IdAt(t, 0, (uint32_t)i, 0));
-        if (!r[0xba] && !r[0xbb] && r[0x32] == 2) F<int32_t>(r, 0x7ac) = World_LookupNamed1(hook::Global<void*>(0x6cec78), 0, (const char*)r + 4);
+        if (!r[0xba] && !r[0xbb] && r[0x32] == 2) F<int32_t>(r, 0x7ac) = World_LookupNamed1(hook::As<void*>(g_world), 0, (const char*)r + 4);
         else F<int32_t>(r, 0x7ac) = 1;
     }
-    if (hook::Global<Collection*>(0x62ba8c)) CargoTypes_MarkAvailable(hook::Global<Collection*>(0x62ba8c));
+    if (g_cargoTypes) CargoTypes_MarkAvailable(g_cargoTypes);
 }
 
 // 0x458140. Turns a view-space direction v into world space through the inverse of
@@ -879,8 +880,8 @@ RT3_NOINLINE void __fastcall Options_SetDisplayMode(uint8_t* o, int, int32_t m) 
         else F<int32_t>(o, 0x1bb) = m;
         F<int32_t>(o, 0x10c) = m;
         Options_Save(o, 0, 1);
-        if (hook::Global<HMENU*>(0x6ada8c)) Menu_UpdateChecks(hook::Global<HMENU*>(0x6ada8c), 0, 0);
-        if (hook::Global<void*>(0x62be68)) Obj_Nudge92(hook::Global<void*>(0x62be68));
+        if (hook::As<HMENU*>(g_6ada8c)) Menu_UpdateChecks(hook::As<HMENU*>(g_6ada8c), 0, 0);
+        if (hook::As<void*>(g_62be68)) Obj_Nudge92(hook::As<void*>(g_62be68));
     }
     if (Models_ValueByName((const char*)0x5ced40) == 0x91) Keyboard_SetScrollLock(*(uint8_t*)(0x5ee4d0 + m) != 0);
 }
@@ -888,21 +889,21 @@ RT3_REPLACE(0x482c90, Options_SetDisplayMode);
 
 // 0x482d10. The game version as a number (major + minor / 0x5c8c28), cached.
 RT3_NOINLINE float __fastcall Game_VersionNumber() {
-    if (!hook::Global<uint8_t>(0x6cec84)) {
-        hook::Global<uint8_t>(0x6cec84) = 1;
+    if (!g_6cec84) {
+        g_6cec84 = 1;
         uint32_t v = File_Version((const char*)0x5cec18);
         float lo = (float)(int32_t)(v & 0xffff);
         float hi = (float)(int32_t)(v >> 16);
-        hook::Global<float>(0x6cec5c) = (float)((double)lo / *(const float*)0x5c8c28 + hi);
+        g_6cec5c = (float)((double)lo / *(const float*)0x5c8c28 + hi);
     }
-    return hook::Global<float>(0x6cec5c);
+    return g_6cec5c;
 }
 RT3_REPLACE(0x482d10, Game_VersionNumber);
 
 // 0x482d80. The localised version text (string 0xf54 with "major.minor"), cached in 0x6cec24.
 RT3_NOINLINE const char* __fastcall Game_VersionText() {
-    if (!hook::Global<uint8_t>(0x6cec85)) {
-        hook::Global<uint8_t>(0x6cec85) = 1;
+    if (!g_6cec85) {
+        g_6cec85 = 1;
         char buf[0x34];
         uint32_t lo = File_Version((const char*)0x5cec18) & 0xffff;
         uint32_t hi = File_Version((const char*)0x5cec18) >> 16;
@@ -916,7 +917,7 @@ RT3_REPLACE(0x482d80, Game_VersionText);
 // 0x482e00. The effective game version integer: the session's common version
 // online or with several human players, else our own.
 RT3_NOINLINE int32_t __fastcall Game_EffectiveVersion() {
-    if (!hook::Global<void*>(0x6cd8d8) && !(hook::Global<void*>(0x6cec78) && CountHumanPlayers() > 1))
+    if (!hook::As<void*>(g_session) && !(hook::As<void*>(g_world) && CountHumanPlayers() > 1))
         return VersionInt(Game_VersionNumber());
     float v = Net_CommonVersion();
     int32_t r;
@@ -937,12 +938,12 @@ RT3_NOINLINE void __fastcall App_SetViewMode(uint8_t* app, int, int32_t mode) {
     if (F<int32_t>(app, 0x68) == mode) return;
     F<int32_t>(app, 0x68) = mode;
     if (!mode) {
-        if (hook::Global<void*>(0x6d0818)) {
+        if (hook::As<void*>(g_gameWindow)) {
             Call(0x4d44a0);
-            View_ResetEditorTool(hook::Global<uint8_t*>(0x6d0818));
+            View_ResetEditorTool(g_gameWindow);
         }
-        if (hook::Global<void*>(0x62c120)) Method(0x44fb70, hook::Global<void*>(0x62c120));
-    } else if (hook::Global<void*>(0x6d0818)) Call(0x4d4500);
+        if (hook::As<void*>(g_map)) Method(0x44fb70, hook::As<void*>(g_map));
+    } else if (hook::As<void*>(g_gameWindow)) Call(0x4d4500);
     hook::Orig<void(__fastcall*)(void*, int, int32_t, int32_t)>(0x484d70)(app, 0, 13, 1);
 }
 RT3_REPLACE(0x482e50, App_SetViewMode);
@@ -963,46 +964,46 @@ RT3_REPLACE(0x482e50, App_SetViewMode);
 // other screens are built at 0.95 opacity. Finally the music and effect
 // volumes are restored and the cursor comes back.
 RT3_NOINLINE void __fastcall App_SetScreen(uint8_t* a, int, int32_t screen, int32_t closeWorld) {
-    if (!hook::Global<uint8_t*>(0x6d401c) || screen == F<int32_t>(a, 8)) return;
+    if (!g_windowManager || screen == F<int32_t>(a, 8)) return;
     F<int32_t>(a, 0x60) = screen == 0;
     if (F<int32_t>(a, 8)) {
-        Cursor_PushBusy(hook::Global<uint8_t*>(0xccbb20));
-        App_Redraw(hook::Global<uint8_t*>(0x6cec74));
+        Cursor_PushBusy(g_cursorManager);
+        App_Redraw(g_app);
     }
     if (uint8_t* old = F<uint8_t*>(a, 0xc)) {
-        Windows_Remove(hook::Global<uint8_t*>(0x6d401c), 0, old);
+        Windows_Remove(g_windowManager, 0, old);
         App_DestroyScreen(F<int32_t>(a, 8), F<uint8_t*>(a, 0xc));
         F<uint8_t*>(a, 0xc) = nullptr;
     }
-    if (closeWorld && hook::Global<uint8_t*>(0x6cec78)) {
-        World_Teardown(hook::Global<uint8_t*>(0x6cec78));
-        if (uint8_t* w = hook::Global<uint8_t*>(0x6cec78)) {
+    if (closeWorld && g_world) {
+        World_Teardown(g_world);
+        if (uint8_t* w = g_world) {
             Nop433730(w);
             App_Delete(w);
         }
-        hook::Global<uint8_t*>(0x6cec78) = nullptr;
+        g_world = nullptr;
     }
     auto open = [&](uint8_t* win) {
         F<uint8_t*>(a, 0xc) = win;
-        WidgetList_Insert(hook::Global<uint8_t**>(0x6d401c), 0, win, 1);
+        WidgetList_Insert(hook::As<uint8_t**>(g_windowManager), 0, win, 1);
     };
-    auto dim = [] { Obj_Setc5c(hook::Global<uint8_t*>(0x6d401c), 0, 0x3f733333); };
+    auto dim = [] { Obj_Setc5c(g_windowManager, 0, 0x3f733333); };
     switch (screen) {
     case 1: {
-        if (!hook::Global<uint8_t*>(0x6cec78)) {
+        if (!g_world) {
             dim();
             uint8_t* m = App_New(0x7c);
             open(m ? LoadScreen_Construct(m) : nullptr);
             F<int32_t>(a, 8) = 4;
-            hook::Global<int32_t>(0xccb9e8) = 0;
-            const int32_t mode = F<int32_t>(hook::Global<uint8_t*>(0x6cec7c), 1);
-            const int32_t progress = mode == 5 || mode != 3 ? 0x43540000 : F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x68) ? 0x42c40000 : 0x42ec0000;
+            g_skipCount = 0;
+            const int32_t mode = F<int32_t>(g_newGame, 1);
+            const int32_t progress = mode == 5 || mode != 3 ? 0x43540000 : F<int32_t>(g_app, 0x68) ? 0x42c40000 : 0x42ec0000;
             Obj_Set78(F<uint8_t*>(a, 0xc), 0, progress);
             uint8_t* wm = App_New(0x46c40);
             uint8_t* w = wm ? (uint8_t*)World_Construct(wm) : nullptr;
-            hook::Global<uint8_t*>(0x6cec78) = w;
+            g_world = w;
             World_Startup(w, 0, 1, 0);
-            Windows_Remove(hook::Global<uint8_t*>(0x6d401c), 0, F<uint8_t*>(a, 0xc));
+            Windows_Remove(g_windowManager, 0, F<uint8_t*>(a, 0xc));
             uint8_t* win = F<uint8_t*>(a, 0xc);
             if (F<int32_t>(a, 8) == 7) {
                 if (win) CampaignWindow_Destruct(win), App_Delete(win);
@@ -1014,24 +1015,24 @@ RT3_NOINLINE void __fastcall App_SetScreen(uint8_t* a, int, int32_t screen, int3
             F<int32_t>(a, 8) = 4;
         }
         if (F<int32_t>(a, 8) == screen) break;
-        uint8_t* w = hook::Global<uint8_t*>(0x6cec78);
-        if (!w[0x66de] || !hook::Global<int32_t>(0x6cfd20)) Sound_StartFadeTimer(hook::Global<uint8_t*>(0x6d402c), 0, 1);
-        if (IsMultiplayer()) Net_Send(hook::Global<uint8_t*>(0x6cd8d8), 0, nullptr, 0x68, 0, nullptr, 1, 0);
-        Obj_Setc5c(hook::Global<uint8_t*>(0x6d401c), 0, 0x3e800000);
+        uint8_t* w = g_world;
+        if (!w[0x66de] || !g_6cfd20) Sound_StartFadeTimer(g_sound, 0, 1);
+        if (IsMultiplayer()) Net_Send(g_session, 0, nullptr, 0x68, 0, nullptr, 1, 0);
+        Obj_Setc5c(g_windowManager, 0, 0x3e800000);
         uint8_t* m = App_New(0x9a);
         open(m ? GameWindow_Construct(m) : nullptr);
         F<int32_t>(a, 8) = 1;
         GameMessagePanel_Open();
         SetupWindow_Open();
-        Ui_SendEvent5(hook::Global<uint8_t**>(0x6d401c), 0, 0xba, 0x808, 0, 0, 0);
-        if (F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x68)) {
+        Ui_SendEvent5(hook::As<uint8_t**>(g_windowManager), 0, 0xba, 0x808, 0, 0, 0);
+        if (F<int32_t>(g_app, 0x68)) {
             EditorPanel_Open();
-        } else if (hook::Global<uint8_t*>(0x6cec78) && hook::Global<uint8_t*>(0x6d0818) && !Obj_Company21(hook::Global<uint8_t*>(0x6cec78)) &&
-                   !hook::Global<uint8_t*>(0x6cec7c)[0x82] && !hook::Global<int32_t>(0x6d3b4c)) {
-            if (IsMultiplayer() && hook::Global<Collection*>(0x62be10) && Table_CountField3f(hook::Global<Collection*>(0x62be10)) > 0)
-                View_SetToolMode(hook::Global<uint8_t*>(0x6d0818), 0, 0, -1);
+        } else if (g_world && g_gameWindow && !Obj_Company21(g_world) &&
+                   !g_newGame[0x82] && !g_6d3b4c) {
+            if (IsMultiplayer() && g_companies && Table_CountField3f(g_companies) > 0)
+                View_SetToolMode(g_gameWindow, 0, 0, -1);
             else
-                View_SetToolMode(hook::Global<uint8_t*>(0x6d0818), 0, 7, -1);
+                View_SetToolMode(g_gameWindow, 0, 7, -1);
         }
         break;
     }
@@ -1073,7 +1074,7 @@ RT3_NOINLINE void __fastcall App_SetScreen(uint8_t* a, int, int32_t screen, int3
     }
     }
     Scenario_RestoreVolumes();
-    if (F<int32_t>(a, 8)) Cursor_PopBusy(hook::Global<uint8_t*>(0xccbb20));
+    if (F<int32_t>(a, 8)) Cursor_PopBusy(g_cursorManager);
     F<int32_t>(a, 8) = screen;
 }
 RT3_REPLACE(0x482ec0, App_SetScreen);
@@ -1081,11 +1082,11 @@ RT3_REPLACE(0x482ec0, App_SetScreen);
 // 0x483450 / 0x4834a0. Nested pause while a modal window is open (count +0,
 // +4 = the game was already paused); not in multiplayer.
 RT3_NOINLINE void __fastcall PauseLock_Push(int32_t* p) {
-    uint8_t* w = hook::Global<uint8_t*>(0x6cec78);
+    uint8_t* w = g_world;
     if (w && IsMultiplayer()) return;
     if (!p[0]) {
         p[1] = w ? F<int32_t>(w, 0x19) == 0 : 0;
-        w = hook::Global<uint8_t*>(0x6cec78);
+        w = g_world;
         if (w && F<int32_t>(w, 0x19)) World_TogglePause(w, 0, 0);
     }
     ++p[0];
@@ -1093,11 +1094,11 @@ RT3_NOINLINE void __fastcall PauseLock_Push(int32_t* p) {
 RT3_REPLACE(0x483450, PauseLock_Push);
 
 RT3_NOINLINE void __fastcall PauseLock_Pop(int32_t* p) {
-    uint8_t* w = hook::Global<uint8_t*>(0x6cec78);
+    uint8_t* w = g_world;
     if (w && IsMultiplayer()) return;
     if (--p[0]) return;
     if (p[1]) return;
-    w = hook::Global<uint8_t*>(0x6cec78);
+    w = g_world;
     if (w && !F<int32_t>(w, 0x19)) World_TogglePause(w, 0, 0);
 }
 RT3_REPLACE(0x4834a0, PauseLock_Pop);
@@ -1110,32 +1111,32 @@ RT3_REPLACE(0x4834a0, PauseLock_Pop);
 // (0x46b780); one that fails is shut down and freed.
 RT3_NOINLINE void __fastcall Loading_Pump(uint8_t* l, int, int32_t step, int32_t force) {
     if (F<int32_t>(l, 0x60)) return;
-    if (step) ++hook::Global<int32_t>(0xccb9e8);
-    if (!hook::Global<int32_t>(0x6cfc88)) hook::Global<int32_t>(0x6cfc88) = ClockMs();
-    if (ClockMs() - hook::Global<int32_t>(0x6cfc88) <= 0xf && !force) return;
+    if (step) ++g_skipCount;
+    if (!g_6cfc88) g_6cfc88 = ClockMs();
+    if (ClockMs() - g_6cfc88 <= 0xf && !force) return;
     PumpMessages();
     if (F<uint8_t*>(l, 0xc) && Widget_FindChild(F<uint8_t*>(l, 0xc), 0, 0x84d1)) {
         float expected = F<float>(F<uint8_t*>(l, 0xc), 0x78);
-        if (hook::Global<uint8_t*>(0x6cec78) && IsMultiplayer()) expected = (float)(expected + Fl_207(0x5caa9c));
+        if (g_world && IsMultiplayer()) expected = (float)(expected + Fl_207(0x5caa9c));
         if (expected < Fl_207(0x5c85b4)) expected = 1.0f;
-        float frac = (float)((double)(float)hook::Global<int32_t>(0xccb9e8) / expected);
+        float frac = (float)((double)(float)g_skipCount / expected);
         if (frac > D(0x5c8770)) frac = 1.0f;
         float v = (float)(frac * D(0x5ced68));
         F<float>(Widget_FindChild(F<uint8_t*>(l, 0xc), 0, 0x84d1), 0x13) = v;
-        WindowManager_Draw(hook::Global<uint8_t*>(0x6d401c));
-        Engine_DrawFrame(hook::Global<uint8_t*>(0x6d4024));
+        WindowManager_Draw(g_windowManager);
+        Engine_DrawFrame(g_engine);
     }
-    if (hook::Global<uint8_t*>(0x6cec78) && IsMultiplayer() && !F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x66ae) && hook::Global<uint8_t*>(0x6cd8d8)) {
-        int32_t n = ++hook::Global<int32_t>(0x6cec80);
-        if (!(n & 7) && !((int32_t(__fastcall*)(uint8_t*))0x46b780)(hook::Global<uint8_t*>(0x6cd8d8))) {
-            if (uint8_t* s = hook::Global<uint8_t*>(0x6cd8d8)) {
+    if (g_world && IsMultiplayer() && !F<int32_t>(g_world, 0x66ae) && g_session) {
+        int32_t n = ++g_6cec80;
+        if (!(n & 7) && !((int32_t(__fastcall*)(uint8_t*))0x46b780)(g_session)) {
+            if (uint8_t* s = g_session) {
                 Session_Shutdown(s);
                 ((void(__cdecl*)(void*))0x53b080)(s);
-                hook::Global<uint8_t*>(0x6cd8d8) = nullptr;
+                g_session = nullptr;
             }
         }
     }
-    hook::Global<int32_t>(0x6cfc88) = ClockMs();
+    g_6cfc88 = ClockMs();
 }
 RT3_REPLACE(0x4834e0, Loading_Pump);
 
@@ -1145,7 +1146,7 @@ RT3_REPLACE(0x4834e0, Loading_Pump);
 // switches. Updates the menu checks and saves the options; 0xe8d tells about
 // a mode that stayed full screen.
 RT3_NOINLINE int32_t Options_ToggleFullscreen() {
-    uint8_t* eng = hook::Global<uint8_t*>(0x6d4024);
+    uint8_t* eng = g_engine;
     uint8_t fs = eng[0x114226];
     int32_t dw = F<int32_t>(eng, 0x38), dh = F<int32_t>(eng, 0x3c);
     uint8_t* cur = F<uint8_t*>(eng, 0x34) + F<int32_t>(eng, 0x11421e) * 0x15;
@@ -1157,9 +1158,9 @@ RT3_NOINLINE int32_t Options_ToggleFullscreen() {
         else Engine_SetDisplayMode(eng, 0, ((const int32_t*)0x620e64)[i], ((const int32_t*)0x620e7c)[i], 0, 1);
     } else
         Engine_ResetDisplay(eng, 0, fs == 0, -1);
-    Menu_UpdateChecks(hook::Global<HMENU*>(0x6ada8c), 0, 0);
-    Options_Save(hook::Global<uint8_t*>(0x6cec74), 0, 1);
-    if (fs && hook::Global<uint8_t*>(0x6d4024)[0x114226]) Message_Show(GetString(0xe8d), 1, 0);
+    Menu_UpdateChecks(hook::As<HMENU*>(g_6ada8c), 0, 0);
+    Options_Save(g_app, 0, 1);
+    if (fs && g_engine[0x114226]) Message_Show(GetString(0xe8d), 1, 0);
     return 0;
 }
 RT3_REPLACE(0x483680, Options_ToggleFullscreen);
@@ -1172,8 +1173,8 @@ RT3_REPLACE(0x483680, Options_ToggleFullscreen);
 // lighting. QUIRK: landing on index 0 restarts from (dir + 6) % 6 (during the
 // first 20 steps).
 RT3_NOINLINE void __fastcall Options_StepResolution(int32_t dir) {
-    if (F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 8) == 3) return;
-    uint8_t* eng = hook::Global<uint8_t*>(0x6d4024);
+    if (F<int32_t>(g_app, 8) == 3) return;
+    uint8_t* eng = g_engine;
     if (!eng) return;
     int32_t cw = F<int32_t>(F<uint8_t*>(eng, 0x34) + F<int32_t>(eng, 0x11421e) * 0x15, 0);
     int32_t idx = cw <= 0x200 ? 0 : cw <= 0x280 ? 1 : cw <= 0x320 ? 2 : cw <= 0x400 ? 3 : (cw > 0x500) + 4;
@@ -1192,16 +1193,16 @@ RT3_NOINLINE void __fastcall Options_StepResolution(int32_t dir) {
         if (!k && tries < 0x14) k = (dir + 6) % 6;
     }
     Engine_SetDisplayMode(eng, 0, tw[k], th[k], -1, 1);
-    uint8_t* m = F<uint8_t*>(hook::Global<uint8_t*>(0x6d4024), 0x34) + F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x11421e) * 0x15;
+    uint8_t* m = F<uint8_t*>(g_engine, 0x34) + F<int32_t>(g_engine, 0x11421e) * 0x15;
     int32_t mw = F<int32_t>(m, 0), mh = F<int32_t>(m, 4);
     char nh[0x40], nw[0x40], text[0x128];
     const char* sh = Num_Format(nh, 8, (double)mh, 10, 1, 0, 0);
     const char* sw = Num_Format(nw, 8, (double)mw, 10, 1, 0, 0);
     FormatText(text, (const char*)0x5ced70, sw, sh, 0, 0, 0, 0, 0, 0);
-    StatusLine_Set(hook::Global<uint8_t*>(0x6d401c), 0, text, 0xbb8);
-    if (hook::Global<HMENU*>(0x6ada8c)) Menu_UpdateChecks(hook::Global<HMENU*>(0x6ada8c), 0, 0);
-    Options_Save(hook::Global<uint8_t*>(0x6cec74), 0, 1);
-    if (uint8_t* o = hook::Global<uint8_t*>(0x6cec74)) Lighting_Rebuild(o);
+    StatusLine_Set(g_windowManager, 0, text, 0xbb8);
+    if (hook::As<HMENU*>(g_6ada8c)) Menu_UpdateChecks(hook::As<HMENU*>(g_6ada8c), 0, 0);
+    Options_Save(g_app, 0, 1);
+    if (uint8_t* o = g_app) Lighting_Rebuild(o);
 }
 RT3_REPLACE(0x483780, Options_StepResolution);
 
@@ -1213,7 +1214,7 @@ RT3_REPLACE(0x4839a0, Hotkey_ResolutionDown);
 
 // 0x4839b0. Option +0x1bf on, and (option +0x68 or this +0x6c == 1).
 RT3_NOINLINE int32_t __fastcall Options_Check1bf(void* self) {
-    uint8_t* opt = hook::Global<uint8_t*>(0x6cec74);
+    uint8_t* opt = g_app;
     if (F<int32_t>(opt, 0x1bf) == 0) return 0;
     return (F<int32_t>(opt, 0x68) != 0 || F<int32_t>(self, 0x6c) == 1) ? 1 : 0;
 }
@@ -1239,27 +1240,27 @@ RT3_REPLACE(0x4839e0, Options_SaveFolder);
 // world) and 0xcd quits (+0x10). Returns 0 when handled, else 1.
 RT3_NOINLINE int32_t __fastcall App_HandleEvent(uint8_t* a, int, uint32_t* ev) {
     int32_t r = 1;
-    if (uint8_t* ui = hook::Global<uint8_t*>(0x6d401c)) {
+    if (uint8_t* ui = g_windowManager) {
         if (Obj_Idlec60(ui) || (ev[0] != 3 && ev[0] != 4)) {
-            r = Chain_ForEach(hook::Global<uint8_t*>(0x6d401c), 0, (uint32_t)(uintptr_t)ev);
+            r = Chain_ForEach(g_windowManager, 0, (uint32_t)(uintptr_t)ev);
             if (r != 1) return r;
         }
     }
-    uint8_t* const ui = hook::Global<uint8_t*>(0x6d401c);
+    uint8_t* const ui = g_windowManager;
     switch (ev[0]) {
     case 0:
         if (!ui) return r;
-        if (hook::Global<int32_t>(0x6cec60) == 1) {
+        if (g_6cec60 == 1) {
             const char* info = SysInfo_Report();
-            Status_SetMessage(hook::Global<uint8_t*>(0x6d401c), 0, info);
+            Status_SetMessage(g_windowManager, 0, info);
         }
-        if (hook::Global<int32_t>(0x6cec64) == 1)
-            Status_SetMessage(hook::Global<uint8_t*>(0x6d401c), 0, F<const char*>(hook::Global<uint8_t*>(0x6d4024), 0xc) + 0x3c);
-        if (hook::Global<int32_t>(0x6cec68) == 1)
-            Status_SetMessage(hook::Global<uint8_t*>(0x6d401c), 0, F<const char*>(hook::Global<uint8_t*>(0x6d4024), 0xc) + 0x43c);
+        if (g_6cec64 == 1)
+            Status_SetMessage(g_windowManager, 0, F<const char*>(g_engine, 0xc) + 0x3c);
+        if (g_6cec68 == 1)
+            Status_SetMessage(g_windowManager, 0, F<const char*>(g_engine, 0xc) + 0x43c);
         return r;
     case 1:
-        if (uint8_t* menu = hook::Global<uint8_t*>(0x6ada8c)) ((void(__fastcall*)(uint8_t*, int, uint32_t))0x464410)(menu, 0, ev[2]);
+        if (uint8_t* menu = g_6ada8c) ((void(__fastcall*)(uint8_t*, int, uint32_t))0x464410)(menu, 0, ev[2]);
         return 0;
     case 3:
     case 4:
@@ -1290,11 +1291,11 @@ restart:
         if (stage == 0) {
             r = App_HandleEvent(a, 0, ev);
         } else if (stage == 1) {
-            if (!hook::Global<uint8_t*>(0x6d401c)) r = 1;
-            else if (hook::Global<uint8_t*>(0x6cec78) && !World_IsHostOrLocal(hook::Global<uint8_t*>(0x6cec78))) r = 1;
-            else r = Ui_Dispatch(hook::Global<uint8_t**>(0x6d401c), 0, ev);
+            if (!g_windowManager) r = 1;
+            else if (g_world && !World_IsHostOrLocal(g_world)) r = 1;
+            else r = Ui_Dispatch(hook::As<uint8_t**>(g_windowManager), 0, ev);
         } else {
-            r = hook::Global<uint8_t*>(0x6cec78) ? View_OnModeInput(ev) : 1;
+            r = g_world ? View_OnModeInput(ev) : 1;
         }
         if (F<int32_t>(a, 0x10) || r == 0) return 0;
         if (r == 1 && memcmp(ev, seen, sizeof seen)) goto restart;
@@ -1306,15 +1307,15 @@ RT3_REPLACE(0x483dd0, App_DispatchEvent);
 // 0x483ea0. App a handles queued input for up to 30 ms (waiting 20 ms
 // whenever the game is in the background), until the queue is empty.
 RT3_NOINLINE void __fastcall App_PumpInput(uint8_t* a) {
-    if (!hook::Global<uint8_t*>(0x6d4018)) return;
+    if (!g_input) return;
     const int32_t start = ClockMs();
-    auto sleepEx = (uint32_t(__stdcall*)(uint32_t, int32_t))hook::Global<void*>(0x5c8064);
+    auto sleepEx = (uint32_t(__stdcall*)(uint32_t, int32_t))g_5c8064;
     uint32_t ev[12];
     do {
         PumpMessages();
         if (!Engine_IsForeground()) sleepEx(0x14, 1);
         InputEvent out;
-        memcpy(ev, Input_PopEvent(hook::Global<uint8_t*>(0x6d4018), 0, &out), sizeof ev);
+        memcpy(ev, Input_PopEvent(g_input, 0, &out), sizeof ev);
         App_DispatchEvent(a, 0, ev);
     } while (ev[0] && ClockMs() - start <= 0x1e);
 }
@@ -1336,32 +1337,32 @@ RT3_REPLACE(0x483f20, App_DispatchEvent5);
 // session is closed (unless a dialog closes, 0x6d4114); the screen redraws
 // and +0x501 marks the scene for a full refresh.
 RT3_NOINLINE int32_t __fastcall App_Frame(uint8_t* a) {
-    if (hook::Global<int32_t>(0x6cd920) && !hook::Global<int32_t>(0x6ae3c4)) {
-        hook::Global<int32_t>(0x6ae3c4) = 1;
-        Input_PostEvent(hook::Global<uint8_t*>(0x6d4018), 0, 0xcc, 0, 5, 0, 0);
+    if (g_6cd920 && !g_6ae3c4) {
+        g_6ae3c4 = 1;
+        Input_PostEvent(g_input, 0, 0xcc, 0, 5, 0, 0);
     }
     App_PumpInput(a);
     int32_t r = 1;
-    if (hook::Global<uint8_t*>(0x6cec78)) {
-        if (!hook::Global<int32_t>(0x6d1298)) r = World_Frame(hook::Global<uint8_t*>(0x6cec78));
+    if (g_world) {
+        if (!g_6d1298) r = World_Frame(g_world);
     }
-    if (hook::Global<uint8_t*>(0x6cec78)) {
+    if (g_world) {
         F<int32_t>(F<uint8_t*>(a, 0x14), 0x114) = 1;
     } else if (F<int32_t>(F<uint8_t*>(a, 0x14), 0x114)) {
-        Sound_StartFadeTimer(hook::Global<uint8_t*>(0x6d402c), 0, 1);
+        Sound_StartFadeTimer(g_sound, 0, 1);
         F<int32_t>(F<uint8_t*>(a, 0x14), 0x114) = 0;
     }
-    if (!F<void*>(hook::Global<uint8_t*>(0x6d4024), 0x28)) F<void*>(hook::Global<uint8_t*>(0x6d4024), 0x28) = hook::Global<void*>(0x62be68);
+    if (!F<void*>(g_engine, 0x28)) F<void*>(g_engine, 0x28) = hook::As<void*>(g_62be68);
     Playlist_Tick(F<uint8_t*>(a, 0x14));
-    Sound_Pause(hook::Global<uint8_t*>(0x6d402c));
+    Sound_Pause(g_sound);
     EmitterGroup_Tick(nullptr);
-    Ambience_Tick(hook::Global<uint8_t*>(0x6d4030), 0, 0);
-    if (hook::Global<uint8_t*>(0x6cd8d8) && !Session_Update(hook::Global<uint8_t*>(0x6cd8d8)) && !hook::Global<int32_t>(0x6d4114)) App_CloseSession();
+    Ambience_Tick(g_models, 0, 0);
+    if (g_session && !Session_Update(g_session) && !g_6d4114) App_CloseSession();
     App_Redraw(a);
     if (F<int32_t>(a, 0x501)) {
         F<int32_t>(a, 0x501) = 0;
-        ((uint8_t*)Engine_Renderer(hook::Global<void*>(0x6d4024)))[0x3748] = 1;
-        ((uint8_t*)Engine_Renderer(hook::Global<void*>(0x6d4024)))[0x3747] = 1;
+        ((uint8_t*)Engine_Renderer(hook::As<void*>(g_engine)))[0x3748] = 1;
+        ((uint8_t*)Engine_Renderer(hook::As<void*>(g_engine)))[0x3747] = 1;
     }
     return r;
 }
@@ -1380,59 +1381,59 @@ RT3_REPLACE(0x483f70, App_Frame);
 RT3_NOINLINE void __fastcall App_Run(uint8_t* a, int, void* inst) {
     F<int32_t>(a, 0x10) = 0, F<int32_t>(a, 0xc) = 0, F<int32_t>(a, 8) = 0, F<int32_t>(a, 0x60) = 0;
     F<int32_t>(a, 0x68) = 0, F<int32_t>(a, 0x6c) = 0, F<int32_t>(a, 0) = 0, F<int32_t>(a, 4) = 0;
-    hook::Global<uint32_t>(0x6d4004) = 0x4840d0, hook::Global<uint32_t>(0x6d4008) = 0x483dc0;
-    hook::Global<uint32_t>(0x6d400c) = 0x482130, hook::Global<uint32_t>(0x6d4010) = 0x482140;
+    hook::As<uint32_t>(g_6d4004) = 0x4840d0, hook::As<uint32_t>(g_6d4008) = 0x483dc0;
+    g_6d400c = 0x482130, g_6d4010 = 0x482140;
     {
         uint8_t* m = App_New(8);
-        hook::Global<uint32_t*>(0x6ada8c) = m ? Pair_Init((uint32_t*)m) : nullptr;
+        hook::As<uint32_t*>(g_6ada8c) = m ? Pair_Init((uint32_t*)m) : nullptr;
     }
     int32_t w = -1, h = -1;
     Options_Load(a, 0, 0);
     Options_SetDisplayMode(a, 0, F<int32_t>(a, 0x10c));
     if (uint8_t* m = App_New(0x11486e)) Engine_Construct(m);
     auto firstRun = [] {
-        const int32_t intro = hook::Global<int32_t>(0x6cec70);
-        return !F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0xa8) && (intro == 0 || intro == 9);
+        const int32_t intro = g_6cec70;
+        return !F<int32_t>(g_app, 0xa8) && (intro == 0 || intro == 9);
     };
     if (firstRun()) {
-        ++F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x11427a);
+        ++F<int32_t>(g_engine, 0x11427a);
         w = 0x280, h = 0x1e0;
     }
-    Engine_Init(hook::Global<uint8_t*>(0x6d4024), 0, inst, w, h);
-    F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x114216) = F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0xa0) == 0;
-    hook::Global<int32_t>(0x620e98) = 0x2648;
-    if (NameTable_ContainsName(hook::Global<uint8_t*>(0x6d4020), 0, (const char*)0x5cecbc, 0, nullptr)) hook::Global<int32_t>(0x620e98) = 0x26ac;
+    Engine_Init(g_engine, 0, inst, w, h);
+    F<int32_t>(g_engine, 0x114216) = F<int32_t>(g_app, 0xa0) == 0;
+    g_620e98 = 0x2648;
+    if (NameTable_ContainsName(g_pack, 0, (const char*)0x5cecbc, 0, nullptr)) g_620e98 = 0x26ac;
     Hotkeys_Init(1);
     for (uint8_t* r = (uint8_t*)0x6103a0; r < (uint8_t*)0x620b74; r += 0x6e) StrCopyN((char*)r, GetString(F<int32_t>(r, 0x62)), 0x46);
     for (uint8_t* r = (uint8_t*)0x5f3d9c; r < (uint8_t*)0x6103a1; r += 0x81) StrCopyN((char*)r, GetString(F<int32_t>(r, 0x69)), 0x46);
     Options_ApplyGraphics(a, 0, -1, 1);
-    Menu_UpdateChecks(hook::Global<HMENU*>(0x6ada8c), 0, 0);
+    Menu_UpdateChecks(hook::As<HMENU*>(g_6ada8c), 0, 0);
     Lighting_Rebuild(a);
     {
         uint8_t* m = App_New(0x118);
         F<uint8_t*>(a, 0x14) = m ? Music_Construct(m) : nullptr;
     }
     if (firstRun()) {
-        F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0xa8) = 1;
+        F<int32_t>(g_app, 0xa8) = 1;
         Options_Save(a, 0, 1);
-        --F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x11427a);
-        hook::Global<int32_t>(0x624308) = 1;
+        --F<int32_t>(g_engine, 0x11427a);
+        g_624308 = 1;
         App_SetScreen(a, 0, 3, 0);
     } else {
-        Cursor_Set(hook::Global<uint8_t*>(0xccbb20), 0, 1, 0, 0);
+        Cursor_Set(g_cursorManager, 0, 1, 0, 0);
         App_SetScreen(a, 0, 2, 0);
         if (F<int32_t>(F<uint8_t*>(a, 0x14), 0x100) > 0) F<int32_t>(F<uint8_t*>(a, 0x14), 0x110) = 1;
-        Sound_StartFadeTimer(hook::Global<uint8_t*>(0x6d402c), 0, 0);
+        Sound_StartFadeTimer(g_sound, 0, 0);
         for (const int32_t until = ClockMs() + 0x258; ClockMs() < until;) {
         }
-        Sound_Speakers(hook::Global<uint8_t*>(0x6d402c), 0, F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x11470a), 0);
+        Sound_Speakers(g_sound, 0, F<int32_t>(g_engine, 0x11470a), 0);
         for (const int32_t until = ClockMs() + 0x258; ClockMs() < until;) {
         }
     }
     Effects_Reset();
-    hook::Global<uint32_t>(0x6d4014) = 0x483c30;
-    if (uint8_t* e = hook::Global<uint8_t*>(0x6d4024)) {
-        if (e[0x114226]) ((void*(__stdcall*)(HWND))hook::Global<void*>(0x5c823c))(Engine_Window(e));
+    hook::As<uint32_t>(g_6d4014) = 0x483c30;
+    if (uint8_t* e = g_engine) {
+        if (e[0x114226]) ((void*(__stdcall*)(HWND))g_5c823c)(Engine_Window(e));
     }
     // Through the call site, which the simcheck harness redirects.
     while (!F<int32_t>(a, 0x10) && hook::CallTarget<int32_t(__fastcall*)(uint8_t*)>(0x48439d)(a)) {
@@ -1447,16 +1448,16 @@ RT3_NOINLINE void __fastcall App_Run(uint8_t* a, int, void* inst) {
     App_CloseSession();
     Net_StopListener();
     Models_Shutdown();
-    if (uint8_t* e = hook::Global<uint8_t*>(0x6d4024)) {
+    if (uint8_t* e = g_engine) {
         Engine_Destroy(e);
         App_Delete(e);
     }
-    hook::Global<uint8_t*>(0x6d4024) = nullptr;
-    if (void** menu = hook::Global<void**>(0x6ada8c)) {
+    g_engine = nullptr;
+    if (void** menu = hook::As<void**>(g_6ada8c)) {
         GdiPair_Release2(menu);
         App_Delete(menu);
     }
-    hook::Global<void*>(0x6ada8c) = nullptr;
+    hook::As<void*>(g_6ada8c) = nullptr;
 }
 RT3_REPLACE(0x4840e0, App_Run);
 
@@ -1466,27 +1467,27 @@ RT3_REPLACE(0x4840e0, App_Run);
 // 0x6cec74) and lobby (0x109, 0x6cec7c) are created and run, then freed with
 // the session and the memory system, and the scroll lock restored.
 int __stdcall Game_WinMain(void* inst, void* prev, char* cmdLine, int show) {
-    hook::Global<int32_t>(0x6cec58) = show;
-    ((int32_t(__stdcall*)(void*, uint32_t))hook::Global<void*>(0x5c8494))(nullptr, 0);
+    g_6cec58 = show;
+    ((int32_t(__stdcall*)(void*, uint32_t))g_5c8494)(nullptr, 0);
     StartClock();
     SysInfo_Init();
     ResetRand();
     Cmdline_Parse(cmdLine);
     Set_ccba28();
     memcpy((void*)0x624b68, (const void*)0x5ced8c, 0x12);
-    hook::Global<int32_t>(0x6d4038) = 0x82;
+    hook::As<int32_t>(g_6d4038) = 0x82;
     Keyboard_SaveScrollLock();
     {
         uint8_t* m = App_New(0x505);
-        hook::Global<uint8_t*>(0x6cec74) = m ? Game_InitStart(m) : nullptr;
+        g_app = m ? Game_InitStart(m) : nullptr;
     }
     {
         uint8_t* m = App_New(0x109);
-        hook::Global<uint8_t*>(0x6cec7c) = m ? (uint8_t*)ReturnThis47bbd0(m) : nullptr;
+        g_newGame = m ? (uint8_t*)ReturnThis47bbd0(m) : nullptr;
     }
-    App_Run(hook::Global<uint8_t*>(0x6cec74), 0, inst);
-    if (uint8_t* app = hook::Global<uint8_t*>(0x6cec74)) App_Delete(app);
-    if (uint8_t* lobby = hook::Global<uint8_t*>(0x6cec7c)) {
+    App_Run(g_app, 0, inst);
+    if (uint8_t* app = g_app) App_Delete(app);
+    if (uint8_t* lobby = g_newGame) {
         Nop47bbe0(lobby);
         App_Delete(lobby);
     }
@@ -1516,7 +1517,7 @@ RT3_NOINLINE void __fastcall Options_SetDefaults(uint8_t* o, int, int32_t preset
                                      { 0x2bb, 2 }, { 0x2bf, 1 }, { 0x233, 0 }, { 0x237, 0xc }, { 0x23b, 0 }, { 0x23f, 2 }, { 0x243, 1 }, { 0x247, 0 },
                                      { 0x24b, 0 }, { 0x257, 0 }, { 0x25b, 0 }, { 0x25f, 0 }, { 0x263, 0 }, { 0x267, 0 }, { 0x17c, 0 }, { 0x180, 0 } };
     for (const Value& v : common) F<uint32_t>(o, v.off) = v.v;
-    hook::Global<uint32_t>(0x6cec6c) = 0;
+    hook::As<uint32_t>(g_6cec6c) = 0;
     for (const Value& v : common2) F<uint32_t>(o, v.off) = v.v;
     o[0x2d0] = 0;
     for (uint32_t k = 0x297; k <= 0x2ab; k += 4) F<uint32_t>(o, k) = 0;
@@ -1564,7 +1565,7 @@ RT3_REPLACE(0x484590, Options_SetDefaults);
 // 0x484910. Saves the options (version 0x429, 0x48d bytes from +0x70) and,
 // on request, the engine configuration.
 RT3_NOINLINE void __fastcall Options_Save(uint8_t* o, int, int32_t withEngine) {
-    if (withEngine && hook::Global<void*>(0x6d4024)) Engine_SaveConfig(hook::Global<uint8_t*>(0x6d4024));
+    if (withEngine && hook::As<void*>(g_engine)) Engine_SaveConfig(g_engine);
     Stream s = StreamOpen((const char*)0x5ceda0, 0, 0x30d40, 1);
     if (s == (Stream)-1) return;
     uint32_t version = 0x429;
@@ -1581,8 +1582,8 @@ RT3_REPLACE(0x484910, Options_Save);
 // the missing file saves it only withEngine. With 0x6cec6c set the file is
 // not read.
 RT3_NOINLINE void __fastcall Options_Load(uint8_t* o, int, int32_t withEngine) {
-    if (withEngine && hook::Global<uint8_t*>(0x6d4024)) Engine_LoadConfig(hook::Global<uint8_t*>(0x6d4024));
-    if (FileExists((const char*)0x5ceda0) && !hook::Global<int32_t>(0x6cec6c)) {
+    if (withEngine && g_engine) Engine_LoadConfig(g_engine);
+    if (FileExists((const char*)0x5ceda0) && !g_6cec6c) {
         int32_t s = StreamOpen((const char*)0x5ceda0, 1, 200000, 1);
         int32_t ver;
         StreamRead(s, &ver, 4, 0, 1);
@@ -1630,7 +1631,7 @@ RT3_REPLACE(0x484af0, Obj_ArrayAc2);
 RT3_NOINLINE float __fastcall Map_ViewDistance(uint8_t* o) {
     float v = ((const float*)0x6219b8)[F<int32_t>(o, 0xb8)];
     float area = 262144.0f, rough = 1.0f;
-    uint8_t* m = hook::Global<uint8_t*>(0x62c120);
+    uint8_t* m = g_map;
     if (m) {
         area = (float)(F<int32_t>(m, 0x2159) * F<int32_t>(m, 0x2155));
         rough = Grid_Roughness(m);
@@ -1655,8 +1656,8 @@ RT3_REPLACE(0x484b00, Map_ViewDistance);
 RT3_NOINLINE void __fastcall Options_ApplyGraphics(uint8_t* o, int, int32_t which, int32_t rebuild) {
     for (int32_t i = 0; i < 0x11; ++i) {
         if (which != -2 && i != which && (!F<int32_t>(o, 0x18) || !F<int32_t>(o, 0x1c + i * 4))) continue;
-        uint8_t* map = hook::Global<uint8_t*>(0x62c120);
-        if (!hook::Global<uint8_t*>(0x6d4024) || !map) {
+        uint8_t* map = g_map;
+        if (!g_engine || !map) {
             F<int32_t>(o, 0x18) = 1;
             F<int32_t>(o, 0x1c + i * 4) = 1;
             continue;
@@ -1664,14 +1665,14 @@ RT3_NOINLINE void __fastcall Options_ApplyGraphics(uint8_t* o, int, int32_t whic
         int32_t v = F<int32_t>(o, 0xac + i * 4);
         switch (i) {
         case 3: {
-            float d = Map_ViewDistance(hook::Global<uint8_t*>(0x6cec74));
-            double cur = Render_Get14e0(hook::Global<uint8_t*>(0x62c120));
+            float d = Map_ViewDistance(g_app);
+            double cur = Render_Get14e0(g_map);
             if ((double)d * D(0x5ca288) <= cur) {
-                double cur2 = Render_Get14e0(hook::Global<uint8_t*>(0x62c120));
+                double cur2 = Render_Get14e0(g_map);
                 if ((double)d * D(0x5c9b10) >= cur2) break;
             }
-            Render_Set14e0(hook::Global<uint8_t*>(0x62c120), 0, *(uint32_t*)&d);
-            if (rebuild) Terrain_InitMaps(hook::Global<uint8_t*>(0x62c120), 0, 1, 0, 0);
+            Render_Set14e0(g_map, 0, *(uint32_t*)&d);
+            if (rebuild) Terrain_InitMaps(g_map, 0, 1, 0, 0);
             break;
         }
         case 4:
@@ -1695,33 +1696,33 @@ RT3_NOINLINE void __fastcall Options_ApplyGraphics(uint8_t* o, int, int32_t whic
         case 10:
             if (v >= 4) v = 4;
             else if (v == 0) {
-                hook::Global<uint8_t*>(0x6d4024)[0x1146f0] = 0;
-                hook::Global<uint8_t*>(0x6d4024)[0x1146ef] = 0;
+                g_engine[0x1146f0] = 0;
+                g_engine[0x1146ef] = 0;
                 break;
             }
-            hook::Global<uint8_t*>(0x6d4024)[0x1146f0] = 1;
-            hook::Global<uint8_t*>(0x6d4024)[0x1146ef] = 1;
-            Render_SetOverviewSize(hook::Global<uint8_t*>(0x62c120), 0, (1 << ((v - 1) & 31)) << 7);
+            g_engine[0x1146f0] = 1;
+            g_engine[0x1146ef] = 1;
+            Render_SetOverviewSize(g_map, 0, (1 << ((v - 1) & 31)) << 7);
             break;
         case 11:
-            if (hook::Global<uint8_t*>(0x6d4030)) F<uint32_t>(hook::Global<uint8_t*>(0x6d4030), 0x28) = ((const uint32_t*)0x62194c)[v];
+            if (g_models) F<uint32_t>(g_models, 0x28) = ((const uint32_t*)0x62194c)[v];
             break;
         case 12:
-            hook::Global<uint8_t*>(0x6d4024)[0x1146ee] = (uint8_t)v;
+            g_engine[0x1146ee] = (uint8_t)v;
             break;
         case 13:
             if (F<int32_t>(o, 0x68)) v = 0;
             if (F<int32_t>(map, 0x21fd) != v) {
                 F<int32_t>(map, 0x21fd) = v;
-                Terrain_RefreshPointGrids(hook::Global<uint8_t*>(0x62c120), 0, 0, 0, 9999, 9999);
+                Terrain_RefreshPointGrids(g_map, 0, 0, 0, 9999, 9999);
             }
             break;
         }
     }
-    if (!hook::Global<uint8_t*>(0x6d4024) || !hook::Global<uint8_t*>(0x62c120)) return;
+    if (!g_engine || !g_map) return;
     memset(o + 0x1c, 0, 0x11 * 4);
     F<int32_t>(o, 0x18) = 0;
-    if (void** l = hook::Global<void**>(0x62be68)) ((void(__thiscall*)(void*))(*(void***)l)[0])(l);
+    if (void** l = hook::As<void**>(g_62be68)) ((void(__thiscall*)(void*))(*(void***)l)[0])(l);
 }
 RT3_REPLACE(0x484d70, Options_ApplyGraphics);
 
@@ -1737,10 +1738,10 @@ RT3_NOINLINE void __fastcall Options_SetDetail(uint8_t* o, int, int32_t which, i
     if (which == 0) {
         if (level != -1) {
             for (int32_t s = 1; s < 0x11; ++s) Options_SetDetail(o, 0, s, Options_DetailFor(s, level), rebuild);
-            if (uint8_t* e = hook::Global<uint8_t*>(0x6d4024)) {
+            if (uint8_t* e = g_engine) {
                 F<int32_t>(e, 0x1146b3) = (level > 6) + 1;
-                hook::Global<uint8_t*>(0x6d4024)[0x1146a8] = 0;
-                F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x1146af) = 0;
+                g_engine[0x1146a8] = 0;
+                F<int32_t>(g_engine, 0x1146af) = 0;
             }
         }
     } else if (which == 2) {
@@ -1752,32 +1753,32 @@ RT3_NOINLINE void __fastcall Options_SetDetail(uint8_t* o, int, int32_t which, i
             Options_SetDetail(o, 0, 0xd, ((const int32_t*)0x621358)[level], rebuild);
         }
     } else if (which == 3) {
-        if (uint8_t* e = hook::Global<uint8_t*>(0x6d4024)) e[0x1146eb] = level > 8;
+        if (uint8_t* e = g_engine) e[0x1146eb] = level > 8;
     }
     if (level != Options_DetailFor(which, F<int32_t>(o, 0xac))) F<int32_t>(o, 0xac) = -1;
     if (which >= 3 && which <= 6 && level != Options_DetailFor(which, F<int32_t>(o, 0xb4))) F<int32_t>(o, 0xb4) = -1;
     if (((which >= 7 && which <= 9) || which == 0xd) && level != Options_DetailFor(which, F<int32_t>(o, 0xb0))) F<int32_t>(o, 0xb0) = -1;
     Options_ApplyGraphics(o, 0, which, rebuild);
-    if (hook::Global<uint8_t*>(0x6d4024)) Options_Save(o, 0, 1);
+    if (g_engine) Options_Save(o, 0, 1);
 }
 RT3_REPLACE(0x485060, Options_SetDetail);
 
 // 0x4852e0. Options o: back to the default overall detail level 0x6211dc
 // (as Options_SetDetail(0, level), but applied once for all settings).
 RT3_NOINLINE void __fastcall Options_ResetDetail(uint8_t* o) {
-    int32_t level = hook::Global<int32_t>(0x6211dc);
+    int32_t level = g_6211dc;
     F<int32_t>(o, 0xac) = level;
     if (level != -1) {
         for (int32_t s = 1; s < 0x11; ++s) Options_SetDetail(o, 0, s, Options_DetailFor(s, level), 1);
-        if (uint8_t* e = hook::Global<uint8_t*>(0x6d4024)) {
+        if (uint8_t* e = g_engine) {
             F<int32_t>(e, 0x1146b3) = (level > 6) + 1;
-            hook::Global<uint8_t*>(0x6d4024)[0x1146a8] = 0;
-            F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x1146af) = 0;
+            g_engine[0x1146a8] = 0;
+            F<int32_t>(g_engine, 0x1146af) = 0;
         }
     }
     if (level != F<int32_t>(o, 0xac)) F<int32_t>(o, 0xac) = -1;
     Options_ApplyGraphics(o, 0, 0, 1);
-    if (hook::Global<uint8_t*>(0x6d4024)) Options_Save(o, 0, 1);
+    if (g_engine) Options_Save(o, 0, 1);
 }
 RT3_REPLACE(0x4852e0, Options_ResetDetail);
 
@@ -1792,23 +1793,23 @@ RT3_REPLACE(0x4852e0, Options_ResetDetail);
 RT3_NOINLINE void __fastcall Options_AutoDetail(uint8_t* o) {
     int32_t cls;
     float speed;
-    if (F<float>(hook::Global<uint8_t*>(0x6d4024), 0x1146f2) < D(0x5c8678)) {
+    if (F<float>(g_engine, 0x1146f2) < D(0x5c8678)) {
         cls = 2;
     } else {
         int32_t a = Adapter_KnownIndex();
         speed = a == -1 ? 1.0f : ((const float*)(0x62143c + a * 0x18))[0];
-        speed = (float)((double)speed * F<float>(hook::Global<uint8_t*>(0x6d4024), 0x1146f2));
+        speed = (float)((double)speed * F<float>(g_engine, 0x1146f2));
         a = Adapter_KnownIndex();
         if (a != -1) {
-            Engine_SetCursorObject(hook::Global<void*>(0x6d4024), 0, *(const uint32_t*)(0x621430 + a * 0x18));
-            if (*(const int32_t*)(0x621438 + a * 0x18)) F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x114742) = 1;
+            Engine_SetCursorObject(hook::As<void*>(g_engine), 0, *(const uint32_t*)(0x621430 + a * 0x18));
+            if (*(const int32_t*)(0x621438 + a * 0x18)) F<int32_t>(g_engine, 0x114742) = 1;
         }
         cls = 0;
         for (int32_t k = 0; k < 10; ++k) {
             cls = k;
             if (((const float*)0x6213b0)[k * 3] > speed) break;
         }
-        int32_t mode = hook::Global<int32_t>(0x6cec70);
+        int32_t mode = g_6cec70;
         if (mode && mode != 9) {
             cls = cls - 1 <= 0 ? 0 : cls - 1;
             if (cls >= 4) cls = 4;
@@ -1818,43 +1819,43 @@ RT3_NOINLINE void __fastcall Options_AutoDetail(uint8_t* o) {
     F<int32_t>(o, 0xac) = level;
     if (level != -1) {
         for (int32_t s = 1; s < 0x11; ++s) Options_SetDetail(o, 0, s, Options_DetailFor(s, level), 1);
-        if (uint8_t* e = hook::Global<uint8_t*>(0x6d4024)) {
+        if (uint8_t* e = g_engine) {
             F<int32_t>(e, 0x1146b3) = (level > 6) + 1;
-            hook::Global<uint8_t*>(0x6d4024)[0x1146a8] = 0;
-            F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x1146af) = 0;
+            g_engine[0x1146a8] = 0;
+            F<int32_t>(g_engine, 0x1146af) = 0;
         }
     }
     if (level != F<int32_t>(o, 0xac)) F<int32_t>(o, 0xac) = -1;
     Options_ApplyGraphics(o, 0, 0, 1);
-    if (hook::Global<uint8_t*>(0x6d4024)) Options_Save(o, 0, 1);
-    uint8_t* e = hook::Global<uint8_t*>(0x6d4024);
-    if (!hook::Global<int32_t>(0x6cec70)) {
+    if (g_engine) Options_Save(o, 0, 1);
+    uint8_t* e = g_engine;
+    if (!g_6cec70) {
         F<int32_t>(e, 0x11473e) = 0;
-        F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x11473a) = SysInfo_IsWin9x() == 0;
+        F<int32_t>(g_engine, 0x11473a) = SysInfo_IsWin9x() == 0;
         int32_t a = Adapter_KnownIndex();
-        if (a != -1) F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x11473a) = *(const int32_t*)(0x621434 + a * 0x18);
-        F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x11468a) = ((const int32_t*)0x6213b4)[cls * 3];
-        F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x11468e) = ((const int32_t*)0x6213b8)[cls * 3];
-        e = hook::Global<uint8_t*>(0x6d4024);
+        if (a != -1) F<int32_t>(g_engine, 0x11473a) = *(const int32_t*)(0x621434 + a * 0x18);
+        F<int32_t>(g_engine, 0x11468a) = ((const int32_t*)0x6213b4)[cls * 3];
+        F<int32_t>(g_engine, 0x11468e) = ((const int32_t*)0x6213b8)[cls * 3];
+        e = g_engine;
     }
     if (!e[0x11422f]) {
         F<int32_t>(e, 0x114736) = 0;
         return;
     }
     if (SysInfo_TotalMemory() < 0x9600000) {
-        F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x114736) = 0;
+        F<int32_t>(g_engine, 0x114736) = 0;
         return;
     }
-    Engine_TotalTextureMem(hook::Global<void*>(0x6d4024));
-    if (Engine_TotalTextureMem(hook::Global<void*>(0x6d4024)) < 0x3200000 && SysInfo_TotalMemory() < 0xb400000) {
-        F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x114736) = 0;
+    Engine_TotalTextureMem(hook::As<void*>(g_engine));
+    if (Engine_TotalTextureMem(hook::As<void*>(g_engine)) < 0x3200000 && SysInfo_TotalMemory() < 0xb400000) {
+        F<int32_t>(g_engine, 0x114736) = 0;
         return;
     }
-    if (hook::Global<uint8_t*>(0x6d4024)[0x11422d] && Engine_TotalTextureMem(hook::Global<void*>(0x6d4024)) >= 0x5000000 && SysInfo_TotalMemory() > 0xd200000) {
-        F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x114736) = 2;
+    if (g_engine[0x11422d] && Engine_TotalTextureMem(hook::As<void*>(g_engine)) >= 0x5000000 && SysInfo_TotalMemory() > 0xd200000) {
+        F<int32_t>(g_engine, 0x114736) = 2;
         return;
     }
-    F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x114736) = 1;
+    F<int32_t>(g_engine, 0x114736) = 1;
 }
 RT3_REPLACE(0x4853c0, Options_AutoDetail);
 
@@ -1868,11 +1869,11 @@ RT3_NOINLINE void __fastcall Train_ShiftGear(uint8_t* o, int, int32_t delta) {
     char num[0x20], msg[0x190];
     Num_Format(num, 1, (double)gear, 10, 1, 0, 0);
     FormatText(msg, GetString(0x2f0), num, 0, 0, 0, 0, 0, 0, 0);
-    Log_Add(hook::Global<Collection*>(0x6acd34), 0, msg, 0xb, 0, 0);
+    Log_Add(g_messageLog, 0, msg, 0xb, 0, 0);
 }
 RT3_REPLACE(0x4856b0, Train_ShiftGear);
 
-RT3_NOINLINE int32_t Global6cfc8cSet() { return hook::Global<void*>(0x6cfc8c) ? 1 : 0; }
+RT3_NOINLINE int32_t Global6cfc8cSet() { return hook::As<void*>(g_6cfc8c) ? 1 : 0; }
 RT3_REPLACE(0x485750, Global6cfc8cSet);
 
 // 0x485760. Constructs tank t (vtable 0x5cf048) of model `name` in scene
@@ -2008,7 +2009,7 @@ RT3_NOINLINE uint8_t* __fastcall Tank_Construct(uint8_t* t, int, const char* nam
     F<float>(t, 0x400) = x;
     F<float>(t, 0x404) = y;
     F<float>(t, 0x408) = z;
-    F<uint32_t>(t, 0x3e8) = ((uint32_t(__stdcall*)())hook::Global<void*>(0x5c8068))();
+    F<uint32_t>(t, 0x3e8) = ((uint32_t(__stdcall*)())g_5c8068)();
     return t;
 }
 RT3_REPLACE(0x485760, Tank_Construct);

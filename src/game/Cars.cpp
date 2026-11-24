@@ -9,6 +9,7 @@
 #include <math.h>
 #include <initializer_list>
 #include "hook/hook.h"
+#include "core/globals.h"
 #include "game/collection.h"
 #include "core/stream.h"
 #include "core/containers.h"
@@ -28,12 +29,8 @@ void __fastcall Train_ShareRevenue(uint8_t* t, int, float revenue, int32_t kind,
 template <typename T> static inline T& F(void* o, uint32_t off) { return *(T*)((uint8_t*)o + off); }
 
   // industries/stations/houses
-static Collection*& g_table62ba88 = hook::Global<Collection*>(0x62ba88);
 
-static Collection*& g_cities     = hook::Global<Collection*>(0x62ba84);
 void* __fastcall Obj_Ref388(void* o);
-static Collection*& g_trains     = hook::Global<Collection*>(0x6cfcbc);
-static Collection*& g_trackNodes  = hook::Global<Collection*>(0x6cfca8);
 int32_t __fastcall HashRand(int32_t seed, int32_t lo, int32_t hi);
 void __fastcall Node_ClearLinks(void* n, int, int32_t a, int32_t b);
 void __fastcall Obj_UnlinkFromNode(void* o);
@@ -251,7 +248,7 @@ static inline double D(uint32_t a) { return *(const double*)a; }
 
 static inline float Fl(uint32_t a) { return *(const float*)a; }
 
-static inline Collection* Cargos() { return hook::Global<Collection*>(0x62ba8c); }
+static inline Collection* Cargos() { return g_cargoTypes; }
 
 // Formats string id with one argument and exits with it.
 static void FatalFormat(int32_t id, const char* arg) {
@@ -260,7 +257,7 @@ static void FatalFormat(int32_t id, const char* arg) {
     Fatal_Exit(msg);
 }
 
-static inline uint8_t* World() { return hook::Global<uint8_t*>(0x6cec78); }
+static inline uint8_t* World() { return g_world; }
 
 static inline double Fl_193(uint32_t a) { return *(const float*)a; }
 
@@ -279,7 +276,7 @@ static inline int32_t Ftol(double v) {
 
 namespace {
 void Callback_Delete(void* p) { ((void(__cdecl*)(void*))0x53b080)(p); }
-int32_t Tooltip_Clear() { return Ui_ShowTooltip(hook::Global<uint8_t*>(0x6d401c), 0, (const char*)0x5c87a8, 3, 0, -1); }
+int32_t Tooltip_Clear() { return Ui_ShowTooltip(g_windowManager, 0, (const char*)0x5c87a8, 3, 0, -1); }
 // A network message's handler gets the packet (+8) when it has one (+0xc).
 template <typename P, typename Fn> int32_t NetMsg_Forward(uint8_t* m, Fn handler) {
     if (F<int32_t>(m, 0xc) > 0) handler(F<P>(m, 8));
@@ -322,7 +319,7 @@ RT3_REPLACE(0x41a950, BtyTable_Reload);
 // buckets) and two node pools (+0x90 of 8-byte, +0x8c of 0x74e-byte nodes),
 // then loads the type files. (0x62b304 is cleared first.)
 void __fastcall BtyTable_Setup(Collection* t) {
-    hook::Global<int32_t>(0x62b304) = 0;
+    g_62b304 = 0;
     auto alloc = (uint8_t*(__cdecl*)(size_t))0x53b070;
     uint8_t* h = alloc(0x14);
     if (h) memset(h, 0, 0x14);
@@ -347,9 +344,9 @@ RT3_REPLACE(0x41a990, BtyTable_Setup);
 RT3_NOINLINE Collection* __fastcall BtyTable_Construct(Collection* t) {
     Collection_SetVtbl(t);
     F<uint32_t>(t, 0) = 0x5c9718;
-    hook::Global<int32_t>(0x62b2f0) = 0;
-    hook::Global<int32_t>(0x62b2f4) = 0;
-    hook::Global<int32_t>(0x62b2f8) = 0;
+    g_62b2f0 = 0;
+    hook::As<int32_t>(g_62b2f4) = 0;
+    hook::As<int32_t>(g_62b2f8) = 0;
     F<int32_t>(t, 0x98) = 1;
     F<int32_t>(t, 0x88) = 0;
     F<int32_t>(t, 0x90) = 0;
@@ -357,7 +354,7 @@ RT3_NOINLINE Collection* __fastcall BtyTable_Construct(Collection* t) {
     F<int32_t>(t, 0x9c) = 0;
     F<uint32_t>(t, 0xa0) = 0x497423f0;
     F<uint32_t>(t, 0xa4) = 0xc97423f0;
-    F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x4fd) = 0;
+    F<int32_t>(g_app, 0x4fd) = 0;
     Collection_Init(t, 0, 1, 0x1a7, 0xa, 5, 1, 0, 0);
     BtyTable_Setup(t);
     return t;
@@ -412,8 +409,8 @@ RT3_REPLACE(0x41ab80, Car_TiltValue);
 RT3_NOINLINE void __fastcall Obj_SetTexture(uint8_t* o, int, const char* name) {
     String_Assign((char**)(o + 0x332), name);
     String_Assign((char**)(o + 0x20e), name);
-    if (void* t = F<void*>(o, 0x1c)) Pack_Release(hook::Global<uint8_t*>(0x6d4020), 0, t);
-    F<uint8_t*>(o, 0x1c) = TextureCache_Get(hook::Global<uint8_t*>(0x6d4020), 0, name, 0, 0, 0x7f);
+    if (void* t = F<void*>(o, 0x1c)) Pack_Release(g_pack, 0, t);
+    F<uint8_t*>(o, 0x1c) = TextureCache_Get(g_pack, 0, name, 0, 0, 0x7f);
 }
 RT3_REPLACE(0x41abb0, Obj_SetTexture);
 
@@ -445,10 +442,10 @@ RT3_REPLACE(0x41ac50, Return1_41ac50);
 // +0x388; fatal (string 0xc1) if unknown.
 RT3_NOINLINE void __fastcall Car_ResolveType(uint8_t* o) {
     F<uint32_t>(o, 0x388) = 0;
-    for (int32_t i = 0; i < Collection_Count(hook::Global<Collection*>(0x62ba88)); ++i) {
-        Collection* c = hook::Global<Collection*>(0x62ba88);
+    for (int32_t i = 0; i < Collection_Count(g_carTypes); ++i) {
+        Collection* c = g_carTypes;
         if (Stricmp((const char*)o + 0x36a, (const char*)Collection_Get(c, 0, Collection_IdAt(c, 0, i, 0)) + 0x82)) continue;
-        F<uint32_t>(o, 0x388) = Collection_IdAt(hook::Global<Collection*>(0x62ba88), 0, i, 0);
+        F<uint32_t>(o, 0x388) = Collection_IdAt(g_carTypes, 0, i, 0);
         break;
     }
     if (!F<uint32_t>(o, 0x388)) FatalFormat(0xc1, (const char*)o + 0x36a);
@@ -460,17 +457,17 @@ RT3_REPLACE(0x41ac60, Car_ResolveType);
 void __fastcall Car_OpenTrain(uint8_t* c) {
     if (F<int32_t>(c, 0x390) == -1) return;
     Ui_PlaySound(0x21, 0, 0x3f000000);
-    ((void(__fastcall*)(uint8_t*, int, int32_t, int32_t))0x4ddbd0)(hook::Global<uint8_t*>(0x6d0818), 0, 2, F<int32_t>(c, 0x390));
-    int32_t lead = F<int32_t>(Collection_Get(hook::Global<Collection*>(0x6cfcbc), 0, F<uint32_t>(c, 0x390)), 0x41);
-    World_FollowEntity(hook::Global<uint8_t*>(0x6cec78), 0, 1, 1, lead);
+    ((void(__fastcall*)(uint8_t*, int, int32_t, int32_t))0x4ddbd0)(g_gameWindow, 0, 2, F<int32_t>(c, 0x390));
+    int32_t lead = F<int32_t>(Collection_Get(g_trains, 0, F<uint32_t>(c, 0x390)), 0x41);
+    World_FollowEntity(g_world, 0, 1, 1, lead);
 }
 RT3_REPLACE(0x41ad30, Car_OpenTrain);
 
-RT3_NOINLINE void* __fastcall Obj_City352(void* o) { return RefNotMinus1(g_cities, F<int32_t>(o, 0x352)); }
+RT3_NOINLINE void* __fastcall Obj_City352(void* o) { return RefNotMinus1(g_62ba84, F<int32_t>(o, 0x352)); }
 RT3_REPLACE(0x41ad90, Obj_City352);
 
 // 0x41adb0. The table-0x62ba88 record referenced at +0x388.
-RT3_NOINLINE void* __fastcall Obj_Ref388(void* o) { return Collection_Get(g_table62ba88, 0, F<uint32_t>(o, 0x388)); }
+RT3_NOINLINE void* __fastcall Obj_Ref388(void* o) { return Collection_Get(g_carTypes, 0, F<uint32_t>(o, 0x388)); }
 RT3_REPLACE(0x41adb0, Obj_Ref388);
 
 // 0x41add0. The car's rear coupling point: its cell position moved back by
@@ -490,16 +487,16 @@ RT3_REPLACE(0x41add0, Car_RearPoint);
 // where still free, into its two neighbours (on the matching side).
 RT3_NOINLINE void __fastcall Car_LinkToNode(uint8_t* car, int, int32_t id, int32_t side) {
     if (id == -1) return;
-    uint8_t* n = (uint8_t*)Collection_Get(g_trackNodes, 0, id);
+    uint8_t* n = (uint8_t*)Collection_Get(g_tracks, 0, id);
     Node_SetLinkPair(n, 0, F<int32_t>(car, 0x390), F<int32_t>(car, 0x34a), side);
     if (F<int32_t>(n, 0x206) != -1) {
-        uint8_t* m = (uint8_t*)Collection_Get(g_trackNodes, 0, F<uint32_t>(n, 0x206));
+        uint8_t* m = (uint8_t*)Collection_Get(g_tracks, 0, F<uint32_t>(n, 0x206));
         int32_t s = side;
         if (F<int32_t>(m, 0x206) == id || (F<int32_t>(m, 0x20e) == id && (m[0x201] & 2))) s = side == 0;
         if (Track_Field238(m, 0, s) == -1) Node_SetLinkPair(m, 0, F<int32_t>(car, 0x390), F<int32_t>(car, 0x34a), s);
     }
     if (F<int32_t>(n, 0x20a) != -1) {
-        uint8_t* m = (uint8_t*)Collection_Get(g_trackNodes, 0, F<uint32_t>(n, 0x20a));
+        uint8_t* m = (uint8_t*)Collection_Get(g_tracks, 0, F<uint32_t>(n, 0x20a));
         int32_t s = side;
         if (F<int32_t>(m, 0x20a) == id || (F<int32_t>(m, 0x20e) == id && !(m[0x201] & 2))) s = side == 0;
         if (Track_Field238(m, 0, s) == -1) Node_SetLinkPair(m, 0, F<int32_t>(car, 0x390), F<int32_t>(car, 0x34a), s);
@@ -511,13 +508,13 @@ RT3_REPLACE(0x41aea0, Car_LinkToNode);
 // (+0x356) and that node's three neighbours.
 RT3_NOINLINE void __fastcall Obj_UnlinkFromNode(void* o) {
     if (F<int32_t>(o, 0x356) == -1) return;
-    uint8_t* n = (uint8_t*)Collection_Get(g_trackNodes, 0, F<uint32_t>(o, 0x356));
+    uint8_t* n = (uint8_t*)Collection_Get(g_tracks, 0, F<uint32_t>(o, 0x356));
     Node_ClearLinks(n, 0, F<int32_t>(o, 0x390), F<int32_t>(o, 0x34a));
     static const uint32_t kNeighbours[3] = { 0x206, 0x20a, 0x20e };
     for (uint32_t off : kNeighbours) {
         int32_t id = F<int32_t>(n, off);
         if (id == -1) continue;
-        Node_ClearLinks(Collection_Get(g_trackNodes, 0, id), 0, F<int32_t>(o, 0x390), F<int32_t>(o, 0x34a));
+        Node_ClearLinks(Collection_Get(g_tracks, 0, id), 0, F<int32_t>(o, 0x390), F<int32_t>(o, 0x34a));
     }
 }
 RT3_REPLACE(0x41afc0, Obj_UnlinkFromNode);
@@ -529,14 +526,14 @@ RT3_NOINLINE void* __fastcall Obj_Train390(void* o) {
 RT3_REPLACE(0x41b8f0, Obj_Train390);
 
 double __fastcall Obj_Ref388Float10d(void* o) {
-    return F<float>(Collection_Get(g_table62ba88, 0, F<uint32_t>(o, 0x388)), 0x10d);
+    return F<float>(Collection_Get(g_carTypes, 0, F<uint32_t>(o, 0x388)), 0x10d);
 }
 RT3_REPLACE(0x41b910, Obj_Ref388Float10d);
 
 // 0x41b930. Virtual slot 5 of this vehicle's track node (+0x356); 0 if none.
 uint32_t __fastcall Obj_NodeVirtual5(void* o) {
     if (F<int32_t>(o, 0x356) == -1) return 0;
-    void* n = Collection_Get(g_trackNodes, 0, F<uint32_t>(o, 0x356));
+    void* n = Collection_Get(g_tracks, 0, F<uint32_t>(o, 0x356));
     return ((uint32_t(__thiscall*)(void*))(*(void***)n)[0x14 / 4])(n);
 }
 RT3_REPLACE(0x41b930, Obj_NodeVirtual5);
@@ -545,7 +542,7 @@ RT3_REPLACE(0x41b930, Obj_NodeVirtual5);
 RT3_NOINLINE void* __fastcall Obj_CargoType(void* o) {
     uint32_t id = F<uint32_t>(o, 0x38c);
     if (!id) return nullptr;
-    return Collection_Get(hook::Global<Collection*>(0x62ba8c), 0, id);
+    return Collection_Get(g_cargoTypes, 0, id);
 }
 RT3_REPLACE(0x41b960, Obj_CargoType);
 
@@ -554,7 +551,7 @@ RT3_REPLACE(0x41b960, Obj_CargoType);
 RT3_NOINLINE void __fastcall Obj_SetAmount39c(void* o, int, float v) {
     F<float>(o, 0x39c) = v;
     if (!(v <= *(const float*)0x5c8598)) return;
-    if (!F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x130)) return;
+    if (!F<int32_t>(g_app, 0x130)) return;
     F<float>(o, 0x39c) = (float)(HashRand(F<int32_t>(o, 0x34a), 1, 8) * 1000);
 }
 RT3_REPLACE(0x41b980, Obj_SetAmount39c);
@@ -574,9 +571,9 @@ void __fastcall Car_SetCargoValue(uint8_t* car, int, uint8_t* city) {
     if (city) {
         uint8_t* from = nullptr;
         int32_t tid = F<int32_t>(car, 0x390);
-        uint8_t* t = tid != -1 ? (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfcbc), 0, tid) : nullptr;
-        if (Collection_IsValid(hook::Global<Collection*>(0x6cec20), 0, F<uint32_t>(t, 0x9c)))
-            from = Obj_BuildingRegion(Collection_Get(hook::Global<Collection*>(0x6cec20), 0,
+        uint8_t* t = tid != -1 ? (uint8_t*)Collection_Get(g_trains, 0, tid) : nullptr;
+        if (Collection_IsValid(g_stations, 0, F<uint32_t>(t, 0x9c)))
+            from = Obj_BuildingRegion(Collection_Get(g_stations, 0,
                                                      F<uint32_t>(Obj_Train390(car), 0x9c)));
         if (mode < 1 || (city != from && F<int32_t>(Cargos(), 0x9a + F<int32_t>(car, 0x38c) * 4) == -1)) {
             float q = (float)City_CargoQuota(city, 0, F<int32_t>(car, 0x38c));
@@ -601,7 +598,7 @@ void __fastcall Car_LoadAt(uint8_t* car, int, uint8_t* at, uint8_t* to) {
     int32_t cargo = F<int32_t>(car, 0x38c);
     float fill = F<float>(car, 0x398);
     uint8_t* train = F<int32_t>(car, 0x390) != -1
-                         ? (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfcbc), 0, F<uint32_t>(car, 0x390))
+                         ? (uint8_t*)Collection_Get(g_trains, 0, F<uint32_t>(car, 0x390))
                          : nullptr;
     float room = (float)(D(0x5c8770) - fill);
     float got, value, amount;
@@ -611,7 +608,7 @@ void __fastcall Car_LoadAt(uint8_t* car, int, uint8_t* at, uint8_t* to) {
         float t = (float)((double)got + F<float>(car, 0x398));
         float nf = Fl_193(0x5c85b4) < t ? 1.0f : t;
         auto denom = [&]() { return nf < D(0x5c8678) ? 0.001 : (double)nf; };
-        if (F<int32_t>(hook::Global<uint8_t*>(0x62ba8c), 0x9a + F<int32_t>(car, 0x38c) * 4) != -1) {
+        if (F<int32_t>(hook::As<uint8_t*>(g_cargoTypes), 0x9a + F<int32_t>(car, 0x38c) * 4) != -1) {
             double dv = denom();
             unmet = amount;
             F<float>(car, 0x3a0) = (float)(((double)F<float>(car, 0x3a0) * F<float>(car, 0x398) + got) / dv);
@@ -627,8 +624,8 @@ void __fastcall Car_LoadAt(uint8_t* car, int, uint8_t* at, uint8_t* to) {
         F<float>(car, 0x398) = nf;
     }
     if (F<float>(car, 0x39c) < Fl_193(0x5c8598) || F<float>(car, 0x39c) == Fl_193(0x5c8598)) {
-        if (F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x130) || hook::Global<uint8_t*>(0x6cec7c)[0x82] ||
-            F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4aef))
+        if (F<int32_t>(g_app, 0x130) || g_newGame[0x82] ||
+            F<int32_t>(g_world, 0x4aef))
             F<float>(car, 0x39c) = (float)(HashRand(F<int32_t>(car, 0x34a), 4, 0x14) * 1000);
     }
     uint8_t* ka = at ? (uint8_t*)Obj_BuildingKind(at) : nullptr;
@@ -638,10 +635,10 @@ void __fastcall Car_LoadAt(uint8_t* car, int, uint8_t* at, uint8_t* to) {
     if (kb) m = (float)(((double)F<float>(kb, 0x31b) + D(0x5c8770)) / D(0x5c85d0) * m);
     float x = (float)((double)m * unmet);
     train = F<int32_t>(car, 0x390) != -1
-                ? (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfcbc), 0, F<uint32_t>(car, 0x390))
+                ? (uint8_t*)Collection_Get(g_trains, 0, F<uint32_t>(car, 0x390))
                 : nullptr;
     float q = (float)Company_QualityRaw(Train_Company(train));
-    uint32_t idx = hook::Global<uint8_t*>(0x6cec7c)[0x7d] * 4;
+    uint32_t idx = g_newGame[0x7d] * 4;
     uint32_t ta = 0x5f3cb8, tb = 0x5f3cc8;
     if (Game_EffectiveVersion() >= 0x67) {
         ta = 0x5f3c98;
@@ -659,9 +656,9 @@ RT3_REPLACE(0x41bb40, Car_LoadAt);
 void __fastcall Car_ApplyPriceFactor(uint8_t* car) {
     uint32_t ct = F<uint32_t>(car, 0x38c);
     if (!ct || !(F<float>(car, 0x398) > *(const float*)0x5c8598)) return;
-    uint8_t* types = hook::Global<uint8_t*>(0x62ba8c);
+    uint8_t* types = hook::As<uint8_t*>(g_cargoTypes);
     int32_t map = F<int32_t>(types, 0x9a + ct * 4);
-    float v = map != -1 ? F<float>(hook::Global<uint8_t*>(0x6cec78), 0x71 + map * 4)
+    float v = map != -1 ? F<float>(g_world, 0x71 + map * 4)
                         : F<float>(Collection_Get((Collection*)types, 0, ct), 0x42);
     int32_t tid = F<int32_t>(car, 0x390);
     uint8_t* train = tid != -1 ? (uint8_t*)Collection_Get(g_trains, 0, tid) : nullptr;
@@ -676,7 +673,7 @@ RT3_REPLACE(0x41bee0, Car_ApplyPriceFactor);
 // kind (u16 +0x88 of object 0x62ba8c) and its train (+0x390) has flag +0x198.
 RT3_NOINLINE double __fastcall Obj_Rate(void* o) {
     float f = (float)((double)F<float>(o, 0x3a0) * F<float>(o, 0x39c));
-    if (F<int32_t>(o, 0x38c) != F<uint16_t>(hook::Global<uint8_t*>(0x62ba8c), 0x88)) return f;
+    if (F<int32_t>(o, 0x38c) != F<uint16_t>(hook::As<uint8_t*>(g_cargoTypes), 0x88)) return f;
     int32_t id = F<int32_t>(o, 0x390);
     volatile uint8_t* t = id != -1 ? (uint8_t*)Collection_Get(g_trains, 0, id) : nullptr;
     if (t[0x198]) f = (float)(f * *(const double*)0x5c8698); // QUIRK: no train reads address 0x198
@@ -688,7 +685,7 @@ RT3_NOINLINE int32_t __fastcall Obj_NodeNear356(uint8_t* o, int, int32_t id) {
     int32_t n = F<int32_t>(o, 0x356);
     if (n == -1) return 0;
     if (id == n) return 1;
-    return Track_LinksWithin((uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfca8), 0, n), 0, id, 2, -1) ? 1 : 0;
+    return Track_LinksWithin((uint8_t*)Collection_Get(g_tracks, 0, n), 0, id, 2, -1) ? 1 : 0;
 }
 RT3_REPLACE(0x41c010, Obj_NodeNear356);
 
@@ -696,8 +693,8 @@ RT3_REPLACE(0x41c010, Obj_NodeNear356);
 // its type's list (+0x196 / +0x19a), else the type's base skin (+0x3d) shifted by
 // 4 per cargo load level (cargo +0x20, 1..8).
 RT3_NOINLINE uint32_t __fastcall Car_SkinTexture(uint8_t* car) {
-    Collection* types = hook::Global<Collection*>(0x62ba88);
-    Collection* cargos = hook::Global<Collection*>(0x62ba8c);
+    Collection* types = g_carTypes;
+    Collection* cargos = g_cargoTypes;
     if (car[0x3cc]) {
         for (int32_t i = 0; i < Collection_Count(F<Collection*>(Collection_Get(types, 0, F<uint32_t>(car, 0x388)), 0x196)); ++i) {
             Collection* names = F<Collection*>(Collection_Get(types, 0, F<uint32_t>(car, 0x388)), 0x196);
@@ -729,33 +726,33 @@ RT3_REPLACE(0x41c060, Car_SkinTexture);
 // train without a city, out is left alone.
 RT3_NOINLINE void __fastcall Car_StatusText(uint8_t* car, int, char* out) {
     if (F<int32_t>(car, 0x390) == -1) return;
-    uint8_t* train = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfcbc), 0, F<uint32_t>(car, 0x390));
+    uint8_t* train = (uint8_t*)Collection_Get(g_trains, 0, F<uint32_t>(car, 0x390));
     if (!train) return;
-    int32_t kind = F<int32_t>(Collection_Get(hook::Global<Collection*>(0x62ba88), 0, F<uint32_t>(car, 0x388)), 0x41);
+    int32_t kind = F<int32_t>(Collection_Get(g_carTypes, 0, F<uint32_t>(car, 0x388)), 0x41);
     char a[0x40], b[0x40];
     if (kind == 3 || kind == 2) {
         uint8_t* city = (uint8_t*)Obj_CityRef(train);
         if (!city) return;
         uint32_t pr = F<uint32_t>(city, 0x72);
         int32_t age = F<int32_t>(train, 0xd4);
-        const char* nm = LocalizeName((const char*)(pr ? (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba88), 0, pr) : nullptr) + 0x45);
-        int32_t days = (int32_t)F<uint16_t>(hook::Global<uint8_t*>(0x6cec78), 0xd) - age;
+        const char* nm = LocalizeName((const char*)(pr ? (uint8_t*)Collection_Get(g_carTypes, 0, pr) : nullptr) + 0x45);
+        int32_t days = (int32_t)F<uint16_t>(g_world, 0xd) - age;
         const char* sd = Num_Format(a, 8, (double)days, 0xa, 1, 0, 0);
         const char* sv = Num_Format(b, 1, (double)Ftol((double)F<float>(city, 0x20)), 0xa, 1, 0, 0);
         FormatText(out, GetString(0xc3), nm, sv, sd, nullptr, nullptr, nullptr, nullptr, nullptr);
         return;
     }
     if (kind == 1) {
-        float rate = Obj_Rate(car) < hook::Global<float>(0x5c8598) ? 0.0f : (float)Obj_Rate(car);
+        float rate = Obj_Rate(car) < g_5c8598 ? 0.0f : (float)Obj_Rate(car);
         float value = F<float>(car, 0x398);
         uint32_t ck = F<uint32_t>(car, 0x38c);
-        const char* cargo = LocalizeName((const char*)(ck ? (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba8c), 0, ck) : nullptr) + 4);
+        const char* cargo = LocalizeName((const char*)(ck ? (uint8_t*)Collection_Get(g_cargoTypes, 0, ck) : nullptr) + 4);
         char r[0x40];
         const char* sr = Num_FormatSimple2(r, 0xb, (double)rate, 0xb);
         const char* sv = Num_Format(b, 8, (double)Ftol((double)value * Fl_207(0x5c8c28)), 0xa, 1, 0, 0);
         FormatText(out, GetString(0xc4), cargo, sv, sr, nullptr, nullptr, nullptr, nullptr, nullptr);
-        if (F<int32_t>(car, 0x38c) == F<uint16_t>(hook::Global<uint8_t*>(0x62ba8c), 0x88) && train[0x198]) strcat(out, GetString(0xdbb));
-        if (!hook::Global<uint8_t*>(0x6cec7c)[0x82]) return;
+        if (F<int32_t>(car, 0x38c) == F<uint16_t>(hook::As<uint8_t*>(g_cargoTypes), 0x88) && train[0x198]) strcat(out, GetString(0xdbb));
+        if (!g_newGame[0x82]) return;
         strcpy(out, LocalizeName((const char*)Obj_CargoType(car) + 4));
         return;
     }
@@ -767,12 +764,12 @@ RT3_NOINLINE void __fastcall Car_StatusText(uint8_t* car, int, char* out) {
         strcpy(out, GetString(0xc6));
         double rate = Train_CargoRate(train, 0, 1);
         float v = (float)(rate - rate / D(0x5c8698));
-        if (!(v > hook::Global<float>(0x5c8598))) v = 0.0f;
+        if (!(v > g_5c8598)) v = 0.0f;
         char n[0x40], line[0x100];
         const char* s = Num_FormatSimple(n, 9, (double)v, 0xb);
         FormatText(line, GetString(0xdbc), s, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
         strcat(out, line);
-        if (hook::Global<uint8_t*>(0x6cec7c)[0x82]) strcpy(out, GetString(0x38f));
+        if (g_newGame[0x82]) strcpy(out, GetString(0x38f));
         return;
     }
     if (kind == 5) {
@@ -812,10 +809,10 @@ RT3_REPLACE(0x41c5f0, Car_ShowCargoModel);
 // 0x41c6b0 (vtable). Shows car c's status as a tooltip (not while the
 // bulldozer tool runs).
 void __fastcall Car_ShowStatusTooltip(uint8_t* c) {
-    if (hook::Global<uint8_t*>(0x6d1a8c) && Global622b0cIs64()) return;
+    if (g_6d1a8c && Global622b0cIs64()) return;
     char text[0x1f8];
     Car_StatusText(c, 0, text);
-    Ui_ShowTooltip(hook::Global<uint8_t*>(0x6d401c), 0, text, 3, 0, -1);
+    Ui_ShowTooltip(g_windowManager, 0, text, 3, 0, -1);
 }
 RT3_REPLACE(0x41c6b0, Car_ShowStatusTooltip);
 
@@ -825,12 +822,12 @@ RT3_REPLACE(0x41c6b0, Car_ShowStatusTooltip);
 void __fastcall Obj_DetachChain(void* o) {
     int32_t id = F<int32_t>(o, 0x352);
     if (id != -1) {
-        for (uint8_t* c = (uint8_t*)Collection_Get(g_cities, 0, id); c; ) {
+        for (uint8_t* c = (uint8_t*)Collection_Get(g_62ba84, 0, id); c; ) {
             Virtual(c, 0x10);
             Obj_UnlinkFromNode(c);
             int32_t next = F<int32_t>(c, 0x352);
             if (next == -1) break;
-            c = (uint8_t*)Collection_Get(g_cities, 0, next);
+            c = (uint8_t*)Collection_Get(g_62ba84, 0, next);
         }
     }
     if (Collection_IsValid(g_trains, 0, F<uint32_t>(o, 0x390))) {
@@ -840,8 +837,8 @@ void __fastcall Obj_DetachChain(void* o) {
             uint8_t* tr = t != -1 ? (uint8_t*)Collection_Get(g_trains, 0, t) : nullptr;
             return F<uint32_t>(tr, 0x4d);
         };
-        if (Collection_IsValid(g_trackNodes, 0, trainNode())) {
-            void* node = Collection_Get(g_trackNodes, 0, trainNode());
+        if (Collection_IsValid(g_tracks, 0, trainNode())) {
+            void* node = Collection_Get(g_tracks, 0, trainNode());
             Node_ClearLinks(node, 0, F<int32_t>(o, 0x390), -3);
         }
     }
@@ -858,13 +855,13 @@ RT3_REPLACE(0x41c8c0, Obj_DetachChain);
 // skipping the player's own trains in mode 1 unless the finder asks; else
 // the generic tooltip.
 int32_t __fastcall Car_Tooltip(uint8_t* o, int, char* dst, int32_t n, int32_t a, int32_t b, int32_t logo) {
-    if (F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x7c)) {
+    if (F<int32_t>(g_app, 0x7c)) {
         char frame[0x158];
         char* num = frame + 8;
         char* text = frame + 0x28;
         float angle;
         Model_GetAngles(o, 0, (uint32_t*)&angle, nullptr, nullptr);
-        const char* name = LocalizeName((const char*)Collection_Get(hook::Global<Collection*>(0x62ba88), 0, F<uint32_t>(o, 0x388)) + 0x45);
+        const char* name = LocalizeName((const char*)Collection_Get(g_carTypes, 0, F<uint32_t>(o, 0x388)) + 0x45);
         const float speed = (float)((double)angle * D(0x5c97c0));
         Num_Format(num, 3, (double)speed * Fl_207(0x5c8c28), 10, 1, 0, 0);
         FormatText(text, GetString(0xc2), name, num, 0, 0, 0, 0, 0, 0);
@@ -872,28 +869,28 @@ int32_t __fastcall Car_Tooltip(uint8_t* o, int, char* dst, int32_t n, int32_t a,
         return 1;
     }
     int32_t show = 0, hide = 0;
-    if (uint8_t* f = hook::Global<uint8_t*>(0x6d12f0)) {
+    if (uint8_t* f = g_6d12f0) {
         const int32_t mode = F<int32_t>(f, 0x78);
         if (mode == 4) show = 1;
         if (mode == 3) {
-            uint8_t* t = F<int32_t>(o, 0x390) != -1 ? (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfcbc), 0, F<uint32_t>(o, 0x390)) : nullptr;
-            f = hook::Global<uint8_t*>(0x6d12f0);
+            uint8_t* t = F<int32_t>(o, 0x390) != -1 ? (uint8_t*)Collection_Get(g_trains, 0, F<uint32_t>(o, 0x390)) : nullptr;
+            f = g_6d12f0;
             if (F<int32_t>(t, 0x41) == F<int32_t>(o, 0x34a) && F<int32_t>(t, 0x51) == F<int32_t>(f, 0x7c))
                 show = 1;
             else
                 hide = 1;
         }
     }
-    if (F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x22f) || show) {
-        uint8_t* t = F<int32_t>(o, 0x390) != -1 ? (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfcbc), 0, F<uint32_t>(o, 0x390)) : nullptr;
+    if (F<int32_t>(g_app, 0x22f) || show) {
+        uint8_t* t = F<int32_t>(o, 0x390) != -1 ? (uint8_t*)Collection_Get(g_trains, 0, F<uint32_t>(o, 0x390)) : nullptr;
         if (F<int32_t>(t, 0x41) == F<int32_t>(o, 0x34a) && F<int32_t>(t, 0x51)) {
             bool hidden = false;
             if (F<int32_t>(o, 0x356) != -1) {
-                uint8_t* piece = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfca8), 0, F<uint32_t>(o, 0x356));
+                uint8_t* piece = (uint8_t*)Collection_Get(g_tracks, 0, F<uint32_t>(o, 0x356));
                 hidden = ((int32_t(__thiscall*)(uint8_t*))(*(void***)piece)[5])(piece) != 0;
             }
             if (!hidden && !hide) {
-                if (F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x22f) != 1 || F<int32_t>(t, 0x51) != Obj_Get21(hook::Global<uint8_t*>(0x6cec78)) || show) {
+                if (F<int32_t>(g_app, 0x22f) != 1 || F<int32_t>(t, 0x51) != Obj_Get21(g_world) || show) {
                     *(uint32_t*)(uintptr_t)logo = Company_Logo((uint8_t*)Train_Company(t));
                     return 2;
                 }
@@ -909,11 +906,11 @@ RT3_REPLACE(0x41c9a0, Car_Tooltip);
 // books it to the train's company with the train's speed and reliability, adds
 // region cargos to the region's stock, and clears the load. Returns the revenue.
 float __fastcall Load_PayOut(uint8_t* o) {
-    uint8_t* t = F<int32_t>(o, 0x390) != -1 ? (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfcbc), 0, F<uint32_t>(o, 0x390)) : nullptr;
+    uint8_t* t = F<int32_t>(o, 0x390) != -1 ? (uint8_t*)Collection_Get(g_trains, 0, F<uint32_t>(o, 0x390)) : nullptr;
     uint8_t* r = Train_FirstCarRegion(t);
     float rev = 0.0f;
     if (F<float>(o, 0x398) > *(const float*)0x5c8598) {
-        uint8_t* cargos = hook::Global<uint8_t*>(0x62ba8c);
+        uint8_t* cargos = hook::As<uint8_t*>(g_cargoTypes);
         rev = (float)((double)F<float>(o, 0x3a0) * F<float>(o, 0x39c));
         int32_t cargo = F<int32_t>(o, 0x38c);
         if (cargo == F<uint16_t>(cargos, 0x88) && t[0x198]) rev = (float)(rev * D(0x5c8698));
@@ -925,7 +922,7 @@ float __fastcall Load_PayOut(uint8_t* o) {
         void* c = Train_Company(t);
         if (c) Obj_AddRevenue(c, 0, F<float>(o, 0x398), (float)((double)h * F<float>(o, 0x398)), rel, kind, F<int32_t>(o, 0x38c));
         int32_t cg = F<int32_t>(o, 0x38c);
-        if (F<int32_t>(hook::Global<uint8_t*>(0x62ba8c), 0x9a + cg * 4) == -1)
+        if (F<int32_t>(hook::As<uint8_t*>(g_cargoTypes), 0x9a + cg * 4) == -1)
             F<float>(r, 0x103 + cg * 4) = (float)((double)F<float>(r, 0x103 + cg * 4) + F<float>(o, 0x398));
     }
     F<uint32_t>(o, 0x3a0) = 0x3f800000;
@@ -940,7 +937,7 @@ RT3_REPLACE(0x41cbc0, Load_PayOut);
 // texture set +0x3cc and name +0x3ac, then resolves its type and shows its
 // cargo model.
 int32_t __fastcall Car_LoadState(uint8_t* c, int, int32_t s) {
-    uint8_t* type = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba88), 0, F<uint32_t>(c, 0x388));
+    uint8_t* type = (uint8_t*)Collection_Get(g_carTypes, 0, F<uint32_t>(c, 0x388));
     int32_t r = Car_Load(c, 0, s, (char*)c + 0x3cc, (const char*)c + 0x3ac, type);
     Car_ResolveType(c);
     Car_ShowCargoModel(c);
@@ -1046,11 +1043,11 @@ RT3_NOINLINE int32_t __fastcall CarType_Available(uint8_t* o, int, uint32_t comp
     int32_t bonus = 0;
     int32_t k = F<int32_t>(o, 0x41);
     if (k == 2 || k == 3) {
-        uint8_t* opts = hook::Global<uint8_t*>(0x6cec74);
+        uint8_t* opts = g_app;
         if (F<int32_t>(opts, 0x180)) return 1;
         if (World() && World()[0x4c8c]) return 1;
-        if (hook::Global<uint8_t*>(0x6cec7c)[0x82] && F<int32_t>(opts, 0x247)) return 1;
-        Collection* cargos = hook::Global<Collection*>(0x6ada84);
+        if (g_newGame[0x82] && F<int32_t>(opts, 0x247)) return 1;
+        Collection* cargos = g_6ada84;
         if (!Collection_IsValid(cargos, 0, F<uint32_t>(o, 0x126))) return 0;
         uint8_t* t = (uint8_t*)Collection_Get(cargos, 0, F<uint32_t>(o, 0x126));
         int32_t id = F<int32_t>(o, 0x126) + 0xfb;
@@ -1110,9 +1107,9 @@ void __fastcall CarTypes_LoadAll(Collection* t) {
     auto Fopen = (void*(__cdecl*)(const char*, const char*))0x5a1887;
     auto Fread = (size_t(__cdecl*)(void*, size_t, size_t, void*))0x5a1b05;
     auto Fclose = (int(__cdecl*)(void*))0x5a1740;
-    auto FindFirst = (void*(__stdcall*)(const char*, void*))hook::Global<void*>(0x5c8190);
-    auto FindNext = (int32_t(__stdcall*)(void*, void*))hook::Global<void*>(0x5c8194);
-    auto FindClose_ = (int32_t(__stdcall*)(void*))hook::Global<void*>(0x5c819c);
+    auto FindFirst = (void*(__stdcall*)(const char*, void*))g_5c8190;
+    auto FindNext = (int32_t(__stdcall*)(void*, void*))g_5c8194;
+    auto FindClose_ = (int32_t(__stdcall*)(void*))g_5c819c;
     static const uint32_t kBase[13] = { 0x5c9934, 0x5c992c, 0x5c9920, 0x5c9910, 0x5c9900, 0x5c98f0, 0x5c98e0,
                                         0x5c98d0, 0x5c98c0, 0x5c98b0, 0x5c98a0, 0x5c9890, 0x5c9884 };
     uint8_t fd[0x140];
@@ -1132,7 +1129,7 @@ void __fastcall CarTypes_LoadAll(Collection* t) {
                     break;
                 }
             if ((pass == 0 && base) || (pass == 1 && !base)) continue;
-            Loading_Pump(hook::Global<uint8_t*>(0x6cec74), 0, 0, 0);
+            Loading_Pump(g_app, 0, 0, 0);
             FormatText(path, (const char*)0x5c9870, file, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
             void* f = Fopen(path, (const char*)0x5c9678);
             if (!f) continue;
@@ -1175,16 +1172,16 @@ void __fastcall CarTypes_LoadAll(Collection* t) {
             uint8_t* mem = ((uint8_t*(__cdecl*)(size_t))0x53b070)(0x88);
             Collection* sounds = mem ? Collection_Construct((Collection*)mem, 0, 1, 0x20, 0xa, 5, 0, 0, 0) : nullptr;
             F<Collection*>(rec, 0x196) = sounds;
-            uint8_t* pack = hook::Global<uint8_t*>(0x6d4020);
+            uint8_t* pack = g_pack;
             for (int32_t i = 0; i < Collection_Count(F<Collection*>(pack, 0x429b8)); ++i) {
-                Collection* all = F<Collection*>(hook::Global<uint8_t*>(0x6d4020), 0x429b8);
+                Collection* all = F<Collection*>(g_pack, 0x429b8);
                 uint8_t* e = (uint8_t*)Collection_Get(all, 0, Collection_IdAt(all, 0, (uint32_t)i, 0));
                 if (Stricmp((const char*)rec + 0x82, (const char*)e + 0x20)) continue;
                 sounds = F<Collection*>(rec, 0x196);
                 sounds->vtbl->allocate(sounds, e, 0, 0, 0);
-                uint8_t* hnd = Pack_AcquireNamed(hook::Global<uint8_t*>(0x6d4020), 0, (const char*)e + 0x40);
+                uint8_t* hnd = Pack_AcquireNamed(g_pack, 0, (const char*)e + 0x40);
                 F<uint8_t*>(rec, 0x196 + Collection_Count(F<Collection*>(rec, 0x196)) * 4) = hnd;
-                pack = hook::Global<uint8_t*>(0x6d4020);
+                pack = g_pack;
             }
             F<int32_t>(rec, 0x262) = -1;
             t->vtbl->allocate(t, rec, 0, 0, 0);
@@ -1202,8 +1199,8 @@ RT3_REPLACE(0x41d7c0, CarTypes_LoadAll);
 // and the slot.
 void __fastcall BuildingTypes_Delete(Collection* c, int, uint32_t id) {
     uint8_t* r = (uint8_t*)Collection_Get(c, 0, id);
-    Pack_Release(hook::Global<uint8_t*>(0x6d4020), 0, F<void*>(r, 0x12a));
-    for (int32_t i = 0; i < Collection_Count(F<Collection*>(r, 0x196)); ++i) Pack_Release(hook::Global<uint8_t*>(0x6d4020), 0, F<void*>(r, 0x19a + 4 * i));
+    Pack_Release(g_pack, 0, F<void*>(r, 0x12a));
+    for (int32_t i = 0; i < Collection_Count(F<Collection*>(r, 0x196)); ++i) Pack_Release(g_pack, 0, F<void*>(r, 0x19a + 4 * i));
     if (Collection* l = F<Collection*>(r, 0x196)) {
         Collection_Destruct(l);
         Free445(l);
@@ -1225,7 +1222,7 @@ uint32_t __fastcall BuildingTypes_Add(Collection* c, int, uint8_t* rec, uint32_t
     char path[0x12c], text[0x1e4];
     FormatText(path, (const char*)0x5c9954, name, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
     uint32_t fail = 0xca;
-    if (NameTable_ContainsName(hook::Global<uint8_t*>(0x6d4020), 0, path, 0, nullptr)) {
+    if (NameTable_ContainsName(g_pack, 0, path, 0, nullptr)) {
         uint8_t* mem = ((uint8_t*(__cdecl*)(size_t))0x53b070)(0x206);
         uint8_t* model = mem ? SceneObj_Construct(mem, 0, 0, path, nullptr) : nullptr;
         uint8_t* cur = nullptr;
@@ -1246,7 +1243,7 @@ uint32_t __fastcall BuildingTypes_Add(Collection* c, int, uint8_t* rec, uint32_t
         DebugLog(text, -0x4d2, -0x4d2, -0x4d2, -0x4d2, -0x4d2, -0x4d2, -0x4d2, -0x4d2, -0x4d2);
         F<uint32_t>(rec, 0x10d) = 0x3f800000;
     }
-    F<uint32_t>(rec, 0x12a) = (uint32_t)(uintptr_t)Pack_AcquireNamed(hook::Global<uint8_t*>(0x6d4020), 0, (const char*)rec);
+    F<uint32_t>(rec, 0x12a) = (uint32_t)(uintptr_t)Pack_AcquireNamed(g_pack, 0, (const char*)rec);
     return Collection_Allocate(c, 0, rec, size, key2, key3);
 }
 RT3_REPLACE(0x41de60, BuildingTypes_Add);

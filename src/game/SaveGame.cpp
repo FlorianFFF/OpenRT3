@@ -6,6 +6,7 @@
 #include <string.h>
 #include <math.h>
 #include "hook/hook.h"
+#include "core/globals.h"
 #include "hook/keepregs.h"
 #include "game/collection.h"
 #include "game/calendar.h"
@@ -279,7 +280,7 @@ inline double RtMod(double x, double y) { return ((double(__cdecl*)(double, doub
 inline int RtStricmp(const char* a, const char* b) { return ((int(__cdecl*)(const char*, const char*))0x5a57cf)(a, b); }
 inline float RtBits(uint32_t v) { return *(const float*)&v; }
 inline uint8_t* RtGet(uint32_t global, int32_t id) { return (uint8_t*)Collection_Get(hook::Global<Collection*>(global), 0, (uint32_t)id); }
-inline uint8_t* RtMap() { return hook::Global<uint8_t*>(0x62c120); }
+inline uint8_t* RtMap() { return g_map; }
 }
 
 namespace {
@@ -308,26 +309,26 @@ void Map_AddRecord(Collection* c, void* rec) { ((void(__fastcall*)(Collection*, 
 // +0x15 to pack) steps; then the preview JPEG, the image appended (+0x66c8,
 // then packed with +0x66c9) or the header rewritten in place.
 RT3_NOINLINE void __fastcall World_SaveGame(uint8_t* w, int, const char* name, uint32_t flags) {
-    hook::Global<int32_t>(0x620e94) = AnyHasFixedName() ? 0x2649 : 0x25e5;
-    hook::Global<int32_t>(0x62bec8) = 0x15;
-    hook::Global<int32_t>(0x62becc) = 0;
-    hook::Global<int32_t>(0x62bed0) = ClockMs();
-    const int32_t cursor = F<int32_t>(hook::Global<uint8_t*>(0xccbb20), 4);
-    Cursor_Set(hook::Global<uint8_t*>(0xccbb20), 0, 0, 0, 0);
+    hook::As<int32_t>(g_620e94) = AnyHasFixedName() ? 0x2649 : 0x25e5;
+    g_62bec8 = 0x15;
+    g_62becc = 0;
+    g_62bed0 = ClockMs();
+    const int32_t cursor = F<int32_t>(g_cursorManager, 4);
+    Cursor_Set(g_cursorManager, 0, 0, 0, 0);
     AppendOptionHistory();
-    if (uint8_t* tool = hook::Global<uint8_t*>(0x6d1a8c)) TrackTool_Suspend(tool);
-    if (uint8_t* dlg = hook::Global<uint8_t*>(0x6d1720)) InfoWindow_ClearHighlights(dlg);
+    if (uint8_t* tool = g_6d1a8c) TrackTool_Suspend(tool);
+    if (uint8_t* dlg = g_6d1720) InfoWindow_ClearHighlights(dlg);
     auto restoreUi = [&] {
         PopOptionHistory();
-        if (uint8_t* dlg = hook::Global<uint8_t*>(0x6d1720)) BuildingDialog_Retrack(dlg);
-        if (uint8_t* tool = hook::Global<uint8_t*>(0x6d1a8c)) TrackTool_Resume(tool);
-        Cursor_Set(hook::Global<uint8_t*>(0xccbb20), 0, cursor, 0, 0);
-        Ui_ShowTooltip(hook::Global<uint8_t*>(0x6d401c), 0, (const char*)0x5c87a8, 3, 0, -1);
-        hook::Global<int32_t>(0x62bec8) = 0;
+        if (uint8_t* dlg = g_6d1720) BuildingDialog_Retrack(dlg);
+        if (uint8_t* tool = g_6d1a8c) TrackTool_Resume(tool);
+        Cursor_Set(g_cursorManager, 0, cursor, 0, 0);
+        Ui_ShowTooltip(g_windowManager, 0, (const char*)0x5c87a8, 3, 0, -1);
+        g_62bec8 = 0;
     };
     char path[0x130];
     {
-        const char* folder = Options_SaveFolder(hook::Global<uint8_t*>(0x6cec74));
+        const char* folder = Options_SaveFolder(g_app);
         FormatText(path, (const char*)0x5c9d00, folder, name, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
     }
     const Stream s = StreamOpen(path, 4, 200000, 1);
@@ -337,17 +338,17 @@ RT3_NOINLINE void __fastcall World_SaveGame(uint8_t* w, int, const char* name, u
         restoreUi();
         return;
     }
-    if (F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x68)) World_MarkBuildingTypes(w);
+    if (F<int32_t>(g_app, 0x68)) World_MarkBuildingTypes(w);
     uint8_t* const block = w + 0x66be;
     Map_WritePreview(w, 0, block);
     SaveHeaderBlock(nullptr, block, s);
     Save_LogProgress(s, (const char*)0x5ca998);
-    if (w[0x66c8]) ++hook::Global<int32_t>(0x62bec8);
-    if (w[0x66c9]) hook::Global<int32_t>(0x62bec8) += 0x15;
+    if (w[0x66c8]) ++g_62bec8;
+    if (w[0x66c9]) g_62bec8 += 0x15;
     auto step = [] {
-        const float done = (float)++hook::Global<int32_t>(0x62becc);
-        Ui_ShowTooltip(hook::Global<uint8_t*>(0x6d401c), 0, Save_ProgressText(hook::Global<int32_t>(0x62bec8), done), 3, 0, -1);
-        App_Redraw(hook::Global<uint8_t*>(0x6cec74));
+        const float done = (float)++g_62becc;
+        Ui_ShowTooltip(g_windowManager, 0, Save_ProgressText(g_62bec8, done), 3, 0, -1);
+        App_Redraw(g_app);
     };
     auto tag = [s](uint32_t v) { StreamWriteU32(s, v); };
     auto log = [s](uint32_t label) { Save_LogProgress(s, (const char*)label); };
@@ -359,98 +360,98 @@ RT3_NOINLINE void __fastcall World_SaveGame(uint8_t* w, int, const char* name, u
     StreamWrite(s, w + 0x5ae9, 0xbb9, 0);
     tag(0x332e);
     step();
-    Loading_Pump(hook::Global<uint8_t*>(0x6cec74), 0, 0, 0);
+    Loading_Pump(g_app, 0, 0, 0);
     Collection_Save(F<Collection*>(w, 0x66b2), 0, s, 0);
     step();
     log(0x5ca978);
     tag(0x32dc);
     tag(0x3714);
-    StreamWrite(s, hook::Global<uint8_t*>(0x6cec7c), 0x108, 0);
+    StreamWrite(s, g_newGame, 0x108, 0);
     tag(0x3715);
     Collection_Save(F<Collection*>(w, 0x66b6), 0, s, 0);
     tag(0x32dd);
     char picture[0x130];
     {
-        const char* folder = Options_SaveFolder(hook::Global<uint8_t*>(0x6cec74));
+        const char* folder = Options_SaveFolder(g_app);
         FormatText(picture, (const char*)0x5c9d00, folder, name, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
         // The extension (last four characters) becomes "_A.tga".
         ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)(picture + strlen(picture) - 4, (const char*)0x5ca320);
     }
-    Map_Save(hook::Global<uint8_t*>(0x62c120), 0, s, picture);
+    Map_Save(g_map, 0, s, picture);
     log(0x5ca96c);
     tag(0x32ca);
     step();
     {
-        uint8_t* view = hook::Global<uint8_t*>(0x62be68);
+        uint8_t* view = g_62be68;
         ((void(__fastcall*)(uint8_t*, int, Stream))(*(void***)view)[8 / 4])(view, 0, s);
     }
     log(0x5ca95c);
     tag(0x32cb);
     step();
-    Collection_SaveTagged6979(hook::Global<Collection*>(0x62ba8c), 0, s, 0);
+    Collection_SaveTagged6979(g_cargoTypes, 0, s, 0);
     tag(0x332b);
     log(0x5ca94c);
     step();
-    Sites_SaveTable(hook::Global<uint8_t*>(0x62b2fc), 0, s);
+    Sites_SaveTable(hook::As<uint8_t*>(g_buildingTypes), 0, s);
     tag(0x3315);
     log(0x5ca938);
     step();
-    Buildings_Save(hook::Global<Collection*>(0x62b26c), 0, s, 0);
+    Buildings_Save(g_buildings, 0, s, 0);
     log(0x5ca928);
     tag(0x32cc);
     step();
-    Collection_Save(hook::Global<Collection*>(0x6ada90), 0, s, 0);
+    Collection_Save(g_6ada90, 0, s, 0);
     log(0x5ca918);
     tag(0x332a);
     step();
-    Sites_Save(hook::Global<Collection*>(0x6cec20), 0, s, 0);
+    Sites_Save(g_stations, 0, s, 0);
     log(0x5ca908);
     tag(0x332b);
     step();
-    Collection_SaveWithRecords(hook::Global<Collection*>(0x62ba84), 0, s, 0);
+    Collection_SaveWithRecords(g_62ba84, 0, s, 0);
     log(0x5ca8fc);
     tag(0x32cd);
     step();
-    Trains_Save(hook::Global<Collection*>(0x6cfcbc), 0, s, 0);
+    Trains_Save(g_trains, 0, s, 0);
     log(0x5ca8f0);
     tag(0x32ce);
     step();
-    Companies_Save(hook::Global<Collection*>(0x62be10), 0, s, 0);
+    Companies_Save(g_companies, 0, s, 0);
     log(0x5ca8e0);
     tag(0x32cf);
     step();
-    ContainerList_Save(hook::Global<Collection*>(0x6cfca8), 0, s, 0);
+    ContainerList_Save(g_tracks, 0, s, 0);
     log(0x5ca8d4);
     tag(0x32d3);
     step();
-    Routes_Save(hook::Global<Collection*>(0x6cfcb4), 0, s, 0x24);
+    Routes_Save(g_routes, 0, s, 0x24);
     log(0x5ca8c4);
     tag(0x32d0);
     step();
-    Players_Save(hook::Global<Collection*>(0x6ceb9c), 0, s, 0);
+    Players_Save(g_players, 0, s, 0);
     log(0x5ca8b8);
     tag(0x32d1);
     step();
-    Collection_SaveWithRecords5209b(hook::Global<Collection*>(0x6ada80), 0, s, 0);
+    Collection_SaveWithRecords5209b(g_6ada80, 0, s, 0);
     log(0x5ca8ac);
     tag(0x332c);
     step();
-    Collection_SaveWithRecords61a9(hook::Global<Collection*>(0x6cea50), 0, s, 0);
+    Collection_SaveWithRecords61a9(g_6cea50, 0, s, 0);
     log(0x5ca898);
     tag(0x332d);
     step();
-    Collection_SaveWithRecords5209(hook::Global<Collection*>(0x62bae0), 0, s, 0);
+    Collection_SaveWithRecords5209(g_cities, 0, s, 0);
     log(0x5ca88c);
     tag(0x32d2);
     step();
-    Stations_Save(hook::Global<Collection*>(0x6cfc9c), 0, s, 0);
+    Stations_Save(g_territories, 0, s, 0);
     log(0x5ca87c);
     tag(0x32d3);
-    Collection_SaveWithRecords2af9(hook::Global<Collection*>(0x62b244), 0, s, 0);
+    Collection_SaveWithRecords2af9(g_62b244, 0, s, 0);
     log(0x5ca86c);
     tag(0x32dc);
     step();
-    RuleSets_Save(hook::Global<Collection*>(0x62be18), 0, s, 0);
+    RuleSets_Save(g_events, 0, s, 0);
     log(0x5ca860);
     tag(0x32e6);
     step();
@@ -475,7 +476,7 @@ RT3_NOINLINE void __fastcall World_SaveGame(uint8_t* w, int, const char* name, u
         SaveHeaderBlock(f, block, 0);
         ((int(__cdecl*)(void*))0x5a1740)(f);
     }
-    NameTable_Rescan(hook::Global<uint8_t*>(0x6d4020));
+    NameTable_Rescan(g_pack);
     restoreUi();
 }
 RT3_REPLACE(0x444dd0, World_SaveGame);
@@ -484,7 +485,7 @@ RT3_REPLACE(0x444dd0, World_SaveGame);
 // track) at position `pos` (+0x35e): it is unlinked and relinked on its side
 // (+0x35a); entering a new piece wears it and blocks it.
 void __fastcall Car_SetPiece(uint8_t* car, int, int32_t piece, int32_t pos) {
-    uint8_t* const p = piece != -1 ? (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfca8), 0, (uint32_t)piece) : nullptr;
+    uint8_t* const p = piece != -1 ? (uint8_t*)Collection_Get(g_tracks, 0, (uint32_t)piece) : nullptr;
     Obj_UnlinkFromNode(car);
     Car_LinkToNode(car, 0, piece, F<int32_t>(car, 0x35a));
     if (F<int32_t>(car, 0x356) != piece) {
@@ -514,12 +515,12 @@ RT3_NOINLINE int32_t __fastcall World_Load(uint8_t* w, int, const char* name, ui
         FormatText(file, name, 0, 0, 0, 0, 0, 0, 0, 0);
     } else if (flags & 1) {
         memcpy(file, (const void*)0x5ca9cc, 10);
-        uint8_t* ed = hook::Global<uint8_t*>(0x6cec74);
-        uint8_t* lobby = hook::Global<uint8_t*>(0x6cec7c);
+        uint8_t* ed = g_app;
+        uint8_t* lobby = g_newGame;
         const uint32_t ext = F<int32_t>(ed, 0x68) ? 0x5ca9c4 : lobby[0x82] ? 0x5ca9bc : lobby[0xc5] ? 0x5ca9b4 : 0x5ca9ac;
         memcpy(file + strlen(file), (const void*)ext, 5);
         char path[0x11c];
-        const char* folder = Options_SaveFolder(hook::Global<uint8_t*>(0x6cec74));
+        const char* folder = Options_SaveFolder(g_app);
         FormatText(path, (const char*)0x5c9d00, folder, file, 0, 0, 0, 0, 0, 0);
         if (!FileExists(path)) {
             Dialog_RunMessage(GetString(0x182), 1, 0xbf800000, 0xbf800000, 0, nullptr, 0, 0.0f, 0, 0x1e, 0, nullptr, nullptr, 0, 0, nullptr, 0);
@@ -529,30 +530,30 @@ RT3_NOINLINE int32_t __fastcall World_Load(uint8_t* w, int, const char* name, ui
     } else {
         int32_t kind;
         if (Global6d07b4Set2()) kind = 4;
-        else if (hook::Global<uint8_t*>(0x6cec7c)[0xc5]) kind = 9;
-        else kind = hook::Global<uint8_t*>(0x6cec7c)[0x82] ? 10 : 8;
+        else if (g_newGame[0xc5]) kind = 9;
+        else kind = g_newGame[0x82] ? 10 : 8;
         if (Global6d0810Set() || !FileDialog_Run(file, kind)) return 0;
         if (Save_LoadOptions(file)) {
             Game_PostInputEvent(0xcc, 0, 7, 0, 0);
             return 1;
         }
     }
-    ++hook::Global<int32_t>(0x62be6c);
-    if (Options_Check1bf(hook::Global<uint8_t*>(0x6cec74)) || (flags & 8)) {
+    ++g_62be6c;
+    if (Options_Check1bf(g_app) || (flags & 8)) {
         StripExtension(file);
         memcpy(file + strlen(file), (const void*)0x5ca9a4, 5);
-        ((void(__fastcall*)(uint8_t*, int, char*))0x446d40)(hook::Global<uint8_t*>(0x6cec78), 0, file);
+        ((void(__fastcall*)(uint8_t*, int, char*))0x446d40)(g_world, 0, file);
         if (done) *done = 1;
     } else {
-        ((void(__fastcall*)(uint8_t*, int, char*, uint32_t))0x443a50)(hook::Global<uint8_t*>(0x6cec78), 0, file, ~(flags >> 2) & 1);
+        ((void(__fastcall*)(uint8_t*, int, char*, uint32_t))0x443a50)(g_world, 0, file, ~(flags >> 2) & 1);
     }
-    --hook::Global<int32_t>(0x62be6c);
+    --g_62be6c;
     {
-        void* screen = hook::Global<void*>(0x62be68);
+        void* screen = hook::As<void*>(g_62be68);
         ((void(__fastcall*)(void*))(*(void***)screen)[0])(screen);
     }
-    F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x501) = 1;
-    F<int32_t>(hook::Global<uint8_t*>(0x6d4018), 0xa8c) = 0;
+    F<int32_t>(g_app, 0x501) = 1;
+    F<int32_t>(g_input, 0xa8c) = 0;
     return 1;
 }
 RT3_REPLACE(0x445ac0, World_Load);
@@ -572,8 +573,8 @@ RT3_REPLACE(0x445ac0, World_Load);
 // standard maps (0x621cf0, "%s.gmp") warns 0xfd9.
 RT3_NOINLINE void __fastcall World_Save(uint8_t* w, int, const char* name, uint32_t flags, int32_t* done) {
     if (done) *done = 0;
-    hook::Global<int32_t>(0x62bec4) = Options_Check1bf(hook::Global<uint8_t*>(0x6cec74)) ? F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x11472a)
-                                                                                         : F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x11472e);
+    g_62bec4 = Options_Check1bf(g_app) ? F<int32_t>(g_engine, 0x11472a)
+                                                                                         : F<int32_t>(g_engine, 0x11472e);
     char file[0x12c];
     int32_t picked = 0, plain = 1;
     if (name) {
@@ -582,34 +583,34 @@ RT3_NOINLINE void __fastcall World_Save(uint8_t* w, int, const char* name, uint3
     } else if (flags & 1) {
         FormatText(file, (const char*)0x5ca9cc, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
     } else if (flags & 2) {
-        hook::Global<int32_t>(0x62bec4) = 0;
+        g_62bec4 = 0;
         FormatText(file, GetString(0x183), nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
     } else {
         if (Global6d0810Set()) return;
         plain = 0;
         int32_t kind;
-        if (F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x68)) kind = 3;
-        else if (hook::Global<uint8_t*>(0x6cec7c)[0x82]) kind = 2;
-        else if (hook::Global<uint8_t*>(0x6cec7c)[0xc5]) kind = 1;
+        if (F<int32_t>(g_app, 0x68)) kind = 3;
+        else if (g_newGame[0x82]) kind = 2;
+        else if (g_newGame[0xc5]) kind = 1;
         else kind = IsMultiplayer() ? 0xb : 0;
         if (!FileDialog_Run(file, kind)) return;
         picked = 1;
     }
-    if (Options_Check1bf(hook::Global<uint8_t*>(0x6cec74))) {
+    if (Options_Check1bf(g_app)) {
         StripExtension(file);
         AppendExtension(file, 0x5ca9a4);
         World_ExportMap(w, 0, file);
         if (done) *done = 1;
     } else {
         if (plain) {
-            if (F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x68)) AppendExtension(file, 0x5ca9c4);
-            else if (hook::Global<uint8_t*>(0x6cec7c)[0x82]) AppendExtension(file, 0x5ca9bc);
-            else if (hook::Global<uint8_t*>(0x6cec7c)[0xc5]) AppendExtension(file, 0x5ca9b4);
+            if (F<int32_t>(g_app, 0x68)) AppendExtension(file, 0x5ca9c4);
+            else if (g_newGame[0x82]) AppendExtension(file, 0x5ca9bc);
+            else if (g_newGame[0xc5]) AppendExtension(file, 0x5ca9b4);
             else AppendExtension(file, 0x5ca9ac);
         }
-        if (hook::Global<int32_t>(0x6d080c) && picked) {
+        if (g_6d080c && picked) {
             char path[0x12c];
-            const char* folder = Options_SaveFolder(hook::Global<uint8_t*>(0x6cec74));
+            const char* folder = Options_SaveFolder(g_app);
             FormatText(path, (const char*)0x5c9d00, folder, file, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
             if (File_Exists(path)) {
                 char base[0x408], text[0x3bc];
@@ -625,13 +626,13 @@ RT3_NOINLINE void __fastcall World_Save(uint8_t* w, int, const char* name, uint3
             msg[0] = (uint32_t)Global6d40e4();
             msg[1] = flags;
             strcpy((char*)&msg[2], file);
-            uint8_t* sess = hook::Global<uint8_t*>(0x6cd8d8);
+            uint8_t* sess = g_session;
             Net_Send(sess, 0, (const char*)(sess + 0x8f48), 0x7d, 0x48, (const uint8_t*)msg, 5, 0);
         } else {
             World_SaveGame(w, 0, file, flags);
         }
     }
-    if (F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x68) && hook::Global<uint8_t*>(0x6cec78)[0x66de]) {
+    if (F<int32_t>(g_app, 0x68) && g_world[0x66de]) {
         bool standard = false;
         for (uint32_t p = 0x621cf0; p < 0x621d30; p += 4) {
             char std_[0x408];
@@ -661,14 +662,14 @@ RT3_REPLACE(0x445de0, World_Save);
 // from the last cell that had none (or from the cell flags pass).
 RT3_NOINLINE void __fastcall World_ExportMap(uint8_t* w, int, const char* name) {
     int32_t version = 0x400;
-    if (uint8_t* v = hook::Global<uint8_t*>(0x6d0818)) View_SetToolMode(v, 0, 0, -1);
-    Cursor_PushBusy(hook::Global<uint8_t*>(0xccbb20));
+    if (uint8_t* v = g_gameWindow) View_SetToolMode(v, 0, 0, -1);
+    Cursor_PushBusy(g_cursorManager);
     Game_PauseTools();
-    Ui_ShowTooltip(hook::Global<uint8_t*>(0x6d401c), 0, GetString(0x199), 3, 0, -1);
-    App_Redraw(hook::Global<uint8_t*>(0x6cec74));
+    Ui_ShowTooltip(g_windowManager, 0, GetString(0x199), 3, 0, -1);
+    App_Redraw(g_app);
     char path[0x200];
     {
-        const char* folder = Options_SaveFolder(hook::Global<uint8_t*>(0x6cec74));
+        const char* folder = Options_SaveFolder(g_app);
         FormatText(path, (const char*)0x5c9d00, folder, name, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
     }
     const Stream s = StreamOpen(path, 4, 200000, 1);
@@ -679,21 +680,21 @@ RT3_NOINLINE void __fastcall World_ExportMap(uint8_t* w, int, const char* name) 
         StreamWrite(s, w + 0x66be, 0x403c2, 0);
         StreamWriteU32(s, 0x2ee1);
     }
-    uint8_t* const map = hook::Global<uint8_t*>(0x62c120);
+    uint8_t* const map = g_map;
     int32_t width = F<int32_t>(map, 0x2155), height = F<int32_t>(map, 0x2159);
     StreamWrite(s, &width, 4, 0);
     StreamWrite(s, &height, 4, 0);
-    Terrain_SaveLayers(hook::Global<uint8_t*>(0x62c120), 0, s);
+    Terrain_SaveLayers(g_map, 0, s);
     for (int32_t y = 0; y < height + 1; ++y)
         for (int32_t x = 0; x < width + 1; ++x) {
-            float h = (float)Map_GridFloat(hook::Global<uint8_t*>(0x62c120), 0, x, y);
+            float h = (float)Map_GridFloat(g_map, 0, x, y);
             StreamWrite(s, &h, 4, 0);
         }
     uint8_t lowByte = 0; // shared by the cell passes, see the QUIRK
     auto put8 = [&](uint8_t v) { StreamWrite(s, &v, 1, 0); };
     for (int32_t y = 0; y < height; ++y)
         for (int32_t x = 0; x < width; ++x) {
-            auto m = [] { return hook::Global<uint8_t*>(0x62c120); };
+            auto m = [] { return g_map; };
             put8((uint8_t)Terrain_KindIs1Or4(m(), 0, x, y));
             put8((uint8_t)Terrain_KindIs2Or4Or5(m(), 0, x, y));
             put8((uint8_t)Terrain_KindIs3Or5(m(), 0, x, y));
@@ -721,15 +722,15 @@ RT3_NOINLINE void __fastcall World_ExportMap(uint8_t* w, int, const char* name) 
     }
     {
         int32_t tw, th;
-        uint32_t* pixels = Terrain_ExtractTexture(hook::Global<uint8_t*>(0x62c120), 0, 0.0f, 0.0f, 1.0f, 1.0f, &tw, &th);
+        uint32_t* pixels = Terrain_ExtractTexture(g_map, 0, 0.0f, 0.0f, 1.0f, 1.0f, &tw, &th);
         StreamWrite(s, &tw, 4, 0);
         StreamWrite(s, &th, 4, 0);
         StreamWrite(s, pixels, (uint32_t)(tw * th * 4), 0);
-        Terrain_CommitTexture(hook::Global<uint8_t*>(0x62c120), 0, 1);
+        Terrain_CommitTexture(g_map, 0, 1);
     }
     for (int32_t y = 0; y < height; ++y)
         for (int32_t x = 0; x < width; ++x) {
-            uint8_t* m = hook::Global<uint8_t*>(0x62c120);
+            uint8_t* m = g_map;
             put8(F<uint8_t*>(m, 0x2131)[F<int32_t>(m, 0x2155) * y + x] >> 3);
         }
     // A table's records written as fixed fields.
@@ -738,7 +739,7 @@ RT3_NOINLINE void __fastcall World_ExportMap(uint8_t* w, int, const char* name) 
         StreamWrite(s, &n, 4, 0);
         for (int32_t i = 0; i < n; ++i) each((uint8_t*)Collection_Get(c, 0, Collection_IdAt(c, 0, (uint32_t)i, 0)));
     };
-    table(hook::Global<Collection*>(0x6cfc9c), [&](uint8_t* t) {
+    table(g_territories, [&](uint8_t* t) {
         StreamWrite(s, t + 4, 0x29, 0);
         StreamWrite(s, t + 0x2d, 4, 0);
         StreamWrite(s, t + 0x31, 4, 0);
@@ -755,7 +756,7 @@ RT3_NOINLINE void __fastcall World_ExportMap(uint8_t* w, int, const char* name) 
     });
     StreamWrite(s, w + 0xbe2, 4, 0);
     for (int32_t k = 0; k < 5; ++k) StreamWrite(s, w + 0xbe6 + k * 4, 4, 0);
-    table(hook::Global<Collection*>(0x62bae0), [&](uint8_t* c) {
+    table(g_cities, [&](uint8_t* c) {
         int32_t plan = F<int32_t>(c, 0x272), kind = F<int32_t>(c, 0x23e);
         float cx = (float)Obj_CellX(c), cy = (float)Obj_CellY(c);
         StreamWrite(s, c + 0x356, 0x29, 0);
@@ -774,12 +775,12 @@ RT3_NOINLINE void __fastcall World_ExportMap(uint8_t* w, int, const char* name) 
     StreamWrite(s, w + 0x4f30, 0x3e9, 0);
     {
         char label[0x100] = {};
-        Collection* labels = hook::Global<Collection*>(0x6ada80);
+        Collection* labels = g_6ada80;
         int32_t n = Collection_Count(labels);
         StreamWrite(s, &n, 4, 0);
         for (int32_t i = 0; i < n; ++i) {
-            auto at = [&] { return (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6ada80), 0,
-                                                           Collection_IdAt(hook::Global<Collection*>(0x6ada80), 0, (uint32_t)i, 0)); };
+            auto at = [&] { return (uint8_t*)Collection_Get(g_6ada80, 0,
+                                                           Collection_IdAt(g_6ada80, 0, (uint32_t)i, 0)); };
             strcpy(label, (const char*)at() + 0x2a2);
             float lx = (float)Obj_CellX(at());
             float ly = (float)Obj_CellY(at());
@@ -791,25 +792,25 @@ RT3_NOINLINE void __fastcall World_ExportMap(uint8_t* w, int, const char* name) 
     for (int32_t k = 0; k < 0x31; ++k) StreamWrite(s, w + 0x4a7f + k * 4, 4, 0);
     StreamWrite(s, w + 0x4b43, 4, 0);
     {
-        uint8_t* m = hook::Global<uint8_t*>(0x62c120);
+        uint8_t* m = g_map;
         StreamWrite(s, F<uint8_t*>(m, 0x2141), (uint32_t)((F<int32_t>(m, 0x2161) * F<int32_t>(m, 0x215d) + 7) / 8), 0);
     }
-    for (int32_t y = 0; y < F<int32_t>(hook::Global<uint8_t*>(0x62c120), 0x2151); ++y)
-        for (int32_t x = 0; x < F<int32_t>(hook::Global<uint8_t*>(0x62c120), 0x214d); ++x) {
-            uint8_t* m = hook::Global<uint8_t*>(0x62c120);
+    for (int32_t y = 0; y < F<int32_t>(g_map, 0x2151); ++y)
+        for (int32_t x = 0; x < F<int32_t>(g_map, 0x214d); ++x) {
+            uint8_t* m = g_map;
             int32_t a = F<uint8_t*>(m, 0x212d)[(F<int32_t>(m, 0x214d) * y + x) * 4];
             StreamWrite(s, &a, 4, 0);
-            m = hook::Global<uint8_t*>(0x62c120);
+            m = g_map;
             int32_t b = F<uint8_t*>(m, 0x212d)[(F<int32_t>(m, 0x214d) * y + x) * 4 + 3];
             StreamWrite(s, &b, 4, 0);
         }
-    for (int32_t y = 0; y < F<int32_t>(hook::Global<uint8_t*>(0x62c120), 0x2159); ++y)
-        for (int32_t x = 0; x < F<int32_t>(hook::Global<uint8_t*>(0x62c120), 0x2155); ++x) {
-            const uint8_t high = (uint8_t)Map_CellHigh(hook::Global<uint8_t*>(0x62c120), 0, x, y);
+    for (int32_t y = 0; y < F<int32_t>(g_map, 0x2159); ++y)
+        for (int32_t x = 0; x < F<int32_t>(g_map, 0x2155); ++x) {
+            const uint8_t high = (uint8_t)Map_CellHigh(g_map, 0, x, y);
             uint8_t count;
             if (!F<int32_t>((void*)0x5ef3e4, high * 0xb0)) {
-                lowByte = (uint8_t)Map_CellLow(hook::Global<uint8_t*>(0x62c120), 0, x, y);
-                count = (uint8_t)Terrain_CellCount(hook::Global<uint8_t*>(0x62c120), 0, x, y);
+                lowByte = (uint8_t)Map_CellLow(g_map, 0, x, y);
+                count = (uint8_t)Terrain_CellCount(g_map, 0, x, y);
             } else {
                 count = 0;
             }
@@ -818,13 +819,13 @@ RT3_NOINLINE void __fastcall World_ExportMap(uint8_t* w, int, const char* name) 
             put8(count);
         }
     StreamWriteU32(s, 0x4e21);
-    RuleSets_Save(hook::Global<Collection*>(0x62be18), 0, s, 0);
+    RuleSets_Save(g_events, 0, s, 0);
     StreamWriteU32(s, 0x4e22);
     StreamWrite(s, w + 0x4c78, 4, 0);
     StreamWrite(s, w + 0x4c7c, 4, 0);
     Options_Restore();
-    Cursor_PopBusy(hook::Global<uint8_t*>(0xccbb20));
-    Ui_ShowTooltip(hook::Global<uint8_t*>(0x6d401c), 0, (const char*)0x5c87a8, 3, 0, -1);
+    Cursor_PopBusy(g_cursorManager);
+    Ui_ShowTooltip(g_windowManager, 0, (const char*)0x5c87a8, 3, 0, -1);
     StreamClose(s);
 }
 RT3_REPLACE(0x446240, World_ExportMap);
@@ -850,14 +851,14 @@ RT3_REPLACE(0x446240, World_ExportMap);
 // bytes) become 100000.
 // QUIRK: the cell loops pump the loading screen on rows where (y & 0x15) == 0.
 RT3_NOINLINE void __fastcall World_LoadMap(uint8_t* w, int, const char* name) {
-    auto ed = [] { return hook::Global<uint8_t*>(0x6cec74); };
-    auto map = [] { return hook::Global<uint8_t*>(0x62c120); };
+    auto ed = [] { return g_app; };
+    auto map = [] { return g_map; };
     auto status = [&](int32_t id) {
         uint8_t* win = F<uint8_t*>(ed(), 0xc);
         Window_SendEvent5(win, 0, 0x6f, 0x84d2, (uint32_t)(uintptr_t)GetString(id), 0, 0);
         Loading_Pump(ed(), 0, 0, 1);
     };
-    if (uint8_t* view = hook::Global<uint8_t*>(0x6d0818)) View_SetToolMode(view, 0, 0, -1);
+    if (uint8_t* view = g_gameWindow) View_SetToolMode(view, 0, 0, -1);
     World_Teardown(w);
     Loading_Pump(ed(), 0, 0, 0);
     World_Startup(w, 0, 0, 0);
@@ -887,7 +888,7 @@ RT3_NOINLINE void __fastcall World_LoadMap(uint8_t* w, int, const char* name) {
     read(&height, 4);
     {
         uint8_t* m = ((uint8_t*(__cdecl*)(size_t))0x53b070)(0x2209);
-        hook::Global<uint8_t*>(0x62c120) = m ? Map_Construct(m, 0, width + 1, height + 1, nullptr) : nullptr;
+        g_map = m ? Map_Construct(m, 0, width + 1, height + 1, nullptr) : nullptr;
     }
     if (version >= 0x3ec) Terrain_LoadLayers(map(), 0, s);
     for (int32_t y = 0; y < height + 1; ++y)
@@ -990,7 +991,7 @@ RT3_NOINLINE void __fastcall World_LoadMap(uint8_t* w, int, const char* name) {
         Terrain_CommitTexture(map(), 0, 0);
         ((void(__cdecl*)(void*))0x5a1145)(src);
     }
-    Territories_AddTestSet(hook::Global<Collection*>(0x6cfc9c));
+    Territories_AddTestSet(g_territories);
     if (version >= 0x3ee) {
         for (int32_t y = 0; y < height; ++y)
             for (int32_t x = 0; x < width; ++x) {
@@ -1001,11 +1002,11 @@ RT3_NOINLINE void __fastcall World_LoadMap(uint8_t* w, int, const char* name) {
             }
         int32_t count;
         read(&count, 4);
-        Map_ClearCollection([] { return hook::Global<Collection*>(0x6cfc9c); });
+        Map_ClearCollection([] { return g_territories; });
         for (int32_t i = 0; i < count; ++i) {
-            Collection* terr = hook::Global<Collection*>(0x6cfc9c);
+            Collection* terr = g_territories;
             const uint32_t id = StationTypes_Add(terr, 0, (const char*)0x5c87a8);
-            uint8_t* r = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfc9c), 0, id);
+            uint8_t* r = (uint8_t*)Collection_Get(g_territories, 0, id);
             read(r + 4, 0x29);
             read(r + 0x2d, 4);
             read(r + 0x31, 4);
@@ -1013,9 +1014,9 @@ RT3_NOINLINE void __fastcall World_LoadMap(uint8_t* w, int, const char* name) {
             read(r + 0x39, 4);
         }
     }
-    Territories_Recount(hook::Global<Collection*>(0x6cfc9c));
+    Territories_Recount(g_territories);
     status(0x19d);
-    Cities_AddTestRow(hook::Global<Collection*>(0x62bae0));
+    Cities_AddTestRow(g_cities);
     Map_ClearCollection([&] { return F<Collection*>(w, 0x66b2); });
     uint8_t rec[0x44];
     int32_t templates;
@@ -1025,7 +1026,7 @@ RT3_NOINLINE void __fastcall World_LoadMap(uint8_t* w, int, const char* name) {
         read(rec, 0x1e);
         read(rec + 0x1e, 4);
         if (RtStricmp((const char*)rec, (const char*)0x5c8f94) && RtStricmp((const char*)rec, (const char*)0x5c8e4c) &&
-            Table_GetByName(hook::Global<Collection*>(0x62b268), 0, (const char*)rec))
+            Table_GetByName(g_62b268, 0, (const char*)rec))
             Map_AddRecord(F<Collection*>(w, 0x66b2), rec);
     }
     if (version >= 0x3f0) {
@@ -1040,10 +1041,10 @@ RT3_NOINLINE void __fastcall World_LoadMap(uint8_t* w, int, const char* name) {
         }
     }
     if (Collection_Count(F<Collection*>(w, 0x66b6)) <= 0) {
-        for (int32_t i = 0; i < Collection_Count(hook::Global<Collection*>(0x6ada84)); ++i) {
-            Collection* all = hook::Global<Collection*>(0x6ada84);
+        for (int32_t i = 0; i < Collection_Count(g_6ada84); ++i) {
+            Collection* all = g_6ada84;
             void* e = Collection_Get(all, 0, Collection_IdAt(all, 0, (uint32_t)i, 0));
-            World_SetNamedFlag(hook::Global<uint8_t*>(0x6cec78), 0, (const char*)Obj_Ref72Plus45(e), 1);
+            World_SetNamedFlag(g_world, 0, (const char*)Obj_Ref72Plus45(e), 1);
         }
     }
     if (version >= 0x3f2) {
@@ -1052,7 +1053,7 @@ RT3_NOINLINE void __fastcall World_LoadMap(uint8_t* w, int, const char* name) {
         for (int32_t k = 0; k < 5; ++k) read(w + 0xbe6 + 4 * k, 4);
     }
     status(0x19e);
-    Map_ClearCollection([] { return hook::Global<Collection*>(0x62bae0); });
+    Map_ClearCollection([] { return g_cities; });
     int32_t cities;
     read(&cities, 4);
     for (int32_t i = 0; i < cities; ++i) {
@@ -1070,8 +1071,8 @@ RT3_NOINLINE void __fastcall World_LoadMap(uint8_t* w, int, const char* name) {
             read(&sizeClass, 4);
             size = hook::Global<uint32_t>(0x5f3a28 + 4 * sizeClass);
         }
-        const uint32_t id = Cities_Add(hook::Global<Collection*>(0x62bae0), 0, (uint32_t)cx, (uint32_t)cy, cname, rural);
-        uint8_t* city = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62bae0), 0, id);
+        const uint32_t id = Cities_Add(g_cities, 0, (uint32_t)cx, (uint32_t)cy, cname, rural);
+        uint8_t* city = (uint8_t*)Collection_Get(g_cities, 0, id);
         F<int32_t>(city, 0x272) = kind;
         F<uint32_t>(city, 0x25a) = size;
         F<uint32_t>(city, 0x25e) = size;
@@ -1087,7 +1088,7 @@ RT3_NOINLINE void __fastcall World_LoadMap(uint8_t* w, int, const char* name) {
             read(rec + 0x1e, 4);
             if (RtStricmp((const char*)rec, (const char*)0x5ca9e0) && RtStricmp((const char*)rec, (const char*)0x5c8f94) &&
                 RtStricmp((const char*)rec, (const char*)0x5c8e4c) && F<float>(rec, 0x1e) > Fl(0x5c8598) &&
-                Table_GetByName(hook::Global<Collection*>(0x62b268), 0, (const char*)rec))
+                Table_GetByName(g_62b268, 0, (const char*)rec))
                 Map_AddRecord(F<Collection*>(city, 0x37f), rec);
         }
         Obj_UpdatePortFlags(city);
@@ -1095,7 +1096,7 @@ RT3_NOINLINE void __fastcall World_LoadMap(uint8_t* w, int, const char* name) {
     if (version >= 0x3fa) read(w + 0x4f30, 0x3e9);
     else w[0x4f30] = 0;
     if (version >= 0x3f4) {
-        Map_ClearCollection([] { return hook::Global<Collection*>(0x6ada80); });
+        Map_ClearCollection([] { return g_6ada80; });
         int32_t markers;
         read(&markers, 4);
         for (int32_t i = 0; i < markers; ++i) {
@@ -1104,7 +1105,7 @@ RT3_NOINLINE void __fastcall World_LoadMap(uint8_t* w, int, const char* name) {
             read(label, 0x29);
             read(&mx, 4);
             read(&my, 4);
-            Markers_Add(hook::Global<Collection*>(0x6ada80), 0, (uint32_t)mx, (uint32_t)my, label, 0);
+            Markers_Add(g_6ada80, 0, (uint32_t)mx, (uint32_t)my, label, 0);
         }
     }
     if (version >= 0x3fc) {
@@ -1149,7 +1150,7 @@ RT3_NOINLINE void __fastcall World_LoadMap(uint8_t* w, int, const char* name) {
     }
     if (version >= 0x3fd) {
         StreamSkip4(s, 0x4e21, 0, 0);
-        RuleSets_Load(hook::Global<Collection*>(0x62be18), 0, s, 0);
+        RuleSets_Load(g_events, 0, s, 0);
         StreamSkip4(s, 0x4e22, 0, 0);
     }
     if (version >= 0x3fe) {
@@ -1158,25 +1159,25 @@ RT3_NOINLINE void __fastcall World_LoadMap(uint8_t* w, int, const char* name) {
     }
     StreamClose(s);
     Loading_Pump(ed(), 0, 1, 1);
-    Ui_SendEvent5(hook::Global<uint8_t**>(0x6d401c), 0, 0xba, 0x808, 0, 0, 0);
+    Ui_SendEvent5(hook::As<uint8_t**>(g_windowManager), 0, 0xba, 0x808, 0, 0, 0);
     Loading_Pump(ed(), 0, 1, 1);
-    if (Collection* bt = hook::Global<Collection*>(0x62b268)) Types_RefreshAvailable(bt);
-    if (Collection* engines = hook::Global<Collection*>(0x6ada84)) Table_RefreshNamedFlags(engines);
+    if (Collection* bt = g_62b268) Types_RefreshAvailable(bt);
+    if (Collection* engines = g_6ada84) Table_RefreshNamedFlags(engines);
     Loading_Pump(ed(), 0, 1, 1);
     Map_RebuildCoast(map(), 0, 0, 0, 0x270f, 0x270f, nullptr);
     Loading_Pump(ed(), 0, 1, 1);
     {
-        void* cam = hook::Global<void*>(0x62be68);
+        void* cam = hook::As<void*>(g_62be68);
         ((void(__fastcall*)(void*))(*(void***)cam)[0])(cam);
     }
     Loading_Pump(ed(), 0, 1, 1);
-    Cities_AssignBlocks(hook::Global<Collection*>(0x62bae0));
+    Cities_AssignBlocks(g_cities);
     Templates_Normalize(w);
-    Types_RefreshAvailable(hook::Global<Collection*>(0x62b268));
-    ((uint8_t*)Engine_Renderer(hook::Global<void*>(0x6d4024)))[0x3748] = 1;
+    Types_RefreshAvailable(g_62b268);
+    ((uint8_t*)Engine_Renderer(hook::As<void*>(g_engine)))[0x3748] = 1;
     Loading_Pump(ed(), 0, 1, 1);
-    Ambient_Start(hook::Global<uint8_t*>(0x6cec78));
-    Cities_LayStreets(hook::Global<Collection*>(0x62bae0));
+    Ambient_Start(g_world);
+    Cities_LayStreets(g_cities);
     Map_MarkUntypedRegions(map());
     for (int32_t y = 0; y < F<int32_t>(map(), 0x2159); ++y)
         for (int32_t x = 0; x < F<int32_t>(map(), 0x2155); ++x) {

@@ -9,6 +9,7 @@
 #include <windows.h>
 #include <initializer_list>
 #include "hook/hook.h"
+#include "core/globals.h"
 #include "game/collection.h"
 #include "hook/keepregs.h"
 #include "core/crt.h"
@@ -177,7 +178,7 @@ RT3_NOINLINE void __fastcall Texture_SetD9399c(const char* name);
 void __fastcall Model_Release(uint8_t* m);
 RT3_NOINLINE int32_t __fastcall EmitterLibrary_Register(uint8_t* lib, int, uint32_t key, int32_t perPoint, const float* rect, uint32_t flags);
 
-static inline uint8_t* Packs() { return hook::Global<uint8_t*>(0x6d4020); }
+static inline uint8_t* Packs() { return g_pack; }
 
 static inline float Fl(uint32_t a) { return *(const float*)a; }
 
@@ -233,7 +234,7 @@ static void __cdecl Emitter_ApplyImpl(uint8_t* src, uint8_t* dst, uint32_t flags
     int32_t life1 = Ftol((double)scale * F<float>(src, 0x88) * Fl(0x5c86a0));
     View_SetParams(dst, 0, life1, (uint32_t)life2, *(uint32_t*)&v, *(uint32_t*)&v2, *(uint32_t*)&u, *(uint32_t*)&u2);
     uint32_t key = Crc32String((const char*)src + 0x44, 1);
-    if (uint8_t* t = hook::Global<uint8_t*>(0x6cea5c)) {
+    if (uint8_t* t = hook::As<uint8_t*>(g_6cea5c)) {
         uint8_t* e = t + 0xc;
         for (int32_t i = 0; i < F<int32_t>(t, 8); ++i, e += 0xa0)
             if (F<uint32_t>(e, 0) == key) {
@@ -269,7 +270,7 @@ void CallEmitterApply(uint8_t* def, uint8_t* e, uint32_t flags, float scale) {
 namespace {
 // A node from the effect pool 0x6cea58 (a new one while the pool is off).
 uint8_t* EffectNode() {
-    uint32_t* pool = hook::Global<uint32_t*>(0x6cea58);
+    uint32_t* pool = g_6cea58;
     if (!pool[3]) return (uint8_t*)((void*(__cdecl*)(uint32_t))0x53b070)(pool[4]);
     uint8_t** list = (uint8_t**)pool[0];
     uint8_t* node = list[0];
@@ -282,9 +283,9 @@ uint8_t* EffectNode() {
 }
 // The effect of emitters.dat 0x6cea60 named `name` (by CRC), or null.
 uint8_t* EffectDef(const char* name) {
-    uint8_t* r = hook::Global<uint8_t*>(0x6cea60) + 0xc;
+    uint8_t* r = g_6cea60 + 0xc;
     uint32_t key = Crc32String(name, 1);
-    for (int32_t i = 0; i < F<int32_t>(hook::Global<uint8_t*>(0x6cea60), 8); ++i, r += 0x140)
+    for (int32_t i = 0; i < F<int32_t>(g_6cea60, 8); ++i, r += 0x140)
         if (F<uint32_t>(r, 0) == key) return r;
     return nullptr;
 }
@@ -321,14 +322,14 @@ static uint8_t* __stdcall EffectGroup_RocketImpl(uint32_t flags, uint8_t* parent
 // last time (0x5f2c2c), from the LCG 0x624324; +0xbc = 60.
 static uint8_t* __stdcall EffectGroup_FireworksImpl(uint32_t flags, uint8_t* parent, float scale) {
     uint8_t* node = EffectNode();
-    uint32_t s = hook::Global<uint32_t>(0x624324);
+    uint32_t s = g_lcg;
     int32_t pick;
     do {
         s = s * 0x19660d + 0x3c6ef35f;
         pick = (int32_t)(s & 0x7fff) % 3;
-    } while (pick == hook::Global<int32_t>(0x5f2c2c));
-    hook::Global<uint32_t>(0x624324) = s;
-    hook::Global<int32_t>(0x5f2c2c) = pick;
+    } while (pick == g_5f2c2c);
+    g_lcg = s;
+    g_5f2c2c = pick;
     static const char* const defs[] = { (const char*)0x5ce768, (const char*)0x5ce75c, (const char*)0x5ce750 };
     uint8_t* e = Effect_Spawn((const char*)0x5ce734, parent, (uint8_t*)FindRecordByCrc(defs[pick]), flags | 0x1000000, scale);
     F<uint8_t*>(node, 0xc) = e;
@@ -442,7 +443,7 @@ RT3_NOINLINE void __fastcall SceneryEffect_Init(uint8_t* o, int, uint32_t id, fl
     F<uint32_t>(o, 0x24a) = 0;
     F<uint16_t>(o, 0x24e) = 0;
     F<uint32_t>(o, 0x242) = kind;
-    float h = (float)Terrain_HeightAtTile(hook::Global<uint8_t*>(0x62c120), 0, x, z);
+    float h = (float)Terrain_HeightAtTile(g_map, 0, x, z);
     float px = (float)((double)x * Fl(0x5c8700));
     F<uint8_t*>(o, 0x23a) = Effect_PlaceSceneryImpl(kind, px, h, pz);
     char name[9];
@@ -455,7 +456,7 @@ RT3_REPLACE(0x474130, SceneryEffect_Init);
 // (+0x23a +4) to (x, ground, z) x 0x5c8700, then the cell placement.
 void __fastcall EffectObj_PlaceAt(uint8_t* o, int, float x, float z, int32_t lift) {
     const float sz = (float)((double)z * Fl_207(0x5c8700));
-    const float h = (float)Terrain_HeightAtTile(hook::Global<uint8_t*>(0x62c120), 0, x, z);
+    const float h = (float)Terrain_HeightAtTile(g_map, 0, x, z);
     Obj_MoveTo(F<uint8_t*>(F<uint8_t*>(o, 0x23a), 4), 0, (float)((double)x * Fl_207(0x5c8700)), h, sz);
     Obj_PlaceAtCell(o, 0, x, z, lift);
 }
@@ -468,7 +469,7 @@ int32_t __fastcall EffectObj_Load(uint8_t* o, int, int32_t s) {
     const float a = (float)(Obj_CellY(o) * Fl_207(0x5c8700));
     const float b = (float)Obj_CellY(o);
     const float c = (float)Obj_CellX(o);
-    const float h = (float)Terrain_HeightAtTile(hook::Global<uint8_t*>(0x62c120), 0, c, b);
+    const float h = (float)Terrain_HeightAtTile(g_map, 0, c, b);
     const float e = (float)(Obj_CellX(o) * Fl_207(0x5c8700));
     const int32_t kind = F<int32_t>(o, 0x242);
     uint32_t placed;
@@ -490,7 +491,7 @@ RT3_REPLACE(0x474260, EffectObj_Load);
 void __fastcall Thunk4742d0(uint8_t* p0, int p1, Stream p2) { NamedObj_Save(p0, p1, p2); }
 RT3_REPLACE(0x4742d0, Thunk4742d0);
 
-int32_t Tooltip_Show123() { return Ui_ShowTooltip(hook::Global<uint8_t*>(0x6d401c), 0, GetString(0x123), 3, 0, -1); }
+int32_t Tooltip_Show123() { return Ui_ShowTooltip(g_windowManager, 0, GetString(0x123), 3, 0, -1); }
 RT3_REPLACE(0x4742e0, Tooltip_Show123);
 
 // 0x474300 (vtable stub).
@@ -585,12 +586,12 @@ RT3_REPLACE(0x474610, Collection_SaveWithRecords61a9);
 // enabled +0xb4, flags +0xb8) in the model library 0x6d4030, keyed by the
 // name's CRC, with rate / period + 2 particles per point.
 RT3_NOINLINE void __fastcall Effects_RegisterEmitters() {
-    for (int32_t i = 0; i < F<int32_t>(hook::Global<uint8_t*>(0x6cea60), 8); ++i) {
-        uint8_t* e = hook::Global<uint8_t*>(0x6cea60) + 0x10 + i * 0x140;
+    for (int32_t i = 0; i < F<int32_t>(g_6cea60, 8); ++i) {
+        uint8_t* e = g_6cea60 + 0x10 + i * 0x140;
         if (F<int32_t>(e, 0xb4) != 1) continue;
         int32_t n = Ftol((double)F<float>(e, 0x84) / F<float>(e, 0x8c) + Fl_205(0x5c878c));
         uint32_t flags = F<uint32_t>(e, 0xb8) | 0x10000;
-        EmitterLibrary_Register(hook::Global<uint8_t*>(0x6d4030), 0, Crc32String((const char*)e, 1), n, nullptr, flags);
+        EmitterLibrary_Register(g_models, 0, Crc32String((const char*)e, 1), n, nullptr, flags);
     }
 }
 RT3_REPLACE(0x474690, Effects_RegisterEmitters);
@@ -598,18 +599,18 @@ RT3_REPLACE(0x474690, Effects_RegisterEmitters);
 // 0x474700. Reads the particle definitions (pack file "particles.dat") into
 // 0x6cea5c (the old copy freed) and loads the particle texture.
 RT3_NOINLINE void Particles_LoadTable() {
-    if (void* old = hook::Global<void*>(0x6cea5c)) {
+    if (void* old = g_6cea5c) {
         Free(old);
-        hook::Global<void*>(0x6cea5c) = nullptr;
+        g_6cea5c = nullptr;
     }
-    if (NameTable_ContainsName(hook::Global<uint8_t*>(0x6d4020), 0, (const char*)0x5ce4c8, 0, nullptr)) {
-        int32_t id = NameTable_Hash(hook::Global<uint8_t*>(0x6d4020), 0, (const char*)0x5ce4c8);
-        int32_t n = NameTable_EntrySize(hook::Global<uint8_t*>(0x6d4020), 0, id);
+    if (NameTable_ContainsName(g_pack, 0, (const char*)0x5ce4c8, 0, nullptr)) {
+        int32_t id = NameTable_Hash(g_pack, 0, (const char*)0x5ce4c8);
+        int32_t n = NameTable_EntrySize(g_pack, 0, id);
         if (n > 0) {
-            NameTable_Seek(hook::Global<uint8_t*>(0x6d4020), 0, id, 0);
+            NameTable_Seek(g_pack, 0, id, 0);
             void* buf = Malloc((size_t)n);
-            hook::Global<void*>(0x6cea5c) = buf;
-            NameTable_Read(hook::Global<uint8_t*>(0x6d4020), 0, buf, n);
+            g_6cea5c = buf;
+            NameTable_Read(g_pack, 0, buf, n);
         }
     }
     Texture_SetD9399c((const char*)0x5ce4b4);
@@ -618,9 +619,9 @@ RT3_REPLACE(0x474700, Particles_LoadTable);
 
 // 0x474790. (Re)loads emitters.dat (0x6cea60) from the packs.
 RT3_NOINLINE void __cdecl Emitters_Load() {
-    if (hook::Global<void*>(0x6cea60)) {
-        Free(hook::Global<void*>(0x6cea60));
-        hook::Global<void*>(0x6cea60) = nullptr;
+    if (hook::As<void*>(g_6cea60)) {
+        Free(hook::As<void*>(g_6cea60));
+        hook::As<void*>(g_6cea60) = nullptr;
     }
     if (!NameTable_ContainsName(Packs(), 0, (const char*)0x5ce4d8, 0, nullptr)) return;
     int32_t id = NameTable_Hash(Packs(), 0, (const char*)0x5ce4d8);
@@ -628,7 +629,7 @@ RT3_NOINLINE void __cdecl Emitters_Load() {
     if (size <= 0) return;
     NameTable_Seek(Packs(), 0, id, 0);
     void* p = Malloc(size);
-    hook::Global<void*>(0x6cea60) = p;
+    hook::As<void*>(g_6cea60) = p;
     NameTable_Read(Packs(), 0, p, size);
 }
 RT3_REPLACE(0x474790, Emitters_Load);
@@ -636,7 +637,7 @@ RT3_REPLACE(0x474790, Emitters_Load);
 // 0x474820. Record (0x140 bytes, from +0xc of 0x6cea60) whose key is the
 // case-insensitive CRC of `name`; NULL if none.
 RT3_NOINLINE void* __fastcall FindRecordByCrc(const char* name) {
-    uint8_t* t = hook::Global<uint8_t*>(0x6cea60);
+    uint8_t* t = g_6cea60;
     uint32_t crc = Crc32String(name, 1);
     uint8_t* r = t + 0xc;
     for (int32_t i = 0; i < F<int32_t>(t, 8); ++i, r += 0x140)
@@ -651,32 +652,32 @@ RT3_REPLACE(0x474820, FindRecordByCrc);
 // entries when 0x6cea64), or 0 at the end. restart == 1 starts over.
 uint8_t* __fastcall Emitters_NextFile(const char* prefix, int32_t restart) {
     if (restart == 1) {
-        hook::Global<int32_t>(0x5f2c30) = restart;
-        hook::Global<int32_t>(0x6ceb94) = 0;
+        g_5f2c30 = restart;
+        g_6ceb94 = 0;
     }
-    int32_t n = hook::Global<int32_t>(0x5f2c30);
-    int32_t idx = hook::Global<int32_t>(0x6ceb94);
-    uint8_t* data = hook::Global<uint8_t*>(0x6cea60);
+    int32_t n = g_5f2c30;
+    int32_t idx = g_6ceb94;
+    uint8_t* data = g_6cea60;
     uint8_t* e = data + 0xc + idx * 0x140;
     char buf[0x100];
     for (; idx < F<int32_t>(data, 8); ++idx, e += 0x140) {
         if (n >= 0xff) continue;
         SPRINTF(buf, (const char*)0x5ce4e8, prefix, (const char*)e + 4, n);
         int32_t r = NameTable_ContainsName(Packs(), 0, buf, 0, nullptr);
-        if ((!hook::Global<int32_t>(0x6cea64) || r == 2) && r) {
-            hook::Global<int32_t>(0x6ceb94) = idx;
-            hook::Global<int32_t>(0x5f2c30) = n + 1;
-            hook::Global<uint8_t*>(0x6cea90) = e;
+        if ((!g_6cea64 || r == 2) && r) {
+            g_6ceb94 = idx;
+            g_5f2c30 = n + 1;
+            g_6cea90 = e;
             char* d = (char*)0x6cea94;
             for (const char* s = buf; (*d++ = *s++) != 0;) {}
             return (uint8_t*)0x6cea90;
         }
-        data = hook::Global<uint8_t*>(0x6cea60);
+        data = g_6cea60;
         n = 1;
-        hook::Global<int32_t>(0x5f2c30) = 1;
+        g_5f2c30 = 1;
     }
-    hook::Global<int32_t>(0x5f2c30) = 1;
-    hook::Global<int32_t>(0x6ceb94) = 0;
+    g_5f2c30 = 1;
+    g_6ceb94 = 0;
     return nullptr;
 }
 RT3_REPLACE(0x474860, Emitters_NextFile);
@@ -708,11 +709,11 @@ RT3_REPLACE(0x4749d0, Emitter_Apply);
 // 0x6cea60 (0x140-byte records) to its library effect (by the CRC of its name
 // +4), with its flags +0xbc | 0x10004 and scale 1.
 RT3_NOINLINE void Effects_ReapplyAll() {
-    uint8_t* t = hook::Global<uint8_t*>(0x6cea60);
+    uint8_t* t = g_6cea60;
     uint8_t* e = t + 0xc;
     for (int32_t i = 0; i < F<int32_t>(t, 8); ++i, e += 0x140) {
         if (F<int32_t>(e, 0xb8) != 1) continue;
-        uint8_t* fx = EmitterLibrary_Get(hook::Global<uint8_t*>(0x6d4030), 0, Crc32String((const char*)e + 4, 1), 0, nullptr,
+        uint8_t* fx = EmitterLibrary_Get(g_models, 0, Crc32String((const char*)e + 4, 1), 0, nullptr,
                                          nullptr, 0);
         uint32_t flags = F<uint32_t>(e, 0xbc) | 0x10004;
         F<uint32_t>(fx, 0xac) = flags;
@@ -725,7 +726,7 @@ RT3_NOINLINE void Effects_ReapplyAll() {
             mov eax, e
             call fn
         }
-        t = hook::Global<uint8_t*>(0x6cea60);
+        t = g_6cea60;
     }
 }
 RT3_REPLACE(0x474c60, Effects_ReapplyAll);
@@ -737,27 +738,27 @@ RT3_REPLACE(0x474c60, Effects_ReapplyAll);
 void Effects_Reset() {
     Emitters_Load();
     Particles_LoadTable();
-    if (!hook::Global<int32_t>(0x6ceb98)) {
+    if (!g_6ceb98) {
         Effects_RegisterEmitters();
         uint32_t* p = (uint32_t*)((void*(__cdecl*)(size_t))0x53b070)(0x1c);
         if (p) memset(p, 0, 0x1c);
-        hook::Global<uint32_t*>(0x6cea58) = p;
+        g_6cea58 = p;
         void* storage = ((void*(__cdecl*)(size_t))0x5a125d)(0x88b80);
-        hook::Global<void*>(0x6cea54) = storage;
-        Pool_Init((NodePool*)hook::Global<uint32_t*>(0x6cea58), 0, storage, 0x38, 0x2710, 1);
-        hook::Global<int32_t>(0x6ceb98) = 1;
+        g_6cea54 = storage;
+        Pool_Init((NodePool*)g_6cea58, 0, storage, 0x38, 0x2710, 1);
+        g_6ceb98 = 1;
     }
-    hook::Global<uint32_t>(0x6cea74) = 0;
-    hook::Global<uint32_t>(0x6cea78) = 0;
-    hook::Global<uint32_t>(0x6cea7c) = 0;
+    hook::As<uint32_t>(g_6cea74) = 0;
+    g_6cea78 = 0;
+    hook::As<uint32_t>(g_6cea7c) = 0;
     Effects_ReapplyAll();
-    hook::Global<uint32_t>(0x6cea68) = 0;
-    hook::Global<uint32_t>(0x6cea6c) = 0;
-    hook::Global<uint32_t>(0x6cea70) = 0;
-    hook::Global<uint32_t>(0x6cea80) = 0;
-    hook::Global<uint32_t>(0x6cea84) = 0;
-    hook::Global<uint32_t>(0x6cea88) = 0;
-    Ambience_Tick(hook::Global<uint8_t*>(0x6d4030), 0, 1);
+    hook::As<uint32_t>(g_6cea68) = 0;
+    hook::As<uint32_t>(g_6cea6c) = 0;
+    hook::As<uint32_t>(g_6cea70) = 0;
+    g_6cea80 = 0;
+    g_6cea84 = 0;
+    g_6cea88 = 0;
+    Ambience_Tick(g_models, 0, 1);
 }
 RT3_REPLACE(0x474ce0, Effects_Reset);
 
@@ -771,7 +772,7 @@ void FreeBuffers6cea54() {
             p = nullptr;
         }
     }
-    void*& m = hook::Global<void*>(0x6cea58);
+    void*& m = hook::As<void*>(g_6cea58);
     if (m) {
         void* p = m;
         ((void(__thiscall*)(void*))0x53dcb0)(p);
@@ -794,14 +795,14 @@ RT3_NOINLINE uint8_t* __fastcall Effect_Spawn(const char* name, uint8_t* parent,
     uint32_t base = F<uint32_t>(def, 0xbc) | 4;
     if (!parent) {
         uint8_t* p = (uint8_t*)((void*(__cdecl*)(uint32_t))0x53b070)(0x206);
-        parent = p ? SceneObj_Construct(p, 0, (uint32_t)(uintptr_t)Engine_Get1C(hook::Global<void*>(0x6d4024)), nullptr, nullptr) : nullptr;
+        parent = p ? SceneObj_Construct(p, 0, (uint32_t)(uintptr_t)Engine_Get1C(hook::As<void*>(g_engine)), nullptr, nullptr) : nullptr;
     }
     if (((const char*(__cdecl*)(const char*, const char*))0x5a1ff0)((const char*)def + 4, (const char*)0x5ce504)) F<uint32_t>(def, 0xbc) &= 0xffffff1f;
     if (!F<int32_t>(def, 0xb8)) flags &= 0xfffffbff;
     uint8_t* e;
     if (flags & 0x400) {
         uint32_t key = Crc32String((const char*)def + 4, 1);
-        e = EmitterLibrary_Get(hook::Global<uint8_t*>(0x6d4030), 0, key, F<uint32_t>(def, 0x84), name, parent, 1);
+        e = EmitterLibrary_Get(g_models, 0, key, F<uint32_t>(def, 0x84), name, parent, 1);
     } else {
         int32_t rate = Ftol((double)F<float>(def, 0x88) / F<float>(def, 0x90) + Fl(0x5c878c));
         uint8_t* p = (uint8_t*)((void*(__cdecl*)(uint32_t))0x53b070)(0x1fd);
@@ -823,7 +824,7 @@ void __fastcall EmitterGroup_Tick(uint8_t* g) {
         for (int32_t i = 0; i < F<int32_t>(g, 8); ++i) Emitter_Tick(F<uint8_t*>(g, 0xc + i * 4), 0, 0);
         return;
     }
-    for (uint8_t* c = hook::Global<uint8_t*>(0x6cea74); c; c = F<uint8_t*>(c, 0))
+    for (uint8_t* c = g_6cea74; c; c = F<uint8_t*>(c, 0))
         for (int32_t i = 0; i < F<int32_t>(c, 8); ++i) Emitter_Tick(F<uint8_t*>(c, 0xc + i * 4), 0, 0);
 }
 RT3_REPLACE(0x474f70, EmitterGroup_Tick);
@@ -835,18 +836,18 @@ RT3_REPLACE(0x474fe0, Obj_SetAllBc);
 
 // 0x475010. Copies 3 dwords to globals 0x6cea68..0x6cea70.
 RT3_NOINLINE void __fastcall Store3Globals(int32_t* v) {
-    hook::Global<int32_t>(0x6cea68) = v[0];
-    hook::Global<int32_t>(0x6cea6c) = v[1];
-    hook::Global<int32_t>(0x6cea70) = v[2];
+    g_6cea68 = v[0];
+    g_6cea6c = v[1];
+    g_6cea70 = v[2];
 }
 RT3_REPLACE(0x475010, Store3Globals);
 
 // 0x475030. Copies the 3 stored dwords (0x6cea68..) to +0x1b0 of element idx (-1 = all).
 RT3_NOINLINE void __fastcall Obj_ApplyStored3(void* o, int32_t idx) {
     auto apply = [](uint8_t* e) {
-        F<int32_t>(e, 0x1b0) = hook::Global<int32_t>(0x6cea68);
-        F<int32_t>(e, 0x1b4) = hook::Global<int32_t>(0x6cea6c);
-        F<int32_t>(e, 0x1b8) = hook::Global<int32_t>(0x6cea70);
+        F<int32_t>(e, 0x1b0) = g_6cea68;
+        F<int32_t>(e, 0x1b4) = g_6cea6c;
+        F<int32_t>(e, 0x1b8) = g_6cea70;
     };
     if (idx == -1) {
         for (int32_t i = 0; i < F<int32_t>(o, 8); ++i) apply(F<uint8_t*>(o, 0xc + i * 4));
@@ -899,8 +900,8 @@ RT3_NOINLINE void __fastcall Effect_Free(uint32_t* e) {
             }
         }
     }
-    if (e[0xd] == 1) SList_Unlink(&hook::Global<uint32_t>(0x6cea74), &hook::Global<uint32_t>(0x6cea78), &hook::Global<int32_t>(0x6cea7c), e);
-    Pool_Return(hook::Global<uint8_t*>(0x6cea58), e);
+    if (e[0xd] == 1) SList_Unlink(&hook::As<uint32_t>(g_6cea74), &g_6cea78, &g_6cea7c, e);
+    Pool_Return(hook::As<uint8_t*>(g_6cea58), e);
 }
 RT3_REPLACE(0x475100, Effect_Free);
 
@@ -1074,10 +1075,10 @@ RT3_NOINLINE uint8_t* __fastcall Effect_Create(uint8_t* parent, int32_t kind, fl
     F<uint8_t*>(n, 4) = F<uint8_t*>(F<uint8_t*>(n, 0xc), 0xc);
     F<int32_t>(n, 0x34) = listed;
     if (listed == 1) {
-        F<uint8_t*>(n, 0) = hook::Global<uint8_t*>(0x6cea74);
-        hook::Global<uint8_t*>(0x6cea74) = n;
-        ++hook::Global<int32_t>(0x6cea7c);
-        if (!hook::Global<uint8_t*>(0x6cea78)) hook::Global<uint8_t*>(0x6cea78) = n;
+        F<uint8_t*>(n, 0) = g_6cea74;
+        g_6cea74 = n;
+        ++g_6cea7c;
+        if (!hook::As<uint8_t*>(g_6cea78)) hook::As<uint8_t*>(g_6cea78) = n;
     }
     return n;
 }

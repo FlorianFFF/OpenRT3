@@ -9,6 +9,7 @@
 #include <windows.h>
 #include <initializer_list>
 #include "hook/hook.h"
+#include "core/globals.h"
 #include "game/collection.h"
 #include "core/crt.h"
 #include "core/ptrlist.h"
@@ -291,7 +292,7 @@ void __fastcall Widget_RemoveListNode(uint8_t* w, int, PtrListNode* n);
 void __fastcall Sound_RefreshArea(uint8_t* o, int, int32_t x, int32_t y, int32_t r, uint8_t* grid);
 RT3_NOINLINE void ReleaseResourceD97ab0();
 
-static inline uint8_t* Engine() { return hook::Global<uint8_t*>(0x6d4024); }
+static inline uint8_t* Engine() { return g_engine; }
 
 static inline const int32_t* DisplayMode() {
     return (const int32_t*)(F<uint8_t*>(Engine(), 0x34) + F<int32_t>(Engine(), 0x11421e) * 0x15);
@@ -335,7 +336,7 @@ static inline void* ExeMalloc(size_t n) { return ((void*(__cdecl*)(size_t))0x5a1
 // kind's init, then an `n`-byte record read from the pack's current position.
 static uint8_t* Widget_ReadRecord(uint8_t* w, int32_t n) {
     uint8_t* rec = (uint8_t*)ExeMalloc(n);
-    NameTable_Read(hook::Global<uint8_t*>(0x6d4020), 0, rec, n);
+    NameTable_Read(g_pack, 0, rec, n);
     Widget_LoadBase(w, 0, rec);
     return rec;
 }
@@ -429,7 +430,7 @@ RT3_NOINLINE void __fastcall Scene_Shutdown(uint8_t* s) {
     ReleaseGlobalResource();
     ReleaseResourceD97ab0();
     for (uint32_t off : { 0x3659u, 0x3651u, 0x3655u, 0x365du, 0x3661u })
-        if (void* r = F<void*>(s, off)) Pack_Release(hook::Global<uint8_t*>(0x6d4020), 0, r);
+        if (void* r = F<void*>(s, off)) Pack_Release(g_pack, 0, r);
     F<void*>(s, 0x3651) = nullptr;
     F<void*>(s, 0x3659) = nullptr;
     for (uint32_t off : { 0x7du, 0x81u, 0x85u, 0x89u, 0x8du, 0x79u }) {
@@ -455,7 +456,7 @@ RT3_NOINLINE void __fastcall Scene_CreateRenderer(uint8_t* s) {
     s[0x3747] = 1;
     s[0x3748] = 1;
     F<int32_t>(s, 0x3abb7) = 0;
-    uint8_t full = hook::Global<uint8_t*>(0x6d4024)[0x114226];
+    uint8_t full = g_engine[0x114226];
     s[0x3749] = 1;
     uint8_t* r = (uint8_t*)((void*(__cdecl*)(size_t))0x53b070)(0x3715);
     r = r ? Render_Construct(r, 0, F<int32_t>(s, 0x31), full) : nullptr;
@@ -479,23 +480,23 @@ RT3_REPLACE(0x55e2b0, Scene_CreateRenderer);
 // applies the lighting and runs the benchmark when the options ask for it
 // (+0x29 +0x67: the second run is kept in +0x68). Calls 0xd97968 after it.
 RT3_NOINLINE uint8_t* __fastcall Scene_Construct(uint8_t* s) {
-    if (!hook::Global<void*>(0x6d4024)) Fatal_Exit(GetString(0x9e));
-    if (Engine_Renderer(hook::Global<void*>(0x6d4024))) Fatal_Exit(GetString(0x9f));
-    F<uint8_t*>(s, 0x29) = hook::Global<uint8_t*>(0x6d4024) + 0x11468a;
-    Engine_SetRenderer(hook::Global<void*>(0x6d4024), 0, s);
+    if (!hook::As<void*>(g_engine)) Fatal_Exit(GetString(0x9e));
+    if (Engine_Renderer(hook::As<void*>(g_engine))) Fatal_Exit(GetString(0x9f));
+    F<uint8_t*>(s, 0x29) = g_engine + 0x11468a;
+    Engine_SetRenderer(hook::As<void*>(g_engine), 0, s);
     F<uint32_t>(s, 5) = 0;
     F<uint32_t>(s, 9) = 0;
     F<uint32_t>(s, 0x25) = 0;
     F<uint32_t>(s, 0x22b63) = 0;
     F<uint32_t>(s, 0x22b8b) = 2;
-    F<int32_t>(s, 0xd) = Engine_Get1146f6(hook::Global<void*>(0x6d4024));
+    F<int32_t>(s, 0xd) = Engine_Get1146f6(hook::As<void*>(g_engine));
     F<uint32_t>(s, 0x11) = 0;
     F<uint32_t>(s, 1) = 0;
     s[0x3740] = 0;
     F<uint32_t>(s, 0x3730) = 0;
     F<uint32_t>(s, 0x22b6b) = 1;
     F<uint32_t>(s, 0x22b6f) = 1;
-    F<HWND>(s, 0x31) = Engine_Window(hook::Global<void*>(0x6d4024));
+    F<HWND>(s, 0x31) = Engine_Window(hook::As<void*>(g_engine));
     F<uint32_t>(s, 0x3698) = 0x20;
     Scene_CreateRenderer(s);
     memset(s + 0x36e8, 0, 0x30);
@@ -528,11 +529,11 @@ RT3_NOINLINE uint8_t* __fastcall Scene_Construct(uint8_t* s) {
     Texture_SetD93990((const char*)0x5de124);
     Texture_SetD97ab0((const char*)0x5de118);
     static const uint32_t tex[][2] = { { 0x3659, 0x5de10c }, { 0x3651, 0x5de100 }, { 0x3655, 0x5de0f4 }, { 0x365d, 0x5de0dc }, { 0x3661, 0x5de0cc } };
-    for (const auto& t : tex) F<uint8_t*>(s, t[0]) = TextureCache_Get(hook::Global<uint8_t*>(0x6d4020), 0, (const char*)t[1], 0, 0, 0x7f);
+    for (const auto& t : tex) F<uint8_t*>(s, t[0]) = TextureCache_Get(g_pack, 0, (const char*)t[1], 0, 0, 0x7f);
     F<uint8_t*>(s, 0x95) = Scene_NewObject((const char*)0x5de0b4, (const char*)0x5de0c4);
     ((uint8_t*)(uintptr_t)Obj_Get1c(F<uint8_t*>(s, 0x95)))[5] = 0x20;
     Texture_SetCcba20((const char*)0x5de0a4);
-    bool fog = !F<uint8_t>(hook::Global<uint8_t*>(0x6d4024), 0x114251) && F<int32_t>(F<uint8_t*>(s, 0x4d), 4) == 2;
+    bool fog = !F<uint8_t>(g_engine, 0x114251) && F<int32_t>(F<uint8_t*>(s, 0x4d), 4) == 2;
     F<uint8_t*>(s, 0x99) = Scene_NewObject((const char*)0x5de088, (const char*)(fog ? 0x5de098 : 0x5de080));
     ((uint8_t*)(uintptr_t)Obj_Get1c(F<uint8_t*>(s, 0x99)))[5] = 0x20;
     F<uint8_t*>(s, 0x9d) = Scene_NewObject((const char*)0x5de06c, (const char*)0x5de07c);
@@ -594,13 +595,13 @@ RT3_REPLACE(0x55e9f0, Picture_Init);
 RT3_NOINLINE void __fastcall Video_CopyFrame(uint8_t* w) {
     typedef int32_t(__stdcall * CopyToBuffer)(void*, void*, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t);
     uint32_t flags = F<int32_t>(w, 0xda) ? 0x80000000u : 0;
-    if (!hook::Global<uint32_t*>(0xd97984)) hook::Global<uint32_t*>(0xd97984) = Texture_Pixels32(F<uint8_t*>(w, 0xe6), 0, nullptr, nullptr, 0);
+    if (!g_d97984) g_d97984 = Texture_Pixels32(F<uint8_t*>(w, 0xe6), 0, nullptr, nullptr, 0);
     flags |= 3;
     int32_t res;
     if (const uint32_t* src = F<const uint32_t*>(w, 0xbe)) {
         uint32_t* bink = F<uint32_t*>(w, 0xf2);
         res = (*(CopyToBuffer*)0x5c8384)(bink, (void*)src, bink[0] * 4, bink[1], 0, 0, flags | 0x70000000);
-        uint32_t* dst = hook::Global<uint32_t*>(0xd97984);
+        uint32_t* dst = g_d97984;
         bink = F<uint32_t*>(w, 0xf2);
         float sx = (float)((double)bink[0] / F<int32_t>(w, 0xde));
         float sy = (float)((double)bink[1] / F<int32_t>(w, 0xe2));
@@ -609,9 +610,9 @@ RT3_NOINLINE void __fastcall Video_CopyFrame(uint8_t* w) {
             for (int32_t x = 0; x < F<int32_t>(w, 0xde); ++x) *dst++ = src[Ftol((double)x * sx) + base];
         }
     } else {
-        res = (*(CopyToBuffer*)0x5c8384)(F<void*>(w, 0xf2), hook::Global<uint32_t*>(0xd97984), F<uint32_t>(w, 0xde) * 4, F<uint32_t>(w, 0xe2), 0, 0, flags);
+        res = (*(CopyToBuffer*)0x5c8384)(F<void*>(w, 0xf2), g_d97984, F<uint32_t>(w, 0xde) * 4, F<uint32_t>(w, 0xe2), 0, 0, flags);
     }
-    if (!res) Texture_SetPixels(F<uint8_t*>(w, 0xe6), 0, hook::Global<uint32_t*>(0xd97984));
+    if (!res) Texture_SetPixels(F<uint8_t*>(w, 0xe6), 0, g_d97984);
 }
 RT3_REPLACE(0x55ea60, Video_CopyFrame);
 
@@ -629,7 +630,7 @@ RT3_NOINLINE uint8_t* __fastcall Widget_Canvas(uint8_t* g, int, int32_t w, int32
         memset(px, 0, (size_t)(w * h * 4));
         Texture_SetPixels(F<uint8_t*>(g, 0xe6), 0, px);
     }
-    if (((const uint8_t*)0x62583b)[F<int32_t>(g, 0xea) << 4]) Cursor_Set(hook::Global<uint8_t*>(0xccbb20), 0, 0, 0, 0);
+    if (((const uint8_t*)0x62583b)[F<int32_t>(g, 0xea) << 4]) Cursor_Set(g_cursorManager, 0, 0, 0, 0);
     return F<uint8_t*>(g, 0xe6);
 }
 RT3_REPLACE(0x55ec00, Widget_Canvas);
@@ -640,7 +641,7 @@ uint8_t* __fastcall Picture_Load(uint8_t* w, int, int32_t) {
     Widget_Construct(w, 0, nullptr);
     F<uint32_t>(w, 0) = 0x5de2a8;
     Picture_Init(w);
-    ++hook::Global<int32_t>(0xd9797c);
+    ++g_d9797c;
     uint8_t* rec = Widget_ReadRecord(w, 0x87);
     memcpy(w + 0xa2, rec + 0x5f, 0x14);
     Free(rec);
@@ -656,7 +657,7 @@ RT3_NOINLINE void __fastcall Picture_FreeTexture(uint8_t* w) {
     ((void(__cdecl*)(void*))0x53b080)(t);
     F<void*>(w, 0xe6) = nullptr;
     uint8_t v = Engine()[0x114227];
-    hook::Global<int32_t>(0xd97984) = 0;
+    hook::As<int32_t>(g_d97984) = 0;
     Engine()[0x114227] = (uint8_t)((v & 0xf1) | 1);
 }
 RT3_REPLACE(0x55ed40, Picture_FreeTexture);
@@ -668,17 +669,17 @@ RT3_REPLACE(0x55ed40, Picture_FreeTexture);
 // shown again. With `release`, also frees the frame buffers (+0xfe, +0xbe)
 // and the texture.
 RT3_NOINLINE void __fastcall Movie_Stop(uint8_t* w, int, int32_t release) {
-    if (hook::Global<int32_t>(0xd97980)) {
-        hook::Global<int32_t>(0xd97980) = 0;
-        F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x114746) = 0;
-        Engine_SaveConfig(hook::Global<uint8_t*>(0x6d4024));
+    if (g_d97980) {
+        g_d97980 = 0;
+        F<int32_t>(g_engine, 0x114746) = 0;
+        Engine_SaveConfig(g_engine);
     }
     if (F<uint32_t>(w, 0xf2)) {
-        hook::Global<int32_t>(0xd9796c) = 0;
+        g_d9796c = 0;
         Import<void(__stdcall*)(uint32_t)>(0x5c8380)(F<uint32_t>(w, 0xf2));
-        if (hook::Global<uint8_t*>(0x6d402c))
-            Sound_Speakers(hook::Global<uint8_t*>(0x6d402c), 0, F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x11470a), 0);
-        if (hook::Global<uint8_t>(0x625834 + F<int32_t>(w, 0xea) * 16)) Cursor_Set(hook::Global<uint8_t*>(0xccbb20), 0, 1, 0, 0);
+        if (g_sound)
+            Sound_Speakers(g_sound, 0, F<int32_t>(g_engine, 0x11470a), 0);
+        if (hook::Global<uint8_t>(0x625834 + F<int32_t>(w, 0xea) * 16)) Cursor_Set(g_cursorManager, 0, 1, 0, 0);
     }
     F<uint32_t>(w, 0xf2) = 0;
     if (!release) return;
@@ -703,7 +704,7 @@ RT3_REPLACE(0x55ee60, Movie_StopIfHidden);
 RT3_NOINLINE void __fastcall Movie_Tick(uint8_t* w, int, int32_t force) {
     typedef int32_t(__stdcall * BinkFn1)(uint8_t*);
     if (!force && !Widget_IsVisible(w)) return;
-    if (hook::Global<int32_t>(0xd97970)) return;
+    if (g_d97970) return;
     uint8_t* b = F<uint8_t*>(w, 0xf2);
     if (!b) return;
     auto bgoto = [&](uint32_t frame, uint32_t flags) { Import<void(__stdcall*)(uint8_t*, uint32_t, uint32_t)>(0x5c836c)(b, frame, flags); };
@@ -740,7 +741,7 @@ RT3_NOINLINE void __fastcall Movie_Tick(uint8_t* w, int, int32_t force) {
                 F<int32_t>(w, 0xda) = 1;
                 decode = true;
             } else {
-                if (hook::Global<int32_t>(0x6d4000)) F<int32_t>(w, 0xae) = 1;
+                if (g_6d4000) F<int32_t>(w, 0xae) = 1;
                 int32_t old = F<int32_t>(w, 0x106);
                 F<int32_t>(w, 0x106) = 1;
                 if (!F<int32_t>(w, 0xae)) Movie_Stop(w, 0, 1);
@@ -778,13 +779,13 @@ RT3_REPLACE(0x55ee80, Movie_Tick);
 RT3_NOINLINE void __fastcall Movie_Open(uint8_t* w, int, int32_t index) {
     typedef int32_t(__stdcall * SetSound)(void*, uint32_t);
     Movie_Stop(w, 0, 0);
-    if (F<int32_t>(w, 0xaa) && hook::Global<uint8_t*>(0x6d402c))
-        (*(SetSound*)0x5c8360)(*(void**)0x5c835c, Sound_Get2c(hook::Global<uint8_t*>(0x6d402c)));
+    if (F<int32_t>(w, 0xaa) && g_sound)
+        (*(SetSound*)0x5c8360)(*(void**)0x5c835c, Sound_Get2c(g_sound));
     else
         F<int32_t>(w, 0xaa) = 0;
     F<int32_t>(w, 0xea) = index;
     F<int32_t>(w, 0x102) = 0;
-    hook::Global<int32_t>(0xd97980) = 0;
+    g_d97980 = 0;
     char path[0x190];
     auto open_ = (int(__cdecl*)(const char*, int, int))0x5a4c57;
     FormatText(path, (const char*)0x5de2fc, hook::Global<const char*>(0x625830 + F<int32_t>(w, 0xea) * 0x10), nullptr, nullptr, nullptr, nullptr, nullptr,
@@ -792,17 +793,17 @@ RT3_NOINLINE void __fastcall Movie_Open(uint8_t* w, int, int32_t index) {
     int fd = open_(path, 0, 0x100);
     if (fd == -1) {
         bool found = false;
-        if (!F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x114746)) {
+        if (!F<int32_t>(g_engine, 0x114746)) {
             char drive[4];
-            drive[0] = (char)(hook::Global<uint8_t>(0x625a90) + 0x41);
+            drive[0] = (char)(g_625a90 + 0x41);
             drive[1] = 0;
             FormatText(path, (const char*)0x5de2e8, drive, hook::Global<const char*>(0x625830 + F<int32_t>(w, 0xea) * 0x10), nullptr, nullptr, nullptr,
                        nullptr, nullptr, nullptr);
             fd = open_(path, 0, 0x100);
             if (fd != -1) {
-                hook::Global<int32_t>(0xd97980) = 1;
-                F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x114746) = 1;
-                Engine_SaveConfig(hook::Global<uint8_t*>(0x6d4024));
+                g_d97980 = 1;
+                F<int32_t>(g_engine, 0x114746) = 1;
+                Engine_SaveConfig(g_engine);
                 found = true;
             }
         }
@@ -822,7 +823,7 @@ RT3_NOINLINE void __fastcall Movie_Open(uint8_t* w, int, int32_t index) {
         Fatal_Exit(msg);
     }
     F<int32_t>(w, 0x106) = 0;
-    hook::Global<uint32_t*>(0xd9796c) = F<uint32_t*>(w, 0xf2);
+    hook::As<uint32_t*>(g_d9796c) = F<uint32_t*>(w, 0xf2);
     uint32_t* bink = F<uint32_t*>(w, 0xf2);
     uint32_t pw = 1, ph = 1;
     if (bink[0] > 1)
@@ -831,13 +832,13 @@ RT3_NOINLINE void __fastcall Movie_Open(uint8_t* w, int, int32_t index) {
         while (ph < F<uint32_t*>(w, 0xf2)[1]) ph += ph;
     F<uint32_t>(w, 0xb6) = pw;
     F<uint32_t>(w, 0xba) = ph;
-    uint8_t* e = hook::Global<uint8_t*>(0x6d4024);
+    uint8_t* e = g_engine;
     while ((int32_t)pw > F<int32_t>(e, 0x11423b)) pw >>= 1;
     while ((int32_t)ph > F<int32_t>(e, 0x11423f)) ph >>= 1;
     F<void*>(w, 0xbe) = nullptr;
     if ((int32_t)pw < F<int32_t>(w, 0xb6) || (int32_t)ph < F<int32_t>(w, 0xba)) F<void*>(w, 0xbe) = ((void*(__cdecl*)(uint32_t))0x5a125d)(bink[1] * bink[0] * 4);
     Widget_Canvas(w, 0, (int32_t)pw, (int32_t)ph);
-    float vol = hook::Global<float>(0x62583c + F<int32_t>(w, 0xea) * 0x10) * F<float>(hook::Global<uint8_t*>(0x6d4024), 0x114702);
+    float vol = hook::Global<float>(0x62583c + F<int32_t>(w, 0xea) * 0x10) * F<float>(g_engine, 0x114702);
     typedef int32_t(__stdcall * SetVolume)(void*, uint32_t, int32_t);
     if (F<int32_t>(w, 0xaa) && !(vol < D(0x5c85b8)))
         (*(SetVolume*)0x5c8358)(F<void*>(w, 0xf2), 0, Ftol((double)vol * Fl(0x5ddaec)));
@@ -846,9 +847,9 @@ RT3_NOINLINE void __fastcall Movie_Open(uint8_t* w, int, int32_t index) {
     if (F<int32_t>(w, 0xa6)) {
         int32_t* b = F<int32_t*>(w, 0xf2);
         int32_t bh = b[1];
-        uint8_t* en = hook::Global<uint8_t*>(0x6d4024);
+        uint8_t* en = g_engine;
         F<float>(w, 0x13) = (float)((double)b[0] / F<int32_t>(F<uint8_t*>(en, 0x34) + F<int32_t>(en, 0x11421e) * 0x15, 0));
-        en = hook::Global<uint8_t*>(0x6d4024);
+        en = g_engine;
         F<float>(w, 0x17) = (float)((double)bh / F<int32_t>(F<uint8_t*>(en, 0x34) + F<int32_t>(en, 0x11421e) * 0x15, 4));
     }
     Movie_Tick(w, 0, 1);
@@ -899,7 +900,7 @@ RT3_REPLACE(0x55f3f0, MovieWidget_HandleEvent);
 // centre when taller; QUIRK: the bar height then serves as the v offset),
 // with texture filtering off meanwhile (+0x114227); then the debug frames.
 void __fastcall Movie_Draw(uint8_t* w) {
-    if (!Widget_IsVisible(w) || hook::Global<int32_t>(0xd97970)) return;
+    if (!Widget_IsVisible(w) || g_d97970) return;
     auto playing = [&]() { return *(const uint8_t*)(0x625837 + F<int32_t>(w, 0xea) * 16) != 0; };
     using BinkFn = int32_t(__stdcall*)(void*);
     if (F<uint8_t*>(w, 0xf2) && playing()) {
@@ -923,7 +924,7 @@ void __fastcall Movie_Draw(uint8_t* w) {
     float du = (float)(D(0x5c8628) / Texture_Width(F<uint8_t*>(w, 0xe6)));
     float dv = (float)(D(0x5c8628) / Texture_Height(F<uint8_t*>(w, 0xe6)));
     auto unsignedF = [](int32_t i) { return i < 0 ? (double)i + Fl(0x5c872c) : (double)i; };
-    uint8_t* e = hook::Global<uint8_t*>(0x6d4024);
+    uint8_t* e = g_engine;
     uint32_t q[8];
     if (F<uint32_t>(w, 0xb2)) {
         const uint8_t* mode = F<uint8_t*>(e, 0x34) + F<int32_t>(e, 0x11421e) * 0x15;
@@ -935,7 +936,7 @@ void __fastcall Movie_Draw(uint8_t* w) {
             const float bar = (float)(unsignedF(pad) / sw);
             Ui_FillRect(0xff000000, 0, 0.0f, 0.0f, 1.0f, bar, 3);
             Ui_FillRect(0xff000000, 0, 0.0f, (float)((double)Fl(0x5c85b4) - bar), 1.0f, bar, 3);
-            e = hook::Global<uint8_t*>(0x6d4024);
+            e = g_engine;
         }
         mode = F<uint8_t*>(e, 0x34) + F<int32_t>(e, 0x11421e) * 0x15;
         vid = F<uint8_t*>(w, 0xf2);
@@ -962,7 +963,7 @@ void __fastcall Movie_Draw(uint8_t* w) {
         const float x1 = (float)((double)F<float>(w, 0x13) + F<float>(w, 0xb) + F<float>(p, 5));
         const float y0 = (float)((double)F<float>(w, 0xf) + F<float>(p, 9) + edge);
         const float x0 = (float)((double)F<float>(w, 0xb) + F<float>(p, 5));
-        Engine_QueueSprite(hook::Global<void*>(0x6d4024), 0, Bits(x0), Bits(y0), Bits(x1), Bits(y1), Bits(fade), 0xffffffff, F<uint32_t>(w, 0xe6), q[0], q[1], q[2],
+        Engine_QueueSprite(hook::As<void*>(g_engine), 0, Bits(x0), Bits(y0), Bits(x1), Bits(y1), Bits(fade), 0xffffffff, F<uint32_t>(w, 0xe6), q[0], q[1], q[2],
                            q[3], 0x3f800000);
     } else {
         e[0x114227] &= 0xf0;
@@ -981,12 +982,12 @@ void __fastcall Movie_Draw(uint8_t* w) {
         const float x1 = (float)((double)F<float>(w, 0x13) + F<float>(w, 0xb) + F<float>(p, 5));
         const float y0 = (float)((double)F<float>(w, 0xf) + F<float>(p, 9));
         const float x0 = (float)((double)F<float>(w, 0xb) + F<float>(p, 5));
-        Engine_QueueSprite(hook::Global<void*>(0x6d4024), 0, Bits(x0), Bits(y0), Bits(x1), Bits(y1), Bits(fade), 0xffffffff, F<uint32_t>(w, 0xe6), q[0], q[1], q[2],
+        Engine_QueueSprite(hook::As<void*>(g_engine), 0, Bits(x0), Bits(y0), Bits(x1), Bits(y1), Bits(fade), 0xffffffff, F<uint32_t>(w, 0xe6), q[0], q[1], q[2],
                            q[3], 0x3f800000);
     }
-    uint8_t* eng = hook::Global<uint8_t*>(0x6d4024);
+    uint8_t* eng = g_engine;
     eng[0x114227] = (uint8_t)((eng[0x114227] & 0xf1) | 1);
-    if (!(F<uint32_t>(hook::Global<uint8_t*>(0x6d401c), 0xc79) & F<uint16_t>(w, 6))) return;
+    if (!(F<uint32_t>(g_windowManager, 0xc79) & F<uint16_t>(w, 6))) return;
     uint8_t* p = F<uint8_t*>(w, 0x86);
     Ui_FrameRect(0xffffffff, 0, (float)((double)F<float>(p, 5) + F<float>(w, 0xb)), (float)((double)F<float>(p, 9) + F<float>(w, 0xf)), F<float>(w, 0x13),
                  F<float>(w, 0x17), 1.0f, 3);
@@ -1004,7 +1005,7 @@ RT3_REPLACE(0x55f4e0, Movie_Draw);
 RT3_NOINLINE uint8_t* __fastcall Picture_Destroy(uint8_t* w, int, uint32_t flags) {
     F<uint32_t>(w, 0) = 0x5de2a8;
     Movie_Stop(w, 0, 1);
-    --hook::Global<int32_t>(0xd9797c);
+    --g_d9797c;
     Widget_Destruct(w);
     if (flags & 1) ExeDelete(w);
     return w;
@@ -1075,7 +1076,7 @@ RT3_NOINLINE void __fastcall TreeView_ClosePopup(uint8_t* w) {
     if (!F<int32_t>(w, 0x1a8)) return;
     Ui_PlaySound(7, 0, 0x3f000000);
     Window_DeleteChildren(F<uint8_t*>(w, 0x86), 0, 0, 0xffff, (uint32_t)(uintptr_t)w);
-    HandleTable_ReleaseId(hook::Global<uint8_t*>(0x6d401c), 0, F<uint16_t>(w, 4));
+    HandleTable_ReleaseId(g_windowManager, 0, F<uint16_t>(w, 4));
     F<int32_t>(w, 0x1a8) = 0;
 }
 RT3_REPLACE(0x55fc50, TreeView_ClosePopup);
@@ -1153,7 +1154,7 @@ void __fastcall List_CreateScrollbar(uint8_t* l) {
     F<int32_t>(def, 0x63) = page < 2 ? 2 : page;
     F<float>(def, 7) = (float)((double)(F<float>(l, 0xce) < F<float>(l, 0xc6) ? F<float>(l, 0xce) : F<float>(l, 0xc6)) + F<float>(l, 0xb));
     F<float>(def, 0xb) = (float)((double)(F<float>(l, 0xd2) < F<float>(l, 0xca) ? F<float>(l, 0xd2) : F<float>(l, 0xca)) + F<float>(l, 0xf));
-    int32_t id = HandleTable_Acquire(hook::Global<uint8_t*>(0x6d401c), 0, 0);
+    int32_t id = HandleTable_Acquire(g_windowManager, 0, 0);
     F<uint32_t>(def, 0x7b) = F<uint32_t>(l, 0xfa);
     F<uint32_t>(def, 0x7f) = F<uint32_t>(l, 0xfe);
     F<uint32_t>(def, 0x83) = F<uint32_t>(l, 0x102);
@@ -1261,7 +1262,7 @@ RT3_NOINLINE void __fastcall TreeView_Draw(uint8_t* w, int, int32_t, int32_t, in
         return;
     }
     auto metrics = [] {
-        uint8_t* g = hook::Global<uint8_t*>(0x6d4024);
+        uint8_t* g = g_engine;
         return F<uint8_t*>(g, 0x34) + F<int32_t>(g, 0x11421e) * 0x15;
     };
     const double half = D(0x5c8628), one = D(0x5c8770);
@@ -1392,7 +1393,7 @@ void __fastcall TreeView_OnMouse(uint8_t* w, int, float x, float y, int32_t clic
     }
     if (hover) {
         if (auto hoverCb = F<void(__fastcall*)(uint32_t, int32_t, int32_t, float, float, int32_t, int32_t)>(w, 0x96)) {
-            uint8_t* over = F<uint8_t*>(hook::Global<uint8_t*>(0x6d401c), 0xc6d);
+            uint8_t* over = F<uint8_t*>(g_windowManager, 0xc6d);
             if (over == w || r16 != F<int16_t>(w, 0x7e) || c16 != F<int16_t>(w, 0x80)) {
                 p = F<uint8_t*>(w, 0x86);
                 const float hy = (float)((double)y - F<float>(p, 9) + F<float>(w, 0xf));
@@ -1406,7 +1407,7 @@ void __fastcall TreeView_OnMouse(uint8_t* w, int, float x, float y, int32_t clic
     Widget_OnHover(w, 0, x, y, 0, 0);
     if (r16 < 0 || r16 >= F<int32_t>(w, 0x1d2)) return;
     const char* tip = F<const char*>(F<uint8_t*>(w, 0x176) + r16 * 32, 4);
-    if (strlen(tip) > 1) Ui_ShowTooltip(hook::Global<uint8_t*>(0x6d401c), 0, tip, 1, 1, -1);
+    if (strlen(tip) > 1) Ui_ShowTooltip(g_windowManager, 0, tip, 1, 1, -1);
 }
 RT3_REPLACE(0x560bf0, TreeView_OnMouse);
 
@@ -1427,7 +1428,7 @@ RT3_NOINLINE void __fastcall ListView_RefreshVisible(uint8_t* tv) {
         F<void*>(tv, 0x18e) = nullptr;
         return;
     }
-    uint8_t* eng = hook::Global<uint8_t*>(0x6d4024);
+    uint8_t* eng = g_engine;
     int32_t screenH = F<int32_t>(F<uint8_t*>(eng, 0x34) + F<int32_t>(eng, 0x11421e) * 0x15, 4);
     int32_t rowH;
     float rowF = F<float>(tv, 0xb6);
@@ -1503,7 +1504,7 @@ RT3_REPLACE(0x561150, ListView_Refresh);
 RT3_NOINLINE void __fastcall Dropdown_Open(uint8_t* c) {
     if (F<int32_t>(c, 0x1a8)) return;
     Ui_PlaySound(6, 0, 0x3f000000);
-    ++hook::Global<int32_t>(0xccba14);
+    ++g_ccba14;
     float rowH = (float)((double)F<float>(c, 0xb2) + F<float>(c, 0xb6));
     float capH = (float)Slider_StepB((uint8_t*)Table_Entry(F<uint8_t*>(c, 0x92), 0, F<int32_t>(c, 0x13a)));
     int32_t n = F<int32_t>(c, 0x1d2);
@@ -1525,7 +1526,7 @@ RT3_NOINLINE void __fastcall Dropdown_Open(uint8_t* c) {
         F<uint8_t*>(d, 0x47) = c;
         if (F<int32_t>(c, 0x1ac)) F<uint16_t>(d, 0x5f) = last ? F<uint16_t>(c, 0x142) : F<uint16_t>(c, 0x13e);
         else F<uint16_t>(d, 0x5f) = last ? F<uint16_t>(c, 0x13a) : F<uint16_t>(c, 0x136);
-        F<uint16_t>(d, 0) = (uint16_t)HandleTable_Acquire(hook::Global<uint8_t*>(0x6d401c), 0, F<uint16_t>(c, 4));
+        F<uint16_t>(d, 0) = (uint16_t)HandleTable_Acquire(g_windowManager, 0, F<uint16_t>(c, 4));
         String_Assign(&F<char*>(d, 0x43), F<const char*>(c, 0x47));
         uint8_t* f = (uint8_t*)ExeNew(0x111);
         f = f ? Scrollbar_Construct(f, 0, d) : nullptr;
@@ -1544,7 +1545,7 @@ RT3_NOINLINE void __fastcall Dropdown_Open(uint8_t* c) {
     F<uint32_t>(p, 0x2f) = F<uint32_t>(c, 0x33);
     F<uint32_t>(p, 0x34) = F<uint32_t>(c, 0x38);
     p[0x3e] = c[0x42];
-    uint16_t id = (uint16_t)HandleTable_Acquire(hook::Global<uint8_t*>(0x6d401c), 0, F<uint16_t>(c, 4));
+    uint16_t id = (uint16_t)HandleTable_Acquire(g_windowManager, 0, F<uint16_t>(c, 4));
     F<uint16_t>(p, 0) = id;
     F<uint16_t>(c, 0x1a6) = id;
     memcpy(p + 0x5f, c + 0xa2, 0xd0);
@@ -1570,7 +1571,7 @@ RT3_NOINLINE void __fastcall Dropdown_Open(uint8_t* c) {
         Widget_Send(lst, 0, 0x6b, F<uint16_t>(c, 0x1a6), F<uint32_t>(c, 0x1d6), 0, 0);
     }
     F<int32_t>(c, 0x1a8) = 1;
-    --hook::Global<int32_t>(0xccba14);
+    --g_ccba14;
 }
 RT3_REPLACE(0x5611a0, Dropdown_Open);
 
@@ -1586,11 +1587,11 @@ void __fastcall TreeView_Destruct(uint8_t* w) {
     if (F<int32_t>(w, 0x1a8)) {
         Ui_PlaySound(7, 0, 0x3f000000);
         Window_DeleteChildren(F<uint8_t*>(w, 0x86), 0, 0, 0xffff, (uint32_t)(uintptr_t)w);
-        HandleTable_ReleaseId(hook::Global<uint8_t*>(0x6d401c), 0, F<uint16_t>(w, 4));
+        HandleTable_ReleaseId(g_windowManager, 0, F<uint16_t>(w, 4));
         F<int32_t>(w, 0x1a8) = 0;
     }
     if (uint8_t* edit = F<uint8_t*>(w, 0x19a)) {
-        HandleTable_Release(hook::Global<uint8_t*>(0x6d401c), 0, F<uint16_t>(edit, 0x7c));
+        HandleTable_Release(g_windowManager, 0, F<uint16_t>(edit, 0x7c));
         Window_DeleteChild(F<uint8_t*>(w, 0x86), 0, F<uint8_t*>(w, 0x19a));
     }
     F<uint8_t*>(w, 0x19a) = nullptr;
@@ -1604,7 +1605,7 @@ void __fastcall TreeView_Destruct(uint8_t* w) {
     F<void*>(w, 0x176) = nullptr;
     String_Free(&F<char*>(w, 0x47));
     F<int32_t>(w, 0x1de) = 0;
-    uint8_t* mgr = hook::Global<uint8_t*>(0x6d401c);
+    uint8_t* mgr = g_windowManager;
     if (F<uint8_t*>(mgr, 0xc75) == w) F<uint8_t*>(mgr, 0xc75) = nullptr;
     ListView_RefreshVisible(w);
     Widget_Destruct(w);
@@ -1620,7 +1621,7 @@ void __fastcall TreeView_Render(uint8_t* w) {
     int32_t y0 = Ftol((double)F<float>(r, 9) + F<float>(w, 0xf));
     int32_t x0 = Ftol((double)F<float>(w, 0xb) + F<float>(r, 5));
     TreeView_Draw(w, 0, x0, y0, x1, y1);
-    if (!(F<uint32_t>(hook::Global<uint8_t*>(0x6d401c), 0xc79) & F<uint16_t>(w, 6)) || !Widget_IsVisible(w)) return;
+    if (!(F<uint32_t>(g_windowManager, 0xc79) & F<uint16_t>(w, 6)) || !Widget_IsVisible(w)) return;
     r = F<uint8_t*>(w, 0x86);
     float y = (float)((double)F<float>(r, 9) + F<float>(w, 0xf));
     Ui_FrameRect(0xffffffff, 0, (float)((double)F<float>(r, 5) + F<float>(w, 0xb)), y, F<float>(w, 0x13), F<float>(w, 0x17), 1.0f, 3);
@@ -1690,7 +1691,7 @@ RT3_NOINLINE void __fastcall ListBox_SetSelection(uint8_t* l, int, int32_t row, 
     ev[2] = F<uint32_t>(l, 0x1d6);
     ev[3] = (uint32_t)data(F<int32_t>(l, 0x1d6));
     ev[11] = (uint32_t)(uintptr_t)l;
-    if (uint8_t* in = hook::Global<uint8_t*>(0x6d4018)) Input_PushEvent(in, 0, ev);
+    if (uint8_t* in = g_input) Input_PushEvent(in, 0, ev);
 }
 RT3_REPLACE(0x5618f0, ListBox_SetSelection);
 
@@ -1987,7 +1988,7 @@ RT3_REPLACE(0x562100, ListBox_OnMouse);
 RT3_NOINLINE void __fastcall ListBox_AutoScroll(uint8_t* l) {
     if ((uint32_t)(F<int32_t>(l, 0x17e) + 0xe1) > (uint32_t)ClockMs()) return;
     float pos[2];
-    Mouse_GetPos((uint8_t*)Engine_Input(hook::Global<void*>(0x6d4024)), 0, (uint32_t*)&pos[1], (uint32_t*)&pos[0]);
+    Mouse_GetPos((uint8_t*)Engine_Input(hook::As<void*>(g_engine)), 0, (uint32_t*)&pos[1], (uint32_t*)&pos[0]);
     double y = (double)pos[0] - ((double)F<float>(F<uint8_t*>(l, 0x86), 9) + F<float>(l, 0xf));
     pos[0] = (float)y;
     if (y < F<float>(l, 0xaa)) {
@@ -2036,13 +2037,13 @@ int32_t __fastcall ListBox_HandleEvent(uint8_t* l, int, uint32_t* msg) {
     switch (msg[0]) {
     case 0xca:
         if (F<uint32_t>(l, 0x126) && F<uint32_t>(l, 0x1a8) && msg[1] == F<uint16_t>(l, 0x1a6)) {
-            ++hook::Global<int32_t>(0xccba14);
+            ++g_ccba14;
             ListBox_SetSelection(l, 0, (int32_t)msg[2], 1, 0);
             TreeView_ClosePopup(l);
-            --hook::Global<int32_t>(0xccba14);
+            --g_ccba14;
             msg[1] = F<uint16_t>(l, 4);
         }
-        if (hook::Global<int32_t>(0x6d3b4c) && F<uint16_t>(l, 4) == hook::Global<uint32_t>(0x622b34)) Tutorial_Advance();
+        if (g_6d3b4c && F<uint16_t>(l, 4) == g_622b34) Tutorial_Advance();
         break;
     case 0xb1:
         if (msg[1] == id) F<uint32_t>(l, 0x1ba) = msg[2];
@@ -2111,9 +2112,9 @@ int32_t __fastcall ListBox_HandleEvent(uint8_t* l, int, uint32_t* msg) {
     case 0x66:
     case 0x6a:
         if (msg[1] != id) break;
-        ++hook::Global<int32_t>(0xccba14);
+        ++g_ccba14;
         ListBox_SetSelection(l, 0, (int32_t)msg[2], 0, msg[0] == 0x6a ? 1 : 0);
-        --hook::Global<int32_t>(0xccba14);
+        --g_ccba14;
         return 0;
     case 0x8e: {
         if (msg[1] != id || F<int32_t>(l, 0x1d6) == -1) break;
@@ -2174,7 +2175,7 @@ RT3_REPLACE(0x562d30, TimerWidget_Init);
 // second box (+0x1b..+0x27), relative to the parent's origin (+0x86 -> +5 / +9).
 void __fastcall Widget_DrawDebugFrames(uint8_t* w) {
     if (!Widget_IsVisible(w)) return;
-    if (!(F<uint32_t>(hook::Global<uint8_t*>(0x6d401c), 0xc79) & F<uint16_t>(w, 6))) return;
+    if (!(F<uint32_t>(g_windowManager, 0xc79) & F<uint16_t>(w, 6))) return;
     uint8_t* p = F<uint8_t*>(w, 0x86);
     Ui_FrameRect(0xffffffff, 0, (float)((double)F<float>(p, 5) + F<float>(w, 0xb)), (float)((double)F<float>(p, 9) + F<float>(w, 0xf)), F<float>(w, 0x13),
                  F<float>(w, 0x17), 1.0f, 3);
@@ -2237,12 +2238,12 @@ int32_t __fastcall PushButton_HandleEvent(uint8_t* w, int, uint32_t* msg) {
     case 6: {
         if (!slot(0x30)) break;
         if (!((int32_t(__thiscall*)(uint8_t*, uint32_t, uint32_t, int32_t))(*(void***)w)[0x20 / 4])(w, msg[9], msg[10], 1)) break;
-        if (hook::Global<int32_t>(0x6d3b4c) && F<uint16_t>(w, 4) == hook::Global<uint32_t>(0x622b34)) Tutorial_Advance();
+        if (g_6d3b4c && F<uint16_t>(w, 4) == g_622b34) Tutorial_Advance();
         if (!F<uint16_t>(w, 0xac) && !F<void*>(w, 0xd6)) break;
         if (auto cb = F<void(__fastcall*)(uint32_t, uint32_t)>(w, 0xd6)) {
             cb(F<uint16_t>(w, 0xae), F<uint16_t>(w, 0xb0));
         } else {
-            uint8_t* target = Windows_FindChild(hook::Global<uint8_t*>(0x6d401c), 0, F<uint16_t>(w, 0xac));
+            uint8_t* target = Windows_FindChild(g_windowManager, 0, F<uint16_t>(w, 0xac));
             if (!target) break;
             ((void(__thiscall*)(uint8_t*, uint32_t, uint32_t))(*(void***)target)[0x28 / 4])(target, F<uint16_t>(w, 0xae), F<uint16_t>(w, 0xb0));
         }
@@ -2285,7 +2286,7 @@ RT3_NOINLINE uint8_t* __fastcall TimerWidget_Construct(uint8_t* w, int, const ui
 }
 RT3_REPLACE(0x563210, TimerWidget_Construct);
 
-RT3_NOINLINE void __fastcall Reset_625a94() { hook::Global<int32_t>(0x625a94) = -1; }
+RT3_NOINLINE void __fastcall Reset_625a94() { g_625a94 = -1; }
 RT3_REPLACE(0x563250, Reset_625a94);
 
 // 0x563290. Draws a clickable text label in window `win` with font `font`: the
@@ -2299,7 +2300,7 @@ RT3_NOINLINE void __fastcall TextLink_Draw(uint8_t* win, uint8_t* font, const ch
     int32_t fit = (flags & 0x20) ? 0 : 1;
     if (!color) color = 0xffefcf40;
     if (!hover) hover = 0xffffff80;
-    if (hook::Global<int32_t>(0x625a94) != id) hover = color;
+    if (g_625a94 != id) hover = color;
     Font_DrawTextBox(font, 0, text, x, y, w, h, hover, align, valign, flags, 1.0f);
     if (Widget_FindChild(win, 0, id)) return;
     float boxH = h;
@@ -2378,12 +2379,12 @@ void __fastcall Button_Setup(uint8_t* w) {
         F<float>(w, 0xc0) = (float)((double)F<float>(w, 0xc0) + k);
     };
     const double small = *(const double*)0x5c9b50;
-    int32_t lang = hook::Global<int32_t>(0x6d3c84);
+    int32_t lang = g_language;
     if ((lang == 4 || lang == 1 || lang == 2) && F<int16_t>(w, 4) == 0x4f4c) widen(small);
-    lang = hook::Global<int32_t>(0x6d3c84);
+    lang = g_language;
     if ((lang == 4 || lang == 1 || lang == 2) && F<int16_t>(w, 4) == 0x4f4d) widen(small);
     if (!(uint8_t)IsEnglish() && F<int16_t>(w, 4) == 0x4ecc) widen(*(const double*)0x5d0aa0);
-    if (hook::Global<int32_t>(0x6d3c84) == 2 && F<int16_t>(w, 4) == 0x502a) widen(small);
+    if (g_language == 2 && F<int16_t>(w, 4) == 0x502a) widen(small);
 }
 RT3_REPLACE(0x563550, Button_Setup);
 
@@ -2395,7 +2396,7 @@ RT3_REPLACE(0x563550, Button_Setup);
 // debug frames.
 void __fastcall TextWidget_Draw(uint8_t* w) {
     if (!Widget_IsVisible(w)) return;
-    const bool hot = (w[0x33] & 1) && F<uint8_t*>(hook::Global<uint8_t*>(0x6d401c), 0xc6d) == w;
+    const bool hot = (w[0x33] & 1) && F<uint8_t*>(g_windowManager, 0xc6d) == w;
     if (F<uint8_t*>(w, 0x92)) {
         const float scale = (float)(hot ? D(0x5de3f0) : D(0x5c8770));
         const int32_t frame = F<uint32_t>(w, 0xcc) ? F<int32_t>(w, 0xae) : F<int32_t>(w, 0xaa);
@@ -2430,7 +2431,7 @@ void __fastcall TextWidget_Draw(uint8_t* w) {
         const float tx = (float)((double)F<float>(p, 5) + F<float>(w, 0xb) + ox);
         Font_DrawTextBox(F<uint8_t*>(w, 0x63), 0, text, tx, ty, wClip, hClip, color, w[0x2b], w[0x2c], 0, 1.0f);
     }
-    if (!(F<uint32_t>(hook::Global<uint8_t*>(0x6d401c), 0xc79) & F<uint16_t>(w, 6))) return;
+    if (!(F<uint32_t>(g_windowManager, 0xc79) & F<uint16_t>(w, 6))) return;
     uint8_t* p = F<uint8_t*>(w, 0x86);
     Ui_FrameRect(0xffffffff, 0, (float)((double)F<float>(p, 5) + F<float>(w, 0xb)), (float)((double)F<float>(p, 9) + F<float>(w, 0xf)), F<float>(w, 0x13),
                  F<float>(w, 0x17), 1.0f, 3);
@@ -2459,7 +2460,7 @@ int32_t __fastcall Toggle_HandleEvent(uint8_t* w, int, int32_t* e) {
     case 6:
         if (!((int32_t(__fastcall*)(uint8_t*))(*(void***)w)[0xc])(w)) break;
         if (!((int32_t(__fastcall*)(uint8_t*, int, int32_t, int32_t, int32_t))(*(void***)w)[8])(w, 0, e[9], e[10], 1)) break;
-        if (hook::Global<int32_t>(0x6d3b4c) && (int32_t)F<uint16_t>(w, 4) == hook::Global<int32_t>(0x622b34)) Tutorial_Advance();
+        if (g_6d3b4c && (int32_t)F<uint16_t>(w, 4) == hook::As<int32_t>(g_622b34)) Tutorial_Advance();
         if (F<int32_t>(w, 0xc8) && F<int32_t>(w, 0xcc)) return 0;
         F<int32_t>(w, 0xcc) = F<int32_t>(w, 0xcc) ? 0 : 1;
         if (F<int32_t>(w, 0xcc) && F<int32_t>(w, 0xc8))
@@ -2512,7 +2513,7 @@ uint8_t* __fastcall Button_Load(uint8_t* w, int, int32_t) {
     memcpy(w + 0xa2, rec + 0x5f, 0x10);
     F<uint16_t>(w, 0xb6) = F<uint16_t>(rec, 0x73);
     F<char*>(w, 0xb2) = nullptr;
-    NameTable_ReadBlock(hook::Global<uint8_t*>(0x6d4020), 0, 0xbc1, &F<void*>(w, 0xb2));
+    NameTable_ReadBlock(g_pack, 0, 0xbc1, &F<void*>(w, 0xb2));
     if (!F<char*>(w, 0xb2)) String_Assign(&F<char*>(w, 0xb2), (const char*)0x5c87a8);
     memcpy(w + 0xb8, rec + 0x75, 0x24);
     Free(rec);

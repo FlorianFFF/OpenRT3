@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <windows.h>
 #include "hook/hook.h"
+#include "core/globals.h"
 #include "core/stream.h"
 #include "core/ptrlist.h"
 #include "core/crt.h"
@@ -204,24 +205,24 @@ static inline uint32_t Bits(float f) { return *(uint32_t*)&f; }
 // 0xcc3b64 triangles, 0xcc3b5c / 0xcc3b60 triangle / vertex counts left).
 static uint8_t* SceneObj_BeginMesh(uint8_t* o) {
     uint8_t* model = F<uint8_t*>(o, 0x14) + F<int32_t>(o, 0x3a) * 0x18;
-    hook::Global<uint8_t*>(0xcc3b6c) = model;
+    g_cc3b6c = model;
     uint8_t* mesh = F<uint8_t*>(model, 0xc) + F<int32_t>(o, 0x21) * 0x45;
-    hook::Global<uint8_t*>(0xcc3b58) = mesh;
-    hook::Global<uint32_t>(0xcc3b64) = F<uint32_t>(mesh, 4);
-    hook::Global<uint32_t>(0xcc3b5c) = F<uint32_t>(mesh, 0xc);
-    hook::Global<uint32_t>(0xcc3b60) = F<uint32_t>(mesh, 8);
+    g_cc3b58 = mesh;
+    hook::As<uint32_t>(g_cc3b64) = F<uint32_t>(mesh, 4);
+    hook::As<uint32_t>(g_cc3b5c) = F<uint32_t>(mesh, 0xc);
+    hook::As<uint32_t>(g_cc3b60) = F<uint32_t>(mesh, 8);
     return mesh;
 }
 
 // Lays mesh vertices on the terrain (see SceneObj_EmitFlat); onceAtLeast runs
 // each loop body before testing the count, as 0x52e060 does.
 static void SceneObj_LayVertices(uint8_t* o, bool onceAtLeast) {
-    uint8_t* terrain = (uint8_t*)Engine_Get1C(hook::Global<void*>(0x6d4024));
-    uint8_t* mesh = hook::Global<uint8_t*>(0xcc3b58);
+    uint8_t* terrain = (uint8_t*)Engine_Get1C(hook::As<void*>(g_engine));
+    uint8_t* mesh = g_cc3b58;
     const float* src = F<const float*>(mesh, 0x35);
     float* dst = F<float*>(mesh, 0);
-    const uint8_t* group = (const uint8_t*)(src + hook::Global<uint32_t>(0xcc3b60) * 3);
-    uint32_t& left = hook::Global<uint32_t>(0xcc3b60);
+    const uint8_t* group = (const uint8_t*)(src + hook::As<uint32_t>(g_cc3b60) * 3);
+    uint32_t& left = hook::As<uint32_t>(g_cc3b60);
     if (F<float>(o, 0x69) > *(const float*)0x5c8598) {
         if (onceAtLeast || left) do {
             --left;
@@ -261,7 +262,7 @@ static void SceneObj_LayVertices(uint8_t* o, bool onceAtLeast) {
 }
 
 // The texture name from the main pack's cache (all mips, flag 0x7f).
-static uint8_t* Texture_Acquire(const char* name) { return TextureCache_Get(hook::Global<uint8_t*>(0x6d4020), 0, name, 0, 0, 0x7f); }
+static uint8_t* Texture_Acquire(const char* name) { return TextureCache_Get(g_pack, 0, name, 0, 0, 0x7f); }
 
 static inline double D(uint32_t a) { return *(const double*)a; }
 
@@ -361,7 +362,7 @@ RT3_REPLACE(0x52ce60, Obj_SetByte64_52ce60);
 
 // 0x52ce70. Whether the camera changed (or the engine frame +0x114222 moved on); clears the flag.
 int32_t __fastcall Camera_TakeChanged(uint8_t* c) {
-    int32_t frame = F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x114222);
+    int32_t frame = F<int32_t>(g_engine, 0x114222);
     if (frame != F<int32_t>(c, 0x6a)) {
         c[0x64] = 1;
         F<int32_t>(c, 0x6a) = frame;
@@ -528,7 +529,7 @@ void __fastcall Nop52d380(void*) { __asm nop }
 RT3_REPLACE(0x52d380, Nop52d380);
 
 // 0x52d390 (callback). Sets the renderer's detail to 1.
-void Scene_SetDetail1() { Scene_SetDetail((uint8_t*)Engine_Renderer(hook::Global<void*>(0x6d4024)), 0, 1); }
+void Scene_SetDetail1() { Scene_SetDetail((uint8_t*)Engine_Renderer(hook::As<void*>(g_engine)), 0, 1); }
 RT3_REPLACE(0x52d390, Scene_SetDetail1);
 
 // 0x52d3b0 (vtable). 0x5c8578 - +0x20 / +0x28 x 0x5ca048, at least 0 (the
@@ -541,7 +542,7 @@ RT3_REPLACE(0x52d3b0, Obj_FractionLeft);
 
 // 0x52d3e0 / 0x52d570. Detach from the engine's active camera slot (+0x28); the second is the destructor.
 RT3_NOINLINE void __fastcall Camera_Detach(void* c) {
-    uint8_t* e = hook::Global<uint8_t*>(0x6d4024);
+    uint8_t* e = g_engine;
     if (e && F<void*>(e, 0x28) == c) F<void*>(e, 0x28) = nullptr;
 }
 RT3_REPLACE(0x52d3e0, Camera_Detach);
@@ -579,7 +580,7 @@ RT3_REPLACE(0x52d450, Camera_UpdateTarget);
 // 0x52d4d0. The camera bounds (+0x50..+0x5c, fractions) in pixels of the current display mode.
 void __fastcall Camera_BoundsPixels(uint8_t* c, int, int32_t* x0, int32_t* y0, int32_t* x1, int32_t* y1) {
     auto mode = []() {
-        uint8_t* e = hook::Global<uint8_t*>(0x6d4024);
+        uint8_t* e = g_engine;
         return F<uint8_t*>(e, 0x34) + F<int32_t>(e, 0x11421e) * 0x15;
     };
     *x0 = (int32_t)((double)F<int32_t>(mode(), 0) * F<float>(c, 0x50));
@@ -661,8 +662,8 @@ RT3_NOINLINE void __fastcall Camera_Setup(uint8_t* c, int, uint32_t terrain, uin
     F<uint32_t>(c, 0xc) = z;
     F<uint32_t>(c, 0x18) = dist;
     F<uint32_t>(c, 0x4c) = dist;
-    F<uint32_t>(c, 0x6a) = F<uint32_t>(hook::Global<uint8_t*>(0x6d4024), 0x114222);
-    F<int32_t>(c, 0x28) = (int32_t)F<float>(Engine_Renderer(hook::Global<void*>(0x6d4024)), 0x22b67);
+    F<uint32_t>(c, 0x6a) = F<uint32_t>(g_engine, 0x114222);
+    F<int32_t>(c, 0x28) = (int32_t)F<float>(Engine_Renderer(hook::As<void*>(g_engine)), 0x22b67);
     Camera_KeepAboveGround(c);
 }
 RT3_REPLACE(0x52d6f0, Camera_Setup);
@@ -670,13 +671,13 @@ RT3_REPLACE(0x52d6f0, Camera_Setup);
 // 0x52d750. Loads a camera (eye, distance, angles, target; 20 bytes skipped) and
 // re-attaches it to the engine's terrain. Returns the bytes read.
 RT3_NOINLINE int32_t __fastcall Camera_Load(uint8_t* c, int, Stream s) {
-    uint8_t* e = hook::Global<uint8_t*>(0x6d4024);
+    uint8_t* e = g_engine;
     if (e && F<uint8_t*>(e, 0x28) == c) F<uint8_t*>(e, 0x28) = nullptr;
     int32_t n = StreamRead(s, c + 4, 4, 0, 1);
     n += StreamRead(s, c + 8, 4, 0, 1);
     n += StreamRead(s, c + 0xc, 4, 0, 1);
     n += StreamRead(s, c + 0x18, 4, 0, 1);
-    Camera_Setup(c, 0, (uint32_t)Engine_Get1C(hook::Global<void*>(0x6d4024)), F<uint32_t>(c, 4), F<uint32_t>(c, 8),
+    Camera_Setup(c, 0, (uint32_t)Engine_Get1C(hook::As<void*>(g_engine)), F<uint32_t>(c, 4), F<uint32_t>(c, 8),
                  F<uint32_t>(c, 0xc), F<uint32_t>(c, 0x18));
     static const uint8_t rest[] = { 0x10, 0x14, 0x1c, 0x20, 0x24 };
     for (uint8_t off : rest) n += StreamRead(s, c + off, 4, 0, 1);
@@ -788,16 +789,16 @@ void __fastcall Model_PrepareTint(uint8_t* m, int, int32_t tint) {
     m[0x8d] = 1;
     m[0x20] |= 2;
     uint8_t* anim = F<uint8_t*>(m, 0x14) + F<int32_t>(m, 0x3a) * 24;
-    hook::Global<uint8_t*>(0xcc3b6c) = anim;
-    for (int32_t i = 0; i < F<int32_t>(hook::Global<uint8_t*>(0xcc3b6c), 0x14); ++i) {
-        uint8_t* fr = F<uint8_t*>(hook::Global<uint8_t*>(0xcc3b6c), 0xc) + i * 0x45;
-        hook::Global<uint8_t*>(0xcc3b58) = fr;
+    g_cc3b6c = anim;
+    for (int32_t i = 0; i < F<int32_t>(g_cc3b6c, 0x14); ++i) {
+        uint8_t* fr = F<uint8_t*>(g_cc3b6c, 0xc) + i * 0x45;
+        g_cc3b58 = fr;
         if (F<void*>(fr, 0x35)) continue;
         int32_t n = F<int32_t>(fr, 8);
-        hook::Global<int32_t>(0xcc3b60) = n;
+        g_cc3b60 = n;
         uint8_t* buf = (uint8_t*)Malloc(n + n * 12);
-        F<uint8_t*>(hook::Global<uint8_t*>(0xcc3b58), 0x35) = buf;
-        const uint8_t* src = F<uint8_t*>(hook::Global<uint8_t*>(0xcc3b58), 0);
+        F<uint8_t*>(g_cc3b58, 0x35) = buf;
+        const uint8_t* src = F<uint8_t*>(g_cc3b58, 0);
         for (int32_t k = 0; k < n * 12; ++k) buf[k] = src[k];
         for (int32_t k = 0; k < n; ++k) buf[n * 12 + k] = 0;
     }
@@ -811,18 +812,18 @@ void __fastcall Model_AddTintRect(uint8_t* m, int, float x0, float y0, float x1,
     m[0x5b]++;
     F<float>(m, 0x69 + m[0x5b] * 4) = tint;
     uint8_t* anim = F<uint8_t*>(m, 0x14) + F<int32_t>(m, 0x3a) * 24;
-    hook::Global<uint8_t*>(0xcc3b6c) = anim;
+    g_cc3b6c = anim;
     for (int32_t i = 0; i < F<int32_t>(anim, 0x14); ++i) {
         uint8_t* fr = F<uint8_t*>(anim, 0xc) + i * 0x45;
-        hook::Global<uint8_t*>(0xcc3b58) = fr;
+        g_cc3b58 = fr;
         int32_t n = F<int32_t>(fr, 8);
-        hook::Global<int32_t>(0xcc3b60) = n;
+        g_cc3b60 = n;
         uint8_t* buf = F<uint8_t*>(fr, 0x35);
         uint8_t* marks = buf + n * 12;
-        for (int32_t k = 0; hook::Global<int32_t>(0xcc3b60); ++k) {
+        for (int32_t k = 0; g_cc3b60; ++k) {
             float vz = F<float>(buf, k * 12 + 8), vy = F<float>(buf, k * 12 + 4);
             if (vz > x0 && vz < x1 && vy > y0 && vy < y1) marks[k] = m[0x5b];
-            hook::Global<int32_t>(0xcc3b60)--;
+            g_cc3b60--;
         }
     }
 }
@@ -834,10 +835,10 @@ RT3_REPLACE(0x52dc00, Model_AddTintRect);
 void __fastcall SceneObj_EmitLit(uint8_t* o, int, uint32_t* out, int32_t* count) {
     SceneObj_BeginMesh(o);
     SceneObj_LayVertices(o, false);
-    uint32_t& tris = hook::Global<uint32_t>(0xcc3b5c);
+    uint32_t& tris = hook::As<uint32_t>(g_cc3b5c);
     *count += (int32_t)(tris * 3);
     while (tris) {
-        const uint32_t* t = hook::Global<const uint32_t*>(0xcc3b64);
+        const uint32_t* t = g_cc3b64;
         for (int32_t k = 0; k < 3; ++k) {
             const uint32_t* v = (const uint32_t*)(uintptr_t)t[k];
             out[0] = v[0];
@@ -850,7 +851,7 @@ void __fastcall SceneObj_EmitLit(uint8_t* o, int, uint32_t* out, int32_t* count)
             *(float*)&out[7] = (float)((double)*(const float*)&t[0xd + k * 2] + F<float>(o, 0x89));
             out += 8;
         }
-        hook::Global<const uint32_t*>(0xcc3b64) = t + 0x13;
+        g_cc3b64 = t + 0x13;
         --tris;
     }
 }
@@ -866,25 +867,25 @@ RT3_REPLACE(0x52dd00, SceneObj_EmitLit);
 void __fastcall SceneObj_EmitFlat(uint8_t* o, int, uint32_t* out, int32_t* count) {
     SceneObj_BeginMesh(o);
     SceneObj_LayVertices(o, true);
-    uint32_t& tris = hook::Global<uint32_t>(0xcc3b5c);
+    uint32_t& tris = hook::As<uint32_t>(g_cc3b5c);
     *count += (int32_t)(tris * 3);
     do {
         --tris;
-        const uint32_t* t = hook::Global<const uint32_t*>(0xcc3b64);
+        const uint32_t* t = g_cc3b64;
         for (int32_t k = 0; k < 3; ++k) {
             const uint32_t* v = (const uint32_t*)(uintptr_t)t[k];
             out[0] = v[0];
             out[1] = v[1];
             out[2] = v[2];
             out[3] = F<uint32_t>(o, 0x43);
-            t = hook::Global<const uint32_t*>(0xcc3b64);
+            t = g_cc3b64;
             *(float*)&out[4] = (float)((double)*(const float*)&t[0xc + k * 2] + F<float>(o, 0x85));
-            t = hook::Global<const uint32_t*>(0xcc3b64);
+            t = g_cc3b64;
             *(float*)&out[5] = (float)((double)*(const float*)&t[0xd + k * 2] + F<float>(o, 0x89));
-            t = hook::Global<const uint32_t*>(0xcc3b64);
+            t = g_cc3b64;
             out += 6;
         }
-        hook::Global<const uint32_t*>(0xcc3b64) = t + 0x13;
+        g_cc3b64 = t + 0x13;
     } while (tris);
 }
 RT3_REPLACE(0x52e060, SceneObj_EmitFlat);
@@ -927,14 +928,14 @@ RT3_REPLACE(0x52e380, Model_EmitTriangles);
 // records into out and adds their count to *count.
 void __fastcall Model_EmitVertices(uint8_t* m, int, uint8_t* out, int32_t* count) {
     uint8_t* anim = F<uint8_t*>(m, 0x14) + F<int32_t>(m, 0x3a) * 24;
-    hook::Global<uint8_t*>(0xcc3b6c) = anim;
+    g_cc3b6c = anim;
     uint8_t* fr = F<uint8_t*>(anim, 0xc) + F<int32_t>(m, 0x21) * 0x45;
-    hook::Global<uint8_t*>(0xcc3b58) = fr;
-    hook::Global<uint8_t*>(0xcc3b68) = F<uint8_t*>(fr, 0);
-    hook::Global<int32_t>(0xcc3b60) = F<int32_t>(fr, 8);
-    *count += hook::Global<int32_t>(0xcc3b60);
-    while (hook::Global<int32_t>(0xcc3b60)) {
-        const uint32_t* src = hook::Global<uint32_t*>(0xcc3b68);
+    g_cc3b58 = fr;
+    g_cc3b68 = F<uint8_t*>(fr, 0);
+    g_cc3b60 = F<int32_t>(fr, 8);
+    *count += g_cc3b60;
+    while (g_cc3b60) {
+        const uint32_t* src = hook::As<uint32_t*>(g_cc3b68);
         F<uint32_t>(out, 0) = src[0];
         F<uint32_t>(out, 4) = src[1];
         F<uint32_t>(out, 8) = src[2];
@@ -943,9 +944,9 @@ void __fastcall Model_EmitVertices(uint8_t* m, int, uint8_t* out, int32_t* count
         F<uint32_t>(out, 0xc) = 0;
         F<uint32_t>(out, 0x10) = 0x3f800000;
         F<uint32_t>(out, 0x14) = 0;
-        hook::Global<uint8_t*>(0xcc3b68) += 0xc;
+        g_cc3b68 += 0xc;
         out += 0x20;
-        hook::Global<int32_t>(0xcc3b60)--;
+        g_cc3b60--;
     }
 }
 RT3_REPLACE(0x52e480, Model_EmitVertices);
@@ -956,20 +957,20 @@ RT3_REPLACE(0x52e480, Model_EmitVertices);
 void __fastcall Mesh_EmitTriangles(uint8_t* o, int, uint8_t* verts, int32_t* count, uint32_t color, int32_t lod,
                                    float x, float y, float z) {
     uint8_t* mesh = F<uint8_t*>(o, 0x14) + F<int32_t>(o, 0x3a) * 24;
-    hook::Global<uint8_t*>(0xcc3b6c) = mesh;
+    g_cc3b6c = mesh;
     if (lod >= F<int32_t>(mesh, 0x14)) lod = F<int32_t>(mesh, 0x14) - 1;
     uint8_t* l = F<uint8_t*>(mesh, 0xc) + lod * 0x45;
-    hook::Global<uint8_t*>(0xcc3b58) = l;
-    hook::Global<int32_t>(0xcc3b5c) = F<int32_t>(l, 0xc);
-    hook::Global<uint8_t*>(0xcc3b64) = F<uint8_t*>(l, 4);
+    g_cc3b58 = l;
+    g_cc3b5c = F<int32_t>(l, 0xc);
+    hook::As<uint8_t*>(g_cc3b64) = F<uint8_t*>(l, 4);
     *count += F<int32_t>(l, 0xc) * 3;
     uint32_t* v = (uint32_t*)verts;
     do {
-        uint8_t* tri = hook::Global<uint8_t*>(0xcc3b64);
+        uint8_t* tri = hook::As<uint8_t*>(g_cc3b64);
         const float* p0 = F<const float*>(tri, 0);
         const float* p1 = F<const float*>(tri, 4);
         const float* p2 = F<const float*>(tri, 8);
-        --hook::Global<int32_t>(0xcc3b5c);
+        --g_cc3b5c;
         const float* ps[3] = { p0, p1, p2 };
         for (int k = 0; k < 3; ++k) {
             float* f = (float*)(v + k * 6);
@@ -977,12 +978,12 @@ void __fastcall Mesh_EmitTriangles(uint8_t* o, int, uint8_t* verts, int32_t* cou
             f[1] = (float)((double)y + ps[k][1]);
             f[2] = (float)((double)z + ps[k][2]);
             v[k * 6 + 3] = color;
-            v[k * 6 + 4] = F<uint32_t>(hook::Global<uint8_t*>(0xcc3b64), 0x30 + k * 8);
-            v[k * 6 + 5] = F<uint32_t>(hook::Global<uint8_t*>(0xcc3b64), 0x34 + k * 8);
+            v[k * 6 + 4] = F<uint32_t>(hook::As<uint8_t*>(g_cc3b64), 0x30 + k * 8);
+            v[k * 6 + 5] = F<uint32_t>(hook::As<uint8_t*>(g_cc3b64), 0x34 + k * 8);
         }
         v += 18;
-        hook::Global<uint8_t*>(0xcc3b64) += 0x4c;
-    } while (hook::Global<int32_t>(0xcc3b5c));
+        hook::As<uint8_t*>(g_cc3b64) += 0x4c;
+    } while (g_cc3b5c);
 }
 RT3_REPLACE(0x52e520, Mesh_EmitTriangles);
 
@@ -1156,7 +1157,7 @@ int32_t __fastcall Return46_52eb70(void*) { return 0x46; }
 RT3_REPLACE(0x52eb70, Return46_52eb70);
 
 // 0x52eb80 (vtable stub).
-float __fastcall Const5dd1e8_52eb80(void*) { return hook::Global<float>(0x5dd1e8); }
+float __fastcall Const5dd1e8_52eb80(void*) { return g_5dd1e8; }
 RT3_REPLACE(0x52eb80, Const5dd1e8_52eb80);
 
 RT3_NOINLINE void __fastcall SceneObj_ResetAttachmentLists(uint8_t* o) {
@@ -1252,7 +1253,7 @@ RT3_NOINLINE void __fastcall SceneObj_Init(uint8_t* o, int, uint32_t owner, cons
     F<uint32_t>(o, 4) = owner;
     F<uint32_t>(o, 0x75) = 0;
     if (model) {
-        F<uint8_t*>(o, 0x10) = Pack_AcquireCollision(hook::Global<uint8_t*>(0x6d4020), 0, model);
+        F<uint8_t*>(o, 0x10) = Pack_AcquireCollision(g_pack, 0, model);
         F<uint8_t*>(o, 0x1c) = tex ? Texture_Acquire(tex) : nullptr;
         uint8_t* mesh = *F<uint8_t**>(o, 0x10);
         F<uint8_t*>(o, 0x14) = mesh;
@@ -1308,10 +1309,10 @@ RT3_REPLACE(0x52ef10, SpriteSet_Free);
 // recursively), sprites and sound channels (+0x81), clears the scene's
 // selection (+0x366e) and releases its two pack resources (+0x10, +0x1c).
 RT3_NOINLINE void __fastcall SceneObj_Destruct(uint8_t* o) {
-    uint8_t* e = hook::Global<uint8_t*>(0x6d4024);
+    uint8_t* e = g_engine;
     if (e && F<uint8_t*>(e, 0x28) && F<uint8_t*>(F<uint8_t*>(e, 0x28), 0x60) == o) Camera_SetMode(F<uint8_t*>(e, 0x28), 0, 0);
     if (F<uint8_t*>(o, 4) && F<PtrListNode*>(o, 0xc)) Terrain_RemoveGlobal(F<uint8_t*>(o, 4), 0, F<PtrListNode*>(o, 0xc));
-    Scene_MarkDirty((uint8_t*)Engine_Renderer(hook::Global<void*>(0x6d4024)));
+    Scene_MarkDirty((uint8_t*)Engine_Renderer(hook::As<void*>(g_engine)));
     ModelSet_Clear(o);
     if (F<PtrList*>(o, 0x75)) {
         PtrList_Rewind(F<PtrList*>(o, 0x75));
@@ -1339,8 +1340,8 @@ RT3_NOINLINE void __fastcall SceneObj_Destruct(uint8_t* o) {
         }
         F<PtrList*>(o, 0x81) = nullptr;
     }
-    if (F<uint8_t*>((uint8_t*)Engine_Renderer(hook::Global<void*>(0x6d4024)), 0x366e) == o)
-        F<uint8_t*>((uint8_t*)Engine_Renderer(hook::Global<void*>(0x6d4024)), 0x366e) = nullptr;
+    if (F<uint8_t*>((uint8_t*)Engine_Renderer(hook::As<void*>(g_engine)), 0x366e) == o)
+        F<uint8_t*>((uint8_t*)Engine_Renderer(hook::As<void*>(g_engine)), 0x366e) = nullptr;
     if (uint8_t* t = F<uint8_t*>(o, 4)) {
         if (PtrListNode* n = F<PtrListNode*>(o, 8)) {
             int32_t y = Ftol((double)F<float>(o, 0x1ea) * Fl_205(0x5dcfe8)) >> 4;
@@ -1349,9 +1350,9 @@ RT3_NOINLINE void __fastcall SceneObj_Destruct(uint8_t* o) {
             F<uint8_t*>(o, 4) = nullptr;
         }
     }
-    if (void* r = F<void*>(o, 0x10)) Pack_Release(hook::Global<uint8_t*>(0x6d4020), 0, r);
+    if (void* r = F<void*>(o, 0x10)) Pack_Release(g_pack, 0, r);
     F<void*>(o, 0x10) = nullptr;
-    if (void* r = F<void*>(o, 0x1c)) Pack_Release(hook::Global<uint8_t*>(0x6d4020), 0, r);
+    if (void* r = F<void*>(o, 0x1c)) Pack_Release(g_pack, 0, r);
     F<void*>(o, 0x1c) = nullptr;
 }
 RT3_REPLACE(0x52ef70, SceneObj_Destruct);
@@ -1432,9 +1433,9 @@ int32_t __fastcall SceneObj_SelectLod(uint8_t* o, int, float x, float y, float z
     int32_t dist2 = (int32_t)(d * d * 4 + 1);
     int32_t layer = ((int32_t(__thiscall*)(void*))(*(void***)o)[0x18 / 4])(o);
     float r = Render_GetLayerValue(F<uint8_t*>(o, 4), 0, layer);
-    if (F<int32_t>(Engine_Renderer(hook::Global<void*>(0x6d4024)), 0x22b63) > 0) r = (float)((double)r * D(0x5d08a0));
+    if (F<int32_t>(Engine_Renderer(hook::As<void*>(g_engine)), 0x22b63) > 0) r = (float)((double)r * D(0x5d08a0));
     double q = r;
-    if (F<uint8_t>(Engine_Renderer(hook::Global<void*>(0x6d4024)), 0x3692)) q = (double)r * D(0x5d08a0);
+    if (F<uint8_t>(Engine_Renderer(hook::As<void*>(g_engine)), 0x3692)) q = (double)r * D(0x5d08a0);
     uint8_t* mesh = F<uint8_t*>(o, 0x14);
     float size = (float)((double)F<float>(F<uint8_t*>(mesh, 0xc), 0x10) / dist2 * q);
     if ((o[0x5c] & 1) && size <= D(0x5c8628)) o[0x5c] |= 2;
@@ -1445,7 +1446,7 @@ int32_t __fastcall SceneObj_SelectLod(uint8_t* o, int, float x, float y, float z
             F<int32_t>(o, 0x21) = i;
             break;
         }
-    int32_t forced = F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x1146c2);
+    int32_t forced = F<int32_t>(g_engine, 0x1146c2);
     if (forced >= 0) {
         int32_t last = F<int32_t>(mesh, 0x14) - 1;
         F<int32_t>(o, 0x21) = forced < last ? forced : last;
@@ -1464,8 +1465,8 @@ RT3_REPLACE(0x52f370, SceneObj_SelectLod);
 // refreshed when +0x20 & 4); after the first hit the rest are copied untested.
 // Returns whether the ray hit.
 int32_t __fastcall Mesh_EmitPickTriangles(uint8_t* o, int, uint8_t* out, int32_t* count, const float* dir, const float* origin) {
-    uint8_t*& tri = hook::Global<uint8_t*>(0xcc3b64);
-    int32_t& left = hook::Global<int32_t>(0xcc3b5c);
+    uint8_t*& tri = hook::As<uint8_t*>(g_cc3b64);
+    int32_t& left = g_cc3b5c;
     tri = F<uint8_t*>(F<uint8_t*>(o, 0x18), 4);
     left = F<int32_t>(F<uint8_t*>(o, 0x18), 0xc);
     if (left <= 0) return 0;
@@ -1566,7 +1567,7 @@ RT3_NOINLINE void __fastcall SceneObj_SetAlpha(uint8_t* o, int, uint32_t alphaAr
         PtrList_Rewind(l);
         for (uint8_t* c = (uint8_t*)PtrList_Next(F<PtrList*>(p, 0x75)); c; c = (uint8_t*)PtrList_Next(F<PtrList*>(p, 0x75))) fn(c);
     };
-    if (!F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x114742)) {
+    if (!F<int32_t>(g_engine, 0x114742)) {
         F<uint32_t>(o, 0x47) = (uint32_t)alpha << 24;
         if (deep) forEach(o, [&](uint8_t* c) { SceneObj_SetAlpha(c, 0, alphaArg, 1); });
         return;

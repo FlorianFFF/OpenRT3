@@ -9,6 +9,7 @@
 #include <windows.h>
 #include <initializer_list>
 #include "hook/hook.h"
+#include "core/globals.h"
 #include "game/collection.h"
 #include "core/crt.h"
 #include "core/ptrlist.h"
@@ -121,12 +122,12 @@ void __fastcall Mem_Fill32(uint32_t* dst, uint32_t v, uint32_t count);
 void __fastcall Widget_LoadBase(uint8_t* w, int, const uint8_t* rec);
 
 // The texture name from the main pack's cache (all mips, flag 0x7f).
-static uint8_t* Texture_Acquire(const char* name) { return TextureCache_Get(hook::Global<uint8_t*>(0x6d4020), 0, name, 0, 0, 0x7f); }
+static uint8_t* Texture_Acquire(const char* name) { return TextureCache_Get(g_pack, 0, name, 0, 0, 0x7f); }
 
 // Replaces the texture held in global slot by name's (the old one released).
 static void Texture_Replace(uint32_t slot, const char* name) {
     if (void* old = hook::Global<void*>(slot)) {
-        Pack_Release(hook::Global<uint8_t*>(0x6d4020), 0, old);
+        Pack_Release(g_pack, 0, old);
         hook::Global<void*>(slot) = nullptr;
     }
     hook::Global<uint8_t*>(slot) = Texture_Acquire(name);
@@ -188,7 +189,7 @@ static inline void FatalError(const char* msg) { ((void(__fastcall*)(const char*
 // +0xc / +0x10 and initialises it (method 0x34 with 0x5c84a0). Whether both worked.
 static int32_t ComCreate(void** slot) {
     typedef HRESULT(WINAPI * CreateFn)(const void*, void*, DWORD, const void*, void**);
-    if (hook::Global<CreateFn>(0x5c848c)((const void*)0x5c84e0, nullptr, 1, (const void*)0x5c84d0, slot) < 0) return 0;
+    if (hook::As<CreateFn>(g_5c848c)((const void*)0x5c84e0, nullptr, 1, (const void*)0x5c84d0, slot) < 0) return 0;
     void* o = *slot;
     return ((HRESULT(__stdcall*)(void*, const void*))(*(void***)o)[0x34 / 4])(o, (const void*)0x5c84a0) >= 0 ? 1 : 0;
 }
@@ -198,8 +199,8 @@ static inline char* StrChr(const char* s, int c) { return ((char*(__cdecl*)(cons
 // 0x557330 body. Reduces s to the trimmed text between the open and close
 // characters (0x6257e0 / 0x6257e4, '(' and ')'); 0 when either is missing.
 static int32_t __cdecl Str_InnerParensImpl(char* s) {
-    char* open = StrChr(s, hook::Global<int32_t>(0x6257e0));
-    char* close = StrChr(s, hook::Global<int32_t>(0x6257e4));
+    char* open = StrChr(s, g_6257e0);
+    char* close = StrChr(s, g_6257e4);
     if (!open || !close) return 0;
     ++open;
     *close = 0;
@@ -267,7 +268,7 @@ int32_t __fastcall EmitterRef_Update(uint8_t* o, const uint32_t* p) {
             Emitter_RetintAll(e2);
         }
     } else {
-        if (hook::Global<int32_t>(0xd93998)) hook::Global<uint32_t>(0x6257d8) = F<uint32_t>(e, 0x54);
+        if (g_d93998) hook::As<uint32_t>(g_6257d8) = F<uint32_t>(e, 0x54);
         F<uint32_t>(e, 0xac) &= ~0x400u;
         Emitter_Tick(F<uint8_t*>(s, 4), 0, 0);
     }
@@ -282,7 +283,7 @@ RT3_REPLACE(0x5563b0, EmitterRef_Update);
 // clearing 0xd939a4).
 void __fastcall Model_Release(uint8_t* m) {
     if (F<uint32_t>(m, 0xac) & 0x400) {
-        uint8_t* g = hook::Global<uint8_t*>(0x6d4030);
+        uint8_t* g = g_models;
         if (int32_t* rec = (int32_t*)(uintptr_t)Hash_Get(F<HashMap*>(g, 4), 0, (uint32_t)(uintptr_t)m)) {
             if (--rec[0] == 0) ListPair_Clear((uint8_t*)(uintptr_t)rec[1], 0, 1);
             Hash_Remove(F<HashMap*>(g, 4), 0, (uint32_t)(uintptr_t)m);
@@ -293,11 +294,11 @@ void __fastcall Model_Release(uint8_t* m) {
         F<void*>(m, 0x1dd) = nullptr;
     }
     ListPair_Clear(m, 0, 1);
-    if (F<uint8_t*>(m, 8)) Pack_Release(hook::Global<uint8_t*>(0x6d4020), 0, F<uint8_t*>(m, 8));
+    if (F<uint8_t*>(m, 8)) Pack_Release(g_pack, 0, F<uint8_t*>(m, 8));
     if (void* p = F<void*>(m, 0x64)) {
         Free(p);
         F<void*>(m, 0x64) = nullptr;
-        hook::Global<int32_t>(0xd939a4) = 0;
+        hook::As<int32_t>(g_d939a4) = 0;
     }
 }
 RT3_REPLACE(0x556460, Model_Release);
@@ -306,30 +307,30 @@ RT3_REPLACE(0x556460, Model_Release);
 // (direction +0x34, speed 0x6257dc) and updates all sounds (Hash_ForEach 0x5563b0),
 // twice when the 10 s refresh (0x6257d8) is due.
 void __fastcall Ambience_Tick(uint8_t* a, int, uint32_t flag) {
-    hook::Global<int32_t>(0xd97ab8) = 0;
+    g_d97ab8 = 0;
     F<int32_t>(a, 0x20) = 0;
     F<int32_t>(a, 0x24) = 0;
-    hook::Global<uint32_t>(0xd93998) = flag;
-    int32_t due = F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x2c) + 10000;
+    hook::As<uint32_t>(g_d93998) = flag;
+    int32_t due = F<int32_t>(g_engine, 0x2c) + 10000;
     if (!(F<float>(a, 0x30) > *(const float*)0x5c970c)) {
         F<uint32_t>(a, 0x34) = 0x3f800000;
-        hook::Global<uint32_t>(0x6257dc) = 0x3951b717;
+        g_6257dc = 0x3951b717;
     } else if (!(F<float>(a, 0x30) < *(const float*)0x5c85b4) && F<float>(a, 0x30) == F<float>(a, 0x30)) {
         F<uint32_t>(a, 0x34) = 0xbf800000;
-        hook::Global<uint32_t>(0x6257dc) = 0x39d1b717;
+        g_6257dc = 0x39d1b717;
     }
     auto visit = (HashVisit)0x5563b0;
-    hook::Global<int32_t>(0xd939a8) = 1;
-    F<float>(a, 0x30) = (float)((double)hook::Global<float>(0x6257dc) * F<float>(a, 0x34) + F<float>(a, 0x30));
-    if (due < hook::Global<int32_t>(0x6257d8)) {
-        hook::Global<int32_t>(0x6257d8) = due - 10000;
+    g_d939a8 = 1;
+    F<float>(a, 0x30) = (float)((double)hook::As<float>(g_6257dc) * F<float>(a, 0x34) + F<float>(a, 0x30));
+    if (due < g_6257d8) {
+        g_6257d8 = due - 10000;
         Hash_ForEach(F<HashMap*>(a, 8), 0, 0, visit, nullptr);
-        hook::Global<int32_t>(0xd93998) = 1;
+        g_d93998 = 1;
     }
-    hook::Global<int32_t>(0x6257d8) = due;
+    g_6257d8 = due;
     Hash_ForEach(F<HashMap*>(a, 8), 0, 0, visit, nullptr);
     F<int32_t>(a, 0x2c)++;
-    hook::Global<int32_t>(0xd939a8) = 0;
+    g_d939a8 = 0;
 }
 RT3_REPLACE(0x556500, Ambience_Tick);
 
@@ -438,7 +439,7 @@ RT3_NOINLINE void __fastcall ModelLibrary_Init(uint32_t* o, int, int32_t count) 
     o[1] = (uint32_t)(uintptr_t)h2;
     Hash_Init(h2, 0, 0x65, 0);
     o[0] = (uint32_t)(uintptr_t)newZeroed(0xc);
-    F<uint32_t>(hook::Global<uint8_t*>(0x6d4030), 0x28) = 0x3f800000;
+    F<uint32_t>(g_models, 0x28) = 0x3f800000;
 }
 RT3_REPLACE(0x556770, ModelLibrary_Init);
 
@@ -451,9 +452,9 @@ RT3_REPLACE(0x556770, ModelLibrary_Init);
 // reset). Starts the model library (0x6d4030, 50000) on first use.
 RT3_NOINLINE uint8_t* __fastcall Emitter_Construct(uint8_t* e, int, const char* name, uint32_t color, int32_t perPoint, const float* rect, uint8_t* obj,
                                       uint32_t flags) {
-    if (!F<int32_t>(hook::Global<uint8_t*>(0x6d4030), 0x14)) ModelLibrary_Init(hook::Global<uint32_t*>(0x6d4030), 0, 0xc350);
+    if (!F<int32_t>(g_models, 0x14)) ModelLibrary_Init(hook::As<uint32_t*>(g_models), 0, 0xc350);
     if (name) {
-        uint8_t* m = Pack_AcquireCollision(hook::Global<uint8_t*>(0x6d4020), 0, name);
+        uint8_t* m = Pack_AcquireCollision(g_pack, 0, name);
         F<uint8_t*>(e, 8) = m;
         uint8_t* shape = F<uint8_t*>(*(uint8_t**)m, 0xc);
         F<uint8_t*>(e, 0x10) = F<uint8_t*>(shape, 0);
@@ -499,7 +500,7 @@ RT3_NOINLINE uint8_t* __fastcall Emitter_Construct(uint8_t* e, int, const char* 
     F<uint32_t>(e, 0x98) = 0x3f800000;
     F<uint32_t>(e, 0xac) = flags;
     for (uint32_t off : { 0xb0u, 0xd8u, 0x1e1u, 0x1edu, 0x1f1u, 0x1f5u, 0x68u, 0x64u, 0x6cu, 0x1f9u }) F<uint32_t>(e, off) = 0;
-    X87Copy(e + 0xdc, hook::Global<uint8_t*>(0x6d4030) + 0x28);
+    X87Copy(e + 0xdc, g_models + 0x28);
     F<uint32_t>(e, 0x1e9) = 0x365d7591;
     if (flags & 0x800000) F<void*>(e, 0x64) = ExeMalloc(0x3a00);
     memset(e + 0x10c, 0, 0xa0);
@@ -800,8 +801,8 @@ RT3_NOINLINE void __fastcall Str_TrimRight(char* s) {
 RT3_REPLACE(0x5572e0, Str_TrimRight);
 
 RT3_NOINLINE void __fastcall Set_6257e0(uint32_t a, uint32_t b) {
-    hook::Global<uint32_t>(0x6257e0) = a;
-    hook::Global<uint32_t>(0x6257e4) = b;
+    hook::As<uint32_t>(g_6257e0) = a;
+    hook::As<uint32_t>(g_6257e4) = b;
 }
 RT3_REPLACE(0x557320, Set_6257e0);
 
@@ -950,7 +951,7 @@ RT3_NOINLINE int32_t __fastcall Config_Load(uint8_t* c, int, const char* path) {
 }
 RT3_REPLACE(0x557630, Config_Load);
 
-void __fastcall Set_d973b0(uint32_t v) { hook::Global<uint32_t>(0xd973b0) = v; }
+void __fastcall Set_d973b0(uint32_t v) { g_d973b0 = v; }
 RT3_REPLACE(0x557920, Set_d973b0);
 
 // 0x557930 / 0x557970. ANSI <-> UTF-16 conversion into a buffer of n characters
@@ -988,7 +989,7 @@ RT3_REPLACE(0x5579b0, Hook_Calld973b0);
 // the COM call 0x5c8494(0, 0)), then releases +0x10 and +0xc.
 RT3_NOINLINE void __fastcall Music_Shutdown(uint8_t* m) {
     if (F<void*>(m, 8) && !F<int32_t>(m, 4)) {
-        ((void(WINAPI*)(void*, void*))hook::Global<void*>(0x5c8494))(nullptr, nullptr);
+        ((void(WINAPI*)(void*, void*))g_5c8494)(nullptr, nullptr);
         void* o = F<void*>(m, 8);
         F<int32_t>(m, 4) = 1;
         ((void(__stdcall*)(void*, int32_t))(*(void***)o)[0x60 / 4])(o, 0);
@@ -1024,7 +1025,7 @@ RT3_NOINLINE int32_t __fastcall Music_ReadParam(uint8_t* m) {
         }
     }
     if (got < 1) {
-        hook::Global<int32_t>(0x6d411c) = 99999;
+        g_6d411c = 99999;
         return 0;
     }
     return ok;
@@ -1051,7 +1052,7 @@ void __fastcall Music_Destroy(uint8_t* m) {
         F<void*>(m, 0x14) = nullptr;
     }
     if (F<int32_t>(m, 0) == 1) {
-        ((void(WINAPI*)())hook::Global<void*>(0x5c8490))();
+        ((void(WINAPI*)())g_5c8490)();
         F<int32_t>(m, 0) = 0;
     }
 }
@@ -1065,10 +1066,10 @@ RT3_NOINLINE int32_t __fastcall Music_Start(uint8_t* m) {
     typedef HRESULT(WINAPI * CreateFn)(const void*, void*, DWORD, const void*, void**);
     Music_Shutdown(m);
     if (!F<int32_t>(m, 0)) {
-        ((void(WINAPI*)(void*, void*))hook::Global<void*>(0x5c8494))(nullptr, nullptr);
-        HRESULT hr = hook::Global<CreateFn>(0x5c848c)((const void*)0x5c84c0, nullptr, 1, (const void*)0x5c84b0, (void**)(m + 8));
+        ((void(WINAPI*)(void*, void*))g_5c8494)(nullptr, nullptr);
+        HRESULT hr = hook::As<CreateFn>(g_5c848c)((const void*)0x5c84c0, nullptr, 1, (const void*)0x5c84b0, (void**)(m + 8));
         if (hr < 0) {
-            hook::Global<int32_t>(0x6d411c) = hr;
+            g_6d411c = hr;
             return 0;
         }
         F<int32_t>(m, 0) = 1;
@@ -1076,7 +1077,7 @@ RT3_NOINLINE int32_t __fastcall Music_Start(uint8_t* m) {
     void* perf = F<void*>(m, 8);
     HRESULT hr = ((HRESULT(__stdcall*)(void*, void*, uint32_t, void*))(*(void***)perf)[0xc / 4])(perf, nullptr, 0x5579b0, nullptr);
     if (hr < 0) {
-        hook::Global<int32_t>(0x6d411c) = hr;
+        g_6d411c = hr;
         return 0;
     }
     F<int32_t>(m, 4) = 0;
@@ -1086,7 +1087,7 @@ RT3_NOINLINE int32_t __fastcall Music_Start(uint8_t* m) {
         r = Music_Create10(m);
         if (r) return r;
     }
-    hook::Global<int32_t>(0x6d411c) = 99998;
+    g_6d411c = 99998;
     return r;
 }
 RT3_REPLACE(0x557bc0, Music_Start);
@@ -1126,14 +1127,14 @@ RT3_REPLACE(0x557cd0, Music_Stop);
 // 0x557d40. Forgets handle h in the 10-slot table 0xd973b8 and calls the hook
 // 0xd973e0 (h in ECX) inside the nesting count 0xccb9f0.
 void __stdcall Handles_Forget(uint32_t h) {
-    ++hook::Global<int32_t>(0xccb9f0);
+    ++g_ccb9f0;
     for (int32_t i = 0; i < 10; ++i)
         if (((uint32_t*)0xd973b8)[i] == h) {
             ((uint32_t*)0xd973b8)[i] = 0;
             break;
         }
     if (auto fn = hook::Global<void(__fastcall*)(uint32_t)>(0xd973e0)) fn(h);
-    --hook::Global<int32_t>(0xccb9f0);
+    --g_ccb9f0;
 }
 RT3_REPLACE(0x557d40, Handles_Forget);
 
@@ -1165,7 +1166,7 @@ RT3_REPLACE(0x557d90, Music_SetVolume);
 // 0x557e50. Opens and starts a music stream (file +4, copied from `file` when
 // given) at the stored volume (+0x104 > 0 only); `onEnd` becomes the end callback.
 RT3_NOINLINE int32_t __fastcall Music_Play(uint8_t* m, int, const char* file, void* digital, void* onEnd) {
-    if (!Sound_Is3D(hook::Global<uint8_t*>(0x6d402c))) return 0;
+    if (!Sound_Is3D(g_sound)) return 0;
     if (!(*(const float*)0x5c8598 < F<float>(m, 0x104))) return 0;
     char* name = (char*)m + 4;
     if (!file) {
@@ -1186,7 +1187,7 @@ RT3_NOINLINE int32_t __fastcall Music_Play(uint8_t* m, int, const char* file, vo
     Import<void(__stdcall*)(void*)>(0x5c83cc)(F<void*>(m, 0));
     auto reg = Import<void(__stdcall*)(void*, uint32_t)>(0x5c83c4);
     if (onEnd) {
-        hook::Global<void*>(0xd973e0) = onEnd;
+        g_d973e0 = onEnd;
         reg(F<void*>(m, 0), 0x557d40);
     } else {
         reg(F<void*>(m, 0), 0);
@@ -1207,7 +1208,7 @@ void __fastcall Widget_LoadBase(uint8_t* w, int, const uint8_t* rec) {
     memcpy(w + 4, rec, 0x5f);
     if (!w[0x37]) w[0x37] = 3;
     w[0x67] = w[0x37];
-    if (!F<void*>(w, 0x63)) F<uint8_t*>(w, 0x63) = Pack_AcquireFont(hook::Global<uint8_t*>(0x6d4020), 0, w[0x37]);
+    if (!F<void*>(w, 0x63)) F<uint8_t*>(w, 0x63) = Pack_AcquireFont(g_pack, 0, w[0x37]);
     memcpy(w + 0x6c, w + 0xb, 0x10);
     F<uint16_t>(w, 0x7c) = F<uint16_t>(w, 4);
     F<uint16_t>(w, 0x6a) = 3;

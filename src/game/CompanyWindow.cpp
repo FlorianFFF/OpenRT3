@@ -8,6 +8,7 @@
 #include <string.h>
 #include <initializer_list>
 #include "hook/hook.h"
+#include "core/globals.h"
 #include "game/collection.h"
 #include "core/stream.h"
 #include "core/crt.h"
@@ -25,7 +26,6 @@ namespace rt3 {
 template <typename T> static inline T& F(void* o, uint32_t off) { return *(T*)((uint8_t*)o + off); }
 
 // Global tables (Collection*) referenced by id from objects.
-static Collection*& g_companies  = hook::Global<Collection*>(0x62be10);
 
 const char* __fastcall GetString(int32_t id);
 
@@ -194,7 +194,7 @@ void __fastcall CompanyCard_Draw(uint8_t* co, int, float x, float y, float w, fl
 // string 0xe8c (returns 0); otherwise 1.
 #define RT3_SCENARIO_LOCK(addr, name, id) \
     int32_t __fastcall name(void*, const uint32_t* ev) { \
-        if (ev[0] != 0xcb || ev[1] != id || !hook::Global<int32_t>(0x6d3b4c)) return 1; \
+        if (ev[0] != 0xcb || ev[1] != id || !g_6d3b4c) return 1; \
         Message_Dialog(GetString(0xe8c), 0x3ef5c28f); \
         return 0; \
     } \
@@ -329,7 +329,7 @@ int32_t HandleEventMsg(const char* text, int32_t type, uint32_t px, int32_t p4 =
 int32_t HandleEventNote(int32_t id) { return HandleEventMsg(GetString(id), 1, 0x3ef5c28f); }
 // Magnitude as CDQ / XOR / SUB, so INT_MIN stays INT_MIN.
 int32_t IAbs(int32_t v) { return v < 0 ? (int32_t)(0u - (uint32_t)v) : v; }
-int32_t CompanyViewId() { return F<int32_t>(hook::Global<uint8_t*>(0x6d0818), 0x90); }
+int32_t CompanyViewId() { return F<int32_t>(g_gameWindow, 0x90); }
 }
 
 namespace {
@@ -362,14 +362,14 @@ int32_t MyProfileIndex451() {
 // truncated; otherwise the name of city +0x29 (0x6cec20, +0x46b).
 RT3_NOINLINE void __fastcall Stop_Name(uint8_t* stop, char* out) {
     if ((int8_t)stop[0x28] < 0) {
-        uint8_t* n = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfca8), 0, F<uint32_t>(stop, 0x2b));
+        uint8_t* n = (uint8_t*)Collection_Get(g_tracks, 0, F<uint32_t>(stop, 0x2b));
         char ys[0x124], xs[0x134];
         Num_Format(ys, 1, (double)Ftol(Obj_CenterCellY(n)), 10, 1, 0, 0);
         Num_Format(xs, 1, (double)Ftol(Obj_CenterCellX(n)), 10, 1, 0, 0);
         FormatText(out, GetString(0x38a), xs, ys, 0, 0, 0, 0, 0, 0);
         return;
     }
-    strcpy(out, (const char*)Collection_Get(hook::Global<Collection*>(0x6cec20), 0, F<uint16_t>(stop, 0x29)) + 0x46b);
+    strcpy(out, (const char*)Collection_Get(g_stations, 0, F<uint16_t>(stop, 0x29)) + 0x46b);
 }
 RT3_REPLACE(0x4be6f0, Stop_Name);
 
@@ -383,7 +383,7 @@ RT3_NOINLINE void __fastcall StopList_DrawLabel(void* stops, int32_t idx, float 
     FormatText(text, (const char*)0x5d06e8, n, name, 0, 0, 0, 0, 0, 0);
     float hh = (float)(h * D(0x5c8628));
     float lx = (float)((double)x + D(0x5d0720));
-    Font_DrawTextBox(F<uint8_t*>(hook::Global<uint8_t*>(0x6cec78), 0x46a98), 0, text, lx, y, BitsF(0x3e51eb85), hh, 0xffffffff, 2, 1, 0, 1.0f);
+    Font_DrawTextBox(F<uint8_t*>(g_world, 0x46a98), 0, text, lx, y, BitsF(0x3e51eb85), hh, 0xffffffff, 2, 1, 0, 1.0f);
 }
 RT3_REPLACE(0x4be7f0, StopList_DrawLabel);
 
@@ -438,9 +438,9 @@ RT3_NOINLINE void __fastcall BuildingRow_AddCargoButtons(uint8_t* w, uint8_t* li
         }
         char icon[0x100], tip[0x200];
         const char* fmt;
-        if (Collection_IsValid(hook::Global<Collection*>(0x62ba8c), 0, cargo)) {
-            FormatText(icon, (const char*)0x5d01bc, (const char*)Collection_Get(hook::Global<Collection*>(0x62ba8c), 0, cargo) + 4, 0, 0, 0, 0, 0, 0, 0);
-            fmt = LocalizeName((const char*)Collection_Get(hook::Global<Collection*>(0x62ba8c), 0, cargo) + 4);
+        if (Collection_IsValid(g_cargoTypes, 0, cargo)) {
+            FormatText(icon, (const char*)0x5d01bc, (const char*)Collection_Get(g_cargoTypes, 0, cargo) + 4, 0, 0, 0, 0, 0, 0, 0);
+            fmt = LocalizeName((const char*)Collection_Get(g_cargoTypes, 0, cargo) + 4);
         } else {
             int32_t str;
             if (cargo == 0x384) {
@@ -457,7 +457,7 @@ RT3_NOINLINE void __fastcall BuildingRow_AddCargoButtons(uint8_t* w, uint8_t* li
             fmt = GetString(str);
         }
         FormatText(tip, fmt, 0, 0, 0, 0, 0, 0, 0, 0);
-        String_Assign(&F<char*>(def, 0x43), NameTable_ContainsName(hook::Global<uint8_t*>(0x6d4020), 0, icon, 0, 0) ? icon : (const char*)0x5d0194);
+        String_Assign(&F<char*>(def, 0x43), NameTable_ContainsName(g_pack, 0, icon, 0, 0) ? icon : (const char*)0x5d0194);
         String_Assign(&F<char*>(def, 0x3f), tip);
         addButton();
         last = k;
@@ -496,7 +496,7 @@ RT3_REPLACE(0x4be8d0, BuildingRow_AddCargoButtons);
 // cargo rate (0x393), cars and route leg (+4 / +8 of the stop list, strings
 // 0x394..0x397), the lead car's status, or car n's status.
 RT3_NOINLINE void __fastcall TrainPanel_TooltipCb(int32_t id, int, int32_t, int32_t) {
-    uint8_t* w = Windows_FindChild(hook::Global<uint8_t*>(0x6d401c), 0, id);
+    uint8_t* w = Windows_FindChild(g_windowManager, 0, id);
     if (!w) return;
     char frame[0xfa8];
     char* text = frame + 0x1fc;
@@ -507,8 +507,8 @@ RT3_NOINLINE void __fastcall TrainPanel_TooltipCb(int32_t id, int, int32_t, int3
     uint32_t train = F<uint32_t>(w, 0x4f);
     k -= (k - 0x332c) / 18 * 18;
     if (selected) train = (uint32_t)SelectedTrainId();
-    if (!Collection_IsValid(hook::Global<Collection*>(0x6cfcbc), 0, train)) return;
-    uint8_t* t = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfcbc), 0, train);
+    if (!Collection_IsValid(g_trains, 0, train)) return;
+    uint8_t* t = (uint8_t*)Collection_Get(g_trains, 0, train);
     if (!t) return;
     switch (k - 0x332c) {
     case 0:
@@ -556,7 +556,7 @@ RT3_NOINLINE void __fastcall TrainPanel_TooltipCb(int32_t id, int, int32_t, int3
             if (uint8_t* car = (uint8_t*)Train_NthCarOther(t, 0, k - 0x3333)) Car_StatusText(car, 0, text);
         break;
     }
-    Ui_ShowTooltip(hook::Global<uint8_t*>(0x6d401c), 0, text, 1, 1, -1);
+    Ui_ShowTooltip(g_windowManager, 0, text, 1, 1, -1);
 }
 RT3_REPLACE(0x4beea0, TrainPanel_TooltipCb);
 
@@ -564,9 +564,9 @@ RT3_REPLACE(0x4beea0, TrainPanel_TooltipCb);
 // hovered train panel control (0x6d401c +0xc6d: ids 0x332c..0x36b0 and
 // 0x65c6..0x65d1).
 RT3_NOINLINE void TrainPanel_RefreshTooltip() {
-    if (ClockMs() - hook::Global<int32_t>(0x6cfe24) <= 0x96) return;
-    hook::Global<int32_t>(0x6cfe24) = ClockMs();
-    uint8_t* hover = F<uint8_t*>(hook::Global<uint8_t*>(0x6d401c), 0xc6d);
+    if (ClockMs() - g_6cfe24 <= 0x96) return;
+    g_6cfe24 = ClockMs();
+    uint8_t* hover = F<uint8_t*>(g_windowManager, 0xc6d);
     if (!hover) return;
     const uint16_t id = F<uint16_t>(hover, 4);
     if ((id >= 0x332c && id <= 0x36b0) || (id >= 0x65c6 && id <= 0x65d1)) TrainPanel_TooltipCb(id, 0, 0, 0);
@@ -582,7 +582,7 @@ RT3_REPLACE(0x4bf270, TrainPanel_RefreshTooltip);
 // the train's state (the button of the current order +0xd8 is held, +0x1a1)
 // and the game mode.
 RT3_NOINLINE void __fastcall TrainRow_Build(uint8_t* win, uint32_t trainId, int32_t compact, int32_t slot, int32_t rebuild) {
-    Collection* trains = hook::Global<Collection*>(0x6cfcbc);
+    Collection* trains = g_trains;
     if (!Collection_IsValid(trains, 0, trainId)) return;
     int32_t base;
     float ox, oy;
@@ -623,8 +623,8 @@ RT3_NOINLINE void __fastcall TrainRow_Build(uint8_t* win, uint32_t trainId, int3
         }
         uint8_t def[0x89];
         memset(def, 0, sizeof def);
-        F<float>(def, 7) = (float)((double)hook::Global<float>(0x6cfe40) + ox + D(0x5d0768));
-        F<float>(def, 0xb) = (float)((double)hook::Global<float>(0x6cfe44) + oy + D(0x5d0770));
+        F<float>(def, 7) = (float)((double)g_6cfe40 + ox + D(0x5d0768));
+        F<float>(def, 0xb) = (float)((double)g_6cfe44 + oy + D(0x5d0770));
         if (compact) F<float>(def, 7) = (float)((double)F<float>(def, 7) + Fl(0x5d0100));
         F<uint32_t>(def, 0xf) = 0x3ca3d70a;
         F<uint32_t>(def, 0x13) = 0x3cda740e;
@@ -662,7 +662,7 @@ RT3_NOINLINE void __fastcall TrainRow_Build(uint8_t* win, uint32_t trainId, int3
             float tw = 0.0f;
             if ((t[0x1ce] & 1) || t[0x1a1]) {
                 const char* nm = Train_DisplayName(t, 0, 0);
-                Font_TextHeight(F<uint8_t*>(hook::Global<uint8_t*>(0x6cec78), 0x46a98), 0, nm, 1.0f, &tw);
+                Font_TextHeight(F<uint8_t*>(g_world, 0x46a98), 0, nm, 1.0f, &tw);
                 tw = (float)((double)tw + D(0x5c85b8));
             }
             if (!t[0x1a1]) {
@@ -711,7 +711,7 @@ RT3_NOINLINE void __fastcall TrainRow_Build(uint8_t* win, uint32_t trainId, int3
         Window_AddChild(win, 0, tw, 0);
         Window_SendEvent5(win, 0, 0x82, F<uint16_t>(def, 0), 0x4beea0, 0, 0);
     }
-    int32_t type = hook::Global<uint8_t*>(0x6cec7c)[0x82] || F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4aef) ? 0x87 : 0x65;
+    int32_t type = g_newGame[0x82] || F<int32_t>(g_world, 0x4aef) ? 0x87 : 0x65;
     Window_SendEvent5(win, 0, type, base + 5, 3, 0, 0);
 }
 RT3_REPLACE(0x4bf320, TrainRow_Build);
@@ -719,8 +719,8 @@ RT3_REPLACE(0x4bf320, TrainRow_Build);
 // 0x4bf9d0 (callback). Command 0x3333 opens the company report of train
 // `id`'s city owner.
 RT3_NOINLINE int32_t __fastcall Train_ReportCb(void*, int, int32_t cmd, uint32_t id) {
-    if (Collection_IsValid(hook::Global<Collection*>(0x6cfcbc), 0, id)) {
-        uint8_t* t = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfcbc), 0, id);
+    if (Collection_IsValid(g_trains, 0, id)) {
+        uint8_t* t = (uint8_t*)Collection_Get(g_trains, 0, id);
         if (cmd == 0x3333) CompanyReport_Show(*(const uint32_t*)Obj_CityRef(t), 0, (uint32_t)(uintptr_t)t);
     }
     return 0;
@@ -731,8 +731,8 @@ RT3_REPLACE(0x4bf9d0, Train_ReportCb);
 // train `id` step its mode (+0xd8, 0..3; multiplayer sends {peer, train,
 // mode} as 0x3b), highlight the new one and show its tooltip (0x621f20).
 RT3_NOINLINE int32_t __fastcall TrainRunMode_StepCb(uint8_t* w, int32_t button, int32_t ev, uint32_t id) {
-    if (!Collection_IsValid(hook::Global<Collection*>(0x6cfcbc), 0, id)) return 0;
-    uint8_t* t = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfcbc), 0, id);
+    if (!Collection_IsValid(g_trains, 0, id)) return 0;
+    uint8_t* t = (uint8_t*)Collection_Get(g_trains, 0, id);
     if (ev < 0x332c || ev > 0x332f) return 0;
     int32_t mode = F<int32_t>(t, 0xd8) + 1;
     if (mode == 4) mode = 0;
@@ -743,12 +743,12 @@ RT3_NOINLINE int32_t __fastcall TrainRunMode_StepCb(uint8_t* w, int32_t button, 
         pkt[0] = Global6d40e4();
         pkt[1] = (int32_t)id;
         pkt[2] = mode;
-        uint8_t* s = hook::Global<uint8_t*>(0x6cd8d8);
+        uint8_t* s = g_session;
         Net_Send(s, 0, (const char*)(s + 0x8f48), 0x3b, 0xc, (const uint8_t*)pkt, 5, 0);
     }
     const int32_t base = button - ev + 0x332c;
     for (int32_t i = 0; i < 4; ++i) Window_SendEvent5(w, 0, mode != i ? 0x87 : 0x65, (uint32_t)(base + i), 3, 0, 0);
-    Ui_ShowTooltip(hook::Global<uint8_t*>(0x6d401c), 0, GetString(((const int32_t*)0x621f20)[mode]), 1, 1, -1);
+    Ui_ShowTooltip(g_windowManager, 0, GetString(((const int32_t*)0x621f20)[mode]), 1, 1, -1);
     return 0;
 }
 RT3_REPLACE(0x4bfa20, TrainRunMode_StepCb);
@@ -760,21 +760,21 @@ RT3_REPLACE(0x4bfa20, TrainRunMode_StepCb);
 // red when negative.
 RT3_NOINLINE void __fastcall CompanyCard_Draw(uint8_t* co, int, float x, float y, float w, float h) {
     if (!co) return;
-    if (F<int32_t>(co, 0x3b) == Obj_Get25(hook::Global<uint8_t*>(0x6cec78))) Ui_FrameRect(0x5f00ff00, 0, x, y, w, h, 4.0f, 3);
+    if (F<int32_t>(co, 0x3b) == Obj_Get25(g_world)) Ui_FrameRect(0x5f00ff00, 0, x, y, w, h, 4.0f, 3);
     float ly = (float)((double)y + D(0x5d0250));
     float lx = (float)((double)x + D(0x5c9bc0));
     Glyph_Queue((uint8_t*)(uintptr_t)Company_Logo(co), 0, lx, ly, 0x3f800000, BitsF(0x3f0ccccd), BitsF(0x3f0ccccd), 0xffffffff, 0, 1, 0, 0.0f, 0.0f, 1.0f,
                 1.0f);
     char name[0x12c];
     strcpy(name, (const char*)(co + 4));
-    if (F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x68)) {
+    if (F<int32_t>(g_app, 0x68)) {
         char num[0x100], text[0x12c];
         const char* n = Num_Format(num, 1, (double)F<int32_t>(co, 0), 10, 1, 0, 0);
         FormatText(text, GetString(0xe00), n, 0, 0, 0, 0, 0, 0, 0);
         strcat(text, name);
         strcpy(name, text);
     }
-    uint8_t* font = F<uint8_t*>(hook::Global<uint8_t*>(0x6cec78), 0x46a98);
+    uint8_t* font = F<uint8_t*>(g_world, 0x46a98);
     float ny = (float)((double)y + D(0x5d0790));
     double half = (double)h * D(0x5c8628);
     float hh = (float)half;
@@ -788,12 +788,12 @@ RT3_NOINLINE void __fastcall CompanyCard_Draw(uint8_t* co, int, float x, float y
     static const int32_t stats[3] = { 0xd, 0x2c, 0x2b };
     for (int k = 0; k < 3; ++k) {
         if (k) rx = (float)((double)rx + D(0x5d0778));
-        Font_DrawTextBox(F<uint8_t*>(hook::Global<uint8_t*>(0x6cec78), 0x46a98), 0, GetString(labels[k]), rx, ry, BitsF(0x3dcccccd), hh, 0xffffffff, 3, 0, 0,
+        Font_DrawTextBox(F<uint8_t*>(g_world, 0x46a98), 0, GetString(labels[k]), rx, ry, BitsF(0x3dcccccd), hh, 0xffffffff, 3, 0, 0,
                          1.0f);
         Num_FormatSimple2(text, 0xb, Company_Stat(co, 0, stats[k], 0x2329), 0xb);
         uint32_t color = Company_Stat(co, 0, stats[k], 0x2329) < D(0x5c8608) ? 0xffff5f5f : 0xffffffff;
         float vx = (float)((double)rx + D(0x5d0780));
-        Font_DrawTextBox(F<uint8_t*>(hook::Global<uint8_t*>(0x6cec78), 0x46a98), 0, text, vx, ry, BitsF(0x3db851ec), hh, color, 2, 0, 0, 1.0f);
+        Font_DrawTextBox(F<uint8_t*>(g_world, 0x46a98), 0, text, vx, ry, BitsF(0x3db851ec), hh, color, 2, 0, 0, 1.0f);
     }
     (void)font;
 }
@@ -807,12 +807,12 @@ RT3_NOINLINE void __fastcall Map_ShowPickTooltip(uint8_t* o) {
     if (!o) return;
     char cy[0x10], cx[0x10], text[0x1f0];
     if (F<uint32_t>(o, 0x10f)) {
-        uint8_t* st = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cec20), 0, F<uint32_t>(o, 0x10f));
+        uint8_t* st = (uint8_t*)Collection_Get(g_stations, 0, F<uint32_t>(o, 0x10f));
         const char* name = (const char*)st + 0x46b;
         FormatText(text, GetString(0x39e), name, name, 0, 0, 0, 0, 0, 0);
         FormatText(text, GetString(Obj_BuildingStateActive(st) ? 0xfdc : 0xfdd), text, 0, 0, 0, 0, 0, 0, 0);
     } else if (F<uint32_t>(o, 0x113)) {
-        uint8_t* n = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfca8), 0, F<uint32_t>(o, 0x113));
+        uint8_t* n = (uint8_t*)Collection_Get(g_tracks, 0, F<uint32_t>(o, 0x113));
         char* sy = Num_Format(cy, 8, (double)Ftol(Obj_CenterCellY(n)), 10, 1, 0, 0);
         char* sx = Num_Format(cx, 8, (double)Ftol(Obj_CenterCellX(n)), 10, 1, 0, 0);
         FormatText(text, GetString(0x39f), sx, sy, 0, 0, 0, 0, 0, 0);
@@ -820,7 +820,7 @@ RT3_NOINLINE void __fastcall Map_ShowPickTooltip(uint8_t* o) {
     } else {
         strcpy(text, GetString(0xbad));
     }
-    Ui_ShowTooltip(hook::Global<uint8_t*>(0x6d401c), 0, text, 1, 0, -1);
+    Ui_ShowTooltip(g_windowManager, 0, text, 1, 0, -1);
 }
 RT3_REPLACE(0x4bffc0, Map_ShowPickTooltip);
 
@@ -833,9 +833,9 @@ RT3_REPLACE(0x4bffc0, Map_ShowPickTooltip);
 // 3/4 share their axis), with year labels and two value axes.
 RT3_NOINLINE void __fastcall CompanyStock_DrawChart(uint8_t* win, uint32_t linkBase, float x, float y, float, float, int32_t compact, uint32_t coId,
                                        uint8_t* faces, uint8_t** custom, int32_t, const uint8_t* show) {
-    uint8_t* co = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be10), 0, coId);
-    auto font = [] { return F<uint8_t*>(hook::Global<uint8_t*>(0x6cec78), 0x46a98); };
-    auto font2 = [] { return F<uint8_t*>(hook::Global<uint8_t*>(0x6cec78), 0x46a9c); };
+    uint8_t* co = (uint8_t*)Collection_Get(g_companies, 0, coId);
+    auto font = [] { return F<uint8_t*>(g_world, 0x46a98); };
+    auto font2 = [] { return F<uint8_t*>(g_world, 0x46a9c); };
     if (!compact) {
         float gy = (float)((double)y - D(0x5d0810));
         float gx = (float)((double)x + D(0x5d0808));
@@ -859,10 +859,10 @@ RT3_NOINLINE void __fastcall CompanyStock_DrawChart(uint8_t* win, uint32_t linkB
     while (k > -1) {
         uint32_t c = color;
         if (compact) {
-            uint8_t* f = F<uint8_t*>(hook::Global<uint8_t*>(0x6d401c), 0xc6d);
+            uint8_t* f = F<uint8_t*>(g_windowManager, 0xc6d);
             if (f && F<uint16_t>(f, 4) == i + 0x3f0e) c = 0xff6d6b6e;
         }
-        uint8_t* pl = (uint8_t*)Table_NthField4(hook::Global<Collection*>(0x6ceb9c), 0, k);
+        uint8_t* pl = (uint8_t*)Table_NthField4(g_players, 0, k);
         uint8_t face = pl[0x15c];
         float fy = (float)((double)row - D(0x5ca2d8));
         uint32_t img;
@@ -922,7 +922,7 @@ RT3_NOINLINE void __fastcall CompanyStock_DrawChart(uint8_t* win, uint32_t linkB
     uint32_t colors[6] = { compact ? 0xff12a019u : 0xff22c029u, 0xfff97908, 0xff0808c3, 0xffc2061c, 0xff0acbdc, 0xff9414c4 };
     int32_t full[6] = { 1, 1, 1, 1, 1, 1 };
     int32_t today = 1, axisA = -1, axisB = -1;
-    uint8_t* world = hook::Global<uint8_t*>(0x6cec78);
+    uint8_t* world = g_world;
     int32_t from = F<uint16_t>(co, 0x157) - 1;
     int32_t to = F<uint16_t>(world, 0xd);
     if (to - from > 10) from = to - 10;
@@ -1062,12 +1062,12 @@ RT3_NOINLINE uint32_t* __fastcall Obj_GetEntry5f(uint8_t* o, int, uint32_t* out,
 }
 RT3_REPLACE(0x4c16b0, Obj_GetEntry5f);
 
-RT3_NOINLINE int32_t Screen90() { return F<int32_t>(hook::Global<uint8_t*>(0x6d0818), 0x90); }
+RT3_NOINLINE int32_t Screen90() { return F<int32_t>(g_gameWindow, 0x90); }
 RT3_REPLACE(0x4c16e0, Screen90);
 
 // 0x4c16f0. Company selected in the game window (0x6d0818 +0x90), if valid.
 RT3_NOINLINE void* SelectedCompany() {
-    uint8_t* w = hook::Global<uint8_t*>(0x6d0818);
+    uint8_t* w = g_gameWindow;
     if (!w || F<int32_t>(w, 0x90) <= 0) return nullptr;
     if (!Collection_IsValid(g_companies, 0, F<uint32_t>(w, 0x90))) return nullptr;
     return Collection_Get(g_companies, 0, F<uint32_t>(w, 0x90));
@@ -1080,21 +1080,21 @@ RT3_REPLACE(0x4c16f0, SelectedCompany);
 // (year code 0x232a) of the stats 0x2c / 0x2e / 0x2f / 0x2b. With 0x6d07b4 at
 // 2 a link 0xfb4 (tooltip 0xfb5, id 0x9494) goes above it in window 0x6cfe4c.
 void __fastcall CompanyView_DrawIncomeTable(void*, int, float x, float y, float, float, int32_t) {
-    uint8_t* view = hook::Global<uint8_t*>(0x6d0818);
-    if (!view || F<int32_t>(view, 0x90) <= 0 || !Collection_IsValid(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(view, 0x90))) return;
-    uint8_t* co = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(hook::Global<uint8_t*>(0x6d0818), 0x90));
+    uint8_t* view = g_gameWindow;
+    if (!view || F<int32_t>(view, 0x90) <= 0 || !Collection_IsValid(g_companies, 0, F<uint32_t>(view, 0x90))) return;
+    uint8_t* co = (uint8_t*)Collection_Get(g_companies, 0, F<uint32_t>(g_gameWindow, 0x90));
     if (!co) return;
     if (Global6d07b4Set2()) {
         const char* tip = GetString(0xfb5);
         float ly = (float)((double)y + D(0x5d0820));
         float lx = (float)((double)x + D(0x5d0110));
-        TextLink_Draw(hook::Global<uint8_t*>(0x6cfe4c), F<uint8_t*>(hook::Global<uint8_t*>(0x6cec78), 0x46a9c), GetString(0xfb4), lx, ly, 0.1875f, BitsF(0x3ccccccd), 2,
+        TextLink_Draw(g_6cfe4c, F<uint8_t*>(g_world, 0x46a9c), GetString(0xfb4), lx, ly, 0.1875f, BitsF(0x3ccccccd), 2,
                       4, 0x101, tip, 0x9494, 0, 0);
     }
     static const int32_t labels[5] = { 3, 0x25f, 0x3b0, 0x3b1, 0x262 };
     static const int32_t stats[5] = { 0, 0x2c, 0x2e, 0x2f, 0x2b };
     static const uint32_t colX[6] = { 0x3c656042, 0x3dd2f1aa, 0x3e560419, 0x3ea147ae, 0x3ed78d50, 0x3f06e979 };
-    int32_t cols = F<uint16_t>(hook::Global<uint8_t*>(0x6cec78), 0xd) - F<uint16_t>(co, 0x157) + 3;
+    int32_t cols = F<uint16_t>(g_world, 0xd) - F<uint16_t>(co, 0x157) + 3;
     if (cols > 5) cols = 5;
     float top = (float)((double)y + D(0x5caad0));
     char text[0x184];
@@ -1110,15 +1110,15 @@ void __fastcall CompanyView_DrawIncomeTable(void*, int, float x, float y, float,
                 strcpy(text, GetString(labels[r]));
             } else if (r == 0) {
                 if (c == cols - 1) strcpy(text, GetString(0x263));
-                else Num_Format(text, 8, (double)(F<uint16_t>(hook::Global<uint8_t*>(0x6cec78), 0xd) - (c - 1)), 10, 1, 0, 0);
+                else Num_Format(text, 8, (double)(F<uint16_t>(g_world, 0xd) - (c - 1)), 10, 1, 0, 0);
             } else {
-                int32_t year = c == cols - 1 ? 0x232a : F<uint16_t>(hook::Global<uint8_t*>(0x6cec78), 0xd) - (c - 1);
+                int32_t year = c == cols - 1 ? 0x232a : F<uint16_t>(g_world, 0xd) - (c - 1);
                 float v = (float)Company_Stat(co, 0, stats[r], year);
                 if (v < Fl(0x5c8598)) color = 0xffff5f5f;
                 Num_FormatSimple2(text, 0xb, (double)v, 0xb);
                 if (r == 3) flags = 4;
             }
-            Font_DrawTextBox(hook::Global<uint8_t*>(0x6cfe50), 0, text, cx, rowY, cw, BitsF(0x3ca3d70a), color, align, 0, (uint32_t)flags, 1.0f);
+            Font_DrawTextBox(g_6cfe50, 0, text, cx, rowY, cw, BitsF(0x3ca3d70a), color, align, 0, (uint32_t)flags, 1.0f);
             rowY = (float)((double)rowY + D(0x5c8918));
             if (r == 0) rowY = (float)((double)rowY + D(0x5c85b8));
             else if (r == 3) rowY = (float)((double)rowY + D(0x5d0818));
@@ -1130,11 +1130,11 @@ RT3_REPLACE(0x4c1730, CompanyView_DrawIncomeTable);
 // 0x4c1ab0 (draw callback). Draws the card of the focused company.
 void __fastcall CompanyView_DrawCardCb(void*, int, float x, float y, float w, float h, int32_t) {
     auto focused = [] {
-        uint8_t* v = hook::Global<uint8_t*>(0x6d0818);
-        return v && F<int32_t>(v, 0x90) > 0 && Collection_IsValid(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(v, 0x90));
+        uint8_t* v = g_gameWindow;
+        return v && F<int32_t>(v, 0x90) > 0 && Collection_IsValid(g_companies, 0, F<uint32_t>(v, 0x90));
     };
-    if (!focused() || !Collection_Get(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(hook::Global<uint8_t*>(0x6d0818), 0x90))) return;
-    uint8_t* c = focused() ? (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(hook::Global<uint8_t*>(0x6d0818), 0x90)) : nullptr;
+    if (!focused() || !Collection_Get(g_companies, 0, F<uint32_t>(g_gameWindow, 0x90))) return;
+    uint8_t* c = focused() ? (uint8_t*)Collection_Get(g_companies, 0, F<uint32_t>(g_gameWindow, 0x90)) : nullptr;
     CompanyCard_Draw(c, 0, x, y, w, h);
 }
 RT3_REPLACE(0x4c1ab0, CompanyView_DrawCardCb);
@@ -1144,28 +1144,28 @@ RT3_REPLACE(0x4c1ab0, CompanyView_DrawCardCb);
 // 0x948c of the company window at it, and sets the tooltip: owned (0x3b2),
 // for sale at its price (0x3b3, format 9) or closed (0x3b4) to the company.
 RT3_NOINLINE void __fastcall CompanyView_HoverTerritory(int32_t id) {
-    uint8_t* view = hook::Global<uint8_t*>(0x6d0818);
+    uint8_t* view = g_gameWindow;
     if (!view || F<int32_t>(view, 0x90) <= 0) return;
-    if (!Collection_IsValid(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(hook::Global<uint8_t*>(0x6d0818), 0x90))) return;
-    if (!Collection_Get(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(hook::Global<uint8_t*>(0x6d0818), 0x90))) return;
-    if (id == hook::Global<int32_t>(0x6cfe5c)) return;
-    hook::Global<int32_t>(0x6cfe5c) = id;
+    if (!Collection_IsValid(g_companies, 0, F<uint32_t>(g_gameWindow, 0x90))) return;
+    if (!Collection_Get(g_companies, 0, F<uint32_t>(g_gameWindow, 0x90))) return;
+    if (id == g_6cfe5c) return;
+    g_6cfe5c = id;
     char text[0x3e4];
     text[0] = 0;
-    uint8_t* tip = Widget_FindChild(hook::Global<uint8_t*>(0x6cfe4c), 0, 0x948c);
-    Overview_SetMode(hook::Global<uint8_t*>(0x62c120), 0, 0x24, id, 0, 0, nullptr, 0, 0, 99999, 99999);
+    uint8_t* tip = Widget_FindChild(g_6cfe4c, 0, 0x948c);
+    Overview_SetMode(g_map, 0, 0x24, id, 0, 0, nullptr, 0, 0, 99999, 99999);
     if (tip) {
         F<int32_t>(tip, 0x117) = id;
-        Window_SendEvent5(hook::Global<uint8_t*>(0x6cfe4c), 0, 0xba, 0x948c, 0, 0, 0);
+        Window_SendEvent5(g_6cfe4c, 0, 0xba, 0x948c, 0, 0, 0);
     }
     if (id) {
-        uint8_t* terr = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfc9c), 0, id);
+        uint8_t* terr = (uint8_t*)Collection_Get(g_territories, 0, id);
         const char* tname = (const char*)terr + 4;
         if (Company_EntryFlag(SelectedCompany(), 0, id)) {
             const char* cname = (const char*)SelectedCompany() + 4;
             FormatText(text, GetString(0x3b2), tname, cname, tname, 0, 0, 0, 0, 0);
         } else if (Company_EntryOpen(SelectedCompany(), 0, id)) {
-            uint32_t cid = F<uint32_t>(hook::Global<uint8_t*>(0x6d0818), 0x90);
+            uint32_t cid = F<uint32_t>(g_gameWindow, 0x90);
             const char* cname = (const char*)SelectedCompany() + 4;
             char num[0x200];
             double price = Obj_RoundedCost(terr, 0, cid);
@@ -1176,7 +1176,7 @@ RT3_NOINLINE void __fastcall CompanyView_HoverTerritory(int32_t id) {
             FormatText(text, GetString(0x3b4), tname, cname, 0, 0, 0, 0, 0, 0);
         }
     }
-    Ui_ShowTooltip(hook::Global<uint8_t*>(0x6d401c), 0, text, 3, 0, -1);
+    Ui_ShowTooltip(g_windowManager, 0, text, 3, 0, -1);
 }
 RT3_REPLACE(0x4c1b60, CompanyView_HoverTerritory);
 
@@ -1185,7 +1185,7 @@ RT3_REPLACE(0x4c1b60, CompanyView_HoverTerritory);
 void __fastcall CompanyView_HoverRowCb(int32_t id, int, int32_t, int32_t, int32_t, int32_t row, int32_t) {
     uint32_t t = 0;
     if (row >= 0)
-        if (uint8_t* w = Widget_FindChild(hook::Global<uint8_t*>(0x6cfe4c), 0, id)) t = TreeView_NodeData(w, 0, row);
+        if (uint8_t* w = Widget_FindChild(g_6cfe4c, 0, id)) t = TreeView_NodeData(w, 0, row);
     CompanyView_HoverTerritory((int32_t)t);
 }
 RT3_REPLACE(0x4c1d30, CompanyView_HoverRowCb);
@@ -1196,19 +1196,19 @@ RT3_REPLACE(0x4c1d30, CompanyView_HoverRowCb);
 // (0x6cfe5c) gets the highlight box.
 void __fastcall TerritoryList_DrawRowCb(void*, int32_t id, float x, float y, float w, float h, int32_t) {
     x = (float)((double)x + D(0x5d0830));
-    uint8_t* player = hook::Global<uint8_t*>(0x6d0818);
+    uint8_t* player = g_gameWindow;
     if (!player || F<int32_t>(player, 0x90) <= 0) return;
-    if (!Collection_IsValid(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(player, 0x90))) return;
-    uint8_t* company = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(hook::Global<uint8_t*>(0x6d0818), 0x90));
+    if (!Collection_IsValid(g_companies, 0, F<uint32_t>(player, 0x90))) return;
+    uint8_t* company = (uint8_t*)Collection_Get(g_companies, 0, F<uint32_t>(g_gameWindow, 0x90));
     if (!company) return;
-    uint8_t* t = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfc9c), 0, (uint32_t)id);
+    uint8_t* t = (uint8_t*)Collection_Get(g_territories, 0, (uint32_t)id);
     const float ty = (float)((double)y + Fl(0x5d082c));
     const float tx = (float)((double)x + D(0x5cab68));
-    Font_DrawTextBox(hook::Global<uint8_t*>(0x6cfe50), 0, (const char*)t + 4, tx, ty, BitsF(0x3e800000), h, 0xffffffff, 2, 0, 0, 1.0f);
+    Font_DrawTextBox(g_6cfe50, 0, (const char*)t + 4, tx, ty, BitsF(0x3e800000), h, 0xffffffff, 2, 0, 0, 1.0f);
     const int32_t glyph = Company_EntryFlag(company, 0, id) ? 0x1a : 0x19;
     const float gx = (float)((double)x + Fl(0x5d0828));
-    Glyph_Queue((uint8_t*)(uintptr_t)Table_Entry(hook::Global<uint8_t*>(0x6cfe58), 0, glyph), 0, gx, ty, 0x3f800000, 1.0f, 1.0f, 0xffffffff, 0, 1, 0, 0.0f, 0.0f, 1.0f, 1.0f);
-    if (hook::Global<int32_t>(0x6cfe5c) == id) Ui_FillRect(0x18000000, 0, x, y, w, h, 3);
+    Glyph_Queue((uint8_t*)(uintptr_t)Table_Entry(g_6cfe58, 0, glyph), 0, gx, ty, 0x3f800000, 1.0f, 1.0f, 0xffffffff, 0, 1, 0, 0.0f, 0.0f, 1.0f, 1.0f);
+    if (g_6cfe5c == id) Ui_FillRect(0x18000000, 0, x, y, w, h, 3);
 }
 RT3_REPLACE(0x4c1d70, TerritoryList_DrawRowCb);
 
@@ -1219,16 +1219,16 @@ RT3_REPLACE(0x4c1d70, TerritoryList_DrawRowCb);
 // window layout (0x6d3c84 = 4, font world +0x46a9c; else font 0x6cfe50).
 void __fastcall BondList_DrawRow(int32_t, int32_t idx, float x, float y, int32_t, float h, int32_t) {
     x = (float)((double)x + D(0x5d0830));
-    uint8_t* view = hook::Global<uint8_t*>(0x6d0818);
+    uint8_t* view = g_gameWindow;
     if (!view || F<int32_t>(view, 0x90) <= 0) return;
-    if (!Collection_IsValid(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(view, 0x90))) return;
-    uint8_t* c = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(hook::Global<uint8_t*>(0x6d0818), 0x90));
+    if (!Collection_IsValid(g_companies, 0, F<uint32_t>(view, 0x90))) return;
+    uint8_t* c = (uint8_t*)Collection_Get(g_companies, 0, F<uint32_t>(g_gameWindow, 0x90));
     if (!c) return;
     const uint8_t* bond = c + 0x5f + idx * 12;
     int32_t amount = F<int32_t>((void*)bond, 0), year = F<int32_t>((void*)bond, 4);
     float rate = F<float>((void*)bond, 8);
-    bool finance = hook::Global<int32_t>(0x6d3c84) == 4;
-    uint8_t* font = finance ? F<uint8_t*>(hook::Global<uint8_t*>(0x6cec78), 0x46a9c) : hook::Global<uint8_t*>(0x6cfe50);
+    bool finance = g_language == 4;
+    uint8_t* font = finance ? F<uint8_t*>(g_world, 0x46a9c) : g_6cfe50;
     int32_t shift = finance ? 0x30 : 0;
     char num[0x20], text[0xf4];
     FormatText(text, GetString(0x3b5), Num_Format(num, 8, (double)year, 10, 1, 0, 0), 0, 0, 0, 0, 0, 0, 0);
@@ -1239,7 +1239,7 @@ void __fastcall BondList_DrawRow(int32_t, int32_t idx, float x, float y, int32_t
     float x2 = (float)((double)(shift + 0x7f) / D(0x5ca2c8) + x);
     Font_DrawTextBox(font, 0, text, x2, y, BitsF(0x3d800000), h, 0xffffffff, 0, 0, 0, 1.0f);
     Num_Format(text, 5, (double)rate, 10, 1, 0, 0);
-    int32_t col3 = (hook::Global<int32_t>(0x6d3c84) == 4 ? 5 : 0) + 0xe3;
+    int32_t col3 = (g_language == 4 ? 5 : 0) + 0xe3;
     float x3 = (float)((double)col3 / D(0x5ca2c8) + x);
     Font_DrawTextBox(font, 0, text, x3, y, BitsF(0x3d266666), h, 0xffffffff, 3, 0, 0, 1.0f);
 }
@@ -1250,18 +1250,18 @@ RT3_REPLACE(0x4c1ec0, BondList_DrawRow);
 // 0x947e), style 0x947b / 0x947c, tooltip string 0x3b6, at (x + 0x5d0850,
 // y + 0x5ce8c8) in window 0x6cfe4c.
 void __fastcall FinanceList_AddRowButton(uint8_t* list, int, int32_t idx, float x, float y, int32_t, int32_t) {
-    uint8_t* view = hook::Global<uint8_t*>(0x6d0818);
+    uint8_t* view = g_gameWindow;
     if (!view || F<int32_t>(view, 0x90) <= 0) return;
-    if (!Collection_IsValid(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(view, 0x90))) return;
-    if (!Collection_Get(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(hook::Global<uint8_t*>(0x6d0818), 0x90))) return;
+    if (!Collection_IsValid(g_companies, 0, F<uint32_t>(view, 0x90))) return;
+    if (!Collection_Get(g_companies, 0, F<uint32_t>(g_gameWindow, 0x90))) return;
     uint8_t* sel = nullptr;
-    view = hook::Global<uint8_t*>(0x6d0818);
-    if (view && F<int32_t>(view, 0x90) > 0 && Collection_IsValid(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(view, 0x90)))
-        sel = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(hook::Global<uint8_t*>(0x6d0818), 0x90));
-    if (Obj_Company21(hook::Global<uint8_t*>(0x6cec78)) != sel) return;
-    if (F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4a8b)) return;
+    view = g_gameWindow;
+    if (view && F<int32_t>(view, 0x90) > 0 && Collection_IsValid(g_companies, 0, F<uint32_t>(view, 0x90)))
+        sel = (uint8_t*)Collection_Get(g_companies, 0, F<uint32_t>(g_gameWindow, 0x90));
+    if (Obj_Company21(g_world) != sel) return;
+    if (F<int32_t>(g_world, 0x4a8b)) return;
     bool bonds = F<uint16_t>(list, 4) == 0x947e;
-    AddControlButton(hook::Global<uint8_t*>(0x6cfe4c), [&](uint8_t* d) {
+    AddControlButton(g_6cfe4c, [&](uint8_t* d) {
         F<float>(d, 7) = (float)((double)x + D(0x5d0850));
         F<float>(d, 0xb) = (float)((double)y + D(0x5ce8c8));
         F<uint32_t>(d, 0xf) = 0x3c99999a;
@@ -1281,7 +1281,7 @@ RT3_REPLACE(0x4c2110, FinanceList_AddRowButton);
 // 0x4c22e0 (hover callback). The company view hovers the territory of
 // child 0x948c (+0x117) while the first argument is set, else none.
 void __fastcall CompanyView_HoverTerritoryCb(void*, int, int32_t on, int32_t, int32_t, int32_t, int32_t) {
-    uint8_t* w = Widget_FindChild(hook::Global<uint8_t*>(0x6cfe4c), 0, 0x948c);
+    uint8_t* w = Widget_FindChild(g_6cfe4c, 0, 0x948c);
     CompanyView_HoverTerritory(w && on ? F<int32_t>(w, 0x117) : 0);
 }
 RT3_REPLACE(0x4c22e0, CompanyView_HoverTerritoryCb);
@@ -1293,11 +1293,11 @@ void __fastcall CompanyWindow_Destruct(uint8_t* w) {
     F<uint32_t>(w, 0) = 0x5d0858;
     static const uint32_t images[] = { 0x6cfe54, 0x6cfe50, 0x6cfe58 };
     for (uint32_t a : images) {
-        Pack_Release(hook::Global<uint8_t*>(0x6d4020), 0, hook::Global<void*>(a));
+        Pack_Release(g_pack, 0, hook::Global<void*>(a));
         hook::Global<uint32_t>(a) = 0;
     }
-    hook::Global<uint32_t>(0x6cfe4c) = 0;
-    if (F<int32_t>(hook::Global<uint8_t*>(0x62c120), 0x2175) == 0x24) Overview_Close(hook::Global<uint8_t*>(0x62c120));
+    hook::As<uint32_t>(g_6cfe4c) = 0;
+    if (F<int32_t>(g_map, 0x2175) == 0x24) Overview_Close(g_map);
     Widget_SetVtbl(w);
 }
 RT3_REPLACE(0x4c2320, CompanyWindow_Destruct);
@@ -1308,37 +1308,37 @@ RT3_REPLACE(0x4c2320, CompanyWindow_Destruct);
 // that stat is positive (0x3b9) and the bonus value (0x3ba).
 void __fastcall CompanyCredit_DrawCb(void*, int, float x, float y, float w, float h, int32_t) {
     auto company = []() -> uint8_t* {
-        uint8_t* sel = hook::Global<uint8_t*>(0x6d0818);
-        if (!sel || F<int32_t>(sel, 0x90) <= 0 || !Collection_IsValid(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(sel, 0x90))) return nullptr;
-        return (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(hook::Global<uint8_t*>(0x6d0818), 0x90));
+        uint8_t* sel = g_gameWindow;
+        if (!sel || F<int32_t>(sel, 0x90) <= 0 || !Collection_IsValid(g_companies, 0, F<uint32_t>(sel, 0x90))) return nullptr;
+        return (uint8_t*)Collection_Get(g_companies, 0, F<uint32_t>(g_gameWindow, 0x90));
     };
     if (!company()) return;
     y = (float)((double)y + D(0x5cab60));
     uint8_t* c = company();
     const float tw = (float)((double)w - D(0x5d0700));
-    const float stat = (float)Company_Stat(c, 0, 0x12, F<uint16_t>(hook::Global<uint8_t*>(0x6cec78), 0xd));
+    const float stat = (float)Company_Stat(c, 0, 0x12, F<uint16_t>(g_world, 0xd));
     const float mag = (float)((double(__cdecl*)(double))0x5a152e)((double)stat);
     char frame[0x108];
     char* num = frame + 8;
     Num_FormatSimple2(num, 0xb, (double)mag, 0xb);
     const float rh = BitsF(0x3cd3a06d);
-    Font_DrawTextBox(hook::Global<uint8_t*>(0x6cfe50), 0, GetString(0x3b7), x, y, tw, rh, 0xffffffff, 2, 1, 0, 1.0f);
-    Font_DrawTextBox(hook::Global<uint8_t*>(0x6cfe50), 0, num, x, y, tw, rh, 0xffffffff, 3, 1, 0, 1.0f);
+    Font_DrawTextBox(g_6cfe50, 0, GetString(0x3b7), x, y, tw, rh, 0xffffffff, 2, 1, 0, 1.0f);
+    Font_DrawTextBox(g_6cfe50, 0, num, x, y, tw, rh, 0xffffffff, 3, 1, 0, 1.0f);
     y = (float)((double)y + D(0x5d0868));
-    Font_DrawTextBox(hook::Global<uint8_t*>(0x6cfe50), 0, GetString(0x3b8), x, y, tw, rh, 0xffffffff, 2, 1, 0, 1.0f);
+    Font_DrawTextBox(g_6cfe50, 0, GetString(0x3b8), x, y, tw, rh, 0xffffffff, 2, 1, 0, 1.0f);
     const uint32_t color = Ftol(Company_CreditRating(c, 0, 0)) > 4 ? 0xffffffff : 0xffff5f5f;
     const char* word = *(const char* const*)(0x620d00 + Ftol(Company_CreditRating(c, 0, 0)) * 4);
-    Font_DrawTextBox(hook::Global<uint8_t*>(0x6cfe50), 0, word, x, y, tw, rh, color, 3, 1, 0, 1.0f);
+    Font_DrawTextBox(g_6cfe50, 0, word, x, y, tw, rh, color, 3, 1, 0, 1.0f);
     y = (float)((double)y + D(0x5d0868));
     if (mag > D(0x5c8678)) {
         Num_Format(num, 6, Obj_WeightedAverage(c), 10, 1, 0, 0);
-        Font_DrawTextBox(hook::Global<uint8_t*>(0x6cfe50), 0, GetString(0x3b9), x, y, tw, rh, 0xffffffff, 2, 1, 0, 1.0f);
-        Font_DrawTextBox(hook::Global<uint8_t*>(0x6cfe50), 0, num, x, y, tw, rh, 0xffffffff, 3, 1, 0, 1.0f);
+        Font_DrawTextBox(g_6cfe50, 0, GetString(0x3b9), x, y, tw, rh, 0xffffffff, 2, 1, 0, 1.0f);
+        Font_DrawTextBox(g_6cfe50, 0, num, x, y, tw, rh, 0xffffffff, 3, 1, 0, 1.0f);
         y = (float)((double)y + D(0x5d0868));
     }
     Num_Format(num, 6, (double)Obj_ValueWithBonus((uint32_t*)company()), 10, 1, 0, 0);
-    Font_DrawTextBox(hook::Global<uint8_t*>(0x6cfe50), 0, GetString(0x3ba), x, y, tw, rh, 0xffffffff, 2, 1, 0, 1.0f);
-    Font_DrawTextBox(hook::Global<uint8_t*>(0x6cfe50), 0, num, x, y, tw, rh, 0xffffffff, 3, 1, 0, 1.0f);
+    Font_DrawTextBox(g_6cfe50, 0, GetString(0x3ba), x, y, tw, rh, 0xffffffff, 2, 1, 0, 1.0f);
+    Font_DrawTextBox(g_6cfe50, 0, num, x, y, tw, rh, 0xffffffff, 3, 1, 0, 1.0f);
 }
 RT3_REPLACE(0x4c23a0, CompanyCredit_DrawCb);
 
@@ -1348,9 +1348,9 @@ RT3_REPLACE(0x4c23a0, CompanyCredit_DrawCb);
 // total (0x3bd); rows of 0x5d0868, values right aligned.
 void __fastcall CompanyStock_DrawCb(void*, int, float x, float y, float w, float h, int32_t) {
     auto company = []() -> uint8_t* {
-        uint8_t* sel = hook::Global<uint8_t*>(0x6d0818);
-        if (!sel || F<int32_t>(sel, 0x90) <= 0 || !Collection_IsValid(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(sel, 0x90))) return nullptr;
-        return (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(hook::Global<uint8_t*>(0x6d0818), 0x90));
+        uint8_t* sel = g_gameWindow;
+        if (!sel || F<int32_t>(sel, 0x90) <= 0 || !Collection_IsValid(g_companies, 0, F<uint32_t>(sel, 0x90))) return nullptr;
+        return (uint8_t*)Collection_Get(g_companies, 0, F<uint32_t>(g_gameWindow, 0x90));
     };
     if (!company()) return;
     y = (float)((double)y + D(0x5d0878));
@@ -1359,8 +1359,8 @@ void __fastcall CompanyStock_DrawCb(void*, int, float x, float y, float w, float
     const float rh = BitsF(0x3cd3a06d);
     char frame[0x1fc];
     char* num = frame + 8;
-    auto label = [&](int32_t id) { Font_DrawTextBox(hook::Global<uint8_t*>(0x6cfe50), 0, GetString(id), x, y, tw, rh, 0xffffffff, 2, 1, 0, 1.0f); };
-    auto value = [&]() { Font_DrawTextBox(hook::Global<uint8_t*>(0x6cfe50), 0, num, x, y, tw, rh, 0xffffffff, 3, 1, 0, 1.0f); };
+    auto label = [&](int32_t id) { Font_DrawTextBox(g_6cfe50, 0, GetString(id), x, y, tw, rh, 0xffffffff, 2, 1, 0, 1.0f); };
+    auto value = [&]() { Font_DrawTextBox(g_6cfe50, 0, num, x, y, tw, rh, 0xffffffff, 3, 1, 0, 1.0f); };
     label(0x3a9);
     Num_FormatSimple(num, 9, Company_FloatD7b(company()), 0xb);
     value();
@@ -1381,14 +1381,14 @@ void __fastcall CompanyStock_DrawCb(void*, int, float x, float y, float w, float
     y = (float)((double)y + D(0x5d0868));
     y = (float)((double)y + D(0x5d0870));
     label(0x3bc);
-    Num_FormatSimple2(num, 0xa, Company_Stat(company(), 0, 0x20, F<uint16_t>(hook::Global<uint8_t*>(0x6cec78), 0xd)), 0xb);
+    Num_FormatSimple2(num, 0xa, Company_Stat(company(), 0, 0x20, F<uint16_t>(g_world, 0xd)), 0xb);
     value();
     y = (float)((double)y + D(0x5d0868));
     label(0x3bd);
     {
         uint8_t* a = company();
         const int32_t shares = F<int32_t>(company(), 0x47);
-        const double stat = Company_Stat(a, 0, 0x20, F<uint16_t>(hook::Global<uint8_t*>(0x6cec78), 0xd));
+        const double stat = Company_Stat(a, 0, 0x20, F<uint16_t>(g_world, 0xd));
         Num_FormatSimple(num, 9, stat * (double)shares, 0xb);
     }
     value();
@@ -1404,25 +1404,25 @@ RT3_REPLACE(0x4c2720, CompanyStock_DrawCb);
 // player's own company, 0x9538..0x959b only for other companies' chairmen,
 // and the scenario's disabled actions (world +0x4a87..) stay off.
 RT3_NOINLINE void __fastcall CompanyWindow_Refresh(uint8_t* win) {
-    Collection* cos = hook::Global<Collection*>(0x62be10);
+    Collection* cos = g_companies;
     auto viewCompany = [&]() -> uint8_t* {
-        uint8_t* view = hook::Global<uint8_t*>(0x6d0818);
-        if (!view || F<int32_t>(view, 0x90) <= 0 || !Collection_IsValid(cos, 0, F<uint32_t>(hook::Global<uint8_t*>(0x6d0818), 0x90))) return nullptr;
-        return (uint8_t*)Collection_Get(cos, 0, F<uint32_t>(hook::Global<uint8_t*>(0x6d0818), 0x90));
+        uint8_t* view = g_gameWindow;
+        if (!view || F<int32_t>(view, 0x90) <= 0 || !Collection_IsValid(cos, 0, F<uint32_t>(g_gameWindow, 0x90))) return nullptr;
+        return (uint8_t*)Collection_Get(cos, 0, F<uint32_t>(g_gameWindow, 0x90));
     };
     if (!viewCompany()) return;
     auto send = [&](uint32_t type, uint32_t id, uint32_t a, uint32_t b) { Window_SendEvent5(win, 0, type, id, a, b, 0); };
     for (int32_t i = 0; i < 4; ++i) {
-        send(i != hook::Global<int32_t>(0x6cfe60) ? 0x87 : 0x65, 0x9472 + i, 1, 0);
-        send(i != hook::Global<int32_t>(0x6cfe60) ? 0x86 : 0x6d, 0x9476 + i, 3, 0);
+        send(i != g_6cfe60 ? 0x87 : 0x65, 0x9472 + i, 1, 0);
+        send(i != g_6cfe60 ? 0x86 : 0x6d, 0x9476 + i, 3, 0);
     }
-    send(hook::Global<int32_t>(0x6cfe60) != 1 ? 0x86 : 0x6d, 0x947b, 3, 0);
+    send(g_6cfe60 != 1 ? 0x86 : 0x6d, 0x947b, 3, 0);
     send(0x86, 0x947c, 3, 0);
-    send(hook::Global<int32_t>(0x6cfe60) != 3 ? 0x86 : 0x6d, 0x948f, 3, 0);
+    send(g_6cfe60 != 3 ? 0x86 : 0x6d, 0x948f, 3, 0);
     send(0x86, 0x9490, 3, 0);
-    Collection* pls = hook::Global<Collection*>(0x6ceb9c);
+    Collection* pls = g_players;
     char buf[0x100];
-    switch (hook::Global<int32_t>(0x6cfe60)) {
+    switch (g_6cfe60) {
     case 0: {
         uint32_t chair = F<uint32_t>(SelectedCompany(), 0x3b);
         int32_t face;
@@ -1441,7 +1441,7 @@ RT3_NOINLINE void __fastcall CompanyWindow_Refresh(uint8_t* win) {
         } else {
             send(0x6c, 0x9480, 0, 0);
             const char* name = (const char*)Obj_NamedEntry20((uint8_t*)Collection_Get(pls, 0, chair));
-            if (NameTable_ContainsName(hook::Global<uint8_t*>(0x6d4020), 0, name, 0, 0))
+            if (NameTable_ContainsName(g_pack, 0, name, 0, 0))
                 send(0x70, 0x9480, (uint32_t)(uintptr_t)Obj_NamedEntry20((uint8_t*)Collection_Get(pls, 0, chair)), 0);
             else {
                 send(0x70, 0x9480, 0x5d0880, 0);
@@ -1474,7 +1474,7 @@ RT3_NOINLINE void __fastcall CompanyWindow_Refresh(uint8_t* win) {
     case 3: {
         send(0x8b, 0x948d, 0, 0);
         send(0x8b, 0x948e, 0, 0);
-        Collection* sts = hook::Global<Collection*>(0x6cfc9c);
+        Collection* sts = g_territories;
         for (int32_t j = 0; j < Collection_Count(sts); ++j) {
             if (!F<int32_t>(Collection_Get(sts, 0, Collection_IdAt(sts, 0, j, 0)), 0x31)) continue;
             if (!F<int32_t>(Collection_Get(sts, 0, Collection_IdAt(sts, 0, j, 0)), 0x3d)) continue;
@@ -1484,35 +1484,35 @@ RT3_NOINLINE void __fastcall CompanyWindow_Refresh(uint8_t* win) {
         break;
     }
     }
-    send(hook::Global<int32_t>(0x6cfe60) != 1 ? 0x86 : 0x6d, 0x947b, 3, 0);
+    send(g_6cfe60 != 1 ? 0x86 : 0x6d, 0x947b, 3, 0);
     send(0x86, 0x947c, 3, 0);
     uint8_t* co2 = viewCompany();
-    uint32_t own = Obj_Company21(hook::Global<uint8_t*>(0x6cec78)) != co2 ? 0x87 : 0x65;
+    uint32_t own = Obj_Company21(g_world) != co2 ? 0x87 : 0x65;
     for (uint32_t id = 0x94d4; id <= 0x9537; ++id) send(own, id, 3, 0);
     int32_t chair = F<int32_t>(viewCompany(), 0x3b);
-    uint32_t other = Obj_Get25(hook::Global<uint8_t*>(0x6cec78)) != chair ? 0x65 : 0x87;
+    uint32_t other = Obj_Get25(g_world) != chair ? 0x65 : 0x87;
     for (uint32_t id = 0x9538; id <= 0x959b; ++id) send(other, id, 3, 0);
-    uint8_t* world = hook::Global<uint8_t*>(0x6cec78);
+    uint8_t* world = g_world;
     if (F<int32_t>(world, 0x4a87)) {
         send(0x87, 0x94d8, 3, 0);
         send(0x87, 0x94d9, 3, 0);
     }
-    if (F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4a93)) {
+    if (F<int32_t>(g_world, 0x4a93)) {
         send(0x87, 0x94da, 3, 0);
         send(0x87, 0x94d5, 3, 0);
     }
-    if (F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4a8b)) {
+    if (F<int32_t>(g_world, 0x4a8b)) {
         send(0x87, 0x94d7, 3, 0);
         send(0x87, 0x94d5, 3, 0);
     }
-    if (F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4a8f)) {
+    if (F<int32_t>(g_world, 0x4a8f)) {
         send(0x87, 0x94d6, 3, 0);
         send(0x87, 0x94d4, 3, 0);
     }
-    if (F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4adb)) send(0x87, 0x94db, 3, 0);
-    if (F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4acb)) send(0x87, 0x94dc, 3, 0);
-    if (F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4acf)) send(0x87, 0x9538, 3, 0);
-    if (!F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x68)) send(0x87, 0x9493, 3, 0);
+    if (F<int32_t>(g_world, 0x4adb)) send(0x87, 0x94db, 3, 0);
+    if (F<int32_t>(g_world, 0x4acb)) send(0x87, 0x94dc, 3, 0);
+    if (F<int32_t>(g_world, 0x4acf)) send(0x87, 0x9538, 3, 0);
+    if (!F<int32_t>(g_app, 0x68)) send(0x87, 0x9493, 3, 0);
 }
 RT3_REPLACE(0x4c2ca0, CompanyWindow_Refresh);
 
@@ -1520,19 +1520,19 @@ RT3_REPLACE(0x4c2ca0, CompanyWindow_Refresh);
 // `delta` companies through 0x62be10 in ranking order (wrapping), refreshing
 // the company window and map-mode buttons; closes overview mode 0x24.
 RT3_NOINLINE void __fastcall CompanyView_Step(int32_t delta) {
-    int32_t id = F<int32_t>(hook::Global<uint8_t*>(0x6d0818), 0x90);
+    int32_t id = F<int32_t>(g_gameWindow, 0x90);
     if (id <= 0) return;
-    Collection* t = hook::Global<Collection*>(0x62be10);
+    Collection* t = g_companies;
     if (!Collection_IsValid(t, 0, id)) return;
-    int32_t rank = Table_LiveRankOf(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(hook::Global<uint8_t*>(0x6d0818), 0x90));
-    int32_t n = Table_CountField3f(hook::Global<Collection*>(0x62be10)) + rank + delta;
-    int32_t pos = n % Table_CountField3f(hook::Global<Collection*>(0x62be10));
-    uint32_t next = Table_NthIdField3f(hook::Global<Collection*>(0x62be10), 0, pos);
-    Panel_SetValue90(hook::Global<uint8_t*>(0x6d0818), 0, (int32_t)next);
-    CompanyWindow_Refresh(hook::Global<uint8_t*>(0x6cfe4c));
-    Window_HighlightMapModes(hook::Global<uint8_t*>(0x6d0818));
-    Ui_SendEvent5(hook::Global<uint8_t**>(0x6d401c), 0, 0xba, 0x948c, 0, 0, 0);
-    if (F<int32_t>(hook::Global<uint8_t*>(0x62c120), 0x2175) == 0x24) Overview_Close(hook::Global<uint8_t*>(0x62c120));
+    int32_t rank = Table_LiveRankOf(g_companies, 0, F<uint32_t>(g_gameWindow, 0x90));
+    int32_t n = Table_CountField3f(g_companies) + rank + delta;
+    int32_t pos = n % Table_CountField3f(g_companies);
+    uint32_t next = Table_NthIdField3f(g_companies, 0, pos);
+    Panel_SetValue90(g_gameWindow, 0, (int32_t)next);
+    CompanyWindow_Refresh(g_6cfe4c);
+    Window_HighlightMapModes(g_gameWindow);
+    Ui_SendEvent5(hook::As<uint8_t**>(g_windowManager), 0, 0xba, 0x948c, 0, 0, 0);
+    if (F<int32_t>(g_map, 0x2175) == 0x24) Overview_Close(g_map);
 }
 RT3_REPLACE(0x4c3470, CompanyView_Step);
 
@@ -1547,41 +1547,41 @@ RT3_REPLACE(0x4c3550, CompanyView_Prev);
 // (string 0x3c8), the bond size 500000 (0x3c9), its interest rate with that
 // much more debt (0x3ca), the 2% fee (0x3cb) and the footnote (0x3cc).
 void __fastcall BondPanel_DrawCb(void*, int, float x, float y, float w, float h, int32_t) {
-    uint8_t* sel = hook::Global<uint8_t*>(0x6d0818);
-    if (!sel || F<int32_t>(sel, 0x90) <= 0 || !Collection_IsValid(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(sel, 0x90))) return;
-    if (!Collection_Get(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(hook::Global<uint8_t*>(0x6d0818), 0x90))) return;
-    sel = hook::Global<uint8_t*>(0x6d0818);
+    uint8_t* sel = g_gameWindow;
+    if (!sel || F<int32_t>(sel, 0x90) <= 0 || !Collection_IsValid(g_companies, 0, F<uint32_t>(sel, 0x90))) return;
+    if (!Collection_Get(g_companies, 0, F<uint32_t>(g_gameWindow, 0x90))) return;
+    sel = g_gameWindow;
     uint8_t* c = nullptr;
-    if (sel && F<int32_t>(sel, 0x90) > 0 && Collection_IsValid(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(sel, 0x90)))
-        c = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(hook::Global<uint8_t*>(0x6d0818), 0x90));
+    if (sel && F<int32_t>(sel, 0x90) > 0 && Collection_IsValid(g_companies, 0, F<uint32_t>(sel, 0x90)))
+        c = (uint8_t*)Collection_Get(g_companies, 0, F<uint32_t>(g_gameWindow, 0x90));
     const float rate = Company_BondRateWithDebt(c, 0, 0x7a120, 0x1e);
     const float tx = (float)((double)x + D(0x5d0830));
     const float ty = (float)((double)y + D(0x5d01d8));
     const float tw = (float)((double)w - D(0x5d0700));
-    Font_DrawTextBox(hook::Global<uint8_t*>(0x6cfe50), 0, GetString(0x3c8), tx, ty, tw, BitsF(0x3d7258bf), 0xffffffff, 2, 1, 0, 1.0f);
+    Font_DrawTextBox(g_6cfe50, 0, GetString(0x3c8), tx, ty, tw, BitsF(0x3d7258bf), 0xffffffff, 2, 1, 0, 1.0f);
     float ry = (float)((double)ty + D(0x5d08a8));
     const float rx = (float)((double)tx + D(0x5d0180));
     const float rw = (float)((double)tw - D(0x5d08a0));
     const float rh = BitsF(0x3cda740e);
     char frame[0x204];
     char* num = frame + 0x10;
-    Font_DrawTextBox(hook::Global<uint8_t*>(0x6cfe50), 0, GetString(0x3c9), rx, ry, rw, rh, 0xffffffff, 2, 1, 0, 1.0f);
+    Font_DrawTextBox(g_6cfe50, 0, GetString(0x3c9), rx, ry, rw, rh, 0xffffffff, 2, 1, 0, 1.0f);
     Num_FormatSimple2(num, 0xb, 500000.0, 0xb);
-    Font_DrawTextBox(hook::Global<uint8_t*>(0x6cfe50), 0, num, rx, ry, rw, rh, 0xffffffff, 3, 1, 0, 1.0f);
+    Font_DrawTextBox(g_6cfe50, 0, num, rx, ry, rw, rh, 0xffffffff, 3, 1, 0, 1.0f);
     ry = (float)((double)ry + Fl(0x5d0898));
-    Font_DrawTextBox(hook::Global<uint8_t*>(0x6cfe50), 0, GetString(0x3ca), rx, ry, rw, rh, 0xffffffff, 2, 1, 0, 1.0f);
+    Font_DrawTextBox(g_6cfe50, 0, GetString(0x3ca), rx, ry, rw, rh, 0xffffffff, 2, 1, 0, 1.0f);
     Num_Format(num, 5, (double)rate, 10, 1, 0, 0);
-    Font_DrawTextBox(hook::Global<uint8_t*>(0x6cfe50), 0, num, rx, ry, rw, rh, 0xffffffff, 3, 1, 0, 1.0f);
+    Font_DrawTextBox(g_6cfe50, 0, num, rx, ry, rw, rh, 0xffffffff, 3, 1, 0, 1.0f);
     ry = (float)((double)ry + Fl(0x5d0898));
-    Font_DrawTextBox(hook::Global<uint8_t*>(0x6cfe50), 0, GetString(0x3cb), rx, ry, rw, rh, 0xffffffff, 2, 1, 0, 1.0f);
+    Font_DrawTextBox(g_6cfe50, 0, GetString(0x3cb), rx, ry, rw, rh, 0xffffffff, 2, 1, 0, 1.0f);
     const uint64_t kFee = 0x3f947ae147ae147bull;
     Num_Format(num, 5, *(const double*)&kFee, 10, 1, 0, 0);
-    Font_DrawTextBox(hook::Global<uint8_t*>(0x6cfe50), 0, num, rx, ry, rw, rh, 0xffffffff, 3, 1, 0, 1.0f);
+    Font_DrawTextBox(g_6cfe50, 0, num, rx, ry, rw, rh, 0xffffffff, 3, 1, 0, 1.0f);
     ry = (float)((double)ry + Fl(0x5d0898));
     const float nx = (float)((double)rx - D(0x5d0180));
     const float nw = (float)((double)rw + D(0x5d08a0));
     const float ny = (float)((double)ry + D(0x5d0890));
-    Font_DrawTextBox(hook::Global<uint8_t*>(0x6cfe50), 0, GetString(0x3cc), nx, ny, nw, rh, 0xffffffff, 2, 1, 0, 1.0f);
+    Font_DrawTextBox(g_6cfe50, 0, GetString(0x3cc), nx, ny, nw, rh, 0xffffffff, 2, 1, 0, 1.0f);
 }
 RT3_REPLACE(0x4c3560, BondPanel_DrawCb);
 
@@ -1592,10 +1592,10 @@ RT3_REPLACE(0x4c3560, BondPanel_DrawCb);
 // 30-year bond, or in multiplayer packet 0x23 with its rate.
 RT3_NOINLINE void __fastcall CompanyWindow_IssueBond(uint8_t* w) {
     auto company = []() -> uint8_t* {
-        uint8_t* v = hook::Global<uint8_t*>(0x6d0818);
+        uint8_t* v = g_gameWindow;
         if (!v || F<int32_t>(v, 0x90) <= 0) return nullptr;
-        if (!Collection_IsValid(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(hook::Global<uint8_t*>(0x6d0818), 0x90))) return nullptr;
-        return (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(hook::Global<uint8_t*>(0x6d0818), 0x90));
+        if (!Collection_IsValid(g_companies, 0, F<uint32_t>(g_gameWindow, 0x90))) return nullptr;
+        return (uint8_t*)Collection_Get(g_companies, 0, F<uint32_t>(g_gameWindow, 0x90));
     };
     if (!company()) return;
     char text[0x200];
@@ -1608,11 +1608,11 @@ RT3_NOINLINE void __fastcall CompanyWindow_IssueBond(uint8_t* w) {
     }
     int32_t rating = Ftol(Company_CreditRating((uint8_t*)SelectedCompany(), 0, 0));
     if (rating < 5 && !Global6d07b4Set2()) {
-        FormatText(text, GetString(0x3ce), ((const char**)0x620d00)[rating], hook::Global<const char*>(0x620d14), 0, 0, 0, 0, 0, 0);
+        FormatText(text, GetString(0x3ce), ((const char**)0x620d00)[rating], g_620d14, 0, 0, 0, 0, 0, 0);
         Message_Show(text, 1, 0);
         return;
     }
-    uint32_t x = hook::Global<uint32_t>(0x6d3b4c) ? 0x3ef5c28f : 0xbf800000;
+    uint32_t x = hook::As<uint32_t>(g_6d3b4c) ? 0x3ef5c28f : 0xbf800000;
     uint32_t r = Dialog_RunMessage((const char*)0x5c87a8, 2, x, 0xbf800000, 0x4c1650, nullptr, 0x4c3560, Prod_Bits(0x3e800000), 0, 0x1e, 0, nullptr, nullptr, 0,
                                    0, nullptr, 0);
     if (r != 0x3f2 || !SelectedCompany()) return;
@@ -1622,14 +1622,14 @@ RT3_NOINLINE void __fastcall CompanyWindow_IssueBond(uint8_t* w) {
         return;
     }
     uint32_t pkt[5];
-    pkt[0] = (uint32_t)Obj_Get25(hook::Global<uint8_t*>(0x6cec78));
-    pkt[1] = F<uint32_t>(hook::Global<uint8_t*>(0x6d0818), 0x90);
+    pkt[0] = (uint32_t)Obj_Get25(g_world);
+    pkt[1] = F<uint32_t>(g_gameWindow, 0x90);
     pkt[2] = 500000;
     pkt[3] = 30;
     float rate = Company_BondRateWithDebt((uint8_t*)SelectedCompany(), 0, 500000, 30);
     pkt[4] = *(uint32_t*)&rate;
-    Cursor_Set(hook::Global<uint8_t*>(0xccbb20), 0, 6, 0, 0);
-    Net_SendToHost(hook::Global<uint8_t*>(0x6cd8d8), 0, 0x23, 0x14, (const uint8_t*)pkt);
+    Cursor_Set(g_cursorManager, 0, 6, 0, 0);
+    Net_SendToHost(g_session, 0, 0x23, 0x14, (const uint8_t*)pkt);
 }
 RT3_REPLACE(0x4c3890, CompanyWindow_IssueBond);
 
@@ -1638,43 +1638,43 @@ RT3_REPLACE(0x4c3890, CompanyWindow_IssueBond);
 // 5% fee (0x3cb), the proceeds (shares x price x 0x5c8650, rounded to the
 // thousand, 0x3d1) and the footnote (0x3d2).
 void __fastcall StockIssuePanel_DrawCb(void*, int, float x, float y, float w, float h, int32_t) {
-    uint8_t* sel = hook::Global<uint8_t*>(0x6d0818);
-    if (!sel || F<int32_t>(sel, 0x90) <= 0 || !Collection_IsValid(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(sel, 0x90))) return;
-    if (!Collection_Get(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(hook::Global<uint8_t*>(0x6d0818), 0x90))) return;
+    uint8_t* sel = g_gameWindow;
+    if (!sel || F<int32_t>(sel, 0x90) <= 0 || !Collection_IsValid(g_companies, 0, F<uint32_t>(sel, 0x90))) return;
+    if (!Collection_Get(g_companies, 0, F<uint32_t>(g_gameWindow, 0x90))) return;
     const float tx = (float)((double)x + D(0x5d0830));
     const float ty = (float)((double)y + D(0x5d01d8));
     const float tw = (float)((double)w - D(0x5d0700));
-    Font_DrawTextBox(hook::Global<uint8_t*>(0x6cfe50), 0, GetString(0x3cf), tx, ty, tw, BitsF(0x3d7258bf), 0xffffffff, 2, 1, 0, 1.0f);
+    Font_DrawTextBox(g_6cfe50, 0, GetString(0x3cf), tx, ty, tw, BitsF(0x3d7258bf), 0xffffffff, 2, 1, 0, 1.0f);
     float ry = (float)((double)ty + D(0x5d08a8));
     const float rx = (float)((double)tx + D(0x5d0180));
     const float rw = (float)((double)tw - D(0x5d08a0));
     const float rh = BitsF(0x3cda740e);
     char frame[0x208];
     char* num = frame + 0x14;
-    Font_DrawTextBox(hook::Global<uint8_t*>(0x6cfe50), 0, GetString(0x3d0), rx, ry, rw, rh, 0xffffffff, 2, 1, 0, 1.0f);
-    Num_Format(num, 1, (double)hook::Global<int32_t>(0x6cfe64), 10, 1, 0, 0);
-    Font_DrawTextBox(hook::Global<uint8_t*>(0x6cfe50), 0, num, rx, ry, rw, rh, 0xffffffff, 3, 1, 0, 1.0f);
+    Font_DrawTextBox(g_6cfe50, 0, GetString(0x3d0), rx, ry, rw, rh, 0xffffffff, 2, 1, 0, 1.0f);
+    Num_Format(num, 1, (double)g_6cfe64, 10, 1, 0, 0);
+    Font_DrawTextBox(g_6cfe50, 0, num, rx, ry, rw, rh, 0xffffffff, 3, 1, 0, 1.0f);
     ry = (float)((double)ry + Fl(0x5d0898));
-    Font_DrawTextBox(hook::Global<uint8_t*>(0x6cfe50), 0, GetString(0x2d3), rx, ry, rw, rh, 0xffffffff, 2, 1, 0, 1.0f);
-    Num_FormatSimple(num, 9, (double)hook::Global<int32_t>(0x6cfe68), 0xb);
-    Font_DrawTextBox(hook::Global<uint8_t*>(0x6cfe50), 0, num, rx, ry, rw, rh, 0xffffffff, 3, 1, 0, 1.0f);
+    Font_DrawTextBox(g_6cfe50, 0, GetString(0x2d3), rx, ry, rw, rh, 0xffffffff, 2, 1, 0, 1.0f);
+    Num_FormatSimple(num, 9, (double)g_6cfe68, 0xb);
+    Font_DrawTextBox(g_6cfe50, 0, num, rx, ry, rw, rh, 0xffffffff, 3, 1, 0, 1.0f);
     ry = (float)((double)ry + Fl(0x5d0898));
-    Font_DrawTextBox(hook::Global<uint8_t*>(0x6cfe50), 0, GetString(0x3cb), rx, ry, rw, rh, 0xffffffff, 2, 1, 0, 1.0f);
+    Font_DrawTextBox(g_6cfe50, 0, GetString(0x3cb), rx, ry, rw, rh, 0xffffffff, 2, 1, 0, 1.0f);
     const uint64_t kFee = 0x3fa999999999999aull;
     Num_Format(num, 5, *(const double*)&kFee, 10, 1, 0, 0);
-    Font_DrawTextBox(hook::Global<uint8_t*>(0x6cfe50), 0, num, rx, ry, rw, rh, 0xffffffff, 3, 1, 0, 1.0f);
+    Font_DrawTextBox(g_6cfe50, 0, num, rx, ry, rw, rh, 0xffffffff, 3, 1, 0, 1.0f);
     ry = (float)((double)ry + Fl(0x5d0898));
     ry = (float)((double)ry + D(0x5d08b0));
-    const int32_t cost = Ftol((double)(hook::Global<int32_t>(0x6cfe68) * hook::Global<int32_t>(0x6cfe64)) * D(0x5c8650));
-    Font_DrawTextBox(hook::Global<uint8_t*>(0x6cfe50), 0, GetString(0x3d1), rx, ry, rw, rh, 0xffffffff, 2, 1, 0, 1.0f);
+    const int32_t cost = Ftol((double)(g_6cfe68 * g_6cfe64) * D(0x5c8650));
+    Font_DrawTextBox(g_6cfe50, 0, GetString(0x3d1), rx, ry, rw, rh, 0xffffffff, 2, 1, 0, 1.0f);
     const int32_t rounded = (cost + 500) / 1000 * 1000;
     Num_FormatSimple2(num, 0xb, (double)rounded, 0xb);
-    Font_DrawTextBox(hook::Global<uint8_t*>(0x6cfe50), 0, num, rx, ry, rw, rh, 0xffffffff, 3, 1, 0, 1.0f);
+    Font_DrawTextBox(g_6cfe50, 0, num, rx, ry, rw, rh, 0xffffffff, 3, 1, 0, 1.0f);
     ry = (float)((double)ry + Fl(0x5d0898));
     const float nx = (float)((double)rx - D(0x5d0180));
     const float nw = (float)((double)rw + D(0x5d08a0));
     const float ny = (float)((double)ry + D(0x5d0890));
-    Font_DrawTextBox(hook::Global<uint8_t*>(0x6cfe50), 0, GetString(0x3d2), nx, ny, nw, rh, 0xffffffff, 2, 1, 0, 1.0f);
+    Font_DrawTextBox(g_6cfe50, 0, GetString(0x3d2), nx, ny, nw, rh, 0xffffffff, 2, 1, 0, 1.0f);
 }
 RT3_REPLACE(0x4c3b50, StockIssuePanel_DrawCb);
 
@@ -1687,50 +1687,50 @@ RT3_REPLACE(0x4c3b50, StockIssuePanel_DrawCb);
 // multiplayer packet 0x29 (player, company, block, price).
 RT3_NOINLINE void __fastcall CompanyWindow_IssueStock(uint8_t* w) {
     auto company = []() -> uint8_t* {
-        uint8_t* v = hook::Global<uint8_t*>(0x6d0818);
+        uint8_t* v = g_gameWindow;
         if (!v || F<int32_t>(v, 0x90) <= 0) return nullptr;
-        if (!Collection_IsValid(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(hook::Global<uint8_t*>(0x6d0818), 0x90))) return nullptr;
-        return (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(hook::Global<uint8_t*>(0x6d0818), 0x90));
+        if (!Collection_IsValid(g_companies, 0, F<uint32_t>(g_gameWindow, 0x90))) return nullptr;
+        return (uint8_t*)Collection_Get(g_companies, 0, F<uint32_t>(g_gameWindow, 0x90));
     };
     if (!company()) return;
     int32_t block = F<int32_t>(company(), 0x47) / 20 / 1000 * 1000;
     if (block < 1000) block = 1000;
-    hook::Global<int32_t>(0x6cfe64) = block;
+    g_6cfe64 = block;
     uint8_t* co = company();
-    int32_t issued = Ftol((double)-hook::Global<int32_t>(0x6cfe64) * D(0x5c8680));
-    hook::Global<int32_t>(0x6cfe68) = Ftol(Company_SharePrice(co, 0, issued, 0));
+    int32_t issued = Ftol((double)-g_6cfe64 * D(0x5c8680));
+    g_6cfe68 = Ftol(Company_SharePrice(co, 0, issued, 0));
     char num[0x100], text[0x200];
-    Num_FormatSimple2(num, 0xb, (double)hook::Global<int32_t>(0x6cfe68), 0xb);
-    if (hook::Global<int32_t>(0x6cfe68) < 5 && !Global6d07b4Set2()) {
+    Num_FormatSimple2(num, 0xb, (double)g_6cfe68, 0xb);
+    if (g_6cfe68 < 5 && !Global6d07b4Set2()) {
         FormatText(text, GetString(0x3d3), num, 0, 0, 0, 0, 0, 0, 0);
         Message_Show(text, 1, 0);
         return;
     }
-    uint8_t* d = hook::Global<uint8_t*>(0x6cec78);
+    uint8_t* d = g_world;
     if (DateDiffMinutes(*(GameDate*)(d + 0xd), *(GameDate*)((uint8_t*)SelectedCompany() + 0x16b)) < 0x76200 &&
-        DateDiffMinutes(*(GameDate*)(hook::Global<uint8_t*>(0x6cec78) + 0xd), *(GameDate*)((uint8_t*)SelectedCompany() + 0x173)) < 0x76200 &&
+        DateDiffMinutes(*(GameDate*)(g_world + 0xd), *(GameDate*)((uint8_t*)SelectedCompany() + 0x173)) < 0x76200 &&
         !Global6d07b4Set2()) {
         FormatText(text, GetString(0x3d4), 0, 0, 0, 0, 0, 0, 0, 0);
         Message_Show(text, 1, 0);
         return;
     }
-    uint32_t x = hook::Global<uint32_t>(0x6d3b4c) ? 0x3ef5c28f : 0xbf800000;
+    uint32_t x = hook::As<uint32_t>(g_6d3b4c) ? 0x3ef5c28f : 0xbf800000;
     uint32_t r = Dialog_RunMessage((const char*)0x5c87a8, 2, x, 0xbf800000, 0x4c1650, nullptr, 0x4c3b50, Prod_Bits(0x3e800000), 0, 0x1e, 0, nullptr, nullptr, 0,
                                    0, nullptr, 0);
     if (r != 0x3f2 || !SelectedCompany()) return;
     if (!IsMultiplayer()) {
-        int32_t price = hook::Global<int32_t>(0x6cfe68), n = hook::Global<int32_t>(0x6cfe64);
+        int32_t price = g_6cfe68, n = g_6cfe64;
         Company_IssueShares((uint8_t*)SelectedCompany(), 0, n, 0, price);
         CompanyWindow_Refresh(w);
         return;
     }
     uint32_t pkt[4];
-    pkt[0] = (uint32_t)Obj_Get25(hook::Global<uint8_t*>(0x6cec78));
-    pkt[2] = hook::Global<uint32_t>(0x6cfe64);
-    pkt[1] = F<uint32_t>(hook::Global<uint8_t*>(0x6d0818), 0x90);
-    pkt[3] = hook::Global<uint32_t>(0x6cfe68);
-    Cursor_Set(hook::Global<uint8_t*>(0xccbb20), 0, 6, 0, 0);
-    uint8_t* session = hook::Global<uint8_t*>(0x6cd8d8);
+    pkt[0] = (uint32_t)Obj_Get25(g_world);
+    pkt[2] = hook::As<uint32_t>(g_6cfe64);
+    pkt[1] = F<uint32_t>(g_gameWindow, 0x90);
+    pkt[3] = hook::As<uint32_t>(g_6cfe68);
+    Cursor_Set(g_cursorManager, 0, 6, 0, 0);
+    uint8_t* session = g_session;
     Net_Send(session, 0, (const char*)(session + 0x8f48), 0x29, 0x10, (const uint8_t*)pkt, 5, 0);
 }
 RT3_REPLACE(0x4c3f30, CompanyWindow_IssueStock);
@@ -1741,45 +1741,45 @@ RT3_REPLACE(0x4c3f30, CompanyWindow_IssueStock);
 // with 5%, and 0x3d7 with count x amount x 0x5c8930 rounded to thousands; a
 // footer line (0x3d8) under it.
 void __fastcall CompanyView_DrawTerms(void*, int, float x, float y, float w, float, int32_t) {
-    uint8_t* view = hook::Global<uint8_t*>(0x6d0818);
-    if (!view || F<int32_t>(view, 0x90) <= 0 || !Collection_IsValid(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(view, 0x90))) return;
-    if (!Collection_Get(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(hook::Global<uint8_t*>(0x6d0818), 0x90))) return;
+    uint8_t* view = g_gameWindow;
+    if (!view || F<int32_t>(view, 0x90) <= 0 || !Collection_IsValid(g_companies, 0, F<uint32_t>(view, 0x90))) return;
+    if (!Collection_Get(g_companies, 0, F<uint32_t>(g_gameWindow, 0x90))) return;
     const float rowH = BitsF(0x3cda740e);
     float tx = (float)((double)x + D(0x5d0830));
     float ty = (float)((double)y + D(0x5d01d8));
     float tw = (float)((double)w - D(0x5d0700));
-    Font_DrawTextBox(hook::Global<uint8_t*>(0x6cfe50), 0, GetString(0x3d5), tx, ty, tw, BitsF(0x3d7258bf), 0xffffffff, 2, 1, 0, 1.0f);
+    Font_DrawTextBox(g_6cfe50, 0, GetString(0x3d5), tx, ty, tw, BitsF(0x3d7258bf), 0xffffffff, 2, 1, 0, 1.0f);
     float cy = (float)((double)ty + D(0x5d08a8));
     float cx = (float)((double)tx + D(0x5d0180));
     float cw = (float)((double)tw - D(0x5d08a0));
     char num[0x40];
     {
         const char* label = GetString(0x3d0);
-        Font_DrawTextBox(hook::Global<uint8_t*>(0x6cfe50), 0, label, cx, cy, cw, rowH, 0xffffffff, 2, 1, 0, 1.0f);
-        Num_Format(num, 1, (double)hook::Global<int32_t>(0x6cfe64), 10, 1, 0, 0);
-        Font_DrawTextBox(hook::Global<uint8_t*>(0x6cfe50), 0, num, cx, cy, cw, rowH, 0xffffffff, 3, 1, 0, 1.0f);
+        Font_DrawTextBox(g_6cfe50, 0, label, cx, cy, cw, rowH, 0xffffffff, 2, 1, 0, 1.0f);
+        Num_Format(num, 1, (double)g_6cfe64, 10, 1, 0, 0);
+        Font_DrawTextBox(g_6cfe50, 0, num, cx, cy, cw, rowH, 0xffffffff, 3, 1, 0, 1.0f);
     }
     cy = (float)((double)cy + Fl(0x5d0898));
-    Font_DrawTextBox(hook::Global<uint8_t*>(0x6cfe50), 0, GetString(0x2d3), cx, cy, cw, rowH, 0xffffffff, 2, 1, 0, 1.0f);
-    Num_FormatSimple(num, 9, (double)hook::Global<int32_t>(0x6cfe68), 0xb);
-    Font_DrawTextBox(hook::Global<uint8_t*>(0x6cfe50), 0, num, cx, cy, cw, rowH, 0xffffffff, 3, 1, 0, 1.0f);
+    Font_DrawTextBox(g_6cfe50, 0, GetString(0x2d3), cx, cy, cw, rowH, 0xffffffff, 2, 1, 0, 1.0f);
+    Num_FormatSimple(num, 9, (double)g_6cfe68, 0xb);
+    Font_DrawTextBox(g_6cfe50, 0, num, cx, cy, cw, rowH, 0xffffffff, 3, 1, 0, 1.0f);
     cy = (float)((double)cy + Fl(0x5d0898));
-    Font_DrawTextBox(hook::Global<uint8_t*>(0x6cfe50), 0, GetString(0x3d6), cx, cy, cw, rowH, 0xffffffff, 2, 1, 0, 1.0f);
+    Font_DrawTextBox(g_6cfe50, 0, GetString(0x3d6), cx, cy, cw, rowH, 0xffffffff, 2, 1, 0, 1.0f);
     Num_Format(num, 5, BitsD(0x3fa999999999999aull), 10, 1, 0, 0);
-    Font_DrawTextBox(hook::Global<uint8_t*>(0x6cfe50), 0, num, cx, cy, cw, rowH, 0xffffffff, 3, 1, 0, 1.0f);
+    Font_DrawTextBox(g_6cfe50, 0, num, cx, cy, cw, rowH, 0xffffffff, 3, 1, 0, 1.0f);
     cy = (float)((double)cy + Fl(0x5d0898));
     cy = (float)((double)cy + D(0x5d08b0));
-    double v = (double)hook::Global<int32_t>(0x6cfe68) * (double)hook::Global<int32_t>(0x6cfe64);
+    double v = (double)g_6cfe68 * (double)g_6cfe64;
     v = v * D(0x5c8930);
     int32_t total = Ftol((v + D(0x5d0298)) / D(0x5c87f8)) * 1000;
-    Font_DrawTextBox(hook::Global<uint8_t*>(0x6cfe50), 0, GetString(0x3d7), cx, cy, cw, rowH, 0xffffffff, 2, 1, 0, 1.0f);
+    Font_DrawTextBox(g_6cfe50, 0, GetString(0x3d7), cx, cy, cw, rowH, 0xffffffff, 2, 1, 0, 1.0f);
     Num_FormatSimple2(num, 0xb, (double)total, 0xb);
-    Font_DrawTextBox(hook::Global<uint8_t*>(0x6cfe50), 0, num, cx, cy, cw, rowH, 0xffffffff, 3, 1, 0, 1.0f);
+    Font_DrawTextBox(g_6cfe50, 0, num, cx, cy, cw, rowH, 0xffffffff, 3, 1, 0, 1.0f);
     cy = (float)((double)cy + Fl(0x5d0898));
     cx = (float)((double)cx - D(0x5d0180));
     cw = (float)((double)cw + D(0x5d08a0));
     cy = (float)((double)cy + D(0x5d0890));
-    Font_DrawTextBox(hook::Global<uint8_t*>(0x6cfe50), 0, GetString(0x3d8), cx, cy, cw, rowH, 0xffffffff, 2, 1, 0, 1.0f);
+    Font_DrawTextBox(g_6cfe50, 0, GetString(0x3d8), cx, cy, cw, rowH, 0xffffffff, 2, 1, 0, 1.0f);
 }
 RT3_REPLACE(0x4c4300, CompanyView_DrawTerms);
 
@@ -1794,29 +1794,29 @@ RT3_REPLACE(0x4c4300, CompanyView_DrawTerms);
 // 0x2b (player, company, block).
 RT3_NOINLINE void __fastcall CompanyWindow_BuyBackStock(uint8_t* w) {
     auto company = []() -> uint8_t* {
-        uint8_t* v = hook::Global<uint8_t*>(0x6d0818);
+        uint8_t* v = g_gameWindow;
         if (!v || F<int32_t>(v, 0x90) <= 0) return nullptr;
-        if (!Collection_IsValid(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(hook::Global<uint8_t*>(0x6d0818), 0x90))) return nullptr;
-        return (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(hook::Global<uint8_t*>(0x6d0818), 0x90));
+        if (!Collection_IsValid(g_companies, 0, F<uint32_t>(g_gameWindow, 0x90))) return nullptr;
+        return (uint8_t*)Collection_Get(g_companies, 0, F<uint32_t>(g_gameWindow, 0x90));
     };
     if (!company()) return;
-    hook::Global<int32_t>(0x6cfe64) = F<int32_t>(company(), 0x47) / 20 / 1000 * 1000;
+    g_6cfe64 = F<int32_t>(company(), 0x47) / 20 / 1000 * 1000;
     uint8_t* co = company();
-    int32_t issued = Ftol((double)hook::Global<int32_t>(0x6cfe64) * D(0x5c8680));
-    hook::Global<int32_t>(0x6cfe68) = Ftol(Company_SharePrice(co, 0, issued, 0));
-    double per = (double)hook::Global<int32_t>(0x6cfe68) * D(0x5c8698);
+    int32_t issued = Ftol((double)g_6cfe64 * D(0x5c8680));
+    g_6cfe68 = Ftol(Company_SharePrice(co, 0, issued, 0));
+    double per = (double)g_6cfe68 * D(0x5c8698);
     if (D(0x5c8770) > per) per = 1.0;
     int32_t afford = Ftol(Company_Stat(company(), 0, 0xd, 0x2329) / per);
-    if (afford < hook::Global<int32_t>(0x6cfe64)) hook::Global<int32_t>(0x6cfe64) = afford / 1000 * 1000;
-    if (hook::Global<int32_t>(0x6cfe64) < 1000) hook::Global<int32_t>(0x6cfe64) = 1000;
-    if (hook::Global<int32_t>(0x6cfe64) > Company_FreeShares(company())) hook::Global<int32_t>(0x6cfe64) = Company_FreeShares(SelectedCompany());
+    if (afford < g_6cfe64) g_6cfe64 = afford / 1000 * 1000;
+    if (g_6cfe64 < 1000) g_6cfe64 = 1000;
+    if (g_6cfe64 > Company_FreeShares(company())) g_6cfe64 = Company_FreeShares(SelectedCompany());
     char text[0x1f8];
-    if (!hook::Global<int32_t>(0x6cfe64)) {
+    if (!g_6cfe64) {
         FormatText(text, GetString(0x3d9), 0, 0, 0, 0, 0, 0, 0, 0);
         Message_Show(text, 1, 0);
         return;
     }
-    if (hook::Global<int32_t>(0x6cfe64) >= F<int32_t>((uint8_t*)SelectedCompany(), 0x47)) {
+    if (g_6cfe64 >= F<int32_t>((uint8_t*)SelectedCompany(), 0x47)) {
         int32_t shares = F<int32_t>((uint8_t*)SelectedCompany(), 0x47);
         char num[0x1f0];
         const char* s = Num_Format(num, 1, (double)shares, 10, 1, 0, 0);
@@ -1824,12 +1824,12 @@ RT3_NOINLINE void __fastcall CompanyWindow_BuyBackStock(uint8_t* w) {
         Message_Show(text, 1, 0);
         return;
     }
-    issued = Ftol((double)hook::Global<int32_t>(0x6cfe64) * D(0x5c8680));
-    hook::Global<int32_t>(0x6cfe68) = Ftol(Company_SharePrice((uint8_t*)SelectedCompany(), 0, issued, 0));
-    double cost = (double)hook::Global<int32_t>(0x6cfe68) * (double)hook::Global<int32_t>(0x6cfe64) * D(0x5c8930);
-    while (Company_Stat(company(), 0, 0xd, 0x2329) < cost && hook::Global<int32_t>(0x6cfe64) > 1000) {
-        hook::Global<int32_t>(0x6cfe64) -= 1000;
-        cost = (double)hook::Global<int32_t>(0x6cfe68) * (double)hook::Global<int32_t>(0x6cfe64) * D(0x5c8930);
+    issued = Ftol((double)g_6cfe64 * D(0x5c8680));
+    g_6cfe68 = Ftol(Company_SharePrice((uint8_t*)SelectedCompany(), 0, issued, 0));
+    double cost = (double)g_6cfe68 * (double)g_6cfe64 * D(0x5c8930);
+    while (Company_Stat(company(), 0, 0xd, 0x2329) < cost && g_6cfe64 > 1000) {
+        g_6cfe64 -= 1000;
+        cost = (double)g_6cfe68 * (double)g_6cfe64 * D(0x5c8930);
     }
     if (Company_Stat((uint8_t*)SelectedCompany(), 0, 0xd, 0x2329) < cost && !Global6d07b4Set2()) {
         Message_Show(GetString(0x3db), 1, 0);
@@ -1839,27 +1839,27 @@ RT3_NOINLINE void __fastcall CompanyWindow_BuyBackStock(uint8_t* w) {
                                    0, 0, nullptr, 0);
     if (r != 0x3f2 || !SelectedCompany()) return;
     if (!IsMultiplayer()) {
-        int32_t n = hook::Global<int32_t>(0x6cfe64);
+        int32_t n = g_6cfe64;
         Company_BuyBackShares((uint8_t*)SelectedCompany(), 0, n);
         CompanyWindow_Refresh(w);
         return;
     }
     uint32_t pkt[3];
-    pkt[0] = (uint32_t)Obj_Get25(hook::Global<uint8_t*>(0x6cec78));
-    pkt[2] = hook::Global<uint32_t>(0x6cfe64);
-    pkt[1] = F<uint32_t>(hook::Global<uint8_t*>(0x6d0818), 0x90);
-    Cursor_Set(hook::Global<uint8_t*>(0xccbb20), 0, 6, 0, 0);
-    Net_SendToHost(hook::Global<uint8_t*>(0x6cd8d8), 0, 0x2b, 0xc, (const uint8_t*)pkt);
+    pkt[0] = (uint32_t)Obj_Get25(g_world);
+    pkt[2] = hook::As<uint32_t>(g_6cfe64);
+    pkt[1] = F<uint32_t>(g_gameWindow, 0x90);
+    Cursor_Set(g_cursorManager, 0, 6, 0, 0);
+    Net_SendToHost(g_session, 0, 0x2b, 0xc, (const uint8_t*)pkt);
 }
 RT3_REPLACE(0x4c46d0, CompanyWindow_BuyBackStock);
 
 // 0x4c4c70. Company detail: the two small arrow buttons 0x99e8 / 0xc0f9
 // ("Setup_Choose_Map_Buttons.imb") next to (x, y), for a valid selected company.
 void __fastcall CompanyDetail_AddArrowButtons(uint8_t* win, int, float x, float y, int32_t, int32_t) {
-    uint8_t* view = hook::Global<uint8_t*>(0x6d0818);
+    uint8_t* view = g_gameWindow;
     if (!view || F<int32_t>(view, 0x90) <= 0) return;
-    if (!Collection_IsValid(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(view, 0x90))) return;
-    if (!Collection_Get(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(hook::Global<uint8_t*>(0x6d0818), 0x90))) return;
+    if (!Collection_IsValid(g_companies, 0, F<uint32_t>(view, 0x90))) return;
+    if (!Collection_Get(g_companies, 0, F<uint32_t>(g_gameWindow, 0x90))) return;
     x = (float)((double)x + D(0x5d0800));
     y = (float)((double)y + D(0x5d08d8));
     AddControlButton(win, [&](uint8_t* d) {
@@ -1898,34 +1898,34 @@ RT3_REPLACE(0x4c4c70, CompanyDetail_AddArrowButtons);
 // right aligned.
 void __fastcall DividendPanel_DrawCb(void*, int, float x, float y, float w, float h, int32_t) {
     auto company = []() -> uint8_t* {
-        uint8_t* sel = hook::Global<uint8_t*>(0x6d0818);
-        if (!sel || F<int32_t>(sel, 0x90) <= 0 || !Collection_IsValid(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(sel, 0x90))) return nullptr;
-        return (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(hook::Global<uint8_t*>(0x6d0818), 0x90));
+        uint8_t* sel = g_gameWindow;
+        if (!sel || F<int32_t>(sel, 0x90) <= 0 || !Collection_IsValid(g_companies, 0, F<uint32_t>(sel, 0x90))) return nullptr;
+        return (uint8_t*)Collection_Get(g_companies, 0, F<uint32_t>(g_gameWindow, 0x90));
     };
     if (!company()) return;
     const float tx = (float)((double)x + D(0x5d0830));
     const float ty = (float)((double)y + D(0x5d01d8));
     const float tw = (float)((double)w - D(0x5d0700));
-    Font_DrawTextBox(hook::Global<uint8_t*>(0x6cfe50), 0, GetString(0x3dc), tx, ty, tw, BitsF(0x3d7258bf), 0xffffffff, 0, 1, 0, 1.0f);
+    Font_DrawTextBox(g_6cfe50, 0, GetString(0x3dc), tx, ty, tw, BitsF(0x3d7258bf), 0xffffffff, 0, 1, 0, 1.0f);
     float ry = (float)((double)ty + D(0x5d08a8));
     const float rx = (float)((double)tx + D(0x5d08f0));
     const float rw = (float)((double)tw - D(0x5d08e8));
     const float rh = BitsF(0x3d0f5c29);
     char frame[0x204];
     char* num = frame + 0x10;
-    Font_DrawTextBox(hook::Global<uint8_t*>(0x6cfe50), 0, GetString(0x2d4), rx, ry, rw, rh, 0xffffffff, 2, 1, 0, 1.0f);
+    Font_DrawTextBox(g_6cfe50, 0, GetString(0x2d4), rx, ry, rw, rh, 0xffffffff, 2, 1, 0, 1.0f);
     Num_Format(num, 1, (double)F<int32_t>(company(), 0x47), 10, 1, 0, 0);
-    Font_DrawTextBox(hook::Global<uint8_t*>(0x6cfe50), 0, num, rx, ry, rw, rh, 0xffffffff, 3, 1, 0, 1.0f);
+    Font_DrawTextBox(g_6cfe50, 0, num, rx, ry, rw, rh, 0xffffffff, 3, 1, 0, 1.0f);
     ry = (float)((double)ry + Fl(0x5d08e0));
-    Font_DrawTextBox(hook::Global<uint8_t*>(0x6cfe50), 0, GetString(0x3dd), rx, ry, rw, rh, 0xffffffff, 2, 1, 0, 1.0f);
-    Num_FormatSimple2(num, 0xa, (double)hook::Global<float>(0x6cfe48), 0xb);
-    Font_DrawTextBox(hook::Global<uint8_t*>(0x6cfe50), 0, num, rx, ry, rw, rh, 0xffffffff, 3, 1, 0, 1.0f);
+    Font_DrawTextBox(g_6cfe50, 0, GetString(0x3dd), rx, ry, rw, rh, 0xffffffff, 2, 1, 0, 1.0f);
+    Num_FormatSimple2(num, 0xa, (double)g_6cfe48, 0xb);
+    Font_DrawTextBox(g_6cfe50, 0, num, rx, ry, rw, rh, 0xffffffff, 3, 1, 0, 1.0f);
     ry = (float)((double)ry + Fl(0x5d08e0));
-    Font_DrawTextBox(hook::Global<uint8_t*>(0x6cfe50), 0, GetString(0x3de), rx, ry, rw, rh, 0xffffffff, 2, 1, 0, 1.0f);
+    Font_DrawTextBox(g_6cfe50, 0, GetString(0x3de), rx, ry, rw, rh, 0xffffffff, 2, 1, 0, 1.0f);
     const float shares = (float)F<int32_t>(company(), 0x47);
-    const float payout = (float)((double)shares * hook::Global<float>(0x6cfe48));
+    const float payout = (float)((double)shares * g_6cfe48);
     Num_FormatSimple2(num, 0xb, (double)payout, 0xb);
-    Font_DrawTextBox(hook::Global<uint8_t*>(0x6cfe50), 0, num, rx, ry, rw, rh, 0xffffffff, 3, 1, 0, 1.0f);
+    Font_DrawTextBox(g_6cfe50, 0, num, rx, ry, rw, rh, 0xffffffff, 3, 1, 0, 1.0f);
 }
 RT3_REPLACE(0x4c4e30, DividendPanel_DrawCb);
 
@@ -1936,30 +1936,30 @@ RT3_REPLACE(0x4c4e30, DividendPanel_DrawCb);
 // 0x3df) at the cap; 0xc0f9 lowers it by it, not below 0. Values keep the
 // 0x5c85d8 granularity.
 int32_t __fastcall DividendDialog_HandleEvent(void*, uint32_t* msg) {
-    uint8_t* sel = hook::Global<uint8_t*>(0x6d0818);
-    if (!sel || F<int32_t>(sel, 0x90) <= 0 || !Collection_IsValid(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(sel, 0x90))) return 1;
-    if (!Collection_Get(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(hook::Global<uint8_t*>(0x6d0818), 0x90))) return 1;
+    uint8_t* sel = g_gameWindow;
+    if (!sel || F<int32_t>(sel, 0x90) <= 0 || !Collection_IsValid(g_companies, 0, F<uint32_t>(sel, 0x90))) return 1;
+    if (!Collection_Get(g_companies, 0, F<uint32_t>(g_gameWindow, 0x90))) return 1;
     if (msg[0] != 0xcb) return 1;
     SelectedCompany();
-    float step = (float)((double)hook::Global<float>(0x6cfe48) * Fl(0x5c8c28) / D(0x5c8610));
+    float step = (float)((double)g_6cfe48 * Fl(0x5c8c28) / D(0x5c8610));
     step = (float)(Ftol(((double)step + D(0x5c87d8)) / D(0x5c8d68)) * 5);
     if (!(step > Fl(0x5c8554))) step = 5.0f;
     float cap = Company_MaxDividend((uint8_t*)SelectedCompany());
     if (!(cap > F<float>(SelectedCompany(), 0x4b))) cap = F<float>(SelectedCompany(), 0x4b);
     if (msg[1] == 0x99e8) {
-        if (!(cap > (double)hook::Global<float>(0x6cfe48) + D(0x5d08f8))) {
+        if (!(cap > (double)g_6cfe48 + D(0x5d08f8))) {
             Message451(GetString(0x3df), 0xbf800000, 0xbf800000);
             return 0;
         }
-        const int32_t v = Ftol((double)hook::Global<float>(0x6cfe48) * D(0x5c85d8) + step + D(0x5c8628));
-        hook::Global<float>(0x6cfe48) = (float)((double)v / D(0x5c85d8));
-        if (!(hook::Global<float>(0x6cfe48) < cap)) hook::Global<float>(0x6cfe48) = cap;
+        const int32_t v = Ftol((double)g_6cfe48 * D(0x5c85d8) + step + D(0x5c8628));
+        g_6cfe48 = (float)((double)v / D(0x5c85d8));
+        if (!(g_6cfe48 < cap)) g_6cfe48 = cap;
         return 0;
     }
     if (msg[1] == 0xc0f9) {
-        const int32_t v = Ftol((double)hook::Global<float>(0x6cfe48) * D(0x5c85d8) - step + D(0x5c8628));
-        hook::Global<float>(0x6cfe48) = (float)((double)v / D(0x5c85d8));
-        if (hook::Global<float>(0x6cfe48) < Fl(0x5c8598)) hook::Global<uint32_t>(0x6cfe48) = 0;
+        const int32_t v = Ftol((double)g_6cfe48 * D(0x5c85d8) - step + D(0x5c8628));
+        g_6cfe48 = (float)((double)v / D(0x5c85d8));
+        if (g_6cfe48 < Fl(0x5c8598)) hook::As<uint32_t>(g_6cfe48) = 0;
         return 0;
     }
     return 1;
@@ -1973,33 +1973,33 @@ RT3_REPLACE(0x4c5140, DividendDialog_HandleEvent);
 // with the busy cursor.
 RT3_NOINLINE void __fastcall CompanyWindow_EditDividend(uint8_t* w) {
     auto company = []() -> uint8_t* {
-        uint8_t* v = hook::Global<uint8_t*>(0x6d0818);
+        uint8_t* v = g_gameWindow;
         if (!v || F<int32_t>(v, 0x90) <= 0) return nullptr;
-        if (!Collection_IsValid(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(hook::Global<uint8_t*>(0x6d0818), 0x90))) return nullptr;
-        return (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(hook::Global<uint8_t*>(0x6d0818), 0x90));
+        if (!Collection_IsValid(g_companies, 0, F<uint32_t>(g_gameWindow, 0x90))) return nullptr;
+        return (uint8_t*)Collection_Get(g_companies, 0, F<uint32_t>(g_gameWindow, 0x90));
     };
     if (!company()) return;
     uint32_t old = F<uint32_t>(company(), 0x4b);
-    hook::Global<uint32_t>(0x6cfe48) = old;
-    hook::Global<uint32_t>(0x6cfe6c) = 1;
+    hook::As<uint32_t>(g_6cfe48) = old;
+    g_6cfe6c = 1;
     Dialog_RunMessage((const char*)0x5c87a8, 1, 0xbf800000, 0xbf800000, 0x4c5140,
                       (void(__fastcall*)(uint8_t*, int, uint32_t, uint32_t, uint32_t, float))0x4c4c70, 0x4c4e30, Prod_Bits(0x3e333333), 0, 0x1e, 0, nullptr,
                       nullptr, 0, 0, nullptr, 0);
-    hook::Global<uint32_t>(0x6cfe6c) = 0;
+    g_6cfe6c = 0;
     if (!company()) return;
     if (!IsMultiplayer()) {
-        uint32_t v = hook::Global<uint32_t>(0x6cfe48);
+        uint32_t v = hook::As<uint32_t>(g_6cfe48);
         Obj_Set4b(SelectedCompany(), 0, (int32_t)v);
         CompanyWindow_Refresh(w);
         return;
     }
-    if (Prod_Bits(old) == hook::Global<float>(0x6cfe48)) return;
+    if (Prod_Bits(old) == g_6cfe48) return;
     uint32_t pkt[3];
-    pkt[0] = (uint32_t)Obj_Get25(hook::Global<uint8_t*>(0x6cec78));
-    Cursor_Set(hook::Global<uint8_t*>(0xccbb20), 0, 6, 0, 0);
-    pkt[1] = F<uint32_t>(hook::Global<uint8_t*>(0x6d0818), 0x90);
-    pkt[2] = hook::Global<uint32_t>(0x6cfe48);
-    uint8_t* session = hook::Global<uint8_t*>(0x6cd8d8);
+    pkt[0] = (uint32_t)Obj_Get25(g_world);
+    Cursor_Set(g_cursorManager, 0, 6, 0, 0);
+    pkt[1] = F<uint32_t>(g_gameWindow, 0x90);
+    pkt[2] = hook::As<uint32_t>(g_6cfe48);
+    uint8_t* session = g_session;
     Net_Send(session, 0, (const char*)(session + 0x8f48), 0x2d, 0xc, (const uint8_t*)pkt, 5, 0);
 }
 RT3_REPLACE(0x4c5360, CompanyWindow_EditDividend);
@@ -2010,11 +2010,11 @@ RT3_REPLACE(0x4c5360, CompanyWindow_EditDividend);
 RT3_NOINLINE uint8_t* __fastcall CompanyWindow_Construct(uint8_t* w) {
     Widget_SetVtblRet(w);
     F<uint32_t>(w, 0) = 0x5d0858;
-    hook::Global<uint8_t*>(0x6cfe4c) = w;
-    hook::Global<int32_t>(0x6cfe5c) = 0;
-    hook::Global<uint8_t*>(0x6cfe54) = Pack_AcquireNamed(hook::Global<uint8_t*>(0x6d4020), 0, (const char*)0x5c9f98);
-    hook::Global<uint8_t*>(0x6cfe58) = Pack_AcquireNamed(hook::Global<uint8_t*>(0x6d4020), 0, (const char*)0x5d0838);
-    hook::Global<uint8_t*>(0x6cfe50) = Pack_AcquireFont(hook::Global<uint8_t*>(0x6d4020), 0, 2);
+    g_6cfe4c = w;
+    g_6cfe5c = 0;
+    g_6cfe54 = Pack_AcquireNamed(g_pack, 0, (const char*)0x5c9f98);
+    g_6cfe58 = Pack_AcquireNamed(g_pack, 0, (const char*)0x5d0838);
+    g_6cfe50 = Pack_AcquireFont(g_pack, 0, 2);
     Window_Load(w, 0, 0.0f, 0.0f, (const char*)0x5d0900);
     static const uint32_t events[][3] = { { 0x7a, 0x9470, 0x4c1730 }, { 0x7a, 0x9471, 0x4c1ab0 }, { 0x7a, 0x947d, 0x4c1ec0 }, { 0x7a, 0x947e, 0x4c1ec0 },
                                           { 0x7b, 0x948c, 0x4c22e0 }, { 0xba, 0x948c, 0 },        { 0x7a, 0x948d, 0x4c1d70 }, { 0x7a, 0x948e, 0x4c1d70 },
@@ -2052,7 +2052,7 @@ int32_t __fastcall CompanyWindow_HandleEvent(uint8_t* w, int, int32_t* ev) {
         else if (id >= 0x9510 && id <= 0x9537) idx = id - 0x9510;
         else idx = -1;
         if (idx != -1) {
-            if (hook::Global<int32_t>(0x6d3b4c)) return HandleEventNote(0xe8c), 0;
+            if (g_6d3b4c) return HandleEventNote(0xe8c), 0;
             uint32_t entry[3];
             memcpy(entry, (uint8_t*)SelectedCompany() + 0x5f + idx * 0xc, 0xc);
             double cash = Company_Stat((uint8_t*)SelectedCompany(), 0, 0xd, 0x2329);
@@ -2089,25 +2089,25 @@ int32_t __fastcall CompanyWindow_HandleEvent(uint8_t* w, int, int32_t* ev) {
                 return 0;
             }
             int32_t msg[3];
-            msg[0] = Obj_Get25(hook::Global<uint8_t*>(0x6cec78));
+            msg[0] = Obj_Get25(g_world);
             msg[1] = CompanyViewId();
             msg[2] = idx;
-            Cursor_Set(hook::Global<uint8_t*>(0xccbb20), 0, 6, 0, 0);
-            Net_SendToHost(hook::Global<uint8_t*>(0x6cd8d8), 0, 0x25, 0xc, (const uint8_t*)msg);
+            Cursor_Set(g_cursorManager, 0, 6, 0, 0);
+            Net_SendToHost(g_session, 0, 0x25, 0xc, (const uint8_t*)msg);
             return 0;
         }
         // Sends message `type` (8 bytes: player, company) to the host.
         auto sendCompany = [](uint32_t type) {
             int32_t msg[2];
-            msg[0] = Obj_Get25(hook::Global<uint8_t*>(0x6cec78));
+            msg[0] = Obj_Get25(g_world);
             msg[1] = CompanyViewId();
-            Cursor_Set(hook::Global<uint8_t*>(0xccbb20), 0, 6, 0, 0);
-            Net_SendToHost(hook::Global<uint8_t*>(0x6cd8d8), 0, type, 8, (const uint8_t*)msg);
+            Cursor_Set(g_cursorManager, 0, 6, 0, 0);
+            Net_SendToHost(g_session, 0, type, 8, (const uint8_t*)msg);
         };
         switch (id) {
         case 0x948b:
-            if (hook::Global<int32_t>(0x6d3b4c)) break;
-            View_SetToolMode(hook::Global<uint8_t*>(0x6d0818), 0, 0, -1);
+            if (g_6d3b4c) break;
+            View_SetToolMode(g_gameWindow, 0, 0, -1);
             return 0;
         case 0x9491:
             Window_SendEvent5(w, 0, 0x86, 0x948f, 3, 0, 0);
@@ -2130,7 +2130,7 @@ int32_t __fastcall CompanyWindow_HandleEvent(uint8_t* w, int, int32_t* ev) {
             Window_SendEvent5(w, 0, 0x6d, 0x947c, 3, 0, 0);
             return 0;
         case 0x94d6: {
-            const int32_t year = F<uint16_t>(hook::Global<uint8_t*>(0x6cec78), 0xd);
+            const int32_t year = F<uint16_t>(g_world, 0xd);
             if (year - F<int32_t>(SelectedCompany(), 0x163) < 5 && !Global6d07b4Set2()) {
                 int32_t until = F<int32_t>(SelectedCompany(), 0x163) + 5;
                 int32_t last = F<int32_t>(SelectedCompany(), 0x163);
@@ -2142,10 +2142,10 @@ int32_t __fastcall CompanyWindow_HandleEvent(uint8_t* w, int, int32_t* ev) {
                 return 0;
             }
             bool allowed = false;
-            int32_t y2 = F<uint16_t>(hook::Global<uint8_t*>(0x6cec78), 0xd) - 2;
+            int32_t y2 = F<uint16_t>(g_world, 0xd) - 2;
             if (F<uint16_t>(SelectedCompany(), 0x157) <= y2 &&
                 !(Company_Stat((uint8_t*)SelectedCompany(), 0, 0x2b, y2) > *(const double*)0x5c8608)) {
-                int32_t y1 = F<uint16_t>(hook::Global<uint8_t*>(0x6cec78), 0xd) - 1;
+                int32_t y1 = F<uint16_t>(g_world, 0xd) - 1;
                 allowed = !(Company_Stat((uint8_t*)SelectedCompany(), 0, 0x2b, y1) > *(const double*)0x5c8608);
             }
             if (!allowed && !Global6d07b4Set2()) {
@@ -2162,33 +2162,33 @@ int32_t __fastcall CompanyWindow_HandleEvent(uint8_t* w, int, int32_t* ev) {
             return 0;
         }
         case 0x94d7:
-            if (hook::Global<int32_t>(0x6d3b4c) && hook::Global<int32_t>(0x622b38) != id) return HandleEventNote(0xe03), 0;
+            if (g_6d3b4c && hook::As<int32_t>(g_622b38) != id) return HandleEventNote(0xe03), 0;
             CompanyWindow_IssueBond(w);
             return 0;
         case 0x94d8:
-            if (hook::Global<int32_t>(0x6d3b4c) && hook::Global<int32_t>(0x622b38) != id) return HandleEventNote(0xe03), 0;
+            if (g_6d3b4c && hook::As<int32_t>(g_622b38) != id) return HandleEventNote(0xe03), 0;
             CompanyWindow_IssueStock(w);
             return 0;
         case 0x94d9:
-            if (hook::Global<int32_t>(0x6d3b4c)) break;
+            if (g_6d3b4c) break;
             CompanyWindow_BuyBackStock(w);
             return 0;
         case 0x94da:
             CompanyWindow_EditDividend(w);
             return 0;
         case 0x94db:
-            if (hook::Global<int32_t>(0x6d3b4c)) break;
+            if (g_6d3b4c) break;
             Merger_OfferDialog();
             CompanyWindow_Refresh(w);
             return 0;
         case 0x94dc: {
-            if (hook::Global<int32_t>(0x6d3b4c)) break;
+            if (g_6d3b4c) break;
             if (HandleEventMsg(GetString(0x3c4), 3, kMsgNeg1) != 0x3f2 || !SelectedCompany()) return 0;
             if (IsMultiplayer()) {
                 sendCompany(0x21);
                 return 0;
             }
-            int32_t player = Obj_Get25(hook::Global<uint8_t*>(0x6cec78));
+            int32_t player = Obj_Get25(g_world);
             Company_DropChairman((int32_t*)SelectedCompany(), 0, player);
             CompanyWindow_Refresh(w);
             return 0;
@@ -2218,15 +2218,15 @@ int32_t __fastcall CompanyWindow_HandleEvent(uint8_t* w, int, int32_t* ev) {
     if (id < 0x948c) {
         if (id == 0x3e7) return 0;
         if (id <= 0x9471 || id > 0x9475) return 1;
-        if (hook::Global<int32_t>(0x6d3b4c) && hook::Global<int32_t>(0x622b38) != id) return HandleEventNote(0xe03), 0;
-        if (id != 0x9475 && F<int32_t>(hook::Global<uint8_t*>(0x62c120), 0x2175) == 0x24) Overview_Close(hook::Global<uint8_t*>(0x62c120));
-        hook::Global<int32_t>(0x6cfe60) = ev[1] - 0x9472;
+        if (g_6d3b4c && hook::As<int32_t>(g_622b38) != id) return HandleEventNote(0xe03), 0;
+        if (id != 0x9475 && F<int32_t>(g_map, 0x2175) == 0x24) Overview_Close(g_map);
+        g_6cfe60 = ev[1] - 0x9472;
         CompanyWindow_Refresh(w);
         return 0;
     }
-    void* mine = Obj_Company21(hook::Global<uint8_t*>(0x6cec78));
+    void* mine = Obj_Company21(g_world);
     if (mine != SelectedCompany()) return 0;
-    uint8_t* list = Widget_FindChild(hook::Global<uint8_t*>(0x6cfe4c), 0, 0x948c);
+    uint8_t* list = Widget_FindChild(g_6cfe4c, 0, 0x948c);
     int32_t terr = 0;
     bool have = false;
     if (list && ev[1] == 0x948c) {
@@ -2238,8 +2238,8 @@ int32_t __fastcall CompanyWindow_HandleEvent(uint8_t* w, int, int32_t* ev) {
     }
     if (have && terr) {
         Ui_PlaySound(0x20, 0, 0x3f000000);
-        uint8_t* t = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfc9c), 0, (uint32_t)terr);
-        if (!F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x68)) {
+        uint8_t* t = (uint8_t*)Collection_Get(g_territories, 0, (uint32_t)terr);
+        if (!F<int32_t>(g_app, 0x68)) {
             if (Company_EntryFlag(SelectedCompany(), 0, terr)) {
                 uint8_t* co = (uint8_t*)SelectedCompany();
                 const char* fmt = GetString(0x3c0);
@@ -2279,7 +2279,7 @@ int32_t __fastcall CompanyWindow_HandleEvent(uint8_t* w, int, int32_t* ev) {
                             Company_AddStat(SelectedCompany(), 0, 0xd, -cost);
                         } else {
                             int32_t msg[4];
-                            msg[0] = Obj_Get25(hook::Global<uint8_t*>(0x6cec78));
+                            msg[0] = Obj_Get25(g_world);
                             msg[1] = CompanyViewId();
                             msg[2] = terr;
                             float cost = Obj_RoundedCost(t, 0, (uint32_t)CompanyViewId());
@@ -2291,8 +2291,8 @@ int32_t __fastcall CompanyWindow_HandleEvent(uint8_t* w, int, int32_t* ev) {
                                 mov c, eax
                             }
                             msg[3] = c;
-                            Cursor_Set(hook::Global<uint8_t*>(0xccbb20), 0, 6, 0, 0);
-                            Net_SendToHost(hook::Global<uint8_t*>(0x6cd8d8), 0, 0x2f, 0x10, (const uint8_t*)msg);
+                            Cursor_Set(g_cursorManager, 0, 6, 0, 0);
+                            Net_SendToHost(g_session, 0, 0x2f, 0x10, (const uint8_t*)msg);
                         }
                     }
                 }

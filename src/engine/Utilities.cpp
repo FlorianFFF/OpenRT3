@@ -9,6 +9,7 @@
 #include <windows.h>
 #include <initializer_list>
 #include "hook/hook.h"
+#include "core/globals.h"
 #include "game/collection.h"
 #include "core/crt.h"
 #include "core/ptrlist.h"
@@ -183,12 +184,12 @@ void __fastcall Lists_Destroy(uint8_t* o);
 RT3_NOINLINE void __fastcall Water_BuildQuads(uint8_t* g);
 
 // The texture name from the main pack's cache (all mips, flag 0x7f).
-static uint8_t* Texture_Acquire(const char* name) { return TextureCache_Get(hook::Global<uint8_t*>(0x6d4020), 0, name, 0, 0, 0x7f); }
+static uint8_t* Texture_Acquire(const char* name) { return TextureCache_Get(g_pack, 0, name, 0, 0, 0x7f); }
 
 // Replaces the texture held in global slot by name's (the old one released).
 static void Texture_Replace(uint32_t slot, const char* name) {
     if (void* old = hook::Global<void*>(slot)) {
-        Pack_Release(hook::Global<uint8_t*>(0x6d4020), 0, old);
+        Pack_Release(g_pack, 0, old);
         hook::Global<void*>(slot) = nullptr;
     }
     hook::Global<uint8_t*>(slot) = Texture_Acquire(name);
@@ -494,7 +495,7 @@ static inline double Sqrt87(double v) { double r; __asm { fld v } __asm { fsqrt 
 static void ReleaseResourceIn(uint32_t slot) {
     void*& r = hook::Global<void*>(slot);
     if (!r) return;
-    Pack_Release(hook::Global<uint8_t*>(0x6d4020), 0, r);
+    Pack_Release(g_pack, 0, r);
     r = nullptr;
 }
 
@@ -537,14 +538,14 @@ RT3_REPLACE(0x5641d0, Obj_FreeChildBuffer);
 // 0x5641f0. Loads WAV file `name` (or, when unknown, id `name` itself) from the
 // packs into a new buffer, parsing its header into 0xd9798c; *size = its size.
 RT3_NOINLINE void* __stdcall Sound_LoadWav(const char* name, int32_t, int32_t* size) {
-    uint8_t* t = hook::Global<uint8_t*>(0x6d4020);
+    uint8_t* t = g_pack;
     int32_t id = NameTable_Contains(t, 0, NameTable_Hash(t, 0, name), 1)
-                     ? NameTable_Hash(hook::Global<uint8_t*>(0x6d4020), 0, name)
+                     ? NameTable_Hash(g_pack, 0, name)
                      : (int32_t)name;
-    int32_t n = NameTable_EntrySize(hook::Global<uint8_t*>(0x6d4020), 0, id);
-    NameTable_Seek(hook::Global<uint8_t*>(0x6d4020), 0, id, 0);
+    int32_t n = NameTable_EntrySize(g_pack, 0, id);
+    NameTable_Seek(g_pack, 0, id, 0);
     void* p = Malloc(n);
-    NameTable_Read(hook::Global<uint8_t*>(0x6d4020), 0, p, n);
+    NameTable_Read(g_pack, 0, p, n);
     Import<int32_t(__stdcall*)(const void*, void*)>(0x5c83d4)(p, (void*)0xd9798c);
     if (size) *size = n;
     return p;
@@ -788,7 +789,7 @@ RT3_NOINLINE void __fastcall UiList_Draw(uint8_t* v, int, PtrList* items, int32_
                     Renderer_SetTexture(F<uint8_t*>(v, 0x2d), 0, 0, tex);
                     cur = tex;
                 }
-            } else if (!hook::Global<uint8_t*>(0x6d4024)[0x114251] && !F<int32_t>(F<uint8_t*>(v, 0x59), 4)) {
+            } else if (!g_engine[0x114251] && !F<int32_t>(F<uint8_t*>(v, 0x59), 4)) {
                 if (cur) {
                     Renderer_SetTexture(F<uint8_t*>(v, 0x2d), 0, 0, nullptr);
                     cur = nullptr;
@@ -858,7 +859,7 @@ RT3_REPLACE(0x564c70, UiList_Draw);
 RT3_NOINLINE void __fastcall SceneList_Draw(uint8_t* v, int, uint8_t* tex, PtrList* items) {
     if (F<int32_t>((uint8_t*)items, 0xc) <= 0) return;
     if (!tex) {
-        if (hook::Global<uint8_t*>(0x6d4024)[0x114251] || F<int32_t>(F<uint8_t*>(v, 0x59), 4)) tex = F<uint8_t*>(v, 0x365d);
+        if (g_engine[0x114251] || F<int32_t>(F<uint8_t*>(v, 0x59), 4)) tex = F<uint8_t*>(v, 0x365d);
     }
     Renderer_SetTexture(F<uint8_t*>(v, 0x2d), 0, 0, tex);
     PtrList_Rewind(items);
@@ -938,10 +939,10 @@ RT3_NOINLINE void __fastcall Scene_DrawOverlay(uint8_t* s, int, int32_t frame) {
         return;
     }
     if (state == 2) {
-        if (hook::Global<uint8_t*>(0x6d4020) && hook::Global<uint32_t>(0x6d4034)) Pack_ReleaseFontHandles(hook::Global<uint8_t*>(0x6d4020));
+        if (g_pack && hook::As<uint32_t>(g_6d4034)) Pack_ReleaseFontHandles(g_pack);
         Display_DestroyRenderer(s);
         Scene_CreateRenderer(s);
-        if (hook::Global<uint8_t*>(0x6d4020) && hook::Global<uint32_t>(0x6d4034)) Pack_RecreateFonts(hook::Global<uint8_t*>(0x6d4020));
+        if (g_pack && hook::As<uint32_t>(g_6d4034)) Pack_RecreateFonts(g_pack);
     }
     if ((uint8_t)frame) {
         SceneStats_Draw(s, 0, 0.0f);
@@ -949,7 +950,7 @@ RT3_NOINLINE void __fastcall Scene_DrawOverlay(uint8_t* s, int, int32_t frame) {
     }
     uint32_t light = F<uint32_t>(F<uint8_t*>(s, 0x29), 0x29);
     auto viewport = [&] {
-        uint8_t* eng = hook::Global<uint8_t*>(0x6d4024);
+        uint8_t* eng = g_engine;
         uint8_t* vp = F<uint8_t*>(eng, 0x34) + F<int32_t>(eng, 0x11421e) * 0x15;
         Render_SetPixelViewport(F<uint8_t*>(s, 0x2d), 0, 0, 0, F<int32_t>(vp, 0), F<int32_t>(vp, 4));
         Scene_BeginOverlay(s);
@@ -960,15 +961,15 @@ RT3_NOINLINE void __fastcall Scene_DrawOverlay(uint8_t* s, int, int32_t frame) {
         Render_CullNone(F<uint8_t*>(s, 0x2d));
     };
     int32_t stages;
-    if (hook::Global<uint32_t>(0x6d4034)) {
-        uint8_t* eng = hook::Global<uint8_t*>(0x6d4024);
+    if (hook::As<uint32_t>(g_6d4034)) {
+        uint8_t* eng = g_engine;
         if (F<int32_t>(eng, 0x58) <= 0) return;
         PtrList* items = F<PtrList*>(eng, 0x11369d);
         viewport();
-        UiList_Draw(s, 0, items, F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x58));
+        UiList_Draw(s, 0, items, F<int32_t>(g_engine, 0x58));
         stages = 1;
     } else {
-        uint8_t* eng = hook::Global<uint8_t*>(0x6d4024);
+        uint8_t* eng = g_engine;
         PtrList* plain = F<PtrList*>(eng, 0x1136a1);
         PtrList* textured = F<PtrList*>(eng, 0x1136a5);
         if (F<int32_t>(plain, 0xc) <= 0 && F<int32_t>(textured, 0xc) <= 0) return;
@@ -1210,8 +1211,8 @@ void __fastcall Particles_Draw(uint8_t* p, int, int32_t i, float x, float y, flo
     float size = F<float>(e, 0x1c);
     uint32_t col = (argb & 0xffffff) | ((uint32_t)alpha << 24);
     float bottom = (float)(size + cy), right = (float)(size + cx), top = (float)(cy - size), left = (float)(cx - size);
-    Engine_QueueSprite(hook::Global<void*>(0x6d4024), 0, Bits(left), Bits(top), Bits(right), Bits(bottom), 0x3e800000,
-                       col, hook::Global<uint32_t>(0xd97ab0), Bits(uv[0]), Bits(uv[1]), Bits(uv[2]), Bits(uv[3]),
+    Engine_QueueSprite(hook::As<void*>(g_engine), 0, Bits(left), Bits(top), Bits(right), Bits(bottom), 0x3e800000,
+                       col, g_d97ab0, Bits(uv[0]), Bits(uv[1]), Bits(uv[2]), Bits(uv[3]),
                        0x3f800000);
 }
 RT3_REPLACE(0x565c90, Particles_Draw);
@@ -1228,11 +1229,11 @@ RT3_REPLACE(0x565da0, ReleaseResourceD97ab0);
 // any) into +0..+8 and the default table 0x625ae8 into +0x18 (0xc0 bytes); the
 // second argument is unused.
 uint8_t* __fastcall Object_InitFromCollision(uint8_t* o, int, const char* name, int32_t) {
-    uint8_t* cf = Pack_AcquireCollision(hook::Global<uint8_t*>(0x6d4020), 0, name);
+    uint8_t* cf = Pack_AcquireCollision(g_pack, 0, name);
     uint8_t* mesh = F<uint8_t*>(F<uint8_t*>(cf, 0), 0xc);
     if (F<int32_t>(mesh, 8)) memcpy(o, F<uint8_t*>(mesh, 0), 0xc);
     memcpy(o + 0x18, (const void*)0x625ae8, 0xc0);
-    Pack_Release(hook::Global<uint8_t*>(0x6d4020), 0, cf);
+    Pack_Release(g_pack, 0, cf);
     return o;
 }
 RT3_REPLACE(0x565dc0, Object_InitFromCollision);
@@ -1264,10 +1265,10 @@ void __fastcall Emitter_Start(uint8_t* e, int, int32_t count, const uint32_t* fr
     double k = (int8_t)fl < 0 ? *(const float*)0x5cb490 : *(const float*)0x5ddb0c;
     F<float>(e, 0x50) = (float)(k / count);
     if (!(fl & 0x40000000)) {
-        F<uint32_t>(e, 0x18) = hook::Global<uint32_t>(0x625bc4);
-        F<uint32_t>(e, 0x1c) = hook::Global<uint32_t>(0x625bc8);
-        F<uint32_t>(e, 0x20) = hook::Global<uint32_t>(0x625bcc);
-        F<uint32_t>(e, 0x24) = hook::Global<uint32_t>(0x625bac);
+        F<uint32_t>(e, 0x18) = g_625bc4;
+        F<uint32_t>(e, 0x1c) = g_625bc8;
+        F<uint32_t>(e, 0x20) = g_625bcc;
+        F<uint32_t>(e, 0x24) = g_625bac;
     }
     for (int k2 = 0; k2 < 3; ++k2) F<uint32_t>(e, 0xc + k2 * 4) = to[k2];
     for (int k2 = 0; k2 < 3; ++k2) F<uint32_t>(e, k2 * 4) = from[k2];
@@ -1311,7 +1312,7 @@ int32_t __fastcall Particle_Advance(uint8_t* p, int, float dt) {
     if (!done) {
         float a = (float)((double)n / F<int32_t>(p, 0x4c));
         float b = (float)(Fl_190(0x5c85b4) - F<float>(p, 0x28));
-        if ((a < b || a == b) && !hook::Global<int32_t>(0xd93998) && !hook::Global<int32_t>(0xd97af4)) {
+        if ((a < b || a == b) && !g_d93998 && !g_d97af4) {
             double w = Fl_190(0x5c85b4) - (double)a / b;
             const float wind = *(const float*)0x625ba8;
             F<float>(p, 0x18) = (float)((double)*(const float*)0x625bb8 * F<float>(p, 0x24));
@@ -1391,7 +1392,7 @@ void __fastcall Particle_ToBillboard(uint8_t* p, int, uint32_t* out, int32_t* co
     for (int k = 0; k < 4; ++k)
         for (int i = 0; i < 3; ++i) q[k * 3 + i] = (float)((double)q[k * 3 + i] + c[i]);
     *count += 6;
-    ++hook::Global<int32_t>(0xd97ab8);
+    ++g_d97ab8;
     static const int corner[6] = { 0, 1, 3, 1, 2, 3 };
     static const uint32_t uv[6][2] = { { 0x2c, 0x30 }, { 0x34, 0x30 }, { 0x2c, 0x38 }, { 0x34, 0x30 }, { 0x34, 0x38 }, { 0x2c, 0x38 } };
     for (int v = 0; v < 6; ++v) {
@@ -1476,7 +1477,7 @@ RT3_REPLACE(0x566670, Particles_FrameSetup);
 // 0x566980. Draws `text` right-aligned near the top right of the screen in the
 // engine's overlay font (+0x1141f5) at half size; `shadow` 0 turns the shadow off.
 RT3_NOINLINE void __stdcall Overlay_DrawText(const char* text, int32_t shadow) {
-    uint8_t* e = hook::Global<uint8_t*>(0x6d4024);
+    uint8_t* e = g_engine;
     if (!e || !F<uint8_t*>(e, 0x1141f5)) return;
     Font_DrawTextBox(F<uint8_t*>(e, 0x1141f5), 0, text, BitsF(0x3efccccd), BitsF(0x3bbf258c), 0.5f, 0.5f, 0xffffffff, 3, 1, shadow ? 0 : 2, 0.5f);
 }
@@ -1504,7 +1505,7 @@ RT3_REPLACE(0x5669d0, Render_DrawFontText);
 // then count points of 12 bytes (+0) with y and z swapped.
 RT3_NOINLINE int32_t __stdcall Light_LoadPoints(uint8_t* o) {
     int32_t h[9];
-    NameTable_Read(hook::Global<uint8_t*>(0x6d4020), 0, h, 0x24);
+    NameTable_Read(g_pack, 0, h, 0x24);
     const float* hf = (const float*)h;
     F<int32_t>(o, 0x14) = h[5];
     F<int32_t>(o, 0x18) = h[6];
@@ -1522,7 +1523,7 @@ RT3_NOINLINE int32_t __stdcall Light_LoadPoints(uint8_t* o) {
     int32_t n = h[1];
     float* p = (float*)Malloc(n * 12);
     F<float*>(o, 0) = p;
-    NameTable_Read(hook::Global<uint8_t*>(0x6d4020), 0, p, n * 12);
+    NameTable_Read(g_pack, 0, p, n * 12);
     for (int32_t i = 0; i < h[1]; ++i) {
         float* q = F<float*>(o, 0) + i * 3;
         float y = q[1];
@@ -1541,14 +1542,14 @@ RT3_REPLACE(0x566a80, Light_LoadPoints);
 // 10 x (mean face "area" + bounding diagonal squared). Quirk: the face area uses a
 // cross product with one sign flipped in each component (+bc instead of -bc).
 int32_t __stdcall CollisionMesh_Load(uint8_t* m) {
-    PtrList*& meshes = hook::Global<PtrList*>(0xd97bb8);
+    PtrList*& meshes = g_d97bb8;
     if (!meshes) {
         PtrList* l = (PtrList*)ExeNew(0x18);
         meshes = l ? PtrList_Init(l) : nullptr;
     }
     F<PtrListNode*>(m, 0x41) = PtrList_Append(meshes, 0, m);
     m[0x1c] = 0;
-    uint8_t* pack = hook::Global<uint8_t*>(0x6d4020);
+    uint8_t* pack = g_pack;
     int32_t hdr[3];
     NameTable_Read(pack, 0, hdr, 0xc);
     int32_t nv = hdr[1], nf = hdr[2];
@@ -1560,7 +1561,7 @@ int32_t __stdcall CollisionMesh_Load(uint8_t* m) {
     F<float*>(m, 0) = verts;
     F<int32_t>(m, 0x35) = 0;
     F<int32_t>(m, 0x31) = -1;
-    NameTable_Read(hook::Global<uint8_t*>(0x6d4020), 0, verts, nv * 0xc);
+    NameTable_Read(g_pack, 0, verts, nv * 0xc);
     double maxZ = Fl_205(0x5c8598);
     F<int32_t>(m, 0x14) = 0;
     F<int32_t>(m, 0x18) = 0;
@@ -1571,9 +1572,9 @@ int32_t __stdcall CollisionMesh_Load(uint8_t* m) {
         X87Copy(&oldY, &v[1]);
         F<uint32_t>(v, 4) = F<uint32_t>(v, 8);
         v[2] = oldY;
-        v[0] = (float)((double)v[0] - hook::Global<float>(0xd97ba8));
-        v[1] = (float)((double)v[1] - hook::Global<float>(0xd97bac));
-        v[2] = (float)((double)v[2] - hook::Global<float>(0xd97bb4));
+        v[0] = (float)((double)v[0] - g_d97ba8);
+        v[1] = (float)((double)v[1] - g_d97bac);
+        v[2] = (float)((double)v[2] - g_d97bb4);
         float x, y, z;
         X87Copy(&x, &v[0]);
         X87Copy(&y, &v[1]);
@@ -1601,10 +1602,10 @@ int32_t __stdcall CollisionMesh_Load(uint8_t* m) {
         uint8_t* f = F<uint8_t*>(m, 4) + i * 0x4c;
         for (int k = 0; k < 3; ++k) {
             int32_t idx;
-            NameTable_Read(hook::Global<uint8_t*>(0x6d4020), 0, &idx, 4);
+            NameTable_Read(g_pack, 0, &idx, 4);
             F<float*>(F<uint8_t*>(m, 4) + i * 0x4c, k * 4) = base + idx * 3;
         }
-        NameTable_Read(hook::Global<uint8_t*>(0x6d4020), 0, f + 0xc, 0x24);
+        NameTable_Read(g_pack, 0, f + 0xc, 0x24);
         for (int k = 0; k < 3; ++k) {
             float* n = (float*)(F<uint8_t*>(m, 4) + i * 0x4c + 0xc + k * 0xc);
             float oldY;
@@ -1620,8 +1621,8 @@ int32_t __stdcall CollisionMesh_Load(uint8_t* m) {
             n[1] = (float)(inv * n[1]);
             n[2] = (float)(inv * n[2]);
         }
-        NameTable_Read(hook::Global<uint8_t*>(0x6d4020), 0, f + 0x30, 0x18);
-        NameTable_Read(hook::Global<uint8_t*>(0x6d4020), 0, f + 0x48, 4);
+        NameTable_Read(g_pack, 0, f + 0x30, 0x18);
+        NameTable_Read(g_pack, 0, f + 0x48, 4);
         const float* a = F<float*>(f, 0);
         const float* b = F<float*>(f, 4);
         const float* c = F<float*>(f, 8);
@@ -1639,11 +1640,11 @@ RT3_REPLACE(0x566b80, CollisionMesh_Load);
 
 // 0x567150. Invalidates the cached state (+0x31/+0x39/+0x3d) of all registered meshes (0xd97bb8).
 void __fastcall Meshes_InvalidateAll() {
-    PtrList* l = hook::Global<PtrList*>(0xd97bb8);
+    PtrList* l = g_d97bb8;
     if (!l) return;
     PtrList_Rewind(l);
-    for (uint8_t* m = (uint8_t*)PtrList_Next(hook::Global<PtrList*>(0xd97bb8)); m;
-         m = (uint8_t*)PtrList_Next(hook::Global<PtrList*>(0xd97bb8))) {
+    for (uint8_t* m = (uint8_t*)PtrList_Next(g_d97bb8); m;
+         m = (uint8_t*)PtrList_Next(g_d97bb8)) {
         F<int32_t>(m, 0x39) = -1;
         F<int32_t>(m, 0x3d) = -1;
         F<int32_t>(m, 0x31) = -1;
@@ -1658,24 +1659,24 @@ RT3_REPLACE(0x567150, Meshes_InvalidateAll);
 // light point records (+0x10, 0x24 each).
 int32_t __fastcall CollisionBlock_Load(uint8_t*, int, uint32_t* out) {
     int32_t hdr[2];
-    NameTable_Read(hook::Global<uint8_t*>(0x6d4020), 0, hdr, 8);
-    if (hook::Global<int32_t>(0xd97bb0) > 2) {
+    NameTable_Read(g_pack, 0, hdr, 8);
+    if (g_d97bb0 > 2) {
         uint32_t off[3];
-        NameTable_Read(hook::Global<uint8_t*>(0x6d4020), 0, off, 0xc);
+        NameTable_Read(g_pack, 0, off, 0xc);
         X87Copy(&out[0], &off[0]);
         out[1] = off[2];
         out[2] = off[1];
     } else {
         out[2] = out[1] = out[0] = 0;
     }
-    hook::Global<uint32_t>(0xd97ba8) = out[0];
-    hook::Global<uint32_t>(0xd97bac) = out[1];
-    hook::Global<uint32_t>(0xd97bb4) = out[2];
+    hook::As<uint32_t>(g_d97ba8) = out[0];
+    hook::As<uint32_t>(g_d97bac) = out[1];
+    hook::As<uint32_t>(g_d97bb4) = out[2];
     out[5] = (uint32_t)hdr[1];
-    NameTable_PushPos(hook::Global<uint8_t*>(0x6d4020));
+    NameTable_PushPos(g_pack);
     char tag[0xc];
-    NameTable_Read(hook::Global<uint8_t*>(0x6d4020), 0, tag, 0xc);
-    NameTable_PopPosition(hook::Global<uint8_t*>(0x6d4020));
+    NameTable_Read(g_pack, 0, tag, 0xc);
+    NameTable_PopPosition(g_pack);
     if (tag[0] == 'I') {
         out[4] = 0;
         out[3] = (uint32_t)((void*(__cdecl*)(size_t))0x5a125d)(hdr[1] * 0x45);
@@ -1702,12 +1703,12 @@ RT3_NOINLINE int32_t __stdcall Model_FreeFrames(uint8_t* m) {
         if (!fr) continue;
         fr += i * 0x45;
         if (F<int32_t>(fr, 0xc) > 0) Free(F<void*>(fr, 4));
-        PtrList_RemoveNode(hook::Global<PtrList*>(0xd97bb8), 0, F<PtrListNode*>(F<uint8_t*>(m, 0xc) + i * 0x45, 0x41));
-        PtrList* l = hook::Global<PtrList*>(0xd97bb8);
+        PtrList_RemoveNode(g_d97bb8, 0, F<PtrListNode*>(F<uint8_t*>(m, 0xc) + i * 0x45, 0x41));
+        PtrList* l = g_d97bb8;
         if (!F<int32_t>(l, 0xc)) {
             PtrList_Destroy(l);
             ExeDelete(l);
-            hook::Global<PtrList*>(0xd97bb8) = nullptr;
+            g_d97bb8 = nullptr;
         }
         fr = F<uint8_t*>(m, 0xc) + i * 0x45;
         F<void*>(fr, 0x41) = nullptr;
@@ -1728,13 +1729,13 @@ RT3_REPLACE(0x5672e0, Model_FreeFrames);
 // and loads each block (0x18 bytes, +0).
 void __fastcall CollisionFile_Load(uint8_t* c, int, int32_t id) {
     F<int32_t>(c, 6) = id;
-    NameTable_Seek(hook::Global<uint8_t*>(0x6d4020), 0, id, 0);
+    NameTable_Seek(g_pack, 0, id, 0);
     uint8_t hdr[8];
-    NameTable_Read(hook::Global<uint8_t*>(0x6d4020), 0, hdr, 8);
+    NameTable_Read(g_pack, 0, hdr, 8);
     if (hdr[0] != '3' || hdr[1] != 'D' || hdr[2] != 'P' || hdr[3] != 'F') Fatal_Exit(GetString(0x46));
     uint16_t count = *(uint16_t*)(hdr + 6);
     F<uint16_t>(c, 4) = count;
-    hook::Global<int32_t>(0xd97bb0) = *(uint16_t*)(hdr + 4);
+    g_d97bb0 = *(uint16_t*)(hdr + 4);
     F<void*>(c, 0) = ((void*(__cdecl*)(size_t))0x5a125d)(count * 0x18);
     for (int32_t i = 0; i < *(uint16_t*)(hdr + 6); ++i) CollisionBlock_Load(c, 0, (uint32_t*)(F<uint8_t*>(c, 0) + i * 0x18));
 }
@@ -1940,7 +1941,7 @@ RT3_REPLACE(0x567bf0, Lists_FreeItems);
 // `lift`) with tint `tint` into `out`, adding 6 vertices per quad to *count.
 void __fastcall Quads_EmitFlat(uint8_t* o, int, uint8_t* out, int32_t* count, uint32_t tint) {
     if (!F<int32_t>(F<uint8_t*>(o, 0x1c), 0xc)) return;
-    hook::Global<uint32_t>(0xd97bbc) = tint;
+    g_d97bbc = tint;
     PtrList_Rewind(F<PtrList*>(o, 0x1c));
     for (uint8_t* q = (uint8_t*)PtrList_Next(F<PtrList*>(o, 0x1c)); q; q = (uint8_t*)PtrList_Next(F<PtrList*>(o, 0x1c))) {
         Quad_ToVertices(out, q, 0.0f);
@@ -1952,7 +1953,7 @@ RT3_REPLACE(0x567c70, Quads_EmitFlat);
 
 void __fastcall Quads_EmitRaised(uint8_t* o, int, uint8_t* out, int32_t* count, uint32_t tint, float lift) {
     if (!F<int32_t>(F<uint8_t*>(o, 0x20), 0xc)) return;
-    hook::Global<uint32_t>(0xd97bbc) = tint;
+    g_d97bbc = tint;
     PtrList_Rewind(F<PtrList*>(o, 0x20));
     for (uint8_t* q = (uint8_t*)PtrList_Next(F<PtrList*>(o, 0x20)); q; q = (uint8_t*)PtrList_Next(F<PtrList*>(o, 0x20))) {
         Quad_ToVertices(out, q, lift);

@@ -8,6 +8,7 @@
 #include <windows.h>
 #include <math.h>
 #include "hook/hook.h"
+#include "core/globals.h"
 #include "game/collection.h"
 #include "core/crt.h"
 #include "core/stream.h"
@@ -25,11 +26,9 @@ namespace rt3 {
 template <typename T> static inline T& F(void* o, uint32_t off) { return *(T*)((uint8_t*)o + off); }
 int32_t __fastcall Table_CountField4(Collection* t);
 void* __fastcall Table_NthField4(Collection* t, int, int32_t n);
-static uint8_t*& g_world = hook::Global<uint8_t*>(0x6cec78);
 int32_t __fastcall Obj_Get21(void* o);
 void* __fastcall Obj_Ref25(void* o);
 int32_t __fastcall SimRand(int32_t lo, int32_t hi);
-static Collection*& g_companies = hook::Global<Collection*>(0x62be10);
 void* SelectedTrain();
 double __fastcall Obj_Rounded29(void* o);
 int32_t __fastcall Obj_CargoBonus(void* o, int, int32_t i, uint32_t company, uint32_t player, uint32_t region);
@@ -153,7 +152,7 @@ static inline int ExeStricmp(const char* a, const char* b) { return ((int(__cdec
 // named like this +0xc47. QUIRK: without a match the last entry is used,
 // and with no entries this object itself.
 static uint8_t* FindNamedEntry(uint8_t* o) {
-    auto list = []() { return F<Collection*>(hook::Global<uint8_t*>(0x6d4020), 0x429b4); };
+    auto list = []() { return F<Collection*>(g_pack, 0x429b4); };
     uint8_t* e = o;
     for (int32_t i = 0; i < Collection_Count(list()); ++i) {
         Collection* l = list();
@@ -190,13 +189,13 @@ static uint32_t Message_Show(const char* text, int32_t type, int32_t timeout) {
 
 // News entry (world log) for player p's forced trade when p is the local player.
 static void Margin_Report(uint8_t* p, int32_t fmt, int32_t amount, uint32_t id, bool nameFirst) {
-    if (F<int32_t>(p, 0) != Obj_Get25(hook::Global<uint8_t*>(0x6cec78))) return;
-    const char* company = (const char*)Collection_Get(hook::Global<Collection*>(0x62be10), 0, id) + 4;
+    if (F<int32_t>(p, 0) != Obj_Get25(g_world)) return;
+    const char* company = (const char*)Collection_Get(g_companies, 0, id) + 4;
     char num[0x1f8], text[0x2c0];
     const char* s = Num_Format(num, 1, (double)amount, 10, 1, 0, 0);
     if (nameFirst) FormatText(text, GetString(fmt), company, s, 0, 0, 0, 0, 0, 0);
     else FormatText(text, GetString(fmt), s, company, 0, 0, 0, 0, 0, 0);
-    World_AddNamedEntry(hook::Global<uint8_t*>(0x6cec78), 0, text, 0, 1, -1, -1, -1, -1);
+    World_AddNamedEntry(g_world, 0, text, 0, 1, -1, -1, -1, -1);
 }
 
 // 0x476050. +0x154 (double) += whole amount.
@@ -244,7 +243,7 @@ RT3_REPLACE(0x4760f0, ClaimRandomSlot);
 // cleared (and +0x15d with `clearHistory`).
 RT3_NOINLINE void __fastcall Player_Init(uint8_t* p, int, int32_t id, int32_t kind, const char* name, const char* desc, int32_t ai,
                             int32_t clearHistory) {
-    int32_t players = Table_CountField4(hook::Global<Collection*>(0x6ceb9c));
+    int32_t players = Table_CountField4(g_players);
     p[0x294] = 1;
     if (players == 1) {
         p[0x292] = 0;
@@ -280,7 +279,7 @@ RT3_NOINLINE void __fastcall Player_Init(uint8_t* p, int, int32_t id, int32_t ki
     StrCopyN((char*)p + 0x27, desc, 0x12c);
     F<int32_t>(p, 0x1dd) = 0;
     F<int32_t>(p, 0x2a3) = 0;
-    int32_t days = F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x2ab) ? SimRand(1, 3) : SimRand(0x2d, 0x10e);
+    int32_t days = F<int32_t>(g_app, 0x2ab) ? SimRand(1, 3) : SimRand(0x2d, 0x10e);
     F<int32_t>(p, 0x1e5) = days * 0x5a0;
     F<int32_t>(p, 0xc43) = 1;
     if (clearHistory) memset(p + 0x15d, 0, 0x80);
@@ -297,7 +296,7 @@ RT3_NOINLINE double __fastcall Player_HoldingsValue(uint8_t* p, int, int32_t sto
     for (int32_t i = 0; i < 0x20; ++i) {
         int32_t n = F<int32_t>(p, 0x15d + i * 4);
         if (!n) continue;
-        uint8_t* c = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be10), 0, i);
+        uint8_t* c = (uint8_t*)Collection_Get(g_companies, 0, i);
         double price = stored ? Company_FloatD7b(c) : (double)Company_SharePrice(c, 0, 0, 0);
         total = price * (float)n + total;
     }
@@ -312,7 +311,7 @@ RT3_NOINLINE double __fastcall Player_HoldingsCollateral(uint8_t* p, int, int32_
     for (int32_t i = 0; i < 0x20; ++i) {
         int32_t n = F<int32_t>(p, 0x15d + i * 4);
         if (!n) continue;
-        uint8_t* c = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be10), 0, i);
+        uint8_t* c = (uint8_t*)Collection_Get(g_companies, 0, i);
         double price = stored ? Company_FloatD7b(c) : (double)Company_SharePrice(c, 0, 0, 0);
         double v = price * (double)n;
         double part = v / D(0x5c85d0);
@@ -328,7 +327,7 @@ RT3_REPLACE(0x4763b0, Player_HoldingsCollateral);
 // sale moves the market to, crediting 0x5c8928 of the proceeds; then
 // re-checks margin calls and clears the company list rows.
 RT3_NOINLINE void __fastcall Player_SellShares(uint8_t* p, int, uint32_t company, int32_t n, int32_t, int32_t) {
-    uint8_t* co = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be10), 0, company);
+    uint8_t* co = (uint8_t*)Collection_Get(g_companies, 0, company);
     int32_t& held = F<int32_t>(p, 0x15d + company * 4);
     int32_t shortSale = held <= 0;
     if (shortSale) {
@@ -350,10 +349,10 @@ RT3_REPLACE(0x476460, Player_SellShares);
 // rate plus its bonus (stat 0x39): the gap is capped by the current band (0.01 above
 // k1 .. 0.04 above k4) and a k-th of it is applied, truncated. Off in sandbox mode.
 void __fastcall Company_UpdateCreditRate(uint8_t* o) {
-    uint8_t* w = hook::Global<uint8_t*>(0x6cec78);
+    uint8_t* w = g_world;
     if (F<int32_t>(w, 0x46c38)) return;
     float a = (float)Obj_Rounded29(w);
-    int32_t n = Obj_CargoBonus(hook::Global<void*>(0x6cec78), 0, 0x39, 0, F<uint32_t>(o, 0), 0);
+    int32_t n = Obj_CargoBonus(hook::As<void*>(g_world), 0, 0x39, 0, F<uint32_t>(o, 0), 0);
     a = (float)((double)n * D(0x5c85b8) + a);
     double rate = F<double>(o, 0x154);
     if (rate > D(0x5c8608)) {
@@ -423,7 +422,7 @@ RT3_NOINLINE int32_t __fastcall Player_CompanyAgePenalty(uint8_t* p) {
     uint32_t id = F<uint32_t>(p, 0x1dd);
     if (!id) return 0;
     uint8_t* c = (uint8_t*)Collection_Get(g_companies, 0, id);
-    int32_t d = F<uint16_t>(hook::Global<uint8_t*>(0x6cec78), 0xd) - F<int32_t>(c, 0x43);
+    int32_t d = F<uint16_t>(g_world, 0xd) - F<int32_t>(c, 0x43);
     if (d <= 0) d = 0;
     if (d >= 10) d = 10;
     return (d - 10) * 7;
@@ -436,8 +435,8 @@ float __fastcall Player_Aggressiveness(uint8_t* p) {
     if (!F<int32_t>(p, 0x1e1)) return *(const float*)0x5c85f8;
     int32_t pen = 0;
     if (uint32_t id = F<uint32_t>(p, 0x1dd)) {
-        uint8_t* c = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be10), 0, id);
-        int32_t d = F<uint16_t>(hook::Global<uint8_t*>(0x6cec78), 0xd) - F<int32_t>(c, 0x43);
+        uint8_t* c = (uint8_t*)Collection_Get(g_companies, 0, id);
+        int32_t d = F<uint16_t>(g_world, 0xd) - F<int32_t>(c, 0x43);
         if (d <= 0) d = 0;
         if (d >= 10) d = 10;
         pen = (d - 10) * 7;
@@ -468,7 +467,7 @@ RT3_REPLACE(0x476b30, Obj_NamedEntry20);
 // 0x476bb0. Index (not ID) of this object's name (+0xc47) in the name table
 // of object 0x6d4020 (+0x429b4), or -1.
 RT3_NOINLINE int32_t __fastcall Obj_NameIndex(void* o) {
-    auto table = [] { return F<Collection*>(hook::Global<uint8_t*>(0x6d4020), 0x429b4); };
+    auto table = [] { return F<Collection*>(g_pack, 0x429b4); };
     for (int32_t i = 0; i < Collection_Count(table()); ++i) {
         Collection* t = table();
         const char* name = (const char*)Collection_Get(t, 0, Collection_IdAt(t, 0, i, 0));
@@ -489,11 +488,11 @@ RT3_REPLACE(0x476c20, Player_CollateralWorth);
 // shares (Company_SpareShares(flag)), a price not under 0x5c8554 and the
 // collateral (Player_CollateralWorth) covering n at the price.
 RT3_NOINLINE int32_t __fastcall Player_CanSellShares(uint8_t* p, int, uint32_t company, int32_t shortOk, int32_t n, int32_t flag) {
-    if (F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4a83)) shortOk = 0;
+    if (F<int32_t>(g_world, 0x4a83)) shortOk = 0;
     if (!n) n = Player_TradeBlock(p, 0, company, 0);
     if (F<int32_t>(p, 0x15d + company * 4) >= n) return 1;
     if (!shortOk) return 0;
-    uint8_t* co = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be10), 0, company);
+    uint8_t* co = (uint8_t*)Collection_Get(g_companies, 0, company);
     if (F<uint32_t>(co, 0x3b) == F<uint32_t>(p, 0)) return 0;
     if (n >= Company_SpareShares((int32_t*)co, 0, flag)) return 0;
     if (Company_SharePrice(co, 0, 0, 0) < Fl(0x5c8554)) return 0;
@@ -512,7 +511,7 @@ RT3_NOINLINE uint32_t __fastcall Player_CheckCanFound(uint8_t* p) {
         return 0;
     }
     if (!(Player_HoldingsCollateral(p, 0, 1) + F<double>(p, 0x154) < D(0x5c8830))) return 1;
-    uint8_t* q = (uint8_t*)Obj_Ref25(hook::Global<uint8_t*>(0x6cec78));
+    uint8_t* q = (uint8_t*)Obj_Ref25(g_world);
     char have[0x2c0], need[0x2c0], text[0x400];
     const char* sh = Num_FormatSimple(have, 9, Player_HoldingsCollateral(q, 0, 1) + F<double>(q, 0x154), 0xb);
     const char* sn = Num_FormatSimple(need, 9, 100000.0, 0xb);
@@ -530,7 +529,7 @@ RT3_REPLACE(0x476d10, Player_CheckCanFound);
 // it can be sold (short when holding less than 1000).
 RT3_NOINLINE int32_t __fastcall Player_TradeBlock(uint8_t* p, int, uint32_t company, int32_t buying) {
     if (!F<int32_t>(p, 0x1e1)) return 1000;
-    uint8_t* co = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be10), 0, company);
+    uint8_t* co = (uint8_t*)Collection_Get(g_companies, 0, company);
     int32_t n;
     if (buying) {
         n = Ftol((double)F<int32_t>(p, 0x15d + company * 4) * D(0x5c9b98) + D(0x5c87f8)) / 1000 * 1000;
@@ -560,8 +559,8 @@ RT3_REPLACE(0x476e50, Player_TradeBlock);
 // otherwise cash +0x154 must pay n at the price, or - on `margin` (off in
 // scenario rule +0x4a83) - cash plus Player_HoldingsCollateral.
 RT3_NOINLINE int32_t __fastcall Player_CanBuyShares(uint8_t* p, int, uint32_t company, int32_t margin, int32_t n) {
-    if (F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4a83)) margin = 0;
-    uint8_t* co = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be10), 0, company);
+    if (F<int32_t>(g_world, 0x4a83)) margin = 0;
+    uint8_t* co = (uint8_t*)Collection_Get(g_companies, 0, company);
     if (!n) n = Player_TradeBlock(p, 0, company, 1);
     int32_t need = n < 1 ? 1 : n;
     if (Company_FreeShares(co) < need) return 0;
@@ -583,8 +582,8 @@ RT3_REPLACE(0x476ff0, Player_CanBuyShares);
 // clears the company list rows.
 RT3_NOINLINE void __fastcall Player_BuyShares(uint8_t* p, int, uint32_t company, int32_t n, int32_t margin, int32_t force) {
     if (!force && !Player_CanBuyShares(p, 0, company, margin, 0)) return;
-    Company_SharePrice((uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be10), 0, company), 0, n, 1);
-    float price = Company_SharePrice((uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be10), 0, company), 0, 0, 0);
+    Company_SharePrice((uint8_t*)Collection_Get(g_companies, 0, company), 0, n, 1);
+    float price = Company_SharePrice((uint8_t*)Collection_Get(g_companies, 0, company), 0, 0, 0);
     float fn = (float)n;
     int32_t cost = Ftol((double)price * fn);
     F<int32_t>(p, 0x15d + company * 4) += n;
@@ -608,25 +607,25 @@ RT3_NOINLINE void __fastcall Player_MarginCheck(uint8_t* p) {
         for (int32_t i = 0; i < 0x20; ++i)
             if (F<int32_t>(p, 0x15d + i * 4)) any = 1;
         if (!any) return;
-        uint8_t* w = hook::Global<uint8_t*>(0x6cec78);
+        uint8_t* w = g_world;
         if (F<int32_t>(p, 0x1e1) && (!F<int32_t>(p, 0x296) || F<int32_t>(p, 0x296) > F<int32_t>(w, 0x15))) {
-            if (F<int32_t>(p, 0) == Obj_Get25(hook::Global<uint8_t*>(0x6cec78)) && !F<int32_t>(p, 0x296)) {
-                int32_t month = hook::Global<uint8_t*>(0x6cec78)[0xf] % 12;
+            if (F<int32_t>(p, 0) == Obj_Get25(g_world) && !F<int32_t>(p, 0x296)) {
+                int32_t month = g_world[0xf] % 12;
                 char text[0x2c0];
                 const char* m = GetString(((const int32_t*)0x624390)[month]);
                 FormatText(text, GetString(0x11f), m, 0, 0, 0, 0, 0, 0, 0);
-                World_AddNamedEntry(hook::Global<uint8_t*>(0x6cec78), 0, text, 0, 1, -1, -1, -1, -1);
-                if (!IsMultiplayer() && F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x19) > 4)
-                    World_SetSpeed(hook::Global<uint8_t*>(0x6cec78), 0, 4, 1, 1);
+                World_AddNamedEntry(g_world, 0, text, 0, 1, -1, -1, -1, -1);
+                if (!IsMultiplayer() && F<int32_t>(g_world, 0x19) > 4)
+                    World_SetSpeed(g_world, 0, 4, 1, 1);
             }
             if (!F<int32_t>(p, 0x296)) {
-                uint8_t* wd = hook::Global<uint8_t*>(0x6cec78);
+                uint8_t* wd = g_world;
                 F<int32_t>(p, 0x296) = MinutesFromParts(F<uint16_t>(wd, 0xd), wd[0xf], 0x1c, 0x17, 0x3b) + 0x9d7f;
             }
         } else {
             for (int32_t pass = 0; pass < 2; ++pass)
-                for (int32_t c = 0; c < Collection_Count(hook::Global<Collection*>(0x62be10)); ++c) {
-                    Collection* t = hook::Global<Collection*>(0x62be10);
+                for (int32_t c = 0; c < Collection_Count(g_companies); ++c) {
+                    Collection* t = g_companies;
                     if (!F<int32_t>(Collection_Get(t, 0, Collection_IdAt(t, 0, (uint32_t)c, 0)), 0x3f)) continue;
                     if (!pass && F<uint32_t>(Collection_Get(t, 0, Collection_IdAt(t, 0, (uint32_t)c, 0)), 0x3b) == F<uint32_t>(p, 0)) continue;
                     uint32_t id = F<uint32_t>(Collection_Get(t, 0, Collection_IdAt(t, 0, (uint32_t)c, 0)), 0);
@@ -655,7 +654,7 @@ RT3_NOINLINE void __fastcall Player_MarginCheck(uint8_t* p) {
     for (uint32_t i = 0; i < 0x20; ++i) {
         if (F<int32_t>(p, 0x15d + i * 4) >= 0) continue;
         int32_t bought = 0;
-        while (Company_SpareShares((int32_t*)Collection_Get(hook::Global<Collection*>(0x62be10), 0, i), 0, 0) < 0) {
+        while (Company_SpareShares((int32_t*)Collection_Get(g_companies, 0, i), 0, 0) < 0) {
             bought += 1000;
             Player_BuyShares(p, 0, i, 1000, 0, 1);
             if (F<int32_t>(p, 0x15d + i * 4) >= 0) break;
@@ -743,9 +742,9 @@ RT3_REPLACE(0x477920, Table_ActiveIndexOf);
 // "TrainDetail.imb" bitmap font into +0xaf.
 void __fastcall MapView_LoadTrainFont(uint8_t* v) {
     if (!(F<uint32_t>(v, 0x33) & 0x2030000)) return;
-    NameTable_PushPos(hook::Global<uint8_t*>(0x6d4020));
-    F<uint8_t*>(v, 0xaf) = Pack_AcquireNamed(hook::Global<uint8_t*>(0x6d4020), 0, (const char*)0x5c9ee8);
-    NameTable_PopPosition(hook::Global<uint8_t*>(0x6d4020));
+    NameTable_PushPos(g_pack);
+    F<uint8_t*>(v, 0xaf) = Pack_AcquireNamed(g_pack, 0, (const char*)0x5c9ee8);
+    NameTable_PopPosition(g_pack);
 }
 RT3_REPLACE(0x477980, MapView_LoadTrainFont);
 
@@ -791,7 +790,7 @@ RT3_REPLACE(0x477ad0, Obj_SelectedTrainIfFlag);
 void __fastcall MapView_Init(uint8_t* v) {
     F<uint16_t>(v, 6) = 0x1000;
     v[0xa2] = 0;
-    uint8_t* map = hook::Global<uint8_t*>(0x62c120);
+    uint8_t* map = g_map;
     int32_t w = F<int32_t>(map, 0x2155), h = F<int32_t>(map, 0x2159);
     int32_t m = w < h ? w : h;
     F<int32_t>(v, 0x11f) = m > 0xa0 ? 0xa0 : m;
@@ -824,7 +823,7 @@ RT3_NOINLINE void __fastcall Minimap_WorldToPixel(uint8_t* o, int, float x, floa
                         (double)F<int32_t>(o, 0xc7));
         return;
     }
-    uint8_t* m = hook::Global<uint8_t*>(0x62c120);
+    uint8_t* m = g_map;
     int32_t w = F<int32_t>(m, 0x2155), h = F<int32_t>(m, 0x2159);
     int32_t big = w > h ? w : h;
     float size = (float)big;
@@ -847,9 +846,9 @@ RT3_NOINLINE void __fastcall MiniMap_DrawView(uint8_t* m) {
     Fade_Save();
     for (int k = 0; k < 20; ++k) Fade_Step_Impl();
     float far4[4], near4[4], mid4[4];
-    Scene_GetVectors((uint8_t*)Engine_Renderer(hook::Global<uint8_t*>(0x6d4024)), 0, (uint32_t*)far4, (uint32_t*)mid4, (uint32_t*)near4);
+    Scene_GetVectors((uint8_t*)Engine_Renderer(g_engine), 0, (uint32_t*)far4, (uint32_t*)mid4, (uint32_t*)near4);
     float mx = F<float>(m, 0xb), my = F<float>(m, 0xf), mw = F<float>(m, 0x13), mh = F<float>(m, 0x17);
-    int32_t W = F<int32_t>(hook::Global<uint8_t*>(0x62c120), 0x2155), H = F<int32_t>(hook::Global<uint8_t*>(0x62c120), 0x2159);
+    int32_t W = F<int32_t>(g_map, 0x2155), H = F<int32_t>(g_map, 0x2159);
     float Wf, Hf;
     if (W < H) {
         Wf = (float)W;
@@ -891,7 +890,7 @@ RT3_NOINLINE void __fastcall MiniMap_DrawView(uint8_t* m) {
                                  0xfffff8f, 0, 0, 0, 0x3f800000, 0x3f800000);
     }
     float cx, cz;
-    Obj_CellPos(hook::Global<uint8_t*>(0x62be68), 0, &cx, &cz);
+    Obj_CellPos(g_62be68, 0, &cx, &cz);
     float czf = (float)((double)Hf - cz);
     float px, py;
     if (W < H) {

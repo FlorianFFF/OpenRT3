@@ -8,6 +8,7 @@
 #include <string.h>
 #include <initializer_list>
 #include "hook/hook.h"
+#include "core/globals.h"
 #include "game/collection.h"
 #include "hook/keepregs.h"
 #include "core/ptrlist.h"
@@ -102,7 +103,7 @@ void __fastcall CompanyStock_DrawChart(uint8_t* win, uint32_t linkBase, float x,
 // string 0xe8c (returns 0); otherwise 1.
 #define RT3_SCENARIO_LOCK(addr, name, id) \
     int32_t __fastcall name(void*, const uint32_t* ev) { \
-        if (ev[0] != 0xcb || ev[1] != id || !hook::Global<int32_t>(0x6d3b4c)) return 1; \
+        if (ev[0] != 0xcb || ev[1] != id || !g_6d3b4c) return 1; \
         Message_Dialog(GetString(0xe8c), 0x3ef5c28f); \
         return 0; \
     } \
@@ -183,9 +184,9 @@ int32_t Lot494(uint32_t table, int32_t company, uint32_t flags) {
 void SendTrade494(uint32_t type, uint8_t* p, int32_t company) {
     uint32_t req[2];
     req[0] = F<uint32_t>(p, 0);
-    Cursor_Set(hook::Global<uint8_t*>(0xccbb20), 0, 6, 0, 0);
+    Cursor_Set(g_cursorManager, 0, 6, 0, 0);
     req[1] = (uint32_t)company;
-    Net_SendToHost(hook::Global<uint8_t*>(0x6cd8d8), 0, type, 8, (const uint8_t*)req);
+    Net_SendToHost(g_session, 0, type, 8, (const uint8_t*)req);
 }
 }
 
@@ -194,9 +195,9 @@ void SendTrade494(uint32_t type, uint8_t* p, int32_t company) {
 // Returns what it last computed (callers may pass it on).
 RT3_NOINLINE int32_t __fastcall BuildingDialog_Retrack(uint8_t* dlg) {
     if (int32_t p = F<int32_t>(dlg, 0x94)) return p;
-    if (!Collection_IsValid(hook::Global<Collection*>(0x62be10), 0, (uint32_t)Obj_Get21(hook::Global<void*>(0x6cec78))) &&
-        !F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x68))
-        return (int32_t)(uintptr_t)hook::Global<uint8_t*>(0x6cec74);
+    if (!Collection_IsValid(g_companies, 0, (uint32_t)Obj_Get21(hook::As<void*>(g_world))) &&
+        !F<int32_t>(g_app, 0x68))
+        return (int32_t)(uintptr_t)g_app;
     return BuildingDialog_TrackMouse(dlg, 0, nullptr);
 }
 RT3_REPLACE(0x50a530, BuildingDialog_Retrack);
@@ -204,45 +205,45 @@ RT3_REPLACE(0x50a530, BuildingDialog_Retrack);
 // 0x50a570 (draw callback). Draws the stock chart of the company at index
 // 0x622b00 (among those with +0x3f) into 0x6d19f0.
 void __fastcall Stock_DrawChartCb(void*, int, float x, float y, float w, float h, int32_t) {
-    const int32_t idx = hook::Global<int32_t>(0x622b00);
-    if (idx < 0 || idx >= Table_CountField3f(hook::Global<Collection*>(0x62be10))) return;
-    const int32_t a = hook::Global<int32_t>(0x6d19dc), b = hook::Global<int32_t>(0x6d19e0);
-    const uint32_t co = Table_NthIdField3f(hook::Global<Collection*>(0x62be10), 0, hook::Global<int32_t>(0x622b00));
-    CompanyStock_DrawChart(hook::Global<uint8_t*>(0x6d19f0), 0x3e4e, x, y, w, h, 0, co, (uint8_t*)(uintptr_t)a, (uint8_t**)0x6d1748, b,
+    const int32_t idx = g_622b00;
+    if (idx < 0 || idx >= Table_CountField3f(g_companies)) return;
+    const int32_t a = hook::As<int32_t>(g_6d19dc), b = g_6d19e0;
+    const uint32_t co = Table_NthIdField3f(g_companies, 0, g_622b00);
+    CompanyStock_DrawChart(g_6d19f0, 0x3e4e, x, y, w, h, 0, co, (uint8_t*)(uintptr_t)a, (uint8_t**)0x6d1748, b,
                            (const uint8_t*)0x622b04);
 }
 RT3_REPLACE(0x50a570, Stock_DrawChartCb);
 
 void Dialog_Clear3b60() {
     Reset_625a94();
-    Window_DeleteChildren(hook::Global<uint8_t*>(0x6d19f0), 0, 0x3b60, 0x3e7f, 0);
+    Window_DeleteChildren(g_6d19f0, 0, 0x3b60, 0x3e7f, 0);
 }
 RT3_REPLACE(0x50a5e0, Dialog_Clear3b60);
 
 RT3_SCENARIO_LOCK(0x50a600, Scenario_LockCb3f4b, 0x3f4)
 
-RT3_NOINLINE void __stdcall SetGlobal6d19f4(int32_t v) { hook::Global<int32_t>(0x6d19f4) = v; }
+RT3_NOINLINE void __stdcall SetGlobal6d19f4(int32_t v) { g_6d19f4 = v; }
 RT3_REPLACE(0x50a660, SetGlobal6d19f4);
 
 // 0x50a670. Resets 0x625a94 and clears the generated rows 0x3b60..0x3e7f of the
 // company list window 0x6d19f0.
 void CompanyList_ClearRows() {
     Reset_625a94();
-    if (uint8_t* w = hook::Global<uint8_t*>(0x6d19f0)) Window_DeleteChildren(w, 0, 0x3b60, 0x3e7f, 0);
+    if (uint8_t* w = g_6d19f0) Window_DeleteChildren(w, 0, 0x3b60, 0x3e7f, 0);
 }
 RT3_REPLACE(0x50a670, CompanyList_ClearRows);
 
 RT3_NOINLINE void Dialog_Clear3b60IfOpen() {
     Reset_625a94();
-    if (hook::Global<uint8_t*>(0x6d19f0)) Window_DeleteChildren(hook::Global<uint8_t*>(0x6d19f0), 0, 0x3b60, 0x3e7f, 0);
+    if (g_6d19f0) Window_DeleteChildren(g_6d19f0, 0, 0x3b60, 0x3e7f, 0);
 }
 RT3_REPLACE(0x50a6a0, Dialog_Clear3b60IfOpen);
 
 // 0x50a6d0. Selects company row `idx` (0x622b00; -1 past the active companies),
 // enabling (0x6d) or disabling (0x86) control 0x3a9b, and clears the generated rows.
 RT3_NOINLINE void __fastcall CompanyList_Select(uint8_t* w, int, int32_t idx) {
-    if (idx >= Table_CountField3f(hook::Global<Collection*>(0x62be10))) idx = -1;
-    hook::Global<int32_t>(0x622b00) = idx;
+    if (idx >= Table_CountField3f(g_companies)) idx = -1;
+    g_622b00 = idx;
     Window_SendEvent5(w, 0, idx != -1 ? 0x6d : 0x86, 0x3a9b, 3, 0, 0);
     Window_DeleteChildren(w, 0, 0x3b60, 0x3e7f, 0);
 }
@@ -256,7 +257,7 @@ RT3_REPLACE(0x50a6d0, CompanyList_Select);
 // worth and collateral (labels 0x279.., negative values red, a rule under the
 // holdings).
 RT3_NOINLINE void __fastcall PlayerFinance_Draw(void*, int, float x, float y, float w, float, int32_t) {
-    Collection* players = hook::Global<Collection*>(0x6ceb9c);
+    Collection* players = g_players;
     int32_t n = Table_CountField4(players);
     float scale = BitsF(0x3f333333), frame = 1.0f;
     if (n > 5) {
@@ -276,22 +277,22 @@ RT3_NOINLINE void __fastcall PlayerFinance_Draw(void*, int, float x, float y, fl
         for (int32_t i = 0; i < n; ++i) {
             uint8_t* pl = (uint8_t*)Table_NthField4(players, 0, i);
             double mid = ((double)i + D(0x5c8628)) * slotW;
-            if (i == hook::Global<int32_t>(0x6d19f4)) {
+            if (i == g_6d19f4) {
                 float t1 = (float)((double)frame * D(0x5d18c8));
                 float t2 = (float)((double)frame * D(0x5d18c0));
                 float gy = (float)((double)faceY + t2);
                 float gx = (float)(mid + ((double)base + t1) - half);
-                Glyph_Queue((uint8_t*)(uintptr_t)Table_Entry(hook::Global<uint8_t*>(0x6d19d8), 0, 0x4c), 0, gx, gy, 0x3f800000, frame, frame, 0xffffffff, 1, 1,
+                Glyph_Queue((uint8_t*)(uintptr_t)Table_Entry(g_6d19d8, 0, 0x4c), 0, gx, gy, 0x3f800000, frame, frame, 0xffffffff, 1, 1,
                             0, 0.0f, 0.0f, 1.0f, 1.0f);
             }
-            uint8_t* table = hook::Global<uint8_t*>(0x6d19dc);
+            uint8_t* table = g_6d19dc;
             int32_t idx = 0;
             float gx = (float)((double)base + mid - half);
             if (pl[0x15c] != 0x29) idx = pl[0x15c];
             else if (Obj_NameIndex(pl) != -1) table = hook::Global<uint8_t*>(0x6d1748 + Obj_NameIndex(pl) * 4);
             else pl[0x15c] = 0;
             Glyph_Queue((uint8_t*)(uintptr_t)Table_Entry(table, 0, idx), 0, gx, faceY, 0x3f800000, scale, scale, 0xffffffff, 0, 1, 0, 0.0f, 0.0f, 1.0f, 1.0f);
-            if (Widget_FindChild(hook::Global<uint8_t*>(0x6d19f0), 0, i + 0x3afc)) continue;
+            if (Widget_FindChild(g_6d19f0, 0, i + 0x3afc)) continue;
             uint8_t def[0x8b];
             memset(def, 0, sizeof def);
             F<float>(def, 7) = (float)(((double)slotW - cellW) * D(0x5ca180) + margin + x + mid - half);
@@ -302,26 +303,26 @@ RT3_NOINLINE void __fastcall PlayerFinance_Draw(void*, int, float x, float y, fl
             F<float>(def, 0xb) = (float)((double)y + D(0x5d18b8) - D(0x5d0250));
             char text[0x200];
             FormatText(text, GetString(0x277), (const char*)(pl + 8), 0, 0, 0, 0, 0, 0, 0);
-            if (pl == Obj_Ref25(hook::Global<uint8_t*>(0x6cec78))) strcat(text, GetString(0x278));
-            if (F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x68) && pl != Obj_Ref25(hook::Global<uint8_t*>(0x6cec78))) strcat(text, GetString(0xc08));
+            if (pl == Obj_Ref25(g_world)) strcat(text, GetString(0x278));
+            if (F<int32_t>(g_app, 0x68) && pl != Obj_Ref25(g_world)) strcat(text, GetString(0xc08));
             String_Assign(&F<char*>(def, 0x3f), text);
             uint8_t* tw = (uint8_t*)ExeNew(0xda);
             tw = tw ? TimerWidget_Construct(tw, 0, def) : nullptr;
-            Window_AddChild(hook::Global<uint8_t*>(0x6d19f0), 0, tw, 0);
+            Window_AddChild(g_6d19f0, 0, tw, 0);
             FreeAndNull(&F<void*>(def, 0x3f));
         }
     }
     float rowY = (float)((double)y + Fl(0x5d18b0) + D(0x5d18a8));
     static const int32_t labels[4] = { 0x279, 0x27a, 0x27b, 0x27c }, tips[4] = { 0x27d, 0x27e, 0x27f, 0x280 };
     float valueW = (float)(wd - D(0x5d0288));
-    uint8_t* font = hook::Global<uint8_t*>(0x6d19e8);
+    uint8_t* font = g_6d19e8;
     char buf[0x200];
     float v = 0.0f;
     for (int32_t k = 0; k < 4; ++k) {
         double hm = k == 3 ? 2.25 : 1.0;
         float h = (float)(hm * D(0x5d0bf8));
         Font_DrawTextBox(font, 0, GetString(labels[k]), x, rowY, BitsF(0x3dc8b439), h, 0xffffffff, 3, 0, 0, 1.0f);
-        uint8_t* sel = (uint8_t*)Table_NthField4(players, 0, hook::Global<int32_t>(0x6d19f4));
+        uint8_t* sel = (uint8_t*)Table_NthField4(players, 0, g_6d19f4);
         switch (k) {
         case 0: v = (float)F<double>(sel, 0x154); break;
         case 1: v = (float)Player_HoldingsValue(sel, 0, 1); break;
@@ -333,7 +334,7 @@ RT3_NOINLINE void __fastcall PlayerFinance_Draw(void*, int, float x, float y, fl
         uint32_t color = v >= Fl(0x5c8598) ? 0xffffffff : 0xffff5f5f;
         const char* tip = GetString(tips[k]);
         float h2 = (float)(hm * D(0x5d0bf8));
-        TextLink_DrawPlain(hook::Global<uint8_t*>(0x6d19f0), font, buf, x, rowY, valueW, h2, color, 3, 0, 0x20, tip, k + 0x3e1c);
+        TextLink_DrawPlain(g_6d19f0, font, buf, x, rowY, valueW, h2, color, 3, 0, 0x20, tip, k + 0x3e1c);
         if (k == 1) {
             float ly = (float)((double)rowY + Fl(0x5d12c8));
             float right = (float)((double)x + w);
@@ -359,15 +360,15 @@ RT3_REPLACE(0x50a730, PlayerFinance_Draw);
 // their block size (1000, 5000 or 25000 when affordable, single player
 // only) kept in 0x6d18d8 / 0x6d18dc, and the select link (0x28d / 0x28f).
 void __fastcall StockList_DrawRow(void*, uint32_t id, float x, float y, int32_t, float h, int32_t) {
-    uint8_t* co = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be10), 0, id);
-    uint8_t* p = (uint8_t*)Table_NthField4(hook::Global<Collection*>(0x6ceb9c), 0, hook::Global<int32_t>(0x6d19f4));
+    uint8_t* co = (uint8_t*)Collection_Get(g_companies, 0, id);
+    uint8_t* p = (uint8_t*)Table_NthField4(g_players, 0, g_6d19f4);
     float gy = (float)((double)y + D(0x5d0250));
     float gx = (float)((double)x + D(0x5c9bc0));
     Glyph_Queue((uint8_t*)(uintptr_t)Company_Logo(co), 0, gx, gy, 0x3f800000, BitsF(0x3f0ccccd), BitsF(0x3f0ccccd), 0xffffffff, 0, 1, 0, 0.0f, 0.0f, 1.0f,
                 1.0f);
-    uint8_t* font = IsEnglish() & 0xff ? hook::Global<uint8_t*>(0x6d19e8) : hook::Global<uint8_t*>(0x6d19ec);
+    uint8_t* font = IsEnglish() & 0xff ? g_6d19e8 : g_6d19ec;
     uint32_t col[7] = { 0, 0x3d9ba5e3, 0x3df9db23, 0x3e4ac083, 0x3e77ced9, 0x3e94fdf4, 0x3eaf9db2 };
-    int32_t lang = hook::Global<int32_t>(0x6d3c84);
+    int32_t lang = g_language;
     if (lang == 0xc) {
         static const uint32_t c12[7] = { 0xba83126f, 0x3d978d50, 0x3df3b646, 0x3e439581, 0x3e800000, 0x3e9db22d, 0x3eb1a9fc };
         memcpy(col, c12, sizeof col);
@@ -386,7 +387,7 @@ void __fastcall StockList_DrawRow(void*, uint32_t id, float x, float y, int32_t,
                 fmt(text, 0xad3, (const char*)co + 4);
                 char line[0x1ec];
                 uint32_t owner = F<uint32_t>(co, 0x3b);
-                if (owner && owner == (uint32_t)Obj_Get21(hook::Global<uint8_t*>(0x6cec78))) fmt(line, 0xe0d, (const char*)Company_Owner(co) + 8);
+                if (owner && owner == (uint32_t)Obj_Get21(g_world)) fmt(line, 0xe0d, (const char*)Company_Owner(co) + 8);
                 else if (F<uint32_t>(co, 0x3b)) fmt(line, 0xe0e, (const char*)Company_Owner(co) + 8);
                 else fmt(line, 0xe0f, nullptr);
                 strcat(text, line);
@@ -416,7 +417,7 @@ void __fastcall StockList_DrawRow(void*, uint32_t id, float x, float y, int32_t,
             float cx = (float)((double)x + C(k));
             Font_DrawTextBox(font, 0, num, cx, y, w, h, 0xffffffff, 3, 0, 0, 1.0f);
             int32_t wid = (k + 0x98) * 0x64 + (int32_t)id;
-            if (Widget_FindChild(hook::Global<uint8_t*>(0x6d19f0), 0, wid)) continue;
+            if (Widget_FindChild(g_6d19f0, 0, wid)) continue;
             uint8_t def[0x8b];
             memset(def, 0, sizeof def);
             F<float>(def, 0xb) = y;
@@ -427,12 +428,12 @@ void __fastcall StockList_DrawRow(void*, uint32_t id, float x, float y, int32_t,
             String_Assign(&F<char*>(def, 0x3f), text);
             uint8_t* tw = (uint8_t*)((void*(__cdecl*)(size_t))0x53b070)(0xda);
             tw = tw ? TimerWidget_Construct(tw, 0, def) : nullptr;
-            Window_AddChild(hook::Global<uint8_t*>(0x6d19f0), 0, tw, 0);
+            Window_AddChild(g_6d19f0, 0, tw, 0);
             Free(F<void*>(def, 0x3f));
             continue;
         }
         if (k == 3) {
-            if (Obj_Ref25(hook::Global<uint8_t*>(0x6cec78)) != p) continue;
+            if (Obj_Ref25(g_world) != p) continue;
             int32_t margin = 0;
             if (!Player_CanBuyShares(p, 0, id, 0, 1000)) {
                 margin = 1;
@@ -440,7 +441,7 @@ void __fastcall StockList_DrawRow(void*, uint32_t id, float x, float y, int32_t,
                 strcpy(num, GetString(0x285));
                 fmt(text, 0xf16, (const char*)co + 4);
             } else {
-                if (hook::Global<int32_t>(0x6d3c84) == 4) F<uint16_t>(num, 0) = 0x2b;
+                if (g_language == 4) F<uint16_t>(num, 0) = 0x2b;
                 else strcpy(num, GetString(0x287));
                 fmt(text, 0xf17, (const char*)co + 4);
             }
@@ -456,7 +457,7 @@ void __fastcall StockList_DrawRow(void*, uint32_t id, float x, float y, int32_t,
             }
             if (F<int32_t>(co, 0) < 0x20) *(int32_t*)(0x6d18d8 + F<int32_t>(co, 0) * 8) = amount;
         } else if (k == 4) {
-            if (Obj_Ref25(hook::Global<uint8_t*>(0x6cec78)) != p) continue;
+            if (Obj_Ref25(g_world) != p) continue;
             int32_t amount = 1000;
             if (F<int32_t>(p, 0x15d + id * 4) > 0) {
                 strcpy(num, GetString(0x289));
@@ -487,8 +488,8 @@ void __fastcall StockList_DrawRow(void*, uint32_t id, float x, float y, int32_t,
             }
             if (F<int32_t>(co, 0) < 0x20) *(int32_t*)(0x6d18dc + F<int32_t>(co, 0) * 8) = amount;
         } else {
-            int32_t sel = hook::Global<int32_t>(0x622b00);
-            if (sel != -1 && Table_NthIdField3f(hook::Global<Collection*>(0x62be10), 0, sel) == id) {
+            int32_t sel = g_622b00;
+            if (sel != -1 && Table_NthIdField3f(g_companies, 0, sel) == id) {
                 strcpy(num, GetString(0x28d));
                 fmt(text, 0x28e, nullptr);
             } else {
@@ -497,7 +498,7 @@ void __fastcall StockList_DrawRow(void*, uint32_t id, float x, float y, int32_t,
             }
         }
         float w = (float)((C(k + 1) - C(k)) - D(0x5d0250));
-        TextLink_Draw(hook::Global<uint8_t*>(0x6d19f0), font, num, (float)((double)x + C(k)), y, w, h, 3, 0, 1, text, (k + 0x98) * 0x64 + (int32_t)id, 0, 0);
+        TextLink_Draw(g_6d19f0, font, num, (float)((double)x + C(k)), y, w, h, 3, 0, 1, text, (k + 0x98) * 0x64 + (int32_t)id, 0, 0);
     }
 }
 RT3_REPLACE(0x50ae50, StockList_DrawRow);
@@ -506,13 +507,13 @@ RT3_REPLACE(0x50ae50, StockList_DrawRow);
 // its name with the owner (0xe10 the player's, 0xe11 another's) or 0xe12
 // without one.
 void __fastcall Stock_CompanyTooltipCb(void*, int, int32_t, int32_t) {
-    const int32_t idx = hook::Global<int32_t>(0x622b00);
-    if (idx < 0 || idx >= Table_CountField3f(hook::Global<Collection*>(0x62be10))) return;
-    uint8_t* c = (uint8_t*)Table_NthField3f(hook::Global<Collection*>(0x62be10), 0, hook::Global<int32_t>(0x622b00));
+    const int32_t idx = g_622b00;
+    if (idx < 0 || idx >= Table_CountField3f(g_companies)) return;
+    uint8_t* c = (uint8_t*)Table_NthField3f(g_companies, 0, g_622b00);
     if (!c) return;
     int32_t id;
     const char* owner = nullptr;
-    if (F<int32_t>(c, 0x3b) == Obj_Get21(hook::Global<uint8_t*>(0x6cec78))) {
+    if (F<int32_t>(c, 0x3b) == Obj_Get21(g_world)) {
         owner = (const char*)Company_Owner(c) + 8;
         id = 0xe10;
     } else if (F<int32_t>(c, 0x3b)) {
@@ -523,18 +524,18 @@ void __fastcall Stock_CompanyTooltipCb(void*, int, int32_t, int32_t) {
     }
     char text[0x1f4];
     FormatText(text, GetString(id), (const char*)(c + 4), owner, 0, 0, 0, 0, 0, 0);
-    Ui_ShowTooltip(hook::Global<uint8_t*>(0x6d401c), 0, text, 1, 1, -1);
+    Ui_ShowTooltip(g_windowManager, 0, text, 1, 1, -1);
 }
 RT3_REPLACE(0x50b910, Stock_CompanyTooltipCb);
 
 // 0x50ba00. Refills the company list 0x3a9a with the active companies (data their
 // id), re-selecting 0x622b00, with callbacks 0x50ae50 / 0x50a5e0.
 void __fastcall CompanyList_Refill(uint8_t* w) {
-    CompanyList_Select(w, 0, hook::Global<int32_t>(0x622b00));
+    CompanyList_Select(w, 0, g_622b00);
     Window_DeleteChildren(w, 0, 0x3b60, 0x3e7f, 0);
     Window_SendEvent5(w, 0, 0x8b, 0x3a9a, 0, 0, 0);
-    for (int32_t i = 0; i < Table_CountField3f(hook::Global<Collection*>(0x62be10)); ++i) {
-        uint8_t* c = (uint8_t*)Table_NthField3f(hook::Global<Collection*>(0x62be10), 0, i);
+    for (int32_t i = 0; i < Table_CountField3f(g_companies); ++i) {
+        uint8_t* c = (uint8_t*)Table_NthField3f(g_companies, 0, i);
         Window_SendEvent5(w, 0, 0x88, 0x3a9a, 0, F<uint32_t>(c, 0), 0);
     }
     Window_SendEvent5(w, 0, 0x7a, 0x3a9a, 0x50ae50, 0, 0);
@@ -548,15 +549,15 @@ RT3_REPLACE(0x50ba00, CompanyList_Refill);
 void __fastcall StockBuy_Destruct(uint8_t* w) {
     F<uint32_t>(w, 0) = 0x5d18f0;
     for (uint32_t g : { 0x6d19e0u, 0x6d19dcu, 0x6d19e4u, 0x6d19e8u, 0x6d19ecu, 0x6d19d8u })
-        Pack_Release(hook::Global<uint8_t*>(0x6d4020), 0, hook::Global<void*>(g));
-    for (int32_t i = 0; i < Collection_Count(F<Collection*>(hook::Global<uint8_t*>(0x6d4020), 0x429b4)); ++i) {
-        Collection* c = F<Collection*>(hook::Global<uint8_t*>(0x6d4020), 0x429b4);
+        Pack_Release(g_pack, 0, hook::Global<void*>(g));
+    for (int32_t i = 0; i < Collection_Count(F<Collection*>(g_pack, 0x429b4)); ++i) {
+        Collection* c = F<Collection*>(g_pack, 0x429b4);
         uint8_t* rec = (uint8_t*)Collection_Get(c, 0, Collection_IdAt(c, 0, (uint32_t)i, 0));
-        Pack_Release(hook::Global<uint8_t*>(0x6d4020), 0, rec + 0x20);
+        Pack_Release(g_pack, 0, rec + 0x20);
     }
-    Window_DeleteChildren(hook::Global<uint8_t*>(0x6d19f0), 0, 0x3b60, 0x3e7f, 0);
-    Window_DeleteChildren(hook::Global<uint8_t*>(0x6d19f0), 0, 0x3e4e, 0x3e7f, 0);
-    hook::Global<uint8_t*>(0x6d19f0) = nullptr;
+    Window_DeleteChildren(g_6d19f0, 0, 0x3b60, 0x3e7f, 0);
+    Window_DeleteChildren(g_6d19f0, 0, 0x3e4e, 0x3e7f, 0);
+    g_6d19f0 = nullptr;
     Widget_SetVtbl(w);
 }
 RT3_REPLACE(0x50bac0, StockBuy_Destruct);
@@ -574,7 +575,7 @@ RT3_REPLACE(0x50bac0, StockBuy_Destruct);
 // (0x61f057 + id). In a tutorial (0x6d3b4c) only the awaited purchase
 // (0x622b38, string 0xe03) and no sales (0xe8c) work.
 int32_t __fastcall StockWindow_HandleEvent(uint8_t* d, int, uint32_t* msg) {
-    uint8_t* p = (uint8_t*)Table_NthField4(hook::Global<Collection*>(0x6ceb9c), 0, hook::Global<int32_t>(0x6d19f4));
+    uint8_t* p = (uint8_t*)Table_NthField4(g_players, 0, g_6d19f4);
     const int32_t id = (int32_t)msg[1];
     if (msg[0] == 0xcb) {
         if (id == 0x3aa1) {
@@ -582,22 +583,22 @@ int32_t __fastcall StockWindow_HandleEvent(uint8_t* d, int, uint32_t* msg) {
             return 0;
         }
         if (id <= 0x3aa1 || id > 0x3aa3) return 1;
-        const int32_t pages = Table_CountField3f(hook::Global<Collection*>(0x62be10)) > 1 ? Table_CountField3f(hook::Global<Collection*>(0x62be10)) : 1;
-        const int32_t count = Table_CountField3f(hook::Global<Collection*>(0x62be10));
+        const int32_t pages = Table_CountField3f(g_companies) > 1 ? Table_CountField3f(g_companies) : 1;
+        const int32_t count = Table_CountField3f(g_companies);
         const int32_t step = id != 0x3aa2 ? 1 : -1;
-        hook::Global<int32_t>(0x622b00) = (step + hook::Global<int32_t>(0x622b00) + count) % pages;
+        g_622b00 = (step + g_622b00 + count) % pages;
         return 0;
     }
     if (msg[0] != 0xca) return 1;
     if (id >= 0x3c8c && id <= 0x3cef) {
         const int32_t co = id - 0x3c8c;
-        if (hook::Global<int32_t>(0x6d3b4c) && (co != Obj_Get21(hook::Global<uint8_t*>(0x6cec78)) || hook::Global<int32_t>(0x622b38) != id)) {
+        if (g_6d3b4c && (co != Obj_Get21(g_world) || hook::As<int32_t>(g_622b38) != id)) {
             Message494(0xe03, 1, 0x3ef5c28f, 0);
             return 0;
         }
         const int32_t margin = !Player_CanBuyShares(p, 0, (uint32_t)co, 0, 0x3e8) && Player_CanBuyShares(p, 0, (uint32_t)co, 1, 0x3e8);
-        if (!hook::Global<int32_t>(0x6d19fc) && margin) {
-            hook::Global<int32_t>(0x6d19fc) = 1;
+        if (!g_6d19fc && margin) {
+            g_6d19fc = 1;
             if (Message494(0x292, 3, 0xbf800000, 0x50a600) != 0x3f2) return 0;
         }
         if (IsMultiplayer()) {
@@ -611,14 +612,14 @@ int32_t __fastcall StockWindow_HandleEvent(uint8_t* d, int, uint32_t* msg) {
         return 0;
     }
     if (id >= 0x3cf0 && id <= 0x3d53) {
-        if (hook::Global<int32_t>(0x6d3b4c)) {
+        if (g_6d3b4c) {
             Message494(0xe8c, 1, 0x3ef5c28f, 0);
             return 0;
         }
         const int32_t co = id - 0x3cf0;
         const int32_t shortSale = F<int32_t>(p, 0x15d + co * 4) <= 0 && Player_CanSellShares(p, 0, (uint32_t)co, 1, 0x3e8, 0);
-        if (!hook::Global<int32_t>(0x6d19f8) && shortSale) {
-            hook::Global<int32_t>(0x6d19f8) = 1;
+        if (!g_6d19f8 && shortSale) {
+            g_6d19f8 = 1;
             if (Message494(0x293, 3, 0xbf800000, 0) != 0x3f2) return 0;
         }
         if (IsMultiplayer()) {
@@ -632,8 +633,8 @@ int32_t __fastcall StockWindow_HandleEvent(uint8_t* d, int, uint32_t* msg) {
         return 0;
     }
     if (id >= 0x3d54 && id <= 0x3db7) {
-        const int32_t rank = Table_LiveRankOf(hook::Global<Collection*>(0x62be10), 0, (uint32_t)(id - 0x3d54));
-        if (hook::Global<int32_t>(0x622b00) != rank && hook::Global<int32_t>(0x622b00) < Table_CountField3f(hook::Global<Collection*>(0x62be10))) {
+        const int32_t rank = Table_LiveRankOf(g_companies, 0, (uint32_t)(id - 0x3d54));
+        if (g_622b00 != rank && g_622b00 < Table_CountField3f(g_companies)) {
             Ui_PlaySound(0x1a, 0, 0x3f000000);
             CompanyList_Select(d, 0, rank);
             return 0;
@@ -643,14 +644,14 @@ int32_t __fastcall StockWindow_HandleEvent(uint8_t* d, int, uint32_t* msg) {
         return 0;
     }
     if (id >= 0x3afc && id <= 0x3b5f) {
-        hook::Global<int32_t>(0x6d19f4) = id - 0x3afc;
-        if (F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x68) && (F<uint8_t>(hook::Global<uint8_t*>(0x6d4018), 0xa8c) & 4)) {
-            F<int32_t>(Obj_Ref25(hook::Global<uint8_t*>(0x6cec78)), 0x1e1) = 0;
-            Obj_SetPlayer(hook::Global<uint8_t*>(0x6cec78), 0, Table_NthActive(hook::Global<Collection*>(0x6ceb9c), 0, hook::Global<int32_t>(0x6d19f4)));
-            F<int32_t>(Obj_Ref25(hook::Global<uint8_t*>(0x6cec78)), 0x1e1) = 1;
+        g_6d19f4 = id - 0x3afc;
+        if (F<int32_t>(g_app, 0x68) && (F<uint8_t>(g_input, 0xa8c) & 4)) {
+            F<int32_t>(Obj_Ref25(g_world), 0x1e1) = 0;
+            Obj_SetPlayer(g_world, 0, Table_NthActive(g_players, 0, g_6d19f4));
+            F<int32_t>(Obj_Ref25(g_world), 0x1e1) = 1;
         }
         Reset_625a94();
-        Window_DeleteChildren(hook::Global<uint8_t*>(0x6d19f0), 0, 0x3b60, 0x3e7f, 0);
+        Window_DeleteChildren(g_6d19f0, 0, 0x3b60, 0x3e7f, 0);
         return 0;
     }
     if (id >= 0x3aad && id < 0x3ab3) {

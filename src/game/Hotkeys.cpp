@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include "hook/hook.h"
+#include "core/globals.h"
 #include "game/collection.h"
 #include "core/crt.h"
 #include "game/calendar.h"
@@ -20,7 +21,6 @@ namespace rt3 {
 template <typename T> static inline T& F(void* o, uint32_t off) { return *(T*)((uint8_t*)o + off); }
 
   // industries/stations/houses
-static Collection*& g_table62ba88 = hook::Global<Collection*>(0x62ba88);
 
 int32_t Global6d07b4Set2();
 void __fastcall SceneObj_SetUvTransform(uint8_t* o, int, float u, float v, float su, float sv);
@@ -388,9 +388,9 @@ static int32_t ObjFogEnd(void* o) {
     return Map_FogEnd(cellX, cellY);
 }
 
-static inline uint8_t* World() { return hook::Global<uint8_t*>(0x6cec78); }
+static inline uint8_t* World() { return g_world; }
 
-static inline uint8_t* Snd() { return hook::Global<uint8_t*>(0x6d402c); }
+static inline uint8_t* Snd() { return g_sound; }
 
 static inline float FromBits(uint32_t u) { return *(float*)&u; }
 
@@ -465,7 +465,7 @@ static void __cdecl Models_UnlinkImpl(uint8_t* m, int32_t recycle) {
         if (m == F<uint8_t*>(b, 4)) F<uint8_t*>(b, 4) = prev;
     }
     if (recycle != 1) return;
-    uint8_t* pool = hook::Global<uint8_t*>(0x6acd6c);
+    uint8_t* pool = g_6acd6c;
     if (F<int32_t>(pool, 0xc) && m >= F<uint8_t*>(pool, 4) && m < F<uint8_t*>(pool, 8)) {
         uint8_t* list = F<uint8_t*>(pool, 0);
         F<uint8_t*>(m, 0) = F<uint8_t*>(list, 0);
@@ -502,8 +502,8 @@ static inline void* ExeNew(size_t n) { return ((void*(__cdecl*)(size_t))0x53b070
 // part list (+0xc -> +0x75), then the scene object itself and its buffers.
 RT3_NOINLINE void __fastcall Vehicle_Teardown(uint8_t* o) {
     if (F<uint32_t>(o, 0x346)) {
-        if (Sound_LookupSample(hook::Global<uint8_t*>(0x6d402c), 0, F<uint32_t>(o, 0x346), 1))
-            Sound_Stop(hook::Global<uint8_t*>(0x6d402c), 0, F<uint32_t>(o, 0x346), 1);
+        if (Sound_LookupSample(g_sound, 0, F<uint32_t>(o, 0x346), 1))
+            Sound_Stop(g_sound, 0, F<uint32_t>(o, 0x346), 1);
         F<uint32_t>(o, 0x346) = 0;
     }
     F<uint32_t>(o, 0x336) = 0;
@@ -559,8 +559,8 @@ RT3_NOINLINE int32_t __fastcall Car_Load(uint8_t* c, int, int32_t s, char* texSe
     total += StreamReadString(s, &tex);
     if (*texSet) {
         bool found = false;
-        for (int32_t i = 0; i < Collection_Count(F<Collection*>(hook::Global<uint8_t*>(0x6d4020), 0x429b8)); ++i) {
-            Collection* t = F<Collection*>(hook::Global<uint8_t*>(0x6d4020), 0x429b8);
+        for (int32_t i = 0; i < Collection_Count(F<Collection*>(g_pack, 0x429b8)); ++i) {
+            Collection* t = F<Collection*>(g_pack, 0x429b8);
             if (!Stricmp((const char*)Collection_Get(t, 0, Collection_IdAt(t, 0, (uint32_t)i, 0)), name)) {
                 found = true;
                 break;
@@ -573,10 +573,10 @@ RT3_NOINLINE int32_t __fastcall Car_Load(uint8_t* c, int, int32_t s, char* texSe
     }
     Car_LoadModel(c, 0, model, tex, 1.0f, 1.0f, 1);
     for (uint32_t k = 0x10; k < 0x30; k += 4)
-        if (uint8_t* e = F<uint8_t*>(F<uint8_t*>(c, 0x316), k)) Clear_d939a0(hook::Global<void*>(0x6d4030), 0, (int32_t)(uintptr_t)e, s);
+        if (uint8_t* e = F<uint8_t*>(F<uint8_t*>(c, 0x316), k)) Clear_d939a0(hook::As<void*>(g_models), 0, (int32_t)(uintptr_t)e, s);
     FreeAndNull2((void**)&model);
     FreeAndNull2((void**)&tex);
-    bool old = F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x46c34) <= 0x2585;
+    bool old = F<int32_t>(g_world, 0x46c34) <= 0x2585;
     if (!old) {
         total += StreamSkip4(s, 0x61b2, 0, 0);
         int32_t count = 0, saved;
@@ -652,7 +652,7 @@ RT3_NOINLINE uint32_t __fastcall Effects_SpawnForModel(uint8_t* parent, int, con
     if (strstrFn(prefix, (const char*)0x5cb7f8)) flags &= 0xffffffef;
     uint8_t* rec = Emitters_NextFile(prefix, 1);
     while (rec && count) {
-        if (F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x46c3c)) flags |= 0x10000;
+        if (F<int32_t>(g_world, 0x46c3c)) flags |= 0x10000;
         uint8_t* e = Effect_Spawn((const char*)rec + 4, parent, F<uint8_t*>(rec, 0), flags, scale);
         if (e) {
             --count;
@@ -670,7 +670,7 @@ RT3_REPLACE(0x45e940, Effects_SpawnForModel);
 // 0x45ea20. Plays interface sound id (2..64, table 0x5f0828 {volume, name}) at pan,
 // unless muted (0xccba14).
 RT3_NOINLINE void __fastcall Ui_PlaySound(int32_t id, int, uint32_t pan) {
-    if (id <= 1 || hook::Global<int32_t>(0xccba14) || id <= 0 || id >= 0x41) return;
+    if (id <= 1 || g_ccba14 || id <= 0 || id >= 0x41) return;
     const uint32_t* e = (const uint32_t*)(0x5f0828 + id * 8);
     Sound_Play2D(Snd(), 0, (const char*)e[1], FromBits(e[0]), pan, 0, 0, nullptr);
 }
@@ -822,7 +822,7 @@ RT3_NOINLINE int32_t __cdecl Models_AddCopyImpl(int32_t slot, int32_t key, const
     if (slot != 0xff && !LookupSingleFlag(slot, key)) return 0;
     uint8_t* src = Models_FindByNameImpl(name);
     if (!src) return 0;
-    uint8_t* pool = hook::Global<uint8_t*>(0x6acd6c);
+    uint8_t* pool = g_6acd6c;
     uint8_t* m;
     if (F<int32_t>(pool, 0xc)) {
         uint8_t* list = F<uint8_t*>(pool, 0);
@@ -849,10 +849,10 @@ RT3_NOINLINE int32_t __cdecl Models_AddCopyImpl(int32_t slot, int32_t key, const
             if (F<int32_t>(o, 0x94) != key) continue;
             Models_UnlinkImpl(o, 0);
             F<int32_t>(o, 0xc) = 0xff;
-            F<uint8_t*>(o, 0) = hook::Global<uint8_t*>(0x6ad96c);
-            ++hook::Global<int32_t>(0x6ad974);
-            hook::Global<uint8_t*>(0x6ad96c) = o;
-            if (!hook::Global<uint8_t*>(0x6ad970)) hook::Global<uint8_t*>(0x6ad970) = o;
+            F<uint8_t*>(o, 0) = g_6ad96c;
+            ++g_6ad974;
+            g_6ad96c = o;
+            if (!g_6ad970) g_6ad970 = o;
             break;
         }
     }
@@ -895,8 +895,8 @@ int32_t __fastcall Records_Dispatch(uint8_t* r) {
         variant = ((v & 3) != 0 ? 1u : 0u) | (v >> 4 & 2) | (v & 4);
         if (((id >= 0x21 && id <= 0x24) || (id >= 0x2c && id <= 0x2e)) && variant == 1) variant = 0;
         if (variant != F<uint32_t>(n, 0x94)) continue;
-        if (!F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x28f) && F<int32_t>(n, 4)) continue;
-        if (hook::Global<int32_t>(0x6d3b4c) && !F<int32_t>(n, 8)) continue;
+        if (!F<int32_t>(g_app, 0x28f) && F<int32_t>(n, 4)) continue;
+        if (g_6d3b4c && !F<int32_t>(n, 8)) continue;
         void* fn = F<void*>(n, 0xa0);
         if (!fn) return 1;
         return ((int32_t(__fastcall*)(uint8_t*))fn)(r);
@@ -910,31 +910,31 @@ RT3_REPLACE(0x45f140, Records_Dispatch);
 // the static record 0x6ad978 (returned); null at the end, which also resets the
 // walk (0x5f0fe0, heap 0x6acd74).
 RT3_NOINLINE uint8_t* Models_NextInOrder() {
-    if (hook::Global<int32_t>(0x5f0fe0) == 1) {
-        hook::Global<int32_t>(0x5f0fe0) = 0;
+    if (g_5f0fe0 == 1) {
+        g_5f0fe0 = 0;
         uint32_t* h = (uint32_t*)ExeNew(0x1c);
         if (h) h[0] = h[1] = h[2] = h[3] = 0;
-        hook::Global<void*>(0x6acd74) = h;
+        hook::As<void*>(g_6acd74) = h;
         Heap_Init((MaxHeap*)h, 0, 0x400);
         for (uint32_t b = 0x6acd78; b <= 0x6ad96c; b += 0xc)
             for (uint8_t* m = *(uint8_t**)b; m; m = F<uint8_t*>(m, 0))
-                if (F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x28f) || !F<int32_t>(m, 4))
-                    Heap_Push(hook::Global<MaxHeap*>(0x6acd74), 0, 0x7ffffffe - F<int32_t>(m, 0x9c), (int32_t)(uintptr_t)m);
+                if (F<int32_t>(g_app, 0x28f) || !F<int32_t>(m, 4))
+                    Heap_Push(g_6acd74, 0, 0x7ffffffe - F<int32_t>(m, 0x9c), (int32_t)(uintptr_t)m);
     }
-    uint8_t* m = (uint8_t*)(uintptr_t)Heap_PopMax(hook::Global<MaxHeap*>(0x6acd74));
+    uint8_t* m = (uint8_t*)(uintptr_t)Heap_PopMax(g_6acd74);
     if (m) {
         Record_DisplayNameImpl((char*)0x6ad980, m);
         strcpy((char*)0x6ada00, (const char*)m + 0x10);
-        hook::Global<int32_t>(0x6ad978) = F<int32_t>(m, 4);
-        hook::Global<int32_t>(0x6ad97c) = F<int32_t>(m, 8);
+        g_6ad978 = F<int32_t>(m, 4);
+        g_6ad97c = F<int32_t>(m, 8);
         return (uint8_t*)0x6ad978;
     }
-    if (MaxHeap* h = hook::Global<MaxHeap*>(0x6acd74)) {
+    if (MaxHeap* h = g_6acd74) {
         Heap_Destroy2(h);
         ExeDelete(h);
     }
-    hook::Global<void*>(0x6acd74) = nullptr;
-    hook::Global<int32_t>(0x5f0fe0) = 1;
+    hook::As<void*>(g_6acd74) = nullptr;
+    g_5f0fe0 = 1;
     return nullptr;
 }
 RT3_REPLACE(0x45f250, Models_NextInOrder);
@@ -1036,7 +1036,7 @@ RT3_REPLACE(0x45f550, Hotkeys_Save);
 // and an existing entry for it moves to bucket 0xff first. Returns 1.
 RT3_NOINLINE uint32_t __fastcall Models_Add(int32_t a, int32_t b, uint32_t key, uint32_t sub, uint32_t v, int32_t value, const char* name, int32_t id, uint32_t key2,
                                uint32_t sub2, uint32_t key1, uint32_t sub1, uint32_t key3, uint32_t sub3, uint32_t key4, uint32_t sub4) {
-    int32_t mode = hook::Global<int32_t>(0x6d3c84);
+    int32_t mode = g_language;
     uint32_t k = 0, s = 0;
     if (mode == 2) k = key2, s = sub2;
     else if (mode == 1) k = key1, s = sub1;
@@ -1052,7 +1052,7 @@ RT3_NOINLINE uint32_t __fastcall Models_Add(int32_t a, int32_t b, uint32_t key, 
                 break;
             }
     }
-    uint8_t* pool = hook::Global<uint8_t*>(0x6acd6c);
+    uint8_t* pool = g_6acd6c;
     uint8_t* m;
     if (F<int32_t>(pool, 0xc)) {
         uint8_t* list = F<uint8_t*>(pool, 0);
@@ -1072,7 +1072,7 @@ RT3_NOINLINE uint32_t __fastcall Models_Add(int32_t a, int32_t b, uint32_t key, 
     F<uint32_t>(m, 0x98) = v;
     F<int32_t>(m, 0xa0) = value;
     F<int32_t>(m, 0x9c) = id;
-    if (id == -1) F<int32_t>(m, 0x9c) = hook::Global<int32_t>(0x6acd68)++;
+    if (id == -1) F<int32_t>(m, 0x9c) = g_6acd68++;
     ((char*(__cdecl*)(char*, const char*, size_t))0x5a18a0)((char*)m + 0x10, name, 0x7f);
     m[0x8f] = 0;
     uint8_t* bucket = buckets + k * 0xc;
@@ -1082,8 +1082,8 @@ RT3_NOINLINE uint32_t __fastcall Models_Add(int32_t a, int32_t b, uint32_t key, 
     if (!F<uint8_t*>(bucket, 4)) F<uint8_t*>(bucket, 4) = m;
     uint32_t h = Crc32String((const char*)m + 0x10, 1);
     F<uint32_t>(m, 0x90) = h;
-    if (Hash_Contains(hook::Global<HashMap*>(0x6acd70), 0, h) == 1) Hash_Remove(hook::Global<HashMap*>(0x6acd70), 0, h);
-    Hash_Insert(hook::Global<HashMap*>(0x6acd70), 0, h, value);
+    if (Hash_Contains(g_6acd70, 0, h) == 1) Hash_Remove(g_6acd70, 0, h);
+    Hash_Insert(g_6acd70, 0, h, value);
     return 1;
 }
 RT3_REPLACE(0x45f6d0, Models_Add);
@@ -1120,7 +1120,7 @@ RT3_NOINLINE uint32_t __fastcall Models_Move(uint32_t key, uint32_t sub) {
             }
     }
     if (unlinked) {
-        uint8_t* pool = hook::Global<uint8_t*>(0x6acd6c);
+        uint8_t* pool = g_6acd6c;
         if (F<int32_t>(pool, 0xc) && m >= F<uint8_t*>(pool, 4) && m < F<uint8_t*>(pool, 8)) {
             uint8_t* list = F<uint8_t*>(pool, 0);
             F<uint8_t*>(m, 0) = F<uint8_t*>(list, 0);
@@ -1148,28 +1148,28 @@ RT3_REPLACE(0x45f9e0, Hotkeys_RegisterDefaults);
 // are saved first (0x5cbc84), then the pool (its block +4), the name map 0x6acd70,
 // the buckets 0x6acd78..0x6ad977 and the list-order heap 0x6acd74 are released.
 RT3_NOINLINE void Models_Shutdown() {
-    if (hook::Global<uint8_t*>(0x6acd6c)) {
+    if (g_6acd6c) {
         Hotkeys_Save((const char*)0x5cbc84);
-        if (uint8_t* pool = hook::Global<uint8_t*>(0x6acd6c)) {
+        if (uint8_t* pool = g_6acd6c) {
             if (void* b = F<void*>(pool, 4)) ((void(__cdecl*)(void*))0x5a1145)(b);
-            pool = hook::Global<uint8_t*>(0x6acd6c);
+            pool = g_6acd6c;
             if (pool) {
                 Pool_Free((NodePool*)pool);
                 ExeDelete(pool);
             }
-            hook::Global<uint8_t*>(0x6acd6c) = nullptr;
+            g_6acd6c = nullptr;
         }
     }
-    if (HashMap* m = hook::Global<HashMap*>(0x6acd70)) {
+    if (HashMap* m = g_6acd70) {
         Hash_DestroyThunk(m);
         ExeDelete(m);
-        hook::Global<HashMap*>(0x6acd70) = nullptr;
+        g_6acd70 = nullptr;
     }
     for (uint32_t b = 0x6acd78; b <= 0x6ad96c; b += 0xc) memset((void*)b, 0, 0xc);
-    if (MaxHeap* h = hook::Global<MaxHeap*>(0x6acd74)) {
+    if (MaxHeap* h = g_6acd74) {
         Heap_Destroy2(h);
         ExeDelete(h);
-        hook::Global<MaxHeap*>(0x6acd74) = nullptr;
+        g_6acd74 = nullptr;
     }
 }
 RT3_REPLACE(0x461070, Models_Shutdown);
@@ -1179,16 +1179,16 @@ RT3_REPLACE(0x461070, Models_Shutdown);
 // registers the defaults; load == 1 then reads hotkeys\hotkeys.txt.
 RT3_NOINLINE void __fastcall Hotkeys_Init(int32_t load) {
     Models_Shutdown();
-    hook::Global<int32_t>(0x6acd68) = 0;
+    g_6acd68 = 0;
     uint8_t* p = (uint8_t*)((void*(__cdecl*)(size_t))0x53b070)(0x1c);
     if (p) memset(p, 0, 0x1c);
-    hook::Global<uint8_t*>(0x6acd6c) = p;
+    g_6acd6c = p;
     void* buf = Malloc(0x29000);
     memset(buf, 0, 0x29000);
-    Pool_Init(hook::Global<NodePool*>(0x6acd6c), 0, buf, 0xa4, 0x400, 0);
+    Pool_Init(hook::As<NodePool*>(g_6acd6c), 0, buf, 0xa4, 0x400, 0);
     uint8_t* h = (uint8_t*)((void*(__cdecl*)(size_t))0x53b070)(0x14);
     if (h) memset(h, 0, 0x14);
-    hook::Global<uint8_t*>(0x6acd70) = h;
+    hook::As<uint8_t*>(g_6acd70) = h;
     Hash_Init((HashMap*)h, 0, 0x65, 0x400);
     Hotkeys_RegisterDefaults();
     if (load == 1) Hotkeys_LoadFile((const char*)0x5cbc84);
@@ -1225,7 +1225,7 @@ RT3_NOINLINE void __fastcall Marker_Init(uint8_t* o, int, uint32_t id, uint32_t 
     o[0x23e] = (uint8_t)bodied;
     char name[9];
     const uint8_t* src = (const uint8_t*)0x5cbd0c;
-    if (bodied && NameTable_ContainsName(hook::Global<uint8_t*>(0x6d4020), 0, (const char*)0x5cbd24, 0, nullptr)) src = (const uint8_t*)0x5cbd18;
+    if (bodied && NameTable_ContainsName(g_pack, 0, (const char*)0x5cbd24, 0, nullptr)) src = (const uint8_t*)0x5cbd18;
     memcpy(name, src, 9);
     WorldModel_Init(o, 0, name, nullptr, nullptr, x, y, 0);
     SceneObj_Register(o);
@@ -1256,7 +1256,7 @@ RT3_REPLACE(0x461330, Obj_SelectWithMessage);
 void Tooltip_Show1b2() {
     char text[0x130];
     ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)(text, GetString(0x1b2));
-    Ui_ShowTooltip(hook::Global<uint8_t*>(0x6d401c), 0, text, 3, 0, -1);
+    Ui_ShowTooltip(g_windowManager, 0, text, 3, 0, -1);
 }
 RT3_REPLACE(0x461380, Tooltip_Show1b2);
 
@@ -1271,10 +1271,10 @@ RT3_REPLACE(0x4613c0, Nop4613c0);
 // scale -1.5 (0.5 with +0x23e); else the scene object's.
 // QUIRK: the text is used as the sprintf format.
 int32_t __fastcall Scenery_Tooltip(uint8_t* o, int, char* out, int32_t n, uint32_t* color, float* scale, int32_t a5) {
-    if (hook::Global<int32_t>(0x62be84)) return 0;
+    if (g_62be84) return 0;
     const int32_t y = Ftol(Obj_CellY(o));
     const int32_t x = Ftol(Obj_CellX(o));
-    const int32_t a = Camera_FogAlpha(hook::Global<uint8_t*>(0x62be68), 0, x, y);
+    const int32_t a = Camera_FogAlpha(g_62be68, 0, x, y);
     if (!a) return SceneObj_DebugTooltip(o, 0, out, n, (int32_t)(uintptr_t)color, (int32_t)(uintptr_t)scale, a5);
     *color = 0xffffffaf;
     if ((uint32_t)a < 0xff) *color = (uint32_t)a << 24 | 0xffffaf;
@@ -1363,7 +1363,7 @@ RT3_NOINLINE void __fastcall Names_ApplyRegionVariants(Collection* c, int, char*
     if (!Stricmp(key, (const char*)0x5ce05c) || !Stricmp(key, (const char*)0x5ce050))
         memcpy(key, (const void*)0x5cc9d8, 6);
     int32_t col;
-    switch (hook::Global<int32_t>(0x6d3c84)) {
+    switch (g_language) {
     case 2: col = 2; break;
     case 1: col = 3; break;
     case 3: col = 4; break;
@@ -1420,11 +1420,11 @@ uint32_t __fastcall Table_AddWith62ba88Refs(Collection* t, int, uint8_t* rec, ui
     char frame[0x138];
     char* msg = frame + 0xc;
     bool found = false;
-    for (int32_t i = 0; i < Collection_Count(hook::Global<Collection*>(0x62ba88)); ++i) {
-        Collection* refs = hook::Global<Collection*>(0x62ba88);
+    for (int32_t i = 0; i < Collection_Count(g_carTypes); ++i) {
+        Collection* refs = g_carTypes;
         main = (uint8_t*)Collection_Get(refs, 0, Collection_IdAt(refs, 0, (uint32_t)i, 0));
         if (Stricmp((const char*)rec + 0x34, (const char*)main + 0x82)) continue;
-        F<uint32_t>(rec, 0x72) = Collection_IdAt(hook::Global<Collection*>(0x62ba88), 0, (uint32_t)i, 0);
+        F<uint32_t>(rec, 0x72) = Collection_IdAt(g_carTypes, 0, (uint32_t)i, 0);
         found = true;
         break;
     }
@@ -1437,11 +1437,11 @@ uint32_t __fastcall Table_AddWith62ba88Refs(Collection* t, int, uint8_t* rec, ui
     rec[0x7a] = 0;
     if (strlen(second)) {
         found = false;
-        for (int32_t i = 0; i < Collection_Count(hook::Global<Collection*>(0x62ba88)); ++i) {
-            Collection* refs = hook::Global<Collection*>(0x62ba88);
+        for (int32_t i = 0; i < Collection_Count(g_carTypes); ++i) {
+            Collection* refs = g_carTypes;
             uint8_t* e = (uint8_t*)Collection_Get(refs, 0, Collection_IdAt(refs, 0, (uint32_t)i, 0));
             if (Stricmp(second, (const char*)e + 0x82)) continue;
-            F<uint32_t>(rec, 0x76) = Collection_IdAt(hook::Global<Collection*>(0x62ba88), 0, (uint32_t)i, 0);
+            F<uint32_t>(rec, 0x76) = Collection_IdAt(g_carTypes, 0, (uint32_t)i, 0);
             rec[0x7a] = 1;
             found = true;
             break;
@@ -1473,7 +1473,7 @@ RT3_REPLACE(0x461c00, Table_FindByAltName);
 RT3_NOINLINE void* __fastcall Obj_Ref72Plus45(void* o) {
     uint32_t id = F<uint32_t>(o, 0x72);
     if (!id) return nullptr;
-    uint8_t* r = (uint8_t*)Collection_Get(g_table62ba88, 0, id);
+    uint8_t* r = (uint8_t*)Collection_Get(g_carTypes, 0, id);
     return r ? r + 0x45 : nullptr;
 }
 RT3_REPLACE(0x461c80, Obj_Ref72Plus45);
@@ -1482,7 +1482,7 @@ RT3_REPLACE(0x461c80, Obj_Ref72Plus45);
 RT3_NOINLINE uint32_t __fastcall Obj_RefName72(void* o) {
     uint32_t id = F<uint32_t>(o, 0x72);
     if (!id) return 0;
-    uint8_t* r = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba88), 0, id);
+    uint8_t* r = (uint8_t*)Collection_Get(g_carTypes, 0, id);
     if (!r) return 0;
     return ((uint32_t(__fastcall*)(void*, int))0x51c920)(r + 0x45, 0);
 }
@@ -1498,14 +1498,14 @@ RT3_NOINLINE uint32_t __fastcall EngineTypes_PickForYear(Collection* c) {
         uint8_t* e = (uint8_t*)Collection_Get(c, 0, Collection_IdAt(c, 0, i, 0));
         if (F<int32_t>(e, 0x10) == 2) continue;
         auto ct = [&]() -> uint8_t* {
-            return F<uint32_t>(e, 0x72) ? (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba88), 0, F<uint32_t>(e, 0x72))
+            return F<uint32_t>(e, 0x72) ? (uint8_t*)Collection_Get(g_carTypes, 0, F<uint32_t>(e, 0x72))
                                         : nullptr;
         };
         int32_t intro = F<int32_t>(ct(), 0x105);
-        int32_t year = F<uint16_t>(hook::Global<uint8_t*>(0x6cec78), 0xd);
+        int32_t year = F<uint16_t>(g_world, 0xd);
         int32_t score = abs(year - intro);
         if (intro > year) score += 0x1f4;
-        if (F<int32_t>(ct(), 0x109) < (int32_t)F<uint16_t>(hook::Global<uint8_t*>(0x6cec78), 0xd)) score += 0x32;
+        if (F<int32_t>(ct(), 0x109) < (int32_t)F<uint16_t>(g_world, 0xd)) score += 0x32;
         if (!CarType_Available(ct(), 0, 0, 0)) score += 0x7d0;
         if (score < best) {
             best = score;
@@ -1522,21 +1522,21 @@ RT3_REPLACE(0x461cd0, EngineTypes_PickForYear);
 // (+0x7b). Guarded against re-entry (0x6ada88); ends with the speed scale
 // update.
 RT3_NOINLINE void __fastcall Table_RefreshNamedFlags(Collection* t) {
-    if (!hook::Global<uint8_t*>(0x6cec78) || hook::Global<int32_t>(0x6ada88)) return;
-    hook::Global<int32_t>(0x6ada88) = 1;
+    if (!g_world || g_6ada88) return;
+    g_6ada88 = 1;
     auto typeName = [](uint8_t* r) -> const char* {
         if (!F<uint32_t>(r, 0x72)) return nullptr;
-        uint8_t* ty = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba88), 0, F<uint32_t>(r, 0x72));
+        uint8_t* ty = (uint8_t*)Collection_Get(g_carTypes, 0, F<uint32_t>(r, 0x72));
         return ty ? (const char*)ty + 0x45 : nullptr;
     };
     for (int32_t i = 0; i < Collection_Count(t); ++i) {
         uint8_t* r = (uint8_t*)Collection_Get(t, 0, Collection_IdAt(t, 0, (uint32_t)i, 0));
-        uint8_t* w = hook::Global<uint8_t*>(0x6cec78);
-        if ((r[0x30] && w[0x4c97]) || (r[0x31] && w[0x4c98]) || (r[0x32] && w[0x4c99])) World_SetNamedFlag(hook::Global<uint8_t*>(0x6cec78), 0, typeName(r), 1);
-        F<int32_t>(r, 0x7b) = World_LookupNamed2(hook::Global<uint8_t*>(0x6cec78), 0, typeName(r));
+        uint8_t* w = g_world;
+        if ((r[0x30] && w[0x4c97]) || (r[0x31] && w[0x4c98]) || (r[0x32] && w[0x4c99])) World_SetNamedFlag(g_world, 0, typeName(r), 1);
+        F<int32_t>(r, 0x7b) = World_LookupNamed2(g_world, 0, typeName(r));
     }
-    --hook::Global<int32_t>(0x6ada88);
-    World_UpdateSpeedScale(hook::Global<uint8_t*>(0x6cec78));
+    --g_6ada88;
+    World_UpdateSpeedScale(g_world);
 }
 RT3_REPLACE(0x461e00, Table_RefreshNamedFlags);
 
@@ -1609,8 +1609,8 @@ RT3_NOINLINE void __fastcall EngineTypes_Load(Collection* t) {
                 if (F<int32_t>(r, 0x87) < 0 || F<int32_t>(r, 0x87) >= 10) F<int32_t>(r, 0x87) = 0;
             }
             r[0x53] = 0;
-            for (int32_t i = 0; i < Collection_Count(hook::Global<Collection*>(0x62ba88)); ++i) {
-                Collection* c = hook::Global<Collection*>(0x62ba88);
+            for (int32_t i = 0; i < Collection_Count(g_carTypes); ++i) {
+                Collection* c = g_carTypes;
                 uint8_t* e = (uint8_t*)Collection_Get(c, 0, Collection_IdAt(c, 0, (uint32_t)i, 0));
                 if (F<int32_t>(e, 0x41) != 3) continue;
                 const char* n = (const char*)e + 0x82;
@@ -1622,15 +1622,15 @@ RT3_NOINLINE void __fastcall EngineTypes_Load(Collection* t) {
                 strcpy((char*)r + 0x53, n);
                 break;
             }
-            for (int32_t i = 0; i < Collection_Count(hook::Global<Collection*>(0x62ba88)); ++i) {
-                Collection* c = hook::Global<Collection*>(0x62ba88);
+            for (int32_t i = 0; i < Collection_Count(g_carTypes); ++i) {
+                Collection* c = g_carTypes;
                 uint8_t* e = (uint8_t*)Collection_Get(c, 0, Collection_IdAt(c, 0, (uint32_t)i, 0));
                 if (Stricmp((const char*)r + 0x34, (const char*)e + 0x82)) continue;
                 F<float>(r, 0x7f) = (float)((double)F<float>(r, 0x7f) + F<float>(e, 0xfd));
                 F<float>(r, 0x24) = (float)((double)F<float>(r, 0x24) + F<float>(e, 0xfd));
                 break;
             }
-            if (!hook::Global<uint8_t*>(0x6cec78) || !IsMultiplayer() || !special) {
+            if (!g_world || !IsMultiplayer() || !special) {
                 uint32_t id = ((uint32_t(__fastcall*)(Collection*, int, void*, int32_t, int32_t, int32_t))(*(void***)t)[1])(t, 0, r, 0, 0, 0);
                 Collection_Get(t, 0, id);
                 if (id <= 100) {
@@ -1638,7 +1638,7 @@ RT3_NOINLINE void __fastcall EngineTypes_Load(Collection* t) {
                     for (int32_t k = 0; k < 2; ++k) {
                         const char* name = nullptr;
                         if (uint32_t c = F<uint32_t>(r, 0x72))
-                            if (uint8_t* e = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba88), 0, c)) name = (const char*)e + 0x45;
+                            if (uint8_t* e = (uint8_t*)Collection_Get(g_carTypes, 0, c)) name = (const char*)e + 0x45;
                         FormatText(text, GetString(k ? 0x1b4 : 0x1b3), name, 0, 0, 0, 0, 0, 0, 0);
                         uint8_t* slot = (uint8_t*)(uintptr_t)((k ? 0x619ae0 : 0x616f7a) + id * 0x6e);
                         StrCopyN((char*)slot, text, 0x46);

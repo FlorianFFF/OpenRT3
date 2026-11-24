@@ -6,6 +6,7 @@
 #include <string.h>
 #include <math.h>
 #include "hook/hook.h"
+#include "core/globals.h"
 #include "hook/keepregs.h"
 #include "game/collection.h"
 #include "core/crt.h"
@@ -191,7 +192,7 @@ static inline float BitsF(uint32_t b) { return *(float*)&b; }
 // v: labels it with the number, stores the channel (0x6d1300..), the RGB
 // colour (+0x80) and shows it on the swatch 0x296a.
 void __fastcall ColourDialog_SliderCb(uint8_t* w, int32_t v) {
-    if (!hook::Global<uint8_t*>(0x6d1334)) return;
+    if (!g_6d1334) return;
     char frame[0x90];
     char* num = frame;
     char* text = frame + 0x10;
@@ -200,25 +201,25 @@ void __fastcall ColourDialog_SliderCb(uint8_t* w, int32_t v) {
     const int32_t str = id == 0x294c ? 0xdf : id == 0x294e ? 0xe0 : 0xe1;
     FormatText(text, GetString(str), num, 0, 0, 0, 0, 0, 0, 0);
     *(uint8_t*)(0x6d1300 + ((int32_t)F<uint16_t>(w, 4) - 0x294c) / 2) = (uint8_t)v;
-    const uint32_t rgb = ((uint32_t)hook::Global<uint8_t>(0x6d1300) << 16) | ((uint32_t)hook::Global<uint8_t>(0x6d1301) << 8) | hook::Global<uint8_t>(0x6d1302);
-    F<uint32_t>(hook::Global<uint8_t*>(0x6d1334), 0x80) = rgb;
-    Window_SendEvent5(hook::Global<uint8_t*>(0x6d1334), 0, 0x6f, (uint32_t)F<uint16_t>(w, 4) - 1, (uint32_t)(uintptr_t)text, 0, 0);
-    Window_SendEvent5(hook::Global<uint8_t*>(0x6d1334), 0, 0xa8, 0x296a, F<uint32_t>(hook::Global<uint8_t*>(0x6d1334), 0x80) | 0xff000000, 0, 0);
+    const uint32_t rgb = ((uint32_t)g_6d1300 << 16) | ((uint32_t)g_6d1301 << 8) | g_6d1302;
+    F<uint32_t>(g_6d1334, 0x80) = rgb;
+    Window_SendEvent5(g_6d1334, 0, 0x6f, (uint32_t)F<uint16_t>(w, 4) - 1, (uint32_t)(uintptr_t)text, 0, 0);
+    Window_SendEvent5(g_6d1334, 0, 0xa8, 0x296a, F<uint32_t>(g_6d1334, 0x80) | 0xff000000, 0, 0);
 }
 RT3_REPLACE(0x4f6070, ColourDialog_SliderCb);
 
 // 0x4f61c0 (slider callback). Map editor brush strength v + 1 (dialog
 // +0xc4, 0x62275c) shown with string 0xe2 on label 0x290c.
 void __fastcall MapEditor_SetStrengthCb(void*, int32_t v) {
-    uint8_t* dlg = hook::Global<uint8_t*>(0x6d1334);
+    uint8_t* dlg = g_6d1334;
     if (!dlg) return;
     const int32_t n = v + 1;
     F<int32_t>(dlg, 0xc4) = n;
-    hook::Global<int32_t>(0x62275c) = n;
+    g_62275c = n;
     char num[0x40], text[0x190];
     const char* s = Num_Format(num, 1, (double)n, 10, 1, 0, 0);
     FormatText(text, GetString(0xe2), s, 0, 0, 0, 0, 0, 0, 0);
-    Window_SendEvent5(hook::Global<uint8_t*>(0x6d1334), 0, 0x6f, 0x290c, (uint32_t)(uintptr_t)text, 0, 0);
+    Window_SendEvent5(g_6d1334, 0, 0x6f, 0x290c, (uint32_t)(uintptr_t)text, 0, 0);
 }
 RT3_REPLACE(0x4f61c0, MapEditor_SetStrengthCb);
 
@@ -234,10 +235,10 @@ RT3_NOINLINE void __fastcall MapEditor_ShowPageMode(uint8_t* w, int, int32_t clo
     else if (page == 7) mode = 0x1d;
     else if (Screen_IsMode5_2(w)) mode = 0x1c;
     if (mode) {
-        Overview_SetMode(hook::Global<uint8_t*>(0x62c120), 0, mode, 0, 0, 0, nullptr, 0, 0, 99999, 99999);
+        Overview_SetMode(g_map, 0, mode, 0, 0, 0, nullptr, 0, 0, 99999, 99999);
         return;
     }
-    if (close) Overview_Close(hook::Global<uint8_t*>(0x62c120));
+    if (close) Overview_Close(g_map);
 }
 RT3_REPLACE(0x4f6250, MapEditor_ShowPageMode);
 
@@ -262,19 +263,19 @@ RT3_NOINLINE void __fastcall MapEditor_ShowControls(uint8_t* w) {
         if (i == F<int32_t>(w, 0x9c)) {
             int32_t page = F<int32_t>(w, 0x90);
             if (Widget_IsEnabled(Widget_FindChild(w, 0, 0x27d9 + i)) ||
-                (hook::Global<uint8_t>(0x6d1331) && page != 6 && page != 7 && page != 4 && page != 5))
+                (g_6d1331 && page != 6 && page != 7 && page != 4 && page != 5))
                 t = 0x65;
         }
         Window_SendEvent5(w, 0, t, 0x27d9 + i, 1, 0, 0);
     }
     for (int32_t i = 0; i < 7; ++i) {
         uint32_t t = 0x87;
-        if (i == F<int32_t>(w, 0x98) && (Widget_IsEnabled(Widget_FindChild(w, 0, 0x283d + i)) || hook::Global<uint8_t>(0x6d1331))) t = 0x65;
+        if (i == F<int32_t>(w, 0x98) && (Widget_IsEnabled(Widget_FindChild(w, 0, 0x283d + i)) || g_6d1331)) t = 0x65;
         Window_SendEvent5(w, 0, t, 0x283d + i, 1, 0, 0);
     }
     for (int32_t i = 0; i < 6; ++i) {
         uint32_t t = 0x87;
-        if (i == F<int32_t>(w, 0x8c) && (Widget_IsEnabled(Widget_FindChild(w, 0, 0x28a1 + i)) || hook::Global<uint8_t>(0x6d1331))) t = 0x65;
+        if (i == F<int32_t>(w, 0x8c) && (Widget_IsEnabled(Widget_FindChild(w, 0, 0x28a1 + i)) || g_6d1331)) t = 0x65;
         Window_SendEvent5(w, 0, t, 0x28a1 + i, 1, 0, 0);
     }
     group(0x28d3, 10, F<int32_t>(w, 0x90));
@@ -286,19 +287,19 @@ RT3_NOINLINE void __fastcall MapEditor_ShowControls(uint8_t* w) {
     group(0x2915, 2, F<int32_t>(w, 0xac));
     group(0x2917, 3, F<int32_t>(w, 0x94));
     group(0x291f, 2, F<int32_t>(w, 0xc0));
-    int32_t mode = F<int32_t>(hook::Global<uint8_t*>(0x62c120), 0x2175);
+    int32_t mode = F<int32_t>(g_map, 0x2175);
     for (uint32_t id = 0x2964; id < 0x2968; ++id)
         Window_SendEvent5(w, 0, mode == (int32_t)(id - 0x2944) || mode == 0x1f ? 0x65 : 0x87, id, 1, 0, 0);
     char num[0x1d0], text[0x1f4];
     const char* size;
-    if (hook::Global<float>(0x62278c) > hook::Global<float>(0x5d143c)) size = Num_Format(num, 1, (double)hook::Global<float>(0x62278c), 10, 1, 0, 0);
+    if (g_62278c > g_5d143c) size = Num_Format(num, 1, (double)g_62278c, 10, 1, 0, 0);
     else size = GetString(0xe4);
     FormatText(text, GetString(0xe3), size, 0, 0, 0, 0, 0, 0, 0);
     Window_SendEvent5(w, 0, 0x6f, 0x291a, (uint32_t)(uintptr_t)text, 0, 0);
     Window_SendEvent5(w, 0, F<int32_t>(w, 0x8c) == 1 ? 0x6d : 0x86, 0x296b, 3, 0, 0);
     Window_SendEvent5(w, 0, F<int32_t>(w, 0x8c) == 4 || F<int32_t>(w, 0x8c) == 5 ? 0x6d : 0x86, 0x2a31, 3, 0, 0);
     Window_SendEvent5(w, 0, 0xa8, 0x296a, F<uint32_t>(w, 0x80) | 0xff000000, 0, 0);
-    if (F<int32_t>(w, 0x8c) != 1 && F<int32_t>(hook::Global<uint8_t*>(0x62c120), 0x2175) == 0x17) Overview_Close(hook::Global<uint8_t*>(0x62c120));
+    if (F<int32_t>(w, 0x8c) != 1 && F<int32_t>(g_map, 0x2175) == 0x17) Overview_Close(g_map);
     for (int32_t i = 0; i < 3; ++i) {
         Window_SendEvent5(w, 0, i == F<int32_t>(w, 0xa8) ? 0x65 : 0x87, 0x2a38 + i, 1, 0, 0);
         int16_t pos = F<int16_t>(w, 0xd8 + i * 8);
@@ -318,7 +319,7 @@ RT3_REPLACE(0x4f6390, MapEditor_ShowControls);
 
 // 0x4f6930. Value of the overlay grid (+0x114, +0xfc x +0x100) at map position (x, y); 0 outside.
 RT3_NOINLINE int32_t __fastcall Overlay_ValueAt(uint8_t* o, int, float x, float y) {
-    uint8_t* map = hook::Global<uint8_t*>(0x62c120);
+    uint8_t* map = g_map;
     float w = (float)F<int32_t>(map, 0x2155);
     int32_t cols = F<int32_t>(o, 0xfc);
     float fc = (float)cols;
@@ -336,12 +337,12 @@ RT3_REPLACE(0x4f6930, Overlay_ValueAt);
 // v: labels it (0x5d0b18) on its label (id + 3), stores v (+id x 8 -
 // 0x150b4) and, unless locked (0x6d1330), rebalances the others.
 void __fastcall PercentDialog_SliderCb(uint8_t* w, int32_t v) {
-    if (!hook::Global<uint8_t*>(0x6d1334)) return;
+    if (!g_6d1334) return;
     char text[0x80];
     ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)(text, (const char*)0x5d0b18, v);
-    Window_SendEvent5(hook::Global<uint8_t*>(0x6d1334), 0, 0x6f, F<uint16_t>(w, 4) + 3u, (uint32_t)(uintptr_t)text, 0, 0);
-    *(int32_t*)(hook::Global<uint8_t*>(0x6d1334) + F<uint16_t>(w, 4) * 8 - 0x150b4) = v;
-    if (!hook::Global<uint8_t>(0x6d1330)) Window_BalancePercentages(hook::Global<uint8_t*>(0x6d1334));
+    Window_SendEvent5(g_6d1334, 0, 0x6f, F<uint16_t>(w, 4) + 3u, (uint32_t)(uintptr_t)text, 0, 0);
+    *(int32_t*)(g_6d1334 + F<uint16_t>(w, 4) * 8 - 0x150b4) = v;
+    if (!g_6d1330) Window_BalancePercentages(g_6d1334);
 }
 RT3_REPLACE(0x4f69e0, PercentDialog_SliderCb);
 
@@ -363,7 +364,7 @@ int32_t __fastcall MapEditor_HandleKey(uint8_t* e, int, const uint32_t* ev) {
     default: return 1;
     }
     if (F<int32_t>(e, 0x90) != 3) return 1;
-    uint8_t* m = hook::Global<uint8_t*>(0x62c120);
+    uint8_t* m = g_map;
     if (F<int32_t>(m, 0x2175) == mode) Overview_Close(m);
     else Overview_SetMode(m, 0, mode, 0, 0, 0, nullptr, 0, 0, 0x1869f, 0x1869f);
     MapEditor_ShowControls(e);
@@ -432,8 +433,8 @@ RT3_NOINLINE void __fastcall MapEditor_SetTool(uint8_t* w, int, int32_t tool) {
                 send(0x87, id, 3);
             }
         if (!F<int32_t>(w, 0x90)) {
-            send(0x74, 0x2777, hook::Global<uint8_t>(0x622839));
-            send(0x74, 0x2778, hook::Global<uint8_t>(0x622838));
+            send(0x74, 0x2777, g_622839);
+            send(0x74, 0x2778, g_622838);
         }
     }
     MapEditor_ShowControls(w);
@@ -453,16 +454,16 @@ RT3_REPLACE(0x4f6b50, MapEditor_SetTool);
 // tool; 0xcb 0x7d6 ends it (refreshes the minimap 0x808, pushes the undo) and
 // 0x2775 undoes. Returns 0 when handled.
 int32_t __fastcall MapEditor_HandleEvent(uint8_t* d, int, uint32_t* msg) {
-    uint8_t* const world = hook::Global<uint8_t*>(0x62c120);
+    uint8_t* const world = g_map;
     float x, y;
     int32_t first = 0;
     auto show = [&]() { MapEditor_ShowControls(d); return 0; };
     auto release = [&]() -> int32_t {
-        uint8_t* app = hook::Global<uint8_t*>(0x6d4018);
+        uint8_t* app = g_input;
         if (!F<int32_t>(d, 0x84)) return 1;
         --F<int32_t>(app, 0x100);
         F<int32_t>(d, 0x84) = 0;
-        if (uint8_t* root = hook::Global<uint8_t*>(0x6d0818))
+        if (uint8_t* root = g_gameWindow)
             if (uint8_t* map = Widget_FindChild(root, 0, 0x808))
                 MinimapWidget_Refresh(map, 0, 1, F<uint32_t*>(d, 0x114), F<int32_t>(d, 0xfc), F<int32_t>(d, 0x100));
         if (F<int32_t>(d, 0xa0) >= 0 && F<int32_t>(d, 0xa0) < 0x20) Editor_PushUndo(d);
@@ -483,8 +484,8 @@ int32_t __fastcall MapEditor_HandleEvent(uint8_t* d, int, uint32_t* msg) {
             if (!Scene_FocusFlagIs1(&x, &y)) goto overview17;
             uint8_t* buf = ((uint8_t*(__cdecl*)(size_t))0x5a125d)((size_t)(F<int32_t>(world, 0x2159) * F<int32_t>(world, 0x2155)));
             MapEditor_FillPaint(d, 0, x, y, ((const float*)0x622790)[F<int32_t>(d, 0x9c)], F<int32_t>(d, 0x88), F<int32_t>(d, 0xa0),
-                                F<uint32_t>(d, 0x80), hook::Global<int32_t>(0x622758), ~(msg[8] >> 2) & 1, buf, 0);
-            uint8_t* w = hook::Global<uint8_t*>(0x62c120);
+                                F<uint32_t>(d, 0x80), g_622758, ~(msg[8] >> 2) & 1, buf, 0);
+            uint8_t* w = g_map;
             if (F<int32_t>(w, 0x2175) == 0x17)
                 Overview_Redraw(w, 0, buf);
             else
@@ -492,8 +493,8 @@ int32_t __fastcall MapEditor_HandleEvent(uint8_t* d, int, uint32_t* msg) {
             ((void(__cdecl*)(void*))0x5a1145)(buf);
             return 1;
         }
-        Loading_Pump(hook::Global<uint8_t*>(0x6cec74), 0, 0, 0);
-        const uint32_t keys = F<uint32_t>(hook::Global<uint8_t*>(0x6d4018), 0xa8c);
+        Loading_Pump(g_app, 0, 0, 0);
+        const uint32_t keys = F<uint32_t>(g_input, 0xa8c);
         if ((keys & 0x800) || !(keys & 0x400)) return release();
         if (MapEditor_IsTool4Mode2(d)) return 0;
         goto paint;
@@ -508,71 +509,71 @@ int32_t __fastcall MapEditor_HandleEvent(uint8_t* d, int, uint32_t* msg) {
                 return show();
             }
             F<int32_t>(d, 0x88) = 0;
-            hook::Global<int32_t>(0x6d130c) = 0;
+            g_6d130c = 0;
             F<int32_t>(d, 0xa0) = (int32_t)msg[1] - 0x2711;
-            hook::Global<int32_t>(0x62274c) = (int32_t)msg[1] - 0x2711;
+            g_62274c = (int32_t)msg[1] - 0x2711;
             return show();
         }
         if (id == 0x2777) {
-            hook::Global<uint8_t>(0x622839) = !hook::Global<uint8_t>(0x622839);
+            g_622839 = !g_622839;
             return 0;
         }
         if (id == 0x2778) {
-            hook::Global<uint8_t>(0x622838) = !hook::Global<uint8_t>(0x622838);
+            g_622838 = !g_622838;
             return 0;
         }
         if (id >= 0x27d9 && id <= 0x27df) {
             F<int32_t>(d, 0x9c) = id - 0x27d9;
-            hook::Global<int32_t>(0x622754) = id - 0x27d9;
+            g_622754 = id - 0x27d9;
             return show();
         }
         if (id >= 0x283d && id <= 0x2843) {
             Map_SetWaterPreset(d, 0, id - 0x283d);
-            hook::Global<int32_t>(0x622750) = id - 0x283d;
+            g_622750 = id - 0x283d;
             return show();
         }
         if (id >= 0x28a1 && id <= 0x28a6) {
-            hook::Global<int32_t>(0x622748) = id - 0x28a1;
+            g_622748 = id - 0x28a1;
             Map_SetStyle(d, 0, id - 0x28a1);
             return show();
         }
         if (id >= 0x28d3 && id <= 0x28dc) {
-            hook::Global<int32_t>(0x6d1308) = id - 0x28d3;
+            g_6d1308 = id - 0x28d3;
             MapEditor_SetTool(d, 0, id - 0x28d3);
             return show();
         }
         if (id >= 0x2905 && id <= 0x2908) {
-            hook::Global<int32_t>(0x6d130c) = id - 0x2905;
+            g_6d130c = id - 0x2905;
             F<int32_t>(d, 0x88) = id - 0x2905;
             return show();
         }
         if (id >= 0x290d && id <= 0x290f) {
-            hook::Global<int32_t>(0x6d1320) = id - 0x290d;
+            g_6d1320 = id - 0x290d;
             F<int32_t>(d, 0xb4) = id - 0x290d;
             MapEditor_ShowControls(d);
             MapEditor_ShowPageMode(d, 0, 1);
             return 0;
         }
         if (id >= 0x2911 && id <= 0x2912) {
-            hook::Global<int32_t>(0x6d1324) = id - 0x2911;
+            g_6d1324 = id - 0x2911;
             F<int32_t>(d, 0xb8) = id - 0x2911;
             return show();
         }
         if (id >= 0x2913 && id <= 0x2914) {
-            hook::Global<int32_t>(0x6d131c) = id - 0x2913;
+            g_6d131c = id - 0x2913;
             F<int32_t>(d, 0xb0) = id - 0x2913;
             return show();
         }
         if (id >= 0x2915 && id <= 0x2916) {
-            hook::Global<int32_t>(0x6d1318) = id - 0x2915;
+            g_6d1318 = id - 0x2915;
             F<int32_t>(d, 0xac) = id - 0x2915;
             return show();
         }
         if (id >= 0x2917 && id <= 0x2919) {
             const int32_t v = id - 0x2917;
-            hook::Global<int32_t>(0x6d1314) = v;
+            g_6d1314 = v;
             F<int32_t>(d, 0x94) = v;
-            Overview_SetMode(hook::Global<uint8_t*>(0x62c120), 0, v == 0 ? 0x19 : v == 1 ? 0x1a : 0x1c, 0, 0, 0, nullptr, 0, 0, 0x1869f, 0x1869f);
+            Overview_SetMode(g_map, 0, v == 0 ? 0x19 : v == 1 ? 0x1a : 0x1c, 0, 0, 0, nullptr, 0, 0, 0x1869f, 0x1869f);
             return show();
         }
         // The layer toggles.
@@ -587,18 +588,18 @@ int32_t __fastcall MapEditor_HandleEvent(uint8_t* d, int, uint32_t* msg) {
                 return 0;
             }
         if (id >= 0x291f && id <= 0x2920) {
-            hook::Global<int32_t>(0x6d1310) = id - 0x291f;
+            g_6d1310 = id - 0x291f;
             F<int32_t>(d, 0xc0) = id - 0x291f;
             return show();
         }
         if (id >= 0x2954 && id <= 0x2957) {
-            hook::Global<int32_t>(0x6d1328) = id - 0x2954;
+            g_6d1328 = id - 0x2954;
             F<int32_t>(d, 0xbc) = id - 0x2954;
             return show();
         }
         if (id >= 0x2964 && id <= 0x2967) {
             // The overview modes 0x20..0x23 toggle.
-            uint8_t* w = hook::Global<uint8_t*>(0x62c120);
+            uint8_t* w = g_map;
             if (F<int32_t>(w, 0x2175) == id - 0x2944)
                 Overview_Close(w);
             else
@@ -607,7 +608,7 @@ int32_t __fastcall MapEditor_HandleEvent(uint8_t* d, int, uint32_t* msg) {
         }
         if (id >= 0x29cd && id <= 0x29cf) {
             F<int32_t>(d, 0xa4) = id - 0x29cd;
-            hook::Global<int32_t>(0x622758) = id - 0x29cd;
+            g_622758 = id - 0x29cd;
             return show();
         }
         if (id >= 0x2a38 && id <= 0x2a3a) {
@@ -621,11 +622,11 @@ int32_t __fastcall MapEditor_HandleEvent(uint8_t* d, int, uint32_t* msg) {
     if (msg[8] & 0x800) return 0;
     if ((msg[8] & 4) && F<int32_t>(d, 0x8c) != 1 && F<int32_t>(d, 0x90) == 3) {
         // Pick the four layer weights (0x622728) under the cursor.
-        hook::Global<int32_t>(0x6d1328) = 0;
+        g_6d1328 = 0;
         F<int32_t>(d, 0xbc) = 0;
         for (int32_t i = 0; i < 4; ++i) {
             const int32_t iy = Ftol(y);
-            const float v = Grid_Darkness(hook::Global<uint8_t*>(0x62c120), 0, Ftol(x), iy, i);
+            const float v = Grid_Darkness(g_map, 0, Ftol(x), iy, i);
             ((float*)0x622728)[i] = v;
             Window_SendEvent5(d, 0, 0x6a, i + 0x2922, (uint32_t)Ftol((double)v * Fl_207(0x5c8c28)), 0, 0);
         }
@@ -634,9 +635,9 @@ int32_t __fastcall MapEditor_HandleEvent(uint8_t* d, int, uint32_t* msg) {
     if ((msg[8] & 4) && F<int32_t>(d, 0x8c) != 1 && F<int32_t>(d, 0x90) == 1) {
         // Pick the colour under the cursor.
         F<int32_t>(d, 0x80) = Overlay_ValueAt(d, 0, x, y);
-        hook::Global<uint8_t>(0x6d1300) = F<uint8_t>(d, 0x82);
-        hook::Global<uint8_t>(0x6d1301) = F<uint8_t>(d, 0x81);
-        hook::Global<uint8_t>(0x6d1302) = F<uint8_t>(d, 0x80);
+        g_6d1300 = F<uint8_t>(d, 0x82);
+        g_6d1301 = F<uint8_t>(d, 0x81);
+        g_6d1302 = F<uint8_t>(d, 0x80);
         // QUIRK: the three sliders read bytes i / 2 (red, red, green), not i.
         for (int32_t i = 0; i < 3; ++i)
             Window_SendEvent5(d, 0, 0x6a, i + 0x294c, ((const uint8_t*)0x6d1300)[i / 2], 0, 0);
@@ -646,21 +647,21 @@ int32_t __fastcall MapEditor_HandleEvent(uint8_t* d, int, uint32_t* msg) {
         // The fill tool paints once, undoably.
         memcpy(F<void*>(d, 0x118), F<void*>(d, 0x114), (size_t)(F<int32_t>(d, 0xfc) * F<int32_t>(d, 0x100) * 4));
         MapEditor_FillPaint(d, 0, x, y, ((const float*)0x622790)[F<int32_t>(d, 0x9c)], F<int32_t>(d, 0x88), F<int32_t>(d, 0xa0),
-                            F<uint32_t>(d, 0x80), hook::Global<int32_t>(0x622758), ~(msg[8] >> 2) & 1, nullptr, 1);
+                            F<uint32_t>(d, 0x80), g_622758, ~(msg[8] >> 2) & 1, nullptr, 1);
         Editor_PushUndo(d);
         return 0;
     }
     {
-        uint8_t* app = hook::Global<uint8_t*>(0x6d4018);
-        if (F<int32_t>(d, 0x90) == 5 && ((F<uint8_t>(app, 0xa8c) & 3) || hook::Global<uint32_t>(0x62278c) == 0xc61c3c00)) {
+        uint8_t* app = g_input;
+        if (F<int32_t>(d, 0x90) == 5 && ((F<uint8_t>(app, 0xa8c) & 3) || hook::As<uint32_t>(g_62278c) == 0xc61c3c00)) {
             // The height tool takes the height under the cursor (shift or
             // none yet, -9999).
             const int32_t iy = Ftol(y);
-            hook::Global<float>(0x62278c) = (float)Map_GridFloat(hook::Global<uint8_t*>(0x62c120), 0, Ftol(x), iy);
+            g_62278c = (float)Map_GridFloat(g_map, 0, Ftol(x), iy);
             const int32_t iy2 = Ftol(y);
-            Map_CellLow3(hook::Global<uint8_t*>(0x62c120), 0, Ftol(x), iy2);
+            Map_CellLow3(g_map, 0, Ftol(x), iy2);
             MapEditor_ShowControls(d);
-            app = hook::Global<uint8_t*>(0x6d4018);
+            app = g_input;
             if (F<uint8_t>(app, 0xa8c) & 3) return 0;
         }
         // Start the stroke.
@@ -673,17 +674,17 @@ int32_t __fastcall MapEditor_HandleEvent(uint8_t* d, int, uint32_t* msg) {
         F<void*>(d, 0xf8) = nullptr;
         memcpy(F<void*>(d, 0x118), F<void*>(d, 0x114), (size_t)(F<int32_t>(d, 0xfc) * F<int32_t>(d, 0x100) * 4));
         F<int32_t>(d, 0x110) = F<int32_t>(d, 0x10c) = F<int32_t>(d, 0x108) = F<int32_t>(d, 0x104) = 0;
-        hook::Global<float>(0x622844) = x;
-        hook::Global<float>(0x622848) = y;
-        if (void* p = hook::Global<void*>(0x6d132c)) ((void(__cdecl*)(void*))0x5a1145)(p);
-        hook::Global<void*>(0x6d132c) = nullptr;
-        uint8_t* mask = hook::Global<uint8_t*>(0x6d1338);
+        g_622844 = x;
+        g_622848 = y;
+        if (void* p = g_6d132c) ((void(__cdecl*)(void*))0x5a1145)(p);
+        g_6d132c = nullptr;
+        uint8_t* mask = g_6d1338;
         if (!mask) {
-            uint8_t* w = hook::Global<uint8_t*>(0x62c120);
+            uint8_t* w = g_map;
             mask = ((uint8_t*(__cdecl*)(size_t))0x5a125d)((size_t)(F<int32_t>(w, 0x2159) * F<int32_t>(w, 0x2155)));
-            hook::Global<uint8_t*>(0x6d1338) = mask;
+            g_6d1338 = mask;
         }
-        uint8_t* w = hook::Global<uint8_t*>(0x62c120);
+        uint8_t* w = g_map;
         memset(mask, 0, (size_t)(F<int32_t>(w, 0x2159) * F<int32_t>(w, 0x2155)));
         first = 1;
     }
@@ -692,10 +693,10 @@ paint:
     switch (F<int32_t>(d, 0x90)) {
     case 3: {
         const float r = ((const float*)0x6227c8)[F<int32_t>(d, 0x98)];
-        Terrain_PaintBrush(hook::Global<uint8_t*>(0x62c120), 0, x, y, r, ((const float*)0x622790)[F<int32_t>(d, 0x9c)],
+        Terrain_PaintBrush(g_map, 0, x, y, r, ((const float*)0x622790)[F<int32_t>(d, 0x9c)],
                            F<int32_t>(d, 0x8c) == 0, F<int32_t>(d, 0xbc), (const float*)0x622728, (const float*)0x622738,
-                           hook::Global<uint8_t*>(0x6d1338));
-        uint8_t* w = hook::Global<uint8_t*>(0x62c120);
+                           g_6d1338);
+        uint8_t* w = g_map;
         const int32_t mode = F<int32_t>(w, 0x2175);
         if (mode == 0x1f || mode == 0x20 || mode == 0x21 || mode == 0x22 || mode == 0x23) {
             const int32_t y1 = Ftol((double)r + y + Fl_207(0x5c85b4));
@@ -717,7 +718,7 @@ paint:
         return 0;
     }
 overview17:
-    if (F<int32_t>(hook::Global<uint8_t*>(0x62c120), 0x2175) == 0x17) Overview_Close(hook::Global<uint8_t*>(0x62c120));
+    if (F<int32_t>(g_map, 0x2175) == 0x17) Overview_Close(g_map);
     return 1;
 }
 RT3_REPLACE(0x4f6f50, MapEditor_HandleEvent);
@@ -734,58 +735,58 @@ RT3_REPLACE(0x4f6f50, MapEditor_HandleEvent);
 uint8_t* __fastcall MapEditorWindow_Construct(uint8_t* w) {
     Widget_SetVtblRet(w);
     F<uint32_t>(w, 0) = 0x5d1430;
-    hook::Global<uint8_t*>(0x6d1304) = w;
-    hook::Global<uint8_t>(0x6d1331) = 1;
+    g_6d1304 = w;
+    g_6d1331 = 1;
     static const uint32_t fields[][2] = { { 0x80, 0x622788 }, { 0x88, 0x6d130c }, { 0x90, 0x6d1308 }, { 0x8c, 0x622748 }, { 0xa0, 0x62274c },
                                           { 0x9c, 0x622754 }, { 0xa4, 0x622758 }, { 0xc0, 0x6d1310 }, { 0x94, 0x6d1314 }, { 0xac, 0x6d1318 },
                                           { 0xb0, 0x6d131c }, { 0xb4, 0x6d1320 }, { 0xb8, 0x6d1324 }, { 0xc4, 0x62275c }, { 0xc8, 0x622760 },
                                           { 0xcc, 0x622764 }, { 0xd0, 0x622768 } };
     for (const auto& f : fields) F<uint32_t>(w, f[0]) = hook::Global<uint32_t>(f[1]);
     F<uint32_t>(w, 0x84) = 0;
-    F<uint32_t>(w, 0xd4) = hook::Global<uint32_t>(0x62276c);
-    F<uint32_t>(w, 0xbc) = hook::Global<uint32_t>(0x6d1328);
+    F<uint32_t>(w, 0xd4) = g_62276c;
+    F<uint32_t>(w, 0xbc) = hook::As<uint32_t>(g_6d1328);
     F<int32_t>(w, 0x78) = -1;
     F<int32_t>(w, 0x7c) = -1;
     for (uint32_t k = 0; k < 6; ++k) F<uint32_t>(w, 0xd8 + k * 4) = hook::Global<uint32_t>(0x622770 + k * 4);
-    Map_SetWaterPreset(w, 0, hook::Global<int32_t>(0x622750));
+    Map_SetWaterPreset(w, 0, g_622750);
     Window_Load(w, 0, 0.0f, 0.0f, (const char*)0x5d1454);
-    hook::Global<uint8_t*>(0x6d1334) = w;
-    MapEditor_SetTool(w, 0, hook::Global<int32_t>(0x6d1308));
-    Scene_PushBusy((uint8_t*)Engine_Renderer(hook::Global<void*>(0x6d4024)));
-    uint8_t* tex = TextureCache_Get(hook::Global<uint8_t*>(0x6d4020), 0, (const char*)0x5d1440, 0, 0, 0);
+    g_6d1334 = w;
+    MapEditor_SetTool(w, 0, g_6d1308);
+    Scene_PushBusy((uint8_t*)Engine_Renderer(hook::As<void*>(g_engine)));
+    uint8_t* tex = TextureCache_Get(g_pack, 0, (const char*)0x5d1440, 0, 0, 0);
     F<uint8_t*>(w, 0x1f8) = tex;
     F<uint32_t*>(w, 0x1fc) = Texture_Pixels32(tex, 0, (int32_t*)(w + 0x1e8), (int32_t*)(w + 0x1ec), 0);
     F<int32_t>(w, 0x1f0) = 0x80;
     F<int32_t>(w, 0x1f4) = 0x80;
-    F<uint32_t*>(w, 0x114) = Terrain_ExtractTexture((uint8_t*)Engine_Get1C(hook::Global<void*>(0x6d4024)), 0, 0.0f, 0.0f, 1.0f, 1.0f, nullptr, nullptr);
-    Render_GetSize4((uint8_t*)Engine_Get1C(hook::Global<void*>(0x6d4024)), 0, (int32_t*)(w + 0xfc), (int32_t*)(w + 0x100));
+    F<uint32_t*>(w, 0x114) = Terrain_ExtractTexture((uint8_t*)Engine_Get1C(hook::As<void*>(g_engine)), 0, 0.0f, 0.0f, 1.0f, 1.0f, nullptr, nullptr);
+    Render_GetSize4((uint8_t*)Engine_Get1C(hook::As<void*>(g_engine)), 0, (int32_t*)(w + 0xfc), (int32_t*)(w + 0x100));
     F<void*>(w, 0x118) = Malloc(F<int32_t>(w, 0xfc) * F<int32_t>(w, 0x100) * 4);
     F<int32_t>(w, 0x1e4) = -1;
     for (int32_t k = 0; k < 10; ++k) {
         F<void*>(w, 0x11c + k * 4) = Malloc(F<int32_t>(w, 0xfc) * F<int32_t>(w, 0x100) * 4);
-        for (int32_t j = 0; j < 4; ++j) F<void*>(w, 0x144 + (k * 4 + j) * 4) = Malloc(Map_PointCount(hook::Global<void*>(0x62c120)));
+        for (int32_t j = 0; j < 4; ++j) F<void*>(w, 0x144 + (k * 4 + j) * 4) = Malloc(Map_PointCount(hook::As<void*>(g_map)));
     }
     Editor_PushUndo(w);
     F<uint32_t>(w, 0xf0) = 0;
     F<uint32_t>(w, 0xf4) = 0;
     F<uint32_t>(w, 0xf8) = 0;
     F<uint32_t>(w, 0xa8) = 0;
-    uint8_t* map = hook::Global<uint8_t*>(0x62c120);
+    uint8_t* map = g_map;
     float mw = (float)F<int32_t>(map, 0x2155), tw = (float)F<int32_t>(w, 0xfc);
     double sx = (double)mw / tw * D(0x5c8628);
     float mh = (float)F<int32_t>(map, 0x2159), th = (float)F<int32_t>(w, 0x100);
     double sy = (double)mh / th * D(0x5c8628);
     double scale = sx < sy ? sx : sy;
-    hook::Global<uint32_t>(0x6d132c) = 0;
-    hook::Global<float>(0x6227ac) = (float)scale;
+    hook::As<uint32_t>(g_6d132c) = 0;
+    g_6227ac = (float)scale;
     MapEditor_ShowPageMode(w, 0, 0);
     for (int32_t i = 0; i < 3; ++i) {
         Window_SendEvent5(w, 0, 0x84, 0x2a32 + i, 0x4f69e0, 0, 0);
         Window_SendEvent5(w, 0, 0x6a, 0x2a32 + i, F<uint32_t>(w, 0xdc + i * 8), 0, 0);
     }
-    hook::Global<uint8_t>(0x6d1300) = w[0x82];
-    hook::Global<uint8_t>(0x6d1301) = w[0x81];
-    hook::Global<uint8_t>(0x6d1302) = w[0x80];
+    g_6d1300 = w[0x82];
+    g_6d1301 = w[0x81];
+    g_6d1302 = w[0x80];
     for (uint32_t id = 0x294c; id < 0x2951; id += 2) {
         Window_SendEvent5(w, 0, 0x84, id, 0x4f6070, 0, 0);
         Window_SendEvent5(w, 0, 0x6a, id, ((uint8_t*)0x6d1300)[(id - 0x294c) / 2], 0, 0);
@@ -800,7 +801,7 @@ uint8_t* __fastcall MapEditorWindow_Construct(uint8_t* w) {
     Window_SendEvent5(w, 0, 0x84, 0x2921, 0x4f61c0, 0, 0);
     Window_SendEvent5(w, 0, 0x6a, 0x2921, F<uint32_t>(w, 0xc4) - 1, 0, 0);
     MapEditor_ShowControls(w);
-    hook::Global<uint8_t>(0x6d1331) = 0;
+    g_6d1331 = 0;
     return w;
 }
 RT3_REPLACE(0x4f7ce0, MapEditorWindow_Construct);
@@ -885,7 +886,7 @@ RT3_REPLACE(0x4f8770, Image_AverageColor);
 // 0x4f89b0. Flood fills the map-sized byte grid from (x, y) through cells marked 1
 // (4-neighbours; filled cells end as 3), then clears the unreached 1s to 0.
 RT3_NOINLINE void __fastcall Map_FloodFill(int32_t x, int32_t y, uint8_t* grid) {
-    uint8_t* m = hook::Global<uint8_t*>(0x62c120);
+    uint8_t* m = g_map;
     int32_t w = F<int32_t>(m, 0x2155), h = F<int32_t>(m, 0x2159);
     int32_t minX = x, maxX = x, minY = y, maxY = y;
     grid[w * y + x] = 2;
@@ -949,7 +950,7 @@ RT3_NOINLINE void __fastcall MapEditor_PaintPath(uint8_t* d, int, int32_t cnt, f
     auto crtFree = (void(__cdecl*)(void*))0x5a1145;
     auto fabs_ = (double(__cdecl*)(double))0x5a152e;
     auto sqrt_ = (double(__cdecl*)(double))0x5a1634;
-    auto world = []() { return hook::Global<uint8_t*>(0x62c120); };
+    auto world = []() { return g_map; };
     if (!cnt) return;
     ++F<int32_t>(world(), 0x2205);
     int32_t snap = F<int32_t>(d, 0x98) == 0;
@@ -1113,7 +1114,7 @@ RT3_NOINLINE void __fastcall MapEditor_PaintPath(uint8_t* d, int, int32_t cnt, f
                         return (uint8_t)Ftol((double)(float)to * alpha + (double)from * inv);
                     };
                     auto store = [&]() { *(uint32_t*)pix = (uint32_t)a << 24 | (uint32_t)r << 16 | (uint32_t)g << 8 | b; };
-                    if (hook::Global<uint8_t>(0x622838) && F<int32_t>(d, 0x90) == 0) {
+                    if (g_622838 && F<int32_t>(d, 0x90) == 0) {
                         // The four terrain layers of the cell, once per stroke.
                         const int32_t ix = Ftol(cx), iy = Ftol(cy);
                         uint8_t* w = world();
@@ -1165,7 +1166,7 @@ RT3_NOINLINE void __fastcall MapEditor_PaintPath(uint8_t* d, int, int32_t cnt, f
                                 const int32_t gy = Ftol((float)(D(0x5c8770) / uy * oyd + cyd));
                                 uint8_t* w = world();
                                 if (gx < 0 || gx >= F<int32_t>(w, 0x15d9) - 1 || gy < 0 || gy >= F<int32_t>(w, 0x15d5) - 1) {
-                                    hook::Global<int32_t>(0x6d134c) += gy + gx + gy + gx;
+                                    g_6d134c += gy + gx + gy + gx;
                                 } else {
                                     switch (F<int32_t>(d, 0x94)) {
                                     case 0: Terrain_MarkFlooded(w, 0, gx, gy); break;
@@ -1187,7 +1188,7 @@ RT3_NOINLINE void __fastcall MapEditor_PaintPath(uint8_t* d, int, int32_t cnt, f
                     }
                     if (F<int32_t>(d, 0x90) == 0 || F<int32_t>(d, 0x90) == 1) {
                         const int32_t iy = Ftol(cy);
-                        if (Terrain_KindIs1Or4(world(), 0, Ftol(cx), iy) && !(F<uint8_t>(hook::Global<uint8_t*>(0x6d4018), 0xa8c) & 3)) {
+                        if (Terrain_KindIs1Or4(world(), 0, Ftol(cx), iy) && !(F<uint8_t>(g_input, 0xa8c) & 3)) {
                             // Fade out toward other terrain kinds.
                             const float k = Map_DistanceToOtherKind(world(), 0, cx, cy);
                             if (k >= Fl_207(0x5c8568)) continue;
@@ -1269,7 +1270,7 @@ RT3_NOINLINE void __fastcall MapEditor_PaintPath(uint8_t* d, int, int32_t cnt, f
                         r = blend(tR, r, inv);
                         g = blend(tG, g, inv);
                         b = blend(tB, b, inv);
-                        if (hook::Global<uint8_t>(0x622839)) {
+                        if (g_622839) {
                             const int32_t iy = Ftol(cy);
                             if (!Map_WaterWithin(world(), 0, Ftol(cx), iy, 2)) a = blend(tA, a, inv);
                         }
@@ -1310,11 +1311,11 @@ RT3_NOINLINE void __fastcall MapEditor_PaintPath(uint8_t* d, int, int32_t cnt, f
                     } else {
                         const int32_t centre = xx == cx && yy == cy;
                         if (!dist) {
-                            const int32_t noKeys = (F<uint8_t>(hook::Global<uint8_t*>(0x6d4018), 0xa8c) & 3) == 0;
+                            const int32_t noKeys = (F<uint8_t>(g_input, 0xa8c) & 3) == 0;
                             const int32_t kind = Terrain_KindIs2Or4Or5(world(), 0, xx, yy);
                             Map_FloodCell(world(), 0, xx, yy, noKeys);
-                            F<int32_t>(hook::Global<uint8_t*>(0x6d1304), 0x78) = xx;
-                            F<int32_t>(hook::Global<uint8_t*>(0x6d1304), 0x7c) = yy;
+                            F<int32_t>(g_6d1304, 0x78) = xx;
+                            F<int32_t>(g_6d1304, 0x7c) = yy;
                             const int32_t level = F<int32_t>(d, 0x98) > 6 ? 6 : F<int32_t>(d, 0x98);
                             uint16_t* w = (uint16_t*)Terrain_Rec(world(), 0, xx, yy);
                             *w ^= (uint16_t)(((uint16_t)(level << 6) ^ *w) & 0x1c0);
@@ -1332,13 +1333,13 @@ RT3_NOINLINE void __fastcall MapEditor_PaintPath(uint8_t* d, int, int32_t cnt, f
                                     fx = (int8_t)Grid_Byte1661(world(), 0, xx, yy);
                                     fy = (int8_t)Grid_Byte1665(world(), 0, xx, yy);
                                     if (!fx && !fy) {
-                                        fx = hook::Global<int32_t>(0x62283c);
-                                        fy = hook::Global<int32_t>(0x622840);
+                                        fx = g_62283c;
+                                        fy = g_622840;
                                         if (!fx && !fy) fx = 1;
                                     }
                                 } else {
-                                    hook::Global<int32_t>(0x62283c) = fx;
-                                    hook::Global<int32_t>(0x622840) = fy;
+                                    g_62283c = fx;
+                                    g_622840 = fy;
                                 }
                                 Grid_SetByte1661(world(), 0, xx, yy, (uint8_t)fx);
                                 Grid_SetByte1665(world(), 0, xx, yy, (uint8_t)fy);
@@ -1368,7 +1369,7 @@ RT3_NOINLINE void __fastcall MapEditor_PaintPath(uint8_t* d, int, int32_t cnt, f
                         if (depth >= 1 && F<int32_t>(d, 0xcc)) {
                             static const int8_t kCorner[4][2] = { { 0, 0 }, { 1, 0 }, { 0, 1 }, { 1, 1 } };
                             for (const auto& k : kCorner) {
-                                const float h = (float)(hook::Global<float>(0x62278c) - Map_GridFloat(world(), 0, xx + k[0], yy + k[1]));
+                                const float h = (float)(g_62278c - Map_GridFloat(world(), 0, xx + k[0], yy + k[1]));
                                 if (h != 0.0f) Map_RaiseAround(world(), 0, xx + k[0], yy + k[1], 1, h, 0);
                             }
                         }
@@ -1400,7 +1401,7 @@ RT3_NOINLINE void __fastcall MapEditor_PaintPath(uint8_t* d, int, int32_t cnt, f
                 const int32_t gy = Ftol((double)(float)ty / sy);
                 const int32_t stride = F<int32_t>(world(), 0x15d9);
                 const int32_t low = Grid_CellLow(world(), 0, gx, gy);
-                const int32_t diff = low - hook::Global<uint8_t*>(0x6d132c)[(stride + 1) * gy + gx];
+                const int32_t diff = low - hook::As<uint8_t*>(g_6d132c)[(stride + 1) * gy + gx];
                 if (!diff) continue;
                 float alpha;
                 int32_t idx;
@@ -1428,7 +1429,7 @@ RT3_NOINLINE void __fastcall MapEditor_PaintPath(uint8_t* d, int, int32_t cnt, f
         const int32_t x0 = Ftol((double)(float)F<int32_t>(d, 0x104) / sx - margin);
         Map_RebuildCoast(world(), 0, x0, y0, x1, y1, F<uint32_t*>(d, 0x114));
     } else {
-        Terrain_PasteTexture((uint8_t*)Engine_Get1C(hook::Global<void*>(0x6d4024)), 0, F<int32_t>(d, 0x104), F<int32_t>(d, 0x108),
+        Terrain_PasteTexture((uint8_t*)Engine_Get1C(hook::As<void*>(g_engine)), 0, F<int32_t>(d, 0x104), F<int32_t>(d, 0x108),
                              F<int32_t>(d, 0x10c) + 1, F<int32_t>(d, 0x110) + 1);
     }
     --F<int32_t>(world(), 0x2205);
@@ -1487,8 +1488,8 @@ RT3_NOINLINE void __fastcall MapEditor_FillPaint(uint8_t* ed, int, float x, floa
                                     int32_t select, int32_t flood, uint8_t* mask, int32_t apply) {
     int32_t colOff = tex % 8 * F<int32_t>(ed, 0x1f0);
     int32_t rowOff = F<int32_t>(ed, 0x1f4) * (tex / 8);
-    float h = (float)Terrain_HeightAtTile(hook::Global<uint8_t*>(0x62c120), 0, x, y);
-    uint8_t* m = hook::Global<uint8_t*>(0x62c120);
+    float h = (float)Terrain_HeightAtTile(g_map, 0, x, y);
+    uint8_t* m = g_map;
     int32_t W = F<int32_t>(m, 0x2155), H = F<int32_t>(m, 0x2159);
     int32_t owned = 0;
     if (!mask) {
@@ -1501,7 +1502,7 @@ RT3_NOINLINE void __fastcall MapEditor_FillPaint(uint8_t* ed, int, float x, floa
         uint8_t* row = mask;
         for (int32_t cy = 0; cy < H; ++cy, row += W)
             for (int32_t cx = 0; cx < W; ++cx) {
-                double v = Grid_Float1605(hook::Global<uint8_t*>(0x62c120), 0, cx, cy);
+                double v = Grid_Float1605(g_map, 0, cx, cy);
                 row[cx] = select == 1 ? (v >= h ? 1 : 0) : (v <= h ? 1 : 0);
             }
         if (flood) {
@@ -1511,17 +1512,17 @@ RT3_NOINLINE void __fastcall MapEditor_FillPaint(uint8_t* ed, int, float x, floa
     }
     if (apply) {
         int32_t tool = F<int32_t>(ed, 0x90);
-        if (tool == 3 || (tool == 0 && hook::Global<uint8_t>(0x622838))) {
+        if (tool == 3 || (tool == 0 && g_622838)) {
             uint8_t* row = mask;
             for (int32_t cy = 0; cy < H; ++cy, row += W)
                 for (int32_t cx = 0; cx < W; ++cx) {
                     if (!row[cx]) continue;
                     if (F<int32_t>(ed, 0x90) == 3)
-                        Terrain_PaintLayers(hook::Global<uint8_t*>(0x62c120), 0, cx, cy, strength, F<int32_t>(ed, 0xbc), (const float*)0x622728,
+                        Terrain_PaintLayers(g_map, 0, cx, cy, strength, F<int32_t>(ed, 0xbc), (const float*)0x622728,
                                             (const float*)0x622738);
                     else {
                         uint32_t p = (uint32_t)F<int32_t>(ed, 0xa0) * 36;
-                        Terrain_PaintLayers(hook::Global<uint8_t*>(0x62c120), 0, cx, cy, strength, *(int32_t*)(0x5f3520 + p), (const float*)(0x5f3500 + p),
+                        Terrain_PaintLayers(g_map, 0, cx, cy, strength, *(int32_t*)(0x5f3520 + p), (const float*)(0x5f3500 + p),
                                             (const float*)(0x5f3510 + p));
                     }
                 }
@@ -1536,30 +1537,30 @@ RT3_NOINLINE void __fastcall MapEditor_FillPaint(uint8_t* ed, int, float x, floa
             } else if (colorMode == 1) sa = 0;
             else if (colorMode == 2) sa = 0xff;
             if (tool == 5 && !F<int32_t>(ed, 0x94) && F<int32_t>(ed, 0xcc)) {
-                for (int32_t cy = 0; cy < F<int32_t>(hook::Global<uint8_t*>(0x62c120), 0x2159) + 1; ++cy)
-                    for (int32_t cx = 0; cx < F<int32_t>(hook::Global<uint8_t*>(0x62c120), 0x2155) + 1; ++cx) {
-                        float g = (float)Map_GridFloat(hook::Global<uint8_t*>(0x62c120), 0, cx, cy);
+                for (int32_t cy = 0; cy < F<int32_t>(g_map, 0x2159) + 1; ++cy)
+                    for (int32_t cx = 0; cx < F<int32_t>(g_map, 0x2155) + 1; ++cx) {
+                        float g = (float)Map_GridFloat(g_map, 0, cx, cy);
                         float d = g - h;
-                        float v = hook::Global<float>(0x5c8598) > d ? 0.0f : d;
-                        Map_SetCellHeight(hook::Global<uint8_t*>(0x62c120), 0, cx, cy, *(uint32_t*)&v, 0);
+                        float v = g_5c8598 > d ? 0.0f : d;
+                        Map_SetCellHeight(g_map, 0, cx, cy, *(uint32_t*)&v, 0);
                     }
-                Map_CellsChangedImpl(hook::Global<uint8_t*>(0x62c120), 0, 0, 0, 0x270f, 0x270f);
+                Map_CellsChangedImpl(g_map, 0, 0, 0, 0x270f, 0x270f);
             }
             if (F<int32_t>(ed, 0x90) == 5 && F<int32_t>(ed, 0x94) == 2 && F<int32_t>(ed, 0xcc)) {
-                hook::Global<float>(0x62278c) = h;
+                g_62278c = h;
                 MapEditor_ShowControls(ed);
                 uint32_t hb = *(uint32_t*)&h;
-                for (int32_t cy = 0; cy < F<int32_t>(hook::Global<uint8_t*>(0x62c120), 0x2159) + 1; ++cy)
-                    for (int32_t cx = 0; cx < F<int32_t>(hook::Global<uint8_t*>(0x62c120), 0x2155) + 1; ++cx) {
+                for (int32_t cy = 0; cy < F<int32_t>(g_map, 0x2159) + 1; ++cy)
+                    for (int32_t cx = 0; cx < F<int32_t>(g_map, 0x2155) + 1; ++cx) {
                         if (!mask[cy * W + cx]) continue;
-                        Map_SetCellHeight(hook::Global<uint8_t*>(0x62c120), 0, cx, cy, hb, 0);
-                        Map_SetCellHeight(hook::Global<uint8_t*>(0x62c120), 0, cx + 1, cy, hb, 0);
-                        Map_SetCellHeight(hook::Global<uint8_t*>(0x62c120), 0, cx, cy + 1, hb, 0);
-                        Map_SetCellHeight(hook::Global<uint8_t*>(0x62c120), 0, cx + 1, cy + 1, hb, 0);
+                        Map_SetCellHeight(g_map, 0, cx, cy, hb, 0);
+                        Map_SetCellHeight(g_map, 0, cx + 1, cy, hb, 0);
+                        Map_SetCellHeight(g_map, 0, cx, cy + 1, hb, 0);
+                        Map_SetCellHeight(g_map, 0, cx + 1, cy + 1, hb, 0);
                     }
-                Map_CellsChangedImpl(hook::Global<uint8_t*>(0x62c120), 0, 0, 0, 0x270f, 0x270f);
+                Map_CellsChangedImpl(g_map, 0, 0, 0, 0x270f, 0x270f);
             }
-            m = hook::Global<uint8_t*>(0x62c120);
+            m = g_map;
             float sx = (float)F<int32_t>(m, 0x2155) / (float)F<int32_t>(ed, 0xfc);
             float sy = (float)F<int32_t>(m, 0x2159) / (float)F<int32_t>(ed, 0x100);
             uint8_t* px = F<uint8_t*>(ed, 0x114);
@@ -1591,9 +1592,9 @@ RT3_NOINLINE void __fastcall MapEditor_FillPaint(uint8_t* ed, int, float x, floa
                     int32_t mode = F<int32_t>(ed, 0x90);
                     if (mode == 4) {
                     } else if (mode == 5) {
-                        if (!F<int32_t>(ed, 0x94)) Terrain_MarkFlooded(hook::Global<uint8_t*>(0x62c120), 0, cx, cy);
-                        else if (F<int32_t>(ed, 0x94) == 2) Terrain_MarkDrained(hook::Global<uint8_t*>(0x62c120), 0, cx, cy);
-                        else Terrain_PaintVertex(hook::Global<uint8_t*>(0x62c120), 0, cx, cy);
+                        if (!F<int32_t>(ed, 0x94)) Terrain_MarkFlooded(g_map, 0, cx, cy);
+                        else if (F<int32_t>(ed, 0x94) == 2) Terrain_MarkDrained(g_map, 0, cx, cy);
+                        else Terrain_PaintVertex(g_map, 0, cx, cy);
                     } else if (mode == 0) {
                         double inv = D(0x5c8770) - v;
                         int32_t n = F<int32_t>(ed, 0x1f0);
@@ -1603,7 +1604,7 @@ RT3_NOINLINE void __fastcall MapEditor_FillPaint(uint8_t* ed, int, float x, floa
                         pr = (uint8_t)Ftol((double)(float)sr * v + (double)pr * inv);
                         pg = (uint8_t)Ftol((double)(float)sg * v + (double)pg * inv);
                         pb = (uint8_t)Ftol((double)(float)sb * v + (double)pb * inv);
-                        if (hook::Global<uint8_t>(0x622839)) pa = (uint8_t)Ftol((double)(float)sa * v + (double)pa * inv);
+                        if (g_622839) pa = (uint8_t)Ftol((double)(float)sa * v + (double)pa * inv);
                     } else if (mode == 8) {
                         if (!F<int32_t>(ed, 0xc0)) {
                             float add = (float)(v * Fl_207(0x5c8780));
@@ -1630,11 +1631,11 @@ RT3_NOINLINE void __fastcall MapEditor_FillPaint(uint8_t* ed, int, float x, floa
                     *(uint32_t*)px = (uint32_t)pa << 24 | (uint32_t)pr << 16 | (uint32_t)pg << 8 | pb;
                 }
             }
-            Map_RebuildCoast(hook::Global<uint8_t*>(0x62c120), 0, 0, 0, 0x270f, 0x270f, F<uint32_t*>(ed, 0x114));
+            Map_RebuildCoast(g_map, 0, 0, 0, 0x270f, 0x270f, F<uint32_t*>(ed, 0x114));
         }
     }
     if (owned) Free(mask);
-    if (uint8_t* mm = hook::Global<uint8_t*>(0x6d0818))
+    if (uint8_t* mm = g_gameWindow)
         if (uint8_t* w = Widget_FindChild(mm, 0, 0x808))
             MinimapWidget_Refresh(w, 0, 1, F<uint32_t*>(ed, 0x114), F<int32_t>(ed, 0xfc), F<int32_t>(ed, 0x100));
 }

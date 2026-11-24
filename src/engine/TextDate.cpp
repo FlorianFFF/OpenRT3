@@ -8,6 +8,7 @@
 #include <math.h>
 #include <initializer_list>
 #include "hook/hook.h"
+#include "core/globals.h"
 #include "game/collection.h"
 #include "hook/keepregs.h"
 #include "core/ptrlist.h"
@@ -32,7 +33,6 @@ using SprintfFn = int(__cdecl*)(char*, const char*, ...);
 char* __fastcall Num_FormatSimple2(char* buf, int32_t style, double v, int32_t width);
 char* __fastcall Num_FormatSimple(char* buf, int32_t style, double v, int32_t width);
 char* __fastcall Date_Format(char* buf, const uint8_t* d, int32_t mode);
-static DWORD& g_clockStart = hook::Global<DWORD>(0x6d3d14);
 struct StringList { int32_t count; char** items; };
 int32_t __fastcall StreamOpen(const char* path, int32_t mode, int32_t bufferSize, int32_t fatalIfMissing);
 int32_t __fastcall StreamRead(int32_t s, void* dst, uint32_t size, int32_t, int32_t);
@@ -145,7 +145,7 @@ static inline int32_t DaysOf(const GameDate& d) { // days since year 0, month 1,
 static inline DWORD Ticks() { return ((DWORD(WINAPI*)())*(void**)0x5c8068)(); }
 
 static bool LeadByte(char c) {
-    return hook::Global<int32_t>(0x6d3c8c) == 3 && ((int(__cdecl*)(int))0x5a330d)((uint8_t)c) != 0;
+    return g_6d3c8c == 3 && ((int(__cdecl*)(int))0x5a330d)((uint8_t)c) != 0;
 }
 
 static inline int ExeIsLeadByte(unsigned c) { return ((int(__cdecl*)(unsigned))0x5a330d)(c); }
@@ -153,7 +153,7 @@ static inline int ExeIsLeadByte(unsigned c) { return ((int(__cdecl*)(unsigned))0
 // 0x51b600. In DBCS mode (0x6d3c8c == 3): the exe CRT's lead-byte test on the
 // high byte of a 16-bit char. 0 otherwise.
 int32_t __fastcall IsLeadByte(uint16_t c) {
-    if (hook::Global<int32_t>(0x6d3c8c) != 3) return 0;
+    if (g_6d3c8c != 3) return 0;
     if (c > 0xff) c >>= 8;
     return ExeIsLeadByte(c);
 }
@@ -161,7 +161,7 @@ RT3_REPLACE(0x51b600, IsLeadByte);
 
 // 0x51b630. True in DBCS mode when c is not a lead byte.
 int32_t __fastcall IsSingleByte(uint16_t c) {
-    if (hook::Global<int32_t>(0x6d3c8c) != 3) return false;
+    if (g_6d3c8c != 3) return false;
     if (c > 0xff) c >>= 8;
     return ExeIsLeadByte(c) == 0;
 }
@@ -195,7 +195,7 @@ RT3_REPLACE(0x51b660, BuildNameIndex);
 // 0x51b6f0. AL = (language == English); the upper bytes of EAX keep the
 // language value, as in the original.
 RT3_NOINLINE uint32_t IsEnglish() {
-    uint32_t lang = hook::Global<uint32_t>(0x6d3c84);
+    uint32_t lang = hook::As<uint32_t>(g_language);
     return (lang & 0xffffff00u) | (lang == 0);
 }
 RT3_REPLACE(0x51b6f0, IsEnglish);
@@ -217,10 +217,10 @@ RT3_REPLACE(0x51b6f0, IsEnglish);
 // their minus sign (-0.5 shows as "0.4") and negative fractions round the wrong
 // way (-1.27 shows as "-1.2").
 RT3_NOINLINE char* __fastcall Num_Format(char* buf, int32_t style, double v, int32_t width, int32_t unused, int32_t inK, int32_t inM) {
-    int32_t& depth = hook::Global<int32_t>(0x6d3c98);
+    int32_t& depth = g_6d3c98;
     ++depth;
     int32_t iv = Ftol(v);
-    uint8_t* engine = hook::Global<uint8_t*>(0x6d4024);
+    uint8_t* engine = g_engine;
     if (engine && F<int32_t>(engine, 0x114732)) {
         if (style == 2 || style == 13) style = 1;
         else if (style == 11 || style == 12) style = 9;
@@ -306,7 +306,7 @@ RT3_NOINLINE char* __fastcall Num_Format(char* buf, int32_t style, double v, int
     }
     }
     if (depth == 1 && *buf) {
-        char comma = hook::Global<char>(0x62432c), point = hook::Global<char>(0x62432d);
+        char comma = g_62432c, point = g_62432d;
         for (char* p = buf; *p; ++p) {
             if (*p == ',') *p = comma;
             else if (*p == '.') *p = point;
@@ -562,7 +562,7 @@ RT3_REPLACE(0x51c920, LocalizeName);
 // 5 "month day, year" (month names 0x62435c). Japanese (7) uses its year
 // marks. Other modes leave `buf` alone. Returns `buf`.
 RT3_NOINLINE char* __fastcall Date_Format(char* buf, const uint8_t* d, int32_t mode) {
-    int32_t lang = hook::Global<int32_t>(0x6d3c84);
+    int32_t lang = g_language;
     const int32_t* shortNames = (const int32_t*)0x62435c;
     const int32_t* longNames = (const int32_t*)0x62438c;
     char ya[0x40], yb[0x40];
@@ -629,11 +629,11 @@ RT3_REPLACE(0x51ca00, Date_Format);
 // 0x624328 and the C locale. Texts 0x283 / 0x284 give the decimal and
 // thousands separators (0x62432c / 0x62432d).
 RT3_NOINLINE void Language_Load() {
-    if (hook::Global<int32_t>(0x6d3c9c)) return;
-    hook::Global<int32_t>(0x6d3c9c) = 1;
+    if (g_6d3c9c) return;
+    g_6d3c9c = 1;
     Language_Select();
     char path[0x12c];
-    const char* folder = hook::Global<const char*>(0x6d3c90);
+    const char* folder = g_6d3c90;
     FormatText(path, folder ? (const char*)0x5dce20 : (const char*)0x5dce00, folder, 0, 0, 0, 0, 0, 0, 0);
     char* p = path;
     if (*p)
@@ -642,13 +642,13 @@ RT3_NOINLINE void Language_Load() {
     *p = 0;
     DebugLog_SetFile((const char*)0x5dcdec);
     DebugLog_WriteHeader();
-    if (hook::Global<StringList*>(0x6d3c94)) {
-        StringList_Free(hook::Global<StringList*>(0x6d3c94));
+    if (g_6d3c94) {
+        StringList_Free(g_6d3c94);
         FreeAndNull((void**)0x6d3c94);
     }
-    hook::Global<StringList*>(0x6d3c94) = Strings_LoadFile(path);
+    g_6d3c94 = Strings_LoadFile(path);
     DebugLog_SetFile((const char*)0x5dcddc);
-    hook::Global<int32_t>(0x6d3c84) = 0;
+    g_language = 0;
     static const struct { uint32_t name; int32_t lang; } kLangs[] = {
         { 0x5dcdd0, 0 }, { 0x5dcdbc, 1 }, { 0x5dcda8, 2 }, { 0x5dcd94, 3 }, { 0x5dcd84, 4 },
         { 0x5dcd70, 8 }, { 0x5dcd5c, 10 }, { 0x5dcd50, 11 },
@@ -656,29 +656,29 @@ RT3_NOINLINE void Language_Load() {
     bool found = false;
     for (auto& l : kLangs)
         if (StrFind(GetString(0x5be), (const char*)l.name, 0)) {
-            hook::Global<int32_t>(0x6d3c84) = l.lang;
+            g_language = l.lang;
             found = true;
             break;
         }
-    if (!found) hook::Global<int32_t>(0x6d3c84) = StrFind(GetString(0x5be), (const char*)0x5cec80, 0) ? 12 : 6;
+    if (!found) g_language = StrFind(GetString(0x5be), (const char*)0x5cec80, 0) ? 12 : 6;
     if (strlen(GetString(0xfc8)) >= 2) {
-        hook::Global<int32_t>(0x6d3c8c) = 3;
-        hook::Global<int32_t>(0x6d4034) = 1;
+        g_6d3c8c = 3;
+        g_6d4034 = 1;
     }
-    if (strlen(GetString(0xfc9))) hook::Global<int32_t>(0x6d3c88) = ((int32_t(__cdecl*)(const char*))0x5a1ea5)(GetString(0xfc9));
+    if (strlen(GetString(0xfc9))) g_6d3c88 = ((int32_t(__cdecl*)(const char*))0x5a1ea5)(GetString(0xfc9));
     auto setlocale_ = (char*(__cdecl*)(int, const char*))0x5a3c18;
-    switch (hook::Global<int32_t>(0x6d3c88)) {
-    case 0x80: hook::Global<int32_t>(0x624328) = 0x3a4; setlocale_(0, (const char*)0x5dcd44); break;
-    case 0x81: hook::Global<int32_t>(0x624328) = 0x3b5; setlocale_(0, (const char*)0x5dcd14); break;
-    case 0x86: hook::Global<int32_t>(0x624328) = 0x3b6; setlocale_(0, (const char*)0x5dcd1c); break;
-    case 0x88: hook::Global<int32_t>(0x624328) = 0x3b6; setlocale_(0, (const char*)0x5dcd30); break;
-    case 0xde: hook::Global<int32_t>(0x624328) = 0x36a; setlocale_(0, (const char*)0x5dcd0c); break;
+    switch (g_6d3c88) {
+    case 0x80: g_624328 = 0x3a4; setlocale_(0, (const char*)0x5dcd44); break;
+    case 0x81: g_624328 = 0x3b5; setlocale_(0, (const char*)0x5dcd14); break;
+    case 0x86: g_624328 = 0x3b6; setlocale_(0, (const char*)0x5dcd1c); break;
+    case 0x88: g_624328 = 0x3b6; setlocale_(0, (const char*)0x5dcd30); break;
+    case 0xde: g_624328 = 0x36a; setlocale_(0, (const char*)0x5dcd0c); break;
     }
     char sep[0x3e8];
     strcpy(sep, GetString(0x283));
-    if (strlen(sep)) hook::Global<char>(0x62432c) = sep[0];
+    if (strlen(sep)) g_62432c = sep[0];
     strcpy(sep, GetString(0x284));
-    if (strlen(sep)) hook::Global<char>(0x62432d) = sep[0];
+    if (strlen(sep)) g_62432d = sep[0];
 }
 RT3_REPLACE(0x51cf80, Language_Load);
 
@@ -751,7 +751,7 @@ RT3_REPLACE(0x51d660, ToUpper);
 // logging (0x6d3ca0) is on. Ints equal to -1234 are skipped.
 RT3_NOINLINE void __fastcall DebugLog(const char* text, int32_t a, int32_t b, int32_t c, int32_t d, int32_t e,
                          int32_t f, int32_t g, int32_t h, int32_t i) {
-    if (!hook::Global<int32_t>(0x6d3ca0)) return;
+    if (!g_6d3ca0) return;
     auto sprintf_ = (int(__cdecl*)(char*, const char*, ...))0x5a19c4;
     int32_t v[9] = { a, b, c, d, e, f, g, h, i };
     char line[2000] = "\n";
@@ -797,12 +797,12 @@ RT3_REPLACE(0x51d820, String_Assign);
 
 // 0x51d870. Starts the game's millisecond clock (once).
 void StartClock() {
-    if (g_clockStart == 0) g_clockStart = Ticks();
+    if (hook::As<DWORD>(g_6d3d14) == 0) hook::As<DWORD>(g_6d3d14) = Ticks();
 }
 RT3_REPLACE(0x51d870, StartClock);
 
 // 0x51d890. Milliseconds since StartClock.
-RT3_NOINLINE int32_t ClockMs() { return (int32_t)(Ticks() - g_clockStart); }
+RT3_NOINLINE int32_t ClockMs() { return (int32_t)(Ticks() - hook::As<DWORD>(g_6d3d14)); }
 RT3_REPLACE(0x51d890, ClockMs);
 
 // 0x51d8a0. strncpy that always terminates (dst needs n+1 bytes).
@@ -1029,7 +1029,7 @@ RT3_NOINLINE uint32_t __stdcall HeatColor(float t) {
     else bv = Fl(0x5c8598);
     float c = (float)((double)Fl(0x5c85b4) - u);
     double k = Fl(0x5ca0ec);
-    int32_t mode = F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x11474e);
+    int32_t mode = F<int32_t>(g_engine, 0x11474e);
     uint32_t px;
     if (mode == 0) {
         uint32_t ra = Ftol((double)a * k);

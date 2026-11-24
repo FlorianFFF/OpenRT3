@@ -8,6 +8,7 @@
 #include <stdint.h>
 #include <initializer_list>
 #include "hook/hook.h"
+#include "core/globals.h"
 #include "hook/keepregs.h"
 #include "game/collection.h"
 #include "core/ptrlist.h"
@@ -81,14 +82,14 @@ void __fastcall Glyph_Queue(uint8_t* g, int, float x, float y, uint32_t tint, fl
 #define RT3_ONOFF(addr, name, guard, on, level) \
     void __fastcall name(int32_t v) { \
         if (v == -1 || guard) return; \
-        uint8_t* app = hook::Global<uint8_t*>(0x6cec74); \
+        uint8_t* app = g_app; \
         if (!v) { \
             F<int32_t>(app, on) = v; \
         } else { \
             F<int32_t>(app, on) = 1; \
-            F<int32_t>(hook::Global<uint8_t*>(0x6cec74), level) = v - 1; \
+            F<int32_t>(g_app, level) = v - 1; \
         } \
-        Options_Save(hook::Global<uint8_t*>(0x6cec74), 0, 1); \
+        Options_Save(g_app, 0, 1); \
     } \
     RT3_REPLACE(addr, name);
 
@@ -149,22 +150,22 @@ int32_t Open476(int32_t kind, const char* target, uint32_t fail) {
 // for a filled slot, else 0x18) and the name string of its kind (0x6d14bc
 // +0x31a, 39-byte records at 0x5f2d47).
 void __fastcall Lobby_DrawSlotCb(void*, int32_t slot, float x, float y, float w, float h, int32_t) {
-    const int8_t kind = *(const int8_t*)(hook::Global<uint8_t*>(0x6d14bc) + slot * 9 + 0x31a);
-    const int32_t glyph = (slot < F<uint16_t>(hook::Global<uint8_t*>(0x6cec7c), 0x79) ? 1 : 0) + 0x18;
+    const int8_t kind = *(const int8_t*)(g_6d14bc + slot * 9 + 0x31a);
+    const int32_t glyph = (slot < F<uint16_t>(g_newGame, 0x79) ? 1 : 0) + 0x18;
     char text[0x170];
     FormatText(text, GetString(*(const int32_t*)(0x5f2d47 + kind * 0x27)), 0, 0, 0, 0, 0, 0, 0, 0);
     const float gy = (float)((double)y + D(0x5d1178));
     const float gx = (float)((double)x + D(0x5c9bc0));
-    Glyph_Queue((uint8_t*)(uintptr_t)Table_Entry(hook::Global<uint8_t*>(0x6d14b0), 0, glyph), 0, gx, gy, 0x3f800000, 1.0f, 1.0f, 0xffffffff, 0, 1, 0, 0.0f, 0.0f, 1.0f, 1.0f);
+    Glyph_Queue((uint8_t*)(uintptr_t)Table_Entry(g_6d14b0, 0, glyph), 0, gx, gy, 0x3f800000, 1.0f, 1.0f, 0xffffffff, 0, 1, 0, 0.0f, 0.0f, 1.0f, 1.0f);
     const float tw = (float)((double)w - D(0x5d1268));
     const float tx = (float)((double)x + D(0x5d1268));
-    Font_DrawTextBox(hook::Global<uint8_t*>(0x6d14b4), 0, text, tx, y, tw, h, 0xffffffff, 0, 0, 0, 1.0f);
+    Font_DrawTextBox(g_6d14b4, 0, text, tx, y, tw, h, 0xffffffff, 0, 0, 0, 1.0f);
 }
 RT3_REPLACE(0x502030, Lobby_DrawSlotCb);
 
-RT3_ONOFF(0x502160, Setup_Choice233Cb, hook::Global<int32_t>(0x6d14a8), 0x233, 0x237)
+RT3_ONOFF(0x502160, Setup_Choice233Cb, g_6d14a8, 0x233, 0x237)
 
-RT3_ONOFF(0x5021c0, Setup_Choice23bCb, hook::Global<int32_t>(0x6d14a8), 0x23b, 0x23f)
+RT3_ONOFF(0x5021c0, Setup_Choice23bCb, g_6d14a8, 0x23b, 0x23f)
 
 // 0x502220. Shows scenario `path` (title `name`; none = cleared) in setup
 // dialog d, unless it is already shown (0x6cec7c +0x10 / +0x11) and not
@@ -174,43 +175,43 @@ RT3_ONOFF(0x5021c0, Setup_Choice23bCb, hook::Global<int32_t>(0x6d14a8), 0x23b, 0
 // map size (string 0x2b2, plus warning 0xe0c past 0x51000 cells) and the
 // 256 x 256 preview.
 RT3_NOINLINE void __fastcall ScenarioPanel_Update(uint8_t* d, int, const char* path, const char* name, int32_t force) {
-    uint8_t* g = hook::Global<uint8_t*>(0x6cec7c);
+    uint8_t* g = g_newGame;
     if (path) {
         if (!force && g[0x10] && !Stricmp((const char*)g + 0x11, path)) return;
-        hook::Global<uint8_t*>(0x6cec7c)[0x10] = 1;
-        StrCopyN((char*)hook::Global<uint8_t*>(0x6cec7c) + 0x11, path, 0x32);
-        StrCopyN((char*)hook::Global<uint8_t*>(0x6cec7c) + 0x44, name, 0x32);
+        g_newGame[0x10] = 1;
+        StrCopyN((char*)g_newGame + 0x11, path, 0x32);
+        StrCopyN((char*)g_newGame + 0x44, name, 0x32);
     } else {
         if (!force && g[0x10]) return;
         g[0x10] = 0;
     }
-    if (!hook::Global<uint8_t*>(0x6cec7c)[0x10]) {
+    if (!g_newGame[0x10]) {
         static const uint32_t ids[] = { 0xcf5, 0xe7f, 0xd4c, 0xd4e };
         for (uint32_t id : ids) Window_SendEvent5(d, 0, 0x6f, id, 0x5c87a8, 0, 0);
         return;
     }
-    uint16_t year = F<uint16_t>(hook::Global<uint8_t*>(0x6cec7c), 0x77);
-    Block_Load((const char*)hook::Global<uint8_t*>(0x6cec7c) + 0x11, hook::Global<uint8_t*>(0x6d14bc), 0);
-    Obj_ApplySetup(hook::Global<uint8_t*>(0x6cec7c), 0, hook::Global<uint8_t*>(0x6d14bc));
-    if (F<int32_t>(d, 0x7b) == 10) F<uint16_t>(hook::Global<uint8_t*>(0x6cec7c), 0x77) = year;
-    uint8_t* s = hook::Global<uint8_t*>(0x6cec7c);
-    uint8_t* info = hook::Global<uint8_t*>(0x6d14bc);
+    uint16_t year = F<uint16_t>(g_newGame, 0x77);
+    Block_Load((const char*)g_newGame + 0x11, g_6d14bc, 0);
+    Obj_ApplySetup(g_newGame, 0, g_6d14bc);
+    if (F<int32_t>(d, 0x7b) == 10) F<uint16_t>(g_newGame, 0x77) = year;
+    uint8_t* s = g_newGame;
+    uint8_t* info = g_6d14bc;
     int32_t diff = F<int32_t>(info, 0x3aa) - F<uint16_t>(s, 0x79) - F<uint16_t>(s, 0x7b);
     F<uint16_t>(s, 0x7b) = (uint16_t)(F<uint16_t>(s, 0x7b) + diff);
-    F<int32_t>(hook::Global<uint8_t*>(0x6d14bc), 0x3ba) += diff;
+    F<int32_t>(g_6d14bc, 0x3ba) += diff;
     char yearText[0x20], wText[0x20], hText[0x20], sizeText[0x200];
-    Num_Format(yearText, 8, (double)F<uint16_t>(hook::Global<uint8_t*>(0x6cec7c), 0x77), 10, 1, 0, 0);
+    Num_Format(yearText, 8, (double)F<uint16_t>(g_newGame, 0x77), 10, 1, 0, 0);
     Window_SendEvent5(d, 0, 0x6f, 0xd4f, (uint32_t)(uintptr_t)yearText, 0, 0);
-    Window_SendEvent5(d, 0, 0x6f, 0xcf5, (uint32_t)(uintptr_t)(hook::Global<uint8_t*>(0x6cec7c) + 0x44), 0, 0);
-    Window_SendEvent5(d, 0, 0x6f, 0xe7f, (uint32_t)(uintptr_t)(hook::Global<uint8_t*>(0x6cec7c) + 0x44), 0, 0);
-    Window_SendEvent5(d, 0, 0x6f, 0xd4c, (uint32_t)(uintptr_t)(hook::Global<uint8_t*>(0x6d14bc) + 0x70), 0, 0);
-    const char* ws = Num_Format(wText, 8, (double)F<int32_t>(hook::Global<uint8_t*>(0x6d14bc), 5), 10, 1, 0, 0);
-    const char* hs = Num_Format(hText, 8, (double)F<int32_t>(hook::Global<uint8_t*>(0x6d14bc), 1), 10, 1, 0, 0);
+    Window_SendEvent5(d, 0, 0x6f, 0xcf5, (uint32_t)(uintptr_t)(g_newGame + 0x44), 0, 0);
+    Window_SendEvent5(d, 0, 0x6f, 0xe7f, (uint32_t)(uintptr_t)(g_newGame + 0x44), 0, 0);
+    Window_SendEvent5(d, 0, 0x6f, 0xd4c, (uint32_t)(uintptr_t)(g_6d14bc + 0x70), 0, 0);
+    const char* ws = Num_Format(wText, 8, (double)F<int32_t>(g_6d14bc, 5), 10, 1, 0, 0);
+    const char* hs = Num_Format(hText, 8, (double)F<int32_t>(g_6d14bc, 1), 10, 1, 0, 0);
     FormatText(sizeText, GetString(0x2b2), hs, ws, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
-    info = hook::Global<uint8_t*>(0x6d14bc);
+    info = g_6d14bc;
     if (F<int32_t>(info, 5) * F<int32_t>(info, 1) > 0x51000) strcat(sizeText, GetString(0xe0c));
     Window_SendEvent5(d, 0, 0x6f, 0xd4e, (uint32_t)(uintptr_t)sizeText, 0, 0);
-    Widget_SetPicture(Widget_FindChild(d, 0, 0xd4d), 0, hook::Global<uint8_t*>(0x6d14bc) + 0x3c2, 0x100, 0x100);
+    Widget_SetPicture(Widget_FindChild(d, 0, 0xd4d), 0, g_6d14bc + 0x3c2, 0x100, 0x100);
 }
 RT3_REPLACE(0x502220, ScenarioPanel_Update);
 
@@ -218,25 +219,25 @@ RT3_REPLACE(0x502220, ScenarioPanel_Update);
 // name (new game +0x44, 0xe7f) and +0x77 ("%.f", 0xe84), then the same lists and
 // switches as the options' 0x7587 page on 0xe86 / 0xe87 / 0xe88 / 0xe89 / 0xe8a.
 RT3_NOINLINE void __fastcall MpNewGameDialog_Show(uint8_t* w) {
-    hook::Global<int32_t>(0x6d14a8) = 1;
-    Window_SendEvent5(w, 0, 0x6f, 0xe7f, (uint32_t)(uintptr_t)(hook::Global<uint8_t*>(0x6cec7c) + 0x44), 0, 0);
+    g_6d14a8 = 1;
+    Window_SendEvent5(w, 0, 0x6f, 0xe7f, (uint32_t)(uintptr_t)(g_newGame + 0x44), 0, 0);
     char buf[0x1f8];
-    Num_Format(buf, 8, (double)F<uint16_t>(hook::Global<uint8_t*>(0x6cec7c), 0x77), 10, 1, 0, 0);
+    Num_Format(buf, 8, (double)F<uint16_t>(g_newGame, 0x77), 10, 1, 0, 0);
     Window_SendEvent5(w, 0, 0x6f, 0xe84, (uint32_t)(uintptr_t)buf, 0, 0);
     Window_SendEvent5(w, 0, 0x8b, 0xe86, 0, 0, 0);
     for (int32_t i = 0; i < 0x19; ++i)
         Window_SendEvent5(w, 0, 0x88, 0xe86, (uint32_t)(uintptr_t)GetString(((const int32_t*)0x620dd8)[i]), (uint32_t)i, 0);
-    uint8_t* o = hook::Global<uint8_t*>(0x6cec74);
+    uint8_t* o = g_app;
     Window_SendEvent5(w, 0, 0x66, 0xe86, F<int32_t>(o, 0x233) ? F<uint32_t>(o, 0x237) + 1 : 0, 0, 0);
     Window_SendEvent5(w, 0, 0x8b, 0xe87, 0, 0, 0);
     for (int32_t i = 0; i < 0xa; ++i)
         Window_SendEvent5(w, 0, 0x88, 0xe87, (uint32_t)(uintptr_t)GetString(((const int32_t*)0x620e3c)[i]), (uint32_t)i, 0);
-    o = hook::Global<uint8_t*>(0x6cec74);
+    o = g_app;
     Window_SendEvent5(w, 0, 0x66, 0xe87, F<int32_t>(o, 0x23b) ? F<uint32_t>(o, 0x23f) + 1 : 0, 0, 0);
-    Window_SendEvent5(w, 0, 0x74, 0xe88, F<uint32_t>(hook::Global<uint8_t*>(0x6cec74), 0x247), 0, 0);
-    Window_SendEvent5(w, 0, 0x74, 0xe89, F<uint32_t>(hook::Global<uint8_t*>(0x6cec74), 0x24b), 0, 0);
-    Window_SendEvent5(w, 0, 0x74, 0xe8a, F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x243) == 0, 0, 0);
-    hook::Global<int32_t>(0x6d14a8) = 0;
+    Window_SendEvent5(w, 0, 0x74, 0xe88, F<uint32_t>(g_app, 0x247), 0, 0);
+    Window_SendEvent5(w, 0, 0x74, 0xe89, F<uint32_t>(g_app, 0x24b), 0, 0);
+    Window_SendEvent5(w, 0, 0x74, 0xe8a, F<int32_t>(g_app, 0x243) == 0, 0, 0);
+    g_6d14a8 = 0;
 }
 RT3_REPLACE(0x502550, MpNewGameDialog_Show);
 
@@ -244,18 +245,18 @@ RT3_REPLACE(0x502550, MpNewGameDialog_Show);
 // images (0x6d14b0 / b4), deletes its scenario buffer 0x6d14b8 and frees 0x6d14bc.
 void __fastcall Setup_Destruct(uint8_t* w) {
     F<uint32_t>(w, 0) = 0x5d1664;
-    Pack_Release(hook::Global<uint8_t*>(0x6d4020), 0, hook::Global<void*>(0x6d14b0));
-    hook::Global<void*>(0x6d14b0) = nullptr;
-    Pack_Release(hook::Global<uint8_t*>(0x6d4020), 0, hook::Global<void*>(0x6d14b4));
-    hook::Global<void*>(0x6d14b4) = nullptr;
-    if (void* o = hook::Global<void*>(0x6d14b8)) {
+    Pack_Release(g_pack, 0, hook::As<void*>(g_6d14b0));
+    hook::As<void*>(g_6d14b0) = nullptr;
+    Pack_Release(g_pack, 0, hook::As<void*>(g_6d14b4));
+    hook::As<void*>(g_6d14b4) = nullptr;
+    if (void* o = hook::As<void*>(g_6d14b8)) {
         Obj_FreeBuffer8(o);
         ExeDelete(o);
     }
-    hook::Global<void*>(0x6d14b8) = nullptr;
-    if (void* p = hook::Global<void*>(0x6d14bc)) Free(p);
-    hook::Global<void*>(0x6d14bc) = nullptr;
-    hook::Global<int32_t>(0x6d14c0) = 0;
+    hook::As<void*>(g_6d14b8) = nullptr;
+    if (void* p = hook::As<void*>(g_6d14bc)) Free(p);
+    hook::As<void*>(g_6d14bc) = nullptr;
+    hook::As<int32_t>(g_6d14c0) = 0;
     Widget_SetVtbl(w);
 }
 RT3_REPLACE(0x502720, Setup_Destruct);
@@ -277,15 +278,15 @@ RT3_NOINLINE void __fastcall ScenarioList_Fill(uint8_t* d) {
     default: id = (uint32_t)(uintptr_t)d; break;
     }
     Window_SendEvent5(d, 0, 0x8b, id, 0, 0, 0);
-    for (int32_t i = 0; i < F<int32_t>(hook::Global<uint8_t*>(0x6d14b8), 0); ++i) {
-        Window_SendEvent5(d, 0, 0x88, id, (uint32_t)(uintptr_t)(F<uint8_t*>(hook::Global<uint8_t*>(0x6d14b8), 8) + i * 0x25a + 0x12d), 0, 0);
-        if (!Stricmp((const char*)F<uint8_t*>(hook::Global<uint8_t*>(0x6d14b8), 8) + i * 0x25a + 0x12d, (const char*)hook::Global<uint8_t*>(0x6cec7c) + 0x44))
+    for (int32_t i = 0; i < F<int32_t>(g_6d14b8, 0); ++i) {
+        Window_SendEvent5(d, 0, 0x88, id, (uint32_t)(uintptr_t)(F<uint8_t*>(g_6d14b8, 8) + i * 0x25a + 0x12d), 0, 0);
+        if (!Stricmp((const char*)F<uint8_t*>(g_6d14b8, 8) + i * 0x25a + 0x12d, (const char*)g_newGame + 0x44))
             Window_SendEvent5(d, 0, 0x66, id, (uint32_t)i, 0, 0);
         for (uint32_t p = 0x622a98; p < 0x622acc; p += 4)
-            if (!Stricmp((const char*)F<uint8_t*>(hook::Global<uint8_t*>(0x6d14b8), 8) + i * 0x25a, hook::Global<const char*>(p)))
+            if (!Stricmp((const char*)F<uint8_t*>(g_6d14b8, 8) + i * 0x25a, hook::Global<const char*>(p)))
                 Window_SendEvent5(d, 0, 0xaf, id, (uint32_t)i, 0xffcfcfff, 0);
     }
-    uint8_t* g = hook::Global<uint8_t*>(0x6cec7c);
+    uint8_t* g = g_newGame;
     if (g[0x10]) ScenarioPanel_Update(d, 0, (const char*)g + 0x11, (const char*)g + 0x44, 1);
     else ScenarioPanel_Update(d, 0, nullptr, nullptr, 1);
 }
@@ -302,41 +303,41 @@ RT3_REPLACE(0x5027b0, ScenarioList_Fill);
 RT3_NOINLINE void __fastcall MpSetupDialog_Show(uint8_t* w) {
     if (!F<int32_t>(w, 0x7b)) return;
     char buf[0x1f0];
-    Num_Format(buf, 1, (double)F<uint16_t>(hook::Global<uint8_t*>(0x6cec7c), 0x7b), 10, 1, 0, 0);
+    Num_Format(buf, 1, (double)F<uint16_t>(g_newGame, 0x7b), 10, 1, 0, 0);
     Window_SendEvent5(w, 0, 0x6f, 0xcf3, (uint32_t)(uintptr_t)buf, 0, 0);
     FormatText(buf, (const char*)0x5c87a8, 0, 0, 0, 0, 0, 0, 0, 0);
     Window_SendEvent5(w, 0, 0x6f, 0xcf4, (uint32_t)(uintptr_t)buf, 0, 0);
-    Window_SendEvent5(w, 0, 0x6f, 0xcf5, (uint32_t)(uintptr_t)(hook::Global<uint8_t*>(0x6cec7c) + 0x44), 0, 0);
-    Num_Format(buf, 8, (double)F<uint16_t>(hook::Global<uint8_t*>(0x6cec7c), 0x77), 10, 1, 0, 0);
+    Window_SendEvent5(w, 0, 0x6f, 0xcf5, (uint32_t)(uintptr_t)(g_newGame + 0x44), 0, 0);
+    Num_Format(buf, 8, (double)F<uint16_t>(g_newGame, 0x77), 10, 1, 0, 0);
     Window_SendEvent5(w, 0, 0x6f, 0xd4f, (uint32_t)(uintptr_t)buf, 0, 0);
     for (int32_t i = 0; i < 5; ++i)
-        Window_SendEvent5(w, 0, hook::Global<uint8_t*>(0x6cec7c)[0x7d] != i ? 0x87 : 0x65, 0xce9 + i, 0x20, 0, 0);
+        Window_SendEvent5(w, 0, g_newGame[0x7d] != i ? 0x87 : 0x65, 0xce9 + i, 0x20, 0, 0);
     int32_t sel = F<int32_t>(Widget_FindChild(w, 0, 0xce8), 0x1d6);
     Window_SendEvent5(w, 0, 0x8b, 0xce8, 0, 0, 0);
     auto claim = [w](int32_t i) {
         Window_SendEvent5(w, 0, 0x88, 0xce8, 0, (uint32_t)i, 0);
-        hook::Global<uint8_t*>(0x6cec7c)[0x87 + i] = i ? (uint8_t)(i + 100) : 1;
+        g_newGame[0x87 + i] = i ? (uint8_t)(i + 100) : 1;
     };
     int32_t taken = 0;
-    for (int32_t i = 0; i < F<int32_t>(hook::Global<uint8_t*>(0x6d14bc), 0x3ae); ++i) {
-        const uint8_t* row = hook::Global<uint8_t*>(0x6d14bc) + i * 9;
+    for (int32_t i = 0; i < F<int32_t>(g_6d14bc, 0x3ae); ++i) {
+        const uint8_t* row = g_6d14bc + i * 9;
         if (!row[0x31b] && (!i || row[0x31c])) {
             claim(i);
             ++taken;
-        } else hook::Global<uint8_t*>(0x6cec7c)[0x87 + i] = 0;
+        } else g_newGame[0x87 + i] = 0;
     }
-    uint8_t* ng = hook::Global<uint8_t*>(0x6cec7c);
+    uint8_t* ng = g_newGame;
     int32_t left = F<uint16_t>(ng, 0x7b) + F<uint16_t>(ng, 0x79) - taken;
     for (int32_t tries = 0; left > 0 && tries++ < 0x1f4;)
-        for (int32_t i = 0; i < F<int32_t>(hook::Global<uint8_t*>(0x6d14bc), 0x3ae); ++i) {
-            const uint8_t* row = hook::Global<uint8_t*>(0x6d14bc) + i * 9;
+        for (int32_t i = 0; i < F<int32_t>(g_6d14bc, 0x3ae); ++i) {
+            const uint8_t* row = g_6d14bc + i * 9;
             if (!row[0x31b]) continue;
             if (left && row[0x31c]) {
                 claim(i);
                 --left;
-            } else hook::Global<uint8_t*>(0x6cec7c)[0x87 + i] = 0;
+            } else g_newGame[0x87 + i] = 0;
         }
-    ng = hook::Global<uint8_t*>(0x6cec7c);
+    ng = g_newGame;
     if (sel >= 0 && sel < F<uint16_t>(ng, 0x7b) + F<uint16_t>(ng, 0x79)) Window_SendEvent5(w, 0, 0x66, 0xce8, (uint32_t)sel, 0, 0);
 }
 RT3_REPLACE(0x502910, MpSetupDialog_Show);
@@ -355,7 +356,7 @@ RT3_REPLACE(0x502910, MpSetupDialog_Show);
 // pages refill (0x5027b0), page 3 opens the multiplayer setup and page 1
 // shows the version text without trailing blanks.
 RT3_NOINLINE void __fastcall SetupScreen_SetMode(uint8_t* s, int, int32_t mode) {
-    F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x6c) = 0;
+    F<int32_t>(g_app, 0x6c) = 0;
     if ((uint32_t)mode <= 0x11) {
         static const uint8_t kBack[0x12] = { 0, 0, 0, 1, 1, 1, 1, 0, 0, 1, 1, 2, 1, 0, 1, 0, 0, 0 };
         if (kBack[mode] != 2) Window_SendEvent5(s, 0, kBack[mode] ? 0x87 : 0x65, 0xd5e, 1, 0, 0);
@@ -364,13 +365,13 @@ RT3_NOINLINE void __fastcall SetupScreen_SetMode(uint8_t* s, int, int32_t mode) 
     if ((uint32_t)(mode - 3) <= 0xa) {
         static const uint8_t kView[0xb] = { 0, 0, 0, 2, 1, 1, 1, 0, 2, 2, 0 };
         uint8_t k = kView[mode - 3];
-        if (k == 0) F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x6c) = 1;
+        if (k == 0) F<int32_t>(g_app, 0x6c) = 1;
         else if (k == 1) view = 1;
     }
-    App_SetViewMode(hook::Global<uint8_t*>(0x6cec74), 0, view);
+    App_SetViewMode(g_app, 0, view);
     bool cleared = mode == 6 || mode == 9 || mode == 0xc || mode == 0xe;
-    hook::Global<uint8_t*>(0x6cec7c)[0x97] = cleared ? 0 : 1;
-    if (mode == 2) hook::Global<uint8_t*>(0x6cec7c)[0x10] = 0;
+    g_newGame[0x97] = cleared ? 0 : 1;
+    if (mode == 2) g_newGame[0x10] = 0;
     F<int32_t>(s, 0x7b) = mode;
     auto hi = [&](bool on, uint32_t id) { Window_SendEvent5(s, 0, on ? 0x6d : 0x86, id, 3, 0, 0); };
     hi(mode == 1, 0xbb9);
@@ -392,12 +393,12 @@ RT3_NOINLINE void __fastcall SetupScreen_SetMode(uint8_t* s, int, int32_t mode) 
     hi(F<int32_t>(s, 0x7b) == 0x11, 0xf6e);
     m = F<int32_t>(s, 0x7b);
     if (m != 3 && m != 4 && m != 5 && m != 9 && m != 0xa && m != 6 && m != 0xc && m != 0xe) {
-        if (uint8_t* list = hook::Global<uint8_t*>(0x6d14b8)) {
+        if (uint8_t* list = g_6d14b8) {
             Obj_FreeBuffer8(list);
             ((void(__cdecl*)(void*))0x53b080)(list);
         }
-        hook::Global<uint8_t*>(0x6d14b8) = nullptr;
-    } else if (!hook::Global<uint8_t*>(0x6d14b8)) {
+        g_6d14b8 = nullptr;
+    } else if (!g_6d14b8) {
         int32_t kind = 4;
         if (m == 3 || m == 4 || m == 5) kind = 5;
         if (m == 0xa) kind = 6;
@@ -406,16 +407,16 @@ RT3_NOINLINE void __fastcall SetupScreen_SetMode(uint8_t* s, int, int32_t mode) 
         if (m == 0xe) kind = 9;
         uint8_t* list = (uint8_t*)((void*(__cdecl*)(size_t))0x53b070)(0xc);
         list = list ? SaveList_Init(list, 0, kind) : nullptr;
-        hook::Global<uint8_t*>(0x6d14b8) = list;
+        g_6d14b8 = list;
         if (F<int32_t>(list, 0) > 0) {
             int32_t pick = 1;
             if (!((int(__cdecl*)(const char*, const char*, size_t))0x5a5f26)((const char*)0x5d1670, F<const char*>(list, 8), 3) &&
-                F<int32_t>(hook::Global<uint8_t*>(0x6d14b8), 0) > 1)
+                F<int32_t>(g_6d14b8, 0) > 1)
                 pick = 2;
-            hook::Global<uint8_t*>(0x6cec7c)[0x10] = 1;
-            StrCopyN((char*)hook::Global<uint8_t*>(0x6cec7c) + 0x11, F<const char*>(hook::Global<uint8_t*>(0x6d14b8), 8) + (pick - 1) * 0x25a, 0x32);
-            StrCopyN((char*)hook::Global<uint8_t*>(0x6cec7c) + 0x44, F<const char*>(hook::Global<uint8_t*>(0x6d14b8), 8) + (pick - 1) * 0x25a + 0x12d, 0x32);
-            uint8_t* lobby = hook::Global<uint8_t*>(0x6cec7c);
+            g_newGame[0x10] = 1;
+            StrCopyN((char*)g_newGame + 0x11, F<const char*>(g_6d14b8, 8) + (pick - 1) * 0x25a, 0x32);
+            StrCopyN((char*)g_newGame + 0x44, F<const char*>(g_6d14b8, 8) + (pick - 1) * 0x25a + 0x12d, 0x32);
+            uint8_t* lobby = g_newGame;
             if (lobby[0x10]) ScenarioPanel_Update(s, 0, (const char*)lobby + 0x11, (const char*)lobby + 0x44, 1);
             else ScenarioPanel_Update(s, 0, nullptr, nullptr, 1);
         }
@@ -484,19 +485,19 @@ int32_t __fastcall SetupScreen_HandleEvent(uint8_t* s, int, uint32_t* msg) {
     };
     // Starts the picked scenario (string 0x2ba when none is picked).
     auto play = [&]() {
-        uint8_t* sc = hook::Global<uint8_t*>(0x6cec7c);
+        uint8_t* sc = g_newGame;
         if (!sc[0x10]) {
             Message476(GetString(0x2ba));
             return 0;
         }
         F<uint32_t>(sc, 1) = msg[1] == 0xcf6 || msg[1] == 0xe81 ? 5 : 3;
-        hook::Global<uint8_t*>(0x6cec7c)[0x82] = msg[1] == 0xe81;
-        return start(Save_LoadOptions((const char*)hook::Global<uint8_t*>(0x6cec7c) + 0x11) ? 7 : 1);
+        g_newGame[0x82] = msg[1] == 0xe81;
+        return start(Save_LoadOptions((const char*)g_newGame + 0x11) ? 7 : 1);
     };
     auto toggle = [](int32_t off) {
-        uint8_t* o = hook::Global<uint8_t*>(0x6cec74);
+        uint8_t* o = g_app;
         F<int32_t>(o, off) = F<int32_t>(o, off) == 0;
-        Options_Save(hook::Global<uint8_t*>(0x6cec74), 0, 1);
+        Options_Save(g_app, 0, 1);
         return 0;
     };
     auto setupShown = [&]() {
@@ -505,35 +506,35 @@ int32_t __fastcall SetupScreen_HandleEvent(uint8_t* s, int, uint32_t* msg) {
     };
     // Money in steps of 5 for the new multiplayer game, kept in 0x70d..0x834.
     auto money = [&](int32_t step) {
-        F<uint16_t>(hook::Global<uint8_t*>(0x6cec7c), 0x77) += (uint16_t)step;
-        uint8_t* p = hook::Global<uint8_t*>(0x6cec7c);
+        F<uint16_t>(g_newGame, 0x77) += (uint16_t)step;
+        uint8_t* p = g_newGame;
         uint16_t v = F<uint16_t>(p, 0x77);
         if (step > 0 && v > 0x834) v = 0x834;
         if (step < 0 && v < 0x70d) v = 0x70d;
         F<uint16_t>(p, 0x77) = v;
         MpNewGameDialog_Show(s);
-        hook::Global<uint8_t>(0x6d14ac) = 1;
+        g_6d14ac = 1;
         return 0;
     };
     switch (msg[0]) {
     case 0: {
-        if (hook::Global<int32_t>(0x6d149c)) break;
-        hook::Global<int32_t>(0x6d149c) = 1;
+        if (g_6d149c) break;
+        g_6d149c = 1;
         const int32_t ok = Return1_481fb0(s);
-        hook::Global<int32_t>(0x622a20) = ok;
-        if (!ok) memset(hook::Global<uint8_t*>(0x6d14c0), 0, 0x7f);
+        g_622a20 = ok;
+        if (!ok) memset(g_6d14c0, 0, 0x7f);
         const int32_t r = Rand(1, 5);
-        hook::Global<int32_t>(0x6d14a0) = (r + hook::Global<int32_t>(0x6d14a0) + 4) * 3;
-        hook::Global<int32_t>(0x6d14a0) += Rand(0, 2);
-        if (hook::Global<int32_t>(0x6d14a0) & 1) hook::Global<int32_t>(0x6d14a4) = 1;
-        if (!hook::Global<int32_t>(0x622a20)) ((void(__cdecl*)(int))0x5a2e9c)(0);
+        g_6d14a0 = (r + g_6d14a0 + 4) * 3;
+        g_6d14a0 += Rand(0, 2);
+        if (g_6d14a0 & 1) g_6d14a4 = 1;
+        if (!g_622a20) ((void(__cdecl*)(int))0x5a2e9c)(0);
         break;
     }
     case 0xce: {
         const uint32_t id = msg[1];
         if (id != 0xd4b && id != 0xde8 && id != 0xdf2 && id != 0xe85) break;
         if ((int32_t)msg[2] < 0) break;
-        uint8_t* e = F<uint8_t*>(hook::Global<uint8_t*>(0x6d14b8), 8) + (int32_t)msg[2] * 0x25a;
+        uint8_t* e = F<uint8_t*>(g_6d14b8, 8) + (int32_t)msg[2] * 0x25a;
         ScenarioPanel_Update(s, 0, (const char*)e, (const char*)e + 0x12d, 0);
         break;
     }
@@ -587,17 +588,17 @@ int32_t __fastcall SetupScreen_HandleEvent(uint8_t* s, int, uint32_t* msg) {
         case 0xdb6: return mode(3);
         case 0xc83: return mode(6);
         case 0xc84:
-            hook::Global<uint8_t>(0x6d14ac) = 0;
+            g_6d14ac = 0;
             SetupScreen_SetMode(s, 0, 0xa);
-            if (!hook::Global<uint8_t>(0x6d14ac)) F<uint16_t>(hook::Global<uint8_t*>(0x6cec7c), 0x77) = 0x78a;
+            if (!g_6d14ac) F<uint16_t>(g_newGame, 0x77) = 0x78a;
             MpNewGameDialog_Show(s);
             return 0;
         case 0xc85: return mode(0xc);
         case 0xce4: return mode(F<uint8_t*>(msg, 0x2c)[0x6a] & 0x20 ? 4 : 3);
         case 0xce5: return mode(F<uint8_t*>(msg, 0x2c)[0x6a] & 0x20 ? 5 : 3);
         case 0xce6: {
-            uint8_t* p = hook::Global<uint8_t*>(0x6d14bc);
-            uint8_t* g = hook::Global<uint8_t*>(0x6cec7c);
+            uint8_t* p = g_6d14bc;
+            uint8_t* g = g_newGame;
             if (p && F<int32_t>(p, 0x3be) > (int32_t)F<uint16_t>(g, 0x7b))
                 ++F<uint16_t>(g, 0x7b);
             else
@@ -605,8 +606,8 @@ int32_t __fastcall SetupScreen_HandleEvent(uint8_t* s, int, uint32_t* msg) {
             return setupShown();
         }
         case 0xce7: {
-            uint8_t* p = hook::Global<uint8_t*>(0x6d14bc);
-            uint8_t* g = hook::Global<uint8_t*>(0x6cec7c);
+            uint8_t* p = g_6d14bc;
+            uint8_t* g = g_newGame;
             if (p && F<int32_t>(p, 0x3ba) < (int32_t)F<uint16_t>(g, 0x7b))
                 --F<uint16_t>(g, 0x7b);
             else
@@ -618,7 +619,7 @@ int32_t __fastcall SetupScreen_HandleEvent(uint8_t* s, int, uint32_t* msg) {
         case 0xceb:
         case 0xcec:
         case 0xced:
-            hook::Global<uint8_t*>(0x6cec7c)[0x7d] = (uint8_t)(msg[1] + 0x17);
+            g_newGame[0x7d] = (uint8_t)(msg[1] + 0x17);
             return setupShown();
         case 0xcf6:
         case 0xde9:
@@ -627,10 +628,10 @@ int32_t __fastcall SetupScreen_HandleEvent(uint8_t* s, int, uint32_t* msg) {
         case 0xd49:
         case 0xd4a: {
             const bool up = msg[1] == 0xd49;
-            F<uint16_t>(hook::Global<uint8_t*>(0x6cec7c), 0x77) += up ? 5 : 0xfffb;
-            uint8_t* p = hook::Global<uint8_t*>(0x6d14bc);
+            F<uint16_t>(g_newGame, 0x77) += up ? 5 : 0xfffb;
+            uint8_t* p = g_6d14bc;
             if (p && *p) {
-                uint8_t* g = hook::Global<uint8_t*>(0x6cec7c);
+                uint8_t* g = g_newGame;
                 int32_t v = F<uint16_t>(g, 0x77);
                 const int32_t lim = F<int32_t>(p, up ? 0x10 : 0xc);
                 if (up ? v >= lim : v <= lim) v = lim;
@@ -639,30 +640,30 @@ int32_t __fastcall SetupScreen_HandleEvent(uint8_t* s, int, uint32_t* msg) {
             return setupShown();
         }
         case 0xdca:
-            F<uint32_t>(hook::Global<uint8_t*>(0x6cec7c), 1) = 4;
+            F<uint32_t>(g_newGame, 1) = 4;
             return mode(8);
         case 0xdcb:
-            F<uint32_t>(hook::Global<uint8_t*>(0x6cec7c), 1) = 3;
+            F<uint32_t>(g_newGame, 1) = 3;
             return mode(9);
         case 0xdd4:
             if (!MapSize_Prompt((uint32_t*)0x6d14cc, (uint32_t*)0x6d14d0)) return 0;
-            F<uint32_t>(hook::Global<uint8_t*>(0x6cec7c), 1) = 4;
+            F<uint32_t>(g_newGame, 1) = 4;
             return start(1);
         case 0xddf: {
-            if (Engine_IsFullscreen(hook::Global<void*>(0x6d4024))) {
+            if (Engine_IsFullscreen(hook::As<void*>(g_engine))) {
                 Message476(GetString(0xbf7));
                 return 0;
             }
-            Section_Enter(hook::Global<uint8_t*>(0xccbb20));
-            Cursor_UseSystem(hook::Global<uint8_t*>(0xccbb20));
+            Section_Enter(g_cursorManager);
+            Cursor_UseSystem(g_cursorManager);
             const int32_t picked = OpenFileDialog((char*)0x6d1370, (const char*)0x5d1674, (const char*)0x5d1690);
-            Cursor_PopWindowsMode(hook::Global<uint8_t*>(0xccbb20));
+            Cursor_PopWindowsMode(g_cursorManager);
             if (!picked) return 0;
             if (!Tga_IsPlain((const char*)0x6d1370)) {
                 Message476(GetString(0xe13));
                 return 0;
             }
-            F<uint32_t>(hook::Global<uint8_t*>(0x6cec7c), 1) = 2;
+            F<uint32_t>(g_newGame, 1) = 2;
             return start(1);
         }
         case 0xe82: return money(5);
@@ -670,18 +671,18 @@ int32_t __fastcall SetupScreen_HandleEvent(uint8_t* s, int, uint32_t* msg) {
         case 0xf3d:
         case 0xf3e:
         case 0xf3f:
-            hook::Global<uint8_t*>(0x6cec7c)[0x7d] = (uint8_t)(msg[1] - 0x3d);
+            g_newGame[0x7d] = (uint8_t)(msg[1] - 0x3d);
             return start(7);
         case 0xf6f:
-            F<uint32_t>(hook::Global<uint8_t*>(0x6cec7c), 1) = 1;
+            F<uint32_t>(g_newGame, 1) = 1;
             return start(1);
         case 0xf70:
-            F<uint32_t>(hook::Global<uint8_t*>(0x6cec7c), 1) = 7;
+            F<uint32_t>(g_newGame, 1) = 7;
             return start(1);
         }
         break;
     }
-    ++hook::Global<int32_t>(0x6d14a0);
+    ++g_6d14a0;
     return 1;
 }
 RT3_REPLACE(0x503310, SetupScreen_HandleEvent);

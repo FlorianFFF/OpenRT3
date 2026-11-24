@@ -8,6 +8,7 @@
 #include <math.h>
 #include <initializer_list>
 #include "hook/hook.h"
+#include "core/globals.h"
 #include "game/collection.h"
 #include "hook/keepregs.h"
 #include "core/stream.h"
@@ -219,10 +220,10 @@ static inline double Fl_207(uint32_t a) { return *(const float*)a; }
 
 static inline float Prod_Bits(uint32_t b) { return *(const float*)&b; }
 
-static inline uint8_t* Prod_Win() { return hook::Global<uint8_t*>(0x6cfd04); }
+static inline uint8_t* Prod_Win() { return g_6cfd04; }
 
 static inline void Prod_Text(const char* text, float x, float y, float w, int32_t align) {
-    Font_DrawTextBox(hook::Global<uint8_t*>(0x6cfcf8), 0, text, x, y, w, Prod_Bits(0x3ccccccd), 0xffffffff, align, 0, 0, 1.0f);
+    Font_DrawTextBox(g_6cfcf8, 0, text, x, y, w, Prod_Bits(0x3ccccccd), 0xffffffff, align, 0, 0, 1.0f);
 }
 
 static inline char* Prod_Format(char* dst, const char* fmt, const char* a1, const char* a2) { return FormatText(dst, fmt, a1, a2, 0, 0, 0, 0, 0, 0); }
@@ -266,7 +267,7 @@ static void Prod_Image(uint32_t id, float x, float y, const char* imb, const cha
     F<uint16_t>(d, 0) = (uint16_t)(id + 0xbd42);
     F<uint32_t>(d, 0x2f) = 0x800;
     F<uint16_t>(d, 0x5f) = 0;
-    int32_t found = NameTable_ContainsName(hook::Global<uint8_t*>(0x6d4020), 0, imb, 0, nullptr);
+    int32_t found = NameTable_ContainsName(g_pack, 0, imb, 0, nullptr);
     String_Assign(&F<char*>(d, 0x43), found ? imb : (const char*)0x5d0194);
     String_Assign(&F<char*>(d, 0x3f), tip ? tip : GetString(tipId));
     uint8_t* w = (uint8_t*)((void*(__cdecl*)(size_t))0x53b070)(0x111);
@@ -319,13 +320,13 @@ static uint32_t TrainOrders_StationAt(const uint8_t* list, int32_t i) {
 // engine; the orders are copied, routed and the train advanced five steps.
 // 0 when there is no node.
 RT3_NOINLINE uint32_t __fastcall Train_Create(uint32_t engine, uint8_t* orders, int32_t, int32_t company) {
-    if (company == -1) company = Obj_Get21(hook::Global<uint8_t*>(0x6cec78));
-    hook::Global<int32_t>(0x6cfcb8) = 1;
+    if (company == -1) company = Obj_Get21(g_world);
+    g_6cfcb8 = 1;
     uint32_t node = 0;
     auto usable = [](uint8_t* e) {
         if ((int8_t)e[0x28] < 0) return 2; // a waypoint: never picked
-        if (!Collection_IsValid(hook::Global<Collection*>(0x6cec20), 0, F<uint16_t>(e, 0x29))) return 0;
-        return Obj_BuildingStateActive(Collection_Get(hook::Global<Collection*>(0x6cec20), 0, F<uint16_t>(e, 0x29))) ? 1 : 3;
+        if (!Collection_IsValid(g_stations, 0, F<uint16_t>(e, 0x29))) return 0;
+        return Obj_BuildingStateActive(Collection_Get(g_stations, 0, F<uint16_t>(e, 0x29))) ? 1 : 3;
     };
     if (orders) {
         const int32_t cur = F<int32_t>(orders, 8);
@@ -348,26 +349,26 @@ RT3_NOINLINE uint32_t __fastcall Train_Create(uint32_t engine, uint8_t* orders, 
             if ((int8_t)stop[0x28] < 0) {
                 node = F<uint32_t>(stop, 0x2b);
             } else {
-                uint8_t* st = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cec20), 0, F<uint16_t>(stop, 0x29));
+                uint8_t* st = (uint8_t*)Collection_Get(g_stations, 0, F<uint16_t>(stop, 0x29));
                 node = F<uint32_t>(st, 8);
                 Obj_SetHighlight(st, 0, 1);
             }
         }
     }
-    if (!node && Collection_Count(hook::Global<Collection*>(0x6cfca8)) > 0) node = Collection_IdAt(hook::Global<Collection*>(0x6cfca8), 0, 0, 0);
+    if (!node && Collection_Count(g_tracks) > 0) node = Collection_IdAt(g_tracks, 0, 0, 0);
     if (!node) {
-        hook::Global<int32_t>(0x6cfcb8) = 0;
+        g_6cfcb8 = 0;
         return 0;
     }
-    const uint32_t id = Trains_Create(hook::Global<Collection*>(0x6cfcbc), 0, company);
-    uint8_t* t = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfcbc), 0, id);
-    Train_PlaceInitialEngine(t, 0, engine, (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfca8), 0, node));
+    const uint32_t id = Trains_Create(g_trains, 0, company);
+    uint8_t* t = (uint8_t*)Collection_Get(g_trains, 0, id);
+    Train_PlaceInitialEngine(t, 0, engine, (uint8_t*)Collection_Get(g_tracks, 0, node));
     F<uint32_t>(orders, 0xd) = F<uint32_t>(t, 0x25);
     memcpy(Identity(t), orders, 0x25);
     Train_Route(t);
     Route_LinkStations(t);
     for (int32_t k = 0; k < 5; ++k) ((void(__fastcall*)(uint8_t*, int, int32_t, int32_t))0x4b10d0)(t, 0, 0, 1);
-    hook::Global<int32_t>(0x6cfcb8) = 0;
+    g_6cfcb8 = 0;
     return id;
 }
 RT3_REPLACE(0x4b2140, Train_Create);
@@ -396,10 +397,10 @@ RT3_REPLACE(0x4b23b0, Collection5d00c8_Destruct);
 // down and freed, and the app hears of it (event 0x3e9).
 void __fastcall Trains_Remove(Collection* c, int, uint32_t id) {
     uint8_t* t = (uint8_t*)Collection_Get(c, 0, id);
-    if (Obj_City41(t) == F<void*>(hook::Global<uint8_t*>(0x62be68), 0x60)) World_SetFollow(hook::Global<uint8_t*>(0x6cec78), 0, 0, nullptr);
+    if (Obj_City41(t) == F<void*>(g_62be68, 0x60)) World_SetFollow(g_world, 0, 0, nullptr);
     Train_Teardown(t);
     Collection_Release(c, 0, id);
-    App_DispatchEvent5(hook::Global<uint8_t*>(0x6cec74), 0, 0x3e9, 0xffffffff, id, 0, 0);
+    App_DispatchEvent5(g_app, 0, 0x3e9, 0xffffffff, id, 0, 0);
 }
 RT3_REPLACE(0x4b2430, Trains_Remove);
 
@@ -408,7 +409,7 @@ RT3_REPLACE(0x4b2430, Trains_Remove);
 // (+0x1be marks the done ones); a finished train (state 0xd) is removed
 // (QUIRK: removing the first one skips the next).
 void __fastcall Trains_Advance(Collection* c, int, float dt) {
-    if (hook::Global<uint8_t*>(0x6cec78) && IsMultiplayer()) dt = (float)(int32_t)dt;
+    if (g_world && IsMultiplayer()) dt = (float)(int32_t)dt;
     for (int32_t pass = 0; pass < 2; ++pass) {
         for (int32_t i = 0; i < Collection_Count(c); ++i) {
             uint8_t* t = (uint8_t*)Collection_Get(c, 0, Collection_IdAt(c, 0, (uint32_t)i, 0));
@@ -440,13 +441,13 @@ RT3_REPLACE(0x4b24a0, Trains_Advance);
 // (Train_CargoRate, when they differ by more than 0x5c87f8) wins, then the
 // higher +0xcc (b on a tie). Returns 1 when b was stopped, 0 for a.
 RT3_NOINLINE int32_t __fastcall Trains_ResolveClash(Collection* objs, int, uint32_t a, uint32_t b) {
-    if (F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x1b3)) return 1;
-    int32_t pa = F<int32_t>(Collection_Get(hook::Global<Collection*>(0x6cfcbc), 0, a), 0xd8);
-    int32_t pb = F<int32_t>(Collection_Get(hook::Global<Collection*>(0x6cfcbc), 0, b), 0xd8);
+    if (F<int32_t>(g_app, 0x1b3)) return 1;
+    int32_t pa = F<int32_t>(Collection_Get(g_trains, 0, a), 0xd8);
+    int32_t pb = F<int32_t>(Collection_Get(g_trains, 0, b), 0xd8);
     uint8_t* A = (uint8_t*)Collection_Get(objs, 0, a);
     uint8_t* B = (uint8_t*)Collection_Get(objs, 0, b);
-    if ((int32_t)F<uint16_t>(Collection_Get(hook::Global<Collection*>(0x6cfca8), 0, F<uint32_t>(A, 0x49)), 0x22e) != F<int32_t>(A, 0x51)) pa = -1;
-    if ((int32_t)F<uint16_t>(Collection_Get(hook::Global<Collection*>(0x6cfca8), 0, F<uint32_t>(B, 0x49)), 0x22e) != F<int32_t>(B, 0x51)) pb = -1;
+    if ((int32_t)F<uint16_t>(Collection_Get(g_tracks, 0, F<uint32_t>(A, 0x49)), 0x22e) != F<int32_t>(A, 0x51)) pa = -1;
+    if ((int32_t)F<uint16_t>(Collection_Get(g_tracks, 0, F<uint32_t>(B, 0x49)), 0x22e) != F<int32_t>(B, 0x51)) pb = -1;
     bool stopB;
     if (pa > pb) stopB = true;
     else if (pa < pb) stopB = false;
@@ -538,7 +539,7 @@ void __fastcall Table_ForAllCityChains(Collection* t) {
 RT3_REPLACE(0x4b2a50, Table_ForAllCityChains);
 
 void __fastcall Table_Hook4a7350(Collection* t) {
-    if (!F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x1cf)) return;
+    if (!F<int32_t>(g_app, 0x1cf)) return;
     for (int32_t i = 0; i < Collection_Count(t); ++i) Nop4a7350(Collection_Get(t, 0, Collection_IdAt(t, 0, i, 0)));
 }
 RT3_REPLACE(0x4b2a90, Table_Hook4a7350);
@@ -547,7 +548,7 @@ RT3_REPLACE(0x4b2a90, Table_Hook4a7350);
 // collection, records from the train table 0x6cfcbc).
 RT3_NOINLINE void __fastcall Trains_ReapplyGhosts(Collection* c) {
     for (int32_t i = 0; i < Collection_Count(c); ++i) {
-        Collection* trains = hook::Global<Collection*>(0x6cfcbc);
+        Collection* trains = g_trains;
         uint8_t* t = (uint8_t*)Collection_Get(trains, 0, Collection_IdAt(trains, 0, i, 0));
         if (t[0xf4]) Train_SetGhost(t, 0, 1, 1);
     }
@@ -623,13 +624,13 @@ RT3_NOINLINE uint8_t __fastcall Orders_Drivable(uint32_t* orders, int, uint8_t* 
     uint32_t* co = nullptr;
     if (train) co = (uint32_t*)Train_Company(train);
     if (!companyId) co = nullptr;
-    else if (companyId > 0 && Collection_IsValid(hook::Global<Collection*>(0x62be10), 0, (uint32_t)companyId))
-        co = (uint32_t*)Collection_Get(hook::Global<Collection*>(0x62be10), 0, (uint32_t)companyId);
+    else if (companyId > 0 && Collection_IsValid(g_companies, 0, (uint32_t)companyId))
+        co = (uint32_t*)Collection_Get(g_companies, 0, (uint32_t)companyId);
     if (train && F<int32_t>(Obj_CityRef(train), 0x10) == 2) need = 1;
     if (forceElectric) need = 1;
     if (noElectric) need = 0;
-    Collection* stations = hook::Global<Collection*>(0x6cec20);
-    Collection* nodes = hook::Global<Collection*>(0x6cfca8);
+    Collection* stations = g_stations;
+    Collection* nodes = g_tracks;
     for (int32_t i = 0; i < (int32_t)orders[1]; ++i) {
         uint8_t* base = (uint8_t*)orders[0];
         uint8_t* cur = base + i * 0x33;
@@ -654,7 +655,7 @@ RT3_NOINLINE uint8_t __fastcall Orders_Drivable(uint32_t* orders, int, uint8_t* 
         }
         if (!Collection_IsValid(nodes, 0, (uint32_t)to)) return 0;
         uint32_t cost;
-        Route_NextStep(hook::Global<Collection*>(0x6cfcb4), 0, from, to, &cost, need, co, nullptr, 0);
+        Route_NextStep(g_routes, 0, from, to, &cost, need, co, nullptr, 0);
         if (cost == 0xffffffff) {
             ok = 0;
             goto done;
@@ -670,7 +671,7 @@ RT3_NOINLINE uint8_t __fastcall Orders_Drivable(uint32_t* orders, int, uint8_t* 
         }
         if (!Collection_IsValid(nodes, 0, (uint32_t)from) || !Collection_IsValid(nodes, 0, (uint32_t)start)) return 0;
         uint32_t cost;
-        Route_NextStep(hook::Global<Collection*>(0x6cfcb4), 0, from, start, &cost, need, co, nullptr, 0);
+        Route_NextStep(g_routes, 0, from, start, &cost, need, co, nullptr, 0);
         if (cost == 0xffffffff) ok = 0;
     }
 done:
@@ -682,13 +683,13 @@ RT3_REPLACE(0x4b2c10, Orders_Drivable);
 // 0x4b2ea0. Refreshes what shows this train order list's train (+0xd): the
 // train's window, or without a train the train list 0x6d3ac8 when it is this.
 RT3_NOINLINE void __fastcall TrainOrders_RefreshOwner(uint8_t* o) {
-    Collection* trains = hook::Global<Collection*>(0x6cfcbc);
+    Collection* trains = g_trains;
     if (F<uint32_t>(o, 0xd) && Collection_Get(trains, 0, F<uint32_t>(o, 0xd))) {
-        Train_RefreshWindowIfShown((uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfcbc), 0, F<uint32_t>(o, 0xd)));
+        Train_RefreshWindowIfShown((uint8_t*)Collection_Get(g_trains, 0, F<uint32_t>(o, 0xd)));
         return;
     }
-    uint8_t* list = hook::Global<uint8_t*>(0x6d3ac8);
-    if (list && Get6d3ae8() == o) TrainList_Refill(hook::Global<uint8_t*>(0x6d3ac8));
+    uint8_t* list = g_6d3ac8;
+    if (list && Get6d3ae8() == o) TrainList_Refill(g_6d3ac8);
 }
 RT3_REPLACE(0x4b2ea0, TrainOrders_RefreshOwner);
 
@@ -702,11 +703,11 @@ RT3_NOINLINE void __fastcall TrainOrders_SetCurrent(uint8_t* list, int, int32_t 
     uint32_t from = TrainOrders_StationAt(list, F<int32_t>(list, 8));
     F<int32_t>(list, 8) = idx;
     uint32_t to = TrainOrders_StationAt(list, idx);
-    Table_MoveRef(hook::Global<Collection*>(0x6cec20), 0, from, to);
+    Table_MoveRef(g_stations, 0, from, to);
     auto train = [&]() -> uint8_t* {
-        return F<uint32_t>(list, 0xd) ? (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfcbc), 0, F<uint32_t>(list, 0xd)) : nullptr;
+        return F<uint32_t>(list, 0xd) ? (uint8_t*)Collection_Get(g_trains, 0, F<uint32_t>(list, 0xd)) : nullptr;
     };
-    if (F<uint32_t>(list, 0xd) && Collection_Get(hook::Global<Collection*>(0x6cfcbc), 0, F<uint32_t>(list, 0xd))) {
+    if (F<uint32_t>(list, 0xd) && Collection_Get(g_trains, 0, F<uint32_t>(list, 0xd))) {
         if (mark) train()[0x1b9] = 1;
         Train_RetargetRegion(train());
         Train_Route(train());
@@ -750,9 +751,9 @@ RT3_NOINLINE void __fastcall TrainOrders_Remove(uint8_t* list, int, int32_t idx)
     --F<int32_t>(list, 4);
     TrainOrders_RefreshOwner(list);
     auto train = [&]() -> uint8_t* {
-        return F<uint32_t>(list, 0xd) ? (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfcbc), 0, F<uint32_t>(list, 0xd)) : nullptr;
+        return F<uint32_t>(list, 0xd) ? (uint8_t*)Collection_Get(g_trains, 0, F<uint32_t>(list, 0xd)) : nullptr;
     };
-    if (!F<uint32_t>(list, 0xd) || !Collection_Get(hook::Global<Collection*>(0x6cfcbc), 0, F<uint32_t>(list, 0xd))) return;
+    if (!F<uint32_t>(list, 0xd) || !Collection_Get(g_trains, 0, F<uint32_t>(list, 0xd))) return;
     Train_RetargetRegion(train());
     if (wasCurrent) Train_Route(train());
 }
@@ -776,9 +777,9 @@ RT3_NOINLINE void __fastcall TrainOrders_Insert(uint8_t* list, int, int32_t idx,
         e[0x28] ^= (e[0x28] ^ last[0x28]) & 0x20;
         e[0x28] ^= (e[0x28] ^ last[0x28]) & 0x10;
     }
-    if ((int8_t)e[0x28] >= 0 && hook::Global<int32_t>(0x6d3b4c)) {
+    if ((int8_t)e[0x28] >= 0 && g_6d3b4c) {
         uint32_t id = F<uint16_t>(e, 0x29);
-        if (Obj_BuildingStateActive(Collection_Get(hook::Global<Collection*>(0x6cec20), 0, id)) && !Tutorial_OnBuildingPlaced((int32_t)id)) return;
+        if (Obj_BuildingStateActive(Collection_Get(g_stations, 0, id)) && !Tutorial_OnBuildingPlaced((int32_t)id)) return;
     }
     if (idx < 0 || idx > F<int32_t>(list, 4)) idx = 0;
     uint8_t* buf = ((uint8_t*(__cdecl*)(size_t))0x5a125d)((size_t)((F<int32_t>(list, 4) + 1) * 0x33));
@@ -794,8 +795,8 @@ RT3_NOINLINE void __fastcall TrainOrders_Insert(uint8_t* list, int, int32_t idx,
         F<int32_t>(list, 4) = 1;
         TrainOrders_SetCurrent(list, 0, 0, 0);
     }
-    if (F<uint32_t>(list, 0xd) && Collection_Get(hook::Global<Collection*>(0x6cfcbc), 0, F<uint32_t>(list, 0xd)))
-        Train_RetargetRegion(F<uint32_t>(list, 0xd) ? (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfcbc), 0, F<uint32_t>(list, 0xd)) : nullptr);
+    if (F<uint32_t>(list, 0xd) && Collection_Get(g_trains, 0, F<uint32_t>(list, 0xd)))
+        Train_RetargetRegion(F<uint32_t>(list, 0xd) ? (uint8_t*)Collection_Get(g_trains, 0, F<uint32_t>(list, 0xd)) : nullptr);
     TrainOrders_RefreshOwner(list);
 }
 RT3_REPLACE(0x4b3160, TrainOrders_Insert);
@@ -815,7 +816,7 @@ RT3_NOINLINE uint8_t* __fastcall TrainOrders_NextStop(uint8_t* list, int, int32_
         for (int32_t k = 0;; ) {
             const uint8_t* e = F<uint8_t*>(list, 0) + i * 0x33;
             if ((int8_t)e[0x28] >= 0) {
-                st = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cec20), 0, F<uint16_t>((void*)e, 0x29));
+                st = (uint8_t*)Collection_Get(g_stations, 0, F<uint16_t>((void*)e, 0x29));
                 if (Obj_BuildingStateActive(st)) break;
                 st = nullptr;
             }
@@ -824,9 +825,9 @@ RT3_NOINLINE uint8_t* __fastcall TrainOrders_NextStop(uint8_t* list, int, int32_
             if (k++ > n) break;
         }
     }
-    if (!move || !F<uint32_t>(list, 0xd) || !Collection_Get(hook::Global<Collection*>(0x6cfcbc), 0, F<uint32_t>(list, 0xd))) return st;
+    if (!move || !F<uint32_t>(list, 0xd) || !Collection_Get(g_trains, 0, F<uint32_t>(list, 0xd))) return st;
     auto train = [&]() -> uint8_t* {
-        return F<uint32_t>(list, 0xd) ? (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfcbc), 0, F<uint32_t>(list, 0xd)) : nullptr;
+        return F<uint32_t>(list, 0xd) ? (uint8_t*)Collection_Get(g_trains, 0, F<uint32_t>(list, 0xd)) : nullptr;
     };
     if (st) {
         uint8_t* region = Train_FirstCarRegion(train());
@@ -857,9 +858,9 @@ RT3_REPLACE(0x4b34e0, Obj_NameTableIndex);
 void __fastcall IndustryWindow_Destruct(uint8_t* w) {
     F<uint32_t>(w, 0) = 0x5d00dc;
     static const uint32_t images[] = { 0x6cfcf4, 0x6cfcf8, 0x6cfcfc, 0x6cfd00, 0x6cfd18 };
-    for (uint32_t a : images) Pack_Release(hook::Global<uint8_t*>(0x6d4020), 0, hook::Global<void*>(a));
-    Overview_Close(hook::Global<uint8_t*>(0x62c120));
-    hook::Global<uint32_t>(0x6cfd04) = 0;
+    for (uint32_t a : images) Pack_Release(g_pack, 0, hook::Global<void*>(a));
+    Overview_Close(g_map);
+    hook::As<uint32_t>(g_6cfd04) = 0;
     Widget_SetVtbl(w);
 }
 RT3_REPLACE(0x4b3520, IndustryWindow_Destruct);
@@ -899,32 +900,32 @@ RT3_REPLACE(0x4b3650, Building_TotalRemaining);
 // name, moves the highlight and shows the cargo overlay (mode 3).
 void __fastcall CargoList_ClickCb(int32_t id, int, int32_t down, int32_t, int32_t, int32_t, int32_t) {
     if (!down) return;
-    uint8_t* in = hook::Global<uint8_t*>(0x6d4018);
+    uint8_t* in = g_input;
     if (!(F<uint32_t>(in, 0xa8c) & 0x400)) return;
-    if (!(Distance2D(hook::Global<float>(0x6cfd0c), hook::Global<float>(0x6cfd10), F<float>(in, 0xa94), F<float>(in, 0xa98)) >= D(0x5d00e8))) return;
-    hook::Global<uint32_t>(0x6cfd10) = 0xbf800000;
-    hook::Global<uint32_t>(0x6cfd0c) = 0xbf800000;
-    uint8_t* row = Widget_FindChild(hook::Global<uint8_t*>(0x6cfd04), 0, id);
-    uint8_t* old = hook::Global<int32_t>(0x6cfd14) ? Widget_FindChild(hook::Global<uint8_t*>(0x6cfd04), 0, hook::Global<int32_t>(0x6cfd14)) : row;
-    uint8_t* cargo = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba8c), 0, F<uint32_t>(row, 0x4f));
-    if (hook::Global<int32_t>(0x6cfd14)) cargo = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba8c), 0, F<uint32_t>(old, 0x4f));
+    if (!(Distance2D(hook::As<float>(g_6cfd0c), hook::As<float>(g_6cfd10), F<float>(in, 0xa94), F<float>(in, 0xa98)) >= D(0x5d00e8))) return;
+    g_6cfd10 = 0xbf800000;
+    g_6cfd0c = 0xbf800000;
+    uint8_t* row = Widget_FindChild(g_6cfd04, 0, id);
+    uint8_t* old = g_6cfd14 ? Widget_FindChild(g_6cfd04, 0, g_6cfd14) : row;
+    uint8_t* cargo = (uint8_t*)Collection_Get(g_cargoTypes, 0, F<uint32_t>(row, 0x4f));
+    if (g_6cfd14) cargo = (uint8_t*)Collection_Get(g_cargoTypes, 0, F<uint32_t>(old, 0x4f));
     const char* name = (const char*)cargo + 4;
     char text[0x200];
     {
         const char* shown = LocalizeName(name);
         FormatText(text, GetString(0xb8b), shown, 0, 0, 0, 0, 0, 0, 0);
     }
-    Window_SendEvent5(hook::Global<uint8_t*>(0x6cfd04), 0, 0x6e, hook::Global<uint32_t>(0x6cfd14), (uint32_t)(uintptr_t)text, 0, 0);
+    Window_SendEvent5(g_6cfd04, 0, 0x6e, hook::As<uint32_t>(g_6cfd14), (uint32_t)(uintptr_t)text, 0, 0);
     {
         const char* shown = LocalizeName(name);
         FormatText(text, GetString(0xb8c), shown, 0, 0, 0, 0, 0, 0, 0);
     }
-    Window_SendEvent5(hook::Global<uint8_t*>(0x6cfd04), 0, 0x6e, (uint32_t)id, (uint32_t)(uintptr_t)text, 0, 0);
+    Window_SendEvent5(g_6cfd04, 0, 0x6e, (uint32_t)id, (uint32_t)(uintptr_t)text, 0, 0);
     Widget_ClearFlags(old, 0, 1);
     Widget_SetFlags(row, 0, 1, 0, 0);
-    uint8_t* sel = Widget_FindChild(hook::Global<uint8_t*>(0x6cfd04), 0, id);
-    Overview_SetMode(hook::Global<uint8_t*>(0x62c120), 0, 3, F<int32_t>(sel, 0x4f), 0, 0, nullptr, 0, 0, 0x1869f, 0x1869f);
-    hook::Global<int32_t>(0x6cfd14) = id;
+    uint8_t* sel = Widget_FindChild(g_6cfd04, 0, id);
+    Overview_SetMode(g_map, 0, 3, F<int32_t>(sel, 0x4f), 0, 0, nullptr, 0, 0, 0x1869f, 0x1869f);
+    g_6cfd14 = id;
 }
 RT3_REPLACE(0x4b3670, CargoList_ClickCb);
 
@@ -937,12 +938,12 @@ RT3_REPLACE(0x4b3670, CargoList_ClickCb);
 // Kinds 0x12 / 0x15 show only rows 0 and 2; money rows are hidden in the
 // sandbox, the editor and for kinds 1 / 2.
 RT3_NOINLINE void __fastcall BuildingView_DrawIncomeTable(uint8_t* b, int32_t kind, float x, float y, float, float, int32_t) {
-    if (!Collection_IsValid(hook::Global<Collection*>(0x62b26c), 0, F<uint32_t>(hook::Global<uint8_t*>(0x6d0818), 0x90))) return;
-    uint8_t* font = hook::Global<uint8_t*>(0x6cfcf8);
+    if (!Collection_IsValid(g_buildings, 0, F<uint32_t>(g_gameWindow, 0x90))) return;
+    uint8_t* font = g_6cfcf8;
     float cx = (float)((double)x + D(0x5d0110));
     static const uint32_t widths[5] = { 0x43610000, 0x43110000, 0x43110000, 0x43110000, 0x431b0000 };
     static const int32_t labels[7] = { 3, 0x2ff, 0x300, 0x25f, 0x301, 0x302, 0x262 };
-    int32_t years = F<uint16_t>(hook::Global<uint8_t*>(0x6cec78), 0xd) - F<int32_t>(b, 0x3d5) + 1;
+    int32_t years = F<uint16_t>(g_world, 0xd) - F<int32_t>(b, 0x3d5) + 1;
     char text[0x184];
     for (int32_t c = 0; c <= years && c < 5; ++c) {
         float colW = (float)((double)BitsF(widths[c]) / D(0x5ca2c8));
@@ -950,7 +951,7 @@ RT3_NOINLINE void __fastcall BuildingView_DrawIncomeTable(uint8_t* b, int32_t ki
         for (int32_t r = 0; r < 7; ++r) {
             if (r == 1 || r >= 3) {
                 if (kind == 0x12 || kind == 0x15) continue;
-                if (r >= 3 && (hook::Global<uint8_t*>(0x6cec7c)[0x82] || F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4aef) || kind == 1 || kind == 2))
+                if (r >= 3 && (g_newGame[0x82] || F<int32_t>(g_world, 0x4aef) || kind == 1 || kind == 2))
                     continue;
             }
             uint32_t color = 0xffffffff;
@@ -960,7 +961,7 @@ RT3_NOINLINE void __fastcall BuildingView_DrawIncomeTable(uint8_t* b, int32_t ki
                 if (r == 1 && (kind == 0x13 || kind == 0x14)) strcpy(text, GetString(0xdfe));
             } else if (r == 0) {
                 if (c == 4) ExeSprintf()(text, GetString(0x263));
-                else Num_Format(text, 8, (double)(F<uint16_t>(hook::Global<uint8_t*>(0x6cec78), 0xd) - c + 1), 10, 1, 0, 0);
+                else Num_Format(text, 8, (double)(F<uint16_t>(g_world, 0xd) - c + 1), 10, 1, 0, 0);
             } else {
                 float v = 0.0f;
                 if (c == 4) {
@@ -995,7 +996,7 @@ RT3_NOINLINE void __fastcall BuildingView_DrawIncomeTable(uint8_t* b, int32_t ki
                 }
                 if (red) color = 0xffff5f5f;
             }
-            double pad = hook::Global<int32_t>(0x6d3c84) == 1 && c == 0 ? BitsD(0x3f747ae147ae147bull) : 0.0;
+            double pad = g_language == 1 && c == 0 ? BitsD(0x3f747ae147ae147bull) : 0.0;
             float padF = (float)pad;
             double extra = c == 0 ? BitsD(0x3fa3333333333333ull) : 0.0;
             float w = (float)((double)padF + colW + extra);
@@ -1016,7 +1017,7 @@ RT3_REPLACE(0x4b3820, BuildingView_DrawIncomeTable);
 // (+0x3dd) in format 0x365, kind 22 a date-seeded 10..14 in format 0xb8d; drawn
 // in font 0x6cfcf8.
 RT3_NOINLINE void __fastcall BuildingPanel_DrawLine(uint8_t* b, int32_t kind, float x, float y, float w, float h, int32_t) {
-    if (!Collection_IsValid(hook::Global<Collection*>(0x62b26c), 0, F<uint32_t>(hook::Global<uint8_t*>(0x6d0818), 0x90))) return;
+    if (!Collection_IsValid(g_buildings, 0, F<uint32_t>(g_gameWindow, 0x90))) return;
     char text[0x1f4];
     text[0] = 0;
     auto fmt1 = [&](uint32_t table, int32_t format) {
@@ -1039,7 +1040,7 @@ RT3_NOINLINE void __fastcall BuildingPanel_DrawLine(uint8_t* b, int32_t kind, fl
         break;
     }
     case 22: {
-        uint8_t* world = hook::Global<uint8_t*>(0x6cec78);
+        uint8_t* world = g_world;
         int32_t seed = F<uint16_t>(world, 0xd) * 0x11 + world[0xf] * 3 + world[0x11];
         char num[0x64];
         const char* n = Num_Format(num, 1, (double)HashRand(seed, 10, 0xe), 10, 1, 0, 0);
@@ -1048,15 +1049,15 @@ RT3_NOINLINE void __fastcall BuildingPanel_DrawLine(uint8_t* b, int32_t kind, fl
     }
     default: break;
     }
-    Font_DrawTextBox(hook::Global<uint8_t*>(0x6cfcf8), 0, text, x, y, w, h, 0xffffffff, 0, 0, 0, 1.0f);
+    Font_DrawTextBox(g_6cfcf8, 0, text, x, y, w, h, 0xffffffff, 0, 0, 0, 1.0f);
 }
 RT3_REPLACE(0x4b3ca0, BuildingPanel_DrawLine);
 
 // 0x4b3f80. Draws string 0x366 in the box (x, y, w, h) with font 0x6cfcf8 while the
 // main view's selection (+0x90) is a valid entry of 0x62b26c.
 RT3_NOINLINE void __stdcall View_DrawSelectionLabel(float x, float y, float w, float h, int32_t) {
-    if (!Collection_IsValid(hook::Global<Collection*>(0x62b26c), 0, F<uint32_t>(hook::Global<uint8_t*>(0x6d0818), 0x90))) return;
-    Font_DrawTextBox(hook::Global<uint8_t*>(0x6cfcf8), 0, GetString(0x366), x, y, w, h, 0xffffffff, 0, 0, 0, 1.0f);
+    if (!Collection_IsValid(g_buildings, 0, F<uint32_t>(g_gameWindow, 0x90))) return;
+    Font_DrawTextBox(g_6cfcf8, 0, GetString(0x366), x, y, w, h, 0xffffffff, 0, 0, 0, 1.0f);
 }
 RT3_REPLACE(0x4b3f80, View_DrawSelectionLabel);
 
@@ -1067,7 +1068,7 @@ RT3_REPLACE(0x4b3f80, View_DrawSelectionLabel);
 // entries) an amount label, the cargo picture and a hover box, the inputs'
 // own ingredients, the troop counts and the barracks extras.
 RT3_NOINLINE void __fastcall Industry_DrawProduction(uint8_t* o, int, float x, float y, float w, int32_t, int32_t) {
-    if (!Collection_IsValid(hook::Global<Collection*>(0x62b26c), 0, F<uint32_t>(hook::Global<uint8_t*>(0x6d0818), 0x90))) return;
+    if (!Collection_IsValid(g_buildings, 0, F<uint32_t>(g_gameWindow, 0x90))) return;
     uint8_t* type = ((uint8_t*(__thiscall*)(uint8_t*))(*(void***)o)[0x80 / 4])(o);
     uint8_t* kind = (uint8_t*)Obj_Ref3cc(o);
     int32_t nA = 0, nB = 0, nC = 0;
@@ -1104,7 +1105,7 @@ RT3_NOINLINE void __fastcall Industry_DrawProduction(uint8_t* o, int, float x, f
             float yy = (float)((double)y + Fl_207(0x5d0228));
             if (nC < 0xf) yy = (float)((double)yy - Fl_207(0x5d0224));
             float x2 = (float)((double)x + D(0x5d0110));
-            Font_DrawTextBox(hook::Global<uint8_t*>(0x6cfcf8), 0, GetString(0xdff), x2, yy, 0.125f, Prod_Bits(0x3ccccccd), 0xffffffff, 2, 0, 0, 1.0f);
+            Font_DrawTextBox(g_6cfcf8, 0, GetString(0xdff), x2, yy, 0.125f, Prod_Bits(0x3ccccccd), 0xffffffff, 2, 0, 0, 1.0f);
         }
         rowC = (float)((double)cy + D(0x5d0238));
         if (!type[0x32] && nC > 0xe) rowC = (float)((double)rowC - Fl_207(0x5ce838));
@@ -1112,8 +1113,8 @@ RT3_NOINLINE void __fastcall Industry_DrawProduction(uint8_t* o, int, float x, f
     }
     bool farm = ((uint8_t*)Obj_Ref3cc(o))[0x123] || Prod_KindIs(o, 0x5d0218) || Prod_KindIs(o, 0x5d020c) || Prod_KindIs(o, 0x5d0200);
     auto fertilized = [] {
-        uint32_t f = Table_FindByName(hook::Global<Collection*>(0x62ba8c), 0, (const char*)0x5d01e8);
-        return F<int32_t>(hook::Global<uint8_t*>(0x62ba8c), 0x16e + f * 4) != 0;
+        uint32_t f = Table_FindByName(g_cargoTypes, 0, (const char*)0x5d01e8);
+        return F<int32_t>(hook::As<uint8_t*>(g_cargoTypes), 0x16e + f * 4) != 0;
     };
     if (nA && !farm) {
         float step = Prod_Bits(0x3d19999a);
@@ -1142,10 +1143,10 @@ RT3_NOINLINE void __fastcall Industry_DrawProduction(uint8_t* o, int, float x, f
         float yy = (float)((double)cy + D(0x5d01d8));
         Prod_Text(GetString(0xdff), x, yy, w, 0);
     }
-    if (hook::Global<uint8_t>(0x6cfd09)) return;
+    if (g_6cfd09) return;
     Window_DeleteChildren(Prod_Win(), 0, 0xbd42, 0xbda5, 0);
     double half = (double)w / D(0x5c85d0);
-    hook::Global<uint8_t>(0x6cfd09) = 1;
+    g_6cfd09 = 1;
     double mid = (double)x + half;
     double offB = (double)nB * D(0x5c9ee0) / D(0x5c85d0);
     float colB = (float)(mid - offB - D(0x5d00f8));
@@ -1327,7 +1328,7 @@ RT3_NOINLINE void __fastcall Industry_DrawProduction(uint8_t* o, int, float x, f
             ++id;
             float ty = ly;
             if (nC < 0xf) ty = (float)((double)ty - Fl_207(0x5d0224));
-            uint32_t link = F<uint16_t>(hook::Global<uint8_t*>(0x62ba8c), i ? 0x8a : 0x88);
+            uint32_t link = F<uint16_t>(hook::As<uint8_t*>(g_cargoTypes), i ? 0x8a : 0x88);
             const char* t = GetString(tips[i]);
             Prod_Tip(id, lx, ty, 0x3da66666, 0x3d75c28f, link, t);
         }
@@ -1345,7 +1346,7 @@ RT3_NOINLINE void __fastcall Industry_DrawProduction(uint8_t* o, int, float x, f
         float iy = (float)((double)y + Fl_207(0x5d0118));
         Prod_Image(id, ix, iy, (const char*)0x5d0138, nullptr, 0xe90, 0x40000000);
         ++id;
-        uint32_t link = F<uint16_t>(hook::Global<uint8_t*>(0x62ba8c), 0x8c);
+        uint32_t link = F<uint16_t>(hook::As<uint8_t*>(g_cargoTypes), 0x8c);
         const char* t = GetString(0xe90);
         Prod_Tip(id, lx, ly, 0x3da66666, 0x3d75c28f, link, t);
     }

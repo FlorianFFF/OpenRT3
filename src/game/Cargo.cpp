@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <math.h>
 #include "hook/hook.h"
+#include "core/globals.h"
 #include "game/collection.h"
 #include "core/stream.h"
 #include "core/crt.h"
@@ -23,18 +24,13 @@
 namespace rt3 {
 
 template <typename T> static inline T& F(void* o, uint32_t off) { return *(T*)((uint8_t*)o + off); }
-static uint8_t*& g_world = hook::Global<uint8_t*>(0x6cec78);
 uint8_t* __fastcall Obj_Region(void* o);
 int32_t __fastcall Obj_HasKey(void* o, int, uint16_t k);
 int32_t __fastcall Obj_YearReached(void* o);
-static Collection*& g_table62b268 = hook::Global<Collection*>(0x62b268);
-static Collection*& g_demand      = hook::Global<Collection*>(0x6ada90);
 
  // cargo-flow / demand matrix
-static uint8_t*& g_cargoTypes = hook::Global<uint8_t*>(0x62ba8c);
 
 void* __fastcall Table_GetByName(Collection* t, int, const char* name);
-static Collection*& g_buildings   = hook::Global<Collection*>(0x62b26c);
 int32_t __fastcall WorldModel_Load(uint8_t* o, int, int32_t s);
 int32_t __fastcall Collection_Load(Collection* c, int, int32_t s, int32_t recordSize);
 int32_t Global6d07b4Set2();
@@ -170,7 +166,7 @@ static inline double D(uint32_t a) { return *(const double*)a; }
 
 static inline float Fl(uint32_t a) { return *(const float*)a; }
 
-static inline uint8_t* World() { return hook::Global<uint8_t*>(0x6cec78); }
+static inline uint8_t* World() { return g_world; }
 
 static inline int32_t Ftol(double v) {
     int32_t r;
@@ -185,17 +181,17 @@ static inline int32_t Ftol(double v) {
 
 // Marks fine cell (x, y) (quarter cells) as street unless off the map or on water.
 static void Street(int32_t x, int32_t y) {
-    uint8_t* m = hook::Global<uint8_t*>(0x62c120);
+    uint8_t* m = g_map;
     if (x < 0 || x >= F<int32_t>(m, 0x215d) || y < 0 || y >= F<int32_t>(m, 0x2161)) return;
     if (Terrain_KindIs1Or3to5(m, 0, x / 4, y / 4)) return;
-    Map_SetFineBit(hook::Global<uint8_t*>(0x62c120), 0, x, y, 1, 3, 1);
+    Map_SetFineBit(g_map, 0, x, y, 1, 3, 1);
 }
 
 static inline double Fl_202(uint32_t a) { return *(const float*)a; }
 
 namespace {
 void Callback_Delete(void* p) { ((void(__cdecl*)(void*))0x53b080)(p); }
-int32_t Tooltip_Clear() { return Ui_ShowTooltip(hook::Global<uint8_t*>(0x6d401c), 0, (const char*)0x5c87a8, 3, 0, -1); }
+int32_t Tooltip_Clear() { return Ui_ShowTooltip(g_windowManager, 0, (const char*)0x5c87a8, 3, 0, -1); }
 // A network message's handler gets the packet (+8) when it has one (+0xc).
 template <typename P, typename Fn> int32_t NetMsg_Forward(uint8_t* m, Fn handler) {
     if (F<int32_t>(m, 0xc) > 0) handler(F<P>(m, 8));
@@ -210,7 +206,7 @@ void __fastcall CarTypes_AnnounceNew(Collection* c) {
     if (F<int32_t>(w, 0x46c38)) return;
     if (F<uint16_t>(w, 0xd) == 0x770 && F<uint16_t>(w, 5) < 0x770) {
         const char* text = GetString(0xcc);
-        News_Add(hook::Global<Collection*>(0x6cea4c), 0, GetString(0xcb), text, 0, 0);
+        News_Add(g_6cea4c, 0, GetString(0xcb), text, 0, 0);
         w = World();
     }
     if (F<uint16_t>(w, 0xd) < 0x726) return;
@@ -297,7 +293,7 @@ RT3_NOINLINE void __fastcall Cargo_UpdateAverages(uint8_t* o) {
     uint8_t* w = World();
     int32_t year = F<int32_t>(w, 0x46c38) ? F<uint16_t>(w, 5) : F<uint16_t>(w, 0xd);
     if (year < F<int32_t>(o, 0x21)) return;
-    uint8_t* m = hook::Global<uint8_t*>(0x62c120);
+    uint8_t* m = g_map;
     int32_t n = F<int32_t>(m, 0x2149) * F<int32_t>(m, 0x2145);
     uint8_t* city = F<uint8_t*>(m, 0x2129);
     F<float>(o, 0x6a) = 0.0f;
@@ -351,7 +347,7 @@ uint32_t __fastcall CarType_ForCargo(uint8_t* o) {
     strcpy(name, (const char*)o + 0x25);
     uint32_t first = 0;
     for (;;) {
-        Collection* types = hook::Global<Collection*>(0x62ba88);
+        Collection* types = g_carTypes;
         for (int32_t i = 0; i < Collection_Count(types); ++i) {
             uint8_t* e = (uint8_t*)Collection_Get(types, 0, Collection_IdAt(types, 0, i, 0));
             if (F<int32_t>(e, 0x41) != 1) continue;
@@ -370,10 +366,10 @@ RT3_REPLACE(0x41e500, CarType_ForCargo);
 // bit 1, u16 +8 == 0) divided by 5.
 RT3_NOINLINE double __fastcall Cargo_DemandWeight(void* c) {
     if (!F<uint8_t>(c, 0x46)) return F<float>(c, 0x5a);
-    int32_t type = F<int32_t>(g_cargoTypes, 0x9a + F<int32_t>(c, 0x3e) * 4);
-    int32_t total = Collection_Count(g_demand), n = 0;
+    int32_t type = F<int32_t>(hook::As<uint8_t*>(g_cargoTypes), 0x9a + F<int32_t>(c, 0x3e) * 4);
+    int32_t total = Collection_Count(g_6ada90), n = 0;
     for (int32_t i = 0; i < total; ++i) {
-        uint8_t* d = (uint8_t*)Collection_Get(g_demand, 0, Collection_IdAt(g_demand, 0, i, 0));
+        uint8_t* d = (uint8_t*)Collection_Get(g_6ada90, 0, Collection_IdAt(g_6ada90, 0, i, 0));
         if (F<uint8_t>(d, 0x10) == type && (F<uint8_t>(d, 0x12) & 2) && F<uint16_t>(d, 8) == 0) ++n;
     }
     float fn = (float)n;
@@ -396,14 +392,14 @@ RT3_NOINLINE void __fastcall Cargo_IndustryTotals(uint8_t* o, int, float* base, 
     *in = 0.0f;
     *share = 0.0f;
     *base = 0.0f;
-    for (int32_t i = 0; i < Collection_Count(hook::Global<Collection*>(0x62b268)); ++i) {
-        uint32_t id = Collection_IdAt(hook::Global<Collection*>(0x62b268), 0, i, 0);
-        uint8_t* ind = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62b268), 0, id);
+    for (int32_t i = 0; i < Collection_Count(g_62b268); ++i) {
+        uint32_t id = Collection_IdAt(g_62b268, 0, i, 0);
+        uint8_t* ind = (uint8_t*)Collection_Get(g_62b268, 0, id);
         if (!Obj_Available(ind)) continue;
         float v[4];
         Industry_CargoStats(ind, 0, F<int32_t>(o, 0x3e), 0, &v[0], &v[1], &v[2], &v[3]);
         if (!(v[0] > D(0x5c85b8) || v[1] > D(0x5c85b8) || v[2] > D(0x5c85b8) || v[3] > D(0x5c85b8))) continue;
-        int32_t cnt = Table_SumCapacity(hook::Global<Collection*>(0x62b26c), 0, id);
+        int32_t cnt = Table_SumCapacity(g_buildings, 0, id);
         if (cnt <= 0) continue;
         float cf = (float)cnt;
         *base = (float)((double)cf * v[0] + *base);
@@ -488,18 +484,18 @@ RT3_REPLACE(0x41ea50, CargoTypes_UpdateAverages);
 // city links them); all with option +0x25f; only six goods in the scenario mode
 // world +0x4afb. Then recounts.
 RT3_NOINLINE void __fastcall CargoTypes_MarkAvailable(Collection* c) {
-    if (!hook::Global<Collection*>(0x62b268)) return;
+    if (!g_62b268) return;
     uint8_t flags[0x3e8];
     memset(flags, 0, sizeof flags);
     int32_t barracks = 0;
-    for (int32_t i = 0; i < Collection_Count(hook::Global<Collection*>(0x62b268)); ++i) {
-        Collection* inds = hook::Global<Collection*>(0x62b268);
+    for (int32_t i = 0; i < Collection_Count(g_62b268); ++i) {
+        Collection* inds = g_62b268;
         uint8_t* ind = (uint8_t*)Collection_Get(inds, 0, Collection_IdAt(inds, 0, i, 0));
         if (ind[0x32] != 2 || !F<int32_t>(ind, 0x7ac)) continue;
-        if ((ind[0xba] || ind[0xbb]) && hook::Global<Collection*>(0x62bae0)) {
+        if ((ind[0xba] || ind[0xbb]) && g_cities) {
             int32_t linked = 0;
-            for (int32_t j = 0; j < Collection_Count(hook::Global<Collection*>(0x62bae0)); ++j) {
-                Collection* cs = hook::Global<Collection*>(0x62bae0);
+            for (int32_t j = 0; j < Collection_Count(g_cities); ++j) {
+                Collection* cs = g_cities;
                 uint8_t* e = (uint8_t*)Collection_Get(cs, 0, Collection_IdAt(cs, 0, j, 0));
                 if (F<int32_t>(e, 0x242) <= 0 || F<int32_t>(e, 0x2f2) != F<int32_t>(ind, 0x794)) continue;
                 if ((ind[0xba] && F<int32_t>(e, 0x2fa)) || (ind[0xbb] && F<int32_t>(e, 0x2fe))) linked = 1;
@@ -524,7 +520,7 @@ RT3_NOINLINE void __fastcall CargoTypes_MarkAvailable(Collection* c) {
         uint8_t* e = (uint8_t*)Collection_Get(c, 0, Collection_IdAt(c, 0, j, 0));
         uint32_t id = Collection_IdAt(c, 0, j, 0);
         int32_t avail = (e[0x47] || e[0x48] || (e[0x49] && barracks) || flags[id]) ? 1 : 0;
-        if (F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x25f)) avail = 1;
+        if (F<int32_t>(g_app, 0x25f)) avail = 1;
         if (F<int32_t>(World(), 0x4afb)) {
             bool keep = false;
             for (uint32_t s : six)
@@ -557,17 +553,17 @@ void __fastcall CargoTypes_Load(Collection* c) {
     FormatText(pattern, (const char*)0x5c9a08, (const char*)0x5c9a10, 0, 0, 0, 0, 0, 0, 0);
     int32_t n = 0;
     WIN32_FIND_DATAA fd;
-    HANDLE h = ((HANDLE(__stdcall*)(const char*, WIN32_FIND_DATAA*))hook::Global<void*>(0x5c8190))(pattern, &fd);
+    HANDLE h = ((HANDLE(__stdcall*)(const char*, WIN32_FIND_DATAA*))g_5c8190)(pattern, &fd);
     if (h != INVALID_HANDLE_VALUE) {
         BOOL more = 1;
         while (more) {
             if (n < 0x1f3) {
                 StrCopyN(names[n], fd.cFileName, 0xc8);
-                more = ((BOOL(__stdcall*)(HANDLE, WIN32_FIND_DATAA*))hook::Global<void*>(0x5c8194))(h, &fd);
+                more = ((BOOL(__stdcall*)(HANDLE, WIN32_FIND_DATAA*))g_5c8194)(h, &fd);
                 ++n;
             }
         }
-        ((BOOL(__stdcall*)(HANDLE))hook::Global<void*>(0x5c819c))(h);
+        ((BOOL(__stdcall*)(HANDLE))g_5c819c)(h);
     }
     if (n <= 0) goto specials;
     for (int32_t i = 1; i <= n; ++i)
@@ -778,16 +774,16 @@ RT3_REPLACE(0x41f710, Return1_41f710);
 void __fastcall Obj_ShowCargoTooltip(uint8_t* o) {
     char text[0x130];
     FormatText(text, GetString(0xce), (const char*)(o + 0x356), 0, 0, 0, 0, 0, 0, 0);
-    Ui_ShowTooltip(hook::Global<uint8_t*>(0x6d401c), 0, text, 3, 0, -1);
-    const int32_t mode = F<int32_t>(hook::Global<uint8_t*>(0x62c120), 0x2175);
+    Ui_ShowTooltip(g_windowManager, 0, text, 3, 0, -1);
+    const int32_t mode = F<int32_t>(g_map, 0x2175);
     if (mode == 0 || mode == 0x15)
-        Overview_SetMode(hook::Global<uint8_t*>(0x62c120), 0, 0x12, F<int32_t>(o, 0x23a), 0, 0, nullptr, 0, 0, 0x1869f, 0x1869f);
+        Overview_SetMode(g_map, 0, 0x12, F<int32_t>(o, 0x23a), 0, 0, nullptr, 0, 0, 0x1869f, 0x1869f);
 }
 RT3_REPLACE(0x41f720, Obj_ShowCargoTooltip);
 
 void Tooltip_ClearAndCloseOverview() {
     Tooltip_Clear();
-    uint8_t* m = hook::Global<uint8_t*>(0x62c120);
+    uint8_t* m = g_map;
     if (F<int32_t>(m, 0x2175) == 0x12) Overview_Close(m);
 }
 RT3_REPLACE(0x41f7b0, Tooltip_ClearAndCloseOverview);
@@ -815,10 +811,10 @@ RT3_NOINLINE void __fastcall Chain_Unlink(uint8_t* o, int, uint8_t* r) {
         uint32_t prev;
         do {
             prev = id;
-            id = F<uint16_t>((uint8_t*)Collection_Get(hook::Global<Collection*>(0x62b26c), 0, id), 0x270);
+            id = F<uint16_t>((uint8_t*)Collection_Get(g_buildings, 0, id), 0x270);
         } while (id != F<uint32_t>(r, 0x2a4));
         if (prev) {
-            F<uint16_t>((uint8_t*)Collection_Get(hook::Global<Collection*>(0x62b26c), 0, prev), 0x270) = F<uint16_t>(r, 0x270);
+            F<uint16_t>((uint8_t*)Collection_Get(g_buildings, 0, prev), 0x270) = F<uint16_t>(r, 0x270);
             F<uint16_t>(r, 0x26e) = 0;
             F<uint16_t>(r, 0x270) = 0;
             return;
@@ -855,7 +851,7 @@ int32_t __fastcall Obj_CountFlagged7ac(void* o) {
     for (int32_t i = 0; i < Collection_Count(F<Collection*>(o, 0x37f)); ++i) {
         Collection* c = F<Collection*>(o, 0x37f);
         const char* name = (const char*)Collection_Get(c, 0, Collection_IdAt(c, 0, i, 0));
-        uint8_t* t = (uint8_t*)Table_GetByName(g_table62b268, 0, name);
+        uint8_t* t = (uint8_t*)Table_GetByName(g_62b268, 0, name);
         if (t && F<int32_t>(t, 0x7ac)) ++n;
     }
     return n;
@@ -868,7 +864,7 @@ RT3_NOINLINE int32_t __fastcall Obj_CountTypesAvailable(void* o, int, int32_t ye
     int32_t n = 0;
     for (int32_t i = 0; i < Collection_Count(F<Collection*>(o, 0x37f)); ++i) {
         Collection* t = F<Collection*>(o, 0x37f);
-        uint8_t* r = (uint8_t*)Table_GetByName(g_table62b268, 0, (const char*)Collection_Get(t, 0, Collection_IdAt(t, 0, i, 0)));
+        uint8_t* r = (uint8_t*)Table_GetByName(g_62b268, 0, (const char*)Collection_Get(t, 0, Collection_IdAt(t, 0, i, 0)));
         if (r && F<int32_t>(r, 0x7ac) && F<uint8_t>(r, 0x32) == kind && F<uint16_t>(r, 0x26) <= year) ++n;
     }
     return n;
@@ -939,7 +935,7 @@ void __fastcall City_LayStreets(uint8_t* c) {
                 Street(cx + a, cy + b);
             }
     int32_t ccx = Ftol(Obj_CellX(c)), ccy = Ftol(Obj_CellY(c));
-    uint8_t* m = hook::Global<uint8_t*>(0x62c120);
+    uint8_t* m = g_map;
     int32_t x0 = ccx - 10 < 0 ? 0 : ccx - 10, y0 = ccy - 10 < 0 ? 0 : ccy - 10;
     int32_t x1 = F<int32_t>(m, 0x2155) - 1, y1 = F<int32_t>(m, 0x2159) - 1;
     if (x1 >= ccx + 10) x1 = ccx + 10;
@@ -948,14 +944,14 @@ void __fastcall City_LayStreets(uint8_t* c) {
         for (int32_t x = x0; x <= x1; ++x) {
             float d = (float)Distance2D((float)x, (float)y, (float)ccx, (float)ccy);
             if (d > *(const float*)0x5c85f8) continue;
-            uint8_t flag = Terrain_GetFlag(hook::Global<uint8_t*>(0x62c120), 0, x, y);
-            if (!(d > *(const float*)0x5c8900) && d == d) Terrain_SetCellCount(hook::Global<uint8_t*>(0x62c120), 0, x, y, 0);
+            uint8_t flag = Terrain_GetFlag(g_map, 0, x, y);
+            if (!(d > *(const float*)0x5c8900) && d == d) Terrain_SetCellCount(g_map, 0, x, y, 0);
             else if (!(d > *(const float*)0x5c85f8) && d == d) {
                 int32_t n = Ftol(((double)d - *(const float*)0x5c8900) * D(0x5c8970) / D(0x5c8bf0) + D(0x5c86b8));
-                if (n < (int32_t)Terrain_CellCount(hook::Global<uint8_t*>(0x62c120), 0, x, y))
-                    Terrain_SetCellCount(hook::Global<uint8_t*>(0x62c120), 0, x, y, (uint8_t)n);
+                if (n < (int32_t)Terrain_CellCount(g_map, 0, x, y))
+                    Terrain_SetCellCount(g_map, 0, x, y, (uint8_t)n);
             }
-            Terrain_SetFlag(hook::Global<uint8_t*>(0x62c120), 0, x, y, flag);
+            Terrain_SetFlag(g_map, 0, x, y, flag);
         }
     }
 }
@@ -964,10 +960,10 @@ RT3_REPLACE(0x41fb00, City_LayStreets);
 // 0x41fff0. Option +0x2bb: 0 = off, 2 = on, otherwise on once the value
 // at (*0x62be68)+0x20 reaches the threshold 0x5c9a9c.
 RT3_NOINLINE int32_t Option2bbActive() {
-    int32_t mode = F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x2bb);
+    int32_t mode = F<int32_t>(g_app, 0x2bb);
     if (mode == 0) return 0;
     if (mode == 2) return 1;
-    return F<float>(hook::Global<uint8_t*>(0x62be68), 0x20) >= *(const float*)0x5c9a9c ? 1 : 0;
+    return F<float>(g_62be68, 0x20) >= *(const float*)0x5c9a9c ? 1 : 0;
 }
 RT3_REPLACE(0x41fff0, Option2bbActive);
 

@@ -8,6 +8,7 @@
 #include <windows.h>
 #include <initializer_list>
 #include "hook/hook.h"
+#include "core/globals.h"
 #include "core/ptrlist.h"
 #include "core/crt.h"
 #include "game/collection.h"
@@ -310,7 +311,7 @@ static inline void SetStage3(uint8_t* r, int32_t stage, uint32_t base, uint32_t 
     }
 }
 
-static inline int32_t& LockCount() { return hook::Global<int32_t>(0xccd824); }
+static inline int32_t& LockCount() { return g_ccd824; }
 
 static inline int32_t Lock(void* b, uint32_t off, uint32_t size, void* pp, uint32_t flags) {
     return ((int32_t(__stdcall*)(void*, uint32_t, uint32_t, void*, uint32_t))(*(void***)b)[0x2c / 4])(b, off, size, pp, flags);
@@ -326,7 +327,7 @@ namespace {
 template <typename R = int32_t, typename... A> inline R Com(void* o, uint32_t slot, A... a) {
     return ((R(__stdcall*)(void*, A...))(*(void***)o)[slot / 4])(o, a...);
 }
-inline uint8_t* Eng() { return hook::Global<uint8_t*>(0x6d4024); }
+inline uint8_t* Eng() { return g_engine; }
 inline void* D3DCreate(uint32_t sdk) { return ((void*(__stdcall*)(uint32_t))0x56c850)(sdk); }
 // D3DXAssembleShaderFromFile (statically linked D3DX).
 inline int32_t AssembleShader(const char* file, void** buf) {
@@ -364,7 +365,7 @@ static inline int32_t Present(void* d) {
     return ((int32_t(__stdcall*)(void*, void*, void*, void*, void*))Vt(d)[0x3c / 4])(d, nullptr, nullptr, nullptr, nullptr);
 }
 
-static inline uint8_t* Engine() { return hook::Global<uint8_t*>(0x6d4024); }
+static inline uint8_t* Engine() { return g_engine; }
 
 static inline int32_t SetRs_100(uint8_t* r, uint32_t state, uint32_t v) {
     void* d = Dev(r);
@@ -827,7 +828,7 @@ void __fastcall Render_ApplyFilterStates(uint8_t* r) {
         void* d = F<void*>(r, 0x25df);
         ((int32_t(__stdcall*)(void*, uint32_t, uint32_t, uint32_t))Vt(d)[0xfc / 4])(d, stage, type, v);
     };
-    if (hook::Global<uint8_t*>(0x6d4024)[0x11422e]) {
+    if (g_engine[0x11422e]) {
         rs(0x8e, 1);
         rs(0x1d, 0);
     } else {
@@ -1025,7 +1026,7 @@ RT3_NOINLINE void __fastcall Renderer_SetTexture(uint8_t* r, int, int32_t stage,
     if (stage >= F<int32_t>(r, 0x258f)) return;
     uint8_t* cur = F<uint8_t**>(r, 0x2593)[stage];
     if (tex) {
-        if (F<uint32_t>(tex, 7) != F<uint32_t>(hook::Global<uint8_t*>(0x6d4024), 0x114222))
+        if (F<uint32_t>(tex, 7) != F<uint32_t>(g_engine, 0x114222))
             Texture_Upload(tex, 0, F<void*>(r, 0x25df), 0);
         else if (tex == cur) {
             F<uint8_t**>(r, 0x2593)[stage] = tex;
@@ -1061,7 +1062,7 @@ RT3_REPLACE(0x5456d0, Render_SetAlphaOp);
 // +0x25fb x +0x24f4 x 0x5c8568 when shiny and supported) and ambient light 0xffafafaf.
 void __fastcall Render_SetDefaultMaterial(uint8_t* r, int, uint8_t shiny) {
     uint32_t m[17] = {};
-    if (shiny && hook::Global<uint8_t*>(0x6d4024)[0x11422e]) {
+    if (shiny && g_engine[0x11422e]) {
         for (int k = 8; k < 12; ++k) m[k] = 0x3e99999a;
         float p = (float)((double)F<float>(r, 0x25fb) * F<float>(r, 0x24f4) * *(const float*)0x5c8568);
         m[16] = *(uint32_t*)&p;
@@ -1078,14 +1079,14 @@ RT3_REPLACE(0x5457c0, Render_SetDefaultMaterial);
 // 0x5458a0 / 0x5458d0. Locks / unlocks the whole vertex buffer +0x265b (lock count 0xccd824).
 void* __fastcall Render_LockVb2(uint8_t* r) {
     void* p;
-    hook::Global<int32_t>(0xccd824)++;
+    g_ccd824++;
     VbLock(F<void*>(r, 0x265b), 0, 0, &p, 0x2800);
     return p;
 }
 RT3_REPLACE(0x5458a0, Render_LockVb2);
 
 int32_t __fastcall Render_UnlockVb2(uint8_t* r) {
-    hook::Global<int32_t>(0xccd824)--;
+    g_ccd824--;
     void* vb = F<void*>(r, 0x265b);
     return ((int32_t(__stdcall*)(void*))(*(void***)vb)[0x30 / 4])(vb);
 }
@@ -1099,7 +1100,7 @@ RT3_NOINLINE void* __fastcall Render_LockVbRange(uint8_t* r, int, int32_t first,
     void* vb = F<void*>(r, 0x2643);
     r[0x254e] = 1;
     ((int32_t(__stdcall*)(void*, void*))(*(void***)vb)[0x34 / 4])(vb, desc);
-    hook::Global<int32_t>(0xccd824)++;
+    g_ccd824++;
     uint32_t size = end ? (uint32_t)(end << 5) - (uint32_t)(first << 5) : (uint32_t)(0xffff - first) << 5;
     VbLock(F<void*>(r, 0x2643), (uint32_t)first << 5, size, r + 0x2657, 0x1800);
     return F<void*>(r, 0x2657);
@@ -1110,7 +1111,7 @@ RT3_REPLACE(0x5458f0, Render_LockVbRange);
 void* __fastcall Render_LockVbDiscard(uint8_t* r, int, int32_t n) {
     if (r[0x254e]) return nullptr;
     r[0x254e] = 1;
-    hook::Global<int32_t>(0xccd824)++;
+    g_ccd824++;
     VbLock(F<void*>(r, 0x2643), 0, (uint32_t)n << 5, r + 0x2657, 0x2800);
     return F<void*>(r, 0x2657);
 }
@@ -1286,7 +1287,7 @@ RT3_NOINLINE int32_t __fastcall Sound_BuildCapsReport(uint8_t* o) {
     Dsound* ds;
     char* text = (char*)(o + 0x43c);
     if (((int32_t(__stdcall*)(void*, Dsound**, void*))0x58bc36)(nullptr, &ds, nullptr) >= 0) {
-        HWND wnd = Engine_Window(hook::Global<void*>(0x6d4024));
+        HWND wnd = Engine_Window(hook::As<void*>(g_engine));
         if (((int32_t(__stdcall*)(Dsound*, HWND, uint32_t))ds->vtbl[6])(ds, wnd, 2) >= 0) {
             uint32_t caps[0x18] = {};
             caps[0] = 0x60;
@@ -1338,7 +1339,7 @@ RT3_REPLACE(0x545e30, Sound_BuildCapsReport);
 // 0x546390. Creates the HAL device (+0x25df) on the engine window.
 RT3_NOINLINE uint8_t __fastcall Render_CreateDevice(uint8_t* r, int, uint32_t behaviour, void* params) {
     void* d3d = F<void*>(r, 0x25db);
-    ::HWND__* wnd = Engine_Window(hook::Global<void*>(0x6d4024));
+    ::HWND__* wnd = Engine_Window(hook::As<void*>(g_engine));
     int32_t hr = ((int32_t(__stdcall*)(void*, uint32_t, uint32_t, ::HWND__*, uint32_t, void*, void*))Vt(d3d)[0x3c / 4])(
         F<void*>(r, 0x25db), 0, 1, wnd, behaviour, params, r + 0x25df);
     return hr >= 0 ? 1 : 0;
@@ -1475,7 +1476,7 @@ void __fastcall Render_ResetVertexSlots(uint8_t* r) {
     for (int32_t k = 0; k < 0x40; ++k) {
         uint8_t* s = Slot(r, k);
         if (s[0x20]) {
-            --hook::Global<int32_t>(0xccd824);
+            --g_ccd824;
             VbUnlock(F<void*>(r, 0x31ab + k * 4));
         }
         s[0x20] = 0;
@@ -1517,7 +1518,7 @@ uint8_t* __fastcall Render_AcquireVertexSlot(uint8_t* r, int, int32_t key1, int3
         uint8_t* ts = Slot(r, t);
         if (F<int32_t>(ts, 0x21) > 3) return ts;
         if (ts[0x20]) {
-            --hook::Global<int32_t>(0xccd824);
+            --g_ccd824;
             VbUnlock(F<void*>(r, 0x31ab + t * 4));
             ts[0x20] = 0;
         }
@@ -1528,7 +1529,7 @@ uint8_t* __fastcall Render_AcquireVertexSlot(uint8_t* r, int, int32_t key1, int3
     }
     uint8_t* s = Slot(r, n);
     if (!s[0x20]) {
-        ++hook::Global<int32_t>(0xccd824);
+        ++g_ccd824;
         int32_t m = F<int32_t>(r, 0x2667);
         void* vb = F<void*>(r, 0x31ab + m * 4);
         ((int32_t(__stdcall*)(void*, uint32_t, uint32_t, void*, uint32_t))Vt(vb)[0x2c / 4])(vb, 0, 0, r + 0x32ab + m * 4,
@@ -1594,8 +1595,8 @@ RT3_NOINLINE void __fastcall Renderer_SetShaderConstants(uint8_t* r) {
         fog[0] = (float)(-((double)F<float>(r, 0x25b3) * F<float>(r, 0x2513)) * *(const double*)0x5dda20);
     }
     vs(14, fog, 1);
-    int32_t w = Terrain_Rows((uint8_t*)Engine_Get1C(hook::Global<void*>(0x6d4024))) * 0x5c;
-    int32_t h = Terrain_Cols((uint8_t*)Engine_Get1C(hook::Global<void*>(0x6d4024))) * 0x5c;
+    int32_t w = Terrain_Rows((uint8_t*)Engine_Get1C(hook::As<void*>(g_engine))) * 0x5c;
+    int32_t h = Terrain_Cols((uint8_t*)Engine_Get1C(hook::As<void*>(g_engine))) * 0x5c;
     double ih = *(const float*)0x5c85b4 / (double)h;
     float c12[4] = { (float)(*(const float*)0x5c85b4 / (double)w * F<float>(r, 0x36fd)), (float)(ih * F<float>(r, 0x36fd)), 0.0f,
                      0.0f };
@@ -1728,7 +1729,7 @@ RT3_REPLACE(0x547640, Render_TargetChanged);
 // (+0x2623 vertex, +0x2633 pixel) are selected; else with detail textures (+0x114250)
 // stage 1 reuses coordinates 0 scaled by +0x36fd and wraps. Stage 0 clamps.
 RT3_NOINLINE void __fastcall Renderer_SetupStages(uint8_t* r) {
-    uint8_t* e = hook::Global<uint8_t*>(0x6d4024);
+    uint8_t* e = g_engine;
     if (e[0x11422d]) {
         for (uint32_t s = 0; s < 4; ++s) StageState(r, s, 0xb, s);
         for (uint32_t s = 0; s < 4; ++s) StageState(r, s, 0x18, 0);
@@ -1764,13 +1765,13 @@ RT3_REPLACE(0x547650, Renderer_SetupStages);
 // (+0x261b / +0x262b) are bound; otherwise stage 0 projects camera-space positions
 // through a fixed matrix whose y offset follows the texture height.
 RT3_NOINLINE void __fastcall Renderer_SetupWaterStages(uint8_t* r) {
-    ((uint32_t(__stdcall*)())hook::Global<void*>(0x5c8068))();
+    ((uint32_t(__stdcall*)())g_5c8068)();
     auto dev = [&]() { return F<uint8_t*>(r, 0x25df); };
     auto tss = [&](uint32_t stage, uint32_t type, uint32_t v) {
         uint8_t* d = dev();
         (*(int32_t(__stdcall**)(void*, uint32_t, uint32_t, uint32_t))(*(uint8_t**)d + 0xfc))(d, stage, type, v);
     };
-    if (hook::Global<uint8_t*>(0x6d4024)[0x11422d]) {
+    if (g_engine[0x11422d]) {
         for (uint32_t k = 0; k < 4; ++k) tss(k, 0xb, k);
         for (uint32_t k = 0; k < 4; ++k) tss(k, 0x18, 0);
         float sn = (float)(FsinX(*(const double*)0x5c8608) * *(const double*)0x5dda28);
@@ -2003,8 +2004,8 @@ void __fastcall Renderer_SetupViews(uint8_t* r, int, uint8_t* cam, uint8_t refle
     }
     Obj_GetXYZ4(cam, 0, (uint32_t*)&eye[0], (uint32_t*)&eye[1], (uint32_t*)&eye[2]);
     Obj_GetXYZ1c(cam, 0, (uint32_t*)&at[0], (uint32_t*)&at[1], (uint32_t*)&at[2]);
-    double h = Terrain_HeightAt((uint8_t*)Engine_Get1C(hook::Global<void*>(0x6d4024)), 0, at[0], at[2]);
-    uint8_t* e = hook::Global<uint8_t*>(0x6d4024);
+    double h = Terrain_HeightAt((uint8_t*)Engine_Get1C(hook::As<void*>(g_engine)), 0, at[0], at[2]);
+    uint8_t* e = g_engine;
     double g = F<int32_t>(e, 0x11420e);
     int32_t n = Ftol(((double)at[1] - h) / g * g);
     double sz = (double)n * Fl_201(0x5dda44) + Fl_201(0x5cb490);
@@ -2107,7 +2108,7 @@ RT3_REPLACE(0x548940, Render_PopStages);
 // one pass (ValidateDevice) with the test texture bound to every stage;
 // unbinds all stages afterwards.
 RT3_NOINLINE int32_t __fastcall Render_ValidateStates(uint8_t* r, int, const uint32_t* states) {
-    uint8_t* tex = TextureCache_Get(hook::Global<uint8_t*>(0x6d4020), 0, (const char*)0x5dda48, 0, 0, 0x7f);
+    uint8_t* tex = TextureCache_Get(g_pack, 0, (const char*)0x5dda48, 0, 0, 0x7f);
     for (int32_t s = 0; s < F<int32_t>(r, 0x258f); ++s) Renderer_SetTexture(r, 0, s, tex);
     Render_PushStages(r, 0, states);
     uint32_t passes = 0;
@@ -2123,7 +2124,7 @@ RT3_NOINLINE int32_t __fastcall Render_ValidateStates(uint8_t* r, int, const uin
         }
         F<uint8_t**>(r, 0x2593)[s] = nullptr;
     }
-    Pack_Release(hook::Global<uint8_t*>(0x6d4020), 0, tex);
+    Pack_Release(g_pack, 0, tex);
     return ok;
 }
 RT3_REPLACE(0x5489f0, Render_ValidateStates);
@@ -2205,7 +2206,7 @@ void __fastcall Render_DrawLitGroups(uint8_t* r, int, PtrList* groups, uint8_t r
     uint8_t tinted = 0xe1, detail = 0, blended = 0xe0, uvMoved = 0;
     PtrList_Rewind(groups);
     uint8_t* grp = (uint8_t*)PtrList_Next(groups);
-    if (hook::Global<uint8_t*>(0x6d4024)[0x11422e]) {
+    if (g_engine[0x11422e]) {
         DevRenderState(r, 0x8e, 1);
         DevRenderState(r, 0x1d, 1);
     } else {
@@ -2287,7 +2288,7 @@ void __fastcall Render_DrawLitGroups(uint8_t* r, int, PtrList* groups, uint8_t r
                 SceneObj_EmitLit(o, 0, (uint32_t*)vb, &count);
                 if (r[0x254e]) {
                     r[0x254e] = 0;
-                    --hook::Global<int32_t>(0xccd824);
+                    --g_ccd824;
                     void* b = F<void*>(r, 0x2643);
                     (*(int32_t(__stdcall**)(void*))(*(uint8_t**)b + 0x30))(b);
                 }
@@ -2314,7 +2315,7 @@ void __fastcall Render_DrawLitGroups(uint8_t* r, int, PtrList* groups, uint8_t r
         if (F<int32_t>(F<uint8_t*>(r, 0x83c), 0x29) == 2)
             for (uint32_t s = 0; s < 4; ++s) DevStageState(r, s, 0x12, 2);
     }
-    if (hook::Global<uint8_t*>(0x6d4024)[0x11422e]) DevRenderState(r, 0x1d, 0);
+    if (g_engine[0x11422e]) DevRenderState(r, 0x1d, 0);
     Render_PopStages(r, 0, 1);
 }
 RT3_REPLACE(0x548da0, Render_DrawLitGroups);
@@ -2602,7 +2603,7 @@ RT3_NOINLINE int32_t __fastcall Render_Shutdown(uint8_t* r) {
     F<void*>(r, 0x2643) = nullptr;
     F<void*>(r, 0x25df) = nullptr;
     F<void*>(r, 0x25db) = nullptr;
-    F<void*>(hook::Global<uint8_t*>(0x6d4024), 8) = nullptr;
+    F<void*>(g_engine, 8) = nullptr;
     return 0;
 }
 RT3_REPLACE(0x54a190, Render_Shutdown);
@@ -2670,11 +2671,11 @@ void __fastcall Terrain_DrawChunks(uint8_t* r, int, int32_t count) {
     }
     memset(r + 0x254f, 0, 0x40);
     DevRenderState(r, 0xe, 0);
-    float su = (float)(Fl_206(0x5c85b4) / (Terrain_Rows((uint8_t*)Engine_Get1C(hook::Global<void*>(0x6d4024))) * 0x5c));
-    float sv = (float)(Fl_206(0x5c85b4) / (Terrain_Cols((uint8_t*)Engine_Get1C(hook::Global<void*>(0x6d4024))) * 0x5c));
+    float su = (float)(Fl_206(0x5c85b4) / (Terrain_Rows((uint8_t*)Engine_Get1C(hook::As<void*>(g_engine))) * 0x5c));
+    float sv = (float)(Fl_206(0x5c85b4) / (Terrain_Cols((uint8_t*)Engine_Get1C(hook::As<void*>(g_engine))) * 0x5c));
     DevRenderState(r, 0x1b, F<uint8_t*>(r, 0x83c)[0x21] & 1);
     Render_AlphaTestOn(r, 0, 1);
-    Renderer_SetTexture(r, 0, 0, F<uint8_t*>(Engine_Get1C(hook::Global<void*>(0x6d4024)), 0x478));
+    Renderer_SetTexture(r, 0, 0, F<uint8_t*>(Engine_Get1C(hook::As<void*>(g_engine)), 0x478));
     void* dev = F<void*>(r, 0x25df);
     if (!F<int32_t>(r, 0x260f)) {
         Render_PushStages(r, 0, nullptr);
@@ -2683,7 +2684,7 @@ void __fastcall Terrain_DrawChunks(uint8_t* r, int, int32_t count) {
         DevSlot<int32_t(__stdcall*)(void*, uint32_t)>(dev, 0x130)(dev, 0x142);
         dev = F<void*>(r, 0x25df);
         DevSlot<int32_t(__stdcall*)(void*, uint32_t, void*, uint32_t)>(dev, 0x14c)(dev, 0, F<void*>(r, 0x2663), 0x18);
-        ++hook::Global<int32_t>(0xccd824);
+        ++g_ccd824;
         void* vb = F<void*>(r, 0x2663);
         float* out = nullptr;
         DevSlot<int32_t(__stdcall*)(void*, uint32_t, uint32_t, float**, uint32_t)>(vb, 0x2c)(vb, 0, 0, &out, 0x2800);
@@ -2696,7 +2697,7 @@ void __fastcall Terrain_DrawChunks(uint8_t* r, int, int32_t count) {
             out[4] = (float)(((double)su * p[0] + F<float>(r, 0x36df)) * F<float>(r, 0x36e7));
             out[5] = (float)(((double)sv * p[2] + F<float>(r, 0x36e3)) * F<float>(r, 0x36eb));
         }
-        --hook::Global<int32_t>(0xccd824);
+        --g_ccd824;
         vb = F<void*>(r, 0x2663);
         DevSlot<int32_t(__stdcall*)(void*)>(vb, 0x30)(vb);
     } else {
@@ -2785,7 +2786,7 @@ void __fastcall Terrain_DrawChunksShaded(uint8_t* r, int, uint8_t* tex0, int32_t
     if (F<uint8_t*>(r, 0x83c)[0x19]) DevRenderState(r, 8, 2);
     if (water) Renderer_SetupWaterStages(r);
     else Renderer_SetupStages(r);
-    if (hook::Global<uint8_t*>(0x6d4024)[0x114252]) {
+    if (g_engine[0x114252]) {
         DevRenderState(r, 0xf, 0);
         DevRenderState(r, 0x18, 0);
     }
@@ -2841,10 +2842,10 @@ void __fastcall Terrain_DrawChunksShaded(uint8_t* r, int, uint8_t* tex0, int32_t
                     DevSlot<int32_t(__stdcall*)(void*, void*, uint32_t)>(dev, 0x154)(dev, F<void*>(r, j * 4 + 0x31ab), 0);
                     uint32_t lo = F<uint16_t>(c, 0x2673);
                     uint32_t nv = F<uint16_t>(c, 0x2675) - lo + 1;
-                    hook::Global<uint32_t>(0xccd818) += nv;
+                    g_ccd818 += nv;
                     dev = F<void*>(r, 0x25df);
                     DevSlot<int32_t(__stdcall*)(void*, uint32_t, uint32_t, uint32_t, uint32_t, int32_t)>(dev, 0x11c)(dev, 4, lo, nv, 0, prims);
-                    ++hook::Global<int32_t>(0xccd81c);
+                    ++g_ccd81c;
                     F<int32_t>(r, 0x3711) += prims;
                 }
             }
@@ -2944,10 +2945,10 @@ void __fastcall Terrain_DrawChunksPaired(uint8_t* r, int, uint8_t* tex0, int32_t
                     DevSlot<int32_t(__stdcall*)(void*, void*, uint32_t)>(dev, 0x154)(dev, F<void*>(r, j * 4 + 0x31ab), 0);
                     uint32_t lo = F<uint16_t>(c, 0x2673);
                     uint32_t nv = F<uint16_t>(c, 0x2675) - lo + 1;
-                    hook::Global<uint32_t>(0xccd818) += nv;
+                    g_ccd818 += nv;
                     dev = F<void*>(r, 0x25df);
                     DevSlot<int32_t(__stdcall*)(void*, uint32_t, uint32_t, uint32_t, uint32_t, int32_t)>(dev, 0x11c)(dev, 4, lo, nv, 0, prims);
-                    ++hook::Global<int32_t>(0xccd81c);
+                    ++g_ccd81c;
                     F<int32_t>(r, 0x3711) += prims;
                 }
             }
@@ -3017,7 +3018,7 @@ void __fastcall Terrain_DrawChunksFixed(uint8_t* r, int, int32_t vertices, uint8
     }
     dev = F<void*>(r, 0x25df);
     DevSlot<SetShader>(dev, 0x130)(dev, 0x112);
-    if (hook::Global<uint8_t*>(0x6d4024)[0x114252]) {
+    if (g_engine[0x114252]) {
         DevRenderState(r, 0xf, 0);
         DevRenderState(r, 0x18, 0);
     }
@@ -3032,7 +3033,7 @@ void __fastcall Terrain_DrawChunksFixed(uint8_t* r, int, int32_t vertices, uint8
         DevSlot<SetShader>(dev, 0x130)(dev, 0x152);
         return;
     }
-    bool multi = hook::Global<uint8_t*>(0x6d4024)[0x114250] != 0;
+    bool multi = g_engine[0x114250] != 0;
     dev = F<void*>(r, 0x25df);
     if (multi) {
         DevSlot<Tss>(dev, 0xfc)(dev, 1, 0xb, 1);
@@ -3062,7 +3063,7 @@ void __fastcall Terrain_DrawChunksFixed(uint8_t* r, int, int32_t vertices, uint8
             bool ok = !(dx == 2 && t0 != tex0);
             if (!(dy == 2 && t1 != tex1) && ok) {
                 if (bind) {
-                    if (hook::Global<uint8_t*>(0x6d4024)[0x114250]) {
+                    if (g_engine[0x114250]) {
                         Renderer_SetTexture(r, 0, 0, t1);
                         Renderer_SetTexture(r, 0, 1, t0);
                     } else {
@@ -3078,10 +3079,10 @@ void __fastcall Terrain_DrawChunksFixed(uint8_t* r, int, int32_t vertices, uint8
                     DevSlot<int32_t(__stdcall*)(void*, void*, uint32_t)>(dev, 0x154)(dev, F<void*>(r, j * 4 + 0x31ab), 0);
                     uint32_t lo = F<uint16_t>(c, 0x2673);
                     uint32_t nv = F<uint16_t>(c, 0x2675) - lo + 1;
-                    hook::Global<uint32_t>(0xccd818) += nv;
+                    g_ccd818 += nv;
                     dev = F<void*>(r, 0x25df);
                     DevSlot<int32_t(__stdcall*)(void*, uint32_t, uint32_t, uint32_t, uint32_t, int32_t)>(dev, 0x11c)(dev, 4, lo, nv, 0, prims);
-                    ++hook::Global<int32_t>(0xccd81c);
+                    ++g_ccd81c;
                     F<int32_t>(r, 0x3711) += prims;
                 }
             }
@@ -3178,7 +3179,7 @@ uint8_t* __fastcall Render_Construct(uint8_t* r, int, int32_t, uint8_t fullScree
         F<int32_t>(slot, 8) = -1;
         F<int32_t>(slot, 0xc) = k;
     }
-    if (!hook::Global<uint8_t>(0xccd820)) Sky_BuildSunTable(r);
+    if (!g_ccd820) Sky_BuildSunTable(r);
     else memcpy(r + 0x840, (const void*)0xccbb68, 0x72c * 4);
     if (Eng() && F<void*>(Eng(), 0x28)) ((void(__thiscall*)(void*))(*(void***)F<void*>(Eng(), 0x28))[0x1c / 4])(F<void*>(Eng(), 0x28));
     return r;
@@ -3188,10 +3189,10 @@ RT3_REPLACE(0x54bc10, Render_Construct);
 // 0x54be60. Saves the renderer settings (+0x840, 0x72c dwords) to 0xccbb68 (flag
 // 0xccd820), shuts the renderer down and clears engine +0xc.
 RT3_NOINLINE void __fastcall Render_SaveAndShutdown(uint8_t* r) {
-    hook::Global<uint8_t>(0xccd820) = 1;
+    g_ccd820 = 1;
     memcpy((void*)0xccbb68, r + 0x840, 0x72c * 4);
     Render_Shutdown(r);
-    Engine_SetC(hook::Global<void*>(0x6d4024), 0, 0);
+    Engine_SetC(hook::As<void*>(g_engine), 0, 0);
 }
 RT3_REPLACE(0x54be60, Render_SaveAndShutdown);
 
@@ -3254,7 +3255,7 @@ void __fastcall Renderer_SetTimeOfDay(uint8_t* r, int, int32_t secs, int32_t nig
     r[0x2512] = (uint8_t)Ftol((double)r[0x2512] * inv + (double)l10 * Fl_201(0x5ca0ec));
     float light[0x1a] = {};
     F<uint32_t>(light, 0) = 3;
-    if (hook::Global<uint8_t*>(0x6d4024)[0x11422e]) {
+    if (g_engine[0x11422e]) {
         float sp = (float)((double)F<float>(r, 0x25fb) * F<float>(r, 0x24f4) * D(0x5c8758));
         for (int32_t k = 0; k < 4; ++k) light[5 + k] = sp;
     }

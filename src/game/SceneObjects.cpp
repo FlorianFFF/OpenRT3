@@ -9,6 +9,7 @@
 #include <windows.h>
 #include <initializer_list>
 #include "hook/hook.h"
+#include "core/globals.h"
 #include "game/collection.h"
 #include "hook/keepregs.h"
 #include "core/crt.h"
@@ -430,7 +431,7 @@ static inline double ExeSqrt(double x) { return ((double(__cdecl*)(double))0x5a1
 // Flags entry of `blk` in the current block iteration (0x6acd50), then calls
 // its virtual slot 4 (flag 0x800 set) or 3 (unless 0x2000).
 static void UpdateBlockEntry(uint8_t* blk, bool set) {
-    uint8_t* it = hook::Global<uint8_t*>(0x6acd50);
+    uint8_t* it = g_6acd50;
     uint8_t* e = it + 0x10;
     for (int32_t i = 0; i < F<int32_t>(it, 0xc); ++i, e += 0xc) {
         if (F<uint8_t*>(e, 0) != blk) continue;
@@ -459,7 +460,7 @@ static inline void ExeDelete(void* p) { ((void(__cdecl*)(void*))0x53b080)(p); }
 
 namespace {
 inline void* ExeNew_105(size_t n) { return ((void*(__cdecl*)(size_t))0x53b070)(n); }
-inline int32_t PackHas(const char* path) { return NameTable_ContainsName(hook::Global<uint8_t*>(0x6d4020), 0, path, 0, nullptr); }
+inline int32_t PackHas(const char* path) { return NameTable_ContainsName(g_pack, 0, path, 0, nullptr); }
 // A scene object of model `path` (texture `tex`), or none when out of memory.
 inline uint8_t* NewSceneObj(const char* path, const char* tex) {
     uint8_t* m = (uint8_t*)ExeNew_105(0x206);
@@ -474,7 +475,7 @@ inline uint8_t* NewLight(const char* path, uint8_t* owner) {
 inline void ShowLight(uint8_t* c) { c[0x24] = (uint8_t)((c[0x24] & 0xf) | 0x10); }
 inline uint8_t* NewSound(const char* path, uint8_t* v, float vol) {
     uint8_t* m = (uint8_t*)ExeNew_105(0x141);
-    return m ? Channel_Setup(m, 0, path, hook::Global<uint8_t*>(0x62c120), F<float>(v, 0x1e2), F<float>(v, 0x1e6), F<float>(v, 0x1ea), -1,
+    return m ? Channel_Setup(m, 0, path, g_map, F<float>(v, 0x1e2), F<float>(v, 0x1e6), F<float>(v, 0x1ea), -1,
                              0, vol)
              : nullptr;
 }
@@ -501,7 +502,7 @@ static void SyncGroups(uint8_t* o, const uint32_t* ids, int32_t full, int32_t mo
     for (int32_t k = 0; k < 4; ++k) {
         uint32_t id = ids[k];
         if (!id) return;
-        uint8_t* list = hook::Global<uint8_t*>(0x6acd50);
+        uint8_t* list = g_6acd50;
         int32_t n = F<int32_t>(list, 0xc);
         uint8_t** group = nullptr;
         for (int32_t i = 0; i < n; ++i)
@@ -535,7 +536,7 @@ static void SyncGroups(uint8_t* o, const uint32_t* ids, int32_t full, int32_t mo
     }
 }
 
-static inline uint8_t* Packs() { return hook::Global<uint8_t*>(0x6d4020); }
+static inline uint8_t* Packs() { return g_pack; }
 
 static inline void Format0(char* dst, uint32_t fmt, const char* a1 = nullptr) {
     FormatText(dst, (const char*)fmt, a1, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
@@ -552,7 +553,7 @@ static void* LoadWhole(int32_t id, int32_t* sizeOut) {
     return p;
 }
 
-static inline uint8_t* Snd() { return hook::Global<uint8_t*>(0x6d402c); }
+static inline uint8_t* Snd() { return g_sound; }
 
 static inline double D(uint32_t a) { return *(const double*)a; }
 
@@ -560,7 +561,7 @@ static inline float Fl(uint32_t a) { return *(const float*)a; }
 
 static inline double Fabs(double x) { return ((double(__cdecl*)(double))0x5a152e)(x); }
 
-static inline uint8_t* Map() { return hook::Global<uint8_t*>(0x62c120); }
+static inline uint8_t* Map() { return g_map; }
 
 namespace {
 void BuildingClear(uint8_t* o) {
@@ -599,7 +600,7 @@ static inline float SnapInt(float v) {
 }
 
 namespace {
-inline int32_t CarHas(const char* name, const char* suffix = nullptr) { return NameTable_ContainsName(hook::Global<uint8_t*>(0x6d4020), 0, name, 0, suffix); }
+inline int32_t CarHas(const char* name, const char* suffix = nullptr) { return NameTable_ContainsName(g_pack, 0, name, 0, suffix); }
 inline const char* CarNum(char* buf, int32_t n) { return Num_Format(buf, 1, (double)n, 10, 1, 0, 0); }
 inline void CarFormat(char* dst, uint32_t fmt, const char* a1, const char* a2 = nullptr) {
     FormatText(dst, (const char*)fmt, a1, a2, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
@@ -692,7 +693,7 @@ static float TreeTypes_Coord(float base, float off) {
 // already-built neighbour cell (wrapping at 16 cells = 1472 units). QUIRK: a
 // neighbour wrapped across the right edge is shifted in y, not x.
 static void TreeTypes_BuildSpots() {
-    if (hook::Global<uint8_t*>(0x6acd20)) return;
+    if (g_6acd20) return;
     PushSeed();
     SetSeed(0x11);
     static const uint32_t kBase[4][12] = {
@@ -702,7 +703,7 @@ static void TreeTypes_BuildSpots() {
         { 0x3e800000, 0x3e800000, 0x3f400000, 0x3f400000, 0x3e800000, 0x3f400000, 0x3f400000, 0x3e800000, 0, 0, 0, 0 },
     };
     static const int32_t kJitter[4][2] = { { 500, 500 }, { 50, 15 }, { 40, 40 }, { 5, 5 } };
-    Loading_Pump(hook::Global<uint8_t*>(0x6cec74), 0, 1, 0);
+    Loading_Pump(g_app, 0, 1, 0);
     const int32_t* ndx = (const int32_t*)0x624b28;
     const int32_t* ndy = (const int32_t*)0x624b48;
     for (int32_t g = 0; g < 4; ++g) {
@@ -712,7 +713,7 @@ static void TreeTypes_BuildSpots() {
         float px[6] = {}, py[6] = {};
         const float* base = (const float*)kBase[g];
         for (int32_t j = 0; j < 0x10; ++j) {
-            Loading_Pump(hook::Global<uint8_t*>(0x6cec74), 0, 0, 0);
+            Loading_Pump(g_app, 0, 0, 0);
             float jf = (float)j;
             for (int32_t i = 0; i < 0x10; ++i) {
                 float fi = (float)i;
@@ -783,22 +784,22 @@ inline void RotateBits(uint8_t* v, uint32_t axis, float angle) {
 }
 // The status line (0x1ad / 0x1ae) in the top tenth of the screen.
 void DriveStatus(char* text, uint32_t width) {
-    if (uint8_t* font = F<uint8_t*>(hook::Global<uint8_t*>(0x6d401c), 0xc))
+    if (uint8_t* font = F<uint8_t*>(g_windowManager, 0xc))
         Font_DrawTextBox(font, 0, text, 0.1f, 0.0f, *(float*)&width, 1.0f, 0xffffffff, 3, 1, 0, 1.0f);
 }
 // Common end of both drive models: draw, reset the view, follow with the
 // chase camera +0x352 (target ahead by dist, eye behind by far).
 void DriveCamera(uint8_t* v) {
-    F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0xa0) = 1;
-    F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x114216) = 1;
-    Camera_SetBounds(hook::Global<uint8_t*>(0x62be68), 0, 0, 0, 0x3f800000, 0x3f800000);
-    F<int32_t>(Engine_Renderer(hook::Global<void*>(0x6d4024)), 0x25) = 0;
+    F<int32_t>(g_app, 0xa0) = 1;
+    F<int32_t>(g_engine, 0x114216) = 1;
+    Camera_SetBounds(g_62be68, 0, 0, 0, 0x3f800000, 0x3f800000);
+    F<int32_t>(Engine_Renderer(hook::As<void*>(g_engine)), 0x25) = 0;
 }
 }
 
 namespace {
 void Callback_Delete(void* p) { ((void(__cdecl*)(void*))0x53b080)(p); }
-int32_t Tooltip_Clear() { return Ui_ShowTooltip(hook::Global<uint8_t*>(0x6d401c), 0, (const char*)0x5c87a8, 3, 0, -1); }
+int32_t Tooltip_Clear() { return Ui_ShowTooltip(g_windowManager, 0, (const char*)0x5c87a8, 3, 0, -1); }
 // A network message's handler gets the packet (+8) when it has one (+0xc).
 template <typename P, typename Fn> int32_t NetMsg_Forward(uint8_t* m, Fn handler) {
     if (F<int32_t>(m, 0xc) > 0) handler(F<P>(m, 8));
@@ -811,7 +812,7 @@ template <typename P, typename Fn> int32_t NetMsg_Forward(uint8_t* m, Fn handler
 // notifies obj: method 0x10 when bit 0x800 is set, else method 0xc unless bit
 // 0x2000 is. Returns what the original leaves in EAX.
 static uint32_t __cdecl ObjFlags_SetImpl(uint32_t mask, uint8_t* obj, int32_t clear) {
-    uint8_t* t = hook::Global<uint8_t*>(0x6acd50);
+    uint8_t* t = g_6acd50;
     int32_t n = F<int32_t>(t, 0xc);
     uint8_t* e = t + 0x10;
     if (n <= 0) return (uint32_t)(uintptr_t)e;
@@ -831,12 +832,12 @@ static uint32_t __cdecl ObjFlags_SetImpl(uint32_t mask, uint8_t* obj, int32_t cl
 // end pointer 0x6acd4c) and clears the first entry with an object (+8), passing on
 // the caller's EDX.
 static int32_t __cdecl EntryWalk_BeginImpl(uint8_t* t, int32_t edx) {
-    hook::Global<int32_t>(0x6acd44) = 0;
-    hook::Global<int32_t>(0x6acd48) = 0;
-    hook::Global<int32_t>(0x6acd54) = 0;
-    hook::Global<uint8_t*>(0x6acd50) = t;
+    g_6acd44 = 0;
+    g_6acd48 = 0;
+    g_6acd54 = 0;
+    g_6acd50 = t;
     int32_t n = F<int32_t>(t, 0xc);
-    hook::Global<uint8_t*>(0x6acd4c) = t + (n > 0 ? n * 0xc + 0x10 : 0x10);
+    g_6acd4c = t + (n > 0 ? n * 0xc + 0x10 : 0x10);
     uint8_t* e = t + 0x10;
     for (int32_t i = 0; i < n; ++i, e += 0xc)
         if (F<int32_t>(e, 8)) return Obj_EntryClear1d8(F<uint8_t*>(e, 8), edx);
@@ -847,28 +848,28 @@ static int32_t __cdecl EntryWalk_BeginImpl(uint8_t* t, int32_t edx) {
 // obj's entry (+0x6acd48 flags pointer, +0x6acd44 value). 1 when found or obj is
 // null (then the end pointer 0x6acd4c is set), else 0.
 static int32_t __cdecl EntryWalk_FindImpl(uint8_t* obj, uint8_t* t) {
-    hook::Global<int32_t>(0x6acd44) = 0;
-    hook::Global<int32_t>(0x6acd48) = 0;
-    hook::Global<uint8_t*>(0x6acd54) = obj;
-    hook::Global<uint8_t*>(0x6acd50) = t;
-    hook::Global<int32_t>(0x6acd4c) = 0;
+    g_6acd44 = 0;
+    g_6acd48 = 0;
+    hook::As<uint8_t*>(g_6acd54) = obj;
+    g_6acd50 = t;
+    hook::As<int32_t>(g_6acd4c) = 0;
     int32_t found = 0;
     uint32_t end = 0x10;
     if (F<int32_t>(t, 0xc) > 0) {
         uint8_t* e = t + 0x10;
         for (int32_t i = 0; i < F<int32_t>(t, 0xc); ++i, e += 0xc, end += 0xc)
             if (obj && F<uint8_t*>(e, 0) == obj) {
-                hook::Global<uint8_t*>(0x6acd48) = e + 4;
-                hook::Global<int32_t>(0x6acd44) = F<int32_t>(e, 8);
+                hook::As<uint8_t*>(g_6acd48) = e + 4;
+                g_6acd44 = F<int32_t>(e, 8);
                 found = 1;
             }
         if (found == 1) {
-            hook::Global<uint8_t*>(0x6acd4c) = t + end;
+            g_6acd4c = t + end;
             return 1;
         }
     }
     if (obj) return found;
-    hook::Global<uint8_t*>(0x6acd4c) = t + end;
+    g_6acd4c = t + end;
     return 1;
 }
 
@@ -880,7 +881,7 @@ static void __cdecl Attach_SumVectorsImpl(float* out, int32_t mode, int32_t obj)
     out[0] = 0.0f;
     out[1] = 0.0f;
     out[2] = 0.0f;
-    uint8_t* e = hook::Global<uint8_t*>(0x6acd4c);
+    uint8_t* e = g_6acd4c;
     float scale = 1.0f;
     int32_t* iv;
     float* fv;
@@ -892,7 +893,7 @@ static void __cdecl Attach_SumVectorsImpl(float* out, int32_t mode, int32_t obj)
         iv = (int32_t*)(e + 0x70);
         fv = (float*)(e + 0x40);
     }
-    for (int32_t i = 0; i < F<int32_t>(hook::Global<uint8_t*>(0x6acd50), 8); ++i) {
+    for (int32_t i = 0; i < F<int32_t>(g_6acd50, 8); ++i) {
         if (F<int32_t>(e, 0) == obj && !(F<uint32_t>(e, 0x8c) & 0x400)) {
             float iz = (float)iv[2], iy = (float)iv[1], ix = (float)iv[0];
             float z = (float)((double)iz * fv[2] * scale);
@@ -918,12 +919,12 @@ static int32_t __cdecl Attach_SetValueImpl(int32_t value, uint8_t* obj, int32_t 
     for (int32_t k = 0; k < 4; ++k) {
         int32_t id = F<int32_t>(obj, 0x98 + k * 4);
         if (!id) break;
-        uint8_t* e = hook::Global<uint8_t*>(0x6acd4c);
-        for (int32_t i = 0; i < F<int32_t>(hook::Global<uint8_t*>(0x6acd50), 8); ++i, e += 0x168) {
+        uint8_t* e = g_6acd4c;
+        for (int32_t i = 0; i < F<int32_t>(g_6acd50, 8); ++i, e += 0x168) {
             if (id != F<int32_t>(e, 0)) continue;
             uint32_t f = F<uint32_t>(e, 0x8c);
             if (f & 0x10) {
-                int32_t n = F<int32_t>(hook::Global<uint8_t*>(0x6acd50), 8);
+                int32_t n = F<int32_t>(g_6acd50, 8);
                 bool later = false;
                 uint8_t* e2 = e + 0x168;
                 for (int32_t j = i + 1; j < n; ++j, e2 += 0x168)
@@ -997,7 +998,7 @@ static int32_t __cdecl Block_FinishSideImpl(uint8_t* o, int32_t side) {
     }
     if ((F<uint8_t>(o, 0x8c) & 0x20) && Attach_SetValueImpl(F<int32_t>(o, 0x80), o, level)) result |= 2;
     if (F<uint32_t>(o, 0x8c) & 0x1000) Obj_SwapBlockFlags(nullptr, 0, o);
-    if (F<uint32_t>(o, 0x8c) & 0x800) ObjFlags_SetImpl(0x800, hook::Global<uint8_t*>(0x6acd54), 0);
+    if (F<uint32_t>(o, 0x8c) & 0x800) ObjFlags_SetImpl(0x800, hook::As<uint8_t*>(g_6acd54), 0);
     return result;
 }
 
@@ -1124,7 +1125,7 @@ RT3_NOINLINE void __fastcall Terrain_PaintPoints(uint8_t* t, int, float x, float
                     while ((int32_t)Terrain_CellCount(t, 0, tx, ty) > 4) Terrain_DecCellCount(t, 0, tx, ty, 1);
             }
     }
-    void* g = hook::Global<void*>(0x62be68);
+    void* g = hook::As<void*>(g_62be68);
     (*(void(__thiscall**)(void*))(*(void**)g))(g);
 }
 RT3_REPLACE(0x454320, Terrain_PaintPoints);
@@ -1160,7 +1161,7 @@ RT3_NOINLINE void __fastcall Map_UpdateBlockMask(uint8_t* m, int, int32_t x, int
         }
     }
     Terrain_SetFlag(m, 0, x, y, mask);
-    F<uint8_t>(Engine_Renderer(hook::Global<void*>(0x6d4024)), 0x374a) = 1;
+    F<uint8_t>(Engine_Renderer(hook::As<void*>(g_engine)), 0x374a) = 1;
 }
 RT3_REPLACE(0x454d70, Map_UpdateBlockMask);
 
@@ -1186,7 +1187,7 @@ RT3_REPLACE(0x454f00, Map_UpdateBlockMaskRect);
 // tables (0x4539f0) and the tree spot tables (0x454630).
 RT3_NOINLINE void __fastcall TreeTypes_Load(uint8_t* r) {
     if (F<int32_t>(r, 0x2169)) return;
-    Loading_Pump(hook::Global<uint8_t*>(0x6cec74), 0, 0, 0);
+    Loading_Pump(g_app, 0, 0, 0);
     F<int32_t>(r, 0x2169) = 1;
     F<int32_t>(r, 0x216d) = 0;
     for (int32_t i = 0; i < 0xc4; ++i) ((uint8_t*)0x688058)[i] = ((const uint8_t*)0x5ef3e4)[i / 7 * 0xb0];
@@ -1207,17 +1208,17 @@ RT3_NOINLINE void __fastcall TreeTypes_Load(uint8_t* r) {
         FormatText(err, GetString(0x1a9), path, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
         Fatal_Exit(err);
     }
-    uint8_t* pk = hook::Global<uint8_t*>(0x6d4024);
+    uint8_t* pk = g_engine;
     int32_t quality = F<int32_t>(pk, 0x114736);
     F<int32_t>(pk, 0x114736) = 2;
     F<int32_t>(r, 0x1689) = TextureSlots_Add(r, 0, (const char*)0x5cade8);
     TextureSlots_Add(r, 0, (const char*)0x5cade0);
-    F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x114736) = quality;
+    F<int32_t>(g_engine, 0x114736) = quality;
     F<int32_t>(r, 0x168d) = F<int32_t>(r, 0x1689);
-    Loading_Pump(hook::Global<uint8_t*>(0x6cec74), 0, 0, 0);
+    Loading_Pump(g_app, 0, 0, 0);
     int32_t count = 0;
     while (!(F<uint8_t>(f, 0xc) & 0x10)) {
-        Loading_Pump(hook::Global<uint8_t*>(0x6cec74), 0, 0, 0);
+        Loading_Pump(g_app, 0, 0, 0);
         ((int(__cdecl*)(void*, const char*, ...))0x5a17e1)(f, (const char*)0x5cadd4, name, &letter, &value);
         if (!strlen(name)) continue;
         FormatText(model, (const char*)0x5cadc8, name, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
@@ -1269,8 +1270,8 @@ RT3_NOINLINE void __fastcall Entry21a_Init(uint8_t* e, int, int32_t a, const cha
     F<int32_t>(e, 0x216) = d;
     F<int32_t>(e, 8) = 0;
     e[0xc] = 0;
-    F<int32_t>(e, 4) = hook::Global<int32_t>(0x6acd30);
-    hook::Global<int32_t>(0x6acd30)++;
+    F<int32_t>(e, 4) = g_6acd30;
+    g_6acd30++;
 }
 RT3_REPLACE(0x4552b0, Entry21a_Init);
 
@@ -1449,18 +1450,18 @@ RT3_REPLACE(0x455790, SceneObj_Angle1);
 // 0x4557b0. Closes the model preview: the previewed object (0x6acd3c) is
 // forgotten and the preview model (0x6acd40) released and deleted.
 RT3_NOINLINE void ModelPreview_Close() {
-    if (!hook::Global<uint8_t*>(0x6acd40)) return;
-    hook::Global<uint32_t>(0x6acd3c) = 0;
-    ModelObj_Release(hook::Global<uint8_t*>(0x6acd40));
-    if (uint8_t* m = hook::Global<uint8_t*>(0x6acd40)) {
+    if (!g_6acd40) return;
+    hook::As<uint32_t>(g_6acd3c) = 0;
+    ModelObj_Release(g_6acd40);
+    if (uint8_t* m = g_6acd40) {
         ModelObj_Destructor(m);
         ((void(__cdecl*)(void*))0x53b080)(m);
     }
-    hook::Global<uint32_t>(0x6acd40) = 0;
+    hook::As<uint32_t>(g_6acd40) = 0;
 }
 RT3_REPLACE(0x4557b0, ModelPreview_Close);
 
-RT3_NOINLINE int32_t __fastcall IsCurrent6acd3c(void* o) { return hook::Global<void*>(0x6acd3c) == o ? 1 : 0; }
+RT3_NOINLINE int32_t __fastcall IsCurrent6acd3c(void* o) { return hook::As<void*>(g_6acd3c) == o ? 1 : 0; }
 RT3_REPLACE(0x4557f0, IsCurrent6acd3c);
 
 // 0x455800 / 0x455810. Object position in cells.
@@ -1500,9 +1501,9 @@ RT3_REPLACE(0x455a40, Obj_VCall44);
 // 0x455a50. Virtual slot 16, then clears the current-object globals 0x6acd38..0x6acd40.
 int32_t __fastcall Obj_CloseCurrent(void* o, int, int32_t a) {
     ((void(__thiscall*)(void*, int32_t))(*(void***)o)[0x40 / 4])(o, a);
-    hook::Global<int32_t>(0x6acd38) = 0;
-    hook::Global<int32_t>(0x6acd3c) = 0;
-    hook::Global<int32_t>(0x6acd40) = 0;
+    hook::As<int32_t>(g_6acd38) = 0;
+    hook::As<int32_t>(g_6acd3c) = 0;
+    hook::As<int32_t>(g_6acd40) = 0;
     return 0;
 }
 RT3_REPLACE(0x455a50, Obj_CloseCurrent);
@@ -1563,7 +1564,7 @@ RT3_NOINLINE void __fastcall WorldModel_Init(uint8_t* o, int, const char* name, 
     if (model) strcpy(file, model);
     else FormatText(file, (const char*)0x5cb234, name, 0, 0, 0, 0, 0, 0, 0);
     const char* skin = tex ? tex : name;
-    uint32_t owner = freeStanding ? 0 : (uint32_t)(uintptr_t)Engine_Get1C(hook::Global<void*>(0x6d4024));
+    uint32_t owner = freeStanding ? 0 : (uint32_t)(uintptr_t)Engine_Get1C(hook::As<void*>(g_engine));
     SceneObj_Init(o, 0, owner, file, skin);
     Nop52e670(o, 0, (int32_t)(uintptr_t)name);
     Model_SetFrame(o, 0, 0);
@@ -1588,26 +1589,26 @@ RT3_REPLACE(0x455b70, WorldModel_Init);
 // +0x20a / +0x20e and, when it was the previewed object (0x6acd3c), drops
 // the preview effect (0x6acd38) and the preview model (0x6acd40, unless o).
 RT3_NOINLINE void __fastcall SceneObj_Teardown(uint8_t* o) {
-    if (hook::Global<uint8_t*>(0x6cec78) && hook::Global<uint8_t*>(0x62be68) && F<uint8_t*>(hook::Global<uint8_t*>(0x62be68), 0x60) == o)
-        World_SetFollow(hook::Global<uint8_t*>(0x6cec78), 0, 0, o);
+    if (g_world && g_62be68 && F<uint8_t*>(g_62be68, 0x60) == o)
+        World_SetFollow(g_world, 0, 0, o);
     SceneObj_Destruct(o);
-    if (o == F<uint8_t*>(hook::Global<uint8_t*>(0x6cec78), 0x66a2)) F<void*>(hook::Global<uint8_t*>(0x6cec78), 0x66a2) = nullptr;
+    if (o == F<uint8_t*>(g_world, 0x66a2)) F<void*>(g_world, 0x66a2) = nullptr;
     FreeAndNull2((void**)(o + 0x206));
     FreeAndNull2((void**)(o + 0x20a));
     FreeAndNull2((void**)(o + 0x20e));
-    if (hook::Global<uint8_t*>(0x6acd3c) != o) return;
-    hook::Global<uint32_t>(0x6acd3c) = 0;
-    if (hook::Global<uint32_t*>(0x6acd38)) {
-        Effect_Free(hook::Global<uint32_t*>(0x6acd38));
-        hook::Global<uint32_t>(0x6acd38) = 0;
+    if (g_6acd3c != o) return;
+    hook::As<uint32_t>(g_6acd3c) = 0;
+    if (g_6acd38) {
+        Effect_Free(g_6acd38);
+        hook::As<uint32_t>(g_6acd38) = 0;
     }
-    if (!hook::Global<uint8_t*>(0x6acd40) || o == hook::Global<uint8_t*>(0x6acd40)) return;
-    ModelObj_Release(hook::Global<uint8_t*>(0x6acd40));
-    if (uint8_t* m = hook::Global<uint8_t*>(0x6acd40)) {
+    if (!g_6acd40 || o == g_6acd40) return;
+    ModelObj_Release(g_6acd40);
+    if (uint8_t* m = g_6acd40) {
         ModelObj_Destructor(m);
         ((void(__cdecl*)(void*))0x53b080)(m);
     }
-    hook::Global<uint32_t>(0x6acd40) = 0;
+    hook::As<uint32_t>(g_6acd40) = 0;
 }
 RT3_REPLACE(0x455d20, SceneObj_Teardown);
 
@@ -1619,20 +1620,20 @@ RT3_REPLACE(0x455d20, SceneObj_Teardown);
 // QUIRK: an object without a model table (+0x14) reads its part at 0
 // (crash).
 RT3_NOINLINE void __fastcall SceneObj_ShowPreview(uint8_t* o) {
-    if (o == hook::Global<uint8_t*>(0x6acd40)) return;
+    if (o == g_6acd40) return;
     Ui_PlaySound(0x21, 0, 0x3f000000);
-    if (hook::Global<uint8_t*>(0x6acd40)) {
-        hook::Global<uint32_t>(0x6acd3c) = 0;
-        ModelObj_Release(hook::Global<uint8_t*>(0x6acd40));
-        if (uint8_t* m = hook::Global<uint8_t*>(0x6acd40)) {
+    if (g_6acd40) {
+        hook::As<uint32_t>(g_6acd3c) = 0;
+        ModelObj_Release(g_6acd40);
+        if (uint8_t* m = g_6acd40) {
             ModelObj_Destructor(m);
             ((void(__cdecl*)(void*))0x53b080)(m);
         }
-        hook::Global<uint32_t>(0x6acd40) = 0;
+        hook::As<uint32_t>(g_6acd40) = 0;
     }
     uint8_t* mem = ((uint8_t*(__cdecl*)(size_t))0x53b070)(0x26e);
     uint8_t* m = mem ? ModelObj_Construct(mem) : nullptr;
-    hook::Global<uint8_t*>(0x6acd40) = m;
+    g_6acd40 = m;
     float cz = (float)((double)F<float>(o, 0x1ea) / Fl_207(0x5c8700));
     float cx = (float)((double)F<float>(o, 0x1e2) / Fl_207(0x5c8700));
     Building_Init(m, 0, (const char*)0x5cb244, (const char*)0x5cb244, cx, cz, 1, 0, 0, 0);
@@ -1644,10 +1645,10 @@ RT3_NOINLINE void __fastcall SceneObj_ShowPreview(uint8_t* o) {
     float y = (float)((double)top + BitsF(py));
     float z = (float)((double)F<float>(o, 0x1ea) / Fl_207(0x5c8700));
     float x = (float)((double)F<float>(o, 0x1e2) / Fl_207(0x5c8700));
-    Obj_MoveTo(hook::Global<uint8_t*>(0x6acd40), 0, (float)((double)x * Fl_207(0x5c8700)), y, (float)((double)z * Fl_207(0x5c8700)));
-    SceneObj_SetScale36(hook::Global<uint8_t*>(0x6acd40), 0, BitsF(0x3f4ccccd));
-    hook::Global<uint8_t*>(0x6acd40)[0x20] &= 0xdf;
-    hook::Global<uint8_t*>(0x6acd3c) = o;
+    Obj_MoveTo(g_6acd40, 0, (float)((double)x * Fl_207(0x5c8700)), y, (float)((double)z * Fl_207(0x5c8700)));
+    SceneObj_SetScale36(g_6acd40, 0, BitsF(0x3f4ccccd));
+    g_6acd40[0x20] &= 0xdf;
+    g_6acd3c = o;
     void** vt = *(void***)o;
     int32_t now = ClockMs();
     ((void(__fastcall*)(uint8_t*, int, int32_t))vt[0])(o, 0, now);
@@ -1661,7 +1662,7 @@ RT3_NOINLINE uint8_t* __fastcall Obj_Region(void* o) {
     const float neg92 = -92.0f, four = 4.0f; // 0x5cb24c, 0x5c8568
     int32_t row = (int32_t)((double)F<float>(o, 0x1ea) / neg92 / four);
     int32_t col = (int32_t)((double)F<float>(o, 0x1e2) / neg92 / four);
-    uint8_t* grid = hook::Global<uint8_t*>(0x62c120);
+    uint8_t* grid = g_map;
     return F<uint8_t*>(grid, 0x2129) - (row * F<int32_t>(grid, 0x2145) + col) * 0x1d7;
 }
 RT3_REPLACE(0x455f60, Obj_Region);
@@ -1736,7 +1737,7 @@ RT3_REPLACE(0x456170, NamedObj456900_Destructor);
 RT3_NOINLINE void __fastcall Obj_MarkDone(uint8_t* o) {
     if (o[0x23e]) return;
     o[0x23e] = 1;
-    Obj_Decc60(hook::Global<uint8_t*>(0x6d401c));
+    Obj_Decc60(g_windowManager);
 }
 RT3_REPLACE(0x456180, Obj_MarkDone);
 
@@ -1746,10 +1747,10 @@ RT3_REPLACE(0x456180, Obj_MarkDone);
 RT3_NOINLINE void __fastcall TrainObj_Clicked(uint8_t* o) {
     if (!o[0x23e]) return;
     o[0x23e] = 0;
-    Obj_Incc60(hook::Global<uint8_t*>(0x6d401c));
+    Obj_Incc60(g_windowManager);
     if (F<int32_t>(o, 0x352)) return;
-    World_FollowEntity(hook::Global<uint8_t*>(0x6cec78), 0, 1, 3, F<int32_t>(o, 0x23a));
-    if (Obj_Float18(hook::Global<uint8_t*>(0x62be68)) > Fl_207(0x5c87c0)) Camera_SetZoom(hook::Global<uint8_t*>(0x62be68), 0, 0x43960000);
+    World_FollowEntity(g_world, 0, 1, 3, F<int32_t>(o, 0x23a));
+    if (Obj_Float18(g_62be68) > Fl_207(0x5c87c0)) Camera_SetZoom(g_62be68, 0, 0x43960000);
 }
 RT3_REPLACE(0x4561a0, TrainObj_Clicked);
 
@@ -1849,14 +1850,14 @@ void __fastcall ModelObj_Save(uint8_t* o, int, Stream s) {
 RT3_REPLACE(0x456630, ModelObj_Save);
 
 // 0x456680 (vtable). The world follows entity +0x23a (kind 3).
-void __fastcall Obj_FollowThis(uint8_t* o) { World_FollowEntity(hook::Global<uint8_t*>(0x6cec78), 0, 1, 3, F<int32_t>(o, 0x23a)); }
+void __fastcall Obj_FollowThis(uint8_t* o) { World_FollowEntity(g_world, 0, 1, 3, F<int32_t>(o, 0x23a)); }
 RT3_REPLACE(0x456680, Obj_FollowThis);
 
 // 0x4566a0 (callback). Shows string 0x1af as a tooltip.
 void Tooltip_Show1af() {
     char text[0x12c];
     FormatText(text, GetString(0x1af), 0, 0, 0, 0, 0, 0, 0, 0);
-    Ui_ShowTooltip(hook::Global<uint8_t*>(0x6d401c), 0, text, 3, 0, -1);
+    Ui_ShowTooltip(g_windowManager, 0, text, 3, 0, -1);
 }
 RT3_REPLACE(0x4566a0, Tooltip_Show1af);
 
@@ -2045,7 +2046,7 @@ RT3_NOINLINE void __fastcall Vehicle_LoadParts(uint8_t* v) {
         uint8_t* ch = nullptr;
         if (m) {
             float vol = (float)((v[0x261] ? 0.47 : 3.0) * *(const double*)0x5c8c48);
-            ch = Channel_Setup(m, 0, path, hook::Global<uint8_t*>(0x62c120), F<float>(v, 0x1e2), F<float>(v, 0x1e6), F<float>(v, 0x1ea), -1,
+            ch = Channel_Setup(m, 0, path, g_map, F<float>(v, 0x1e2), F<float>(v, 0x1e6), F<float>(v, 0x1ea), -1,
                                0, vol);
         }
         F<uint8_t*>(v, 0x2fe) = ch;
@@ -2109,7 +2110,7 @@ RT3_NOINLINE void __fastcall Map_RandomEdgeEntry(uint8_t* o, int, float* outX, f
             mov x0, eax
         }
         x1 = Rand(-10, 10) + x0;
-        uint8_t month = hook::Global<uint8_t*>(0x6cec78)[0xf];
+        uint8_t month = g_world[0xf];
         if (month >= 1 && month <= 6) {
             y1 = F<int32_t>(Map(), 0x2159) - 2;
             y0 = 1;
@@ -2351,22 +2352,22 @@ RT3_NOINLINE void __fastcall Obj_TakeCamera(uint8_t* o) {
         uint8_t* c = (uint8_t*)ExeNew(0x8a);
         F<uint8_t*>(o, 0x352) = c ? Camera_ConstructSetup(c, 0, F<uint32_t>(o, 4), 0, 0, 0, 0x44800000) : nullptr;
     }
-    F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0xa0) = 1;
-    F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x114216) = 1;
+    F<int32_t>(g_app, 0xa0) = 1;
+    F<int32_t>(g_engine, 0x114216) = 1;
 }
 RT3_REPLACE(0x4581d0, Obj_TakeCamera);
 
 // 0x458230. Drops the object's private camera (+0x352), handing the engine back the main camera.
 RT3_NOINLINE void __fastcall Obj_DropCamera(uint8_t* o) {
     if (!F<void*>(o, 0x352)) return;
-    F<void*>(hook::Global<uint8_t*>(0x6d4024), 0x28) = hook::Global<void*>(0x62be68);
+    F<void*>(g_engine, 0x28) = hook::As<void*>(g_62be68);
     if (uint32_t* c = F<uint32_t*>(o, 0x352)) {
         Camera_Destruct(c);
         ((void(__cdecl*)(void*))0x53b080)(c);
     }
     F<void*>(o, 0x352) = nullptr;
-    F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0xa0) = 0;
-    F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x114216) = 0;
+    F<int32_t>(g_app, 0xa0) = 0;
+    F<int32_t>(g_engine, 0x114216) = 0;
 }
 RT3_REPLACE(0x458230, Obj_DropCamera);
 
@@ -2430,7 +2431,7 @@ RT3_NOINLINE void __fastcall Vehicle_Init(uint8_t* v, int, uint32_t id, const ui
     Aircraft_Fly(v, 0, 0.0f);
     if (!v[0x23e]) {
         v[0x23e] = 1;
-        Obj_Decc60(hook::Global<uint8_t*>(0x6d401c));
+        Obj_Decc60(g_windowManager);
     }
 }
 RT3_REPLACE(0x458310, Vehicle_Init);
@@ -2438,8 +2439,8 @@ RT3_REPLACE(0x458310, Vehicle_Init);
 // 0x4584e0. Camera-carrying object o: stops the camera following it, drops
 // its camera and tears down the scene object.
 RT3_NOINLINE void __fastcall CameraObj_Teardown(uint8_t* o) {
-    if (hook::Global<uint8_t*>(0x6cec78) && hook::Global<uint8_t*>(0x62be68) && F<uint8_t*>(hook::Global<uint8_t*>(0x62be68), 0x60) == o)
-        World_SetFollow(hook::Global<uint8_t*>(0x6cec78), 0, 0, o);
+    if (g_world && g_62be68 && F<uint8_t*>(g_62be68, 0x60) == o)
+        World_SetFollow(g_world, 0, 0, o);
     Obj_DropCamera(o);
     SceneObj_Teardown(o);
 }
@@ -2454,7 +2455,7 @@ RT3_REPLACE(0x4584e0, CameraObj_Teardown);
 // camera, clears the cab options and follows the train zoomed to 200;
 // otherwise the camera is taken.
 RT3_NOINLINE void __fastcall TrainObj_CabKeys(uint8_t* o, int, float dt) {
-    auto key = [](uint8_t k) { return Engine_KeyState(hook::Global<uint8_t*>(0x6d4024), 0, k); };
+    auto key = [](uint8_t k) { return Engine_KeyState(g_engine, 0, k); };
     float* pitch = &F<float>(o, 0x2ed);
     if (key(0x62) || key(0x28)) {
         if ((double)F<float>(o, 0x28d) + Fl_207(0x5cb470) > (double)*pitch) *pitch = (float)((double)dt + *pitch);
@@ -2488,16 +2489,16 @@ RT3_NOINLINE void __fastcall TrainObj_CabKeys(uint8_t* o, int, float dt) {
     if (key((uint8_t)scan('p'))) F<uint32_t>(o, 0x2a5) = 0;
     if (key((uint8_t)scan(';'))) F<uint32_t>(o, 0x2a5) = F<uint32_t>(o, 0x285);
     if (!key((uint8_t)scan('c'))) return;
-    Engine_KeyUp(hook::Global<uint8_t*>(0x6d4024), 0, (uint8_t)scan('c'));
+    Engine_KeyUp(g_engine, 0, (uint8_t)scan('c'));
     if (F<int32_t>(o, 0x352)) {
         Obj_DropCamera(o);
-        F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0xa0) = 0;
-        F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x114216) = 0;
-        World_FollowEntity(hook::Global<uint8_t*>(0x6cec78), 0, 1, 3, F<int32_t>(o, 0x23a));
-        Camera_SetZoom(hook::Global<uint8_t*>(0x62be68), 0, 0x43480000);
+        F<int32_t>(g_app, 0xa0) = 0;
+        F<int32_t>(g_engine, 0x114216) = 0;
+        World_FollowEntity(g_world, 0, 1, 3, F<int32_t>(o, 0x23a));
+        Camera_SetZoom(g_62be68, 0, 0x43480000);
         return;
     }
-    World_SetFollow(hook::Global<uint8_t*>(0x6cec78), 0, 0, nullptr);
+    World_SetFollow(g_world, 0, 0, nullptr);
     Obj_TakeCamera(o);
 }
 RT3_REPLACE(0x458520, TrainObj_CabKeys);
@@ -2525,7 +2526,7 @@ RT3_NOINLINE bool __fastcall Vehicle_DriveUpdate(uint8_t* v, int, float dt) {
     if (!v[0x240]) {
         const char* caption = GetString(0xa2);
         const char* text = GetString(0x1ac);
-        ((int(__stdcall*)(void*, const char*, const char*, uint32_t))hook::Global<void*>(0x5c8220))(nullptr, text, caption, 0);
+        ((int(__stdcall*)(void*, const char*, const char*, uint32_t))g_5c8220)(nullptr, text, caption, 0);
         return false;
     }
     float throttle = (float)((double)F<float>(v, 0x2a5) / F<float>(v, 0x285));
@@ -2611,14 +2612,14 @@ RT3_NOINLINE bool __fastcall Vehicle_DriveUpdate(uint8_t* v, int, float dt) {
         bool moved = Obj_MoveBy(v, 0, mx, my, mz);
         float mouseX, mouseY;
         if (uint8_t* cab = F<uint8_t*>(v, 0x31a)) {
-            Mouse_GetPos((uint8_t*)Engine_Input(hook::Global<void*>(0x6d4024)), 0, (uint32_t*)&mouseX, (uint32_t*)&mouseY);
+            Mouse_GetPos((uint8_t*)Engine_Input(hook::As<void*>(g_engine)), 0, (uint32_t*)&mouseX, (uint32_t*)&mouseY);
             float yaw = (float)(((double)mouseX - D4588(0x5c8628)) * D4588(0x5cb4a0));
             SceneObj_SetAngles(cab, 0, 0, Bits4588(yaw), 0);
             if (uint8_t* head = F<uint8_t*>(v, 0x31e)) {
                 float pitch = (float)(((double)mouseY - D4588(0x5c8628)) * D4588(0x5cb498));
                 SceneObj_SetAngles(head, 0, Bits4588(pitch), 0, 0);
                 if (uint8_t* wiper = F<uint8_t*>(v, 0x322)) {
-                    Engine_Input(hook::Global<void*>(0x6d4024));
+                    Engine_Input(hook::As<void*>(g_engine));
                     if (Input_Flag400()) {
                         float a;
                         SceneObj_GetAngles(F<uint8_t*>(v, 0x322), 0, nullptr, nullptr, (uint32_t*)&a);
@@ -2660,7 +2661,7 @@ RT3_NOINLINE bool __fastcall Vehicle_DriveUpdate(uint8_t* v, int, float dt) {
             uint32_t upv[3];
             Vec3_Transform(&F<float>(v, 0x2b9), 0, (float*)upv, m);
             Obj_SetXYZ2c(F<uint8_t*>(v, 0x352), 0, upv[0], upv[1], upv[2]);
-            F<uint8_t*>(hook::Global<uint8_t*>(0x6d4024), 0x28) = F<uint8_t*>(v, 0x352);
+            F<uint8_t*>(g_engine, 0x28) = F<uint8_t*>(v, 0x352);
         }
         return moved;
     }
@@ -2763,7 +2764,7 @@ RT3_NOINLINE bool __fastcall Vehicle_DriveUpdate(uint8_t* v, int, float dt) {
         qx = qx - tx, qy = qy - ty, qz = qz - tz;
         Camera_SetEye(F<uint8_t*>(v, 0x352), 0, Bits4588(qx), Bits4588(qy), Bits4588(qz));
         Obj_SetXYZ2c(F<uint8_t*>(v, 0x352), 0, upv[0], upv[1], upv[2]);
-        F<uint8_t*>(hook::Global<uint8_t*>(0x6d4024), 0x28) = F<uint8_t*>(v, 0x352);
+        F<uint8_t*>(g_engine, 0x28) = F<uint8_t*>(v, 0x352);
         return moved;
     }
     Vec3_Normalize(pt);
@@ -2802,8 +2803,8 @@ RT3_REPLACE(0x459c30, EntryWalk_Find);
 // 0x168) flagged 0x10 with the same key as `b`: the first one after `b`,
 // else the first one before it, else b.
 RT3_NOINLINE uint8_t* __fastcall BlockIter_NextSameKey(uint8_t* b) {
-    uint8_t* p = hook::Global<uint8_t*>(0x6acd4c);
-    int32_t n = F<int32_t>(hook::Global<uint8_t*>(0x6acd50), 8);
+    uint8_t* p = g_6acd4c;
+    int32_t n = F<int32_t>(g_6acd50, 8);
     uint8_t* r = b;
     for (int32_t i = 0; i < n; ++i, p += 0x168) {
         if (!(p[0x8c] & 0x10) || F<int32_t>(p, 0) != F<int32_t>(b, 0) || p == b) continue;
@@ -2877,18 +2878,18 @@ RT3_REPLACE(0x45a280, Block_CountSide);
 // 0x45a2e0. Starts a block iteration of o and clears (mode 1) or sets `mask`
 // in the flags +0x8c of every block.
 RT3_NOINLINE void __fastcall BlockIter_SetFlags(uint8_t* o, uint32_t mask, int32_t mode) {
-    hook::Global<int32_t>(0x6acd44) = 0;
-    hook::Global<int32_t>(0x6acd48) = 0;
-    hook::Global<int32_t>(0x6acd54) = 0;
-    hook::Global<uint8_t*>(0x6acd50) = o;
-    hook::Global<int32_t>(0x6acd4c) = 0;
+    g_6acd44 = 0;
+    g_6acd48 = 0;
+    g_6acd54 = 0;
+    g_6acd50 = o;
+    hook::As<int32_t>(g_6acd4c) = 0;
     int32_t n = F<int32_t>(o, 0xc);
     uint8_t* p = o + (n > 0 ? n * 12 + 0x10 : 0x10);
-    hook::Global<uint8_t*>(0x6acd4c) = p;
+    g_6acd4c = p;
     for (int32_t i = 0; i < F<int32_t>(o, 8); ++i, p += 0x168) {
         if (mode == 1) F<uint32_t>(p, 0x8c) &= ~mask;
         else F<uint32_t>(p, 0x8c) |= mask;
-        o = hook::Global<uint8_t*>(0x6acd50);
+        o = g_6acd50;
     }
 }
 RT3_REPLACE(0x45a2e0, BlockIter_SetFlags);
@@ -2897,14 +2898,14 @@ RT3_REPLACE(0x45a2e0, BlockIter_SetFlags);
 // against the flags +0x8c of the first block. QUIRK: a negative index walks
 // 2^31 blocks back as in the original.
 RT3_NOINLINE int32_t __fastcall BlockIter_BeginTest(uint8_t* o, uint32_t mask, int32_t idx) {
-    hook::Global<int32_t>(0x6acd44) = 0;
-    hook::Global<int32_t>(0x6acd48) = 0;
-    hook::Global<int32_t>(0x6acd54) = 0;
-    hook::Global<uint8_t*>(0x6acd50) = o;
-    hook::Global<int32_t>(0x6acd4c) = 0;
+    g_6acd44 = 0;
+    g_6acd48 = 0;
+    g_6acd54 = 0;
+    g_6acd50 = o;
+    hook::As<int32_t>(g_6acd4c) = 0;
     int32_t n = F<int32_t>(o, 0xc);
     uint8_t* p = o + (n > 0 ? n * 12 + 0x10 : 0x10);
-    hook::Global<uint8_t*>(0x6acd4c) = p;
+    g_6acd4c = p;
     uint32_t u = (uint32_t)idx;
     if ((int32_t)u < 0) {
         do {
@@ -2916,30 +2917,30 @@ RT3_NOINLINE int32_t __fastcall BlockIter_BeginTest(uint8_t* o, uint32_t mask, i
 }
 RT3_REPLACE(0x45a380, BlockIter_BeginTest);
 
-RT3_NOINLINE void Clear6acd60() { hook::Global<int32_t>(0x6acd60) = 0; }
+RT3_NOINLINE void Clear6acd60() { g_6acd60 = 0; }
 RT3_REPLACE(0x45a3f0, Clear6acd60);
 
 // 0x45a400. Starts a block iteration and clears slot idx (-1: all four) of
 // the first block's +0xf4 for each entry, unmarking its element (0x475240)
 // and flagging the entry 0x20000 (then virtual slot 4 or 3).
 RT3_NOINLINE void __fastcall BlockIter_ClearSlot(uint8_t* o, int32_t idx) {
-    hook::Global<int32_t>(0x6acd44) = 0;
-    hook::Global<int32_t>(0x6acd48) = 0;
-    hook::Global<int32_t>(0x6acd54) = 0;
-    hook::Global<uint8_t*>(0x6acd50) = o;
-    hook::Global<int32_t>(0x6acd4c) = 0;
+    g_6acd44 = 0;
+    g_6acd48 = 0;
+    g_6acd54 = 0;
+    g_6acd50 = o;
+    hook::As<int32_t>(g_6acd4c) = 0;
     int32_t n = F<int32_t>(o, 0xc);
-    hook::Global<uint8_t*>(0x6acd4c) = o + (n > 0 ? n * 12 + 0x10 : 0x10);
-    for (int32_t i = 0; i < F<int32_t>(hook::Global<uint8_t*>(0x6acd50), 0xc); ++i) {
+    g_6acd4c = o + (n > 0 ? n * 12 + 0x10 : 0x10);
+    for (int32_t i = 0; i < F<int32_t>(g_6acd50, 0xc); ++i) {
         uint8_t* entry = o + 0x10 + i * 0xc;
         if (!F<void*>(entry, 8)) continue;
         if (idx == -1) {
-            for (int k = 0; k < 4; ++k) hook::Global<uint8_t*>(0x6acd4c)[0xf4 + k] = 0;
+            for (int k = 0; k < 4; ++k) g_6acd4c[0xf4 + k] = 0;
         } else {
-            hook::Global<uint8_t*>(0x6acd4c)[0xf4 + idx] = 0;
+            g_6acd4c[0xf4 + idx] = 0;
         }
         Obj_SetElementFlag1d8(F<void*>(entry, 8), 0, idx);
-        uint8_t* it = hook::Global<uint8_t*>(0x6acd50);
+        uint8_t* it = g_6acd50;
         uint8_t* obj = F<uint8_t*>(entry, 0);
         uint8_t* e = it + 0x10;
         for (int32_t j = 0; j < F<int32_t>(it, 0xc); ++j, e += 0xc) {
@@ -2957,19 +2958,19 @@ RT3_REPLACE(0x45a400, BlockIter_ClearSlot);
 // 0x45a520. Starts a block iteration and marks slot idx (-1: all four) in
 // the first block's +0xf4; with flag 1 also updates each entry's element (0x475240).
 RT3_NOINLINE void __fastcall BlockIter_MarkSlot(uint8_t* o, int32_t idx, int32_t flag) {
-    hook::Global<int32_t>(0x6acd44) = 0;
-    hook::Global<int32_t>(0x6acd48) = 0;
-    hook::Global<int32_t>(0x6acd54) = 0;
-    hook::Global<uint8_t*>(0x6acd50) = o;
-    hook::Global<int32_t>(0x6acd4c) = 0;
+    g_6acd44 = 0;
+    g_6acd48 = 0;
+    g_6acd54 = 0;
+    g_6acd50 = o;
+    hook::As<int32_t>(g_6acd4c) = 0;
     int32_t n = F<int32_t>(o, 0xc);
-    hook::Global<uint8_t*>(0x6acd4c) = o + (n > 0 ? n * 12 + 0x10 : 0x10);
-    for (int32_t i = 0; i < F<int32_t>(hook::Global<uint8_t*>(0x6acd50), 0xc); ++i) {
+    g_6acd4c = o + (n > 0 ? n * 12 + 0x10 : 0x10);
+    for (int32_t i = 0; i < F<int32_t>(g_6acd50, 0xc); ++i) {
         void* el = F<void*>(o, 0x18 + i * 0xc);
         if (!el) continue;
-        uint8_t* blk = hook::Global<uint8_t*>(0x6acd4c);
+        uint8_t* blk = g_6acd4c;
         if (idx == -1) {
-            for (int k = 0; k < 4; ++k) hook::Global<uint8_t*>(0x6acd4c)[0xf4 + k] = 1;
+            for (int k = 0; k < 4; ++k) g_6acd4c[0xf4 + k] = 1;
         } else {
             blk[0xf4 + idx] = 1;
         }
@@ -2993,14 +2994,14 @@ RT3_REPLACE(0x45a5f0, EntryWalk_Begin);
 // 0x45a660. Starts an iteration over the block list o: resets the cursor
 // globals 0x6acd44..0x6acd54 and returns the first block's +0x84.
 RT3_NOINLINE uint32_t __fastcall BlockIter_Begin(uint8_t* o) {
-    hook::Global<int32_t>(0x6acd44) = 0;
-    hook::Global<int32_t>(0x6acd48) = 0;
-    hook::Global<int32_t>(0x6acd54) = 0;
-    hook::Global<int32_t>(0x6acd4c) = 0;
-    hook::Global<uint8_t*>(0x6acd50) = o;
+    g_6acd44 = 0;
+    g_6acd48 = 0;
+    g_6acd54 = 0;
+    hook::As<int32_t>(g_6acd4c) = 0;
+    g_6acd50 = o;
     int32_t n = F<int32_t>(o, 0xc);
     uint8_t* p = o + (n > 0 ? n * 12 + 0x10 : 0x10);
-    hook::Global<uint8_t*>(0x6acd4c) = p;
+    g_6acd4c = p;
     return F<uint32_t>(p, 0x84);
 }
 RT3_REPLACE(0x45a660, BlockIter_Begin);
@@ -3057,13 +3058,13 @@ RT3_NOINLINE void __fastcall Attach_ReplaceObject(uint8_t* t, uint8_t* oldObj, u
         mov found, eax
     }
     if (!found) return;
-    uint8_t* base = hook::Global<uint8_t*>(0x6acd4c);
-    for (int32_t i = 0; i < F<int32_t>(hook::Global<uint8_t*>(0x6acd50), 8); ++i) {
+    uint8_t* base = g_6acd4c;
+    for (int32_t i = 0; i < F<int32_t>(g_6acd50, 8); ++i) {
         uint8_t* r = base + i * 0x168;
         if (F<uint8_t*>(r, 0) != oldObj) continue;
         F<uint8_t*>(r, 0) = newObj;
-        for (int32_t j = 0; j < F<int32_t>(hook::Global<uint8_t*>(0x6acd50), 8); ++j) {
-            uint8_t* p = hook::Global<uint8_t*>(0x6acd4c) + 0xa8 + j * 0x168;
+        for (int32_t j = 0; j < F<int32_t>(g_6acd50, 8); ++j) {
+            uint8_t* p = g_6acd4c + 0xa8 + j * 0x168;
             for (int32_t k = 0; k < 4; ++k, p += 4) {
                 if (F<uint8_t*>(p, -0x10) == oldObj) {
                     F<uint8_t*>(p, -0x10) = newObj;
@@ -3073,8 +3074,8 @@ RT3_NOINLINE void __fastcall Attach_ReplaceObject(uint8_t* t, uint8_t* oldObj, u
                     if (F<uint8_t*>(p, g * 0x10) == oldObj) F<uint8_t*>(p, g * 0x10) = newObj;
             }
         }
-        if (!(*hook::Global<uint32_t*>(0x6acd48) & 0x8000)) continue;
-        uint8_t** list = hook::Global<uint8_t**>(0x6acd5c);
+        if (!(*hook::As<uint32_t*>(g_6acd48) & 0x8000)) continue;
+        uint8_t** list = hook::As<uint8_t**>(g_6acd5c);
         uint8_t* node = r + 0xec;
         bool listed = false;
         for (uint8_t* n = list[0]; n; n = *(uint8_t**)n)
@@ -3087,11 +3088,11 @@ RT3_NOINLINE void __fastcall Attach_ReplaceObject(uint8_t* t, uint8_t* oldObj, u
         if (!list[1]) list[1] = node;
         ((int32_t*)list)[3] = 0xec;
     }
-    F<uint8_t*>(hook::Global<uint8_t*>(0x6acd48), -4) = newObj;
-    if (*hook::Global<uint32_t*>(0x6acd48) & 0x800) ((void(__thiscall*)(uint8_t*))(*(void***)newObj)[4])(newObj);
-    if (!F<int32_t>(hook::Global<uint8_t*>(0x6acd4c), 0xe8)) newObj[0x20] &= 0xdf;
-    if (!hook::Global<int32_t>(0x6acd44)) return;
-    uint8_t* l = hook::Global<uint8_t*>(0x6acd50);
+    F<uint8_t*>(hook::As<uint8_t*>(g_6acd48), -4) = newObj;
+    if (*hook::As<uint32_t*>(g_6acd48) & 0x800) ((void(__thiscall*)(uint8_t*))(*(void***)newObj)[4])(newObj);
+    if (!F<int32_t>(g_6acd4c, 0xe8)) newObj[0x20] &= 0xdf;
+    if (!g_6acd44) return;
+    uint8_t* l = g_6acd50;
     int32_t* slot = nullptr;
     for (int32_t k = 0; k < F<int32_t>(l, 0xc); ++k)
         if (F<uint8_t*>(l, 0x10 + k * 0xc) == newObj) {
@@ -3114,24 +3115,24 @@ RT3_REPLACE(0x45a7f0, Attach_ReplaceObject);
 // vectors (bit 0), an attachment taking it ends the walk (bit 1).
 RT3_NOINLINE void __fastcall Attach_Animate(uint8_t* t, uint8_t* obj, int32_t now, int32_t mode) {
     if (!EntryWalk_FindImpl(obj, t)) return;
-    uint32_t* state = hook::Global<uint32_t*>(0x6acd48);
+    uint32_t* state = hook::As<uint32_t*>(g_6acd48);
     if (!state) {
-        if (hook::Global<int32_t>(0x6acd58) == 1) return;
+        if (g_6acd58 == 1) return;
     } else {
         if (*state & 0x8000) {
-            if (!hook::Global<int32_t>(0x6acd58)) return;
-            uint8_t* list = hook::Global<uint8_t*>(0x6acd44);
+            if (!g_6acd58) return;
+            uint8_t* list = hook::As<uint8_t*>(g_6acd44);
             if (list) {
-                for (int32_t i = 0; i < F<int32_t>(hook::Global<uint8_t*>(0x6acd44), 8); ++i) {
-                    uint8_t* em = F<uint8_t*>(hook::Global<uint8_t*>(0x6acd44), 0xc + i * 4);
+                for (int32_t i = 0; i < F<int32_t>(hook::As<uint8_t*>(g_6acd44), 8); ++i) {
+                    uint8_t* em = F<uint8_t*>(hook::As<uint8_t*>(g_6acd44), 0xc + i * 4);
                     uint32_t f = F<uint32_t>(em, 0xac) & 0xfeffffff;
                     F<uint32_t>(em, 0xac) = f;
-                    Emitter_Tick(F<uint8_t*>(hook::Global<uint8_t*>(0x6acd44), 0xc + i * 4), 0, 0);
-                    F<uint32_t>(F<uint8_t*>(hook::Global<uint8_t*>(0x6acd44), 0xc + i * 4), 0xac) = f | 0x1000000;
+                    Emitter_Tick(F<uint8_t*>(hook::As<uint8_t*>(g_6acd44), 0xc + i * 4), 0, 0);
+                    F<uint32_t>(F<uint8_t*>(hook::As<uint8_t*>(g_6acd44), 0xc + i * 4), 0xac) = f | 0x1000000;
                 }
-                state = hook::Global<uint32_t*>(0x6acd48);
+                state = hook::As<uint32_t*>(g_6acd48);
             }
-        } else if (hook::Global<int32_t>(0x6acd58) == 1) {
+        } else if (g_6acd58 == 1) {
             return;
         }
         uint32_t f = *state;
@@ -3142,15 +3143,15 @@ RT3_NOINLINE void __fastcall Attach_Animate(uint8_t* t, uint8_t* obj, int32_t no
         }
         if (f & 0x2000) {
             *state = f & ~0x2000u;
-            for (int32_t i = 0; i < F<int32_t>(hook::Global<uint8_t*>(0x6acd50), 8); ++i)
-                F<int32_t>(hook::Global<uint8_t*>(0x6acd4c), 0x80 + i * 0x168) = now;
+            for (int32_t i = 0; i < F<int32_t>(g_6acd50, 8); ++i)
+                F<int32_t>(g_6acd4c, 0x80 + i * 0x168) = now;
         }
     }
     float ang[3], pos[3];
     SceneObj_GetAngles(obj, 0, (uint32_t*)&ang[2], (uint32_t*)&ang[1], (uint32_t*)&ang[0]);
     SceneObj_GetPos(obj, 0, (uint32_t*)&pos[0], (uint32_t*)&pos[1], (uint32_t*)&pos[2]);
-    uint8_t* e = hook::Global<uint8_t*>(0x6acd4c);
-    for (int32_t i = 0; i < F<int32_t>(hook::Global<uint8_t*>(0x6acd50), 8); ++i, e += 0x168) {
+    uint8_t* e = g_6acd4c;
+    for (int32_t i = 0; i < F<int32_t>(g_6acd50, 8); ++i, e += 0x168) {
         if (F<uint8_t*>(e, 0) != obj || (F<uint8_t>(e, 0x8c) & 2)) continue;
         int32_t dt = now - F<int32_t>(e, 0x80);
         if (F<int32_t>(e, 0x94) > 0) {
@@ -3229,28 +3230,28 @@ RT3_REPLACE(0x45a9c0, Attach_Animate);
 // in 15-tick steps up to the world clock (+0x15), with the walk live
 // (0x6acd58); a stopped clock just restarts at the world time.
 void Attach_TickAll() {
-    uint8_t* list = hook::Global<uint8_t*>(0x6acd5c);
+    uint8_t* list = hook::As<uint8_t*>(g_6acd5c);
     if (!list) return;
-    int32_t last = hook::Global<int32_t>(0x6acd60);
+    int32_t last = g_6acd60;
     if (!last) {
-        hook::Global<int32_t>(0x6acd60) = F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x15);
+        g_6acd60 = F<int32_t>(g_world, 0x15);
         return;
     }
-    int32_t now = F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x15);
-    hook::Global<int32_t>(0x6acd58) = 1;
+    int32_t now = F<int32_t>(g_world, 0x15);
+    g_6acd58 = 1;
     while (now - last >= 0xf) {
         for (uint8_t** node = *(uint8_t***)list; node; node = *(uint8_t***)node) {
             uint8_t* o = (uint8_t*)node - F<int32_t>(list, 0xc);
             if (F<uint8_t*>(o, 0xf0)) {
                 Attach_Animate(F<uint8_t*>(o, 0xf0), F<uint8_t*>(o, 0), last, 0);
-                list = hook::Global<uint8_t*>(0x6acd5c);
-                last = hook::Global<int32_t>(0x6acd60);
+                list = hook::As<uint8_t*>(g_6acd5c);
+                last = g_6acd60;
             }
         }
         last += 0xf;
-        hook::Global<int32_t>(0x6acd60) = last;
+        g_6acd60 = last;
     }
-    hook::Global<int32_t>(0x6acd58) = 0;
+    g_6acd58 = 0;
 }
 RT3_REPLACE(0x45ade0, Attach_TickAll);
 
@@ -3263,7 +3264,7 @@ RT3_NOINLINE void* __fastcall Anim_LoadFile(const char* name) {
     int32_t size;
     void* p = LoadWhole(NameTable_Hash(Packs(), 0, buf), &size);
     if (!p) return nullptr;
-    if (!hook::Global<void*>(0x6acd5c)) {
+    if (!hook::As<void*>(g_6acd5c)) {
         uint32_t* l = (uint32_t*)((void*(__cdecl*)(size_t))0x53b070)(0x10);
         if (l) {
             l[0] = 0;
@@ -3273,7 +3274,7 @@ RT3_NOINLINE void* __fastcall Anim_LoadFile(const char* name) {
         l[0] = 0;
         l[1] = 0;
         l[2] = 0;
-        hook::Global<uint32_t*>(0x6acd5c) = l;
+        g_6acd5c = l;
         l[3] = 0;
     }
     return p;
@@ -3285,19 +3286,19 @@ RT3_REPLACE(0x45ae80, Anim_LoadFile);
 // values above 15 are effect pointers) and drops the pending nodes that belong to
 // it (+0xf0) from the list 0x6acd5c, deleting the list when it empties.
 RT3_NOINLINE void __fastcall EffectSet_Release(uint8_t* s) {
-    hook::Global<int32_t>(0x6acd44) = 0;
-    hook::Global<int32_t>(0x6acd48) = 0;
-    hook::Global<int32_t>(0x6acd54) = 0;
-    hook::Global<uint8_t*>(0x6acd50) = s;
-    hook::Global<int32_t>(0x6acd4c) = 0;
+    g_6acd44 = 0;
+    g_6acd48 = 0;
+    g_6acd54 = 0;
+    g_6acd50 = s;
+    hook::As<int32_t>(g_6acd4c) = 0;
     int32_t n = F<int32_t>(s, 0xc);
-    hook::Global<uint8_t*>(0x6acd4c) = s + (n > 0 ? n * 12 + 0x10 : 0x10);
-    for (int32_t i = 0; i < F<int32_t>(hook::Global<uint8_t*>(0x6acd50), 0xc); ++i) {
+    g_6acd4c = s + (n > 0 ? n * 12 + 0x10 : 0x10);
+    for (int32_t i = 0; i < F<int32_t>(g_6acd50, 0xc); ++i) {
         int32_t v = F<int32_t>(s, 0x18 + i * 12);
-        hook::Global<int32_t>(0x6acd44) = v;
+        g_6acd44 = v;
         if (v > 0xf) Effect_Free((uint32_t*)(uintptr_t)v);
     }
-    uint32_t* list = hook::Global<uint32_t*>(0x6acd5c);
+    uint32_t* list = g_6acd5c;
     if (!list) return;
     uint32_t* prev = nullptr;
     for (uint32_t* node = (uint32_t*)(uintptr_t)list[0]; node; node = (uint32_t*)(uintptr_t)node[0]) {
@@ -3322,7 +3323,7 @@ RT3_NOINLINE void __fastcall EffectSet_Release(uint8_t* s) {
     }
     if (!list[0]) {
         ExeDelete(list);
-        hook::Global<uint32_t*>(0x6acd5c) = nullptr;
+        g_6acd5c = nullptr;
     }
 }
 RT3_REPLACE(0x45af50, EffectSet_Release);
@@ -3398,7 +3399,7 @@ RT3_NOINLINE void __fastcall ModelObj_Release(uint8_t* o) {
         F<void*>(o, 0x25e) = nullptr;
     }
     if (F<uint8_t*>(o, 0x24e)) {
-        Sites_Free(hook::Global<uint8_t*>(0x62b2fc), 0, F<uint8_t*>(o, 0x24e));
+        Sites_Free(hook::As<uint8_t*>(g_buildingTypes), 0, F<uint8_t*>(o, 0x24e));
         F<void*>(o, 0x24e) = nullptr;
     }
     ((void(__fastcall*)(uint8_t*))(*(void***)o)[30])(o);
@@ -3452,7 +3453,7 @@ void __fastcall ModelObj_Select(uint8_t* o) {
     F<int32_t>(o, 0x236) = 0;
     SceneObj_ShowPreview(o);
     if (!F<void*>(o, 0x246)) return;
-    uint8_t* p = hook::Global<uint8_t*>(0x6acd40);
+    uint8_t* p = g_6acd40;
     ((void(__fastcall*)(uint8_t*))(*(void***)p)[29])(p);
 }
 RT3_REPLACE(0x45b400, ModelObj_Select);
@@ -3580,7 +3581,7 @@ RT3_NOINLINE void __fastcall Building_LoadParts(uint8_t* o, int, int32_t upgrade
     }
     ModelSet_Clear(o);
     char num[0x10], path[0x130], part[0x130];
-    auto has = [](const char* n) { return NameTable_ContainsName(hook::Global<uint8_t*>(0x6d4020), 0, n, 0, nullptr); };
+    auto has = [](const char* n) { return NameTable_ContainsName(g_pack, 0, n, 0, nullptr); };
     for (int32_t i = 1; i < 0xff; ++i) {
         const char* n = Num_Format(num, 1, (double)i, 10, 1, 0, 0);
         FormatText(path, upgraded ? (const char*)0x5cb598 : (const char*)0x5cb408, F<const char*>(o, 0x23e), n, nullptr, nullptr, nullptr, nullptr, nullptr,
@@ -3641,9 +3642,9 @@ RT3_NOINLINE void __fastcall Building_Init(uint8_t* o, int, const char* name, co
     Building_LoadParts(o, 0, 0);
     float pz = (float)((double)z * Fl(0x5c8700));
     float px = (float)((double)x * Fl(0x5c8700));
-    float py = (float)Terrain_HeightAt((uint8_t*)Engine_Get1C(hook::Global<void*>(0x6d4024)), 0, px, pz);
+    float py = (float)Terrain_HeightAt((uint8_t*)Engine_Get1C(hook::As<void*>(g_engine)), 0, px, pz);
     Obj_MoveTo(o, 0, px, py, pz);
-    Building_AttachSound(o, 0, (int32_t)(uintptr_t)name, (uint8_t*)Engine_Get1C(hook::Global<void*>(0x6d4024)), px, py, pz);
+    Building_AttachSound(o, 0, (int32_t)(uintptr_t)name, (uint8_t*)Engine_Get1C(hook::As<void*>(g_engine)), px, py, pz);
     if (F<uint8_t*>(o, 0x24a) && F<int32_t>(F<uint8_t*>(o, 0x24a), 0x138) == 1) Channel_SetLoop(F<uint8_t*>(o, 0x24a), 0, 0);
 }
 RT3_REPLACE(0x45b9b0, Building_Init);
@@ -3662,11 +3663,11 @@ void __fastcall SceneObj_AmbientSound(uint8_t* o) {
     F<int32_t>(o, 0x266) += dt;
     auto type = [&]() { return ((uint8_t*(__fastcall**)(uint8_t*))F<void**>(o, 0))[0x20](o); };
     if (F<int32_t>(o, 0x266) > 0x1b58) {
-        uint8_t* cam = hook::Global<uint8_t*>(0x62be68);
+        uint8_t* cam = g_62be68;
         const float camX = F<float>(cam, 0x1c), camY = F<float>(cam, 0x24);
         const int32_t oy = (int32_t)F<float>(o, 0x1ea), ox = (int32_t)F<float>(o, 0x1e2), cy = (int32_t)camY, cx = (int32_t)camX;
         const float ground = (float)(uint16_t)DistanceInt(cx, cy, ox, oy);
-        const float camZ = F<float>(hook::Global<uint8_t*>(0x62be68), 0x20);
+        const float camZ = F<float>(g_62be68, 0x20);
         const int32_t oz = (int32_t)F<float>(o, 0x1e6), g = (int32_t)ground, cz = (int32_t)camZ;
         const uint16_t d = (uint16_t)DistanceInt(0, cz, g, oz);
         const float dist = (float)((double)d / D(0x5c8c48));
@@ -3696,7 +3697,7 @@ void __fastcall SceneObj_AmbientSound(uint8_t* o) {
                         vol = (double)vol < D(0x5c8770) ? vol : 1.0f;
                         float fx, fy, fz;
                         memcpy(&fx, &x, 4), memcpy(&fy, &y, 4), memcpy(&fz, &z, 4);
-                        Sound_Play3D(hook::Global<uint8_t*>(0x6d402c), 0, file, fx, fy, fz, vol, 0, 0, 2, far);
+                        Sound_Play3D(g_sound, 0, file, fx, fy, fz, vol, 0, 0, 2, far);
                     }
                 }
             }
@@ -3721,8 +3722,8 @@ RT3_REPLACE(0x45baf0, SceneObj_AmbientSound);
 // 0x5cb5cc / 0x5cb5d0 bounds) scaled by the elapsed time (+0x236, 1..8
 // frames) and spins.
 void __fastcall SelectMarker_Update(uint8_t* o, int, int32_t now) {
-    if (F<uint32_t>(o, 0x256) && F<PtrList*>(o, 0x75) && F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x19)) {
-        now = F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x15);
+    if (F<uint32_t>(o, 0x256) && F<PtrList*>(o, 0x75) && F<int32_t>(g_world, 0x19)) {
+        now = F<int32_t>(g_world, 0x15);
         PtrList_Rewind(F<PtrList*>(o, 0x75));
         for (uint8_t* a = (uint8_t*)PtrList_Next(F<PtrList*>(o, 0x75)); a; a = (uint8_t*)PtrList_Next(F<PtrList*>(o, 0x75)))
             Attach_Animate(F<uint8_t*>(o, 0x256), a, now, F<int32_t>(o, 0x21));
@@ -3732,7 +3733,7 @@ void __fastcall SelectMarker_Update(uint8_t* o, int, int32_t now) {
         SceneObj_SetAngles(o, 0, 0, 0x3fc90fdb, 0);
         return;
     }
-    if (hook::Global<uint8_t*>(0x6acd40) != o && !(flags & 2)) return;
+    if (g_6acd40 != o && !(flags & 2)) return;
     if (F<float>(o, 0x232) == Fl_207(0x5c8598)) {
         F<uint32_t>(o, 0x232) = 0xbf800000;
         F<uint32_t>(o, 0x22e) = 0x3f800000;
@@ -3747,20 +3748,20 @@ void __fastcall SelectMarker_Update(uint8_t* o, int, int32_t now) {
     float x, y, z;
     if (flags & 2) {
         SceneObj_GetPos(o, 0, (uint32_t*)&x, (uint32_t*)&y, (uint32_t*)&z);
-        const float ground = (float)Terrain_HeightAtTile(hook::Global<uint8_t*>(0x62c120), 0, (float)((double)x / Fl_207(0x5c8700)), (float)((double)z / Fl_207(0x5c8700)));
+        const float ground = (float)Terrain_HeightAtTile(g_map, 0, (float)((double)x / Fl_207(0x5c8700)), (float)((double)z / Fl_207(0x5c8700)));
         const float lift = (float)((double)bounce * Fl_207(0x5c9af4));
         const float height = (float)F<uint16_t>(o, 0x23b);
         Obj_MoveTo(o, 0, x, (float)((double)height + lift + ground), z);
     } else {
-        uint8_t* target = hook::Global<uint8_t*>(0x6acd3c);
+        uint8_t* target = g_6acd3c;
         SceneObj_GetPos(target, 0, (uint32_t*)&x, (uint32_t*)&y, (uint32_t*)&z);
-        target = hook::Global<uint8_t*>(0x6acd3c);
+        target = g_6acd3c;
         float v;
         if (!F<uint32_t>(target, 0x20a))
             v = (float)(((double(__thiscall*)(uint8_t*))(*(void***)target)[0x68 / 4])(target) + (double)bounce * Fl_207(0x5c9af4));
         else
             v = (float)((double)bounce * Fl_207(0x5c9af4) + *(const float*)(uintptr_t)(Obj_AnimFrame(target) + 0x18));
-        Obj_MoveTo(hook::Global<uint8_t*>(0x6acd40), 0, x, (float)((double)v + y), z);
+        Obj_MoveTo(g_6acd40, 0, x, (float)((double)v + y), z);
     }
     float frames = (float)(now - F<int32_t>(o, 0x236));
     frames = (float)((double)frames / Fl_207(0x5c8554));
@@ -3942,7 +3943,7 @@ RT3_NOINLINE void __fastcall Car_Save(uint8_t* c, int, Stream s) {
     StreamWriteLenString(s, (const char* const*)(c + 0x32e));
     StreamWriteLenString(s, (const char* const*)(c + 0x332));
     for (uint32_t k = 0x10; k < 0x30; k += 4)
-        if (int32_t e = F<int32_t>(F<uint8_t*>(c, 0x316), k)) Nop5548c0(hook::Global<void*>(0x6d4030), 0, e, s);
+        if (int32_t e = F<int32_t>(F<uint8_t*>(c, 0x316), k)) Nop5548c0(hook::As<void*>(g_models), 0, e, s);
     StreamWriteU32(s, 0x61b2);
     int32_t count = 0;
     for (int32_t pass = 0; pass < 2; ++pass) {
@@ -4140,9 +4141,9 @@ RT3_REPLACE(0x45d030, Model_SetPartFrame);
 // 0x45d130. Gives a vehicle the engine sound of engine type `typeName` (its sample
 // table entry 0x5f3a60[+0x83]) on terrain `grid` at (x, y, z), into +0x336.
 RT3_NOINLINE int32_t __fastcall Vehicle_AttachEngineSound(uint8_t* o, int, const char* typeName, uint8_t* grid, float x, float y, float z) {
-    uint32_t id = Table_FindByAltName(hook::Global<Collection*>(0x6ada84), 0, typeName);
+    uint32_t id = Table_FindByAltName(g_6ada84, 0, typeName);
     if (!id) return 0;
-    uint8_t* e = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6ada84), 0, id);
+    uint8_t* e = (uint8_t*)Collection_Get(g_6ada84, 0, id);
     uint8_t* p = NewChannel();
     uint8_t* ch = p ? Channel_Setup(p, 0, ((const char**)0x5f3a60)[F<int32_t>(e, 0x83)], grid, x, y, z, -1, 1, -1.0f)
                     : nullptr;
@@ -4157,10 +4158,10 @@ RT3_REPLACE(0x45d130, Vehicle_AttachEngineSound);
 // 0x45d1e0. Picks the engine sound of the vehicle (+0x336): 0 = its type's sound
 // (table 0x5f3a60 by +0x83), 1 / 2 = the fixed sounds 0x5cb680 / 0x5cb664.
 RT3_NOINLINE void __fastcall Vehicle_SelectSound(uint8_t* v, int, int32_t kind) {
-    Collection* types = hook::Global<Collection*>(0x6ada84);
+    Collection* types = g_6ada84;
     uint32_t id = Table_FindByAltName(types, 0, F<const char*>(v, 0x32e));
     if (!id) return;
-    uint8_t* t = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6ada84), 0, id);
+    uint8_t* t = (uint8_t*)Collection_Get(g_6ada84, 0, id);
     uint8_t* ch = F<uint8_t*>(v, 0x336);
     if (!ch) return;
     if (kind == 0) Channel_SetName(ch, 0, ((const char* const*)0x5f3a60)[F<int32_t>(t, 0x83)]);
@@ -4280,7 +4281,7 @@ RT3_NOINLINE void __fastcall Car_LoadModel(uint8_t* c, int, const char* name, co
     }
     float px = (float)((double)x * Fl_188(0x5c8700));
     float pz = (float)((double)z * Fl_188(0x5c8700));
-    uint8_t* scene = (uint8_t*)Engine_Get1C(hook::Global<void*>(0x6d4024));
+    uint8_t* scene = (uint8_t*)Engine_Get1C(hook::As<void*>(g_engine));
     float py = (float)Terrain_HeightAt(scene, 0, px, pz);
     memset(c + 0x262, 0, 0x14);
     F<uint32_t>(c, 0x246) = 0;
@@ -4307,13 +4308,13 @@ RT3_NOINLINE void __fastcall Car_LoadModel(uint8_t* c, int, const char* name, co
             F<uint8_t*>(F<uint8_t*>(c, 0x316), 0xc) = c;
             CarFormat(path, 0x5cb7a4, prefix);
             if (CarHas(path)) {
-                uint8_t* col = Pack_AcquireCollision(hook::Global<uint8_t*>(0x6d4020), 0, path);
+                uint8_t* col = Pack_AcquireCollision(g_pack, 0, path);
                 const uint32_t* v = **(uint32_t***)(*(uint8_t**)col + 0xc);
                 F<uint32_t>(c, 0x31e) = v[0];
                 F<uint32_t>(c, 0x322) = v[1];
                 F<uint32_t>(c, 0x326) = v[2];
                 F<uint32_t>(c, 0x32a) = v[2];
-                Pack_Release(hook::Global<uint8_t*>(0x6d4020), 0, col);
+                Pack_Release(g_pack, 0, col);
             }
             for (int32_t k = 0; k < 0x20; ++k) {
                 uint8_t* slot = c + 0x276 + k * 5;

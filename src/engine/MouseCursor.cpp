@@ -9,6 +9,7 @@
 #include <windows.h>
 #include <initializer_list>
 #include "hook/hook.h"
+#include "core/globals.h"
 #include "game/collection.h"
 #include "core/ptrlist.h"
 #include "core/crt.h"
@@ -167,7 +168,7 @@ static inline void* ExeMalloc(size_t n) { return ((void*(__cdecl*)(size_t))0x5a1
 
 // The engine's mouse device (+0x28) is told to reset (vtbl +0x1c) on a mode change.
 static void Engine_ResetMouse() {
-    uint8_t* e = hook::Global<uint8_t*>(0x6d4024);
+    uint8_t* e = g_engine;
     if (e && F<void*>(e, 0x28)) {
         void* m = F<void*>(e, 0x28);
         ((void(__fastcall*)(void*))(*(void***)m)[0x1c / 4])(m);
@@ -179,15 +180,15 @@ static void Engine_ResetMouse() {
 // captures the mouse, the cursor is reset to 0 and its number kept, and a shown
 // cursor is made visible again.
 static void Cursor_LeaveGameDrawn(uint8_t* c, int32_t systemMode, int32_t line) {
-    if (Engine_IsFullscreen(hook::Global<void*>(0x6d4024)))
-        Import<HWND(__stdcall*)(HWND)>(0x5c82ac)(Engine_Window(hook::Global<void*>(0x6d4024)));
+    if (Engine_IsFullscreen(hook::As<void*>(g_engine)))
+        Import<HWND(__stdcall*)(HWND)>(0x5c82ac)(Engine_Window(hook::As<void*>(g_engine)));
     Engine_ResetMouse();
     int32_t idx = F<int32_t>(c, 4);
     Cursor_Set(c, 0, 0, 0, 0);
     F<int32_t>(c, 0x18) = 0;
     F<int32_t>(c, 0x14) = systemMode;
-    F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x11473a) = !systemMode;
-    F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x11473e) = 0;
+    F<int32_t>(g_engine, 0x11473a) = !systemMode;
+    F<int32_t>(g_engine, 0x11473e) = 0;
     F<int32_t>(c, 4) = idx;
     if (F<int32_t>(c, 8)) Cursor_Show(1, 0x5dd828, line);
 }
@@ -240,7 +241,7 @@ static void Imb_AddScaled(uint8_t* d, double ox, double oy, int32_t w, int32_t h
 
 // 0x53e2b0. Releases descriptor d's texture (+0x2a) and loads it again.
 RT3_NOINLINE void __fastcall TextureDesc_Reload(uint8_t* d) {
-    if (void* tex = F<void*>(d, 0x2a)) Pack_Release(hook::Global<uint8_t*>(0x6d4020), 0, tex);
+    if (void* tex = F<void*>(d, 0x2a)) Pack_Release(g_pack, 0, tex);
     F<void*>(d, 0x2a) = nullptr;
     TextureDesc_Load(d);
 }
@@ -257,10 +258,10 @@ RT3_NOINLINE void __fastcall BitmapFont_Destroy(uint8_t* f) {
         ExeDelete(g);
     }
     if (F<void*>(f, 0x24)) Free(F<void*>(f, 0x24));
-    if (F<void*>(f, 0x2a)) Pack_Release(hook::Global<uint8_t*>(0x6d4020), 0, F<void*>(f, 0x2a));
+    if (F<void*>(f, 0x2a)) Pack_Release(g_pack, 0, F<void*>(f, 0x2a));
     F<void*>(f, 0x2a) = nullptr;
     if (F<void*>(f, 0x20)) Free(F<void*>(f, 0x20));
-    uint8_t* mgr = hook::Global<uint8_t*>(0x6d401c);
+    uint8_t* mgr = g_windowManager;
     if (mgr && F<Collection*>(mgr, 0xc69)) {
         Collection* fonts = F<Collection*>(mgr, 0xc69);
         fonts->vtbl->release(fonts, F<uint32_t>(f, 0x36));
@@ -287,10 +288,10 @@ RT3_NOINLINE int32_t __fastcall Imb_Load(uint8_t* d, int, int32_t id) {
     F<uint16_t>(d, 0x28) = 0;
     F<void*>(d, 0x24) = ((void*(__cdecl*)(size_t))0x5a125d)(4000);
     F<void*>(d, 0x20) = nullptr;
-    NameTable_Seek(hook::Global<uint8_t*>(0x6d4020), 0, id, 0);
-    int32_t size = NameTable_EntrySize(hook::Global<uint8_t*>(0x6d4020), 0, id);
+    NameTable_Seek(g_pack, 0, id, 0);
+    int32_t size = NameTable_EntrySize(g_pack, 0, id);
     char* buf = ((char*(__cdecl*)(size_t))0x5a125d)((size_t)size + 1);
-    NameTable_Read(hook::Global<uint8_t*>(0x6d4020), 0, buf, size);
+    NameTable_Read(g_pack, 0, buf, size);
     buf[size] = 0;
     int32_t pos = 0, count, line = 0;
     char* t[64] = {};
@@ -407,7 +408,7 @@ RT3_NOINLINE int32_t __fastcall Imb_Load(uint8_t* d, int, int32_t id) {
         }
         if (!known) {
             char num[0x40], msg[0x200];
-            const char* file = (const char*)(hook::Global<uint8_t*>(0x6d4020) + 0x427c0);
+            const char* file = (const char*)(g_pack + 0x427c0);
             Num_Format(num, 1, (double)line, 10, 1, 0, 0);
             FormatText(msg, GetString(0x66), t[0], file, num, nullptr, nullptr, nullptr, nullptr, nullptr);
             DebugLog(msg, -1234, -1234, -1234, -1234, -1234, -1234, -1234, -1234, -1234);
@@ -417,7 +418,7 @@ RT3_NOINLINE int32_t __fastcall Imb_Load(uint8_t* d, int, int32_t id) {
     F<float>(d, 0x2e) = (float)((double)F<int32_t>(d, 8) / F<int32_t>(d, 0));
     F<float>(d, 0x32) = (float)((double)F<int32_t>(d, 0xc) / F<int32_t>(d, 4));
     uint8_t* self = d;
-    uint8_t* tm = F<uint8_t*>(hook::Global<uint8_t*>(0x6d401c), 0xc69);
+    uint8_t* tm = F<uint8_t*>(g_windowManager, 0xc69);
     F<uint32_t>(d, 0x36) = (*(uint32_t(__fastcall**)(uint8_t*, int, void*, int32_t, int32_t, int32_t))(*(uint8_t**)tm + 4))(tm, 0, &self, 4, 0, 0);
     TextureDesc_Load(d);
     return 1;
@@ -456,12 +457,12 @@ RT3_REPLACE(0x53ef00, Timer_Restart);
 // 0x53ef20. Enters a nested section; the outermost saves +0x18/+0x14 and the
 // engine values +0x11473e/+0x11473a in globals.
 RT3_NOINLINE void __fastcall Section_Enter(uint8_t* s) {
-    if (++hook::Global<int32_t>(0xccbb24) > 1) return;
-    hook::Global<uint32_t>(0xccbb1c) = F<uint32_t>(s, 0x18);
-    hook::Global<uint32_t>(0xccba58) = F<uint32_t>(s, 0x14);
-    uint8_t* e = hook::Global<uint8_t*>(0x6d4024);
-    hook::Global<uint32_t>(0xccba5c) = F<uint32_t>(e, 0x11473e);
-    hook::Global<uint32_t>(0xccbb18) = F<uint32_t>(e, 0x11473a);
+    if (++g_ccbb24 > 1) return;
+    g_ccbb1c = F<uint32_t>(s, 0x18);
+    g_ccba58 = F<uint32_t>(s, 0x14);
+    uint8_t* e = g_engine;
+    g_ccba5c = F<uint32_t>(e, 0x11473e);
+    g_ccbb18 = F<uint32_t>(e, 0x11473a);
 }
 RT3_REPLACE(0x53ef20, Section_Enter);
 
@@ -513,8 +514,8 @@ RT3_NOINLINE void __fastcall Cursor_Set(uint8_t* c, int, int32_t idx, int32_t fo
         if (!*slot) Cursor_Load(colour, idx);
         Import<void*(__stdcall*)(void*)>(0x5c8298)(*slot);
     }
-    uint8_t* obj = idx ? Pack_AcquireNamed(hook::Global<uint8_t*>(0x6d4020), 0, *(const char**)(0x625248 + idx * 20)) : nullptr;
-    if (F<void*>(c, 0)) Pack_Release(hook::Global<uint8_t*>(0x6d4020), 0, F<void*>(c, 0));
+    uint8_t* obj = idx ? Pack_AcquireNamed(g_pack, 0, *(const char**)(0x625248 + idx * 20)) : nullptr;
+    if (F<void*>(c, 0)) Pack_Release(g_pack, 0, F<void*>(c, 0));
     F<uint8_t*>(c, 0) = obj;
     F<int32_t>(c, 4) = idx;
 }
@@ -528,7 +529,7 @@ RT3_NOINLINE void __fastcall Cursor_UseGameDrawn(uint8_t* c) {
     Import<BOOL(__stdcall*)()>(0x5c82a8)();
     F<int32_t>(c, 0x18) = 1;
     F<int32_t>(c, 0x14) = 0;
-    F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x11473e) = 1;
+    F<int32_t>(g_engine, 0x11473e) = 1;
     F<int32_t>(c, 8) = 1;
     if (!F<int32_t>(c, 4)) return;
     Cursor_Show(0, 0x5dd828, 0x105);
@@ -553,7 +554,7 @@ RT3_REPLACE(0x53f210, Cursor_UseWindows);
 // 0x53f2c0. In system mode, re-applies the engine's mode (game-drawn or Windows).
 RT3_NOINLINE void __fastcall Cursor_Reapply(uint8_t* c) {
     if (!F<int32_t>(c, 0x14)) return;
-    if (F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x11473e)) Cursor_UseGameDrawn(c);
+    if (F<int32_t>(g_engine, 0x11473e)) Cursor_UseGameDrawn(c);
     else Cursor_UseWindows(c);
 }
 RT3_REPLACE(0x53f2c0, Cursor_Reapply);
@@ -592,11 +593,11 @@ uint8_t* __fastcall Cursor_Construct(uint8_t* c) {
     Cursor_Set(c, 0, 0, 0, 0);
     F<int32_t>(c, 0x1c) = 0;
     F<int32_t>(c, 0x20) = -1;
-    if (F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x11473e)) {
+    if (F<int32_t>(g_engine, 0x11473e)) {
         Cursor_UseGameDrawn(c);
     } else {
         F<int32_t>(c, 0x18) = 0;
-        F<int32_t>(c, 0x14) = F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x11473a) == 0;
+        F<int32_t>(c, 0x14) = F<int32_t>(g_engine, 0x11473a) == 0;
     }
     Engine_ResetMouse();
     memset((void*)0xccba60, 0, 0x2e * 4);
@@ -616,11 +617,11 @@ RT3_REPLACE(0x53f3d0, Cursor_Shutdown);
 // level the saved mode comes back (game-drawn 0xccbb1c / system 0xccba58) with the
 // saved engine flags (0xccba5c / 0xccbb18).
 RT3_NOINLINE void __fastcall Cursor_PopWindowsMode(uint8_t* c) {
-    if (--hook::Global<int32_t>(0xccbb24) > 0) return;
-    if (hook::Global<int32_t>(0xccbb1c)) Cursor_UseGameDrawn(c);
-    else if (hook::Global<int32_t>(0xccba58)) Cursor_UseSystem(c);
-    F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x11473e) = hook::Global<int32_t>(0xccba5c);
-    F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x11473a) = hook::Global<int32_t>(0xccbb18);
+    if (--g_ccbb24 > 0) return;
+    if (hook::As<int32_t>(g_ccbb1c)) Cursor_UseGameDrawn(c);
+    else if (hook::As<int32_t>(g_ccba58)) Cursor_UseSystem(c);
+    F<int32_t>(g_engine, 0x11473e) = hook::As<int32_t>(g_ccba5c);
+    F<int32_t>(g_engine, 0x11473a) = hook::As<int32_t>(g_ccbb18);
 }
 RT3_REPLACE(0x53f400, Cursor_PopWindowsMode);
 
@@ -637,9 +638,9 @@ RT3_NOINLINE void __fastcall Cursor_Update(uint8_t* c) {
         else Cursor_Show(1, 0x5dd828, 0x16b);
         return;
     }
-    uint8_t* m = hook::Global<uint8_t*>(0xccbb20);
+    uint8_t* m = g_cursorManager;
     if (!F<int32_t>(m, 0x18)) {
-        if (hook::Global<int32_t>(0x624b20) <= 0) {
+        if (g_624b20 <= 0) {
             F<int32_t>(m, 0x24) = ClockMs();
             F<int32_t>(c, 8) = in;
             return;
@@ -661,7 +662,7 @@ void __fastcall Cursor_Draw(uint8_t* c) {
     if (ClockMs() - F<int32_t>(c, 0x24) < 15000 && ClockMs() - F<int32_t>(c, 0x28) > 0x96) {
         F<int32_t>(c, 0x28) = ClockMs();
         if (!F<int32_t>(c, 0x18)) {
-            if (hook::Global<int32_t>(0x624b20) > 0) Cursor_Set(c, 0, F<int32_t>(c, 4), 1, 0);
+            if (g_624b20 > 0) Cursor_Set(c, 0, F<int32_t>(c, 4), 1, 0);
             else F<int32_t>(c, 0x24) = ClockMs();
         }
     }
@@ -675,9 +676,9 @@ void __fastcall Cursor_Draw(uint8_t* c) {
             return;
         }
         PumpMessages();
-        Mouse_Poll((uint8_t*)Engine_Input(hook::Global<void*>(0x6d4024)));
+        Mouse_Poll((uint8_t*)Engine_Input(hook::As<void*>(g_engine)));
         Cursor_Update(c);
-        Mouse_GetPos((uint8_t*)Engine_Input(hook::Global<void*>(0x6d4024)), 0, (uint32_t*)&x, (uint32_t*)&y);
+        Mouse_GetPos((uint8_t*)Engine_Input(hook::As<void*>(g_engine)), 0, (uint32_t*)&x, (uint32_t*)&y);
         int32_t k = F<int32_t>(c, 4);
         int32_t count = hook::Global<int32_t>(0x625250 + k * 0x14);
         int32_t frame = hook::Global<int32_t>(0x62524c + k * 0x14);
@@ -686,7 +687,7 @@ void __fastcall Cursor_Draw(uint8_t* c) {
         Glyph_Queue(glyph, 0, x, y, 0x3f800000, 1.0f, 1.0f, 0xffffffff, 0, 1, 0, 0.0f, 0.0f, 1.0f, 1.0f);
     }
     const char* text = F<const char*>(c, 0x1c);
-    uint8_t* e = hook::Global<uint8_t*>(0x6d4024);
+    uint8_t* e = g_engine;
     if (text && strlen(text) && e && F<uint8_t*>(e, 0x1141fd)) {
         Mouse_GetPos((uint8_t*)Engine_Input(e), 0, (uint32_t*)&x, (uint32_t*)&y);
         double yv;
@@ -701,9 +702,9 @@ void __fastcall Cursor_Draw(uint8_t* c) {
                 x = (float)(x - D(0x5ca2a0));
             }
         } else {
-            uint8_t* en = hook::Global<uint8_t*>(0x6d4024);
+            uint8_t* en = g_engine;
             uint32_t full = Engine_IsFullscreen(en);
-            en = hook::Global<uint8_t*>(0x6d4024);
+            en = g_engine;
             uint8_t* mode = F<uint8_t*>(en, 0x34) + F<int32_t>(en, 0x11421e) * 0x15;
             x = (float)(Fl(0x5c8d60) / F<int32_t>(mode, 0) + x);
             if (full) yv = Fl(0x5c9aa8) / F<int32_t>(mode, 4) + y;
@@ -711,7 +712,7 @@ void __fastcall Cursor_Draw(uint8_t* c) {
         }
         x = (float)(x - D(0x5ca2a0));
         y = (float)(yv + D(0x5c9bc0));
-        Font_DrawTextBox(F<uint8_t*>(hook::Global<uint8_t*>(0x6d4024), 0x1141fd), 0, F<const char*>(c, 0x1c), (float)(x - D(0x5dd850)), y, 0.2375f,
+        Font_DrawTextBox(F<uint8_t*>(g_engine, 0x1141fd), 0, F<const char*>(c, 0x1c), (float)(x - D(0x5dd850)), y, 0.2375f,
                          0.083333336f, F<uint32_t>(c, 0x20), 0, 1, 0, 1.0f);
     }
     Fade_Restore();
@@ -735,7 +736,7 @@ void __fastcall Widget_SetValue(uint8_t* w, int, int32_t v) {
     F<int32_t>(w, 0x5c) = v;
     F<int32_t>(w, 0x60) = v;
     if (v) return;
-    uint8_t* focus = F<uint8_t*>(hook::Global<uint8_t*>(0x6d401c), 0xc6d);
+    uint8_t* focus = F<uint8_t*>(g_windowManager, 0xc6d);
     if (focus && F<uint8_t*>(focus, 0x86) == w) Widget_ClearFlags(focus, 0, 4);
 }
 RT3_REPLACE(0x53f7f0, Widget_SetValue);
@@ -826,12 +827,12 @@ RT3_NOINLINE void __fastcall Window_Load(uint8_t* win, int, float x, float y, co
     StrCopyN((char*)win + 0x35, (const char*)0x5d1038, 0x1e);
     F<int32_t>(win, 0x21) = 0x14;
     for (uint32_t o : { 0x58u, 0x54u, 0x6cu, 0x5cu, 0x60u, 5u, 9u, 0xdu, 0x11u, 0x15u, 0x1du, 0x64u, 0x68u }) F<uint32_t>(win, o) = 0;
-    uint8_t* pack = hook::Global<uint8_t*>(0x6d4020);
+    uint8_t* pack = g_pack;
     NameTable_Seek(pack, 0, NameTable_Hash(pack, 0, name), 0);
-    NameTable_Skip4(hook::Global<uint8_t*>(0x6d4020), 0, 0x7d0);
+    NameTable_Skip4(g_pack, 0, 0x7d0);
     uint8_t* hdr = (uint8_t*)ExeMalloc(0x31);
-    NameTable_Read(hook::Global<uint8_t*>(0x6d4020), 0, hdr, 0x31);
-    NameTable_Skip4(hook::Global<uint8_t*>(0x6d4020), 0, 0x7d1);
+    NameTable_Read(g_pack, 0, hdr, 0x31);
+    NameTable_Skip4(g_pack, 0, 0x7d1);
     memcpy(win + 4, hdr, 0x31);
     Free(hdr);
     StrCopyN((char*)win + 0x35, name, 0x1e);
@@ -842,14 +843,14 @@ RT3_NOINLINE void __fastcall Window_Load(uint8_t* win, int, float x, float y, co
     uint8_t* w = (uint8_t*)name;
     for (;;) {
         int32_t tag;
-        NameTable_Read(hook::Global<uint8_t*>(0x6d4020), 0, &tag, 4);
+        NameTable_Read(g_pack, 0, &tag, 4);
         if (tag == 0x7d4) break;
         int32_t kind;
         char* name1 = nullptr;
         char* name2 = nullptr;
-        NameTable_Read(hook::Global<uint8_t*>(0x6d4020), 0, &kind, 4);
-        NameTable_ReadBlock(hook::Global<uint8_t*>(0x6d4020), 0, 0xbb8, (void**)&name1);
-        NameTable_ReadBlock(hook::Global<uint8_t*>(0x6d4020), 0, 0xbb9, (void**)&name2);
+        NameTable_Read(g_pack, 0, &kind, 4);
+        NameTable_ReadBlock(g_pack, 0, 0xbb8, (void**)&name1);
+        NameTable_ReadBlock(g_pack, 0, 0xbb9, (void**)&name2);
         typedef uint8_t*(__fastcall * LoadFn)(uint8_t*, int, int32_t);
         LoadFn load = nullptr;
         size_t size = 0;
@@ -871,14 +872,14 @@ RT3_NOINLINE void __fastcall Window_Load(uint8_t* win, int, float x, float y, co
         F<char*>(w, 0x43) = name1;
         F<char*>(w, 0x47) = name2;
         if (name2) {
-            NameTable_PushPos(hook::Global<uint8_t*>(0x6d4020));
-            F<uint8_t*>(w, 0x92) = Pack_AcquireNamed(hook::Global<uint8_t*>(0x6d4020), 0, F<char*>(w, 0x47));
-            NameTable_PopPosition(hook::Global<uint8_t*>(0x6d4020));
+            NameTable_PushPos(g_pack);
+            F<uint8_t*>(w, 0x92) = Pack_AcquireNamed(g_pack, 0, F<char*>(w, 0x47));
+            NameTable_PopPosition(g_pack);
         }
         Window_AddChild(win, 0, w, 0);
-        NameTable_Skip4(hook::Global<uint8_t*>(0x6d4020), 0, 0x7d3);
+        NameTable_Skip4(g_pack, 0, 0x7d3);
     }
-    if (hook::Global<int32_t>(0x6d3b4c)) F<int32_t>(win, 0x15) = 0;
+    if (g_6d3b4c) F<int32_t>(win, 0x15) = 0;
 }
 RT3_REPLACE(0x53fa50, Window_Load);
 
@@ -888,10 +889,10 @@ void __fastcall Widget_Redraw(uint8_t* w) {
     if (!F<int32_t>(w, 0x5c)) return;
     Engine_Nop();
     for (uint8_t* c = F<uint8_t*>(w, 0x70); c; c = F<uint8_t*>(c, 0x8e)) {
-        if (c[0x42] && F<int32_t>(w, 0x5c)) Engine_ResetTextureQueue(hook::Global<void*>(0x6d4024));
+        if (c[0x42] && F<int32_t>(w, 0x5c)) Engine_ResetTextureQueue(hook::As<void*>(g_engine));
         ((void(__thiscall*)(void*))(*(void***)c)[0x18 / 4])(c);
     }
-    if (F<int32_t>(w, 0x1d)) Engine_ClearRepaint(hook::Global<void*>(0x6d4024));
+    if (F<int32_t>(w, 0x1d)) Engine_ClearRepaint(hook::As<void*>(g_engine));
 }
 RT3_REPLACE(0x53fda0, Widget_Redraw);
 
@@ -943,12 +944,12 @@ RT3_NOINLINE int32_t __fastcall Window_HandleEvent(uint8_t* w, int, uint32_t* ev
     float grabX = *(float*)&ev[9], grabY = *(float*)&ev[10];
     float startX = F<float>(w, 5), startY = F<float>(w, 9);
     int32_t last = ClockMs();
-    uint8_t* input = hook::Global<uint8_t*>(0x6d4018);
+    uint8_t* input = g_input;
     Input_Block(input);
     while (ev[0] != 7) {
         Engine_Nop();
         uint32_t next[12];
-        memcpy(ev, Input_NextEvent(hook::Global<uint8_t*>(0x6d4018), 0, (InputEvent*)next), 0x30);
+        memcpy(ev, Input_NextEvent(g_input, 0, (InputEvent*)next), 0x30);
         if (ev[0] == 2) {
             auto clamp01 = [](float v) {
                 double r = v > 0.0f ? (double)v : (double)Fl(0x5c8598);
@@ -961,11 +962,11 @@ RT3_NOINLINE int32_t __fastcall Window_HandleEvent(uint8_t* w, int, uint32_t* ev
             Widget_Move(w, 0, nx, ny);
         }
         if (ClockMs() - last > 0x14 || ev[0] == 0) {
-            if (void* idle = hook::Global<void*>(0x6d4004)) ((void(*)())idle)();
+            if (void* idle = g_6d4004) ((void(*)())idle)();
             last = ClockMs();
         }
     }
-    Input_Unblock(hook::Global<uint8_t*>(0x6d4018));
+    Input_Unblock(g_input);
     return 0;
 }
 RT3_REPLACE(0x53fe90, Window_HandleEvent);

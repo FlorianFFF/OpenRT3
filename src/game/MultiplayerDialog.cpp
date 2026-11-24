@@ -9,6 +9,7 @@
 #include <string.h>
 #include <windows.h>
 #include "hook/hook.h"
+#include "core/globals.h"
 #include "game/collection.h"
 #include "core/crt.h"
 #include "hook/keepregs.h"
@@ -308,7 +309,7 @@ static inline uint8_t* PlayerHead() { return *(uint8_t**)Net_LockQueue(); }
 
 static inline void ExeDelete(void* p) { ((void(__cdecl*)(void*))0x53b080)(p); }
 
-static inline uint8_t* Options() { return hook::Global<uint8_t*>(0x6cec74); }
+static inline uint8_t* Options() { return g_app; }
 
 static inline size_t Len(const char* s) { size_t n = 0; while (s[n]) ++n; return n; }
 
@@ -353,18 +354,18 @@ static inline SprintfFn ExeSprintf() { return (SprintfFn)0x5a19c4; }
 // count and starts the session worker thread 0x6d1294 (vtable 0x5d1250, the old
 // one deleted) for `mode` (0x6d127c); modes 1 and 4 also clear 0x6cd8dc.
 static void __cdecl Session_StartWorker_Impl(int32_t mode) {
-    Cursor_Set(hook::Global<uint8_t*>(0xccbb20), 0, 6, 0, 0);
-    Obj_Incc60(hook::Global<uint8_t*>(0x6d401c));
-    hook::Global<int32_t>(0x6d1274) = 1;
-    hook::Global<int32_t>(0x6d1278) = 0;
-    hook::Global<int32_t>(0x6d127c) = mode;
-    hook::Global<int32_t>(0x6d1280) = 0;
-    hook::Global<int32_t>(0x6d1288) = 0;
-    hook::Global<int32_t>(0x6d128c) = 0;
-    if (mode == 1 || mode == 4) hook::Global<int32_t>(0x6cd8dc) = 0;
-    if (uint8_t* t = hook::Global<uint8_t*>(0x6d1294)) {
+    Cursor_Set(g_cursorManager, 0, 6, 0, 0);
+    Obj_Incc60(g_windowManager);
+    g_6d1274 = 1;
+    g_6d1278 = 0;
+    g_6d127c = mode;
+    g_6d1280 = 0;
+    g_6d1288 = 0;
+    g_6d128c = 0;
+    if (mode == 1 || mode == 4) g_6cd8dc = 0;
+    if (uint8_t* t = g_6d1294) {
         (*(void(__fastcall**)(uint8_t*, int, int32_t))F<void**>(t, 0))(t, 0, 1);
-        hook::Global<uint8_t*>(0x6d1294) = nullptr;
+        g_6d1294 = nullptr;
     }
     uint32_t* t = (uint32_t*)ExeNew(0x10);
     if (t) {
@@ -373,7 +374,7 @@ static void __cdecl Session_StartWorker_Impl(int32_t mode) {
         t[3] = 0;
         t[0] = 0x5d1250;
     }
-    hook::Global<uint32_t*>(0x6d1294) = t;
+    hook::As<uint32_t*>(g_6d1294) = t;
     Thread_Start((uint8_t*)t);
 }
 
@@ -424,8 +425,8 @@ RT3_NOINLINE void __fastcall CompanyWindow_Draw(uint8_t* p, int, float x, float 
     double right = (double)x + w - *(const double*)0x5c8590;
     float rx = (float)(right - *(const double*)0x5d1170);
     Glyph_Queue((uint8_t*)(uintptr_t)Table_Entry(F<uint8_t*>(p, 0xb31), 0, 0xd), 0, rx, top, 0x3f800000, 1.0f, 1.0f, 0x2fffffff, 0, 1, 0, 0.0f, 0.0f, 1.0f, 1.0f);
-    if (((const uint8_t*)0x6220ac)[page * 0xd] && Collection_IsValid(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(p, 0x88))) {
-        uint8_t* co = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(p, 0x88));
+    if (((const uint8_t*)0x6220ac)[page * 0xd] && Collection_IsValid(g_companies, 0, F<uint32_t>(p, 0x88))) {
+        uint8_t* co = (uint8_t*)Collection_Get(g_companies, 0, F<uint32_t>(p, 0x88));
         float lx = (float)(left - *(const double*)0x5d1170 - *(const double*)0x5c86b0);
         Glyph_Queue((uint8_t*)(uintptr_t)Company_Logo(co), 0, lx, top, 0x3f800000, 0.5f, 0.5f, 0xffffffff, 0, 1, 0, 0.0f, 0.0f, 1.0f, 1.0f);
         char text[0x100];
@@ -465,16 +466,16 @@ RT3_REPLACE(0x4ea060, CompanyWindow_Draw);
 RT3_NOINLINE uint8_t* __fastcall LoadScreen_Construct(uint8_t* w) {
     Widget_SetVtblRet(w);
     F<uint32_t>(w, 0) = 0x5d1194;
-    hook::Global<uint8_t*>(0x6d10b0) = w;
+    g_6d10b0 = w;
     F<int32_t>(w, 0x78) = 0;
     Window_Load(w, 0, 0.0f, 0.0f, (const char*)0x5d11a0);
     int32_t pic;
     do {
         pic = Rand(1, 5);
-    } while (pic == hook::Global<uint8_t*>(0x6cec74)[0x2c7]);
-    hook::Global<uint8_t*>(0x6cec74)[0x2c7] = (uint8_t)pic;
+    } while (pic == g_app[0x2c7]);
+    g_app[0x2c7] = (uint8_t)pic;
     // Through the original address: the tests stub the options file write.
-    ((void(__fastcall*)(uint8_t*, int, int32_t))0x484910)(hook::Global<uint8_t*>(0x6cec74), 0, 1);
+    ((void(__fastcall*)(uint8_t*, int, int32_t))0x484910)(g_app, 0, 1);
     char name[0x80];
     ExeSprintf()(name, (const char*)0x5d1180, pic);
     for (int32_t i = 0; i < 3; ++i) Window_SendEvent5(w, 0, 0x75, 0x84d3 + i, (uint32_t)(uintptr_t)name, 0, 0);
@@ -489,18 +490,18 @@ RT3_REPLACE(0x4ea700, Return1_4ea700);
 RT3_NOINLINE void __fastcall Obj_Set78(uint8_t* o, int, int32_t v) { F<int32_t>(o, 0x78) = v; }
 RT3_REPLACE(0x4ea710, Obj_Set78);
 
-int32_t Global6d10b0Set() { return hook::Global<void*>(0x6d10b0) ? 1 : 0; }
+int32_t Global6d10b0Set() { return hook::As<void*>(g_6d10b0) ? 1 : 0; }
 RT3_REPLACE(0x4ea720, Global6d10b0Set);
 
 // 0x4ea730. Title screen destructor: closes the menu music (0x6cfd34).
 void __fastcall TitleScreen_Destruct(uint8_t* w) {
     F<uint32_t>(w, 0) = 0x5d1194;
-    hook::Global<int32_t>(0x6d10b0) = 0;
-    if (uint8_t* m = hook::Global<uint8_t*>(0x6cfd34)) {
+    hook::As<int32_t>(g_6d10b0) = 0;
+    if (uint8_t* m = g_6cfd34) {
         Music_Close(m);
         ExeDelete(m);
     }
-    hook::Global<void*>(0x6cfd34) = nullptr;
+    hook::As<void*>(g_6cfd34) = nullptr;
     Widget_SetVtbl(w);
 }
 RT3_REPLACE(0x4ea730, TitleScreen_Destruct);
@@ -509,16 +510,16 @@ RT3_REPLACE(0x4ea730, TitleScreen_Destruct);
 // 0x6d10b8 in fields 0xc032 / 0xc034 and "W*H of 409,600" style text (string 0xf3)
 // in 0xc035.
 RT3_NOINLINE void MapSizeDialog_Show() {
-    if (!hook::Global<uint8_t*>(0x6d10bc)) return;
+    if (!g_6d10bc) return;
     char buf[0x110], area[0x130], limit[0x130], text[0x320];
-    Num_Format(buf, 8, (double)hook::Global<int32_t>(0x6d10b4), 10, 1, 0, 0);
-    Window_SendEvent5(hook::Global<uint8_t*>(0x6d10bc), 0, 0x6f, 0xc032, (uint32_t)(uintptr_t)buf, 0, 0);
-    Num_Format(buf, 8, (double)hook::Global<int32_t>(0x6d10b8), 10, 1, 0, 0);
-    Window_SendEvent5(hook::Global<uint8_t*>(0x6d10bc), 0, 0x6f, 0xc034, (uint32_t)(uintptr_t)buf, 0, 0);
+    Num_Format(buf, 8, (double)g_6d10b4, 10, 1, 0, 0);
+    Window_SendEvent5(g_6d10bc, 0, 0x6f, 0xc032, (uint32_t)(uintptr_t)buf, 0, 0);
+    Num_Format(buf, 8, (double)g_6d10b8, 10, 1, 0, 0);
+    Window_SendEvent5(g_6d10bc, 0, 0x6f, 0xc034, (uint32_t)(uintptr_t)buf, 0, 0);
     char* l = Num_Format(limit, 1, 409600.0, 10, 1, 0, 0);
-    char* a = Num_Format(area, 1, (double)(hook::Global<int32_t>(0x6d10b8) * hook::Global<int32_t>(0x6d10b4)), 10, 1, 0, 0);
+    char* a = Num_Format(area, 1, (double)(g_6d10b8 * g_6d10b4), 10, 1, 0, 0);
     FormatText(text, GetString(0xf3), a, l, 0, 0, 0, 0, 0, 0);
-    Window_SendEvent5(hook::Global<uint8_t*>(0x6d10bc), 0, 0x6f, 0xc035, (uint32_t)(uintptr_t)text, 0, 0);
+    Window_SendEvent5(g_6d10bc, 0, 0x6f, 0xc035, (uint32_t)(uintptr_t)text, 0, 0);
 }
 RT3_REPLACE(0x4ea780, MapSizeDialog_Show);
 
@@ -526,11 +527,11 @@ RT3_REPLACE(0x4ea780, MapSizeDialog_Show);
 // (children 0xc031 / 0xc033, +0x185 + 1 times 64 into 0x6d10b4 / 0x6d10b8)
 // and is shown again.
 void MapSizeDialog_ReadSliders() {
-    if (hook::Global<uint8_t*>(0x6d10bc)) {
-        if (Widget_FindChild(hook::Global<uint8_t*>(0x6d10bc), 0, 0xc031))
-            hook::Global<int32_t>(0x6d10b4) = (F<int32_t>(Widget_FindChild(hook::Global<uint8_t*>(0x6d10bc), 0, 0xc031), 0x185) + 1) << 6;
-        if (hook::Global<uint8_t*>(0x6d10bc) && Widget_FindChild(hook::Global<uint8_t*>(0x6d10bc), 0, 0xc033))
-            hook::Global<int32_t>(0x6d10b8) = (F<int32_t>(Widget_FindChild(hook::Global<uint8_t*>(0x6d10bc), 0, 0xc033), 0x185) + 1) << 6;
+    if (g_6d10bc) {
+        if (Widget_FindChild(g_6d10bc, 0, 0xc031))
+            g_6d10b4 = (F<int32_t>(Widget_FindChild(g_6d10bc, 0, 0xc031), 0x185) + 1) << 6;
+        if (g_6d10bc && Widget_FindChild(g_6d10bc, 0, 0xc033))
+            g_6d10b8 = (F<int32_t>(Widget_FindChild(g_6d10bc, 0, 0xc033), 0x185) + 1) << 6;
     }
     MapSizeDialog_Show();
 }
@@ -543,9 +544,9 @@ RT3_REPLACE(0x4ea8c0, MapSizeDialog_ReadSliders);
 // current size (0x6d10c4 x 0x6d10c8, scaled so the larger side fits), else at
 // the default; then refreshes the panel.
 RT3_NOINLINE void __fastcall MapSizePanel_Build(uint8_t* w, int, float x, float y, float width, float) {
-    hook::Global<uint8_t*>(0x6d10bc) = w;
+    g_6d10bc = w;
     float cy = (float)((double)y + D(0x5c9b80));
-    if (hook::Global<int32_t>(0x6d10c0)) cy = (float)((double)cy + D(0x5d11b8));
+    if (g_6d10c0) cy = (float)((double)cy + D(0x5d11b8));
     auto editBox = [&](uint16_t id, float ex, float ey, float ew, uint32_t eh, uint8_t kind, const char* text) {
         uint8_t def[0x91];
         memset(def, 0, sizeof def);
@@ -628,8 +629,8 @@ RT3_NOINLINE void __fastcall MapSizePanel_Build(uint8_t* w, int, float x, float 
         Window_AddChild(w, 0, e, 0);
         Free(F<void*>(def, 0x77));
     }
-    if (hook::Global<int32_t>(0x6d10c0)) {
-        int32_t a = hook::Global<int32_t>(0x6d10c4), b = hook::Global<int32_t>(0x6d10c8);
+    if (g_6d10c0) {
+        int32_t a = g_6d10c4, b = g_6d10c8;
         int32_t m = a > b ? a : b;
         float s = (float)(D(0x5d11b0) / (double)m);
         float wv = (float)((double)(float)a * s);
@@ -652,8 +653,8 @@ RT3_REPLACE(0x4ea940, MapSizePanel_Build);
 RT3_NOINLINE uint32_t __fastcall MapSize_Prompt(uint32_t* width, uint32_t* height) {
     uint32_t r = Dialog_RunMessage(GetString(0xf6), 2, 0xbf800000, 0xbf800000, 0, (void(__fastcall*)(uint8_t*, int, uint32_t, uint32_t, uint32_t, float))0x4ea940, 0, Prod_Bits(0x3e75c28f), 0, 0x1e, 0, nullptr,
                                    nullptr, 0, 0, nullptr, 0);
-    *width = hook::Global<uint32_t>(0x6d10b4);
-    *height = hook::Global<uint32_t>(0x6d10b8);
+    *width = hook::As<uint32_t>(g_6d10b4);
+    *height = hook::As<uint32_t>(g_6d10b8);
     return r == 0x3f2;
 }
 RT3_REPLACE(0x4eb0b0, MapSize_Prompt);
@@ -662,18 +663,18 @@ RT3_REPLACE(0x4eb0b0, MapSize_Prompt);
 // string 0xfe1 with both amounts (format 8) and the amount panel 0x4ea940
 // (state 0x6d10c0..0x6d10c8), and returns the chosen pair 0x6d10b4 / 0x6d10b8.
 RT3_NOINLINE void __fastcall Money_PromptTransfer(int32_t* a, int32_t* b) {
-    hook::Global<int32_t>(0x6d10c0) = 1;
-    hook::Global<int32_t>(0x6d10c4) = *a;
-    hook::Global<int32_t>(0x6d10c8) = *b;
+    g_6d10c0 = 1;
+    g_6d10c4 = *a;
+    g_6d10c8 = *b;
     char nb[0x200], na[0x200], text[0x400];
-    const char* sb = Num_Format(nb, 8, (double)hook::Global<int32_t>(0x6d10c8), 10, 1, 0, 0);
-    const char* sa = Num_Format(na, 8, (double)hook::Global<int32_t>(0x6d10c4), 10, 1, 0, 0);
+    const char* sb = Num_Format(nb, 8, (double)g_6d10c8, 10, 1, 0, 0);
+    const char* sa = Num_Format(na, 8, (double)g_6d10c4, 10, 1, 0, 0);
     FormatText(text, GetString(0xfe1), sa, sb, 0, 0, 0, 0, 0, 0);
     Dialog_RunMessage(text, 1, 0xbf800000, 0xbf800000, 0, (void(__fastcall*)(uint8_t*, int, uint32_t, uint32_t, uint32_t, float))0x4ea940, 0,
                       Prod_Bits(0x3ebbbbbc), 0, 0x1e, 0, nullptr, nullptr, 0, 0, nullptr, 0);
-    *a = hook::Global<int32_t>(0x6d10b4);
-    *b = hook::Global<int32_t>(0x6d10b8);
-    hook::Global<int32_t>(0x6d10c0) = 0;
+    *a = g_6d10b4;
+    *b = g_6d10b8;
+    g_6d10c0 = 0;
 }
 RT3_REPLACE(0x4eb120, Money_PromptTransfer);
 
@@ -691,10 +692,10 @@ RT3_REPLACE(0x4eb230, Obj_CopyTo6d10d8);
 // 0x4eb250 (callback). Adds d (EDX) to the base 0x6d1110 (0x6d10cc) and
 // prices it with the company 0x6d10d0's +0x47 (0x6d1114).
 void __fastcall Company_PriceShares(void*, int32_t d) {
-    const uint32_t id = hook::Global<uint32_t>(0x6d10d0);
-    hook::Global<int32_t>(0x6d10cc) = hook::Global<int32_t>(0x6d1110) + d;
-    uint8_t* c = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be10), 0, id);
-    hook::Global<int32_t>(0x6d1114) = F<int32_t>(c, 0x47) * hook::Global<int32_t>(0x6d10cc);
+    const uint32_t id = g_6d10d0;
+    g_6d10cc = g_6d1110 + d;
+    uint8_t* c = (uint8_t*)Collection_Get(g_companies, 0, id);
+    g_6d1114 = F<int32_t>(c, 0x47) * g_6d10cc;
 }
 RT3_REPLACE(0x4eb250, Company_PriceShares);
 
@@ -702,21 +703,21 @@ RT3_REPLACE(0x4eb250, Company_PriceShares);
 // (0x6d10d0): its button 0xbfce is enabled for public companies, the price
 // (0x6d1110, 10 for private ones) goes on the slider.
 void __fastcall ShareDialog_SelectCompany(uint32_t id) {
-    if (id == hook::Global<uint32_t>(0x6d10d0)) return;
-    hook::Global<uint32_t>(0x6d10d0) = id;
-    uint8_t* c = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be10), 0, id);
+    if (id == g_6d10d0) return;
+    g_6d10d0 = id;
+    uint8_t* c = (uint8_t*)Collection_Get(g_companies, 0, id);
     int32_t price;
     if (!F<int32_t>(c, 0x3f)) {
-        Window_SendEvent5(hook::Global<uint8_t*>(0x6d1118), 0, 0x87, 0xbfce, 3, 0, 0);
+        Window_SendEvent5(g_6d1118, 0, 0x87, 0xbfce, 3, 0, 0);
         price = 0xa;
     } else {
-        Window_SendEvent5(hook::Global<uint8_t*>(0x6d1118), 0, 0x65, 0xbfce, 3, 0, 0);
-        price = Ftol(Company_SharePrice((uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be10), 0, hook::Global<uint32_t>(0x6d10d0)), 0, 0, 0));
+        Window_SendEvent5(g_6d1118, 0, 0x65, 0xbfce, 3, 0, 0);
+        price = Ftol(Company_SharePrice((uint8_t*)Collection_Get(g_companies, 0, g_6d10d0), 0, 0, 0));
     }
-    hook::Global<int32_t>(0x6d1110) = price;
-    Window_SendEvent5(hook::Global<uint8_t*>(0x6d1118), 0, 0x73, 0xbfce, (uint32_t)(price + 1), 0, 0);
-    Window_SendEvent5(hook::Global<uint8_t*>(0x6d1118), 0, 0x66, 0xbfce, 1, 0, 0);
-    Window_SendEvent5(hook::Global<uint8_t*>(0x6d1118), 0, 0x66, 0xbfce, 0, 0, 0);
+    g_6d1110 = price;
+    Window_SendEvent5(g_6d1118, 0, 0x73, 0xbfce, (uint32_t)(price + 1), 0, 0);
+    Window_SendEvent5(g_6d1118, 0, 0x66, 0xbfce, 1, 0, 0);
+    Window_SendEvent5(g_6d1118, 0, 0x66, 0xbfce, 0, 0, 0);
 }
 RT3_REPLACE(0x4eb280, ShareDialog_SelectCompany);
 
@@ -726,13 +727,13 @@ RT3_REPLACE(0x4eb340, ShareDialog_SelectCompanyCb);
 // 0x4eb350 (draw callback). Draws company `id`'s logo (0.3 scale) and its
 // name right-aligned next to it.
 void __fastcall CompanyList_DrawLogoCb(void*, uint32_t id, float x, float y, float w, float h, int32_t) {
-    uint8_t* c = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be10), 0, id);
+    uint8_t* c = (uint8_t*)Collection_Get(g_companies, 0, id);
     const float ly = (float)((double)y + D(0x5caae0));
     const float lx = (float)((double)x + D(0x5d0818));
     Glyph_Queue((uint8_t*)(uintptr_t)Company_Logo(c), 0, lx, ly, 0x3f800000, BitsF(0x3e99999a), BitsF(0x3e99999a), 0xffffffff, 0, 1, 0, 0.0f, 0.0f, 1.0f, 1.0f);
     const float tw = (float)((double)w - D(0x5d06d8));
     const float tx = (float)((double)x + D(0x5d06d8));
-    Font_DrawTextBox(hook::Global<uint8_t*>(0x6d1120), 0, (const char*)(c + 4), tx, y, tw, h, 0xffffffff, 2, 0, 0, 1.0f);
+    Font_DrawTextBox(g_6d1120, 0, (const char*)(c + 4), tx, y, tw, h, 0xffffffff, 2, 0, 0, 1.0f);
 }
 RT3_REPLACE(0x4eb350, CompanyList_DrawLogoCb);
 
@@ -750,13 +751,13 @@ void __fastcall CompanyOverview_DrawCb(void*, int, float x, float y, float w, fl
     const float rh = BitsF(0x3cda740e);
     char frame[0xb6c];
     char* num = frame + 0x18;
-    Font_DrawTextBox(hook::Global<uint8_t*>(0x6d111c), 0, GetString(0x2d0), rx, ty, rw, rh, 0xffffffff, 2, 1, 0, 1.0f);
-    Num_FormatSimple(num, 9, Company_Stat((uint8_t*)Obj_Company21(hook::Global<uint8_t*>(0x6cec78)), 0, 0xd, 0x2329), 0xb);
-    Font_DrawTextBox(hook::Global<uint8_t*>(0x6d111c), 0, num, tx, ty, tw, rh, 0xffffffff, 3, 1, 0, 1.0f);
+    Font_DrawTextBox(g_6d111c, 0, GetString(0x2d0), rx, ty, rw, rh, 0xffffffff, 2, 1, 0, 1.0f);
+    Num_FormatSimple(num, 9, Company_Stat((uint8_t*)Obj_Company21(g_world), 0, 0xd, 0x2329), 0xb);
+    Font_DrawTextBox(g_6d111c, 0, num, tx, ty, tw, rh, 0xffffffff, 3, 1, 0, 1.0f);
     const float ty2 = (float)((double)ty + D(0x5d11d0));
-    Font_DrawTextBox(hook::Global<uint8_t*>(0x6d111c), 0, GetString(0x2d1), tx, ty2, tw, rh, 0xffffffff, 0, 1, 0, 1.0f);
+    Font_DrawTextBox(g_6d111c, 0, GetString(0x2d1), tx, ty2, tw, rh, 0xffffffff, 0, 1, 0, 1.0f);
     float row = (float)((double)y + D(0x5c9f28));
-    uint8_t* c = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be10), 0, hook::Global<uint32_t>(0x6d10d0));
+    uint8_t* c = (uint8_t*)Collection_Get(g_companies, 0, g_6d10d0);
     if (!F<int32_t>(c, 0x3f)) {
         char* a = frame + 0x2d4;
         char* b = frame + 0x20c;
@@ -765,29 +766,29 @@ void __fastcall CompanyOverview_DrawCb(void*, int, float x, float y, float w, fl
         Num_FormatSimple2(b, 0xb, (double)Obj_Sum12a7(c), 0xb);
         FormatText(text, GetString(0xfe2), b, a, 0, 0, 0, 0, 0, 0);
         const float bh = (float)((double)h - ((double)row - y));
-        Font_DrawTextBox(hook::Global<uint8_t*>(0x6d1120), 0, text, tx, row, tw, bh, 0xffffffff, 0, 1, 0, 1.0f);
+        Font_DrawTextBox(g_6d1120, 0, text, tx, row, tw, bh, 0xffffffff, 0, 1, 0, 1.0f);
         return;
     }
-    Font_DrawTextBox(hook::Global<uint8_t*>(0x6d111c), 0, GetString(0x2d2), tx, row, tw, rh, 0xffffffff, 0, 1, 0, 1.0f);
+    Font_DrawTextBox(g_6d111c, 0, GetString(0x2d2), tx, row, tw, rh, 0xffffffff, 0, 1, 0, 1.0f);
     row = (float)((double)y + D(0x5d11c8));
-    uint8_t* co = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be10), 0, hook::Global<uint32_t>(0x6d10d0));
-    Font_DrawTextBox(hook::Global<uint8_t*>(0x6d111c), 0, GetString(0x2d3), rx, row, rw, rh, 0xffffffff, 2, 1, 0, 1.0f);
-    Num_FormatSimple(num, 9, (double)hook::Global<int32_t>(0x6d10cc), 0xb);
-    Font_DrawTextBox(hook::Global<uint8_t*>(0x6d111c), 0, num, rx, row, rw, rh, 0xffffffff, 3, 1, 0, 1.0f);
+    uint8_t* co = (uint8_t*)Collection_Get(g_companies, 0, g_6d10d0);
+    Font_DrawTextBox(g_6d111c, 0, GetString(0x2d3), rx, row, rw, rh, 0xffffffff, 2, 1, 0, 1.0f);
+    Num_FormatSimple(num, 9, (double)g_6d10cc, 0xb);
+    Font_DrawTextBox(g_6d111c, 0, num, rx, row, rw, rh, 0xffffffff, 3, 1, 0, 1.0f);
     row = (float)((double)row + Fl(0x5d0898));
-    Font_DrawTextBox(hook::Global<uint8_t*>(0x6d111c), 0, GetString(0x2d4), rx, row, rw, rh, 0xffffffff, 2, 1, 0, 1.0f);
+    Font_DrawTextBox(g_6d111c, 0, GetString(0x2d4), rx, row, rw, rh, 0xffffffff, 2, 1, 0, 1.0f);
     Num_Format(num, 1, (double)F<int32_t>(co, 0x47), 10, 1, 0, 0);
-    Font_DrawTextBox(hook::Global<uint8_t*>(0x6d111c), 0, num, rx, row, rw, rh, 0xffffffff, 3, 1, 0, 1.0f);
+    Font_DrawTextBox(g_6d111c, 0, num, rx, row, rw, rh, 0xffffffff, 3, 1, 0, 1.0f);
     row = (float)((double)row + Fl(0x5d0898));
-    Font_DrawTextBox(hook::Global<uint8_t*>(0x6d111c), 0, GetString(0x2d5), rx, row, rw, rh, 0xffffffff, 2, 1, 0, 1.0f);
-    Num_FormatSimple2(num, 0xb, (double)hook::Global<int32_t>(0x6d1114), 0xb);
-    Font_DrawTextBox(hook::Global<uint8_t*>(0x6d111c), 0, num, rx, row, rw, rh, 0xffffffff, 3, 1, 0, 1.0f);
+    Font_DrawTextBox(g_6d111c, 0, GetString(0x2d5), rx, row, rw, rh, 0xffffffff, 2, 1, 0, 1.0f);
+    Num_FormatSimple2(num, 0xb, (double)g_6d1114, 0xb);
+    Font_DrawTextBox(g_6d111c, 0, num, rx, row, rw, rh, 0xffffffff, 3, 1, 0, 1.0f);
     row = (float)((double)row + Fl(0x5d0898));
     const float nx = (float)((double)rx - D(0x5d08f0));
     const float nw = (float)((double)rw + D(0x5d08e8));
     row = (float)((double)row + D(0x5d11c0));
     const float bh = (float)((double)h - ((double)row - y));
-    Font_DrawTextBox(hook::Global<uint8_t*>(0x6d1120), 0, GetString(0x2d6), nx, row, nw, bh, 0xffffffff, 0, 1, 0, 1.0f);
+    Font_DrawTextBox(g_6d1120, 0, GetString(0x2d6), nx, row, nw, bh, 0xffffffff, 0, 1, 0, 1.0f);
 }
 RT3_REPLACE(0x4eb420, CompanyOverview_DrawCb);
 
@@ -800,44 +801,44 @@ RT3_REPLACE(0x4eb420, CompanyOverview_DrawCb);
 void __fastcall MergerWindow_DrawVotes(void*, int, float x, float y, float w, float, int32_t) {
     float xs = (float)((double)x + D(0x5d0110));
     float ws = (float)((double)w - D(0x5c9b50));
-    uint8_t* co = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be10), 0, hook::Global<uint16_t>(0x6d10de));
-    Collection_Get(hook::Global<Collection*>(0x62be10), 0, hook::Global<uint16_t>(0x6d10dc));
+    uint8_t* co = (uint8_t*)Collection_Get(g_companies, 0, g_6d10de);
+    Collection_Get(g_companies, 0, g_6d10dc);
     Company_LiveIndex(co);
     const float h = BitsF(0x3ce81b4f);
     char title[0x200], num[0x130];
-    strcpy(title, GetString(hook::Global<int32_t>(0x6d110c) > F<int32_t>(co, 0x47) / 2 ? 0x2d9 : 0x2da));
-    Font_DrawTextBox(hook::Global<uint8_t*>(0x6d111c), 0, title, xs, y, ws, h, 0xffffffff, 0, 1, 0, 1.0f);
+    strcpy(title, GetString(g_6d110c > F<int32_t>(co, 0x47) / 2 ? 0x2d9 : 0x2da));
+    Font_DrawTextBox(g_6d111c, 0, title, xs, y, ws, h, 0xffffffff, 0, 1, 0, 1.0f);
     float cy = (float)((double)y + Fl(0x5d11fc));
     for (int32_t k = 0; k < 2; ++k) {
         strcpy(title, GetString(k == 0 ? 0x2db : 0x2dc));
-        Font_DrawTextBox(hook::Global<uint8_t*>(0x6d111c), 0, title, xs, cy, ws, h, 0xffffffff, 0, 1, 0, 1.0f);
+        Font_DrawTextBox(g_6d111c, 0, title, xs, cy, ws, h, 0xffffffff, 0, 1, 0, 1.0f);
         cy = (float)((double)cy + Fl(0x5d11fc));
-        for (int32_t i = 0; i < Table_CountField4(hook::Global<Collection*>(0x6ceb9c)); ++i) {
-            uint8_t* p = (uint8_t*)Table_NthField4(hook::Global<Collection*>(0x6ceb9c), 0, i);
-            int32_t n = F<int32_t>(p, 0x15d + hook::Global<uint16_t>(0x6d10de) * 4);
+        for (int32_t i = 0; i < Table_CountField4(g_players); ++i) {
+            uint8_t* p = (uint8_t*)Table_NthField4(g_players, 0, i);
+            int32_t n = F<int32_t>(p, 0x15d + g_6d10de * 4);
             if (n <= 0) continue;
             bool flagged = ((const uint8_t*)0x6d10f2)[i] != 0;
             if (k == 0 ? !flagged : flagged) continue;
             Num_Format(num, 1, (double)n, 10, 1, 0, 0);
-            Font_DrawTextBox(hook::Global<uint8_t*>(0x6d111c), 0, (const char*)(p + 8), xs, cy, ws, h, 0xffffffff, 2, 1, 0, 1.0f);
-            Font_DrawTextBox(hook::Global<uint8_t*>(0x6d111c), 0, num, xs, cy, ws, h, 0xffffffff, 3, 1, 0, 1.0f);
+            Font_DrawTextBox(g_6d111c, 0, (const char*)(p + 8), xs, cy, ws, h, 0xffffffff, 2, 1, 0, 1.0f);
+            Font_DrawTextBox(g_6d111c, 0, num, xs, cy, ws, h, 0xffffffff, 3, 1, 0, 1.0f);
             cy = (float)((double)cy + Fl(0x5ca2a8));
         }
-        int32_t total = k == 0 ? hook::Global<int32_t>(0x6d1108) : hook::Global<int32_t>(0x6d1104) - hook::Global<int32_t>(0x6d1108);
+        int32_t total = k == 0 ? g_6d1108 : g_6d1104 - g_6d1108;
         Num_Format(num, 1, (double)total, 10, 1, 0, 0);
-        Font_DrawTextBox(hook::Global<uint8_t*>(0x6d111c), 0, GetString(0x2dd), xs, cy, ws, h, 0xffffffff, 2, 1, 0, 1.0f);
+        Font_DrawTextBox(g_6d111c, 0, GetString(0x2dd), xs, cy, ws, h, 0xffffffff, 2, 1, 0, 1.0f);
         if (strlen(num) < 8) {
             char padded[0x1c];
             memcpy(padded, (const void*)0x5d11e0, sizeof padded);
             ExeSprintf()(padded + 8 - strlen(num), num);
             strcpy(num, padded);
         }
-        Font_DrawTextBox(hook::Global<uint8_t*>(0x6d111c), 0, num, xs, cy, ws, h, 0xffffffff, 3, 1, 1, 1.0f);
+        Font_DrawTextBox(g_6d111c, 0, num, xs, cy, ws, h, 0xffffffff, 3, 1, 1, 1.0f);
         cy = (float)((double)cy + Fl(0x5ca2a8));
-        int32_t shares = k == 0 ? hook::Global<int32_t>(0x6d110c) : F<int32_t>(co, 0x47) - hook::Global<int32_t>(0x6d110c);
+        int32_t shares = k == 0 ? g_6d110c : F<int32_t>(co, 0x47) - g_6d110c;
         Num_Format(num, 1, (double)shares, 10, 1, 0, 0);
         cy = (float)((double)cy + D(0x5d11d8));
-        Font_DrawTextBox(hook::Global<uint8_t*>(0x6d111c), 0, num, xs, cy, ws, h, 0xffffffff, 3, 1, 0, 1.0f);
+        Font_DrawTextBox(g_6d111c, 0, num, xs, cy, ws, h, 0xffffffff, 3, 1, 0, 1.0f);
         cy = (float)((double)cy + Fl(0x5d11fc));
     }
 }
@@ -867,28 +868,28 @@ RT3_NOINLINE void Merger_ResolveVote() {
         for (int32_t k = 0; k < 0x10; ++k) voted[k] = 1, yes[k] = 1;
     }
     bool waiting = false;
-    for (int32_t i = 0; i < Collection_Count(hook::Global<Collection*>(0x6ceb9c)); ++i)
+    for (int32_t i = 0; i < Collection_Count(g_players); ++i)
         if (!voted[i]) waiting = true;
     if (waiting) return;
-    hook::Global<int32_t>(0x6d110c) = 0;
-    uint8_t* tgt = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be10), 0, F<uint16_t>((void*)0x6d10de, 0));
-    uint8_t* buyer = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be10), 0, F<uint16_t>((void*)0x6d10dc, 0));
+    g_6d110c = 0;
+    uint8_t* tgt = (uint8_t*)Collection_Get(g_companies, 0, F<uint16_t>((void*)0x6d10de, 0));
+    uint8_t* buyer = (uint8_t*)Collection_Get(g_companies, 0, F<uint16_t>((void*)0x6d10dc, 0));
     if (!F<int32_t>(tgt, 0x3f) || !F<int32_t>(buyer, 0x3f)) return;
     Company_LiveIndex(tgt);
-    hook::Global<int32_t>(0x6d1104) = Company_FreeShares(tgt);
+    g_6d1104 = Company_FreeShares(tgt);
     float value = Company_SharePrice(tgt, 0, 0, 0);
     value = (float)(((double)Company_BookValue(tgt) + value) / *(const float*)0x5c878c);
     if (value < *(const float*)0x5c85b4) value = 1.0f;
     float fprice = (float)(int32_t)F<uint16_t>((void*)0x6d10e0, 0);
     float premium = (float)((double)fprice / value - *(const double*)0x5c8770);
-    float m = Effects_Multiplier(hook::Global<uint8_t*>(0x6cec78), 0, 0x3a, F<uint16_t>((void*)0x6d10dc, 0), F<uint32_t>(buyer, 0x3b), 0);
+    float m = Effects_Multiplier(g_world, 0, 0x3a, F<uint16_t>((void*)0x6d10dc, 0), F<uint32_t>(buyer, 0x3b), 0);
     double scale = m < *(const double*)0x5c85b8 ? 0.01 : (double)m;
     premium = (float)((double)premium / scale);
     float appeal = (float)((double)premium * *(const double*)0x5c8680 + *(const double*)0x5c86b8);
     appeal = (float)((Company_Stat(buyer, 0, 0x21, 0x2329) - *(const double*)0x5c86b8) / *(const double*)0x5c85c8 + appeal);
     appeal = (float)((double)SimRand(-10, 10) / *(const double*)0x5c85d8 + appeal);
-    for (int32_t i = 0; i < Table_CountField4(hook::Global<Collection*>(0x6ceb9c)); ++i) {
-        uint8_t* pl = (uint8_t*)Table_NthField4(hook::Global<Collection*>(0x6ceb9c), 0, i);
+    for (int32_t i = 0; i < Table_CountField4(g_players); ++i) {
+        uint8_t* pl = (uint8_t*)Table_NthField4(g_players, 0, i);
         int32_t held = F<int32_t>(pl, F<uint16_t>((void*)0x6d10de, 0) * 4 + 0x15d);
         if (!F<int32_t>(pl, 0x1e1) && held > 0) {
             float will = (float)((double)appeal - *(const double*)0x5c86b8);
@@ -897,34 +898,34 @@ RT3_NOINLINE void Merger_ResolveVote() {
             float roll = (float)SimRand(0, 100);
             yes[i] = (double)will * *(const float*)0x5c8c28 > roll ? 1 : 0;
         }
-        if (yes[i] && (held = F<int32_t>(pl, F<uint16_t>((void*)0x6d10de, 0) * 4 + 0x15d)) > 0) hook::Global<int32_t>(0x6d110c) += held;
+        if (yes[i] && (held = F<int32_t>(pl, F<uint16_t>((void*)0x6d10de, 0) * 4 + 0x15d)) > 0) g_6d110c += held;
     }
     if (appeal < *(const float*)0x5c8598) appeal = 0.0f;
     if (appeal > *(const double*)0x5c8770) appeal = 1.0f;
-    float free = (float)hook::Global<int32_t>(0x6d1104);
+    float free = (float)g_6d1104;
     int32_t extra = (int32_t)((double)free * appeal) / 0x3e8 * 0x3e8;
-    hook::Global<int32_t>(0x6d1108) = extra;
-    hook::Global<int32_t>(0x6d110c) += extra;
-    bool pass = hook::Global<int32_t>(0x6d110c) > F<int32_t>(tgt, 0x47) / 2;
+    g_6d1108 = extra;
+    g_6d110c += extra;
+    bool pass = g_6d110c > F<int32_t>(tgt, 0x47) / 2;
     if (!IsMultiplayer()) {
         uint32_t extraH = 0x3ed55555;
         Dialog_RunMessage((const char*)0x5c87a8, 1, 0xbf800000, 0xbf800000, 0, nullptr, 0x4eb890, *(const float*)&extraH, 0, 0x1e, 0, nullptr, nullptr, 0, 0,
                           nullptr, 0);
     } else {
         const char* verdict = GetString(pass ? 0xbf4 : 0xbf5);
-        uint8_t* t = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be10), 0, F<uint16_t>((void*)0x6d10de, 0));
-        uint8_t* b = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be10), 0, F<uint16_t>((void*)0x6d10dc, 0));
+        uint8_t* t = (uint8_t*)Collection_Get(g_companies, 0, F<uint16_t>((void*)0x6d10de, 0));
+        uint8_t* b = (uint8_t*)Collection_Get(g_companies, 0, F<uint16_t>((void*)0x6d10dc, 0));
         char text[0x100];
         const char* fmt = GetString(0xbf3);
         FormatText(text, fmt, (const char*)b + 4, (const char*)t + 4, verdict, nullptr, nullptr, nullptr, nullptr, nullptr);
-        Net_QueueText(hook::Global<uint8_t*>(0x6cd8d8), 0, text, 1, 0, 0, 0);
+        Net_QueueText(g_session, 0, text, 1, 0, 0, 0);
     }
     if (pass) {
         Company_Absorb(buyer, 0, F<uint16_t>((void*)0x6d10de, 0), F<uint16_t>((void*)0x6d10e0, 0));
         return;
     }
-    F<int32_t>(Collection_Get(hook::Global<Collection*>(0x62be10), 0, F<uint16_t>((void*)0x6d10dc, 0)), 0x15f) =
-        F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x15);
+    F<int32_t>(Collection_Get(g_companies, 0, F<uint16_t>((void*)0x6d10dc, 0)), 0x15f) =
+        F<int32_t>(g_world, 0x15);
 }
 RT3_REPLACE(0x4ebd10, Merger_ResolveVote);
 
@@ -935,7 +936,7 @@ RT3_REPLACE(0x4ebd10, Merger_ResolveVote);
 // first listed company is selected. 0x6d10d0 is reset to -2.
 void __fastcall CompanyPicker_Build(uint8_t* win, int, float x, float y, float, float) {
     float xa = (float)((double)x + D(0x5d1238));
-    hook::Global<uint8_t*>(0x6d1118) = win;
+    g_6d1118 = win;
     {
         uint8_t d[0x89];
         memset(d, 0, sizeof d);
@@ -981,17 +982,17 @@ void __fastcall CompanyPicker_Build(uint8_t* win, int, float x, float y, float, 
         Window_SendEvent5(win, 0, 0x7a, 0xbfcd, 0x4eb350, 0, 0);
         Free(F<void*>(t, 0x43));
     }
-    hook::Global<int32_t>(0x6d10d0) = -2;
+    hook::As<int32_t>(g_6d10d0) = -2;
     int32_t first = -1;
-    for (int32_t i = 0; i < Collection_Count(hook::Global<Collection*>(0x62be10)); ++i) {
-        Collection* cs = hook::Global<Collection*>(0x62be10);
+    for (int32_t i = 0; i < Collection_Count(g_companies); ++i) {
+        Collection* cs = g_companies;
         uint8_t* co = (uint8_t*)Collection_Get(cs, 0, Collection_IdAt(cs, 0, (uint32_t)i, 0));
         if (!F<int32_t>(co, 0x3f)) {
             if (!Company_HasAssets(co)) continue;
             if (Game_EffectiveVersion() < 0x67) continue;
         }
         int32_t id = F<int32_t>(co, 0);
-        if (id == hook::Global<int32_t>(0x6d10d4)) continue;
+        if (id == hook::As<int32_t>(g_6d10d4)) continue;
         if (first == -1) first = id;
         Window_SendEvent5(win, 0, 0x88, 0xbfcd, 0, (uint32_t)id, 0);
     }
@@ -1042,25 +1043,25 @@ RT3_REPLACE(0x4ec1d0, CompanyPicker_Build);
 // 0xf31) and put to the vote (0x4ebd10); in multiplayer both go to the host
 // (0x79 / 0x46; QUIRK: the offer message leaves its last 4 bytes unset).
 RT3_NOINLINE void Merger_OfferDialog() {
-    hook::Global<uint8_t*>(0x6d111c) = Pack_AcquireFont(hook::Global<uint8_t*>(0x6d4020), 0, 2);
-    hook::Global<uint8_t*>(0x6d1120) = Pack_AcquireFont(hook::Global<uint8_t*>(0x6d4020), 0, 1);
+    g_6d111c = Pack_AcquireFont(g_pack, 0, 2);
+    g_6d1120 = Pack_AcquireFont(g_pack, 0, 1);
     auto say = [](int32_t id) {
         Dialog_RunMessage(GetString(id), 1, 0xbf800000, 0xbf800000, 0, nullptr, 0, 0.0f, 0, 0x1e, 0, nullptr, nullptr, 0, 0, nullptr, 0);
     };
-    if (Table_CountField3f(hook::Global<Collection*>(0x62be10)) <= 1) {
+    if (Table_CountField3f(g_companies) <= 1) {
         say(0x2d7);
         return;
     }
-    int32_t mine = Obj_Get21(hook::Global<uint8_t*>(0x6cec78));
-    hook::Global<int32_t>(0x6d10d4) = mine;
-    hook::Global<int32_t>(0x6d10d0) = -1;
-    hook::Global<int32_t>(0x6d10cc) = 0;
-    hook::Global<int32_t>(0x6d1114) = 0;
-    hook::Global<int32_t>(0x6d1110) = 0;
-    Collection* cos = hook::Global<Collection*>(0x62be10);
+    int32_t mine = Obj_Get21(g_world);
+    hook::As<int32_t>(g_6d10d4) = mine;
+    hook::As<int32_t>(g_6d10d0) = -1;
+    g_6d10cc = 0;
+    g_6d1114 = 0;
+    g_6d1110 = 0;
+    Collection* cos = g_companies;
     if (F<int32_t>(Collection_Get(cos, 0, (uint32_t)mine), 0x15f)) {
-        int32_t now = F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x15);
-        if (now - F<int32_t>(Collection_Get(hook::Global<Collection*>(0x62be10), 0, hook::Global<uint32_t>(0x6d10d4)), 0x15f) < 0x76200 &&
+        int32_t now = F<int32_t>(g_world, 0x15);
+        if (now - F<int32_t>(Collection_Get(g_companies, 0, g_6d10d4), 0x15f) < 0x76200 &&
             !Global6d07b4Set2()) {
             say(0x2d8);
             return;
@@ -1072,37 +1073,37 @@ RT3_NOINLINE void Merger_OfferDialog() {
                                    0, nullptr, nullptr, 0, 0, nullptr, 0);
     char num1[0x80], num2[0x80], num3[0x80], text[0x200];
     if (r == 0x3f2) {
-        uint8_t* tgt = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be10), 0, hook::Global<uint32_t>(0x6d10d0));
-        if (!F<int32_t>(Collection_Get(hook::Global<Collection*>(0x62be10), 0, hook::Global<uint32_t>(0x6d10d0)), 0x3f)) {
+        uint8_t* tgt = (uint8_t*)Collection_Get(g_companies, 0, g_6d10d0);
+        if (!F<int32_t>(Collection_Get(g_companies, 0, g_6d10d0), 0x3f)) {
             float cost = Obj_Sum12a7Scaled(tgt);
-            uint8_t* me = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be10), 0, hook::Global<uint32_t>(0x6d10d4));
+            uint8_t* me = (uint8_t*)Collection_Get(g_companies, 0, g_6d10d4);
             if (Company_Stat(me, 0, 0xd, 0x2329) < (double)cost) {
-                me = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be10), 0, hook::Global<uint32_t>(0x6d10d4));
+                me = (uint8_t*)Collection_Get(g_companies, 0, g_6d10d4);
                 const char* have = Num_FormatSimple(num1, 9, Company_Stat(me, 0, 0xd, 0x2329), 0xb);
                 const char* need = Num_FormatSimple(num2, 9, cost, 0xb);
                 const char* fmt = GetString(0xfe3);
                 FormatText(text, fmt, need, have, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
                 Dialog_RunMessage(text, 1, 0xbf800000, 0xbf800000, 0, nullptr, 0, 0.0f, 0, 0x1e, 0, nullptr, nullptr, 0, 0, nullptr, 0);
             } else if (!IsMultiplayer()) {
-                Company_Absorb((uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be10), 0, hook::Global<uint32_t>(0x6d10d4)), 0,
-                               hook::Global<uint32_t>(0x6d10d0), 0);
+                Company_Absorb((uint8_t*)Collection_Get(g_companies, 0, g_6d10d4), 0,
+                               g_6d10d0, 0);
             } else {
                 int32_t msg[3];
                 msg[0] = Global6d40e4();
-                msg[1] = hook::Global<int32_t>(0x6d10d4);
-                msg[2] = hook::Global<int32_t>(0x6d10d0);
-                Net_SendToHost(hook::Global<uint8_t*>(0x6cd8d8), 0, 0x79, 0xc, (const uint8_t*)msg);
-                Cursor_Set(hook::Global<uint8_t*>(0xccbb20), 0, 6, 0, 0);
+                msg[1] = hook::As<int32_t>(g_6d10d4);
+                msg[2] = hook::As<int32_t>(g_6d10d0);
+                Net_SendToHost(g_session, 0, 0x79, 0xc, (const uint8_t*)msg);
+                Cursor_Set(g_cursorManager, 0, 6, 0, 0);
             }
         } else {
-            int32_t total = F<int32_t>(Collection_Get(hook::Global<Collection*>(0x62be10), 0, hook::Global<uint32_t>(0x6d10d0)), 0x47) * hook::Global<int32_t>(0x6d10cc);
+            int32_t total = F<int32_t>(Collection_Get(g_companies, 0, g_6d10d0), 0x47) * g_6d10cc;
             float cost = (float)total;
-            uint8_t* me = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be10), 0, hook::Global<uint32_t>(0x6d10d4));
+            uint8_t* me = (uint8_t*)Collection_Get(g_companies, 0, g_6d10d4);
             if (Company_Stat(me, 0, 0xd, 0x2329) < (double)cost) {
-                me = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be10), 0, hook::Global<uint32_t>(0x6d10d4));
+                me = (uint8_t*)Collection_Get(g_companies, 0, g_6d10d4);
                 const char* have = Num_FormatSimple(num1, 9, Company_Stat(me, 0, 0xd, 0x2329), 0xb);
                 const char* need = Num_FormatSimple(num2, 9, cost, 0xb);
-                const char* each = Num_FormatSimple(num3, 9, (double)hook::Global<int32_t>(0x6d10cc), 0xb);
+                const char* each = Num_FormatSimple(num3, 9, (double)g_6d10cc, 0xb);
                 const char* fmt = GetString(0xf31);
                 FormatText(text, fmt, each, need, have, nullptr, nullptr, nullptr, nullptr, nullptr);
                 Dialog_RunMessage(text, 1, 0xbf800000, 0xbf800000, 0, nullptr, 0, 0.0f, 0, 0x1e, 0, nullptr, nullptr, 0, 0, nullptr, 0);
@@ -1111,29 +1112,29 @@ RT3_NOINLINE void Merger_OfferDialog() {
             } else {
                 uint8_t msg[0xc];
                 F<int32_t>(msg, 0) = Global6d40e4();
-                msg[4] = (uint8_t)hook::Global<int32_t>(0x6d10d4);
-                F<uint16_t>(msg, 6) = (uint16_t)hook::Global<int32_t>(0x6d10cc);
-                msg[5] = (uint8_t)hook::Global<int32_t>(0x6d10d0);
-                Net_SendToHost(hook::Global<uint8_t*>(0x6cd8d8), 0, 0x46, 0xc, msg);
-                Log_Add(hook::Global<Collection*>(0x6acd34), 0, GetString(0xbf2), 0xb, 0, 0);
+                msg[4] = (uint8_t)hook::As<int32_t>(g_6d10d4);
+                F<uint16_t>(msg, 6) = (uint16_t)g_6d10cc;
+                msg[5] = (uint8_t)hook::As<int32_t>(g_6d10d0);
+                Net_SendToHost(g_session, 0, 0x46, 0xc, msg);
+                Log_Add(g_messageLog, 0, GetString(0xbf2), 0xb, 0, 0);
             }
         }
     }
-    Pack_Release(hook::Global<uint8_t*>(0x6d4020), 0, hook::Global<void*>(0x6d111c));
-    Pack_Release(hook::Global<uint8_t*>(0x6d4020), 0, hook::Global<void*>(0x6d1120));
-    hook::Global<int32_t>(0x6d1118) = 0;
+    Pack_Release(g_pack, 0, hook::As<void*>(g_6d111c));
+    Pack_Release(g_pack, 0, hook::As<void*>(g_6d1120));
+    hook::As<int32_t>(g_6d1118) = 0;
 }
 RT3_REPLACE(0x4ec640, Merger_OfferDialog);
 
 // 0x4ecb20. Clears the new-game player slots and the lobby buffer 0x6d1270.
 RT3_NOINLINE void NewGameConfig_ClearSlots() {
-    uint8_t* c = hook::Global<uint8_t*>(0x6cec7c);
+    uint8_t* c = g_newGame;
     c[0x97] = 1;
     F<uint16_t>(c, 0x79) = 0;
     F<uint16_t>(c, 0x7b) = 0;
     for (int k = 0; k < 16; ++k) c[0x87 + k] = 0;
     for (int k = 0; k < 0x33; ++k) c[0x44 + k] = 0;
-    if (uint8_t* l = hook::Global<uint8_t*>(0x6d1270))
+    if (uint8_t* l = g_6d1270)
         for (int k = 0; k < 0x100f0 * 4 + 2; ++k) l[k] = 0;
 }
 RT3_REPLACE(0x4ecb20, NewGameConfig_ClearSlots);
@@ -1142,9 +1143,9 @@ RT3_REPLACE(0x4ecb20, NewGameConfig_ClearSlots);
 // a lobby entry exists (0xff); otherwise claims the highest one (slot id
 // k + 100, +0x7b++). 0 when none (or in mode 0x6cd914 == 1).
 RT3_NOINLINE int32_t __fastcall NewGameConfig_ClaimAiSlot(int32_t mode) {
-    if (hook::Global<int32_t>(0x6cd914) == 1) return 0;
-    uint8_t* c = hook::Global<uint8_t*>(0x6cec7c);
-    uint8_t* l = hook::Global<uint8_t*>(0x6d1270);
+    if (g_6cd914 == 1) return 0;
+    uint8_t* c = g_newGame;
+    uint8_t* l = g_6d1270;
     if (mode == 1) {
         if (!l) return 0;
         int32_t n7b = F<uint16_t>(c, 0x7b), n79 = F<uint16_t>(c, 0x79);
@@ -1156,7 +1157,7 @@ RT3_NOINLINE int32_t __fastcall NewGameConfig_ClaimAiSlot(int32_t mode) {
     for (int32_t k = 15; k >= 0; --k) {
         if (c[0x87 + k] || !l[0x31c + k * 9]) continue;
         c[0x87 + k] = (uint8_t)(k + 100);
-        F<uint16_t>(hook::Global<uint8_t*>(0x6cec7c), 0x7b)++;
+        F<uint16_t>(g_newGame, 0x7b)++;
         return 0xff;
     }
     return 0;
@@ -1165,7 +1166,7 @@ RT3_REPLACE(0x4ecb90, NewGameConfig_ClaimAiSlot);
 
 // 0x4ecc50. Lobby entries (9-byte, from +0x31b, count +0x3ae) with both flags clear.
 RT3_NOINLINE int32_t __fastcall Lobby_CountFreeEntries(uint8_t* l) {
-    if (!l) l = hook::Global<uint8_t*>(0x6d1270);
+    if (!l) l = g_6d1270;
     if (!l) return 0;
     int32_t n = 0;
     for (int32_t i = 0; i < F<int32_t>(l, 0x3ae); ++i)
@@ -1176,9 +1177,9 @@ RT3_REPLACE(0x4ecc50, Lobby_CountFreeEntries);
 
 // 0x4ecc90. Sets the lobby mode 0x6d1288 for kinds 5, 6 and 8.
 RT3_NOINLINE void __fastcall Lobby_SetMode(int32_t kind, int, int32_t, int32_t) {
-    if (kind == 5) hook::Global<int32_t>(0x6d1288) = 5;
-    else if (kind == 6) hook::Global<int32_t>(0x6d1288) = 6;
-    else if (kind == 8) hook::Global<int32_t>(0x6d1288) = 8;
+    if (kind == 5) g_6d1288 = 5;
+    else if (kind == 6) g_6d1288 = 6;
+    else if (kind == 8) g_6d1288 = 8;
 }
 RT3_REPLACE(0x4ecc90, Lobby_SetMode);
 
@@ -1200,7 +1201,7 @@ RT3_NOINLINE void __fastcall Setup_AddPortraitPicker(uint8_t* win, int, float x,
     memset(def, 0, sizeof def);
     F<float>(def, 7) = (float)((double)x + D(0x5c8590));
     char name[0x30];
-    ExeSprintf()(name, (const char*)0x5d0ab0, hook::Global<int32_t>(0x6226d0));
+    ExeSprintf()(name, (const char*)0x5d0ab0, g_6226d0);
     F<float>(def, 0xb) = (float)((double)y + D(0x5c8918));
     F<uint32_t>(def, 0xf) = 0x3dcccccd;
     F<uint32_t>(def, 0x13) = 0x3e19999a;
@@ -1246,12 +1247,12 @@ RT3_NOINLINE int32_t __fastcall Count40_StepCb(uint8_t* w, const uint32_t* ev) {
     if (ev[0] != 0xcb) return 1;
     int32_t v;
     if (ev[1] == 0x3f20) {
-        v = hook::Global<int32_t>(0x6226d0) + 1;
-        hook::Global<int32_t>(0x6226d0) = v;
-        if (v == 0x29) hook::Global<int32_t>(0x6226d0) = v = 1;
+        v = g_6226d0 + 1;
+        g_6226d0 = v;
+        if (v == 0x29) g_6226d0 = v = 1;
     } else if (ev[1] == 0x3f21) {
-        if (--hook::Global<int32_t>(0x6226d0) == 0) hook::Global<int32_t>(0x6226d0) = 0x28;
-        v = hook::Global<int32_t>(0x6226d0);
+        if (--g_6226d0 == 0) g_6226d0 = 0x28;
+        v = g_6226d0;
     } else {
         return 1;
     }
@@ -1361,9 +1362,9 @@ RT3_REPLACE(0x4ed590, NameDialog_ShowName);
 // buffered line as event 0x88 / 0xe57; the number posted (0 while busy).
 RT3_NOINLINE int32_t __fastcall GameList_Refresh(uint8_t* w) {
     int32_t n = 0;
-    if (hook::Global<int32_t>(0x6cd920)) return 0;
-    Lobby_ListGames(hook::Global<uint8_t*>(0x6cd8d8));
-    for (const char* line; (line = Obj_NextBufferedLine(hook::Global<void*>(0x6cd8d8))) != nullptr;) {
+    if (g_6cd920) return 0;
+    Lobby_ListGames(g_session);
+    for (const char* line; (line = Obj_NextBufferedLine(hook::As<void*>(g_session))) != nullptr;) {
         ++n;
         Window_SendEvent5(w, 0, 0x88, 0xe57, (uint32_t)(uintptr_t)line, 0, 0);
     }
@@ -1375,14 +1376,14 @@ RT3_REPLACE(0x4ed670, GameList_Refresh);
 // 8) / 0xe36 (style 1) of window w (event 0x6f).
 RT3_NOINLINE void __fastcall NewGameDialog_ShowSetting77(uint8_t* w) {
     char num[0x24];
-    Num_Format(num, 8, (double)F<uint16_t>(hook::Global<uint8_t*>(0x6cec7c), 0x77), 10, 1, 0, 0);
+    Num_Format(num, 8, (double)F<uint16_t>(g_newGame, 0x77), 10, 1, 0, 0);
     Window_SendEvent5(w, 0, 0x6f, 0xe2f, (uint32_t)(uintptr_t)num, 0, 0);
 }
 RT3_REPLACE(0x4ed6d0, NewGameDialog_ShowSetting77);
 
 RT3_NOINLINE void __fastcall NewGameDialog_ShowSetting7b(uint8_t* w) {
     char num[0x1f8];
-    Num_Format(num, 1, (double)F<uint16_t>(hook::Global<uint8_t*>(0x6cec7c), 0x7b), 10, 1, 0, 0);
+    Num_Format(num, 1, (double)F<uint16_t>(g_newGame, 0x7b), 10, 1, 0, 0);
     Window_SendEvent5(w, 0, 0x6f, 0xe36, (uint32_t)(uintptr_t)num, 0, 0);
 }
 RT3_REPLACE(0x4ed730, NewGameDialog_ShowSetting7b);
@@ -1390,7 +1391,7 @@ RT3_REPLACE(0x4ed730, NewGameDialog_ShowSetting7b);
 // 0x4ed790. Highlights the new game's difficulty (+0x7d) among buttons 0xe26..0xe2a.
 RT3_NOINLINE void __fastcall NewGameDialog_ShowDifficulty(uint8_t* w) {
     for (int32_t i = 0; i < 5; ++i)
-        Window_SendEvent5(w, 0, hook::Global<uint8_t*>(0x6cec7c)[0x7d] != i ? 0x87 : 0x65, 0xe26 + i, 0x20, 0, 0);
+        Window_SendEvent5(w, 0, g_newGame[0x7d] != i ? 0x87 : 0x65, 0xe26 + i, 0x20, 0, 0);
 }
 RT3_REPLACE(0x4ed790, NewGameDialog_ShowDifficulty);
 
@@ -1437,20 +1438,20 @@ RT3_REPLACE(0x4ed890, Session_StartWorker);
 // configured AI count (+0x79) whose row is empty an AI slot is claimed (mode 1, then
 // mode 0); the AI count is shown in field 0xe36 of window 0x6d1268.
 RT3_NOINLINE void __fastcall NewGame_RefreshAiSlots(uint8_t* o) {
-    if (!o) o = hook::Global<uint8_t*>(0x6d1270);
-    int32_t left = F<uint16_t>(hook::Global<uint8_t*>(0x6cec7c), 0x79);
+    if (!o) o = g_6d1270;
+    int32_t left = F<uint16_t>(g_newGame, 0x79);
     for (int32_t k = 0xf; k >= 0; --k) {
-        uint8_t* ng = hook::Global<uint8_t*>(0x6cec7c);
+        uint8_t* ng = g_newGame;
         if (ng[0x87 + k] > 100) {
             ng[0x87 + k] = 0;
-            --F<uint16_t>(hook::Global<uint8_t*>(0x6cec7c), 0x7b);
+            --F<uint16_t>(g_newGame, 0x7b);
         }
     }
     for (int32_t i = 0; i < F<int32_t>(o, 0x3ae); ++i, --left)
         if (left <= 0 && !o[0x31b + i * 9] && NewGameConfig_ClaimAiSlot(1)) NewGameConfig_ClaimAiSlot(0);
     char num[0x1f8];
-    Num_Format(num, 1, (double)F<uint16_t>(hook::Global<uint8_t*>(0x6cec7c), 0x7b), 10, 1, 0, 0);
-    Window_SendEvent5(hook::Global<uint8_t*>(0x6d1268), 0, 0x6f, 0xe36, (uint32_t)(uintptr_t)num, 0, 0);
+    Num_Format(num, 1, (double)F<uint16_t>(g_newGame, 0x7b), 10, 1, 0, 0);
+    Window_SendEvent5(g_6d1268, 0, 0x6f, 0xe36, (uint32_t)(uintptr_t)num, 0, 0);
 }
 RT3_REPLACE(0x4ed940, NewGame_RefreshAiSlots);
 
@@ -1463,9 +1464,9 @@ RT3_REPLACE(0x4ed940, NewGame_RefreshAiSlots);
 // with a human row (level 1, one more claimed) or else the first AI one (also one
 // AI fewer, then refreshes the AI slots and pumps GameSpy): 0xff, or 0 if none.
 RT3_NOINLINE int32_t __fastcall NewGame_ClaimSlot(int, int32_t mode) {
-    uint8_t* ng = hook::Global<uint8_t*>(0x6cec7c);
+    uint8_t* ng = g_newGame;
     if (mode == 1) {
-        uint8_t* p = hook::Global<uint8_t*>(0x6d1270);
+        uint8_t* p = g_6d1270;
         if (!p) return 7;
         if (F<int32_t>(p, 0x3b6) >= 4) F<int32_t>(p, 0x3b6) = 4;
         int32_t claimed = F<uint16_t>(ng, 0x79);
@@ -1481,18 +1482,18 @@ RT3_NOINLINE int32_t __fastcall NewGame_ClaimSlot(int, int32_t mode) {
         }
         return 3;
     }
-    uint8_t* rows = hook::Global<uint8_t*>(0x6d1270) + 0x31d;
+    uint8_t* rows = g_6d1270 + 0x31d;
     for (int32_t k = 0; k < 0x10; ++k)
         if (!ng[0x87 + k] && rows[k * 9]) {
             ng[0x87 + k] = 1;
-            ++F<uint16_t>(hook::Global<uint8_t*>(0x6cec7c), 0x79);
+            ++F<uint16_t>(g_newGame, 0x79);
             return 0xff;
         }
     for (int32_t k = 0; k < 0x10; ++k)
         if (ng[0x87 + k] > 100 && rows[k * 9]) {
             ng[0x87 + k] = 1;
-            ++F<uint16_t>(hook::Global<uint8_t*>(0x6cec7c), 0x79);
-            --F<uint16_t>(hook::Global<uint8_t*>(0x6cec7c), 0x7b);
+            ++F<uint16_t>(g_newGame, 0x79);
+            --F<uint16_t>(g_newGame, 0x7b);
             NewGame_RefreshAiSlots(nullptr);
             GameSpy_Pump();
             return 0xff;
@@ -1505,9 +1506,9 @@ RT3_REPLACE(0x4eda30, NewGame_ClaimSlot);
 // use (levels 1..99 at +0x87..) than the network allows (0x6d4100), frees the last
 // one in use (one fewer configured AI, +0x79) and refreshes the AI setup.
 RT3_NOINLINE void NewGame_CapAiSlots() {
-    if (!hook::Global<void*>(0x6d1268)) return;
-    int32_t limit = hook::Global<int32_t>(0x6d4100);
-    uint8_t* ng = hook::Global<uint8_t*>(0x6cec7c);
+    if (!hook::As<void*>(g_6d1268)) return;
+    int32_t limit = g_6d4100;
+    uint8_t* ng = g_newGame;
     int32_t used = 0;
     for (int32_t k = 0xf; k >= 0; --k)
         if (ng[0x87 + k] && ng[0x87 + k] < 100) ++used;
@@ -1515,7 +1516,7 @@ RT3_NOINLINE void NewGame_CapAiSlots() {
     for (int32_t k = 0xf; k >= 0; --k) {
         if (!ng[0x87 + k] || ng[0x87 + k] >= 100) continue;
         ng[0x87 + k] = 0;
-        --F<uint16_t>(hook::Global<uint8_t*>(0x6cec7c), 0x79);
+        --F<uint16_t>(g_newGame, 0x79);
         NewGame_RefreshAiSlots(nullptr);
         return;
     }
@@ -1526,16 +1527,16 @@ RT3_REPLACE(0x4edbb0, NewGame_CapAiSlots);
 // is shut down, the status text (child 0xe47) and 0x6d11a8 are cleared and the
 // worker starts in mode 4 (host) or 1.
 RT3_NOINLINE void __fastcall Session_Restart(uint8_t* w, int, int32_t host) {
-    if (uint8_t* s = hook::Global<uint8_t*>(0x6cd8d8)) {
+    if (uint8_t* s = g_session) {
         Session_Shutdown(s);
         ExeDelete(s);
-        hook::Global<uint8_t*>(0x6cd8d8) = nullptr;
+        g_session = nullptr;
     }
     uint8_t* s = (uint8_t*)ExeNew(0x9898);
-    hook::Global<uint8_t*>(0x6cd8d8) = s ? Session_Init(s) : nullptr;
+    g_session = s ? Session_Init(s) : nullptr;
     if (uint8_t* c = Widget_FindChild(w, 0, 0xe47))
         if (char* text = F<char*>(c, 0xba)) *text = 0;
-    hook::Global<char>(0x6d11a8) = 0;
+    g_6d11a8 = 0;
     Session_StartWorker_Impl(host ? 4 : 1);
 }
 RT3_REPLACE(0x4edc40, Session_Restart);
@@ -1546,7 +1547,7 @@ RT3_REPLACE(0x4edc40, Session_Restart);
 
 // 0x4edce0. Passes the name to the open name dialog (0x6d1268), if any.
 RT3_NOINLINE void __fastcall NameDialog_SetNameIfOpen(const char* name) {
-    if (uint8_t* d = hook::Global<uint8_t*>(0x6d1268)) NameDialog_SetName(d, 0, name);
+    if (uint8_t* d = g_6d1268) NameDialog_SetName(d, 0, name);
 }
 RT3_REPLACE(0x4edce0, NameDialog_SetNameIfOpen);
 
@@ -1555,15 +1556,15 @@ RT3_REPLACE(0x4edce0, NameDialog_SetNameIfOpen);
 // when the player's flags (+0x5c) have bit 0, else 0xe67. The panel's list 0xe14
 // is then refreshed (event 0x86 on pages 0xe15 / 0xe16, else 0x6d).
 void __fastcall Lobby_AddPlayerButton(int32_t, int32_t slot, int32_t key, float x, float y, float w, float) {
-    if (!hook::Global<void*>(0x6d40d0)) return;
+    if (!hook::As<void*>(g_6d40d0)) return;
     uint8_t* e = Textures_Find(key);
     if (!e) return;
     uint32_t flags = F<uint32_t>(e, 0x5c);
     Net_UnlockQueueArg(key);
     uint8_t d[0xa4];
     memset(d, 0, 0xa1);
-    F<float>(d, 7) = (float)((double)x + w - (double)hook::Global<float>(0x5d0100));
-    F<float>(d, 0xb) = (float)((double)y + (double)hook::Global<float>(0x5d0188));
+    F<float>(d, 7) = (float)((double)x + w - (double)g_5d0100);
+    F<float>(d, 0xb) = (float)((double)y + (double)g_5d0188);
     F<uint32_t>(d, 0xf) = 0x3c4ccccd;
     F<uint32_t>(d, 0x13) = 0x3c888889;
     d[0x29] = 0x20;
@@ -1577,10 +1578,10 @@ void __fastcall Lobby_AddPlayerButton(int32_t, int32_t slot, int32_t key, float 
     F<int32_t>(d, 0x89) = (flags & 1) ? 1 : 0;
     uint8_t* b = (uint8_t*)ExeNew(0xe8);
     if (b) b = Button_Construct(b, 0, d);
-    Window_AddChild(hook::Global<uint8_t*>(0x6d1268), 0, b, 0);
+    Window_AddChild(g_6d1268, 0, b, 0);
     ((void(__cdecl*)(void*))0x5a1145)(F<void*>(d, 0x43));
     ((void(__cdecl*)(void*))0x5a1145)(F<void*>(d, 0x3f));
-    uint8_t* panel = hook::Global<uint8_t*>(0x6d1268);
+    uint8_t* panel = g_6d1268;
     int32_t page = F<int32_t>(panel, 0x78);
     Window_SendEvent5(panel, 0, page == 0xe15 || page == 0xe16 ? 0x86 : 0x6d, 0xe14, 3, 0, 0);
 }
@@ -1591,8 +1592,8 @@ RT3_REPLACE(0x4edd00, Lobby_AddPlayerButton);
 // (0x6d40dc) holds, and the version +0x268c) in window `id`'s font, inset
 // by 0.018 on the left, while the player list (0x6d40d0) is up.
 void __fastcall Lobby_DrawPlayerLabel(int32_t id, int32_t key, float x, float y, float w, float h, int32_t) {
-    if (!hook::Global<void*>(0x6d40d0)) return;
-    uint8_t* win = Widget_FindChild(hook::Global<uint8_t*>(0x6d1268), 0, id);
+    if (!hook::As<void*>(g_6d40d0)) return;
+    uint8_t* win = Widget_FindChild(g_6d1268, 0, id);
     uint8_t* p = Textures_Find(key);
     if (!p) return;
     int32_t ms = F<int32_t>(p, 0x54);
@@ -1601,7 +1602,7 @@ void __fastcall Lobby_DrawPlayerLabel(int32_t id, int32_t key, float x, float y,
     strcpy(name, (const char*)p + 8);
     float version = F<float>(p, 0x268c);
     Net_UnlockQueueArg(key);
-    int32_t pings = hook::Global<int32_t>(0x6d40dc);
+    int32_t pings = g_6d40dc;
     int32_t form = marked ? (pings ? 1 : 2) : (pings ? 3 : 0);
     const char* v = Num_Format(ver, 3, (double)version, 10, 1, 0, 0);
     if (form == 0) FormatText(text, (const char*)0x5d12a0, name, v, 0, 0, 0, 0, 0, 0);
@@ -1622,12 +1623,12 @@ RT3_REPLACE(0x4ede80, Lobby_DrawPlayerLabel);
 // 0x5c87a8 with the field panel 0x4ed100, then starts the session worker (2).
 RT3_NOINLINE void __fastcall MpDialog_Connect(uint8_t* w) {
     uint8_t* box = Widget_FindChild(w, 0, F<int32_t>(w, 0x7c) == 0xe13 ? 0xe5d : 0xe48);
-    strcpy((char*)hook::Global<uint8_t*>(0x6cec74) + 0x1ef, F<const char*>(box, 0xba));
-    Options_Save(hook::Global<uint8_t*>(0x6cec74), 0, 0);
+    strcpy((char*)g_app + 0x1ef, F<const char*>(box, 0xba));
+    Options_Save(g_app, 0, 0);
     char line[0x80];
     FormatText(line, GetString(0x2ce), F<const char*>(box, 0xba), 0, 0, 0, 0, 0, 0, 0);
     strcpy((char*)0x6d1128, line);
-    hook::Global<char>(0x6d1228) = 0;
+    g_6d1228 = 0;
     Dialog_RunMessage((const char*)0x5c87a8, 1, 0xbf800000, 0xbf800000, 0x4ed4c0,
                       (void(__fastcall*)(uint8_t*, int, uint32_t, uint32_t, uint32_t, float))0x4ed100, 0, 0.0f, 0, 0x1e, 0, nullptr, nullptr, 0, 0, nullptr, 0);
     __asm {
@@ -1648,8 +1649,8 @@ RT3_REPLACE(0x4ee0e0, MpDialog_Connect);
 // (3) for addresses longer than 5 characters, else clears the address.
 RT3_NOINLINE void __fastcall MpDialog_Join(uint8_t* w, int, const char* address) {
     uint8_t* name = Widget_FindChild(w, 0, F<int32_t>(w, 0x7c) == 0xe13 ? 0xe5d : 0xe48);
-    strcpy((char*)hook::Global<uint8_t*>(0x6cec74) + 0x1ef, F<const char*>(name, 0xba));
-    Options_Save(hook::Global<uint8_t*>(0x6cec74), 0, 0);
+    strcpy((char*)g_app + 0x1ef, F<const char*>(name, 0xba));
+    Options_Save(g_app, 0, 0);
     char* target = (char*)0x6d11a8;
     if (!address) {
         uint8_t* box = Widget_FindChild(w, 0, 0xe47);
@@ -1659,22 +1660,22 @@ RT3_NOINLINE void __fastcall MpDialog_Join(uint8_t* w, int, const char* address)
                 Message_Show(GetString(0x2cc), 1, 0);
                 return;
             }
-            uint8_t* entries = Lobby_FreshList(hook::Global<uint8_t*>(0x6cd8d8));
+            uint8_t* entries = Lobby_FreshList(g_session);
             strcpy(target, (const char*)entries + F<int32_t>(list, 0x1d6) * 0x11c + 0x84);
         } else
             strcpy(target, F<const char*>(box, 0xba));
     } else
         strcpy(target, address);
-    if (hook::Global<uint32_t>(0x6cd920)) {
-        if (hook::Global<int32_t>(0x6ae3c8) <= 1) {
-            if (hook::Global<char>(0x6ae3cc)) {
+    if (hook::As<uint32_t>(g_6cd920)) {
+        if (g_6ae3c8 <= 1) {
+            if (g_6ae3cc) {
                 memset((void*)0x6d1228, 0, 0x40);
                 ((char*(__cdecl*)(char*, const char*, size_t))0x5a18a0)((char*)0x6d1228, (const char*)0x6ae3cc, 0x3f);
             } else
-                hook::Global<char>(0x6d1228) = 0;
+                g_6d1228 = 0;
         }
     } else
-        hook::Global<char>(0x6d1228) = 0;
+        g_6d1228 = 0;
     if (strlen(target) > 5) {
         Session_StartWorkerMode(3);
         return;
@@ -1687,21 +1688,21 @@ RT3_REPLACE(0x4ee1d0, MpDialog_Join);
 // 0x4ee3a0. Options screen destructor: saves the options and frees its globals.
 void __fastcall OptionsScreen_Destruct(uint8_t* w) {
     F<uint32_t>(w, 0) = 0x5d12ac;
-    hook::Global<int32_t>(0x6d1268) = 0;
-    F<uint32_t>(Options(), 0x30d) = hook::Global<uint32_t>(0x6226d0);
+    hook::As<int32_t>(g_6d1268) = 0;
+    F<uint32_t>(Options(), 0x30d) = hook::As<uint32_t>(g_6226d0);
     Options_Save(Options(), 0, 0);
-    if (void* p = hook::Global<void*>(0x6d126c)) {
+    if (void* p = hook::As<void*>(g_6d126c)) {
         Obj_FreeBuffer8(p);
         ExeDelete(p);
-        hook::Global<void*>(0x6d126c) = nullptr;
+        hook::As<void*>(g_6d126c) = nullptr;
     }
-    if (void* p = hook::Global<void*>(0x6d1270)) {
+    if (void* p = hook::As<void*>(g_6d1270)) {
         ExeDelete(p);
-        hook::Global<void*>(0x6d1270) = nullptr;
+        hook::As<void*>(g_6d1270) = nullptr;
     }
-    if (void* p = hook::Global<void*>(0x6d1294)) {
+    if (void* p = hook::As<void*>(g_6d1294)) {
         ((void(__thiscall*)(void*, int32_t))(*(void***)p)[0])(p, 1);
-        hook::Global<void*>(0x6d1294) = nullptr;
+        hook::As<void*>(g_6d1294) = nullptr;
     }
     Widget_SetVtbl(w);
 }
@@ -1713,7 +1714,7 @@ RT3_NOINLINE void __fastcall Window_SetMode1(uint8_t* w, int, int32_t mode) {
     if (mode == 1) {
         Window_SendEvent5(w, 0, 0x86, 0xe12, 3, 0, 0);
         Window_SendEvent5(w, 0, 0x86, 0xe18, 3, 0, 0);
-        if (hook::Global<int32_t>(0x6d40dc)) Window_SendEvent5(w, 0, 0x65, 0xe73, 3, 0, 0);
+        if (g_6d40dc) Window_SendEvent5(w, 0, 0x65, 0xe73, 3, 0, 0);
         return;
     }
     Window_SendEvent5(w, 0, 0x6d, 0xe12, 3, 0, 0);
@@ -1724,7 +1725,7 @@ RT3_REPLACE(0x4ee430, Window_SetMode1);
 
 // 0x4ee4c0. Sends the empty message 0x69 to everyone (reliable from the host).
 RT3_NOINLINE void Net_SendReady() {
-    Net_Send(hook::Global<uint8_t*>(0x6cd8d8), 0, nullptr, 0x69, 0, nullptr, hook::Global<int32_t>(0x6d40dc) ? 3 : 1, 0);
+    Net_Send(g_session, 0, nullptr, 0x69, 0, nullptr, g_6d40dc ? 3 : 1, 0);
 }
 RT3_REPLACE(0x4ee4c0, Net_SendReady);
 
@@ -1744,13 +1745,13 @@ RT3_REPLACE(0x4ee500, Net_AllPlayersFlag1);
 // without a session it restarts it; outside the browser it then sends this
 // player's ready bit (engine entry +0x5c bit 0) as message 9.
 RT3_NOINLINE void __fastcall Lobby_RefreshPlayers(uint8_t* w) {
-    if (hook::Global<uint8_t>(0x6d1290)) return;
-    hook::Global<uint8_t>(0x6d1290) = 1;
+    if (g_6d1290) return;
+    g_6d1290 = 1;
     int32_t list = F<int32_t>(w, 0x7c) == 0xe13 ? 0xe57 : 0xe35;
     int32_t n = 0;
     if (F<int32_t>(Widget_FindChild(w, 0, list), 0x1d6) > -1) TreeView_SelectedData(Widget_FindChild(w, 0, list));
     if (F<int32_t>(Widget_FindChild(w, 0, list), 0x1d2)) Window_SendEvent5(w, 0, 0x8b, (uint32_t)list, 0, 0, 0);
-    if (list == 0xe57 && !hook::Global<int32_t>(0x6cd920)) {
+    if (list == 0xe57 && !g_6cd920) {
         n = GameList_Refresh(w);
     } else {
         uint32_t names[0x10];
@@ -1759,16 +1760,16 @@ RT3_NOINLINE void __fastcall Lobby_RefreshPlayers(uint8_t* w) {
         Net_UnlockQueue();
         for (int32_t i = 0; i < n; ++i) Window_SendEvent5(w, 0, 0x88, (uint32_t)list, 0, names[i], 0);
     }
-    if (!n && !hook::Global<int32_t>(0x6cd920)) {
-        Session_Restart(w, 0, F<int32_t>(hook::Global<uint8_t*>(0x6cd8d8), 0x985c));
-        hook::Global<uint8_t>(0x6d1290) = 0;
+    if (!n && !g_6cd920) {
+        Session_Restart(w, 0, F<int32_t>(g_session, 0x985c));
+        g_6d1290 = 0;
         return;
     }
     if (F<int32_t>(w, 0x7c) != 0xe13) {
         uint8_t ready = F<uint8_t>(Engine_FirstListEntry(), 0x5c) & 1;
-        Net_Send(hook::Global<uint8_t*>(0x6cd8d8), 0, nullptr, 9, 1, &ready, 3, 0);
+        Net_Send(g_session, 0, nullptr, 9, 1, &ready, 3, 0);
     }
-    hook::Global<uint8_t>(0x6d1290) = 0;
+    g_6d1290 = 0;
 }
 RT3_REPLACE(0x4ee540, Lobby_RefreshPlayers);
 
@@ -1777,8 +1778,8 @@ RT3_REPLACE(0x4ee540, Lobby_RefreshPlayers);
 // selection on the game of the same name. Skipped while connected (0x6cd920),
 // while it runs (0x6d1290) or when the status text (0xe47) isn't blank.
 RT3_NOINLINE void __fastcall GameList_Fill(uint8_t* w) {
-    if (hook::Global<int32_t>(0x6cd920) || hook::Global<char>(0x6d1290)) return;
-    hook::Global<char>(0x6d1290) = 1;
+    if (g_6cd920 || hook::As<char>(g_6d1290)) return;
+    hook::As<char>(g_6d1290) = 1;
     uint32_t list = F<int32_t>(w, 0x7c) == 0xe13 ? 0xe56 : 0xe22;
     char name[0x100];
     memset(name, 0, sizeof name);
@@ -1790,7 +1791,7 @@ RT3_NOINLINE void __fastcall GameList_Fill(uint8_t* w) {
     int32_t count = 0;
     Window_SendEvent5(w, 0, 0x8b, list, 0, 0, 0);
     uint8_t* status = Widget_FindChild(w, 0, 0xe47);
-    uint8_t* games = Lobby_FreshList(hook::Global<uint8_t*>(0x6cd8d8));
+    uint8_t* games = Lobby_FreshList(g_session);
     if (Str_IsBlank(F<const char*>(status, 0xba))) {
         uint8_t* g = games + 4;
         for (int32_t k = 0; k < 0x80; ++k, g += 0x11c) {
@@ -1804,7 +1805,7 @@ RT3_NOINLINE void __fastcall GameList_Fill(uint8_t* w) {
             }
         }
     }
-    hook::Global<char>(0x6d1290) = 0;
+    hook::As<char>(g_6d1290) = 0;
 }
 RT3_REPLACE(0x4ee6a0, GameList_Fill);
 
@@ -1813,27 +1814,27 @@ RT3_REPLACE(0x4ee6a0, GameList_Fill);
 // list's width (one line only with 0x6d4034), lines without a '>' (system
 // messages) in green, and scrolls to the end; null clears the list.
 RT3_NOINLINE void __fastcall Lobby_AddChatText(const char* text) {
-    uint8_t* win = hook::Global<uint8_t*>(0x6d1268);
+    uint8_t* win = g_6d1268;
     if (!win) return;
     int32_t id = F<int32_t>(win, 0x7c) == 0xe13 ? 0xe5c : 0xe32;
     if (!text) {
         uint8_t* lb = Widget_FindChild(win, 0, id);
-        if (lb && F<int32_t>(lb, 0x1d2)) Window_SendEvent5(hook::Global<uint8_t*>(0x6d1268), 0, 0x8b, id, 0, 0, 0);
+        if (lb && F<int32_t>(lb, 0x1d2)) Window_SendEvent5(g_6d1268, 0, 0x8b, id, 0, 0, 0);
         return;
     }
     uint32_t color = 0;
     if (!strchr(text, '>')) color = 0xff00ff00;
-    uint8_t* lb = Widget_FindChild(hook::Global<uint8_t*>(0x6d1268), 0, id);
+    uint8_t* lb = Widget_FindChild(g_6d1268, 0, id);
     if (!lb) return;
     int32_t n = Font_CountLines(F<uint8_t*>(lb, 0x63), 0, text, F<float>(lb, 0xae), nullptr);
-    if (hook::Global<int32_t>(0x6d4034) && n >= 1) n = 1;
+    if (g_6d4034 && n >= 1) n = 1;
     char line[0x400];
     for (int32_t i = 1; i <= n; ++i) {
         Font_GetLine(F<uint8_t*>(lb, 0x63), 0, text, F<float>(lb, 0xae), i, line);
-        Window_SendEvent5(hook::Global<uint8_t*>(0x6d1268), 0, 0x88, id, (uint32_t)(uintptr_t)line, 0, 0);
+        Window_SendEvent5(g_6d1268, 0, 0x88, id, (uint32_t)(uintptr_t)line, 0, 0);
         if (color) F<uint32_t>(F<uint8_t*>(lb, 0x176), F<int32_t>(lb, 0x1d2) * 0x20 - 0x14) = color;
     }
-    Window_SendEvent5(hook::Global<uint8_t*>(0x6d1268), 0, 0x66, id, (uint32_t)(F<int32_t>(lb, 0x1d2) - 1), 0, 0);
+    Window_SendEvent5(g_6d1268, 0, 0x66, id, (uint32_t)(F<int32_t>(lb, 0x1d2) - 1), 0, 0);
 }
 RT3_REPLACE(0x4ee810, Lobby_AddChatText);
 
@@ -1845,51 +1846,51 @@ RT3_REPLACE(0x4ee810, Lobby_AddChatText);
 // fills in year, title, description, size and the players line (string
 // 0xe6c) and the preview, then pumps GameSpy and refreshes the dialog.
 RT3_NOINLINE void __fastcall MpScenarioPanel_Update(uint8_t* d, int, const char* path, const char* name, int32_t force) {
-    uint8_t* g = hook::Global<uint8_t*>(0x6cec7c);
+    uint8_t* g = g_newGame;
     if (path) {
         if (!force && g[0x10] && !Stricmp((const char*)g + 0x11, path)) return;
-        hook::Global<uint8_t*>(0x6cec7c)[0x10] = 1;
-        StrCopyN((char*)hook::Global<uint8_t*>(0x6cec7c) + 0x11, path, 0x32);
-        StrCopyN((char*)hook::Global<uint8_t*>(0x6cec7c) + 0x44, name, 0x32);
+        g_newGame[0x10] = 1;
+        StrCopyN((char*)g_newGame + 0x11, path, 0x32);
+        StrCopyN((char*)g_newGame + 0x44, name, 0x32);
     } else {
         if (!force && g[0x10]) return;
         g[0x10] = 0;
     }
-    if (!hook::Global<uint8_t*>(0x6cec7c)[0x10]) {
+    if (!g_newGame[0x10]) {
         static const uint32_t ids[] = { 0xe23, 0xe2e, 0xe4b };
         for (uint32_t id : ids) Window_SendEvent5(d, 0, 0x6f, id, 0x5c87a8, 0, 0);
         return;
     }
-    const char* hit = ((const char*(__cdecl*)(const char*, const char*))0x5a1ff0)((const char*)hook::Global<uint8_t*>(0x6cec7c) + 0x11, (const char*)0x5c9cf8);
-    F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x6c) = !hit;
-    Block_Load((const char*)hook::Global<uint8_t*>(0x6cec7c) + 0x11, hook::Global<uint8_t*>(0x6d1270), 0);
-    uint8_t* info = hook::Global<uint8_t*>(0x6d1270);
+    const char* hit = ((const char*(__cdecl*)(const char*, const char*))0x5a1ff0)((const char*)g_newGame + 0x11, (const char*)0x5c9cf8);
+    F<int32_t>(g_app, 0x6c) = !hit;
+    Block_Load((const char*)g_newGame + 0x11, g_6d1270, 0);
+    uint8_t* info = g_6d1270;
     int32_t players = F<int32_t>(info, 0x3b6);
     if (players >= 4) players = 4;
     F<int32_t>(info, 0x3b6) = players;
-    F<int32_t>(hook::Global<uint8_t*>(0x6d1270), 0x3b2) = 1;
-    if (hook::Global<int32_t>(0x6d40dc) && hook::Global<int32_t>(0x6226d4))
-        F<uint16_t>(hook::Global<uint8_t*>(0x6cec7c), 0x77) = F<uint16_t>(hook::Global<uint8_t*>(0x6d1270), 0xc);
-    Obj_ApplySetup(hook::Global<uint8_t*>(0x6cec7c), 0, hook::Global<uint8_t*>(0x6d1270));
+    F<int32_t>(g_6d1270, 0x3b2) = 1;
+    if (g_6d40dc && g_6226d4)
+        F<uint16_t>(g_newGame, 0x77) = F<uint16_t>(g_6d1270, 0xc);
+    Obj_ApplySetup(g_newGame, 0, g_6d1270);
     char yearText[0x20], aText[0x20], bText[0x20], line[0x200];
-    Num_Format(yearText, 8, (double)F<uint16_t>(hook::Global<uint8_t*>(0x6cec7c), 0x77), 10, 1, 0, 0);
+    Num_Format(yearText, 8, (double)F<uint16_t>(g_newGame, 0x77), 10, 1, 0, 0);
     Window_SendEvent5(d, 0, 0x6f, 0xd4f, (uint32_t)(uintptr_t)yearText, 0, 0);
-    Window_SendEvent5(d, 0, 0x6f, 0xe23, (uint32_t)(uintptr_t)(hook::Global<uint8_t*>(0x6cec7c) + 0x44), 0, 0);
-    Window_SendEvent5(d, 0, 0x6f, 0xe2e, (uint32_t)(uintptr_t)(hook::Global<uint8_t*>(0x6d1270) + 0x70), 0, 0);
-    const char* ws = Num_Format(aText, 8, (double)F<int32_t>(hook::Global<uint8_t*>(0x6d1270), 5), 10, 1, 0, 0);
-    const char* hs = Num_Format(bText, 8, (double)F<int32_t>(hook::Global<uint8_t*>(0x6d1270), 1), 10, 1, 0, 0);
+    Window_SendEvent5(d, 0, 0x6f, 0xe23, (uint32_t)(uintptr_t)(g_newGame + 0x44), 0, 0);
+    Window_SendEvent5(d, 0, 0x6f, 0xe2e, (uint32_t)(uintptr_t)(g_6d1270 + 0x70), 0, 0);
+    const char* ws = Num_Format(aText, 8, (double)F<int32_t>(g_6d1270, 5), 10, 1, 0, 0);
+    const char* hs = Num_Format(bText, 8, (double)F<int32_t>(g_6d1270, 1), 10, 1, 0, 0);
     FormatText(line, GetString(0x2b2), hs, ws, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
-    info = hook::Global<uint8_t*>(0x6d1270);
+    info = g_6d1270;
     if (F<int32_t>(info, 5) * F<int32_t>(info, 1) > 0x51000) strcat(line, GetString(0xe0c));
     Window_SendEvent5(d, 0, 0x6f, 0xe4b, (uint32_t)(uintptr_t)line, 0, 0);
-    const char* maxs = Num_Format(aText, 1, (double)F<int32_t>(hook::Global<uint8_t*>(0x6d1270), 0x3b6), 10, 1, 0, 0);
-    const char* mins = Num_Format(bText, 1, (double)F<int32_t>(hook::Global<uint8_t*>(0x6d1270), 0x3b2), 10, 1, 0, 0);
+    const char* maxs = Num_Format(aText, 1, (double)F<int32_t>(g_6d1270, 0x3b6), 10, 1, 0, 0);
+    const char* mins = Num_Format(bText, 1, (double)F<int32_t>(g_6d1270, 0x3b2), 10, 1, 0, 0);
     FormatText(line, GetString(0xe6c), mins, maxs, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
     Window_SendEvent5(d, 0, 0x6f, 0xe50, (uint32_t)(uintptr_t)line, 0, 0);
-    Widget_SetPicture(Widget_FindChild(d, 0, 0xe4a), 0, hook::Global<uint8_t*>(0x6d1270) + 0x3c2, 0x100, 0x100);
-    if (hook::Global<int32_t>(0x6d40dc)) GameSpy_Pump();
+    Widget_SetPicture(Widget_FindChild(d, 0, 0xe4a), 0, g_6d1270 + 0x3c2, 0x100, 0x100);
+    if (g_6d40dc) GameSpy_Pump();
     NewGameDialog_ShowSetting77(d);
-    Window_SetMode1(d, 0, hook::Global<int32_t>(0x6ce9bc));
+    Window_SetMode1(d, 0, g_6ce9bc);
 }
 RT3_REPLACE(0x4ee950, MpScenarioPanel_Update);
 
@@ -1898,12 +1899,12 @@ RT3_REPLACE(0x4ee950, MpScenarioPanel_Update);
 // current one (0x6cec7c +0x44) and shows it.
 void __fastcall MpScenarioList_Fill(uint8_t* d) {
     Window_SendEvent5(d, 0, 0x8b, 0xe30, 0, 0, 0);
-    for (int32_t i = 0; i < F<int32_t>(hook::Global<uint8_t*>(0x6d126c), 0); ++i) {
-        Window_SendEvent5(d, 0, 0x88, 0xe30, (uint32_t)(uintptr_t)(F<uint8_t*>(hook::Global<uint8_t*>(0x6d126c), 8) + i * 0x25a + 0x12d), 0, 0);
-        if (!Stricmp((const char*)F<uint8_t*>(hook::Global<uint8_t*>(0x6d126c), 8) + i * 0x25a + 0x12d, (const char*)hook::Global<uint8_t*>(0x6cec7c) + 0x44))
+    for (int32_t i = 0; i < F<int32_t>(g_6d126c, 0); ++i) {
+        Window_SendEvent5(d, 0, 0x88, 0xe30, (uint32_t)(uintptr_t)(F<uint8_t*>(g_6d126c, 8) + i * 0x25a + 0x12d), 0, 0);
+        if (!Stricmp((const char*)F<uint8_t*>(g_6d126c, 8) + i * 0x25a + 0x12d, (const char*)g_newGame + 0x44))
             Window_SendEvent5(d, 0, 0x66, 0xe30, (uint32_t)i, 0, 0);
     }
-    uint8_t* g = hook::Global<uint8_t*>(0x6cec7c);
+    uint8_t* g = g_newGame;
     if (g[0x10]) MpScenarioPanel_Update(d, 0, (const char*)g + 0x11, (const char*)g + 0x44, 1);
     else MpScenarioPanel_Update(d, 0, nullptr, nullptr, 1);
 }
@@ -1919,14 +1920,14 @@ RT3_NOINLINE void __fastcall MpScenario_SelectSource(uint8_t* dialog, int, int32
     if (choice == 0xe15) Event(dialog, 0x6d, 0xe17, 3);
     else if (choice == -1 && F_dialog_flow<int32_t>(dialog, 0x7c) != 0xe12) {
         Event(dialog, 0x86, 0xe17, 3);
-        if (hook::Global<int32_t>(0x6ce9bc) == 1) Event(dialog, 0x86, 0xe18, 3);
+        if (g_6ce9bc == 1) Event(dialog, 0x86, 0xe18, 3);
     }
     Event(dialog, choice == 0xe15 ? 0x65 : 0x87, 0xe24, 0x20);
     Event(dialog, choice == 0xe16 ? 0x65 : 0x87, 0xe25, 0x20);
     Event(dialog, choice == -1 && F_dialog_flow<int32_t>(dialog, 0x7c) == 0xe12 ? 0x6d : 0x86, 0xe14, 3);
     if (choice != 0xe15) {
-        if (hook::Global<uint8_t>(0x6d1291)) {
-            uint8_t* options = hook::Global<uint8_t*>(0x6cec7c);
+        if (g_6d1291) {
+            uint8_t* options = g_newGame;
             hook::Orig<void(__fastcall*)(uint8_t*, int, const char*, const char*, int32_t)>(0x4ee950)(
                 dialog, 0, options[0x10] ? (const char*)options + 0x11 : nullptr,
                 options[0x10] ? (const char*)options + 0x44 : nullptr, options[0x10] ? 1 : 0);
@@ -1935,29 +1936,29 @@ RT3_NOINLINE void __fastcall MpScenario_SelectSource(uint8_t* dialog, int, int32
     }
     char text[32];
     hook::Orig<char*(__fastcall*)(char*, int32_t, double, int32_t, int32_t, int32_t, int32_t)>(0x51b700)(
-        text, 8, (double)F_dialog_flow<uint16_t>(hook::Global<void*>(0x6cec7c), 0x77), 10, 1, 0, 0);
+        text, 8, (double)F_dialog_flow<uint16_t>(hook::As<void*>(g_newGame), 0x77), 10, 1, 0, 0);
     Event(dialog, 0x6f, 0xe2f, (uint32_t)(uintptr_t)text);
-    F_dialog_flow<int32_t>(hook::Global<void*>(0x6cec74), 0x6c) = 1;
-    hook::Orig<void(__fastcall*)(void*, int, int32_t)>(0x482e50)(hook::Global<void*>(0x6cec74), 0, 0);
-    uint8_t* list = hook::Global<uint8_t*>(0x6d126c);
+    F_dialog_flow<int32_t>(hook::As<void*>(g_app), 0x6c) = 1;
+    hook::Orig<void(__fastcall*)(void*, int, int32_t)>(0x482e50)(hook::As<void*>(g_app), 0, 0);
+    uint8_t* list = g_6d126c;
     bool copy;
     if (!list) {
         uint8_t* mem = hook::Orig<uint8_t*(__cdecl*)(uint32_t)>(0x53b070)(12);
         list = mem ? hook::Orig<uint8_t*(__fastcall*)(uint8_t*, int, int32_t)>(0x4336a0)(mem, 0, 7) : nullptr;
         // The native CMP dereferences the result before publishing it.
         int32_t count = *(volatile int32_t*)list;
-        hook::Global<uint8_t*>(0x6d126c) = list;
+        g_6d126c = list;
         copy = count > 0;
-    } else copy = F_dialog_flow<int32_t>(list, 0) > 0 && hook::Global<int32_t>(0x6d40dc);
+    } else copy = F_dialog_flow<int32_t>(list, 0) > 0 && g_6d40dc;
     if (copy) {
-        hook::Global<uint8_t*>(0x6cec7c)[0x10] = 1;
+        g_newGame[0x10] = 1;
         hook::Orig<void(__fastcall*)(char*, const char*, uint32_t)>(0x51d8a0)(
-            (char*)hook::Global<void*>(0x6cec7c) + 0x11, F_dialog_flow<const char*>(list, 8), 50);
-        list = hook::Global<uint8_t*>(0x6d126c);
+            (char*)hook::As<void*>(g_newGame) + 0x11, F_dialog_flow<const char*>(list, 8), 50);
+        list = g_6d126c;
         hook::Orig<void(__fastcall*)(char*, const char*, uint32_t)>(0x51d8a0)(
-            (char*)hook::Global<void*>(0x6cec7c) + 0x44, F_dialog_flow<const char*>(list, 8) + 0x12d, 50);
+            (char*)hook::As<void*>(g_newGame) + 0x44, F_dialog_flow<const char*>(list, 8) + 0x12d, 50);
     }
-    if (!hook::Global<uint8_t>(0x6d1291)) hook::Orig<void(__fastcall*)(uint8_t*)>(0x4eed30)(dialog);
+    if (!g_6d1291) hook::Orig<void(__fastcall*)(uint8_t*)>(0x4eed30)(dialog);
 }
 RT3_REPLACE(0x4eee00, MpScenario_SelectSource);
 
@@ -1970,7 +1971,7 @@ RT3_NOINLINE void __fastcall MpDialog_SelectMode(uint8_t* dialog, int, int32_t c
     uint32_t state = 0x86;
     if (choice == 0xe11) {
         char buffer[128];
-        char* address = hook::Orig<char*(__fastcall*)(void*, int, char*)>(0x5216f0)(hook::Global<void*>(0x6d40d0), 0, buffer);
+        char* address = hook::Orig<char*(__fastcall*)(void*, int, char*)>(0x5216f0)(hook::As<void*>(g_6d40d0), 0, buffer);
         Event_dialog_selection(dialog, 0x6f, 0xe46, (uint32_t)(uintptr_t)address);
     } else if (choice == 0xe12) {
         hook::Orig<void(__fastcall*)(uint8_t*)>(0x4ed730)(dialog);
@@ -1979,7 +1980,7 @@ RT3_NOINLINE void __fastcall MpDialog_SelectMode(uint8_t* dialog, int, int32_t c
         Event_dialog_selection(dialog, 0x7e, 0xe35, 0x4edd00);
         Event_dialog_selection(dialog, 0x7f, 0xe35, 0x4ed570);
         hook::Orig<void(__fastcall*)(uint8_t*, int, int32_t)>(0x4eee00)(dialog, 0, 0xe15);
-        if (F_dialog_selection<int32_t>(hook::Global<void*>(0x6cd8d8), 0x985c)) state = 0x6d;
+        if (F_dialog_selection<int32_t>(hook::As<void*>(g_session), 0x985c)) state = 0x6d;
     } else if (choice == 0xe10) {
         if (!hook::Orig<uint8_t(__cdecl*)()>(0x51b6f0)()) Event_dialog_selection(dialog, 0x87, 0xe4c, 3);
     } else if (choice == 0xe13) state = 0x6d;
@@ -1998,8 +1999,8 @@ RT3_REPLACE(0x4ef090, MpDialog_SelectMode);
 // proposes "RT3Player<n>" instead (0x6ae3c4 = 2), a lobby result 8 / 5 / 6
 // goes back to the mode choice (0xe13). Returns 1, or 0 with nothing pending.
 RT3_NOINLINE int32_t MpSession_ReportEvent() {
-    if (hook::Global<int32_t>(0x6d1278) != 1) return 0;
-    hook::Global<int32_t>(0x6d1278) = 0;
+    if (g_6d1278 != 1) return 0;
+    g_6d1278 = 0;
     char text[0x100], name[0x100];
     auto show = [&](const char* t) {
         Dialog_RunMessage(t, 1, 0xbf800000, 0xbf800000, 0, nullptr, 0, 0.0f, 0, 0x1e, 0, nullptr, nullptr, 0, 0, nullptr, 0);
@@ -2009,10 +2010,10 @@ RT3_NOINLINE int32_t MpSession_ReportEvent() {
         show(text);
     };
     auto endSession = []() {
-        if (uint8_t* s = hook::Global<uint8_t*>(0x6cd8d8)) {
+        if (uint8_t* s = g_session) {
             Session_Shutdown(s);
             ((void(__cdecl*)(void*))0x53b080)(s);
-            hook::Global<uint8_t*>(0x6cd8d8) = nullptr;
+            g_session = nullptr;
         }
     };
     auto toMenu = [&]() {
@@ -2021,19 +2022,19 @@ RT3_NOINLINE int32_t MpSession_ReportEvent() {
     };
     // A random name for the retry (the rand of 0x624324).
     auto randomName = [&]() {
-        const uint32_t x = hook::Global<uint32_t>(0x624324) * 0x19660d + 0x3c6ef35f;
-        hook::Global<uint32_t>(0x624324) = x;
+        const uint32_t x = g_lcg * 0x19660d + 0x3c6ef35f;
+        g_lcg = x;
         ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)(name, (const char*)0x5ce1e4, (int32_t)(x & 0x7fff) % 1000);
     };
-    auto gameSpyRetry = []() { return hook::Global<int32_t>(0x6cd920) && hook::Global<int32_t>(0x6ae3c8) < 3; };
-    switch (hook::Global<int32_t>(0x6d1280)) {
+    auto gameSpyRetry = []() { return g_6cd920 && g_6ae3c8 < 3; };
+    switch (g_6d1280) {
     case 1: {
         strcpy(text, GetString(0xe4f));
         const char* err = nullptr;
-        if (hook::Global<int32_t>(0x6d4118))
+        if (g_6d4118)
             err = Net_SocketErrorText();
-        else if (hook::Global<int32_t>(0x6d411c))
-            err = Net_ErrorText(hook::Global<int32_t>(0x6d411c));
+        else if (g_6d411c)
+            err = Net_ErrorText(g_6d411c);
         if (err) {
             const char* what = GetString(0xe4f);
             FormatText(text, GetString(0xfe4), what, err, 0, 0, 0, 0, 0, 0);
@@ -2043,13 +2044,13 @@ RT3_NOINLINE int32_t MpSession_ReportEvent() {
         return 1;
     }
     case 5:
-        hook::Global<int32_t>(0x6cd920) = 0;
+        g_6cd920 = 0;
         endSession();
         strcpy(text, GetString(0xe50));
         toMenu();
         return 1;
     case 0xa:
-        if (hook::Global<uint8_t>(0x6d1292)) show(GetString(0xe51));
+        if (g_6d1292) show(GetString(0xe51));
         return 1;
     case 0xb:
         if (!gameSpyRetry()) {
@@ -2057,8 +2058,8 @@ RT3_NOINLINE int32_t MpSession_ReportEvent() {
             return 1;
         }
         randomName();
-        NameDialog_ShowName(hook::Global<uint8_t*>(0x6d1268), 0, name);
-        hook::Global<int32_t>(0x6ae3c4) = 2;
+        NameDialog_ShowName(g_6d1268, 0, name);
+        g_6ae3c4 = 2;
         return 1;
     case 0xc:
         show(GetString(0xe53));
@@ -2070,36 +2071,36 @@ RT3_NOINLINE int32_t MpSession_ReportEvent() {
         if (!gameSpyRetry())
             show(GetString(0x2cd));
         else
-            hook::Global<int32_t>(0x6ae3c4) = 2;
+            g_6ae3c4 = 2;
         return 1;
     case 7:
         say(0xe54);
-        Session_Restart(hook::Global<uint8_t*>(0x6d1268), 0, F<int32_t>(hook::Global<uint8_t*>(0x6cd8d8), 0x985c));
+        Session_Restart(g_6d1268, 0, F<int32_t>(g_session, 0x985c));
         return 1;
     case 3: {
-        Session_Restart(hook::Global<uint8_t*>(0x6d1268), 0, F<int32_t>(hook::Global<uint8_t*>(0x6cd8d8), 0x985c));
+        Session_Restart(g_6d1268, 0, F<int32_t>(g_session, 0x985c));
         static const int32_t kJoin[9] = { 0xe55, 0xe56, 0xe57, 0xe58, 0xe92, 0xe92, 0xe59, 0xe92, 0xf53 };
-        const int32_t r = hook::Global<int32_t>(0x6d1284);
+        const int32_t r = g_6d1284;
         if (r == 4 && gameSpyRetry()) {
             randomName();
-            NameDialog_ShowName(hook::Global<uint8_t*>(0x6d1268), 0, name);
-            hook::Global<int32_t>(0x6ae3c4) = 2;
+            NameDialog_ShowName(g_6d1268, 0, name);
+            g_6ae3c4 = 2;
             return 1;
         }
         say((uint32_t)(r - 1) <= 8 ? kJoin[r - 1] : 0xe59);
         return 1;
     }
     case 6: {
-        const int32_t r = hook::Global<int32_t>(0x6d1288);
+        const int32_t r = g_6d1288;
         if (r == 8) {
             strcpy(text, GetString(0xe5a));
         } else if (r == 5) {
             if (gameSpyRetry()) {
                 // QUIRK: the random name is made but the dialog gets 0x6ae2c4.
                 randomName();
-                NameDialog_ShowName(hook::Global<uint8_t*>(0x6d1268), 0, (const char*)0x6ae2c4);
-                hook::Global<int32_t>(0x6d1288) = 0;
-                hook::Global<int32_t>(0x6ae3c4) = 2;
+                NameDialog_ShowName(g_6d1268, 0, (const char*)0x6ae2c4);
+                g_6d1288 = 0;
+                g_6ae3c4 = 2;
                 return 1;
             }
             strcpy(text, GetString(0xe5b));
@@ -2109,13 +2110,13 @@ RT3_NOINLINE int32_t MpSession_ReportEvent() {
             endSession();
             strcpy(text, GetString(0xe5d));
             toMenu();
-            hook::Global<int32_t>(0x6d1288) = 0;
+            g_6d1288 = 0;
             return 1;
         }
         show(text);
-        MpDialog_SelectMode(hook::Global<uint8_t*>(0x6d1268), 0, 0xe13);
-        hook::Global<int32_t>(0x6cd8dc) = 1;
-        hook::Global<int32_t>(0x6d1288) = 0;
+        MpDialog_SelectMode(g_6d1268, 0, 0xe13);
+        g_6cd8dc = 1;
+        g_6d1288 = 0;
         return 1;
     }
     case 8:
@@ -2143,51 +2144,51 @@ RT3_REPLACE(0x4ef200, MpSession_ReportEvent);
 // and dropping the modal count. Returns 0x7f.
 uint32_t __fastcall SessionWorker_Run(uint8_t* thr) {
     auto sleep = [] { hook::Global<uint32_t(__stdcall*)(uint32_t, int32_t)>(0x5c8064)(0, 0); };
-    auto s = [] { return hook::Global<uint8_t*>(0x6cd8d8); };
-    auto name = [] { return (const char*)hook::Global<uint8_t*>(0x6cec74) + 0x1ef; };
+    auto s = [] { return g_session; };
+    auto name = [] { return (const char*)g_app + 0x1ef; };
     auto done = [](int32_t result) {
-        hook::Global<int32_t>(0x6d1278) = 1;
-        hook::Global<int32_t>(0x6d1280) = result;
+        g_6d1278 = 1;
+        g_6d1280 = result;
     };
     auto selectMode = [](int32_t mode) {
-        hook::Global<uint8_t>(0x6d1291) = 1;
-        MpDialog_SelectMode(hook::Global<uint8_t*>(0x6d1268), 0, mode);
-        hook::Global<uint8_t>(0x6d1291) = 0;
+        g_6d1291 = 1;
+        MpDialog_SelectMode(g_6d1268, 0, mode);
+        g_6d1291 = 0;
     };
     bool pump = false;
-    switch (hook::Global<int32_t>(0x6d127c)) {
+    switch (g_6d127c) {
     case 1:
         hook::Global<int32_t(__stdcall*)(void*, int32_t)>(0x5c8084)(F<void*>(thr, 4), 2);
         if (Session_Open(s(), 0, 0, nullptr)) {
-            MpDialog_SelectMode(hook::Global<uint8_t*>(0x6d1268), 0, 0xe11);
-            hook::Global<int32_t>(0x6cd8dc) = 1;
+            MpDialog_SelectMode(g_6d1268, 0, 0xe11);
+            g_6cd8dc = 1;
         } else {
             done(1);
         }
         break;
     case 4:
-        Cursor_Set(hook::Global<uint8_t*>(0xccbb20), 0, 6, 0, 1);
+        Cursor_Set(g_cursorManager, 0, 6, 0, 1);
         if (!Session_Open(s(), 0, 1, name())) {
             done(5);
-        } else if (hook::Global<int32_t>(0x6d1288)) {
+        } else if (g_6d1288) {
             done(6);
         } else {
-            MpDialog_SelectMode(hook::Global<uint8_t*>(0x6d1268), 0, 0xe13);
-            hook::Global<int32_t>(0x6cd8dc) = 1;
+            MpDialog_SelectMode(g_6d1268, 0, 0xe13);
+            g_6cd8dc = 1;
         }
         break;
     case 6:
         Peer_JoinNamed(name());
-        if (hook::Global<int32_t>(0x6d1288)) done(6);
+        if (g_6d1288) done(6);
         break;
     case 2: {
         hook::Global<int32_t(__stdcall*)(void*, int32_t)>(0x5c8084)(F<void*>(thr, 4), 2);
         NewGameConfig_ClearSlots();
         Lobby_HostGame(s(), 0, (const char*)0x6d1128, name(), (const char*)0x6d1228, 0);
         if (F<int32_t>(s(), 0x985c)) Peer_Think((int32_t)(uintptr_t)GetString(0xe60));
-        F<uint32_t>(Engine_FirstListEntry(), 0x2690) = hook::Global<uint32_t>(0x6226d0);
-        hook::Global<uint8_t*>(0x6cec7c)[0x87] = 1;
-        ++F<uint16_t>(hook::Global<uint8_t*>(0x6cec7c), 0x79);
+        F<uint32_t>(Engine_FirstListEntry(), 0x2690) = hook::As<uint32_t>(g_6226d0);
+        g_newGame[0x87] = 1;
+        ++F<uint16_t>(g_newGame, 0x79);
         Lobby_AddChatText(nullptr);
         selectMode(0xe12);
         NewGame_RefreshAiSlots(nullptr);
@@ -2215,24 +2216,24 @@ uint32_t __fastcall SessionWorker_Run(uint8_t* thr) {
             }
         }
         selectMode(0xe12);
-        hook::Global<uint8_t>(0x6d1292) = 0;
-        F<uint32_t>(Engine_FirstListEntry(), 0x2690) = hook::Global<uint32_t>(0x6226d0);
+        g_6d1292 = 0;
+        F<uint32_t>(Engine_FirstListEntry(), 0x2690) = hook::As<uint32_t>(g_6226d0);
         uint32_t hello[10] = {};
         Net_LocalAddress((char*)hello);
-        hello[8] = hook::Global<uint32_t>(0x5f2b70);
+        hello[8] = g_5f2b70;
         const float version = Game_VersionNumber();
         memcpy(&hello[9], &version, 4);
         Net_Send(s(), 0, (const char*)s() + 0x8f48, 0x51, 0x28, (const uint8_t*)hello, 3, 0);
         for (;;) {
-            while (!hook::Global<int32_t>(0x6d1280)) sleep();
-            if (hook::Global<int32_t>(0x6d1280) != 3) break;
-            if (hook::Global<int32_t>(0x6d1284) != 7) {
+            while (!g_6d1280) sleep();
+            if (g_6d1280 != 3) break;
+            if (g_6d1284 != 7) {
                 // The refusal stays the result (3).
-                hook::Global<int32_t>(0x6d1278) = 1;
+                g_6d1278 = 1;
                 goto end;
             }
-            hook::Global<int32_t>(0x6d1280) = 0;
-            hook::Global<int32_t>(0x6d1284) = 0xff;
+            g_6d1280 = 0;
+            g_6d1284 = 0xff;
             Net_Send(s(), 0, (const char*)s() + 0x8f48, 0x51, 0x28, (const uint8_t*)hello, 3, 0);
         }
         Lobby_AddChatText(nullptr);
@@ -2240,13 +2241,13 @@ uint32_t __fastcall SessionWorker_Run(uint8_t* thr) {
         break;
     }
     case 5:
-        if (!hook::Global<int32_t>(0x6ce9bc)) {
-            const char* scenario = (const char*)hook::Global<uint8_t*>(0x6cec7c) + 0x11;
+        if (!g_6ce9bc) {
+            const char* scenario = (const char*)g_newGame + 0x11;
             Net_Send(s(), 0, nullptr, 0x59, (int32_t)strlen(scenario) + 1, (const uint8_t*)scenario, 1, 0);
-            while (!hook::Global<int32_t>(0x6d1280)) sleep();
-            if (hook::Global<int32_t>(0x6d1280) == 8 || hook::Global<int32_t>(0x6d1280) == 0xd) {
-                hook::Global<int32_t>(0x6d1278) = 1;
-                if (hook::Global<int32_t>(0x6d40dc))
+            while (!g_6d1280) sleep();
+            if (g_6d1280 == 8 || g_6d1280 == 0xd) {
+                g_6d1278 = 1;
+                if (g_6d40dc)
                     Net_Send(s(), 0, nullptr, 0x11, 0, nullptr, 3, 0);
                 else
                     Net_Send(s(), 0, (const char*)s() + 0x8f48, 0x11, 0, nullptr, 1, 0);
@@ -2254,7 +2255,7 @@ uint32_t __fastcall SessionWorker_Run(uint8_t* thr) {
             }
         }
         NewGame_RefreshAiSlots(nullptr);
-        Net_Send(s(), 0, nullptr, 2, 0x109, hook::Global<uint8_t*>(0x6cec7c), 3, 0);
+        Net_Send(s(), 0, nullptr, 2, 0x109, g_newGame, 3, 0);
         pump = true;
         break;
     default:
@@ -2262,10 +2263,10 @@ uint32_t __fastcall SessionWorker_Run(uint8_t* thr) {
     }
     if (pump) GameSpy_Pump();
 end:
-    Cursor_Set(hook::Global<uint8_t*>(0xccbb20), 0, 1, 0, 0);
-    hook::Global<int32_t>(0x6d1274) = 0;
-    hook::Global<int32_t>(0x6d127c) = 0;
-    Obj_Decc60(hook::Global<uint8_t*>(0x6d401c));
+    Cursor_Set(g_cursorManager, 0, 1, 0, 0);
+    g_6d1274 = 0;
+    g_6d127c = 0;
+    Obj_Decc60(g_windowManager);
     return 0x7f;
 }
 RT3_REPLACE(0x4ef960, SessionWorker_Run);
@@ -2283,24 +2284,24 @@ uint8_t* __fastcall MpDialog_Construct(uint8_t* d) {
     auto crtFree = (void(__cdecl*)(void*))0x5a1145;
     Widget_SetVtblRet(d);
     F<uint32_t>(d, 0) = 0x5d12ac;
-    hook::Global<int32_t>(0x6d127c) = 0;
-    hook::Global<int32_t>(0x6d1274) = 0;
-    hook::Global<int32_t>(0x6d1278) = 0;
-    hook::Global<int32_t>(0x6d1280) = 0;
-    hook::Global<int32_t>(0x6d1288) = 0;
-    hook::Global<int32_t>(0x6cd90c) = 0;
-    hook::Global<int32_t>(0x6cd8dc) = 1;
-    hook::Global<uint8_t*>(0x6d1268) = d;
+    g_6d127c = 0;
+    g_6d1274 = 0;
+    g_6d1278 = 0;
+    g_6d1280 = 0;
+    g_6d1288 = 0;
+    g_6cd90c = 0;
+    g_6cd8dc = 1;
+    g_6d1268 = d;
     uint8_t* buf = exeNew(0x403c2);
-    hook::Global<uint8_t*>(0x6d1270) = buf;
+    g_6d1270 = buf;
     memset(buf, 0, 0x403c2);
     F<int32_t>(d, 0x80) = ClockMs();
-    const int32_t games = F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x30d);
-    hook::Global<int32_t>(0x6226d0) = games;
+    const int32_t games = F<int32_t>(g_app, 0x30d);
+    g_6226d0 = games;
     if (games >= 0x29)
-        hook::Global<int32_t>(0x6226d0) = 1;
+        g_6226d0 = 1;
     else if (games <= 0)
-        hook::Global<int32_t>(0x6226d0) = 0x28;
+        g_6226d0 = 0x28;
     NewGameConfig_ClearSlots();
     Window_Load(d, 0, 0.0f, 0.0f, (const char*)0x5d12b8);
     for (uint8_t* w = F<uint8_t*>(d, 0x70); w; w = F<uint8_t*>(w, 0x8e)) {
@@ -2381,17 +2382,17 @@ uint8_t* __fastcall MpDialog_Construct(uint8_t* d) {
         crtFree(F<char*>(list, 0x3f));
         crtFree(F<char*>(list, 0x8b));
     }
-    F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x6c) = 1;
+    F<int32_t>(g_app, 0x6c) = 1;
     MpDialog_SelectMode(d, 0, 0xe10);
     Window_SendEvent5(d, 0, 0x87, 0xe73, 3, 0, 0);
     if (!(uint8_t)IsEnglish()) Window_SendEvent5(d, 0, 0x78, 0xe2e, 1, 0, 0);
-    if (hook::Global<int32_t>(0x6cd920))
-        ((char*(__cdecl*)(char*, const char*, size_t))0x5a18a0)((char*)hook::Global<uint8_t*>(0x6cec74) + 0x1ef, (const char*)0x6ae2c4, 0x3f);
-    const char* name = (const char*)hook::Global<uint8_t*>(0x6cec74) + 0x1ef;
+    if (g_6cd920)
+        ((char*(__cdecl*)(char*, const char*, size_t))0x5a18a0)((char*)g_app + 0x1ef, (const char*)0x6ae2c4, 0x3f);
+    const char* name = (const char*)g_app + 0x1ef;
     if (!*name) {
         char computer[0x10];
         uint32_t size = 0x10;
-        if (!((int32_t(__stdcall*)(char*, uint32_t*))hook::Global<void*>(0x5c8080))(computer, &size)) return d;
+        if (!((int32_t(__stdcall*)(char*, uint32_t*))g_5c8080)(computer, &size)) return d;
         // QUIRK: this exe then takes the fixed name in its header (0x400b94),
         // not the computer name just read.
         name = (const char*)0x400b94;
@@ -2414,9 +2415,9 @@ RT3_REPLACE(0x4efe80, MpDialog_Construct);
 // player counts, +0x7d difficulty) sent to everyone, start (seed and the
 // resync offer). Returns 0 when handled.
 int32_t __fastcall MpDialog_HandleEvent(uint8_t* d, int, uint32_t* msg) {
-    auto app = []() { return hook::Global<uint8_t*>(0x6cec74); };
-    auto cfg = []() { return hook::Global<uint8_t*>(0x6cec7c); };
-    auto session = []() { return hook::Global<uint8_t*>(0x6cd8d8); };
+    auto app = []() { return g_app; };
+    auto cfg = []() { return g_newGame; };
+    auto session = []() { return g_session; };
     auto text = [](uint8_t* w) { return F<char*>(w, 0xba); };
     auto strcmp_ = [](const char* a, const char* b) { return ((int(__cdecl*)(const char*, const char*))0x5a57cf)(a, b); };
     auto msgBox = [](const char* t, int32_t type) {
@@ -2426,7 +2427,7 @@ int32_t __fastcall MpDialog_HandleEvent(uint8_t* d, int, uint32_t* msg) {
     auto sendSetup = [&]() { Net_Send(session(), 0, nullptr, 2, 0x109, cfg(), 3, 0); };
     auto clearAddress = [&]() {
         text(Widget_FindChild(d, 0, 0xe47))[0] = 0;
-        hook::Global<uint8_t>(0x6d11a8) = 0;
+        hook::As<uint8_t>(g_6d11a8) = 0;
         return 0;
     };
     // A new player name (renames the host directly, else asks the host).
@@ -2440,48 +2441,48 @@ int32_t __fastcall MpDialog_HandleEvent(uint8_t* d, int, uint32_t* msg) {
         }
         return 0;
     };
-    if (const int32_t leaving = hook::Global<int32_t>(0x6cd90c)) {
+    if (const int32_t leaving = g_6cd90c) {
         if (leaving == 5) {
-            hook::Global<int32_t>(0xd973e8) = ClockMs();
+            g_d973e8 = ClockMs();
             F<int32_t>(cfg(), 1) = 3;
             Game_PostInputEvent(0xcc, 0, 1, 0, 0);
             return 0;
         }
-        hook::Global<int32_t>(0x6cd90c) = leaving + 1;
+        g_6cd90c = leaving + 1;
         return 1;
     }
     if (MpSession_ReportEvent() == 1) {
-        if (hook::Global<int32_t>(0x6d1280) == 0xa) {
-            if (!hook::Global<uint8_t>(0x6d1292)) {
+        if (g_6d1280 == 0xa) {
+            if (!g_6d1292) {
                 Dialog_RunMessage(GetString(0xe68), 5, 0xbf800000, 0xbf800000, 0, nullptr, 0, 0.0f, 0x6d1228, 0x1b, 0, nullptr, nullptr, 0, 0,
                                   nullptr, 0);
-                hook::Global<uint8_t>(0x6d1292) = 1;
+                g_6d1292 = 1;
                 Session_StartWorkerMode(3);
-            } else if (hook::Global<int32_t>(0x6d1280) == 0xa) {
-                hook::Global<uint8_t>(0x6d1292) = 0;
+            } else if (g_6d1280 == 0xa) {
+                g_6d1292 = 0;
             }
         }
-        if (hook::Global<int32_t>(0x6d1280) == 2) return clearAddress();
+        if (g_6d1280 == 2) return clearAddress();
         return 0;
     }
-    if (!hook::Global<int32_t>(0x6cd8dc) || hook::Global<int32_t>(0x6d1274) == 1 || hook::Global<int32_t>(0x6d1288)) return 0;
-    if (hook::Global<int32_t>(0x6cd920)) {
+    if (!g_6cd8dc || g_6d1274 == 1 || g_6d1288) return 0;
+    if (g_6cd920) {
         // GameSpy: take the chosen name, then join the chosen server.
-        const int32_t step = hook::Global<int32_t>(0x6ae3c4);
+        const int32_t step = g_6ae3c4;
         if (step == 1) {
-            if (hook::Global<uint8_t>(0x6ae2c4)) NameDialog_ShowName(d, 0, (const char*)0x6ae2c4);
-            hook::Global<int32_t>(0x6ae3c4) = 2;
+            if (g_6ae2c4) NameDialog_ShowName(d, 0, (const char*)0x6ae2c4);
+            g_6ae3c4 = 2;
             Session_Restart(d, 0, 1);
             return 0;
         }
         if (step == 2) {
-            hook::Global<int32_t>(0x6ae3c4) = 3;
-            if (hook::Global<int32_t>(0x6ae1c0)) {
+            g_6ae3c4 = 3;
+            if (g_6ae1c0) {
                 MpDialog_Connect(d);
                 return 0;
             }
-            if (hook::Global<int32_t>(0x6ae3c8) >= 3) return 0;
-            ++hook::Global<int32_t>(0x6ae3c8);
+            if (g_6ae3c8 >= 3) return 0;
+            ++g_6ae3c8;
             MpDialog_Join(d, 0, (const char*)0x6ae1c4);
             return 0;
         }
@@ -2491,10 +2492,10 @@ int32_t __fastcall MpDialog_HandleEvent(uint8_t* d, int, uint32_t* msg) {
         if (F<int32_t>(d, 0x7c) == 0xe11 || F<int32_t>(d, 0x7c) == 0xe13) GameList_Fill(d);
         F<int32_t>(d, 0x80) = ClockMs() + 1000;
         NewGameDialog_ShowSetting7b(d);
-        if (hook::Global<int32_t>(0x6d40d0) && hook::Global<int32_t>(0x6d40dc)) GameSpy_Pump();
+        if (hook::As<int32_t>(g_6d40d0) && g_6d40dc) GameSpy_Pump();
         return 0;
     }
-    const int32_t hosting = hook::Global<int32_t>(0x6d40dc);
+    const int32_t hosting = g_6d40dc;
     switch (msg[0]) {
     case 3:
         // Enter in a chat box.
@@ -2510,11 +2511,11 @@ int32_t __fastcall MpDialog_HandleEvent(uint8_t* d, int, uint32_t* msg) {
         if (msg[1] != 0xe30 || (int32_t)msg[2] < 0) return 1;
         char before[0x100];
         strcpy(before, (const char*)cfg() + 0x11);
-        uint8_t* e = F<uint8_t*>(hook::Global<uint8_t*>(0x6d126c), 8) + (int32_t)msg[2] * 0x25a;
+        uint8_t* e = F<uint8_t*>(g_6d126c, 8) + (int32_t)msg[2] * 0x25a;
         MpScenarioPanel_Update(d, 0, (const char*)e, (const char*)e + 0x12d, 0);
         if (strcmp_(before, (const char*)cfg() + 0x11)) {
-            F<uint16_t>(cfg(), 0x77) = F<uint16_t>(hook::Global<uint8_t*>(0x6d1270), 0xc);
-            hook::Global<int32_t>(0x6ce9bc) = 0;
+            F<uint16_t>(cfg(), 0x77) = F<uint16_t>(g_6d1270, 0xc);
+            g_6ce9bc = 0;
             Window_SetMode1(d, 0, 0);
         }
         NewGameDialog_ShowSetting77(d);
@@ -2541,7 +2542,7 @@ int32_t __fastcall MpDialog_HandleEvent(uint8_t* d, int, uint32_t* msg) {
         }
         switch (id) {
         case 0xe73:
-            hook::Global<int32_t>(0x6ce9c8) = hook::Global<int32_t>(0x6ce9c8) == 0;
+            g_6ce9c8 = g_6ce9c8 == 0;
             return 0;
         case 0xe49:
         case 0xe5b: {
@@ -2571,11 +2572,11 @@ int32_t __fastcall MpDialog_HandleEvent(uint8_t* d, int, uint32_t* msg) {
             if (uint8_t* s = session()) {
                 Session_Shutdown(s);
                 ((void(__cdecl*)(void*))0x53b080)(s);
-                hook::Global<uint8_t*>(0x6cd8d8) = nullptr;
+                g_session = nullptr;
             }
             return 0;
         case 0xe1b:
-            if (!hook::Global<int32_t>(0x6cd920)) {
+            if (!g_6cd920) {
                 Session_Restart(d, 0, 1);
                 return 0;
             }
@@ -2633,11 +2634,11 @@ int32_t __fastcall MpDialog_HandleEvent(uint8_t* d, int, uint32_t* msg) {
             return 0;
         case 0xe2b:
             if (cfg()[0x10]) {
-                hook::Global<int32_t>(0x6226d4) = 0;
-                hook::Global<int32_t>(0x6ce9bc) = 0;
+                g_6226d4 = 0;
+                g_6ce9bc = 0;
                 Window_SetMode1(d, 0, 0);
                 MpScenarioPanel_Update(d, 0, (const char*)cfg() + 0x11, (const char*)cfg() + 0x44, 1);
-                hook::Global<int32_t>(0x6226d4) = 1;
+                g_6226d4 = 1;
                 Session_StartWorkerMode(5);
             } else {
                 MpScenarioPanel_Update(d, 0, nullptr, nullptr, 1);
@@ -2647,7 +2648,7 @@ int32_t __fastcall MpDialog_HandleEvent(uint8_t* d, int, uint32_t* msg) {
             return 0;
         case 0xe2c: {
             int32_t year = F<uint16_t>(cfg(), 0x77) + 5;
-            const int32_t last = F<int32_t>(hook::Global<uint8_t*>(0x6d1270), 0x10);
+            const int32_t last = F<int32_t>(g_6d1270, 0x10);
             if (last < year) year = last;
             F<uint16_t>(cfg(), 0x77) = (uint16_t)year;
             NewGameDialog_ShowSetting77(d);
@@ -2655,7 +2656,7 @@ int32_t __fastcall MpDialog_HandleEvent(uint8_t* d, int, uint32_t* msg) {
         }
         case 0xe2d: {
             int32_t year = F<uint16_t>(cfg(), 0x77) - 5;
-            const int32_t first = F<int32_t>(hook::Global<uint8_t*>(0x6d1270), 0xc);
+            const int32_t first = F<int32_t>(g_6d1270, 0xc);
             if (first > year) year = first;
             F<uint16_t>(cfg(), 0x77) = (uint16_t)year;
             NewGameDialog_ShowSetting77(d);
@@ -2679,8 +2680,8 @@ int32_t __fastcall MpDialog_HandleEvent(uint8_t* d, int, uint32_t* msg) {
             F<int32_t>(cfg(), 0x83) = Rand(0, 0x7fff);
             Net_Send(session(), 0, nullptr, 2, 0x109, cfg(), 3, 0);
             SetSeed(F<int32_t>(cfg(), 0x83));
-            hook::Global<int32_t>(0x6d4110) = 1;
-            if (hook::Global<int32_t>(0x6ce9c8)) {
+            g_6d4110 = 1;
+            if (g_6ce9c8) {
                 Net_Send(session(), 0, nullptr, 0x83, 0, nullptr, 3, 0);
                 Net_OfferResync();
             }
@@ -2713,7 +2714,7 @@ int32_t __fastcall MpDialog_HandleEvent(uint8_t* d, int, uint32_t* msg) {
             uint8_t* c = cfg();
             const int32_t ai = F<uint16_t>(c, 0x7b);
             if (!ai) return 0;
-            uint8_t* slots = hook::Global<uint8_t*>(0x6d1270);
+            uint8_t* slots = g_6d1270;
             int32_t open = 0, empty = 0;
             if (slots && F<int32_t>(slots, 0x3ae) > 0)
                 for (int32_t k = 0; k < F<int32_t>(slots, 0x3ae); ++k)
@@ -2754,10 +2755,10 @@ int32_t __fastcall MpDialog_HandleEvent(uint8_t* d, int, uint32_t* msg) {
             }
             char file[0x12c], base[0x100], label[0x100];
             memset(file, 0, sizeof file);
-            hook::Global<int32_t>(0x6d1298) = 1;
+            g_6d1298 = 1;
             F<int32_t>(app(), 0x6c) = 0;
             if (FileDialog_Run(file, 0xc)) {
-                hook::Global<int32_t>(0x6ce9bc) = 1;
+                g_6ce9bc = 1;
                 strcpy(base, file);
                 strcpy((char*)0x6ce630, file);
                 StripExtension(base);
@@ -2765,7 +2766,7 @@ int32_t __fastcall MpDialog_HandleEvent(uint8_t* d, int, uint32_t* msg) {
                 MpScenarioPanel_Update(d, 0, file, label, 1);
                 Session_StartWorkerMode(5);
             }
-            hook::Global<int32_t>(0x6d1298) = 0;
+            g_6d1298 = 0;
             Window_SendEvent5(d, 0, 0x87, 0xe72, 0x20, 0, 0);
             return 0;
         }
@@ -2785,23 +2786,23 @@ RT3_REPLACE(0x4f03f0, MpDialog_HandleEvent);
 // 0x6d40dc), pumps GameSpy; otherwise it clears 0x6cd8dc and sets 0x6d1278 =
 // 1, 0x6d1280 = 7.
 RT3_NOINLINE void __fastcall MpDialog_Refresh(int32_t reselect) {
-    if (!hook::Global<uint8_t*>(0x6d1268)) return;
-    Window_SetMode1(hook::Global<uint8_t*>(0x6d1268), 0, hook::Global<int32_t>(0x6ce9bc));
-    F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x6c) = hook::Global<int32_t>(0x6ce9bc) == 0;
+    if (!g_6d1268) return;
+    Window_SetMode1(g_6d1268, 0, g_6ce9bc);
+    F<int32_t>(g_app, 0x6c) = g_6ce9bc == 0;
     if (!reselect) {
-        hook::Global<int32_t>(0x6cd8dc) = 0;
-        hook::Global<int32_t>(0x6d1278) = 1;
-        hook::Global<int32_t>(0x6d1280) = 7;
+        g_6cd8dc = 0;
+        g_6d1278 = 1;
+        g_6d1280 = 7;
         return;
     }
-    uint8_t* d = hook::Global<uint8_t*>(0x6d1268);
+    uint8_t* d = g_6d1268;
     int32_t mode = F<int32_t>(d, 0x7c), source = F<int32_t>(d, 0x78);
     uint8_t held = *(uint8_t*)0x6d1291;
     *(uint8_t*)0x6d1291 = 1;
     MpDialog_SelectMode(d, 0, mode);
-    MpScenario_SelectSource(hook::Global<uint8_t*>(0x6d1268), 0, source);
+    MpScenario_SelectSource(g_6d1268, 0, source);
     *(uint8_t*)0x6d1291 = held;
-    if (hook::Global<int32_t>(0x6d40d0) && hook::Global<int32_t>(0x6d40dc)) GameSpy_Pump();
+    if (hook::As<int32_t>(g_6d40d0) && g_6d40dc) GameSpy_Pump();
 }
 RT3_REPLACE(0x4f13e0, MpDialog_Refresh);
 
@@ -2809,7 +2810,7 @@ RT3_REPLACE(0x4f13e0, MpDialog_Refresh);
 // (0x6226dc) and select that button (event 0x74). Returns 0 when handled.
 int32_t __fastcall Picker_ChooseCb(uint8_t* w, const uint32_t* ev) {
     if (ev[0] != 0xca || (int32_t)ev[1] < 0xb9f2 || (int32_t)ev[1] > 0xb9f4) return 1;
-    hook::Global<int32_t>(0x6226dc) = (int32_t)ev[1] - 0xb9f2;
+    g_6226dc = (int32_t)ev[1] - 0xb9f2;
     Window_SendEvent5(w, 0, 0x74, ev[1], 1, 0, 0);
     return 0;
 }
@@ -2824,14 +2825,14 @@ RT3_REPLACE(0x4f1490, Picker_ChooseCb);
 // mph, the shown unit 0x6226dc), then a 5 x 9 payment table: speeds across,
 // distances down, the payment per car (at least 1).
 void __fastcall LocoDetail_Draw(uint8_t* p, int, float x, float y, float w, float h, int32_t) {
-    if (!Collection_IsValid(hook::Global<Collection*>(0x6ada84), 0, hook::Global<uint32_t>(0x6d129c))) return;
+    if (!Collection_IsValid(g_6ada84, 0, g_6d129c)) return;
     auto font = [](uint32_t a) { return hook::Global<uint8_t*>(a); };
-    if (hook::Global<uint8_t>(0x6226d8)) {
+    if (g_6226d8) {
         float ty = (float)((double)y - D(0x5d0820));
         Font_DrawTextBox(font(0x6d12a4), 0, GetString(0x2bb), x, ty, w, BitsF(0x3ccccccd), 0xffffffff, 0, 0, 0, 1.0f);
     }
-    uint8_t* rec = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6ada84), 0, hook::Global<uint32_t>(0x6d129c));
-    uint8_t* type = F<uint32_t>(rec, 0x72) ? (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba88), 0, F<uint32_t>(rec, 0x72)) : nullptr;
+    uint8_t* rec = (uint8_t*)Collection_Get(g_6ada84, 0, g_6d129c);
+    uint8_t* type = F<uint32_t>(rec, 0x72) ? (uint8_t*)Collection_Get(g_carTypes, 0, F<uint32_t>(rec, 0x72)) : nullptr;
     char text[0x200], line[0x200];
     Num_Format(text, 8, (double)F<int32_t>(type, 0x105), 10, 1, 0, 0);
     float ny = (float)((double)y + Fl(0x5d1318));
@@ -2839,26 +2840,26 @@ void __fastcall LocoDetail_Draw(uint8_t* p, int, float x, float y, float w, floa
     float rowY = (float)((double)y + Fl(0x5d1310));
     int32_t base = Ftol(F<float>(type, 0xfd));
     if (rec[0x7a]) {
-        uint8_t* second = F<uint32_t>(rec, 0x76) ? (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba88), 0, F<uint32_t>(rec, 0x76)) : nullptr;
+        uint8_t* second = F<uint32_t>(rec, 0x76) ? (uint8_t*)Collection_Get(g_carTypes, 0, F<uint32_t>(rec, 0x76)) : nullptr;
         float bf = (float)base;
         base = Ftol((double)bf + F<float>(second, 0xfd));
     }
     char stats[7][0x32];
     memset(stats, 0, sizeof stats);
     static const int32_t labels[7] = { 0x2bc, 0x2bd, 0x2be, 0x2bf, 0x2c0, 0x2c1, 0x2c2 };
-    uint8_t* world = hook::Global<uint8_t*>(0x6cec78);
+    uint8_t* world = g_world;
     auto who = [&](uint32_t& company, uint32_t& player) {
-        player = (uint32_t)Obj_Get25(hook::Global<uint8_t*>(0x6cec78));
-        company = (uint32_t)Obj_Get21(hook::Global<uint8_t*>(0x6cec78));
+        player = (uint32_t)Obj_Get25(g_world);
+        company = (uint32_t)Obj_Get21(g_world);
     };
     uint32_t co, pl;
     who(co, pl);
     int32_t k1 = Ftol(Obj_EffectScale(rec, 0, co, pl));
     int32_t k2 = Ftol(F<float>(rec, 8));
     who(co, pl);
-    float f1 = Effects_Multiplier(hook::Global<uint8_t*>(0x6cec78), 0, F<int32_t>(rec, 0x10) + 0x4e, co, pl, 0);
+    float f1 = Effects_Multiplier(g_world, 0, F<int32_t>(rec, 0x10) + 0x4e, co, pl, 0);
     who(co, pl);
-    float f2 = Effects_Multiplier(hook::Global<uint8_t*>(0x6cec78), 0, 0x4d, co, pl, 0);
+    float f2 = Effects_Multiplier(g_world, 0, 0x4d, co, pl, 0);
     float k1f = (float)k1;
     int32_t cost = Ftol((double)f2 * f1 * k1f);
     Num_FormatSimple2(stats[0], 0xb, (double)cost, 0xb);
@@ -2867,7 +2868,7 @@ void __fastcall LocoDetail_Draw(uint8_t* p, int, float x, float y, float w, floa
     auto bonus = [&](int32_t idx) {
         uint32_t c, q;
         who(c, q);
-        return Obj_CargoBonus(hook::Global<uint8_t*>(0x6cec78), 0, idx, c, q, 0);
+        return Obj_CargoBonus(g_world, 0, idx, c, q, 0);
     };
     auto grade = [&](char* out, uint32_t table, int32_t idx) { FormatText(out, GetString(hook::Global<int32_t>(table + idx * 4)), 0, 0, 0, 0, 0, 0, 0, 0); };
     int32_t b = bonus(F<int32_t>(rec, 0x10) + 0x4a);
@@ -2886,7 +2887,7 @@ void __fastcall LocoDetail_Draw(uint8_t* p, int, float x, float y, float w, floa
     grade(stats[4], 0x620d2c, g);
     grade(stats[5], 0x620db4, F<int32_t>(rec, 0x14));
     FormatText(stats[6], GetString(kinds[F<int32_t>(rec, 0x10)]), 0, 0, 0, 0, 0, 0, 0, 0);
-    uint8_t* t2 = F<uint32_t>(rec, 0x72) ? (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba88), 0, F<uint32_t>(rec, 0x72)) : nullptr;
+    uint8_t* t2 = F<uint32_t>(rec, 0x72) ? (uint8_t*)Collection_Get(g_carTypes, 0, F<uint32_t>(rec, 0x72)) : nullptr;
     FormatText(text, LocalizeName((const char*)t2 + 0x45), 0, 0, 0, 0, 0, 0, 0, 0);
     float ty = (float)((double)rowY - D(0x5d0820));
     Font_DrawTextBox(font(0x6d12a4), 0, text, x, ty, w, BitsF(0x3ccccccd), 0xffffffff, 0, 0, 0, 1.0f);
@@ -2911,7 +2912,7 @@ void __fastcall LocoDetail_Draw(uint8_t* p, int, float x, float y, float w, floa
     rowY = (float)((double)rowY + D(0x5d12f0));
     rowY = (float)((double)rowY + D(0x5d12e8));
     char num[0x40];
-    Num_Format(num, 1, (double)step[hook::Global<int32_t>(0x6226dc)], 10, 1, 0, 0);
+    Num_Format(num, 1, (double)step[g_6226dc], 10, 1, 0, 0);
     FormatText(line, GetString(0x2c7), num, 0, 0, 0, 0, 0, 0, 0);
     Font_DrawTextBox(font(0x6d12ac), 0, line, (float)((double)x + D(0x5d0700)), rowY, w, BitsF(0x3cb17e4b), 0xffffffff, 0, 0, 0, 1.0f);
     rowY = (float)((double)rowY + D(0x5d12e0));
@@ -2926,7 +2927,7 @@ void __fastcall LocoDetail_Draw(uint8_t* p, int, float x, float y, float w, floa
     for (int32_t row = 0; row < 5; ++row) {
         float colX = rowStart;
         for (int32_t col = 0; col < 9; ++col) {
-            int32_t spd = step[hook::Global<int32_t>(0x6226dc)] * col + base;
+            int32_t spd = step[g_6226dc] * col + base;
             float spdF = (float)spd;
             if (!col) {
                 if (row > 0) ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)(cell, (const char*)0x5d0b18, row * 2 - 2);
@@ -2936,8 +2937,8 @@ void __fastcall LocoDetail_Draw(uint8_t* p, int, float x, float y, float w, floa
             else {
                 float dist = (float)((double)(row - 1) * D(0x5c8918));
                 dist = (float)(SpeedFactor(dist) * spdF);
-                uint32_t company = (uint32_t)Obj_Get21(hook::Global<uint8_t*>(0x6cec78));
-                float pay = Cargo_DeliveryPayment(rec, F<uint16_t>(hook::Global<uint8_t*>(0x6cec78), 0xd), dist, company, 0);
+                uint32_t company = (uint32_t)Obj_Get21(g_world);
+                float pay = Cargo_DeliveryPayment(rec, F<uint16_t>(g_world, 0xd), dist, company, 0);
                 if (pay < D(0x5c8770)) pay = 1.0f;
                 Num_Format(cell, 1, (double)Ftol((double)pay + D(0x5c8628)), 10, 1, 0, 0);
             }
@@ -2977,21 +2978,21 @@ void __fastcall LocoWindow_Build(uint8_t* w, int, float x, float y, float wd, fl
     F<uint32_t>(def, 0xf) = 0x3e75c28f;
     F<uint32_t>(def, 0x13) = 0x3dda740e;
     F<float>(def, 0xb) = (float)((double)y + D(0x5d1348));
-    uint8_t* rec = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6ada84), 0, hook::Global<uint32_t>(0x6d129c));
-    uint8_t* type = F<uint32_t>(rec, 0x72) ? (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba88), 0, F<uint32_t>(rec, 0x72)) : nullptr;
+    uint8_t* rec = (uint8_t*)Collection_Get(g_6ada84, 0, g_6d129c);
+    uint8_t* type = F<uint32_t>(rec, 0x72) ? (uint8_t*)Collection_Get(g_carTypes, 0, F<uint32_t>(rec, 0x72)) : nullptr;
     char name[0x220];
     FormatText(name, (const char*)0x5d0e08, (const char*)type + 0x82, 0, 0, 0, 0, 0, 0, 0);
-    if (hook::Global<uint8_t*>(0x6d12a0) && ((uint8_t*)Obj_City41(hook::Global<uint8_t*>(0x6d12a0)))[0x3cc]) {
-        for (int32_t i = 0; i < Collection_Count(F<Collection*>(hook::Global<uint8_t*>(0x6d4020), 0x429b8)); ++i) {
-            Collection* regions = F<Collection*>(hook::Global<uint8_t*>(0x6d4020), 0x429b8);
+    if (g_6d12a0 && ((uint8_t*)Obj_City41(g_6d12a0))[0x3cc]) {
+        for (int32_t i = 0; i < Collection_Count(F<Collection*>(g_pack, 0x429b8)); ++i) {
+            Collection* regions = F<Collection*>(g_pack, 0x429b8);
             uint8_t* e = (uint8_t*)Collection_Get(regions, 0, Collection_IdAt(regions, 0, i, 0));
-            if (!Stricmp((const char*)Obj_City41(hook::Global<uint8_t*>(0x6d12a0)) + 0x3ac, (const char*)e)) {
+            if (!Stricmp((const char*)Obj_City41(g_6d12a0) + 0x3ac, (const char*)e)) {
                 FormatText(name, (const char*)e + 0x80, 0, 0, 0, 0, 0, 0, 0, 0);
                 break;
             }
         }
     }
-    if (!NameTable_ContainsName(hook::Global<uint8_t*>(0x6d4020), 0, name, 0, 0)) {
+    if (!NameTable_ContainsName(g_pack, 0, name, 0, 0)) {
         int32_t kind = F<int32_t>(rec, 0x10);
         FormatText(name, kind == 1 ? (const char*)0x5d0df0 : kind == 2 ? (const char*)0x5d0dd8 : (const char*)0x5d0dc0, 0, 0, 0, 0, 0, 0, 0, 0);
     }
@@ -3030,8 +3031,8 @@ void __fastcall LocoWindow_Build(uint8_t* w, int, float x, float y, float wd, fl
         Free(F<void*>(b, 0x43));
         Free(F<void*>(b, 0x6f));
     }
-    Window_SendEvent5(w, 0, 0x74, 0xb9f2 + hook::Global<int32_t>(0x6226dc), 1, 0, 0);
-    uint16_t year = F<uint16_t>(hook::Global<uint8_t*>(0x6cec78), 0xd);
+    Window_SendEvent5(w, 0, 0x74, 0xb9f2 + g_6226dc, 1, 0, 0);
+    uint16_t year = F<uint16_t>(g_world, 0xd);
     int32_t step[3];
     step[0] = year < 0x73a ? 10 : year < 0x76c ? 20 : year < 0x79e ? 40 : 80;
     step[1] = Ftol((double)step[0] * D(0x5d12f8) + D(0x5c8628));

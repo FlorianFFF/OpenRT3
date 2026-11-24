@@ -8,6 +8,7 @@
 #include <math.h>
 #include <initializer_list>
 #include "hook/hook.h"
+#include "core/globals.h"
 #include "game/collection.h"
 #include "core/crt.h"
 #include "core/stream.h"
@@ -72,12 +73,9 @@ void __fastcall Pack_ReleaseFontHandles(uint8_t* pack);
 void __fastcall Mouse_Destroy(uint8_t* m);
 void __fastcall Display_DestroyRenderer(uint8_t* o);
 template <typename T> static inline T& F_engine(void* e, uint32_t off) { return *(T*)((uint8_t*)e + off); }
-static int32_t& g_asianText = hook::Global<int32_t>(0x6d4034);
 
  // DBCS language: text goes to the sorted queue
-static int32_t& g_frameCounter = hook::Global<int32_t>(0x6d403c);
 
-static void*& g_engine = hook::Global<void*>(0x6d4024);
 static const int32_t* const kTexMemOverride = (const int32_t*)0x624c34;
 
 // Functions of this file, in exe order.
@@ -198,8 +196,8 @@ static inline uint8_t* NewItem(void* e) {
 static inline void SetLayer(void* e, uint8_t* item) { item[0x5d] = F_engine<uint8_t>(e, 0x114227); }
 
 static inline void EnqueueUntextured(void* e, uint8_t* item) {
-    if (g_asianText && F_engine<uint8_t>(e, 0x11369c)) PtrList_Prepend(F_engine<PtrList*>(e, 0x11369d), 0, item);
-    else PtrList_Append(F_engine<PtrList*>(e, g_asianText ? 0x11369d : 0x1136a1), 0, item);
+    if (g_6d4034 && F_engine<uint8_t>(e, 0x11369c)) PtrList_Prepend(F_engine<PtrList*>(e, 0x11369d), 0, item);
+    else PtrList_Append(F_engine<PtrList*>(e, g_6d4034 ? 0x11369d : 0x1136a1), 0, item);
 }
 
 // IDirect3DDevice8::GetAvailableTextureMem is vtable slot 4.
@@ -211,7 +209,7 @@ static inline int32_t AvailableTextureMem(void* dev) {
 // formats): green rising with t, red with 1 - t, blue peaking off mid-range; the top
 // end blends towards white. Alpha 0xcf.
 uint32_t __stdcall HeightColor(float t) {
-    if (F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x11474e)) return HeatColor(t);
+    if (F<int32_t>(g_engine, 0x11474e)) return HeatColor(t);
     if (t < Fl(0x5c8598)) t = 0.0f;
     else if (t > Fl(0x5c85b4)) t = 1.0f;
     double a = Rise(t);
@@ -342,21 +340,21 @@ RT3_REPLACE(0x51e6e0, Str_IsNumber);
 // 0x51e720. Sets the debug log file name (0x6d3ca8, 100 chars) and resets its state.
 RT3_NOINLINE void __fastcall DebugLog_SetFile(const char* name) {
     ExeStrncpy((char*)0x6d3ca8, name, 100);
-    hook::Global<uint8_t>(0x6d3d0c) = 0;
-    hook::Global<int32_t>(0x6d3d10) = 0;
+    g_6d3d0c = 0;
+    g_6d3d10 = 0;
 }
 RT3_REPLACE(0x51e720, DebugLog_SetFile);
 
 // 0x51e740. Writes the separator line to the debug log once per session
 // (default file rt3_debug.txt in .\data\log\).
 RT3_NOINLINE void DebugLog_WriteHeader() {
-    if (!hook::Global<int32_t>(0x6d3ca0) || hook::Global<int32_t>(0x6d3d10)) return;
+    if (!g_6d3ca0 || g_6d3d10) return;
     char line[0x14];
     for (int k = 0; k < 0x14; ++k) line[k] = ((const char*)0x5dce90)[k];
-    hook::Global<int32_t>(0x6d3d10) = 1;
-    if (!hook::Global<char>(0x6d3ca8)) {
+    g_6d3d10 = 1;
+    if (!g_6d3ca8) {
         ExeStrncpy((char*)0x6d3ca8, (const char*)0x5dcddc, 100);
-        hook::Global<uint8_t>(0x6d3d0c) = 0;
+        g_6d3d0c = 0;
     }
     char path[0x1f0];
     ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)(path, (const char*)0x5dce44, (const char*)0x6d3ca8);
@@ -373,22 +371,22 @@ RT3_REPLACE(0x51e740, DebugLog_WriteHeader);
 // by calling ShowCursor until its count agrees, (un)acquires the mouse and, in
 // fullscreen, puts the cursor at the game's mouse position.
 RT3_NOINLINE void __fastcall Cursor_Show(int32_t show, int, int32_t) {
-    int32_t& cnt = hook::Global<int32_t>(0x624b20);
+    int32_t& cnt = g_624b20;
     cnt = show ? cnt + 1 : cnt - 1;
     if (cnt && cnt != 1) cnt = 1;
     int32_t px, py;
-    void* eng = hook::Global<void*>(0x6d4024);
+    void* eng = hook::As<void*>(g_engine);
     if (eng && Engine_Input(eng)) {
         float fx, fy;
-        Mouse_GetPos((uint8_t*)Engine_Input(hook::Global<void*>(0x6d4024)), 0, (uint32_t*)&fx, (uint32_t*)&fy);
-        uint8_t* e = hook::Global<uint8_t*>(0x6d4024);
+        Mouse_GetPos((uint8_t*)Engine_Input(hook::As<void*>(g_engine)), 0, (uint32_t*)&fx, (uint32_t*)&fy);
+        uint8_t* e = g_engine;
         const int32_t* res = (const int32_t*)(F<uint8_t*>(e, 0x34) + F<int32_t>(e, 0x11421e) * 0x15);
         px = (int32_t)((double)res[0] * fx);
         py = (int32_t)((double)res[1] * fy);
     } else {
         px = py = 100;
     }
-    int32_t on = hook::Global<int32_t>(0x624b20) > 0 ? 1 : 0;
+    int32_t on = g_624b20 > 0 ? 1 : 0;
     auto showCursor = Import<int32_t(__stdcall*)(int32_t)>(0x5c82d4);
     int32_t r = showCursor(on);
     int32_t k = 0;
@@ -401,12 +399,12 @@ RT3_NOINLINE void __fastcall Cursor_Show(int32_t show, int, int32_t) {
     showCursor(on);
     showCursor(on);
     showCursor(on);
-    if (!hook::Global<void*>(0x6d4024) || !Engine_Input(hook::Global<void*>(0x6d4024))) return;
-    if (Engine_IsFullscreen(hook::Global<void*>(0x6d4024)) && !on)
-        Mouse_Acquire((uint8_t*)Engine_Input(hook::Global<void*>(0x6d4024)));
+    if (!hook::As<void*>(g_engine) || !Engine_Input(hook::As<void*>(g_engine))) return;
+    if (Engine_IsFullscreen(hook::As<void*>(g_engine)) && !on)
+        Mouse_Acquire((uint8_t*)Engine_Input(hook::As<void*>(g_engine)));
     else
-        Mouse_Unacquire((uint8_t*)Engine_Input(hook::Global<void*>(0x6d4024)));
-    if (Engine_IsFullscreen(hook::Global<void*>(0x6d4024))) Import<int32_t(__stdcall*)(int32_t, int32_t)>(0x5c8264)(px, py);
+        Mouse_Unacquire((uint8_t*)Engine_Input(hook::As<void*>(g_engine)));
+    if (Engine_IsFullscreen(hook::As<void*>(g_engine))) Import<int32_t(__stdcall*)(int32_t, int32_t)>(0x5c8264)(px, py);
 }
 RT3_REPLACE(0x51e810, Cursor_Show);
 
@@ -414,9 +412,9 @@ RT3_REPLACE(0x51e810, Cursor_Show);
 // cursor, logs msg (or string 0x45) and shows it in a message box (title string
 // 0x44), restores the keyboard and exits.
 RT3_NOINLINE void __fastcall Fatal_Exit(const char* msg) {
-    if (hook::Global<int32_t>(0x6d3d18)) return;
-    hook::Global<int32_t>(0x6d3d18) = 1;
-    if (uint8_t* e = hook::Global<uint8_t*>(0x6d4024)) e[0x57] = 1;
+    if (g_6d3d18) return;
+    g_6d3d18 = 1;
+    if (uint8_t* e = g_engine) e[0x57] = 1;
     Cursor_Show(1, 0x5dcea4, 0x110);
     const int32_t k = (int32_t)0xfffffb2e;
     if (msg) {
@@ -504,18 +502,18 @@ RT3_NOINLINE void __fastcall Renderer_ResetSettings(uint8_t* o, int, int32_t kin
     F<uint32_t>(o, 0x1146fa) = 0x3f800000;
     F<uint32_t>(o, 0x1146fe) = 0x3f800000;
     F<uint32_t>(o, 0x114702) = 0x3f800000;
-    int32_t mode = hook::Global<int32_t>(0x6d4028);
+    int32_t mode = g_6d4028;
     if (mode != 0 && mode != 9) {
         F<int32_t>(o, 0x11473e) = 0;
         F<int32_t>(o, 0x11473a) = 0;
         F<int32_t>(o, 0x11470e) = 1;
         F<int32_t>(o, 0x11468a) = 0x280;
         F<int32_t>(o, 0x11468e) = 0x1e0;
-        mode = hook::Global<int32_t>(0x6d4028);
+        mode = g_6d4028;
         o[0x114696] = (mode == 1 || mode == 3) ? 1 : 0;
         F<int32_t>(o, 0x114706) = 0xc;
         F<int32_t>(o, 0x11470a) = 0x63;
-        mode = hook::Global<int32_t>(0x6d4028);
+        mode = g_6d4028;
         if (mode == 4 || mode == 3) {
             F<int32_t>(o, 0x1146fa) = 0;
             F<int32_t>(o, 0x1146fe) = 0;
@@ -570,7 +568,7 @@ RT3_NOINLINE void __fastcall Renderer_ResetSettings(uint8_t* o, int, int32_t kin
     F<int32_t>(o, 0x1146d9) = 0;
     F<int32_t>(o, 0x1146dd) = 0;
     F<int32_t>(o, 0x114742) = 0;
-    hook::Global<int32_t>(0x6d4028) = 0;
+    g_6d4028 = 0;
     F<int32_t>(o, 0x114712) = 1;
     if (kind == 0) {
         F<int32_t>(o, 0x114716) = 1;
@@ -607,7 +605,7 @@ RT3_REPLACE(0x51eea0, Engine_SaveConfig);
 // 0x41b; not in a forced screen mode), else resets them to defaults and saves.
 void __fastcall Engine_LoadConfig(uint8_t* o) {
     const char* path = (const char*)0x5dcec8;
-    if (FileExists(path) && !hook::Global<int32_t>(0x6d4028)) {
+    if (FileExists(path) && !g_6d4028) {
         Stream s = StreamOpen(path, 1, 0x30d40, 1);
         int32_t version;
         uint8_t rest[0x1ec];
@@ -616,7 +614,7 @@ void __fastcall Engine_LoadConfig(uint8_t* o) {
             StreamRead(s, o + 0x11468a, 0x1e4, 0, 1);
             StreamRead(s, rest, 0x1ec, 0, 1);
             StreamClose(s);
-            if (F<int32_t>(o, 0x11474a)) hook::Global<uint8_t*>(0x6d4024)[0x11422e] = 0;
+            if (F<int32_t>(o, 0x11474a)) g_engine[0x11422e] = 0;
             return;
         }
         StreamClose(s);
@@ -714,7 +712,7 @@ RT3_REPLACE(0x51f1d0, Engine_ResetTextureQueue);
 // the texture once), untextured ones to the default queue; in DBCS mode with
 // sorting on, everything goes to the sorted queue.
 void __fastcall Engine_Enqueue(void* e, int, uint8_t* texture, void* item) {
-    if (g_asianText) {
+    if (g_6d4034) {
         if (F_engine<uint8_t>(e, 0x11369c)) PtrList_Prepend(F_engine<PtrList*>(e, 0x11369d), 0, item);
         else PtrList_Append(F_engine<PtrList*>(e, 0x11369d), 0, item);
         return;
@@ -823,20 +821,20 @@ RT3_NOINLINE uint32_t __fastcall Trains_Create(Collection* c, int, int32_t owner
 // zeroed here.
 int32_t __fastcall Tracks_AddPiece(Collection* c, int, float x0, float z0, float x1, float z1, float x2, float z2, float x3, float z3,
                                    int32_t kind, int32_t owner, int32_t style) {
-    uint8_t* m = hook::Global<uint8_t*>(0x62c120);
+    uint8_t* m = g_map;
     float w = (float)F<int32_t>(m, 0x2155), h = (float)F<int32_t>(m, 0x2159);
     auto bad = [](float v, float hi) { return v < 0.0f || v > hi; };
     if (bad(x0, w) || bad(z0, h) || bad(x1, w) || bad(z1, h) || bad(x2, w) || z3 < 0.0f || z2 > h || bad(x3, w) || bad(z3, h))
         return -1;
     uint16_t co = (uint16_t)owner;
-    Collection* companies = hook::Global<Collection*>(0x62be10);
-    if (Collection_IsValid(companies, 0, co) && !Company_Get7680(Collection_Get(hook::Global<Collection*>(0x62be10), 0, co)))
+    Collection* companies = g_companies;
+    if (Collection_IsValid(companies, 0, co) && !Company_Get7680(Collection_Get(g_companies, 0, co)))
         return -1;
     uint8_t local[0x260] = {};
     TrackLight_Construct(local);
     uint32_t id = Collection_Allocate(
         c, 0, local, 0x257, 0, 0);
-    if (co) Company_Add7680(Collection_Get(hook::Global<Collection*>(0x62be10), 0, co), 0, (uint8_t)style != 4 ? -1 : -2);
+    if (co) Company_Add7680(Collection_Get(g_companies, 0, co), 0, (uint8_t)style != 4 ? -1 : -2);
     uint8_t* t = (uint8_t*)Collection_Get(c, 0, id);
     F<int32_t>(c, 0x90) += 2;
     ((void(__fastcall*)(uint8_t*, int, int32_t, int32_t, float, float, float, float, float, float, float, float, int32_t, int32_t,
@@ -856,7 +854,7 @@ int32_t __fastcall Tracks_AddPiece(Collection* c, int, float x0, float z0, float
 // (16), flagged when the HAL device accepts it windowed. No Direct3D, no modes, no
 // landscape 16/32-bit mode or a leaked interface are fatal (strings 0x17..0x1b).
 void __fastcall Engine_EnumDisplayModes(uint8_t* e) {
-    void* d3d = ((void*(__stdcall*)(uint32_t))hook::Global<void*>(0x5c8398))(0xdc);
+    void* d3d = ((void*(__stdcall*)(uint32_t))g_5c8398)(0xdc);
     if (!d3d) Fatal_Exit(GetString(0x17));
     void** vt = *(void***)d3d;
     F<int32_t>(e, 0x30) = ((int32_t(__stdcall*)(void*, uint32_t))vt[0x18 / 4])(d3d, 0);
@@ -980,13 +978,13 @@ RT3_REPLACE(0x51f9b0, Engine_SetFreeTexMemOverride);
 
 RT3_NOINLINE void __fastcall Engine_SetTotalTexMemOverride(void* e, int, int32_t v) {
     F_engine<int32_t>(e, 0x1146c6) = v;
-    if (hook::Global<int32_t>(0x6d401c)) ((void(*)())0x538ec0)();
+    if (hook::As<int32_t>(g_windowManager)) ((void(*)())0x538ec0)();
 }
 RT3_REPLACE(0x51f9c0, Engine_SetTotalTexMemOverride);
 
 RT3_NOINLINE void __fastcall Engine_SetTexMemOverride3(void* e, int, int32_t v) {
     F_engine<int32_t>(e, 0x1146ce) = v;
-    if (hook::Global<int32_t>(0x6d401c)) ((void(*)())0x538ec0)();
+    if (hook::As<int32_t>(g_windowManager)) ((void(*)())0x538ec0)();
 }
 RT3_REPLACE(0x51f9e0, Engine_SetTexMemOverride3);
 
@@ -1116,10 +1114,10 @@ RT3_REPLACE(0x51fd60, Engine_Get11470e);
 void __fastcall Engine_UpdateFrameTime(void* e) {
     if (F_engine<DWORD>(e, 0x114286) == 0) F_engine<DWORD>(e, 0x114286) = Ticks();
     int32_t* ring = (int32_t*)((uint8_t*)e + 0x11428a);
-    ring[g_frameCounter % 256] = (int32_t)(Ticks() - F_engine<DWORD>(e, 0x114286));
+    ring[g_6d403c % 256] = (int32_t)(Ticks() - F_engine<DWORD>(e, 0x114286));
     F_engine<DWORD>(e, 0x114286) = Ticks();
-    int32_t c = ++g_frameCounter;
-    if (F_engine<int32_t>((uint8_t*)g_engine, 0x114206) == 0) return;
+    int32_t c = ++g_6d403c;
+    if (F_engine<int32_t>((uint8_t*)hook::As<void*>(g_engine), 0x114206) == 0) return;
     const float limit = *(const float*)0x5c85b0;
     double sum = *(const float*)0x5c8598;
     int32_t frames = 0;
@@ -1145,7 +1143,7 @@ RT3_REPLACE(0x51ff80, Engine_AverageFrameMs);
 // 0x51ff90. Engine constructor: registers itself as the global engine.
 uint8_t* __fastcall Engine_Construct(uint8_t* e) {
     F<int32_t>(e, 0x114201) = 0;
-    hook::Global<uint8_t*>(0x6d4024) = e;
+    g_engine = e;
     Engine_ResetState_Impl(e);
     return e;
 }
@@ -1156,7 +1154,7 @@ RT3_REPLACE(0x51ff90, Engine_Construct);
 // runs the shutdown hook 0x6d4010, destroys the window (+0) and unregisters
 // the "World" window class (instance +4).
 RT3_NOINLINE void __fastcall Engine_Shutdown(uint8_t* e, int, uint8_t full) {
-    Pack_ReleaseFontHandles(hook::Global<uint8_t*>(0x6d4020));
+    Pack_ReleaseFontHandles(g_pack);
     if (uint8_t* m = F<uint8_t*>(e, 0x20)) {
         Mouse_Destroy(m);
         ExeDelete(m);
@@ -1173,8 +1171,8 @@ RT3_NOINLINE void __fastcall Engine_Shutdown(uint8_t* e, int, uint8_t full) {
     }
     if (void (*hookFn)() = hook::Global<void (*)()>(0x6d4010)) hookFn();
     e[0x55] = 0;
-    ((BOOL(__stdcall*)(HWND))hook::Global<void*>(0x5c82c4))(F<HWND>(e, 0));
-    ((BOOL(__stdcall*)(const char*, HINSTANCE))hook::Global<void*>(0x5c82c8))((const char*)0x5dcee8, F<HINSTANCE>(e, 4));
+    ((BOOL(__stdcall*)(HWND))g_5c82c4)(F<HWND>(e, 0));
+    ((BOOL(__stdcall*)(const char*, HINSTANCE))g_5c82c8)((const char*)0x5dcee8, F<HINSTANCE>(e, 4));
     F<HWND>(e, 0) = nullptr;
 }
 RT3_REPLACE(0x51ffb0, Engine_Shutdown);

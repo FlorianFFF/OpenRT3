@@ -10,6 +10,7 @@
 #include <windows.h>
 #include <initializer_list>
 #include "hook/hook.h"
+#include "core/globals.h"
 #include "game/collection.h"
 #include "core/crt.h"
 #include "core/ptrlist.h"
@@ -229,7 +230,7 @@ static inline void* ExeMalloc(size_t n) { return ((void*(__cdecl*)(size_t))0x5a1
 // kind's init, then an `n`-byte record read from the pack's current position.
 static uint8_t* Widget_ReadRecord(uint8_t* w, int32_t n) {
     uint8_t* rec = (uint8_t*)ExeMalloc(n);
-    NameTable_Read(hook::Global<uint8_t*>(0x6d4020), 0, rec, n);
+    NameTable_Read(g_pack, 0, rec, n);
     Widget_LoadBase(w, 0, rec);
     return rec;
 }
@@ -310,17 +311,17 @@ void WidgetClickCb453(uint8_t* w, uint32_t* msg) {
 // pointers to it (+0xc6d / +0xc71), frees its names and drops its fonts.
 RT3_NOINLINE void __fastcall Widget_Destruct(uint8_t* w) {
     F<uint32_t>(w, 0) = 0x5ddcd0;
-    uint8_t* m = hook::Global<uint8_t*>(0x6d401c);
+    uint8_t* m = g_windowManager;
     if (F<uint8_t*>(m, 0xc6d) == w) {
         F<uint8_t*>(m, 0xc6d) = nullptr;
-        m = hook::Global<uint8_t*>(0x6d401c);
+        m = g_windowManager;
     }
     if (F<uint8_t*>(m, 0xc71) == w) F<uint8_t*>(m, 0xc71) = nullptr;
     String_Free(&F<char*>(w, 0x43));
     String_Free(&F<char*>(w, 0x47));
-    if (F<void*>(w, 0x63)) Pack_Release(hook::Global<uint8_t*>(0x6d4020), 0, F<void*>(w, 0x63));
+    if (F<void*>(w, 0x63)) Pack_Release(g_pack, 0, F<void*>(w, 0x63));
     F<void*>(w, 0x63) = nullptr;
-    if (F<void*>(w, 0x92)) Pack_Release(hook::Global<uint8_t*>(0x6d4020), 0, F<void*>(w, 0x92));
+    if (F<void*>(w, 0x92)) Pack_Release(g_pack, 0, F<void*>(w, 0x92));
     F<void*>(w, 0x92) = nullptr;
 }
 RT3_REPLACE(0x558000, Widget_Destruct);
@@ -369,11 +370,11 @@ RT3_REPLACE(0x558130, Widget_Attach);
 // 0x558180. Switches a widget to font `font` (+0x37, acquired into +0x63); unless
 // `temporary`, it also becomes the widget's normal font (+0x67).
 RT3_NOINLINE void __fastcall Widget_SetFont(uint8_t* w, int, int32_t font, int32_t temporary) {
-    if (F<void*>(w, 0x63)) Pack_Release(hook::Global<uint8_t*>(0x6d4020), 0, F<void*>(w, 0x63));
+    if (F<void*>(w, 0x63)) Pack_Release(g_pack, 0, F<void*>(w, 0x63));
     w[0x37] = (uint8_t)font;
-    NameTable_PushPos(hook::Global<uint8_t*>(0x6d4020));
-    F<uint8_t*>(w, 0x63) = Pack_AcquireFont(hook::Global<uint8_t*>(0x6d4020), 0, w[0x37]);
-    NameTable_PopPosition(hook::Global<uint8_t*>(0x6d4020));
+    NameTable_PushPos(g_pack);
+    F<uint8_t*>(w, 0x63) = Pack_AcquireFont(g_pack, 0, w[0x37]);
+    NameTable_PopPosition(g_pack);
     if (!temporary) w[0x67] = w[0x37];
 }
 RT3_REPLACE(0x558180, Widget_SetFont);
@@ -506,17 +507,17 @@ RT3_NOINLINE uint8_t* __fastcall Widget_Construct(uint8_t* w, int, const uint8_t
     F<char*>(w, 0x47) = nullptr;
     String_Assign(&F<char*>(w, 0x43), *(const char* const*)(def + 0x3f));
     String_Assign(&F<char*>(w, 0x47), *(const char* const*)(def + 0x43));
-    uint8_t* pack = hook::Global<uint8_t*>(0x6d4020);
+    uint8_t* pack = g_pack;
     if (F<char*>(w, 0x47)) {
         NameTable_PushPos(pack);
         F<uint8_t*>(w, 0x92) = Pack_AcquireNamed(pack, 0, F<char*>(w, 0x47));
-        NameTable_PopPosition(hook::Global<uint8_t*>(0x6d4020));
+        NameTable_PopPosition(g_pack);
     }
     if (!w[0x37]) w[0x37] = 3;
     w[0x67] = w[0x37];
-    NameTable_PushPos(hook::Global<uint8_t*>(0x6d4020));
-    F<uint8_t*>(w, 0x63) = Pack_AcquireFont(hook::Global<uint8_t*>(0x6d4020), 0, w[0x37]);
-    NameTable_PopPosition(hook::Global<uint8_t*>(0x6d4020));
+    NameTable_PushPos(g_pack);
+    F<uint8_t*>(w, 0x63) = Pack_AcquireFont(g_pack, 0, w[0x37]);
+    NameTable_PopPosition(g_pack);
     memcpy(w + 0x6c, w + 0xb, 0x10);
     F<uint16_t>(w, 0x7c) = F<uint16_t>(w, 4);
     return w;
@@ -529,14 +530,14 @@ RT3_REPLACE(0x558580, Widget_Construct);
 RT3_NOINLINE int32_t __fastcall Widget_IsVisible(uint8_t* w) {
     if (!(w[0x6a] & 1) || !(w[0x68] & 1) || !F<uint8_t*>(w, 0x86) || !F<void*>(F<uint8_t*>(w, 0x86), 0x5c)) return 0;
     if (F<uint8_t*>(w, 0x4b) && !Widget_IsVisible(F<uint8_t*>(w, 0x4b))) return 0;
-    return hook::Global<uint8_t*>(0x6d4024)[0x57] ? 0 : 1;
+    return g_engine[0x57] ? 0 : 1;
 }
 RT3_REPLACE(0x558670, Widget_IsVisible);
 
 RT3_NOINLINE int32_t __fastcall Widget_IsEnabled(uint8_t* w) {
     if (!(w[0x6a] & 2) || !(w[0x68] & 2) || !F<uint8_t*>(w, 0x86) || !F<void*>(F<uint8_t*>(w, 0x86), 0x60)) return 0;
     if (F<uint8_t*>(w, 0x4b) && !Widget_IsEnabled(F<uint8_t*>(w, 0x4b))) return 0;
-    return hook::Global<uint8_t*>(0x6d4024)[0x57] ? 0 : 1;
+    return g_engine[0x57] ? 0 : 1;
 }
 RT3_REPLACE(0x5586c0, Widget_IsEnabled);
 
@@ -573,13 +574,13 @@ RT3_NOINLINE void __fastcall Widget_OnHover(uint8_t* w, int, float x, float y, i
         uint8_t* p = F<uint8_t*>(w, 0x86);
         float ry = (float)((double)y - F<float>(p, 9) + F<float>(w, 0xf));
         float rx = (float)((double)x - F<float>(p, 5) + F<float>(w, 0xb));
-        uint32_t hovered = F<uint8_t*>(hook::Global<uint8_t*>(0x6d401c), 0xc6d) == w;
+        uint32_t hovered = F<uint8_t*>(g_windowManager, 0xc6d) == w;
         F<void(__fastcall*)(uint32_t, uint32_t, int32_t, float, float, int32_t, int32_t)>(w, 0x96)(F<uint16_t>(w, 4), hovered, 1, rx, ry, -1, -1);
     }
-    uint8_t* ui = hook::Global<uint8_t*>(0x6d401c);
+    uint8_t* ui = g_windowManager;
     if (F<uint8_t*>(ui, 0xc6d) == w) return;
     F<uint8_t*>(ui, 0xc6d) = w;
-    Ui_ShowTooltip(hook::Global<uint8_t*>(0x6d401c), 0, F<const char*>(w, 0x43), 1, 1, -1);
+    Ui_ShowTooltip(g_windowManager, 0, F<const char*>(w, 0x43), 1, 1, -1);
 }
 RT3_REPLACE(0x558760, Widget_OnHover);
 
@@ -593,9 +594,9 @@ RT3_NOINLINE void __fastcall Widget_OnLeave(uint8_t* w) {
     }
     if (F<void*>(w, 0x96))
         F<void(__fastcall*)(uint32_t, uint32_t, int32_t, int32_t, int32_t, int32_t, int32_t)>(w, 0x96)(F<uint16_t>(w, 4), 1, 0, 0, 0, -1, -1);
-    uint8_t* ui = hook::Global<uint8_t*>(0x6d401c);
+    uint8_t* ui = g_windowManager;
     if (F<uint8_t*>(ui, 0xc6d) == w) F<uint8_t*>(ui, 0xc6d) = nullptr;
-    Ui_ShowTooltip(hook::Global<uint8_t*>(0x6d401c), 0, (const char*)0x5c87a8, 1, 0, -1);
+    Ui_ShowTooltip(g_windowManager, 0, (const char*)0x5c87a8, 1, 0, -1);
 }
 RT3_REPLACE(0x558840, Widget_OnLeave);
 
@@ -614,7 +615,7 @@ RT3_NOINLINE void __fastcall Widget_ClearFlags(uint8_t* w, int, uint32_t mask) {
     }
     if ((w[0x6a] & 0x10) && !(nf & 0x10)) {
         nf &= ~0x10u;
-        F<int32_t>(hook::Global<uint8_t*>(0x6d401c), 0xc71) = 0;
+        F<int32_t>(g_windowManager, 0xc71) = 0;
     }
     F<uint16_t>(w, 0x6a) = (uint16_t)nf;
     ((void(__fastcall*)(uint8_t*))(*(void***)w)[0x1c / 4])(w);
@@ -626,11 +627,11 @@ RT3_REPLACE(0x5588b0, Widget_ClearFlags);
 void __fastcall Widget_ReleaseResources(uint8_t* w) {
     if (w[0x6a] & 4) Widget_ClearFlags(w, 0, 4);
     if (void* f = F<void*>(w, 0x63)) {
-        Pack_Release(hook::Global<uint8_t*>(0x6d4020), 0, f);
+        Pack_Release(g_pack, 0, f);
         F<void*>(w, 0x63) = nullptr;
     }
     if (void* f = F<void*>(w, 0x92)) {
-        Pack_Release(hook::Global<uint8_t*>(0x6d4020), 0, f);
+        Pack_Release(g_pack, 0, f);
         F<void*>(w, 0x92) = nullptr;
     }
 }
@@ -647,12 +648,12 @@ RT3_NOINLINE uint32_t __fastcall Widget_SetFlags(uint8_t* w, int, uint32_t mask,
     uint32_t nf = old | mask;
     F<uint16_t>(w, 0x6a) = (uint16_t)nf;
     if (!(old & 4) && (nf & 4)) {
-        if (uint8_t* focus = F<uint8_t*>(hook::Global<uint8_t*>(0x6d401c), 0xc6d)) Widget_ClearFlags(focus, 0, 4);
+        if (uint8_t* focus = F<uint8_t*>(g_windowManager, 0xc6d)) Widget_ClearFlags(focus, 0, 4);
         ((void(__fastcall*)(uint8_t*, int, uint32_t, uint32_t, int32_t, int32_t))(*(void***)w)[0xc / 4])(w, 0, a, b, 1, 1);
     }
     if (!(old & 0x10) && (w[0x6a] & 0x10)) {
-        if (uint8_t* hover = F<uint8_t*>(hook::Global<uint8_t*>(0x6d401c), 0xc71)) Widget_ClearFlags(hover, 0, 0x10);
-        F<uint8_t*>(hook::Global<uint8_t*>(0x6d401c), 0xc71) = w;
+        if (uint8_t* hover = F<uint8_t*>(g_windowManager, 0xc71)) Widget_ClearFlags(hover, 0, 0x10);
+        F<uint8_t*>(g_windowManager, 0xc71) = w;
     }
     return ((uint32_t(__fastcall*)(uint8_t*))(*(void***)w)[0x1c / 4])(w);
 }
@@ -677,13 +678,13 @@ RT3_NOINLINE int32_t __fastcall Widget_HandleEvent(uint8_t* w, int, uint8_t* e) 
     uint32_t target = F<uint32_t>(e, 4);
     auto setImage = [&](bool redrawAlways) {
         String_Free(&F<char*>(w, 0x47));
-        if (F<void*>(w, 0x92)) Pack_Release(hook::Global<uint8_t*>(0x6d4020), 0, F<void*>(w, 0x92));
+        if (F<void*>(w, 0x92)) Pack_Release(g_pack, 0, F<void*>(w, 0x92));
         F<void*>(w, 0x92) = nullptr;
         String_Assign(&F<char*>(w, 0x47), F<const char*>(e, 8));
         if (F<char*>(w, 0x47)) {
-            NameTable_PushPos(hook::Global<uint8_t*>(0x6d4020));
-            F<uint8_t*>(w, 0x92) = Pack_AcquireNamed(hook::Global<uint8_t*>(0x6d4020), 0, F<char*>(w, 0x47));
-            NameTable_PopPosition(hook::Global<uint8_t*>(0x6d4020));
+            NameTable_PushPos(g_pack);
+            F<uint8_t*>(w, 0x92) = Pack_AcquireNamed(g_pack, 0, F<char*>(w, 0x47));
+            NameTable_PopPosition(g_pack);
             if (!redrawAlways) ((void(__fastcall*)(uint8_t*))vt(0x34))(w);
         }
         if (redrawAlways) ((void(__fastcall*)(uint8_t*))vt(0x34))(w);
@@ -692,8 +693,8 @@ RT3_NOINLINE int32_t __fastcall Widget_HandleEvent(uint8_t* w, int, uint8_t* e) 
         if (F<void*>(w, 0x43)) Free(F<void*>(w, 0x43));
         F<void*>(w, 0x43) = nullptr;
         if (F<const char*>(e, 8)) String_Assign(&F<char*>(w, 0x43), F<const char*>(e, 8));
-        if (F<uint8_t*>(hook::Global<uint8_t*>(0x6d401c), 0xc6d) == w)
-            Ui_ShowTooltip(hook::Global<uint8_t*>(0x6d401c), 0, F<char*>(w, 0x43), 1, 1, -1);
+        if (F<uint8_t*>(g_windowManager, 0xc6d) == w)
+            Ui_ShowTooltip(g_windowManager, 0, F<char*>(w, 0x43), 1, 1, -1);
         return F<int32_t>(e, 0) != 0x6e;
     };
     auto sound = [&](uint8_t snd) {
@@ -1029,7 +1030,7 @@ void __fastcall Panel_Draw(uint8_t* w) {
         const float x1 = (float)((double)F<float>(w, 0x13) + F<float>(w, 0xb));
         const float y = (float)((double)F<float>(p, 9) + F<float>(w, 0xf));
         const float x = (float)((double)F<float>(p, 5) + F<float>(w, 0xb));
-        Engine_QueueSprite(hook::Global<void*>(0x6d4024), 0, Bits(x), Bits(y), Bits(x1), Bits(y1), Bits(fade), 0xffffffff, tex, 0, 0, 0x3f800000, 0x3f800000,
+        Engine_QueueSprite(hook::As<void*>(g_engine), 0, Bits(x), Bits(y), Bits(x1), Bits(y1), Bits(fade), 0xffffffff, tex, 0, 0, 0x3f800000, 0x3f800000,
                            0x3f800000);
     } else if (auto cb = F<void(__fastcall*)(uint32_t, uint32_t, float, float, float, float, int32_t)>(w, 0x10d)) {
         const float y = boxY();
@@ -1037,7 +1038,7 @@ void __fastcall Panel_Draw(uint8_t* w) {
     } else if (F<uint8_t*>(w, 0x92)) {
         float tint = F<float>(w, 0x108);
         const uint32_t fl = F<uint32_t>(w, 0x33);
-        if ((fl & 0x40) || ((fl & 1) && F<uint8_t*>(hook::Global<uint8_t*>(0x6d401c), 0xc6d) == w)) tint = (float)((double)tint * D(0x5c87e8));
+        if ((fl & 0x40) || ((fl & 1) && F<uint8_t*>(g_windowManager, 0xc6d) == w)) tint = (float)((double)tint * D(0x5c87e8));
         const int32_t clip = fl & 0x40000;
         if (clip && (!(F<float>(w, 0xdc) < F<float>(w, 0xe4)) || !(F<float>(w, 0xd8) < F<float>(w, 0xe0)))) return;
         const float bottom = (float)((double)F<float>(w, 0xe4) + F<float>(p, 9));
@@ -1050,7 +1051,7 @@ void __fastcall Panel_Draw(uint8_t* w) {
         Glyph_Queue((uint8_t*)(uintptr_t)Table_Entry(F<uint8_t*>(w, 0x92), 0, F<int16_t>(w, 0xae)), 0, gx, gy, Bits(tint), F<float>(w, 0x100), F<float>(w, 0x104),
                     color, 0, 1, clip, left, top, right, bottom);
     }
-    if (!(F<uint32_t>(hook::Global<uint8_t*>(0x6d401c), 0xc79) & F<uint16_t>(w, 6))) return;
+    if (!(F<uint32_t>(g_windowManager, 0xc79) & F<uint16_t>(w, 6))) return;
     p = F<uint8_t*>(w, 0x86);
     Ui_FrameRect(0xffffffff, 0, (float)((double)F<float>(p, 5) + F<float>(w, 0xb)), (float)((double)F<float>(p, 9) + F<float>(w, 0xf)), F<float>(w, 0x13),
                  F<float>(w, 0x17), 1.0f, 3);
@@ -1093,7 +1094,7 @@ int32_t __fastcall IconButton_HandleEvent(uint8_t* w, int, uint32_t* msg) {
     case 6:
         if (!WidgetSlot453(w, 0x30) || !Widget_IsEnabled(w) || !WidgetHit453(w, msg[9], msg[10])) break;
         if (F<void*>(w, 0x9a)) WidgetClickCb453(w, msg);
-        if (hook::Global<int32_t>(0x6d3b4c) && F<uint16_t>(w, 4) == hook::Global<uint32_t>(0x622b34)) Tutorial_Advance();
+        if (g_6d3b4c && F<uint16_t>(w, 4) == g_622b34) Tutorial_Advance();
         break;
     case 7:
         WidgetSlot453(w, 0x30);
@@ -1174,7 +1175,7 @@ void __fastcall ListBox_Destruct(uint8_t* w) {
     for (uint32_t off : { 0x1adu, 0x1b1u }) {
         uint8_t* s = F<uint8_t*>(w, off);
         if (!s) continue;
-        HandleTable_Release(hook::Global<uint8_t*>(0x6d401c), 0, F<uint16_t>(s, 0x7c));
+        HandleTable_Release(g_windowManager, 0, F<uint16_t>(s, 0x7c));
         Window_DeleteChild(F<uint8_t*>(w, 0x86), 0, F<uint8_t*>(w, off));
     }
     F<uint8_t*>(w, 0x1ad) = nullptr;
@@ -1237,7 +1238,7 @@ void __fastcall Slider_Layout(uint8_t* s) {
         F<uint16_t>(d, 0x5f) = F<uint16_t>(s, 0x129);
         F<uint16_t>(d, 0x61) = F<uint16_t>(s, 0x12d);
         F<float>(d, 0xb) = (float)((double)F<float>(s, 0x165) + F<float>(s, 0xf));
-        uint16_t id = (uint16_t)HandleTable_Acquire(hook::Global<uint8_t*>(0x6d401c), 0, 0);
+        uint16_t id = (uint16_t)HandleTable_Acquire(g_windowManager, 0, 0);
         F<uint16_t>(d, 0) = id;
         d[0x89] = F<int32_t>(s, 0x121) ? (uint8_t)F<int32_t>(s, 0x121) : 6;
         d[0x8a] = F<int32_t>(s, 0x125) ? (uint8_t)F<int32_t>(s, 0x125) : 7;
@@ -1251,7 +1252,7 @@ void __fastcall Slider_Layout(uint8_t* s) {
         F<uint16_t>(d, 0x61) = F<uint16_t>(s, 0x135);
         F<uint16_t>(d, 0x5f) = F<uint16_t>(s, 0x131);
         F<float>(d, 0xb) = (float)((double)F<float>(s, 0x16d) + F<float>(s, 0xf));
-        id = (uint16_t)HandleTable_Acquire(hook::Global<uint8_t*>(0x6d401c), 0, 0);
+        id = (uint16_t)HandleTable_Acquire(g_windowManager, 0, 0);
         F<uint16_t>(d, 0) = id;
         if (F<const char*>(s, 0x43)) String_Assign(&F<char*>(d, 0x3f), F<const char*>(s, 0x43));
         F<uint8_t*>(d, 0x47) = s;
@@ -1341,7 +1342,7 @@ void __fastcall Slider_Draw(uint8_t* w) {
     const float ty = (float)((double)y + F<float>(w, 0x18d));
     const float tx = (float)((double)x + F<float>(w, 0x189));
     Glyph_Queue((uint8_t*)(uintptr_t)Table_Entry(F<uint8_t*>(w, 0x92), 0, F<int32_t>(w, 0x139)), 0, tx, ty, 0x3f800000, 1.0f, 1.0f, 0xffffffff, 0, 1, 0, 0.0f, 0.0f, 1.0f, 1.0f);
-    if (!(F<uint32_t>(hook::Global<uint8_t*>(0x6d401c), 0xc79) & F<uint16_t>(w, 6))) return;
+    if (!(F<uint32_t>(g_windowManager, 0xc79) & F<uint16_t>(w, 6))) return;
     p = F<uint8_t*>(w, 0x86);
     Ui_FrameRect(0xffffffff, 0, (float)((double)F<float>(p, 5) + F<float>(w, 0xb)), (float)((double)F<float>(p, 9) + F<float>(w, 0xf)), F<float>(w, 0x13),
                  F<float>(w, 0x17), 1.0f, 3);
@@ -1430,7 +1431,7 @@ RT3_NOINLINE int32_t __fastcall Scrollbar_HandleMouse(uint8_t* sb, int, uint32_t
         bool inv = !horz && F<int32_t>(sb, 0x10d);
         if (c >= F<float>(sb, thumb) && (double)F<float>(sb, len) + F<float>(sb, thumb) > c) {
             F<int32_t>(sb, 0x1a5) = 1;
-            if (horz && hook::Global<int32_t>(0x6d3b4c) && (int32_t)F<uint16_t>(sb, 4) == hook::Global<int32_t>(0x622b34)) Tutorial_Advance();
+            if (horz && g_6d3b4c && (int32_t)F<uint16_t>(sb, 4) == hook::As<int32_t>(g_622b34)) Tutorial_Advance();
             setPos(inv ? atReversed(c, n) : at(c, start, len, n));
             return 0;
         }
@@ -1517,9 +1518,9 @@ int32_t __fastcall Scrollbar_HandleEvent(uint8_t* sb, int, uint32_t* ev) {
             v = c < n - 1 ? c : n - 1;
         if (v <= 0) v = 0;
         if (v != pos) {
-            ++hook::Global<int32_t>(0x6d3ffc);
+            ++g_6d3ffc;
             Dropdown_Select(sb, 0, v, 1, 0);
-            --hook::Global<int32_t>(0x6d3ffc);
+            --g_6d3ffc;
         }
         return 0;
     }
@@ -1550,7 +1551,7 @@ void __fastcall TextWidget_Layout(uint8_t* w) {
     }
     if (F<int32_t>(w, 0xe0) < 1) F<int32_t>(w, 0xe0) = 1;
     if (F<uint16_t>(w, 0x40) == 0xf46 && !F<uint16_t>(w, 0xbe) && F<uint16_t>(w, 9) == 0x7539) F<uint16_t>(w, 0xbe) = 0x746;
-    auto lang = []() { return hook::Global<int32_t>(0x6d3c84); };
+    auto lang = []() { return g_language; };
     const uint16_t id = F<uint16_t>(w, 4);
     if ((lang() == 3 || lang() == 4) && (F<uint16_t>(w, 0xbe) == 0x7fe || F<uint16_t>(w, 0xbe) == 0x800)) F<uint32_t>(w, 0x13) = 0x3de66666;
     if ((lang() == 3 || lang() == 4) && (id == 0x986e || id == 0x986d)) {
@@ -1678,10 +1679,10 @@ RT3_NOINLINE void __fastcall TextBox_MoveCursor(uint8_t* e, int, const char* str
             if (ch == '[') inTag = 1;
             if (ch == ']') inTag = 0;
         }
-        if (hook::Global<int32_t>(0x6d4034) && (step < 0 ? -step : step) <= 1) {
+        if (g_6d4034 && (step < 0 ? -step : step) <= 1) {
             const char* cur = str + pos;
             const char* q;
-            uint16_t cp = hook::Global<uint16_t>(0x624328);
+            uint16_t cp = hook::As<uint16_t>(g_624328);
             if (step == 1) q = Import<const char*(__stdcall*)(uint16_t, const char*, uint32_t)>(0x5c8244)(cp, cur, 0);
             else q = Import<const char*(__stdcall*)(uint16_t, const char*, const char*, uint32_t)>(0x5c8254)(cp, str, cur, 0);
             int32_t d = (int32_t)(q - cur);
@@ -1719,7 +1720,7 @@ uint8_t* __fastcall EditBox_Load(uint8_t* w, int, int32_t) {
     F<uint16_t>(w, 0xbe) = F<uint16_t>(rec, 0x7b);
     F<uint32_t>(w, 0xec) = 0;
     F<char*>(w, 0xba) = nullptr;
-    NameTable_ReadBlock(hook::Global<uint8_t*>(0x6d4020), 0, 0xbbb, &F<void*>(w, 0xba));
+    NameTable_ReadBlock(g_pack, 0, 0xbbb, &F<void*>(w, 0xba));
     if (!F<char*>(w, 0xba)) {
         String_Assign(&F<char*>(w, 0xba), (const char*)0x5d09c4);
     } else {
@@ -1806,7 +1807,7 @@ void __fastcall EditBox_Draw(uint8_t* w) {
     EditBox_ScrollStates(w, 0, &up, &down);
     if (const char* text = F<const char*>(w, 0xba))
         Font_DrawTextBox(F<uint8_t*>(w, 0x63), 0, text, x, y, F<float>(w, 0x13), F<float>(w, 0x17), color, up, down, flags, 1.0f);
-    if (!(F<uint32_t>(hook::Global<uint8_t*>(0x6d401c), 0xc79) & F<uint16_t>(w, 6))) return;
+    if (!(F<uint32_t>(g_windowManager, 0xc79) & F<uint16_t>(w, 6))) return;
     p = F<uint8_t*>(w, 0x86);
     Ui_FrameRect(0xffffffff, 0, (float)((double)F<float>(p, 5) + F<float>(w, 0xb)), (float)((double)F<float>(p, 9) + F<float>(w, 0xf)), F<float>(w, 0x13),
                  F<float>(w, 0x17), 1.0f, 3);
@@ -1900,24 +1901,24 @@ RT3_NOINLINE void __fastcall EditBox_RunModal(uint8_t* w, int, int32_t caret) {
     EditBox_InsertCursor(w, 0, buf, F<int32_t>(w, 0xd8));
     int32_t start = ClockMs();
     bool running = true;
-    Obj_Incc60(hook::Global<uint8_t*>(0x6d401c));
-    Input_Block(hook::Global<uint8_t*>(0x6d4018));
+    Obj_Incc60(g_windowManager);
+    Input_Block(g_input);
     int32_t lastPump = ClockMs();
     ++F<int32_t>(w, 0xe8);
     do {
         if (timeout && start + timeout < ClockMs()) running = false;
-        if (hook::Global<int32_t>(0xd973f0) < ClockMs()) {
+        if (g_d973f0 < ClockMs()) {
             F<int32_t>(w, 0xe4) = F<int32_t>(w, 0xe4) == 0;
-            hook::Global<int32_t>(0xd973f0) = ClockMs() + 400;
+            g_d973f0 = ClockMs() + 400;
             EditBox_InsertCursor(w, 0, buf, F<int32_t>(w, 0xd8));
         }
         Engine_Nop();
         --F<int32_t>(w, 0xe8);
         InputEvent scratch;
-        InputEvent ev = *Input_NextEvent(hook::Global<uint8_t*>(0x6d4018), 0, &scratch);
-        if (F<int32_t>(w, 0xd4) < hook::Global<int32_t>(0xd973e8) && ClockMs() - hook::Global<int32_t>(0xd973e8) < 60000) {
-            Input_Unblock(hook::Global<uint8_t*>(0x6d4018));
-            Obj_Decc60(hook::Global<uint8_t*>(0x6d401c));
+        InputEvent ev = *Input_NextEvent(g_input, 0, &scratch);
+        if (F<int32_t>(w, 0xd4) < g_d973e8 && ClockMs() - g_d973e8 < 60000) {
+            Input_Unblock(g_input);
+            Obj_Decc60(g_windowManager);
             return;
         }
         ++F<int32_t>(w, 0xe8);
@@ -1929,14 +1930,14 @@ RT3_NOINLINE void __fastcall EditBox_RunModal(uint8_t* w, int, int32_t caret) {
             if (!(*(int32_t(__fastcall**)(uint8_t*, int, uint32_t, uint32_t, int32_t))(*(uint8_t**)w + 0x20))(w, 0, ev.v[9], ev.v[10], 1)) {
                 uint8_t* win = F<uint8_t*>(w, 0x86);
                 if (!F<int32_t>(win, 0x6c) || !(*(int32_t(__fastcall**)(uint8_t*))(*(uint8_t**)win + 8))(win)) {
-                    hook::Global<int32_t>(0xd973ec) = ClockMs();
+                    g_d973ec = ClockMs();
                     memset(&scratch, 0, sizeof scratch);
                     scratch.v[0] = 0xca;
                     scratch.v[1] = F<uint16_t>(w, 4);
                     scratch.v[11] = (uint32_t)(uintptr_t)w;
-                    Input_PushEvent(hook::Global<uint8_t*>(0x6d4018), 0, scratch.v);
+                    Input_PushEvent(g_input, 0, scratch.v);
                 }
-                Input_PushEvent(hook::Global<uint8_t*>(0x6d4018), 0, ev.v);
+                Input_PushEvent(g_input, 0, ev.v);
                 break;
             }
             int32_t pos = EditBox_HitTest(w, 0, *(float*)&ev.v[9], *(float*)&ev.v[10]);
@@ -1945,7 +1946,7 @@ RT3_NOINLINE void __fastcall EditBox_RunModal(uint8_t* w, int, int32_t caret) {
             continue;
         }
         if (ev.v[0] == 0xcd) {
-            Input_PushEvent(hook::Global<uint8_t*>(0x6d4018), 0, ev.v);
+            Input_PushEvent(g_input, 0, ev.v);
             running = false;
         }
         if (ev.v[0] != 3) continue;
@@ -2044,8 +2045,8 @@ RT3_NOINLINE void __fastcall EditBox_RunModal(uint8_t* w, int, int32_t caret) {
         timeout = 0;
     } while (running);
     --F<int32_t>(w, 0xe8);
-    Input_Unblock(hook::Global<uint8_t*>(0x6d4018));
-    Obj_Decc60(hook::Global<uint8_t*>(0x6d401c));
+    Input_Unblock(g_input);
+    Obj_Decc60(g_windowManager);
     String_Assign(text, buf);
 }
 RT3_REPLACE(0x55bfd0, EditBox_RunModal);

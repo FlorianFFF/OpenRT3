@@ -9,6 +9,7 @@
 #include <windows.h>
 #include <initializer_list>
 #include "hook/hook.h"
+#include "core/globals.h"
 #include "game/collection.h"
 #include "core/ptrlist.h"
 #include "core/crt.h"
@@ -298,12 +299,12 @@ static inline void Copy(char* d, const char* s) { while ((*d++ = *s++) != 0) {} 
 static inline void* ExeNew(size_t n) { return ((void*(__cdecl*)(size_t))0x53b070)(n); }
 
 // The texture name from the main pack's cache (all mips, flag 0x7f).
-static uint8_t* Texture_Acquire(const char* name) { return TextureCache_Get(hook::Global<uint8_t*>(0x6d4020), 0, name, 0, 0, 0x7f); }
+static uint8_t* Texture_Acquire(const char* name) { return TextureCache_Get(g_pack, 0, name, 0, 0, 0x7f); }
 
 // Replaces the texture held in global slot by name's (the old one released).
 static void Texture_Replace(uint32_t slot, const char* name) {
     if (void* old = hook::Global<void*>(slot)) {
-        Pack_Release(hook::Global<uint8_t*>(0x6d4020), 0, old);
+        Pack_Release(g_pack, 0, old);
         hook::Global<void*>(slot) = nullptr;
     }
     hook::Global<uint8_t*>(slot) = Texture_Acquire(name);
@@ -420,19 +421,19 @@ RT3_NOINLINE int32_t __fastcall Terrain_ImportHeightmap(uint8_t* t, int, const c
     char path[0x104], image[0x100];
     FormatText(path, (const char*)0x5c8730, (const char*)0x5dd3d0, name, 0, 0, 0, 0, 0, 0);
     int32_t result = Terrain_LoadTexture(t, 0, path, 1);
-    uint8_t* e = hook::Global<uint8_t*>(0x6d4024);
+    uint8_t* e = g_engine;
     uint8_t keep254 = F<uint8_t>(e, 0x114254), keep255 = F<uint8_t>(e, 0x114255);
     uint32_t keep23f = F<uint32_t>(e, 0x11423f), keep23b = F<uint32_t>(e, 0x11423b);
     F<uint8_t>(e, 0x114255) = 0;
-    F<uint8_t>(hook::Global<uint8_t*>(0x6d4024), 0x114254) = 0;
-    F<uint32_t>(hook::Global<uint8_t*>(0x6d4024), 0x11423f) = 0x1000;
-    F<uint32_t>(hook::Global<uint8_t*>(0x6d4024), 0x11423b) = 0x1000;
+    F<uint8_t>(g_engine, 0x114254) = 0;
+    F<uint32_t>(g_engine, 0x11423f) = 0x1000;
+    F<uint32_t>(g_engine, 0x11423b) = 0x1000;
     FormatText(image, (const char*)0x5dd3c8, name, 0, 0, 0, 0, 0, 0, 0);
-    uint8_t* tex = TextureCache_Get(hook::Global<uint8_t*>(0x6d4020), 0, image, 0, 0, 0x7f);
-    F<uint32_t>(hook::Global<uint8_t*>(0x6d4024), 0x11423b) = keep23b;
-    F<uint32_t>(hook::Global<uint8_t*>(0x6d4024), 0x11423f) = keep23f;
-    F<uint8_t>(hook::Global<uint8_t*>(0x6d4024), 0x114255) = keep255;
-    F<uint8_t>(hook::Global<uint8_t*>(0x6d4024), 0x114254) = keep254;
+    uint8_t* tex = TextureCache_Get(g_pack, 0, image, 0, 0, 0x7f);
+    F<uint32_t>(g_engine, 0x11423b) = keep23b;
+    F<uint32_t>(g_engine, 0x11423f) = keep23f;
+    F<uint8_t>(g_engine, 0x114255) = keep255;
+    F<uint8_t>(g_engine, 0x114254) = keep254;
     int32_t w, h;
     uint32_t* pixels = Texture_Pixels32(tex, 0, &w, &h, 0);
     int32_t total = w * h;
@@ -444,10 +445,10 @@ RT3_NOINLINE int32_t __fastcall Terrain_ImportHeightmap(uint8_t* t, int, const c
     if (gw > 0x400 || gh > 0x400) Money_PromptTransfer(&gw, &gh);
     if (++gw > 0x401) gw = 0x401;
     if (++gh > 0x401) gh = 0x401;
-    ++hook::Global<int32_t>(0xccb9e8);
+    ++g_skipCount;
     float sx = (float)w / (float)gw, sy = (float)h / (float)gh;
     ((void(__thiscall*)(uint8_t*, int32_t, int32_t))(*(void***)t)[2])(t, gw, gh);
-    ++hook::Global<int32_t>(0xccb9e8);
+    ++g_skipCount;
     uint8_t fill = *F<uint8_t*>(t, 0x1655);
     int32_t gray = 1;
     int32_t rows = F<int32_t>(t, 0x15d5);
@@ -498,11 +499,11 @@ RT3_NOINLINE int32_t __fastcall Terrain_ImportHeightmap(uint8_t* t, int, const c
             }
         }
     }
-    hook::Global<int32_t>(0xccb9e8) += 4;
+    g_skipCount += 4;
     if (!(curve == Fl(0x5c85b4))) Terrain_ApplyHeightCurve(t, 0, curve);
     if (smooth > 0) Terrain_SmoothPeaks(t, 0, smooth);
-    Pack_Release(hook::Global<uint8_t*>(0x6d4020), 0, tex);
-    hook::Global<int32_t>(0xccb9e8) += 3;
+    Pack_Release(g_pack, 0, tex);
+    g_skipCount += 3;
     Terrain_InitMaps(t, 0, 1, 0, 0);
     return result;
 }
@@ -525,15 +526,15 @@ RT3_REPLACE(0x538640, HandleTable_Construct);
 // there is text; one character or less clears it) for `ms` milliseconds (+0x1c =
 // end time, 0 = until replaced). Not re-entrant (0xccba18).
 RT3_NOINLINE void __fastcall StatusLine_Set(uint8_t* s, int, const char* text, int32_t ms) {
-    int32_t& busy = hook::Global<int32_t>(0xccba18);
+    int32_t& busy = g_ccba18;
     if (busy) return;
     busy = 1;
     if (F<void*>(s, 0x14)) FreeAndNull(&F<void*>(s, 0x14));
     if (strlen(text) > 1) {
         String_Assign(&F<char*>(s, 0x14), text);
-        if (!F<void*>(s, 0x18)) F<uint8_t*>(s, 0x18) = Pack_AcquireFont(hook::Global<uint8_t*>(0x6d4020), 0, 7);
+        if (!F<void*>(s, 0x18)) F<uint8_t*>(s, 0x18) = Pack_AcquireFont(g_pack, 0, 7);
     } else {
-        Pack_Release(hook::Global<uint8_t*>(0x6d4020), 0, F<void*>(s, 0x18));
+        Pack_Release(g_pack, 0, F<void*>(s, 0x18));
         F<void*>(s, 0x18) = nullptr;
     }
     F<int32_t>(s, 0x1c) = ms ? ClockMs() + ms : 0;
@@ -543,14 +544,14 @@ RT3_REPLACE(0x5386e0, StatusLine_Set);
 
 // 0x5387a0. Shows a status message (+0x10) for 10 s (+8), guarded against re-entry.
 RT3_NOINLINE void __fastcall Status_SetMessage(uint8_t* s, int, const char* text) {
-    if (hook::Global<int32_t>(0xccba1c)) return;
-    hook::Global<int32_t>(0xccba1c) = 1;
+    if (g_ccba1c) return;
+    g_ccba1c = 1;
     F<int32_t>(s, 8) = ClockMs() + 10000;
     if (F<void*>(s, 0x10)) FreeAndNull((void**)(s + 0x10));
     size_t n = 0;
     while (text[n]) ++n;
     if (n) String_Assign((char**)(s + 0x10), text);
-    hook::Global<int32_t>(0xccba1c)--;
+    g_ccba1c--;
 }
 RT3_REPLACE(0x5387a0, Status_SetMessage);
 
@@ -594,7 +595,7 @@ RT3_NOINLINE int32_t __fastcall Ui_Dispatch(uint8_t** mgr, int, uint32_t* ev) {
     uint8_t* w = mgr[0];
     int32_t r = 1;
     for (;;) {
-        if (uint8_t* cap = F<uint8_t*>(hook::Global<uint8_t*>(0x6d401c), 0xc75)) {
+        if (uint8_t* cap = F<uint8_t*>(g_windowManager, 0xc75)) {
             r = ((int32_t(__fastcall*)(uint8_t*, int, uint32_t*))(*(void***)cap)[1])(cap, 0, ev);
             if (!r) break;
         }
@@ -682,10 +683,10 @@ RT3_NOINLINE void __fastcall Windows_Shutdown(uint8_t* m) {
     for (int32_t i = 0; i < F<int32_t>(m, 0xc58); ++i) Free(F<void*>(m, 0xbd8 + i * 0x10));
     F<int32_t>(m, 0xc58) = 0;
     FreeAndNull(&F<void*>(m, 0x10));
-    if (F<void*>(m, 0xc)) Pack_Release(hook::Global<uint8_t*>(0x6d4020), 0, F<void*>(m, 0xc));
+    if (F<void*>(m, 0xc)) Pack_Release(g_pack, 0, F<void*>(m, 0xc));
     F<void*>(m, 0xc) = nullptr;
     FreeAndNull(&F<void*>(m, 0x14));
-    if (F<void*>(m, 0x18)) Pack_Release(hook::Global<uint8_t*>(0x6d4020), 0, F<void*>(m, 0x18));
+    if (F<void*>(m, 0x18)) Pack_Release(g_pack, 0, F<void*>(m, 0x18));
     F<void*>(m, 0x18) = nullptr;
     if (Collection* fonts = F<Collection*>(m, 0xc69)) {
         Collection_Destruct(fonts);
@@ -707,11 +708,11 @@ RT3_NOINLINE void __fastcall WindowManager_Draw(uint8_t* m) {
     for (uint8_t* w = F<uint8_t*>(m, 4); w;) {
         Widget_Redraw(w);
         w = F<uint8_t*>(w, 0x54);
-        Engine_ResetTextureQueue(hook::Global<void*>(0x6d4024));
+        Engine_ResetTextureQueue(hook::As<void*>(g_engine));
     }
     const char* status = F<const char*>(m, 0x10);
     if (status && *status && ClockMs() < F<int32_t>(m, 8)) {
-        if (!F<uint8_t*>(m, 0xc)) F<uint8_t*>(m, 0xc) = Pack_AcquireFont(hook::Global<uint8_t*>(0x6d4020), 0, 3);
+        if (!F<uint8_t*>(m, 0xc)) F<uint8_t*>(m, 0xc) = Pack_AcquireFont(g_pack, 0, 3);
         Font_DrawTextBox(F<uint8_t*>(m, 0xc), 0, F<const char*>(m, 0x10), BitsF(0x3dcccccd), 0.0f, BitsF(0x3f4ccccc), 1.0f, 0xffffffff, 3, 1, 0, 1.0f);
     }
     const char* tip = F<const char*>(m, 0x14);
@@ -728,8 +729,8 @@ RT3_REPLACE(0x538b60, WindowManager_Draw);
 // h; blank text: next ms), and an 0xae event carrying it is dispatched (the
 // original leaves the event's other fields uninitialized). 1 if shown.
 RT3_NOINLINE int32_t __fastcall Ui_ShowTooltip(uint8_t* ui, int, const char* text, int32_t prio, int32_t sticky, int32_t data) {
-    if (hook::Global<uint8_t*>(0x6d4024)[0x57]) return 0;
-    if (!text) text = hook::Global<const char*>(0x624d64);
+    if (g_engine[0x57]) return 0;
+    if (!text) text = g_624d64;
     if (F<int32_t>(ui, 0xc58) && prio < F<int32_t>(ui, 0xbdc) && F<int32_t>(ui, 0xbe4) > ClockMs() && *F<char*>(ui, 0xbd8)) return 0;
     if (F<int32_t>(ui, 0xc58)) {
         if (!strcmp(text, F<char*>(ui, 0xbd8))) {
@@ -821,11 +822,11 @@ RT3_NOINLINE uint32_t __fastcall Ui_RunModal(uint8_t** mgr, int, uint8_t* win, i
     int32_t lastPump = ClockMs();
     uint32_t prev[12];
     prev[0] = 0;
-    Input_Block(hook::Global<uint8_t*>(0x6d4018));
+    Input_Block(g_input);
     for (;;) {
         uint32_t ev[12], saved[12], scratch[12];
         // Through the call site 0x538fbe: the determinism harness wraps it to dismiss modals.
-        memcpy(ev, hook::CallTarget<void*(__fastcall*)(uint8_t*, int, void*)>(0x538fbe)(hook::Global<uint8_t*>(0x6d4018), 0, scratch), sizeof ev);
+        memcpy(ev, hook::CallTarget<void*(__fastcall*)(uint8_t*, int, void*)>(0x538fbe)(g_input, 0, scratch), sizeof ev);
         uint32_t type = ev[0];
         bool settled = false;
         for (;;) {
@@ -836,9 +837,9 @@ RT3_NOINLINE uint32_t __fastcall Ui_RunModal(uint8_t** mgr, int, uint8_t* win, i
             memcpy(saved, ev, sizeof ev);
             memcpy(prev, ev, sizeof ev);
             int32_t r = 1;
-            if (uint8_t* hk = F<uint8_t*>(hook::Global<uint8_t*>(0x6d401c), 0xc75)) r = ((int32_t(__thiscall*)(uint8_t*, uint32_t*))(*(void***)hk)[1])(hk, ev);
+            if (uint8_t* hk = F<uint8_t*>(g_windowManager, 0xc75)) r = ((int32_t(__thiscall*)(uint8_t*, uint32_t*))(*(void***)hk)[1])(hk, ev);
             if (r) {
-                if (hook::Global<void*>(0x6d3b4c)) r = Dialog_HandleEvent(ev);
+                if (hook::As<void*>(g_6d3b4c)) r = Dialog_HandleEvent(ev);
                 if (r && win) r = Window_HandleEvent(win, 0, ev);
             }
             if (type == 3 || type == 6 || type == 8) timeout = 0;
@@ -847,7 +848,7 @@ RT3_NOINLINE uint32_t __fastcall Ui_RunModal(uint8_t** mgr, int, uint8_t* win, i
                 goto done;
             }
             if (ev[0] == 0xcd) {
-                Input_PushEvent(hook::Global<uint8_t*>(0x6d4018), 0, ev);
+                Input_PushEvent(g_input, 0, ev);
                 goto done;
             }
             if (memcmp(ev, saved, sizeof ev)) {
@@ -871,7 +872,7 @@ RT3_NOINLINE uint32_t __fastcall Ui_RunModal(uint8_t** mgr, int, uint8_t* win, i
         lastPump = ClockMs();
     }
 done:
-    Input_Unblock(hook::Global<uint8_t*>(0x6d4018));
+    Input_Unblock(g_input);
     --F<int32_t>(m, 0xc64);
     return result;
 }
@@ -881,7 +882,7 @@ RT3_REPLACE(0x538f10, Ui_RunModal);
 // (+0x55; unless the engine is shutting down), frees +0x1e3 and calls vtbl[0].
 RT3_NOINLINE void __fastcall Effect_Destroy(uint8_t* e, int, int32_t really) {
     if (!really) return;
-    if (!F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x114256)) {
+    if (!F<int32_t>(g_engine, 0x114256)) {
         if (uint8_t* t = F<uint8_t*>(e, 4)) {
             int32_t y = CellOf(F<float>(e, 0x10)) >> 4;
             int32_t x = CellOf(F<float>(e, 0xc)) >> 4;
@@ -1076,7 +1077,7 @@ void __fastcall Track_BuildGeometry(uint8_t* e) {
     P(0x10f) = (float)Terrain_HeightAt(t, 0, P(0x10b), P(0x113));
     P(0x67) = (float)Terrain_HeightAt(t, 0, P(0x63), P(0x6b));
     P(0xc7) = (float)Terrain_HeightAt(t, 0, P(0xc3), P(0xcb));
-    X87Copy((void*)0x624e00, e + 0x67 + hook::Global<int32_t>(0xccba24) * 0x18);
+    X87Copy((void*)0x624e00, e + 0x67 + g_ccba24 * 0x18);
 
     double Z = f(0x1fd);
     double t0 = d0 * Z, t1 = d1 * Z, t2 = d2 * Z, t3 = d3 * Z, t4 = d4 * Z, t5 = d5 * Z;
@@ -1274,7 +1275,7 @@ RT3_REPLACE(0x53a440, Obj_SetAlpha5b);
 // x, z" (string 0xa9, two decimals) copied into `dst` (at most n-1 chars); returns
 // whether it wrote one. The other arguments are unused.
 RT3_NOINLINE int32_t __fastcall Track_DebugTooltip(uint8_t* t, int, char* dst, int32_t n, int32_t, int32_t, int32_t, int32_t) {
-    if (!hook::Global<uint8_t*>(0x6d4024)[0x1146bd]) return 0;
+    if (!g_engine[0x1146bd]) return 0;
     char zs[0x40], xs[0x80], text[0x1f0];
     Num_Format(zs, 3, (double)F<float>(t, 0x10), 10, 1, 0, 0);
     Num_Format(xs, 3, (double)F<float>(t, 0xc), 10, 1, 0, 0);
@@ -1284,7 +1285,7 @@ RT3_NOINLINE int32_t __fastcall Track_DebugTooltip(uint8_t* t, int, char* dst, i
 }
 RT3_REPLACE(0x53a450, Track_DebugTooltip);
 
-uint32_t __fastcall Get_ccba20() { return hook::Global<uint32_t>(0xccba20); }
+uint32_t __fastcall Get_ccba20() { return g_ccba20; }
 RT3_REPLACE(0x53a510, Get_ccba20);
 
 void __fastcall Texture_SetCcba20(const char* name) {
@@ -1294,9 +1295,9 @@ RT3_REPLACE(0x53a520, Texture_SetCcba20);
 
 // 0x53a560. Releases the pack resource held in 0xccba20.
 RT3_NOINLINE void ReleaseGlobalResource() {
-    void*& r = hook::Global<void*>(0xccba20);
+    void*& r = hook::As<void*>(g_ccba20);
     if (!r) return;
-    Pack_Release(hook::Global<uint8_t*>(0x6d4020), 0, r);
+    Pack_Release(g_pack, 0, r);
     r = nullptr;
 }
 RT3_REPLACE(0x53a560, ReleaseGlobalResource);
@@ -1374,7 +1375,7 @@ void __fastcall Track_SetEnds(uint8_t* e, int, const uint32_t* a, const uint32_t
     for (int k = 0; k < 4; ++k)
         if (v[k])
             for (int j = 0; j < 3; ++j) F<uint32_t>(e, 0x14 + k * 0xc + j * 4) = v[k][j];
-    if (!F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x114256) && F<uint8_t*>(e, 4)) {
+    if (!F<int32_t>(g_engine, 0x114256) && F<uint8_t*>(e, 4)) {
         const double k = Fl(0x5dcfe8);
         int32_t x0 = Ftol(F<float>(e, 0xc) * k) >> 4;
         int32_t y0 = Ftol(F<float>(e, 0x10) * k) >> 4;
@@ -1428,7 +1429,7 @@ RT3_REPLACE(0x53a920, Track_SetFlatHeight);
 // (the first right-aligned in the label colour, the second left in white);
 // one line is centred, at half size when longer than 2 characters.
 void __fastcall SceneLabel_Draw(uint8_t* o) {
-    uint8_t* e = hook::Global<uint8_t*>(0x6d4024);
+    uint8_t* e = g_engine;
     if (!e || !F<uint32_t>(e, 0x1141f5)) return;
     char line1[0x130], line2[0x130];
     int32_t color = -1;
@@ -1439,11 +1440,11 @@ void __fastcall SceneLabel_Draw(uint8_t* o) {
     int32_t wide = strlen(line1) > 2 ? 1 : 0;
     float y = (float)(((double)F<float>(o, 0x30) + F<float>(o, 0x18)) * D(0x5c8628) + (double)(wide ? 0x14 : 0) + D(0x5c8798));
     if (((int32_t(__thiscall*)(uint8_t*))(*(void***)o)[0x14 / 4])(o)) {
-        double ground = Terrain_HeightAt((uint8_t*)Engine_Get1C(hook::Global<uint8_t*>(0x6d4024)), 0, F<float>(o, 0xc), F<float>(o, 0x10)) + Fl(0x5c8780);
+        double ground = Terrain_HeightAt((uint8_t*)Engine_Get1C(g_engine), 0, F<float>(o, 0xc), F<float>(o, 0x10)) + Fl(0x5c8780);
         if (!(y > ground)) y = (float)ground;
     }
     float sx, sy, depth;
-    if (!Scene_ProjectNormalised((uint8_t*)Engine_Renderer(hook::Global<uint8_t*>(0x6d4024)), 0, F<float>(o, 0xc), y, F<float>(o, 0x10), &sx, &sy, &depth))
+    if (!Scene_ProjectNormalised((uint8_t*)Engine_Renderer(g_engine), 0, F<float>(o, 0xc), y, F<float>(o, 0x10), &sx, &sy, &depth))
         return;
     if (sx < Fl(0x5c8598) || !(sx <= Fl(0x5c85b4))) return;
     if (sy < Fl(0x5c8598) || !(sy <= Fl(0x5c85b4))) return;
@@ -1453,7 +1454,7 @@ void __fastcall SceneLabel_Draw(uint8_t* o) {
     int32_t fz = Ftol(F<float>(o, 0x6b));
     float scale, strength;
     uint8_t* font;
-    Fog_ParamsAt((uint8_t*)Engine_Get1C(hook::Global<uint8_t*>(0x6d4024)), 0, fx, fz, bias, &scale, (uint32_t*)&font, &strength);
+    Fog_ParamsAt((uint8_t*)Engine_Get1C(g_engine), 0, fx, fz, bias, &scale, (uint32_t*)&font, &strength);
     if (lines == 2) {
         float gap = (float)((double)strength * D(0x5caae0));
         Font_DrawTextBox(font, 0, line1, (float)((double)sx - D(0x5c88c8) - gap), (float)((double)sy - D(0x5c86b8)), BitsF(0x3e99999a), BitsF(0x3e4ccccd),
@@ -1480,7 +1481,7 @@ int32_t __fastcall Track_AfterLoad(uint8_t* e, int, int32_t) {
     F<void*>(e, 0x1e3) = nullptr;
     F<void*>(e, 4) = nullptr;
     F<void*>(e, 0x55) = nullptr;
-    F<void*>(e, 4) = Engine_Get1C(hook::Global<void*>(0x6d4024));
+    F<void*>(e, 4) = Engine_Get1C(hook::As<void*>(g_engine));
     Track_SetEnds(e, 0, &F<uint32_t>(e, 0x14), &F<uint32_t>(e, 0x20), &F<uint32_t>(e, 0x2c), &F<uint32_t>(e, 0x38));
     F<int32_t>(e, 8) = 0;
     if (quads) Track_BuildGeometry(e);
@@ -1512,15 +1513,15 @@ uint8_t* __fastcall Light_Construct(uint8_t* o) {
     F<uint32_t>(o, 0xa3) = 0x3f59999a;
     static const uint16_t ones[] = { 0x11b, 0xbb, 0x11f, 0x107, 0xef, 0xd7 };
     for (uint16_t off : ones) F<uint32_t>(o, off) = 0x3f800000;
-    F<uint32_t>(o, 0x1fd) = hook::Global<uint32_t>(0x624dd4);
-    F<uint32_t>(o, 0x17b) = hook::Global<uint32_t>(0x624d88);
-    F<uint32_t>(o, 0x17f) = hook::Global<uint32_t>(0x624d8c);
-    F<uint32_t>(o, 0x163) = hook::Global<uint32_t>(0x624d90);
-    F<uint32_t>(o, 0x167) = hook::Global<uint32_t>(0x624d8c);
-    F<uint32_t>(o, 0x133) = hook::Global<uint32_t>(0x624d90);
-    F<uint32_t>(o, 0x137) = hook::Global<uint32_t>(0x624d94);
-    F<uint32_t>(o, 0x14b) = hook::Global<uint32_t>(0x624d88);
-    F<uint32_t>(o, 0x14f) = hook::Global<uint32_t>(0x624d94);
+    F<uint32_t>(o, 0x1fd) = g_624dd4;
+    F<uint32_t>(o, 0x17b) = g_624d88;
+    F<uint32_t>(o, 0x17f) = g_624d8c;
+    F<uint32_t>(o, 0x163) = g_624d90;
+    F<uint32_t>(o, 0x167) = g_624d8c;
+    F<uint32_t>(o, 0x133) = g_624d90;
+    F<uint32_t>(o, 0x137) = g_624d94;
+    F<uint32_t>(o, 0x14b) = g_624d88;
+    F<uint32_t>(o, 0x14f) = g_624d94;
     uint8_t f = (uint8_t)((o[0x59] & 0xf) | 0x10);
     F<uint32_t>(o, 0xc) = 0;
     F<uint32_t>(o, 0x10) = 0;
@@ -1553,13 +1554,13 @@ RT3_REPLACE(0x53ae10, Track_Setup);
 // debugger and the debug log (numbered by 0xccba4c), then "Memory Leaked = N"
 // (total 0xccba3c).
 void Mem_ReportLeaks() {
-    auto out = (void(__stdcall*)(const char*))hook::Global<void*>(0x5c8078);
+    auto out = (void(__stdcall*)(const char*))g_5c8078;
     const int32_t none = -1234;
-    for (int32_t i = hook::Global<int32_t>(0xccba34) - 1; i >= 0; --i) {
-        void* p = hook::Global<void**>(0xccba30)[i];
+    for (int32_t i = g_ccba34 - 1; i >= 0; --i) {
+        void* p = hook::As<void**>(g_ccba30)[i];
         if (!p) continue;
-        uint8_t* r = hook::Global<uint8_t*>(0xccba2c) + i * 0x30;
-        int32_t n = ++hook::Global<int32_t>(0xccba4c);
+        uint8_t* r = hook::As<uint8_t*>(g_ccba2c) + i * 0x30;
+        int32_t n = ++g_ccba4c;
         char line[0x200];
         ExeSprintf()(line, (const char*)0x5dd408, n, (const char*)(r + 4), (int32_t)F<uint16_t>(r, 0x19), F<int32_t>(r, 0), p,
                      (const char*)(r + 0x1b));
@@ -1568,7 +1569,7 @@ void Mem_ReportLeaks() {
         out((const char*)0x5c9ce8);
     }
     char num[0x20], text[0x100];
-    Num_Format(num, 8, (double)hook::Global<int32_t>(0xccba3c), 10, 1, 0, 0);
+    Num_Format(num, 8, (double)g_ccba3c, 10, 1, 0, 0);
     FormatText(text, (const char*)0x5dd3f0, num, 0, 0, 0, 0, 0, 0, 0);
     out(text);
     DebugLog(text, none, none, none, none, none, none, none, none, none);
@@ -1590,19 +1591,19 @@ RT3_NOINLINE void __fastcall FreeAndNull2(void** p) {
 }
 RT3_REPLACE(0x53aff0, FreeAndNull2);
 
-void __fastcall Set_ccba28() { hook::Global<int32_t>(0xccba28) = 1; }
+void __fastcall Set_ccba28() { g_ccba28 = 1; }
 RT3_REPLACE(0x53b010, Set_ccba28);
 
 // 0x53b020. Shuts the debug allocator down: prints the leak report, frees its
 // record and pointer tables and clears its counters.
 void Mem_Shutdown() {
     Mem_ReportLeaks();
-    if (void* r = hook::Global<void*>(0xccba2c)) Free(r);
-    hook::Global<void*>(0xccba2c) = nullptr;
-    if (void* p = hook::Global<void*>(0xccba30)) Free(p);
-    hook::Global<void*>(0xccba30) = nullptr;
-    hook::Global<int32_t>(0xccba34) = 0;
-    hook::Global<int32_t>(0xccba28) = 0;
+    if (void* r = g_ccba2c) Free(r);
+    g_ccba2c = nullptr;
+    if (void* p = g_ccba30) Free(p);
+    g_ccba30 = nullptr;
+    g_ccba34 = 0;
+    g_ccba28 = 0;
 }
 RT3_REPLACE(0x53b020, Mem_Shutdown);
 
@@ -1633,7 +1634,7 @@ RT3_NOINLINE void __fastcall Anims_LoadPack(uint8_t* o, int, const char* path, i
             Read(F<int32_t>(o, 0x204ac + cur * 4), name, 0x3d);
             const char* dot = ((const char*(__cdecl*)(const char*, int))0x5a2a00)(name, '.');
             if (dot && !Stricmp(dot, (const char*)0x5dd56c)) {
-                void* reg = hook::Global<void*>(0xccba50);
+                void* reg = hook::As<void*>(g_ccba50);
                 (*(void(__thiscall**)(void*, const char*, int32_t, int32_t, int32_t))(*(uint8_t**)reg + 4))(reg, name, 0, 0, 0);
             }
         }
@@ -1866,7 +1867,7 @@ RT3_REPLACE(0x53b970, NameTable_Clear);
 // the value across items too), frees every pack's 32 bucket arrays and closes its
 // file, frees the item table and reports "Pack System Leak Count : N".
 RT3_NOINLINE void __fastcall Pack_Shutdown(uint8_t* t) {
-    auto out = (void(__stdcall*)(const char*))hook::Global<void*>(0x5c8078);
+    auto out = (void(__stdcall*)(const char*))g_5c8078;
     const int32_t none = -1234;
     NameTable_Clear(t);
     for (uint32_t off = 0x429b0; off <= 0x429b8; off += 4) {
@@ -1876,11 +1877,11 @@ RT3_NOINLINE void __fastcall Pack_Shutdown(uint8_t* t) {
         }
         F<void*>(t, off) = nullptr;
     }
-    if (Collection* c = hook::Global<Collection*>(0xccba50)) {
+    if (Collection* c = g_ccba50) {
         Collection_Destruct(c);
         ExeDelete(c);
     }
-    hook::Global<void*>(0xccba50) = nullptr;
+    hook::As<void*>(g_ccba50) = nullptr;
     int32_t leaks = 0, pack = 0, bucket = 0, index = 0;
     for (int32_t i = 0; i < F<int32_t>(t, 0x427b4); ++i) {
         uint8_t* e = F<uint8_t*>(t, 0x1f400) + i * 0xd;
@@ -2294,7 +2295,7 @@ uint8_t* __fastcall NameTable_Construct(uint8_t* t) {
     F<Collection*>(t, 0x429b0) = NewTable(0x20);
     F<Collection*>(t, 0x429b4) = NewTable(0x60);
     F<Collection*>(t, 0x429b8) = NewTable(0xc0);
-    hook::Global<Collection*>(0xccba50) = NewTable(0x20);
+    g_ccba50 = NewTable(0x20);
     NameTable_ScanDirs(t);
     NameTable_Grow(t);
     memset(t + 0x2144c, 0, 1000 * 4);
@@ -2308,15 +2309,15 @@ uint8_t* __fastcall NameTable_Construct(uint8_t* t) {
             best[0] = 0;
             bool found = false;
             WIN32_FIND_DATAA fd;
-            HANDLE h = ((HANDLE(__stdcall*)(const char*, WIN32_FIND_DATAA*))hook::Global<void*>(0x5c8190))(pattern, &fd);
+            HANDLE h = ((HANDLE(__stdcall*)(const char*, WIN32_FIND_DATAA*))g_5c8190)(pattern, &fd);
             if (h == INVALID_HANDLE_VALUE) break;
             do {
                 if (Stricmp(fd.cFileName, best) > 0 && Stricmp(fd.cFileName, limit) < 0) {
                     strcpy(best, fd.cFileName);
                     found = true;
                 }
-            } while (((BOOL(__stdcall*)(HANDLE, WIN32_FIND_DATAA*))hook::Global<void*>(0x5c8194))(h, &fd));
-            ((BOOL(__stdcall*)(HANDLE))hook::Global<void*>(0x5c819c))(h);
+            } while (((BOOL(__stdcall*)(HANDLE, WIN32_FIND_DATAA*))g_5c8194)(h, &fd));
+            ((BOOL(__stdcall*)(HANDLE))g_5c819c)(h);
             if (!found) break;
             char path[0x320];
             FormatText(path, (const char*)0x5c8730, folder, best, 0, 0, 0, 0, 0, 0);
@@ -2324,9 +2325,9 @@ uint8_t* __fastcall NameTable_Construct(uint8_t* t) {
             strcpy(limit, best);
         }
     }
-    Collection* lists = hook::Global<Collection*>(0xccba50);
-    for (int32_t i = 0; i < Collection_Count(hook::Global<Collection*>(0xccba50)); ++i) {
-        lists = hook::Global<Collection*>(0xccba50);
+    Collection* lists = g_ccba50;
+    for (int32_t i = 0; i < Collection_Count(g_ccba50); ++i) {
+        lists = g_ccba50;
         const char* name = (const char*)Collection_Get(lists, 0, Collection_IdAt(lists, 0, i, 0));
         if (!NameTable_ContainsName(t, 0, name, 0, nullptr)) break;
         FILE* f = NameTable_OpenFile(t, 0, NameTable_Hash(t, 0, name), 1);
@@ -2826,7 +2827,7 @@ RT3_REPLACE(0x53de00, Table_Entry);
 RT3_NOINLINE void __fastcall TextureDesc_Load(uint8_t* d) {
     typedef int(__cdecl * SprintfFn)(char*, const char*, ...);
     SprintfFn sprintf_ = (SprintfFn)0x5a19c4;
-    uint8_t* dev = hook::Global<uint8_t*>(0x6d4024);
+    uint8_t* dev = g_engine;
     const int32_t* mode = (const int32_t*)(F<uint8_t*>(dev, 0x34) + F<int32_t>(dev, 0x11421e) * 0x15);
     float scaleF;
     {
@@ -2850,8 +2851,8 @@ RT3_NOINLINE void __fastcall TextureDesc_Load(uint8_t* d) {
     char ext[0xc8];
     strcpy(ext, (const char*)0x5dd6c0);
     float limit = (float)Engine_TextureMemLimit(dev);
-    double budget = (double)Obj_Getc5c(hook::Global<uint8_t*>(0x6d401c)) * limit * F<float>(d, 0x1c);
-    dev = hook::Global<uint8_t*>(0x6d4024);
+    double budget = (double)Obj_Getc5c(g_windowManager) * limit * F<float>(d, 0x1c);
+    dev = g_engine;
     int32_t bpp = dev[0x11424f] ? 2 : dev[0x11422f] ? 1 : 4;
     int32_t size = F<int32_t>(d, 8) * F<int32_t>(d, 0xc) * bpp;
     if (dev[0x11422f]) size /= 4;
@@ -2887,22 +2888,22 @@ RT3_NOINLINE void __fastcall TextureDesc_Load(uint8_t* d) {
         list[i] = nullptr;
     }
     list[0] = names[0];
-    uint8_t* pack = hook::Global<uint8_t*>(0x6d4020);
+    uint8_t* pack = g_pack;
     const char* base = F<const char*>(d, 0x20);
     int32_t first = level;
     sprintf_(names[0], (const char*)0x5dd6a8, base, level + 0x41, ext);
-    if (!NameTable_ContainsName(hook::Global<uint8_t*>(0x6d4020), 0, names[0], 0, nullptr)) {
+    if (!NameTable_ContainsName(g_pack, 0, names[0], 0, nullptr)) {
         for (int32_t i = 1; i <= 5; ++i) {
             first = i + level;
             sprintf_(names[0], (const char*)0x5dd6a8, base, level + 0x41 + i, ext);
-            if (NameTable_ContainsName(hook::Global<uint8_t*>(0x6d4020), 0, names[0], 0, nullptr)) break;
+            if (NameTable_ContainsName(g_pack, 0, names[0], 0, nullptr)) break;
         }
     }
-    if (!NameTable_ContainsName(hook::Global<uint8_t*>(0x6d4020), 0, names[0], 0, nullptr)) {
+    if (!NameTable_ContainsName(g_pack, 0, names[0], 0, nullptr)) {
         for (int32_t i = 1 - level;; ++i) {
             first = i;
             sprintf_(names[0], (const char*)0x5dd6a8, base, i + 0x41, ext);
-            if (NameTable_ContainsName(hook::Global<uint8_t*>(0x6d4020), 0, names[0], 0, nullptr)) break;
+            if (NameTable_ContainsName(g_pack, 0, names[0], 0, nullptr)) break;
             if (i + 1 + level > 5) break;
         }
     }
@@ -2912,14 +2913,14 @@ RT3_NOINLINE void __fastcall TextureDesc_Load(uint8_t* d) {
         char tmp[0x12c];
         for (int32_t c = first + 1 + 0x41, k = 1; first + 1 < 8 && c < 0x49; ++c, ++k) {
             sprintf_(tmp, (const char*)0x5dd6a8, base, c, ext);
-            if (NameTable_ContainsName(hook::Global<uint8_t*>(0x6d4020), 0, tmp, 0, nullptr)) {
+            if (NameTable_ContainsName(g_pack, 0, tmp, 0, nullptr)) {
                 strcpy(names[k], tmp);
                 list[k] = names[k];
             }
         }
         if (F<int32_t>(d, 0x18)) count = 8 - first;
     }
-    F<uint8_t*>(d, 0x2a) = TextureCache_Get(hook::Global<uint8_t*>(0x6d4020), 0, base, first, count, 0);
+    F<uint8_t*>(d, 0x2a) = TextureCache_Get(g_pack, 0, base, first, count, 0);
     Free(list);
     uint32_t n = (uint32_t)F<uint16_t>(d, 0x28) * 4;
     uint8_t* copy = (uint8_t*)Malloc(n);

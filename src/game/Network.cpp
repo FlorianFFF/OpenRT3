@@ -8,6 +8,7 @@
 #include <math.h>
 #include <initializer_list>
 #include "hook/hook.h"
+#include "core/globals.h"
 #include "hook/keepregs.h"
 #include "game/collection.h"
 #include "game/calendar.h"
@@ -32,7 +33,6 @@ char* __fastcall FormatText(char* dst, const char* fmt, const char* a1, const ch
                             const char* a4, const char* a5, const char* a6, const char* a7, const char* a8);
 
 template <typename Fn> static inline Fn Import(uint32_t iat) { return (Fn)hook::Global<void*>(iat); }
-static uint8_t*& g_world = hook::Global<uint8_t*>(0x6cec78);
 void __fastcall StrCopyN(char* dst, const char* src, size_t n);
 void* __fastcall Table_Oldest14(Collection* t, int, uint8_t all);
 void* __fastcall ReturnThis473cc0(void* o);
@@ -254,8 +254,8 @@ void __fastcall TrainOrders_Remove(uint8_t* list, int, int32_t idx);
     int32_t __fastcall name(uint8_t* m) { \
         if (F<int32_t>(m, 0xc) > 0) { \
             const int32_t* d = F<const int32_t*>(m, 8); \
-            if (Collection_IsValid(hook::Global<Collection*>(0x6cfcbc), 0, (uint32_t)d[1])) { \
-                uint8_t* t = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfcbc), 0, (uint32_t)d[1]); \
+            if (Collection_IsValid(g_trains, 0, (uint32_t)d[1])) { \
+                uint8_t* t = (uint8_t*)Collection_Get(g_trains, 0, (uint32_t)d[1]); \
                 call; \
             } \
         } \
@@ -271,11 +271,11 @@ void Profiles_IndexOf();
 #define RT3_TRAINFWD(addr, name, type) \
     int32_t __fastcall name(uint8_t* m) { \
         const uint32_t* d = F<const uint32_t*>(m, 8); \
-        if (!Collection_IsValid(hook::Global<Collection*>(0x6cfcbc), 0, d[1])) return 1; \
-        uint8_t* part = Net_CountMessagePart(hook::Global<uint8_t*>(0x6cd8d8), 0, 1); \
-        uint8_t* s = hook::Global<uint8_t*>(0x6cd8d8); \
+        if (!Collection_IsValid(g_trains, 0, d[1])) return 1; \
+        uint8_t* part = Net_CountMessagePart(g_session, 0, 1); \
+        uint8_t* s = g_session; \
         F<int32_t>(s, 0x8f38) = part ? DateToMinutes((const GameDate*)part) : 0; \
-        Net_Send(hook::Global<uint8_t*>(0x6cd8d8), 0, nullptr, type, F<int32_t>(m, 0xc), (const uint8_t*)d, 0x11, 0); \
+        Net_Send(g_session, 0, nullptr, type, F<int32_t>(m, 0xc), (const uint8_t*)d, 0x11, 0); \
         return 1; \
     } \
     RT3_REPLACE(addr, name);
@@ -297,7 +297,7 @@ void Profiles_IndexOf();
         } \
         F<uint32_t>(req, off) |= 1u << (k + 0x10); \
         if (answer == 0x3f2) F<uint32_t>(req, off) |= 1u << k; \
-        uint8_t* s = hook::Global<uint8_t*>(0x6cd8d8); \
+        uint8_t* s = g_session; \
         Net_Send(s, 0, (const char*)(s + 0x8f48), type, size, req, 1, 0); \
         Callback_Free(req); \
     } \
@@ -330,18 +330,18 @@ int32_t __fastcall Train_SetState(uint8_t* t, int, int32_t state, float v);
 // Return 1.
 #define RT3_CASH_CHEAT(addr, name, cash, stat) \
     int32_t name() { \
-        if (!hook::Global<uint8_t*>(0x6cec78)) return 1; \
-        if (Collection* c = hook::Global<Collection*>(0x6ceb9c)) \
+        if (!g_world) return 1; \
+        if (Collection* c = g_players) \
             for (int32_t i = 0; i < Collection_Count(c); ++i) { \
-                uint8_t* e = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6ceb9c), 0, Collection_IdAt(hook::Global<Collection*>(0x6ceb9c), 0, (uint32_t)i, 0)); \
+                uint8_t* e = (uint8_t*)Collection_Get(g_players, 0, Collection_IdAt(g_players, 0, (uint32_t)i, 0)); \
                 if (F<int32_t>(e, 0x1e1)) Obj_AddDouble154(e, 0, cash); \
-                c = hook::Global<Collection*>(0x6ceb9c); \
+                c = g_players; \
             } \
-        if (Collection* c = hook::Global<Collection*>(0x62be10)) \
+        if (Collection* c = g_companies) \
             for (int32_t i = 0; i < Collection_Count(c); ++i) { \
-                uint8_t* co = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be10), 0, Collection_IdAt(hook::Global<Collection*>(0x62be10), 0, (uint32_t)i, 0)); \
+                uint8_t* co = (uint8_t*)Collection_Get(g_companies, 0, Collection_IdAt(g_companies, 0, (uint32_t)i, 0)); \
                 if (Company_OwnerFlag1e1(co)) Company_AddStat(co, 0, 0xd, BitsF(stat)); \
-                c = hook::Global<Collection*>(0x62be10); \
+                c = g_companies; \
             } \
         return 1; \
     } \
@@ -360,17 +360,17 @@ uint32_t __fastcall Obj_Map9050Query(void* o, int, uint32_t key, int32_t mode);
         const uint32_t bits = F<uint32_t>(req, off); \
         F<uint32_t>(req, off) = 0; \
         const uint32_t crc = Crc32(req, size); \
-        uint8_t* e = (uint8_t*)(uintptr_t)Obj_Map9050Query(hook::Global<uint8_t*>(0x6cd8d8), 0, crc, 0); \
+        uint8_t* e = (uint8_t*)(uintptr_t)Obj_Map9050Query(g_session, 0, crc, 0); \
         F<uint32_t>(e, off) |= bits; \
-        for (int32_t i = 0; i < Collection_Count(hook::Global<Collection*>(0x6ceb9c)); ++i) { \
+        for (int32_t i = 0; i < Collection_Count(g_players); ++i) { \
             if (F<uint32_t>(e, off) & (1u << (i + 0x10))) continue; \
-            Collection* c = hook::Global<Collection*>(0x6ceb9c); \
+            Collection* c = g_players; \
             uint8_t* p = (uint8_t*)Collection_Get(c, 0, Collection_IdAt(c, 0, (uint32_t)i, 0)); \
             if (F<int32_t>(p, 0x1e1) && F<int32_t>(p, 4)) return 1; \
         } \
         Session_StampNextPart(); \
-        Net_Send(hook::Global<uint8_t*>(0x6cd8d8), 0, nullptr, type, size, e, 0x11, 0); \
-        Obj_Map9050Query(hook::Global<uint8_t*>(0x6cd8d8), 0, crc, 1); \
+        Net_Send(g_session, 0, nullptr, type, size, e, 0x11, 0); \
+        Obj_Map9050Query(g_session, 0, crc, 1); \
         Free447(e); \
         return 1; \
     } \
@@ -793,7 +793,7 @@ static int32_t FindInList(const char* name, int32_t kind) {
     for (int32_t i = 1; F<int32_t>(list, 0) > 0 && i <= F<int32_t>(list, 0); ++i) {
         if (Stricmp((const char*)F<uint8_t*>(list, 8) + (i - 1) * 0x25a, name)) continue;
         found = 1;
-        hook::Global<int32_t>(0x6ce9bc) = kind == 0xc;
+        g_6ce9bc = kind == 0xc;
         if (kind == 0xc) strcpy((char*)0x6ce630, name);
         strcpy((char*)0x6ce670, (const char*)F<uint8_t*>(list, 8) + (i - 1) * 0x25a + 0x12d);
         break;
@@ -803,7 +803,7 @@ static int32_t FindInList(const char* name, int32_t kind) {
     return found;
 }
 
-static inline uint8_t* Cargos() { return hook::Global<uint8_t*>(0x62ba8c); }
+static inline uint8_t* Cargos() { return hook::As<uint8_t*>(g_cargoTypes); }
 
 static inline float BitsF(uint32_t b) { return *(float*)&b; }
 
@@ -813,13 +813,13 @@ static inline SprintfFn ExeSprintf() { return (SprintfFn)0x5a19c4; }
 // the panel 0x6d1720; for the local player (0x6d40e4 = +0x18) it also plays sound
 // 0x2f.
 static void __cdecl Player_OnLeft_Impl(uint8_t* p) {
-    uint8_t* panel = hook::Global<uint8_t*>(0x6d1720);
+    uint8_t* panel = g_6d1720;
     if (!p) {
         if (panel && F<int32_t>(panel, 0x94) == 1) Panel_SetDragging(panel, 0, 0);
         return;
     }
     if (Global6d40e4() != F<int32_t>(p, 0x18)) return;
-    panel = hook::Global<uint8_t*>(0x6d1720);
+    panel = g_6d1720;
     if (panel && F<int32_t>(panel, 0x94) == 1) Panel_SetDragging(panel, 0, 0);
     Ui_PlaySound(0x2f, 0, 0x3f000000);
 }
@@ -850,34 +850,34 @@ static int32_t Exe_FileSize(const char* path) {  // 0x46c2f0 takes the path in E
     return r;
 }
 
-static inline uint8_t* NetMgr() { return hook::Global<uint8_t*>(0x6d40d0); }
+static inline uint8_t* NetMgr() { return g_6d40d0; }
 
-static inline uint8_t* GameSpyObj() { return hook::Global<uint8_t*>(0x6cd8d8); }
+static inline uint8_t* GameSpyObj() { return g_session; }
 
 // Plays one of the chat emote voices (table `voices`, pick from the game's
 // random generator) when there is a 3D sound system, replacing the last one
 // (0x6cd8e0), then posts message `msg` with the sender's name.
 static void Chat_Emote(uint8_t* sender, uint32_t voices, int32_t choices, uint32_t msg) {
-    if (uint8_t* old = hook::Global<uint8_t*>(0x6cd8e0)) {
+    if (uint8_t* old = g_6cd8e0) {
         Music_Close(old);
         ((void(__cdecl*)(void*))0x53b080)(old);
-        hook::Global<uint8_t*>(0x6cd8e0) = nullptr;
+        g_6cd8e0 = nullptr;
     }
-    if (hook::Global<uint8_t*>(0x6d402c) && Sound_Is3D(hook::Global<uint8_t*>(0x6d402c))) {
+    if (g_sound && Sound_Is3D(g_sound)) {
         uint8_t* m = ((uint8_t*(__cdecl*)(size_t))0x53b070)(0x108);
         if (!m) {
-            hook::Global<uint8_t*>(0x6cd8e0) = nullptr;
+            g_6cd8e0 = nullptr;
         } else {
             F<int32_t>(m, 0) = 0;
             F<uint32_t>(m, 0x104) = 0x3f800000;
-            uint32_t seed = hook::Global<uint32_t>(0x624324) * 0x19660d + 0x3c6ef35f;
-            hook::Global<uint32_t>(0x624324) = seed;
+            uint32_t seed = g_lcg * 0x19660d + 0x3c6ef35f;
+            g_lcg = seed;
             uint32_t pick = choices == 2 ? (seed & 1) : (seed & 0x7fff) % 3;
-            hook::Global<uint8_t*>(0x6cd8e0) = m;
-            float vol = (float)(F<float>(hook::Global<uint8_t*>(0x6d4024), 0x114702) * D(0x5c8640));
+            g_6cd8e0 = m;
+            float vol = (float)(F<float>(g_engine, 0x114702) * D(0x5c8640));
             Music_SetVolume(m, 0, vol);
-            void* snd = (void*)(uintptr_t)Sound_Get2c(hook::Global<uint8_t*>(0x6d402c));
-            Music_Play(hook::Global<uint8_t*>(0x6cd8e0), 0, hook::Global<const char*>(voices + pick * 4), snd, nullptr);
+            void* snd = (void*)(uintptr_t)Sound_Get2c(g_sound);
+            Music_Play(g_6cd8e0, 0, hook::Global<const char*>(voices + pick * 4), snd, nullptr);
         }
     }
     FormatText((char*)0x6ce700, GetString((int32_t)msg), (const char*)sender + 8, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
@@ -917,7 +917,7 @@ static int32_t __stdcall Chat_HandleCommandImpl(uint8_t* msg, uint8_t* sender) {
         auto sprintf_ = (int(__cdecl*)(char*, const char*, ...))0x5a19c4;
         const char* name = (const char*)p + 8;
         double ver = F<float>(p, 0x268c);
-        if (!hook::Global<int32_t>(0x6cd8f0))
+        if (!g_6cd8f0)
             sprintf_((char*)0x6ce700, (const char*)0x5ce368, name, ip, name, F<int32_t>(p, 0x2694), name, ver);
         else
             sprintf_((char*)0x6ce700, (const char*)0x5ce320, name, ip, name, F<int32_t>(p, 0x2694), name, ver, (const char*)0x5ce35c);
@@ -979,13 +979,13 @@ static int32_t __stdcall Chat_HandleCommandImpl(uint8_t* msg, uint8_t* sender) {
         return 0;
     }
     if (has(0x5ce2e0)) {
-        if (Global6d40e4() == F<int32_t>(sender, 4) && F<int32_t>(sender, 0x50)) hook::Global<int32_t>(0x6ce9b4) = 1;
+        if (Global6d40e4() == F<int32_t>(sender, 4) && F<int32_t>(sender, 0x50)) g_6ce9b4 = 1;
         return 0;
     }
     if (has(0x5ce2d4)) {
         if (!F<int32_t>(sender, 0x50)) return 0;
         strcpy((char*)0x6ce630, text + 10);
-        hook::Global<int32_t>(0x6ce9bc) = 1;
+        g_6ce9bc = 1;
         return 0;
     }
     if (!has(0x5ce2c8) || !F<int32_t>(sender, 0x50) || Global6d4100() <= 1) return 0;
@@ -994,9 +994,9 @@ static int32_t __stdcall Chat_HandleCommandImpl(uint8_t* msg, uint8_t* sender) {
     if (slot == 10) return 0;
     uint32_t* ent = (uint32_t*)(0x6ce290 + slot * 0x5c);
     memset(ent, 0, 0x5c);
-    F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x6c) = 0;
+    F<int32_t>(g_app, 0x6c) = 0;
     char path[0x12c];
-    FormatText(path, (const char*)0x5c9d00, Options_SaveFolder(hook::Global<void*>(0x6cec74)), name, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
+    FormatText(path, (const char*)0x5c9d00, Options_SaveFolder(hook::As<void*>(g_app)), name, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
     if (!FileOpens(path)) return 0;
     ent[0x4c / 4] = 1;
     ent[0x50 / 4] = (uint32_t)Exe_FileSize(path);
@@ -1030,7 +1030,7 @@ int32_t ExtendStyle(uint8_t* n, int32_t kind) {
 
 namespace {
 void Callback_Delete(void* p) { ((void(__cdecl*)(void*))0x53b080)(p); }
-int32_t Tooltip_Clear() { return Ui_ShowTooltip(hook::Global<uint8_t*>(0x6d401c), 0, (const char*)0x5c87a8, 3, 0, -1); }
+int32_t Tooltip_Clear() { return Ui_ShowTooltip(g_windowManager, 0, (const char*)0x5c87a8, 3, 0, -1); }
 // A network message's handler gets the packet (+8) when it has one (+0xc).
 template <typename P, typename Fn> int32_t NetMsg_Forward(uint8_t* m, Fn handler) {
     if (F<int32_t>(m, 0xc) > 0) handler(F<P>(m, 8));
@@ -1082,9 +1082,9 @@ int32_t Count_RecordsOfClass(Collection* c, uint8_t cls) {
 void Vote_BuildState(uint8_t* st, const uint8_t* d, uint32_t mask, uint32_t present, uint32_t voted) {
     F<uint16_t>(st, 4) = d[4];
     F<uint16_t>(st, 6) = d[5];
-    for (int32_t i = 0; i < Collection_Count(hook::Global<Collection*>(0x6ceb9c)); ++i) {
+    for (int32_t i = 0; i < Collection_Count(g_players); ++i) {
         st[present + i] = 1;
-        Collection* c = hook::Global<Collection*>(0x6ceb9c);
+        Collection* c = g_players;
         uint8_t* e = (uint8_t*)Collection_Get(c, 0, Collection_IdAt(c, 0, (uint32_t)i, 0));
         if (!F<int32_t>(e, 0x1e1) || !F<int32_t>(e, 4) || (mask & (1u << i))) st[voted + i] = 1;
     }
@@ -1103,12 +1103,12 @@ void Log_KeyName(int32_t key, int32_t msg) {
     FormatText(name, GetString(key), 0, 0, 0, 0, 0, 0, 0, 0);
     if (!Models_DisplayName(name, shown)) return;
     FormatText(text, GetString(msg), shown, 0, 0, 0, 0, 0, 0, 0);
-    Log_Add(hook::Global<Collection*>(0x6acd34), 0, text, 4, 0, 0);
+    Log_Add(g_messageLog, 0, text, 4, 0, 0);
 }
 // The session's minute follows the next queued part (0 without one).
 void Session_StampNextPart() {
-    uint8_t* part = Net_CountMessagePart(hook::Global<uint8_t*>(0x6cd8d8), 0, 1);
-    uint8_t* s = hook::Global<uint8_t*>(0x6cd8d8);
+    uint8_t* part = Net_CountMessagePart(g_session, 0, 1);
+    uint8_t* s = g_session;
     F<int32_t>(s, 0x8f38) = part ? DateToMinutes((const GameDate*)part) : 0;
 }
 }
@@ -1171,17 +1171,17 @@ namespace {
 // Chat log line 0x6ce700: into the game log 0x6acd34 (in a world with +0x4a73,
 // or with 0x62be80), else as a network notice.
 void LogLine460() {
-    uint8_t* w = hook::Global<uint8_t*>(0x6cec78);
-    if ((w && F<int32_t>(w, 0x4a73)) || hook::Global<int32_t>(0x62be80))
-        Log_Add(hook::Global<Collection*>(0x6acd34), 0, (const char*)0x6ce700, 4, 0, 0);
+    uint8_t* w = g_world;
+    if ((w && F<int32_t>(w, 0x4a73)) || g_62be80)
+        Log_Add(g_messageLog, 0, (const char*)0x6ce700, 4, 0, 0);
     else
-        Net_QueueText(hook::Global<uint8_t*>(0x6cd8d8), 0, (const char*)0x6ce700, 1, 0, 0, 0);
+        Net_QueueText(g_session, 0, (const char*)0x6ce700, 1, 0, 0, 0);
 }
 // The host's session change notice (0x58), stamped with the message part
 // counter.
 void SendSessionNotice460() {
-    Obj_SetDateMinutes(hook::Global<uint8_t*>(0x6cd8d8), 0, (const GameDate*)Net_CountMessagePart(hook::Global<uint8_t*>(0x6cd8d8), 0, 1));
-    Net_Send(hook::Global<uint8_t*>(0x6cd8d8), 0, nullptr, 0x58, 0, nullptr, 0x11, 0);
+    Obj_SetDateMinutes(g_session, 0, (const GameDate*)Net_CountMessagePart(g_session, 0, 1));
+    Net_Send(g_session, 0, nullptr, 0x58, 0, nullptr, 0x11, 0);
 }
 }
 
@@ -1213,19 +1213,19 @@ static int32_t __cdecl NetTrain_CreateImpl(int32_t validate, uint8_t* data) {
     Cursor33_Init(orders);
     for (int32_t i = 0; i < F<int32_t>(data, 0); ++i) {
         uint8_t* e = data + 0x14 + i * 0x33;
-        if ((int8_t)e[0x28] >= 0 && !Collection_IsValid(hook::Global<Collection*>(0x6cec20), 0, F<uint16_t>(e, 0x29))) return -1;
+        if ((int8_t)e[0x28] >= 0 && !Collection_IsValid(g_stations, 0, F<uint16_t>(e, 0x29))) return -1;
         TrainOrders_Insert(orders, 0, i, e);
     }
     const uint32_t id = Train_Create(F<uint32_t>(data, 4), orders, 1, F<int32_t>(data, 0x10));
-    if (!Collection_IsValid(hook::Global<Collection*>(0x6cfcbc), 0, id)) return (int32_t)id;
-    uint8_t* t = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfcbc), 0, id);
+    if (!Collection_IsValid(g_trains, 0, id)) return (int32_t)id;
+    uint8_t* t = (uint8_t*)Collection_Get(g_trains, 0, id);
     if (F<int32_t>(data, 8) >= 0) Train_SetRunning(t, 0, F<int32_t>(data, 8));
     if (Obj_City41(t)) {
         SceneObj_GetPos((uint8_t*)Obj_City41(t), 0, (uint32_t*)0x6ce6f0, (uint32_t*)0x6ce6f4, (uint32_t*)0x6ce988);
     } else {
-        hook::Global<uint32_t>(0x6ce6f0) = 0xbf800000;
-        hook::Global<uint32_t>(0x6ce6f4) = 0xbf800000;
-        hook::Global<uint32_t>(0x6ce988) = 0xbf800000;
+        g_6ce6f0 = 0xbf800000;
+        g_6ce6f4 = 0xbf800000;
+        g_6ce988 = 0xbf800000;
     }
     return (int32_t)id;
 }
@@ -1283,7 +1283,7 @@ static int32_t __cdecl File_SizeImpl(const char* name) {
     return size;
 }
 
-static inline void* Peer() { return hook::Global<void*>(0x6cd970); }
+static inline void* Peer() { return g_6cd970; }
 
 // 0x4691d0 body. The first of the 0x80 player slots (0x11c bytes, from base) that is
 // in use (+0x104) with id key (+0x10c), or null.
@@ -1304,10 +1304,10 @@ static uint32_t* NewZeroed(size_t n, size_t zero) {
 // everyone as type, with the session id (flags 0x19).
 static int32_t Net_RelayStamped(const uint8_t* msg, uint32_t type, uint32_t flags = 0x19) {
     const uint8_t* data = F<const uint8_t*>((void*)msg, 8);
-    uint8_t* part = Net_CountMessagePart(hook::Global<uint8_t*>(0x6cd8d8), 0, 1);
-    uint8_t* s = hook::Global<uint8_t*>(0x6cd8d8);
+    uint8_t* part = Net_CountMessagePart(g_session, 0, 1);
+    uint8_t* s = g_session;
     F<int32_t>(s, 0x8f38) = part ? DateToMinutes((const GameDate*)part) : 0;
-    Net_Send(hook::Global<uint8_t*>(0x6cd8d8), 0, nullptr, type, F<int32_t>((void*)msg, 0xc), data, flags, 0);
+    Net_Send(g_session, 0, nullptr, type, F<int32_t>((void*)msg, 0xc), data, flags, 0);
     return 1;
 }
 
@@ -1320,8 +1320,8 @@ static int32_t Net_SendFiled(const uint8_t* msg, uint32_t n, uint32_t clear, uin
     uint8_t* copy = (uint8_t*)ExeNew(n);
     memcpy(copy, data, n);
     uint32_t crc = Crc32(copy, n);
-    Obj_Map9050Insert(hook::Global<uint8_t*>(0x6cd8d8), 0, crc, (int32_t)(uintptr_t)copy);
-    Net_Send(hook::Global<uint8_t*>(0x6cd8d8), 0, nullptr, type, F<int32_t>((void*)msg, 0xc), data, 1, 0);
+    Obj_Map9050Insert(g_session, 0, crc, (int32_t)(uintptr_t)copy);
+    Net_Send(g_session, 0, nullptr, type, F<int32_t>((void*)msg, 0xc), data, 1, 0);
     return 1;
 }
 
@@ -1330,9 +1330,9 @@ static int32_t Net_SendFiled(const uint8_t* msg, uint32_t n, uint32_t clear, uin
 // position bits. Resolve the first car twice as the original does, move it,
 // refresh its pose, and only then read the packet's train value.
 static int32_t __cdecl Net_ApplyTrainPosition_Impl(const uint32_t* packet) {
-    Collection* trains = hook::Global<Collection*>(0x6cfcbc);
+    Collection* trains = g_trains;
     if (!Collection_IsValid(trains, 0, packet[0])) return 0;
-    uint8_t* train = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfcbc), 0, packet[0]);
+    uint8_t* train = (uint8_t*)Collection_Get(g_trains, 0, packet[0]);
     if (!Obj_City41(train)) return 0;
     uint8_t* car = (uint8_t*)Obj_City41(train);
     *(uint32_t*)(car + 0x35a) = packet[2];
@@ -1351,7 +1351,7 @@ static int32_t __cdecl Net_ApplyTrainPosition_Impl(const uint32_t* packet) {
 static int32_t __cdecl Msg_MarkSeenImpl(uint8_t* msg, uint8_t* other) {
     uint32_t first = *F<uint32_t*>(msg, 8);
     if (!first) return 1;
-    void** list = (void**)(uintptr_t)Hash_Get(F<HashMap*>(other, 0x2580), 0, F<uint32_t>(hook::Global<uint8_t*>(0x6cd8d8), 0x9888));
+    void** list = (void**)(uintptr_t)Hash_Get(F<HashMap*>(other, 0x2580), 0, F<uint32_t>(g_session, 0x9888));
     if (!list) return 1;
     for (void* n = *list; n; n = *(void**)n)
         if (F<int32_t>(msg, 0xc) > 0 && F<uint8_t*>(msg, 8) && Crc32(F<uint8_t*>(msg, 8), F<uint32_t>(msg, 0xc)) == first) {
@@ -1364,8 +1364,8 @@ static int32_t __cdecl Msg_MarkSeenImpl(uint8_t* msg, uint8_t* other) {
 // 0x46d980 body. The index of the player-profile entry (table 0x6ceb9c, name +8)
 // called name, or 0xff.
 static int32_t __cdecl Profiles_IndexOfImpl(const char* name) {
-    for (int32_t i = 0; i < Collection_Count(hook::Global<Collection*>(0x6ceb9c)); ++i) {
-        Collection* t = hook::Global<Collection*>(0x6ceb9c);
+    for (int32_t i = 0; i < Collection_Count(g_players); ++i) {
+        Collection* t = g_players;
         uint8_t* e = (uint8_t*)Collection_Get(t, 0, Collection_IdAt(t, 0, (uint32_t)i, 0));
         if (!Stricmp((const char*)e + 8, name)) return i;
     }
@@ -1375,8 +1375,8 @@ static int32_t __cdecl Profiles_IndexOfImpl(const char* name) {
 // 0x46ed30 body. Whether a new company clashes with an existing one: 1 when a
 // company has its player (+0x37 == p +4), 2 when one has its name (+4 == p +0x10).
 static int32_t __cdecl Companies_ClashImpl(uint8_t* p) {
-    for (int32_t i = 0; i < Collection_Count(hook::Global<Collection*>(0x62be10)); ++i) {
-        Collection* t = hook::Global<Collection*>(0x62be10);
+    for (int32_t i = 0; i < Collection_Count(g_companies); ++i) {
+        Collection* t = g_companies;
         uint8_t* c = (uint8_t*)Collection_Get(t, 0, Collection_IdAt(t, 0, (uint32_t)i, 0));
         if (F<int32_t>(c, 0x37) == F<int32_t>(p, 4)) return 1;
         if (!Stricmp((const char*)c + 4, (const char*)p + 0x10)) return 2;
@@ -1388,8 +1388,8 @@ static int32_t __cdecl Companies_ClashImpl(uint8_t* p) {
 // the amount (truncated) is booked as stat 0xf and taken from cash (stat 0xd) of
 // a company that accepts it. slot is the original's local in the ECX push slot.
 static void __cdecl Net_ApplyCashImpl(uint8_t* m, uint32_t* slot) {
-    if (!Collection_IsValid(hook::Global<Collection*>(0x62be10), 0, m[4])) return;
-    uint8_t* c = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be10), 0, m[4]);
+    if (!Collection_IsValid(g_companies, 0, m[4])) return;
+    uint8_t* c = (uint8_t*)Collection_Get(g_companies, 0, m[4]);
     if (!c || !Company_OwnerFlag1e1(c)) return;
     int32_t v = Ftol(*(float*)m);
     float a = (float)v;
@@ -1402,12 +1402,12 @@ static void __cdecl Net_ApplyCashImpl(uint8_t* m, uint32_t* slot) {
 // 0x46f8f0 body. Company number i (by position in 0x62be10) when it is a human
 // player's company whose profile is the one of texture entry key; else null.
 static uint8_t* __cdecl Companies_ForEntryImpl(int32_t i, int32_t key) {
-    Collection* t = hook::Global<Collection*>(0x62be10);
+    Collection* t = g_companies;
     uint8_t* c = (uint8_t*)Collection_Get(t, 0, Collection_IdAt(t, 0, (uint32_t)i, 0));
     if (!c || !Company_OwnerFlag1e1(c)) return nullptr;
     int32_t idx = Profiles_IndexOfEntry(key);
     if (idx == 0xff) return nullptr;
-    uint32_t id = Collection_IdAt(hook::Global<Collection*>(0x6ceb9c), 0, (uint32_t)idx, 0);
+    uint32_t id = Collection_IdAt(g_players, 0, (uint32_t)idx, 0);
     if (id == 0xffffffff || id == 0) return nullptr;
     return F<uint32_t>(c, 0x3b) == id ? c : nullptr;
 }
@@ -1415,7 +1415,7 @@ static uint8_t* __cdecl Companies_ForEntryImpl(int32_t i, int32_t key) {
 // 0x4680b0. Delivers a cargo load: moves 0.2 of its cargo type's amount
 // (+0x5a) to delivered (+0x66, flag 1 of +0x12) or +0x62, then unlinks it.
 RT3_NOINLINE void __fastcall Load_Deliver(uint32_t* load) {
-    Collection* types = hook::Global<Collection*>(0x62ba8c);
+    Collection* types = g_cargoTypes;
     if (types) {
         uint8_t* ct = (uint8_t*)Collection_Get(types, 0, F<uint32_t>(types, 0x8e + F<uint8_t>(load, 0x10) * 4));
         const double k = *(const double*)0x5c8c20;
@@ -1496,14 +1496,14 @@ RT3_REPLACE(0x4682c0, Lots_UpdateLinked);
 // collection +0x88/+0x8a/+0x8c) and rebuilds it from the lots' link flags.
 RT3_NOINLINE void __fastcall Lots_RebuildDemand(Collection* c) {
     uint32_t a = F<uint16_t>(Cargos(), 0x88), b = F<uint16_t>(Cargos(), 0x8a), k = F<uint16_t>(Cargos(), 0x8c);
-    uint8_t* m = hook::Global<uint8_t*>(0x62c120);
+    uint8_t* m = g_map;
     uint8_t* cell = F<uint8_t*>(m, 0x2129);
     for (int32_t y = 0; y < F<int32_t>(m, 0x2149); ++y)
-        for (int32_t x = 0; x < F<int32_t>(hook::Global<uint8_t*>(0x62c120), 0x2145); ++x, cell += 0x1d7) {
+        for (int32_t x = 0; x < F<int32_t>(g_map, 0x2145); ++x, cell += 0x1d7) {
             F<int32_t>(cell, 0x103 + a * 4) = 0;
             F<int32_t>(cell, 0x103 + b * 4) = 0;
             F<int32_t>(cell, 0x103 + k * 4) = 0;
-            m = hook::Global<uint8_t*>(0x62c120);
+            m = g_map;
         }
     for (int32_t i = 0; i < Collection_Count(c); ++i) {
         uint8_t* lot = (uint8_t*)Collection_Get(c, 0, Collection_IdAt(c, 0, i, 0));
@@ -1606,8 +1606,8 @@ RT3_NOINLINE void __fastcall Playlist_Next(uint8_t* p) {
 RT3_REPLACE(0x468580, Playlist_Next);
 
 void ResetGlobals4686d0() {
-    hook::Global<int32_t>(0x5f2b24) = 1;
-    hook::Global<int32_t>(0x6ada98) = 0;
+    g_5f2b24 = 1;
+    g_6ada98 = 0;
 }
 RT3_REPLACE(0x4686d0, ResetGlobals4686d0);
 
@@ -1618,7 +1618,7 @@ void* __fastcall RegKey_Construct(uint32_t* o, int, const char* subKey, void* ro
     o[2] = 0;
     uint32_t disposition;
     int32_t r = ((int32_t(__stdcall*)(void*, const char*, uint32_t, void*, uint32_t, uint32_t, void*, void*, void*))
-                     hook::Global<void*>(0x5c8008))(root, subKey, 0, nullptr, 0, 0xf003f, nullptr, &o[1], &disposition);
+                     g_5c8008)(root, subKey, 0, nullptr, 0, 0xf003f, nullptr, &o[1], &disposition);
     if (r) o[2] = 1;
     return o;
 }
@@ -1628,7 +1628,7 @@ RT3_REPLACE(0x4686f0, RegKey_Construct);
 // through the import 0x5c800c; the deleting form frees itself on flag 1.
 uint32_t __fastcall HandleObj_Destruct(void* o) {
     *(uint32_t*)o = 0x5ce15c;
-    return ((uint32_t(__stdcall*)(void*))hook::Global<void*>(0x5c800c))(F<void*>(o, 4));
+    return ((uint32_t(__stdcall*)(void*))g_5c800c)(F<void*>(o, 4));
 }
 RT3_REPLACE(0x468740, HandleObj_Destruct);
 
@@ -1656,11 +1656,11 @@ RT3_REPLACE(0x468760, Music_Construct);
 // advance (0x5f2b24) moves to the next and, with the log on, announces its title.
 // Quirk: without a path the extension is cut off the playlist's own name.
 RT3_NOINLINE void __fastcall Playlist_PlayCurrent(uint8_t* p) {
-    if (hook::Global<int32_t>(0x6ada98) || F<int32_t>(p, 0x100) <= 0) return;
-    if (hook::Global<int32_t>(0x5f2b24) == 1) {
-        hook::Global<int32_t>(0x5f2b24) = 0;
+    if (g_6ada98 || F<int32_t>(p, 0x100) <= 0) return;
+    if (g_5f2b24 == 1) {
+        g_5f2b24 = 0;
         Playlist_Next(p);
-        if (hook::Global<int32_t>(0x6d401c)) {
+        if (hook::As<int32_t>(g_windowManager)) {
             char msg[0x100], path[0x100];
             char* cur = F<char*>(p, 0x108) + F<int32_t>(p, 0x10c) * 0x104;
             StrCopy(path, cur);
@@ -1668,16 +1668,16 @@ RT3_NOINLINE void __fastcall Playlist_PlayCurrent(uint8_t* p) {
             title = title ? title + 1 : F<char*>(p, 0x108) + F<int32_t>(p, 0x10c) * 0x104;
             char* dot = ((char*(__cdecl*)(const char*, int))0x5a2a00)(title, '.');
             if (dot) *dot = 0;
-            if (F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x114712) > 0) {
+            if (F<int32_t>(g_engine, 0x114712) > 0) {
                 char* prev = (char*)0x6adab8;
                 if (!*prev) FormatText(msg, GetString(0x1c0), title, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
                 else FormatText(msg, GetString(0x1c1), title, prev, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
-                if (hook::Global<Collection*>(0x6acd34)) Log_Add(hook::Global<Collection*>(0x6acd34), 0, msg, 3, 1, 0);
+                if (g_messageLog) Log_Add(g_messageLog, 0, msg, 3, 1, 0);
             }
             StrCopy((char*)0x6adab8, title);
         }
     }
-    hook::Global<int32_t>(0x6ada98) = Sound_PlayMusic(hook::Global<uint8_t*>(0x6d402c), 0,
+    g_6ada98 = Sound_PlayMusic(g_sound, 0,
                                                       F<char*>(p, 0x108) + F<int32_t>(p, 0x10c) * 0x104,
                                                       (void*)0x4686d0);
 }
@@ -1691,7 +1691,7 @@ RT3_REPLACE(0x468960, Playlist_Tick);
 
 void* __fastcall HandleObj_Delete(void* o, int, uint32_t flags) {
     *(uint32_t*)o = 0x5ce15c;
-    ((uint32_t(__stdcall*)(void*))hook::Global<void*>(0x5c800c))(F<void*>(o, 4));
+    ((uint32_t(__stdcall*)(void*))g_5c800c)(F<void*>(o, 4));
     if (flags & 1) ExeFree53b(o);
     return o;
 }
@@ -1738,7 +1738,7 @@ RT3_REPLACE(0x468a10, RegKey_GetString);
 // 1 when a < b or b is 0.
 int32_t __fastcall Key_KeepSmaller(const uint32_t* a, const uint32_t* b) {
     if (*a < *b || !*b) {
-        hook::Global<uint32_t>(0x6cd968) = *a;
+        g_6cd968 = *a;
         return 1;
     }
     return 0;
@@ -1753,7 +1753,7 @@ RT3_REPLACE(0x468ae0, Obj_FreeBuffer4IfSet);
 
 // 0x468b00 (callback). Toggles 0x6cd910; returns 0.
 int32_t Toggle6cd910() {
-    hook::Global<int32_t>(0x6cd910) ^= 1;
+    g_6cd910 ^= 1;
     return 0;
 }
 RT3_REPLACE(0x468b00, Toggle6cd910);
@@ -1867,7 +1867,7 @@ void __fastcall Lobby_Mode7Cb(void*, int32_t on, int32_t a, int32_t) {
 RT3_REPLACE(0x469030, Lobby_Mode7Cb);
 
 // 0x469190 (callback). Stores its second register argument in 0x6cd974.
-void __fastcall Set6cd974_469190(void*, int32_t v, int32_t) { hook::Global<int32_t>(0x6cd974) = v; }
+void __fastcall Set6cd974_469190(void*, int32_t v, int32_t) { g_6cd974 = v; }
 RT3_REPLACE(0x469190, Set6cd974_469190);
 
 // 0x4691a0 (lobby callback). Names the open name dialog with the second
@@ -1940,10 +1940,10 @@ RT3_REPLACE(0x469200, ServerList_Cb);
 // 500 of 256 bytes at 0x6ae4d8) for a successful entry without flags 0x14.
 RT3_NOINLINE void __fastcall Lobby_AddServerCb(void*, int32_t ok, int32_t error, int32_t index, const char* name, uint32_t flags, int32_t) {
     if (!ok || error || !name || index == -1) return;
-    const int32_t n = hook::Global<int32_t>(0x6cd97c);
+    const int32_t n = g_6cd97c;
     if (n >= 0x1f4) return;
     if (flags && (flags & 0x14)) return;
-    hook::Global<int32_t>(0x6cd97c) = n + 1;
+    g_6cd97c = n + 1;
     strcpy((char*)(0x6ae4d8 + (n << 8)), name);
 }
 RT3_REPLACE(0x4693b0, Lobby_AddServerCb);
@@ -1952,10 +1952,10 @@ RT3_REPLACE(0x4693b0, Lobby_AddServerCb);
 // the 0x1f400-byte table 0x6ae4d8 and starts the query 0x58da60 with the
 // callback 0x4693b0.
 void __fastcall Lobby_StartQueryCb(uint8_t* s, int32_t on, int32_t, int32_t, int32_t) {
-    hook::Global<int32_t>(0x6cd978) = on;
+    g_6cd978 = on;
     if (!on) return;
     memset((void*)0x6ae4d8, 0, 0x7d00 * 4);
-    hook::Global<int32_t>(0x6cd97c) = 0;
+    g_6cd97c = 0;
     ((void(__fastcall*)(uint8_t*, int, uint32_t, int32_t))0x58da60)(s, 0, 0x4693b0, 0);
 }
 RT3_REPLACE(0x469410, Lobby_StartQueryCb);
@@ -1964,19 +1964,19 @@ RT3_REPLACE(0x469410, Lobby_StartQueryCb);
 // then disconnects and frees it.
 void Peer_Shutdown() {
     if (!Peer()) return;
-    if (hook::Global<int32_t>(0x6cd978)) {
-        if (hook::Global<int32_t>(0x6cd920)) ((void(__fastcall*)(void*, int32_t))0x58d960)(Peer(), 0);
-        if (hook::Global<int32_t>(0x6cd978) && hook::Global<int32_t>(0x6cd920)) ((void(__fastcall*)(void*))0x58db20)(Peer());
+    if (g_6cd978) {
+        if (g_6cd920) ((void(__fastcall*)(void*, int32_t))0x58d960)(Peer(), 0);
+        if (g_6cd978 && g_6cd920) ((void(__fastcall*)(void*))0x58db20)(Peer());
     }
     ((void(__fastcall*)(void*))0x58d830)(Peer());
     ((void(__fastcall*)(void*))0x58de90)(Peer());
-    hook::Global<void*>(0x6cd970) = nullptr;
+    g_6cd970 = nullptr;
 }
 RT3_REPLACE(0x469450, Peer_Shutdown);
 
 // 0x4694c0. Leaves the staging room when connected.
 RT3_NOINLINE void Peer_LeaveStaging() {
-    if (!Peer() || !hook::Global<int32_t>(0x6cd978) || !hook::Global<int32_t>(0x6cd920)) return;
+    if (!Peer() || !g_6cd978 || !g_6cd920) return;
     ((void(__fastcall*)(void*, int32_t))0x58d960)(Peer(), 1);
     ((void(__fastcall*)(void*, const char*, int32_t))0x58e100)(Peer(), (const char*)0x5c87a8, 1);
 }
@@ -1984,16 +1984,16 @@ RT3_REPLACE(0x4694c0, Peer_LeaveStaging);
 
 // 0x469500. GameSpy: pumps the master-server object (0x6cd970) if present.
 RT3_NOINLINE void GameSpy_Pump() {
-    void* o = hook::Global<void*>(0x6cd970);
+    void* o = g_6cd970;
     if (!o) return;
     ((void(__fastcall*)(void*))0x58db60)(o);
-    ((void(__fastcall*)(void*))0x58def0)(hook::Global<void*>(0x6cd970));
+    ((void(__fastcall*)(void*))0x58def0)(g_6cd970);
 }
 RT3_REPLACE(0x469500, GameSpy_Pump);
 
 // 0x469520. Starts the server list update with the 8 standard keys (callback 0x469200).
 RT3_NOINLINE int32_t __fastcall Lobby_UpdateList(uint8_t* lobby) {
-    if (hook::Global<int32_t>(0x6cd920)) return hook::Global<int32_t>(0x6cd920);
+    if (g_6cd920) return g_6cd920;
     F<int32_t>(lobby, 0x8f18) = 1;
     uint8_t keys[8] = { 3, 1, 4, 8, 10, 11, 0x13, 5 };
     return ((int32_t(__fastcall*)(void*, uint8_t*, int32_t, int32_t, uint32_t, uint8_t*))0x58d970)(Peer(), keys, 8, 0, 0x469200, lobby + 0x10);
@@ -2004,10 +2004,10 @@ RT3_REPLACE(0x469520, Lobby_UpdateList);
 // and its count, then asks the peer (callback 0x4693b0). Returns the peer's result,
 // or the busy flag 0x6cd920 when already busy.
 RT3_NOINLINE int32_t __fastcall Lobby_ListGames(uint8_t* lobby) {
-    if (hook::Global<int32_t>(0x6cd920)) return hook::Global<int32_t>(0x6cd920);
+    if (g_6cd920) return g_6cd920;
     F<int32_t>(lobby, 0x9874) = 1;
     memset((void*)0x6ae4d8, 0, 0x7d00 * 4);
-    hook::Global<int32_t>(0x6cd97c) = 0;
+    g_6cd97c = 0;
     return ((int32_t(__fastcall*)(void*, int32_t, uint32_t, int32_t))0x58da60)(Peer(), 0, 0x4693b0, 0);
 }
 RT3_REPLACE(0x469580, Lobby_ListGames);
@@ -2015,14 +2015,14 @@ RT3_REPLACE(0x469580, Lobby_ListGames);
 // 0x4695d0. Next non-empty 256-byte line of the buffer 0x6ae4d8 (cursor
 // 0x6cd97c, reset when +0x9874 is set); 0 at the end or while 0x6cd920 is set.
 const char* __fastcall Obj_NextBufferedLine(void* o) {
-    if (hook::Global<int32_t>(0x6cd920)) return nullptr;
+    if (g_6cd920) return nullptr;
     if (F<int32_t>(o, 0x9874) == 1) {
-        hook::Global<int32_t>(0x6cd97c) = 0;
+        g_6cd97c = 0;
         F<int32_t>(o, 0x9874) = 0;
     }
-    const char* p = (const char*)0x6ae4d8 + hook::Global<int32_t>(0x6cd97c) * 256;
+    const char* p = (const char*)0x6ae4d8 + g_6cd97c * 256;
     if (!*p) return nullptr;
-    hook::Global<int32_t>(0x6cd97c)++;
+    g_6cd97c++;
     return p;
 }
 RT3_REPLACE(0x4695d0, Obj_NextBufferedLine);
@@ -2088,7 +2088,7 @@ RT3_REPLACE(0x469700, Obj_SetName8f48);
 // player in the network list (node name +8, ping +0x54), in yellow in the
 // lobby's font (+0x9884), while the switch 0x6cd910 is on.
 void __fastcall Lobby_DrawQueue(uint8_t* lobby) {
-    if (!hook::Global<int32_t>(0x6cd910) || !F<uint8_t*>(lobby, 0x9884)) return;
+    if (!g_6cd910 || !F<uint8_t*>(lobby, 0x9884)) return;
     char line[0x100], text[0x400];
     text[0] = 0;
     if (uint8_t** q = (uint8_t**)(uintptr_t)Net_LockQueue()) {
@@ -2210,10 +2210,10 @@ RT3_REPLACE(0x469a50, Net_QueueText);
 // +0x20, type +0x14, timeout +0x10), hands the result to its callback +0x18
 // and frees it.
 RT3_NOINLINE void __fastcall NetMessage_ShowNext(uint8_t* s) {
-    if (hook::Global<uint32_t>(0x6cd980)) return;
+    if (g_6cd980) return;
     uint8_t** q = F<uint8_t**>(s, 0x8f2c);
     uint8_t* node = q[0];
-    hook::Global<uint32_t>(0x6cd980) = 1;
+    g_6cd980 = 1;
     if (node) {
         uint8_t* next = F<uint8_t*>(node, 0);
         q[0] = next;
@@ -2223,13 +2223,13 @@ RT3_NOINLINE void __fastcall NetMessage_ShowNext(uint8_t* s) {
         if (void(__fastcall * cb)(uint8_t*, uint32_t) = F<void(__fastcall*)(uint8_t*, uint32_t)>(node, 0x18)) cb(node, r);
         NetPacket_Free(s, 0, node);
     }
-    hook::Global<uint32_t>(0x6cd980) = 0;
+    g_6cd980 = 0;
 }
 RT3_REPLACE(0x469b00, NetMessage_ShowNext);
 
 // 0x469b90. Whether every network player has flag 4 (1 when not networked).
 RT3_NOINLINE int32_t Net_AllPlayersFlag4() {
-    if (!hook::Global<int32_t>(0x6d40dc)) return 1;
+    if (!g_6d40dc) return 1;
     int32_t ok = 1;
     for (uint8_t* e = PlayerHead(); e; e = *(uint8_t**)e) {
         if (!(e[0x5c] & 4)) {
@@ -2250,7 +2250,7 @@ RT3_NOINLINE uint8_t* __fastcall Obj_BuildStatusPacket(uint8_t* o, int, int32_t*
     int32_t size = count * 4 + 6;
     *outSize = size;
     uint8_t* buf = (uint8_t*)((void*(__cdecl*)(size_t))0x53b070)(size);
-    uint8_t* w = hook::Global<uint8_t*>(0x6cec78);
+    uint8_t* w = g_world;
     int32_t minutes = DateToMinutes((const GameDate*)(w + 0xd));
     buf[0] = 0xff;
     buf[1] = F<uint8_t>(F<uint8_t*>(o, 0x8f28), 8);
@@ -2259,8 +2259,8 @@ RT3_NOINLINE uint8_t* __fastcall Obj_BuildStatusPacket(uint8_t* o, int, int32_t*
     for (uint8_t* n = *F<uint8_t**>(o, 0x8f28); n; n = *(uint8_t**)n, out += 4) {
         F<int32_t>(n, 0xc) = 0;
         uint8_t* r = ((uint8_t*(__cdecl*)())F<void*>(n, 4))();
-        if (F<int32_t>(r, 1)) hook::Global<uint32_t>(0x6cd908) |= 1u << (r[0] & 31);
-        w = hook::Global<uint8_t*>(0x6cec78);
+        if (F<int32_t>(r, 1)) g_6cd908 |= 1u << (r[0] & 31);
+        w = g_world;
         F<uint32_t>(n, 0x9c) = F<uint32_t>(w, 0xd);
         F<uint32_t>(n, 0xa0) = F<uint32_t>(w, 0x11);
         F<uint32_t>(out, 0) = F<uint32_t>(r, 1);
@@ -2273,7 +2273,7 @@ RT3_REPLACE(0x469be0, Obj_BuildStatusPacket);
 // 0x469ca0. Refreshes the surface description (+0x54 from +0x269c) of every queued
 // texture entry except the current frame's (network play with a world only).
 RT3_NOINLINE void __stdcall Textures_RefreshQueued(int32_t) {
-    if (hook::Global<void*>(0x6cec78) && !hook::Global<int32_t>(0x6cd910)) return;
+    if (hook::As<void*>(g_world) && !g_6cd910) return;
     if (!Engine_FirstListEntry()) return;
     if (Global6d4100() <= 1) return;
     uint8_t** l = (uint8_t**)(uintptr_t)Net_LockQueue();
@@ -2282,7 +2282,7 @@ RT3_NOINLINE void __stdcall Textures_RefreshQueued(int32_t) {
         int32_t id = F<int32_t>(n, 4);
         if (id == Global6d40e4()) continue;
         F<int32_t>(n, 0x54) = 0;
-        if (Textures_QueryDesc(hook::Global<uint8_t*>(0x6d40d0), 0, id, 0)) F<int32_t>(n, 0x54) = F<int32_t>(n, 0x269c);
+        if (Textures_QueryDesc(g_6d40d0, 0, id, 0)) F<int32_t>(n, 0x54) = F<int32_t>(n, 0x269c);
     }
     Net_UnlockQueue();
 }
@@ -2310,7 +2310,7 @@ RT3_NOINLINE void __fastcall Net_Send(uint8_t* s, int, const char* to, uint32_t 
     }
     while (*(volatile LONG*)0x6cd960) {
     }
-    hook::Global<LockFn>(0x5c8070)((LONG volatile*)0x6cd960);
+    hook::As<LockFn>(g_5c8070)((LONG volatile*)0x6cd960);
     uint8_t local[0x1000];
     if (flags) {
         if (flags & 0x10) {
@@ -2322,7 +2322,7 @@ RT3_NOINLINE void __fastcall Net_Send(uint8_t* s, int, const char* to, uint32_t 
         }
         if (flags & 4) {
             flags = (flags & ~4u) | 1;
-            if (hook::Global<int32_t>(0x6d40dc)) flags &= ~2u;
+            if (g_6d40dc) flags &= ~2u;
             else flags |= 2;
             uint8_t* pkt = (uint8_t*)NetPacket_Alloc(s, 0, size + 0x28);
             memset(pkt, 0, (uint32_t)(size + 0x28));
@@ -2350,27 +2350,27 @@ RT3_NOINLINE void __fastcall Net_Send(uint8_t* s, int, const char* to, uint32_t 
     int32_t now = 0;
     if (serial) now = ClockMs();
     SendToFn send = (SendToFn)&Net_SendTo;
-    uint8_t* net = hook::Global<uint8_t*>(0x6d40d0);
-    hook::Global<int32_t>(0x6cd930) += size;
+    uint8_t* net = g_6d40d0;
+    g_6cd930 += size;
     if (!(flags & 8) && size < 0x30) {
-        hook::Global<int32_t>(0x6cd934) += size;
+        g_6cd934 += size;
         send(net, 0, data, (uint32_t)size, type, 0xff, to, sendFlags | idFlag, timeout, serial, now);
-        hook::Global<LockFn>(0x5c8074)((LONG volatile*)0x6cd960);
+        hook::As<LockFn>(g_5c8074)((LONG volatile*)0x6cd960);
         return;
     }
     uint8_t* packed = nullptr;
     int32_t packedSize = 0;
     int32_t packer[4] = { 0x91, 0, 0, (int32_t)(uintptr_t)s };
     if (Pack_Compress(packer, 0, data, size, &packed, &packedSize) == 1) {
-        hook::Global<int32_t>(0x6cd934) += packedSize;
+        g_6cd934 += packedSize;
         send(net, 0, packed, (uint32_t)packedSize, type, 0xff, to, sendFlags | idFlag | 0x80000000, timeout, serial, now);
         if (packed) ((void(__cdecl*)(void*))0x5a1145)(packed);
     } else {
-        hook::Global<int32_t>(0x6cd934) += size;
+        g_6cd934 += size;
         send(net, 0, data, (uint32_t)size, type, 0xff, to, sendFlags | idFlag, timeout, serial, now);
     }
     ((void(__fastcall*)(int32_t*))&Nop552ff0)(packer);
-    hook::Global<LockFn>(0x5c8074)((LONG volatile*)0x6cd960);
+    hook::As<LockFn>(g_5c8074)((LONG volatile*)0x6cd960);
 }
 RT3_REPLACE(0x469d30, Net_Send);
 
@@ -2379,21 +2379,21 @@ RT3_REPLACE(0x469d30, Net_Send);
 // stopped first; the names are kept at +0x8e10 / +0x8f48. The GameSpy peer then
 // leaves its room and stops listing.
 RT3_NOINLINE void __fastcall Lobby_HostGame(uint8_t* lobby, int, const char* game, const char* name, const char* password, int32_t ms) {
-    if (hook::Global<int32_t>(0x6d40dc)) return;
+    if (g_6d40dc) return;
     if (F<int32_t>(lobby, 0x8f18) == 1) {
-        if (!F<int32_t>(lobby, 0x985c)) Nop5217b0(hook::Global<void*>(0x6d40d0));
+        if (!F<int32_t>(lobby, 0x985c)) Nop5217b0(hook::As<void*>(g_6d40d0));
         F<int32_t>(lobby, 0x8f18) = 0;
     }
     F<int32_t>(lobby, 0x8f10) = 0;
     strcpy((char*)lobby + 0x8e10, game);
     strcpy((char*)lobby + 0x8f48, name);
     const char* pw = nullptr;
-    if (!password) hook::Global<int32_t>(0x6cd928) = 0;
+    if (!password) g_6cd928 = 0;
     else {
-        hook::Global<int32_t>(0x6cd928) = *password != 0;
+        g_6cd928 = *password != 0;
         pw = *password ? password : nullptr;
     }
-    Net_Host(hook::Global<uint8_t*>(0x6d40d0), 0, game, name, pw, ms, 0);
+    Net_Host(g_6d40d0, 0, game, name, pw, ms, 0);
     if (void* peer = Peer()) {
         ((void(__fastcall*)(void*))0x58d9d0)(peer);
         ((void(__fastcall*)(void*))0x58e1f0)(Peer());
@@ -2410,7 +2410,7 @@ RT3_NOINLINE void __fastcall Lobby_JoinGame(uint8_t* lobby, int, const char* hos
         if (!((int(__cdecl*)(const char*, const char*))0x5a57cf)((const char*)g + 0x80, host)) strcpy((char*)lobby + 0x8e10, (const char*)g);
     F<int32_t>(lobby, 0xc) = 1;
     const char* pw = password && *password ? password : nullptr;
-    if (Net_Connect(hook::Global<uint8_t*>(0x6d40d0), 0, host, name, pw, 0) < 0) F<int32_t>(lobby, 0xc) = 2;
+    if (Net_Connect(g_6d40d0, 0, host, name, pw, 0) < 0) F<int32_t>(lobby, 0xc) = 2;
 }
 RT3_REPLACE(0x46a110, Lobby_JoinGame);
 
@@ -2489,7 +2489,7 @@ RT3_REPLACE(0x46a310, NetPacket_Copy);
 // 0x46a390. Sets +0x8f30 and stamps the current date (+0x9048) and its minutes (+0x8f38).
 RT3_NOINLINE void __fastcall Obj_StampDate(uint8_t* o, int, int32_t v) {
     F<int32_t>(o, 0x8f30) = v;
-    uint8_t* w = hook::Global<uint8_t*>(0x6cec78);
+    uint8_t* w = g_world;
     F<uint32_t>(o, 0x9048) = F<uint32_t>(w, 0xd);
     F<uint32_t>(o, 0x904c) = F<uint32_t>(w, 0x11);
     F<int32_t>(o, 0x8f38) = DateToMinutes((const GameDate*)(o + 0x9048));
@@ -2529,7 +2529,7 @@ RT3_REPLACE(0x46a440, Net_HasPlayer);
 // 0x46a4b0. The common game version (lowest non-zero version among the queued
 // session players, else our own), as an integer x 0x5c85d8; cached in 0x6cd96c.
 RT3_NOINLINE float __fastcall Net_CommonVersion() {
-    if (int32_t v = hook::Global<int32_t>(0x6cd96c)) return (float)v;
+    if (int32_t v = g_6cd96c) return (float)v;
     float best = 99999.0f;
     for (uint8_t* n = *(uint8_t**)Net_LockQueue(); n; n = *(uint8_t**)n) {
         float v = F<float>(n, 0x268c);
@@ -2546,7 +2546,7 @@ RT3_NOINLINE float __fastcall Net_CommonVersion() {
         call eax
         mov r, eax
     }
-    hook::Global<int32_t>(0x6cd96c) = r;
+    g_6cd96c = r;
     return (float)r;
 }
 RT3_REPLACE(0x46a4b0, Net_CommonVersion);
@@ -2601,16 +2601,16 @@ RT3_REPLACE(0x46a660, Obj_RectFree);
 // gives up (0x58e2e0); the first try switches the lobby to mode 5 (6 with
 // EDX). Each try names this peer "<0x5ce1e4><random 0..999>" (0x6ae0c0).
 void __fastcall Lobby_RetryNameCb(uint8_t* s, int32_t flag, int32_t a, int32_t) {
-    const int32_t n = ++hook::Global<int32_t>(0x6cd984);
+    const int32_t n = ++g_6cd984;
     if (n >= 0x19) {
-        hook::Global<int32_t>(0x6cd984) = 0;
-        hook::Global<int32_t>(0x6cd974) = 0;
+        g_6cd984 = 0;
+        g_6cd974 = 0;
         ((void(__fastcall*)(uint8_t*))0x58e2e0)(s);
         return;
     }
     if (n == 1) Lobby_SetMode((flag != 0) + 5, a, 0, 0);
-    hook::Global<uint32_t>(0x624324) = hook::Global<uint32_t>(0x624324) * 0x19660d + 0x3c6ef35f;
-    ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)((char*)0x6ae0c0, (const char*)0x5ce1e4, (int32_t)(hook::Global<uint32_t>(0x624324) & 0x7fff) % 1000);
+    g_lcg = g_lcg * 0x19660d + 0x3c6ef35f;
+    ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)((char*)0x6ae0c0, (const char*)0x5ce1e4, (int32_t)(g_lcg & 0x7fff) % 1000);
     char name[0x100];
     ((void(__fastcall*)(char*, const char*))0x58e650)(name, (const char*)0x6ae0c0);
     NameDialog_SetNameIfOpen(name);
@@ -2626,7 +2626,7 @@ RT3_REPLACE(0x46a830, Lobby_RetryNameCb);
 RT3_NOINLINE int32_t __fastcall Lobby_Connect(uint8_t* lobby, int, const char* nick) {
     uint32_t cb[0x1c];
     memset(cb, 0, sizeof cb);
-    hook::Global<int32_t>(0x6cd978) = 0;
+    g_6cd978 = 0;
     F<int32_t>(lobby, 0x9874) = 1;
     cb[0] = 0x468de0;
     cb[1] = 0x468e00;
@@ -2642,35 +2642,35 @@ RT3_NOINLINE int32_t __fastcall Lobby_Connect(uint8_t* lobby, int, const char* n
     cb[24] = 0x469160;
     cb[25] = 0x469180;
     cb[27] = 0;
-    hook::Global<int32_t>(0x6cd974) = 0;
+    g_6cd974 = 0;
     void* peer = ((void*(__fastcall*)(uint32_t*))0x58dc50)(cb);
-    hook::Global<void*>(0x6cd970) = peer;
+    g_6cd970 = peer;
     if (!peer) return 0;
     int32_t cross[3] = { 0, 0, 1 }, ping[3] = { 1, 1, 0 };
-    const char* title = hook::Global<const char*>(0x5f2b44);
-    const char* secret = hook::Global<const char*>(0x5f2b48);
+    const char* title = g_5f2b44;
+    const char* secret = g_5f2b48;
     int32_t ok = ((int32_t(__fastcall*)(void*, const char*, const char*, const char*, const char*, int32_t, int32_t, int32_t, int32_t*, int32_t*))0x58dce0)(
         peer, title, secret, title, secret, 0, 0x1e, 0, ping, cross);
-    if (hook::Global<int32_t>(0x6cd920)) {
-        hook::Global<int32_t>(0x6cd974) = 1;
+    if (g_6cd920) {
+        g_6cd974 = 1;
         return 1;
     }
     if (!ok) return 0;
     char name[0x100];
     if (nick && *nick) strcpy(name, nick);
     else {
-        uint32_t r = hook::Global<uint32_t>(0x624324) * 0x19660d + 0x3c6ef35f;
-        hook::Global<uint32_t>(0x624324) = r;
+        uint32_t r = g_lcg * 0x19660d + 0x3c6ef35f;
+        g_lcg = r;
         ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)(name, (const char*)0x5ce1e4, (int32_t)(r & 0x7fff) % 1000);
     }
     char key[0x100];
     ((void(__fastcall*)(char*, const char*))0x58e650)(key, name);
-    ((void(__fastcall*)(void*, const char*, int32_t, uint32_t, uint32_t, int32_t, int32_t))0x58e200)(hook::Global<void*>(0x6cd970), key, 0, 0x46a830,
+    ((void(__fastcall*)(void*, const char*, int32_t, uint32_t, uint32_t, int32_t, int32_t))0x58e200)(g_6cd970, key, 0, 0x46a830,
                                                                                                     0x469190, 0, 1);
-    if (!hook::Global<int32_t>(0x6cd974)) return 0;
-    hook::Global<int32_t>(0x6cd978) = 0;
-    ((void(__fastcall*)(void*, int32_t, uint32_t, int32_t, int32_t))0x58dfb0)(hook::Global<void*>(0x6cd970), 0, 0x469410, 0, 1);
-    if (!hook::Global<int32_t>(0x6cd978)) return 0;
+    if (!g_6cd974) return 0;
+    g_6cd978 = 0;
+    ((void(__fastcall*)(void*, int32_t, uint32_t, int32_t, int32_t))0x58dfb0)(g_6cd970, 0, 0x469410, 0, 1);
+    if (!g_6cd978) return 0;
     Lobby_UpdateList(lobby);
     return 1;
 }
@@ -2693,7 +2693,7 @@ RT3_REPLACE(0x46ab10, NewListHeader);
 // headers via 0x46ab10); tracks the highest 'g' sequence in +0x2584.
 // 1 if queued (or no world), 0 for 'n' messages and key 0.
 RT3_NOINLINE int32_t __fastcall Msg_Queue(void*, int, int32_t key, uint32_t* msg, uint8_t* ctx) {
-    if (!hook::Global<void*>(0x6cec78)) return 1;
+    if (!hook::As<void*>(g_world)) return 1;
     if (F<uint8_t>((void*)msg[1], 9) == 0x6e) return 0;
     if (!key) return 0;
     void** h = ((void**(__thiscall*)(void*, int32_t))0x53dae0)(F<void*>(ctx, 0x2580), key);
@@ -2805,7 +2805,7 @@ RT3_NOINLINE void __fastcall Net_ProcessIncoming(uint8_t* s, int, uint32_t frame
             F<uint32_t>(m, 0x24) = frame;
             Heap_Push(F<MaxHeap*>(e, 0x6c), 0, F<int32_t>(copy, 4), (int32_t)(uintptr_t)m);
         }
-        Net_FinishReceived(hook::Global<uint8_t*>(0x6d40d0), 0, list);
+        Net_FinishReceived(g_6d40d0, 0, list);
     }
     Net_FeedResync((uint8_t*)(uintptr_t)frame);
 }
@@ -2843,17 +2843,17 @@ RT3_REPLACE(0x46aeb0, Net_DrainQueue);
 // 10 s (0x11c bytes each, up to 0x80) into it and purges old messages.
 RT3_NOINLINE void __fastcall Lobby_Tick(uint8_t* l, int, uint32_t now) {
     if (F<uint32_t>(l, 0x9054) && now - F<uint32_t>(l, 0x9054) > 1000) F<uint32_t>(l, 0x9054) = 0;
-    if (!hook::Global<void*>(0x6cec78) || F<int32_t>(l, 0x8f30) == 1) {
+    if (!hook::As<void*>(g_world) || F<int32_t>(l, 0x8f30) == 1) {
         if (now - F<uint32_t>(l, 0x8f14) > 5000) {
             F<uint32_t>(l, 0x8f14) = now;
             Textures_RefreshQueued((int32_t)now);
         }
     }
-    void* w = hook::Global<void*>(0x6cec78);
-    if (hook::Global<int32_t>(0x6d40dc) == 1) {
+    void* w = hook::As<void*>(g_world);
+    if (g_6d40dc == 1) {
         if (!w && now - F<uint32_t>(l, 0x8f10) > 1000) {
             F<uint32_t>(l, 0x8f10) = now;
-            Net_BroadcastGame(hook::Global<uint8_t*>(0x6d40d0), 0, (const char*)l + 0x8e10);
+            Net_BroadcastGame(g_6d40d0, 0, (const char*)l + 0x8e10);
         }
         return;
     }
@@ -2883,9 +2883,9 @@ RT3_REPLACE(0x46af70, Lobby_Tick);
 // empty start message 0xa. Until then the tooltip lists who is still missing.
 RT3_NOINLINE void __fastcall Net_HostStart(uint8_t* s) {
     typedef LONG(WINAPI * LockFn)(LONG volatile*);
-    if (F<int32_t>(s, 0x8f30) || !hook::Global<void*>(0x6cec78)) return;
+    if (F<int32_t>(s, 0x8f30) || !hook::As<void*>(g_world)) return;
     bool ready = false;
-    if (hook::Global<int32_t>(0x6d40dc)) {
+    if (g_6d40dc) {
         int32_t waiting = Global6d4100();
         uint8_t* q = (uint8_t*)(uintptr_t)Net_LockQueue();
         for (uint8_t* n = *(uint8_t**)q; n; n = *(uint8_t**)n)
@@ -2897,11 +2897,11 @@ RT3_NOINLINE void __fastcall Net_HostStart(uint8_t* s) {
         ready = waiting == 0;
     }
     if (!ready) {
-        if (uint8_t* ui = hook::Global<uint8_t*>(0x6d401c)) Ui_ShowTooltip(ui, 0, Net_WaitingPlayersText(), 3, 0, -1);
+        if (uint8_t* ui = g_windowManager) Ui_ShowTooltip(ui, 0, Net_WaitingPlayersText(), 3, 0, -1);
         return;
     }
     SendToFn send = (SendToFn)&Net_SendTo;
-    Collection* players = hook::Global<Collection*>(0x6ceb9c);
+    Collection* players = g_players;
     for (int32_t i = 0; i < Collection_Count(players); ++i) {
         uint8_t* p = (uint8_t*)Collection_Get(players, 0, Collection_IdAt(players, 0, (uint32_t)i, 0));
         if (!F<int32_t>(p, 4) || !F<int32_t>(p, 0x1e1)) continue;
@@ -2912,28 +2912,28 @@ RT3_NOINLINE void __fastcall Net_HostStart(uint8_t* s) {
         strcpy((char*)msg + 8, (const char*)p + 8);
         while (*(volatile LONG*)0x6cd960) {
         }
-        hook::Global<LockFn>(0x5c8070)((LONG volatile*)0x6cd960);
-        hook::Global<int32_t>(0x6cd930) += 0x88;
+        hook::As<LockFn>(g_5c8070)((LONG volatile*)0x6cd960);
+        g_6cd930 += 0x88;
         uint8_t* out = nullptr;
         int32_t outSize = 0;
         int32_t packer[3] = { 0x91, 0, 0 };
         if (Pack_Compress(packer, 0, msg, 0x88, &out, &outSize) == 1) {
-            hook::Global<int32_t>(0x6cd934) += outSize;
-            send(hook::Global<uint8_t*>(0x6d40d0), 0, out, (uint32_t)outSize, 0x56, 0xff, nullptr, 0x80000028, 0, 0, 0);
+            g_6cd934 += outSize;
+            send(g_6d40d0, 0, out, (uint32_t)outSize, 0x56, 0xff, nullptr, 0x80000028, 0, 0, 0);
             if (out) ((void(__cdecl*)(void*))0x5a1145)(out);
         } else {
-            hook::Global<int32_t>(0x6cd934) += 0x88;
-            send(hook::Global<uint8_t*>(0x6d40d0), 0, msg, 0x88, 0x56, 0xff, nullptr, 0x28, 0, 0, 0);
+            g_6cd934 += 0x88;
+            send(g_6d40d0, 0, msg, 0x88, 0x56, 0xff, nullptr, 0x28, 0, 0, 0);
         }
         ((void(__fastcall*)(int32_t*))&Nop552ff0)(packer);
-        hook::Global<LockFn>(0x5c8074)((LONG volatile*)0x6cd960);
+        hook::As<LockFn>(g_5c8074)((LONG volatile*)0x6cd960);
     }
     F<int32_t>(s, 0x8f30) = 1;
     while (*(volatile LONG*)0x6cd960) {
     }
-    hook::Global<LockFn>(0x5c8070)((LONG volatile*)0x6cd960);
-    send(hook::Global<uint8_t*>(0x6d40d0), 0, nullptr, 0, 0xa, 0xff, nullptr, 8, 0, 0, 0);
-    hook::Global<LockFn>(0x5c8074)((LONG volatile*)0x6cd960);
+    hook::As<LockFn>(g_5c8070)((LONG volatile*)0x6cd960);
+    send(g_6d40d0, 0, nullptr, 0, 0xa, 0xff, nullptr, 8, 0, 0, 0);
+    hook::As<LockFn>(g_5c8074)((LONG volatile*)0x6cd960);
 }
 RT3_REPLACE(0x46b0c0, Net_HostStart);
 
@@ -2949,22 +2949,22 @@ RT3_REPLACE(0x46b0c0, Net_HostStart);
 // QUIRK: a slot without a matching source clears +0x98 of a null pointer.
 void __fastcall Net_WeeklyCheck(uint8_t* s) {
     typedef LONG(WINAPI * LockFn)(LONG volatile*);
-    hook::Global<uint32_t>(0x6cd908) = 0;
-    uint8_t* world = hook::Global<uint8_t*>(0x6cec78);
-    if (!world || F<int32_t>(s, 0x8f30) != 1 || hook::Global<int32_t>(0x6cd8ec) != 1) return;
+    g_6cd908 = 0;
+    uint8_t* world = g_world;
+    if (!world || F<int32_t>(s, 0x8f30) != 1 || g_6cd8ec != 1) return;
     if ((int32_t)world[0x11] % 7 != 1) return;
     uint32_t date = (uint32_t)DateToMinutes((const GameDate*)(world + 0xd));
-    bool timed = hook::Global<int32_t>(0x6cd900) == 1;
+    bool timed = g_6cd900 == 1;
     int32_t t0 = 0;
-    if (hook::Global<int32_t>(0x6d40dc)) {
+    if (g_6d40dc) {
         if (Global6d4100() <= 1) return;
         if (timed) t0 = ClockMs();
         int32_t size = 0;
         uint8_t* pkt = Obj_BuildStatusPacket(s, 0, &size);
-        if (hook::Global<int32_t>(0x6cd900) == 1) hook::Global<int32_t>(0x6ae4cc) = ClockMs() - t0;
+        if (g_6cd900 == 1) g_6ae4cc = ClockMs() - t0;
         Net_Send(s, 0, nullptr, 0xd, size, pkt, 2, 0);
         if (pkt) ExeDelete(pkt);
-        hook::Global<int32_t>(0x6cd918) = 0;
+        g_6cd918 = 0;
         return;
     }
     uint8_t* e = (uint8_t*)Engine_FirstListEntry();
@@ -2974,7 +2974,7 @@ void __fastcall Net_WeeklyCheck(uint8_t* s) {
         F<int32_t>(n, 0xc) = 0;
         if (const uint8_t* r = ((const uint8_t*(*)())F<void*>(n, 4))()) Table9_Append(e, r);
     }
-    if (hook::Global<int32_t>(0x6cd900) == 1) hook::Global<int32_t>(0x6ae4cc) = ClockMs() - t0;
+    if (g_6cd900 == 1) g_6ae4cc = ClockMs() - t0;
     uint8_t* q = Net_FindFlaggedPlayer();
     const uint8_t* rec = q + F<int32_t>(q, 0x17c) * 0x1200 + 0x180;
     uint8_t* own = (uint8_t*)Engine_FirstListEntry();
@@ -2992,21 +2992,21 @@ void __fastcall Net_WeeklyCheck(uint8_t* s) {
         }
         *(volatile int32_t*)(src + 0x98) = 0;
         if (!F<int32_t>(p, 1) || !F<int32_t>((void*)rec, 1)) continue;
-        hook::Global<uint32_t>(0x6cd908) |= 1u << (p[0] & 0x1f);
+        g_6cd908 |= 1u << (p[0] & 0x1f);
         if (F<int32_t>(p, 1) == F<int32_t>((void*)rec, 1)) continue;
         *(volatile int32_t*)(src + 0x98) = 1;
-        if (hook::Global<int32_t>(0x6cd91c) && hook::Global<int32_t>(0x6cd918) != 1) continue;
+        if (g_6cd91c && g_6cd918 != 1) continue;
         while (*(volatile LONG*)0x6cd960) {
         }
-        hook::Global<LockFn>(0x5c8070)((LONG volatile*)0x6cd960);
-        hook::Global<int32_t>(0x6cd930) += 9;
-        hook::Global<int32_t>(0x6cd934) += 9;
-        ((SendToFn)&Net_SendTo)(hook::Global<uint8_t*>(0x6d40d0), 0, p, 9, 0x4f, 0xff, (const char*)q + 8, 8, 0, 0, 0);
-        hook::Global<LockFn>(0x5c8074)((LONG volatile*)0x6cd960);
-        if (hook::Global<int32_t>(0x5f2b3c)) hook::Global<int32_t>(0x5f2b3c) = 0;
-        if (hook::Global<int32_t>(0x6cd918) == 1) hook::Global<int32_t>(0x6cd91c) = 1;
+        hook::As<LockFn>(g_5c8070)((LONG volatile*)0x6cd960);
+        g_6cd930 += 9;
+        g_6cd934 += 9;
+        ((SendToFn)&Net_SendTo)(g_6d40d0, 0, p, 9, 0x4f, 0xff, (const char*)q + 8, 8, 0, 0, 0);
+        hook::As<LockFn>(g_5c8074)((LONG volatile*)0x6cd960);
+        if (g_5f2b3c) g_5f2b3c = 0;
+        if (g_6cd918 == 1) g_6cd91c = 1;
     }
-    if (hook::Global<uint32_t>(0x6cd908)) hook::Global<int32_t>(0x6cd918) = 0;
+    if (g_6cd908) g_6cd918 = 0;
     Table9_Prune(own, date);
     Table9_Prune(Textures_Find(F<int32_t>(q, 4)), date);
     Net_UnlockQueueArg(F<int32_t>(q, 4));
@@ -3017,7 +3017,7 @@ RT3_REPLACE(0x46b360, Net_WeeklyCheck);
 // one more part for that date in the current frame entry's hash (creating its list
 // header), under the entry's lock. Null without a running world.
 RT3_NOINLINE uint8_t* __fastcall Net_CountMessagePart(uint8_t* s, int, int32_t count) {
-    uint8_t* w = hook::Global<uint8_t*>(0x6cec78);
+    uint8_t* w = g_world;
     if (!w || !F<int32_t>(w, 0x19)) return nullptr;
     if (count) {
         int32_t key = DateToMinutes((const GameDate*)(s + 0x9048));
@@ -3046,39 +3046,39 @@ RT3_REPLACE(0x46b6d0, Net_CountMessagePart);
 // by 0x6ce9c4 is built here and loaded from 0x6ce630. Finally the voice chat
 // (0x6cd970 / 0x6cd974) ticks. 1 otherwise.
 RT3_NOINLINE int32_t __fastcall Session_Update(uint8_t* s) {
-    if (hook::Global<int32_t>(0x6cd91c)) StatusLine_Set(hook::Global<uint8_t*>(0x6d401c), 0, GetString(0xf27), 0xbb8);
-    if (hook::Global<int32_t>(0x6cd8dc)) {
-        if (hook::Global<uint8_t*>(0x6cec78) && !(hook::Global<uint8_t*>(0x6d40d0) && Global6d4100())) {
-            if (!hook::Global<int32_t>(0x6d4114)) {
-                if (uint8_t* v = hook::Global<uint8_t*>(0x6d0818)) ((void(__fastcall*)(uint8_t*, int, int32_t, int32_t))0x4ddbd0)(v, 0, 0, -1);
+    if (g_6cd91c) StatusLine_Set(g_windowManager, 0, GetString(0xf27), 0xbb8);
+    if (g_6cd8dc) {
+        if (g_world && !(g_6d40d0 && Global6d4100())) {
+            if (!g_6d4114) {
+                if (uint8_t* v = g_gameWindow) ((void(__fastcall*)(uint8_t*, int, int32_t, int32_t))0x4ddbd0)(v, 0, 0, -1);
                 Game_PostInputEvent(0xcc, 0, 2, 0, 0);
             }
             return 0;
         }
-        if (!hook::Global<int32_t>(0x6ce9b8)) {
+        if (!g_6ce9b8) {
             F<uint32_t>(s, 0x9058) = (uint32_t)ClockMs();
             Lobby_Tick(s, 0, F<uint32_t>(s, 0x9058));
             Net_HostStart(s);
             Net_ProcessIncoming(s, 0, F<uint32_t>(s, 0x9058));
             Net_DrainQueue(s, 0, F<int32_t>(s, 0x9058));
-            if (hook::Global<int32_t>(0x6cd900) == 1) hook::Global<int32_t>(0x6ae4d0) = ClockMs() - F<int32_t>(s, 0x9058);
+            if (g_6cd900 == 1) g_6ae4d0 = ClockMs() - F<int32_t>(s, 0x9058);
             NetMessage_ShowNext(s);
-            if (uint8_t* w = hook::Global<uint8_t*>(0x6cec78))
+            if (uint8_t* w = g_world)
                 if (!F<int32_t>(w, 0x19)) NetQueue_Drain(s);
-            if (hook::Global<int32_t>(0x6ce9c4)) {
-                hook::Global<int32_t>(0x6ce9c4) = 0;
+            if (g_6ce9c4) {
+                g_6ce9c4 = 0;
                 uint8_t* mem = ((uint8_t*(__cdecl*)(size_t))0x53b070)(0x46c40);
                 uint8_t* w = mem ? (uint8_t*)World_Construct(mem) : nullptr;
-                hook::Global<uint8_t*>(0x6cec78) = w;
+                g_world = w;
                 ((void(__fastcall*)(uint8_t*, int, int32_t, int32_t))0x438890)(w, 0, 0, 0);
-                F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x6c) = 0;
-                ((void(__fastcall*)(uint8_t*, int, const char*, int32_t, int32_t))0x445ac0)(hook::Global<uint8_t*>(0x6cec78), 0, (const char*)0x6ce630,
-                                                                                        hook::Global<int32_t>(0x6ce9c0), 0);
+                F<int32_t>(g_app, 0x6c) = 0;
+                ((void(__fastcall*)(uint8_t*, int, const char*, int32_t, int32_t))0x445ac0)(g_world, 0, (const char*)0x6ce630,
+                                                                                        g_6ce9c0, 0);
             }
         }
     }
-    if (hook::Global<uint8_t*>(0x6cd970) && hook::Global<int32_t>(0x6cd974) && hook::Global<int32_t>(0x6cd8dc))
-        ((void(__fastcall*)(uint8_t*))0x58def0)(hook::Global<uint8_t*>(0x6cd970));
+    if (hook::As<uint8_t*>(g_6cd970) && g_6cd974 && g_6cd8dc)
+        ((void(__fastcall*)(uint8_t*))0x58def0)(hook::As<uint8_t*>(g_6cd970));
     return 1;
 }
 RT3_REPLACE(0x46b780, Session_Update);
@@ -3089,10 +3089,10 @@ RT3_REPLACE(0x46b780, Session_Update);
 RT3_NOINLINE void __fastcall Net_DropOldMessages(uint8_t* s, int, uint8_t* e, int32_t minutes) {
     typedef int32_t(__fastcall * ForEachFn)(HashMap*, int, uint32_t, void*, void*);
     int32_t stamp = 0;
-    if (!minutes && hook::Global<uint8_t*>(0x6cec78)) stamp = DateToMinutes((const GameDate*)(hook::Global<uint8_t*>(0x6cec78) + 0xd));
+    if (!minutes && g_world) stamp = DateToMinutes((const GameDate*)(g_world + 0xd));
     ForEachFn forEach = (ForEachFn)0x53db20;
     while (forEach(F<HashMap*>(e, 0x2580), 0, 0, (void*)0x468ac0, &stamp)) {
-        uint8_t* n = (uint8_t*)(uintptr_t)Hash_Remove(F<HashMap*>(e, 0x2580), 0, hook::Global<uint32_t>(0x6cd968));
+        uint8_t* n = (uint8_t*)(uintptr_t)Hash_Remove(F<HashMap*>(e, 0x2580), 0, g_6cd968);
         if (!n) continue;
         for (;;) {
             uint8_t* p = F<uint8_t*>(n, 8);
@@ -3117,17 +3117,17 @@ RT3_REPLACE(0x46b910, Net_DropOldMessages);
 RT3_NOINLINE void __fastcall Net_RunFrameMessages(uint8_t* s) {
     uint8_t changes = 0;
     int32_t started = 0;
-    if (hook::Global<int32_t>(0x6cd900) == 1) started = ClockMs();
+    if (g_6cd900 == 1) started = ClockMs();
     F<int32_t>(s, 0x9890) = 0;
     uint8_t* e = (uint8_t*)Engine_FirstListEntry();
-    uint8_t* w = hook::Global<uint8_t*>(0x6cec78);
+    uint8_t* w = g_world;
     if (e && w) {
         F<uint32_t>(s, 0x9048) = F<uint32_t>(w, 0xd);
         F<uint32_t>(s, 0x904c) = F<uint32_t>(w, 0x11);
         GameDate d = F<GameDate>(w, 0xd);
         F<uint64_t>(s, 0x9048) = DateAddDays(1, d);
         s[0x904d] = 0, s[0x904e] = 0, s[0x904f] = 0;
-        const int32_t minute = DateToMinutes((const GameDate*)(hook::Global<uint8_t*>(0x6cec78) + 0xd));
+        const int32_t minute = DateToMinutes((const GameDate*)(g_world + 0xd));
         Net_DropOldMessages(s, 0, e, 0);
         NetQueue_Drain(s);
         Buildings_ApplyQueuedMoves();
@@ -3136,7 +3136,7 @@ RT3_NOINLINE void __fastcall Net_RunFrameMessages(uint8_t* s) {
         F<int32_t>(e, 0x2588) = 0;
         if (Hash_Contains(F<HashMap*>(e, 0x2580), 0, (uint32_t)minute)) {
             if (uint8_t* q = (uint8_t*)(uintptr_t)Hash_Remove(F<HashMap*>(e, 0x2580), 0, (uint32_t)minute)) {
-                if (hook::Global<int32_t>(0x6d40dc)) Obj_CountItems(s, 0, q);
+                if (g_6d40dc) Obj_CountItems(s, 0, q);
                 Game_PauseTools();
                 uint32_t count = 0;
                 auto pop = [q]() -> uint8_t* {
@@ -3160,21 +3160,21 @@ RT3_NOINLINE void __fastcall Net_RunFrameMessages(uint8_t* s) {
                 Options_Restore();
             }
         }
-        if (hook::Global<int32_t>(0x6d40dc)) {
+        if (g_6d40dc) {
             uint32_t msg[4];
             msg[0] = F<uint32_t>(s, 0x9880);
             F<int32_t>(s, 0x8f38) = minute;
             msg[1] = (uint32_t)minute;
             msg[3] = changes;
             msg[2] = (uint32_t)GetSeed();
-            hook::Global<uint32_t>(0x5f2b6c) = msg[2];
+            hook::As<uint32_t>(g_5f2b6c) = msg[2];
             void* out = nullptr;
             const int32_t size = Finance_SyncMessage((uint8_t*)msg, 1, &out);
-            Net_Send(hook::Global<uint8_t*>(0x6cd8d8), 0, nullptr, 0x67, size, (const uint8_t*)out, 0x13, 0);
+            Net_Send(g_session, 0, nullptr, 0x67, size, (const uint8_t*)out, 0x13, 0);
             if (out != msg) ((void(__cdecl*)(void*))0x5a1145)(out);
         }
     }
-    if (hook::Global<int32_t>(0x6cd900) == 1) hook::Global<int32_t>(0x6ae4d4) = ClockMs() - started;
+    if (g_6cd900 == 1) g_6ae4d4 = ClockMs() - started;
 }
 RT3_REPLACE(0x46b9f0, Net_RunFrameMessages);
 
@@ -3184,20 +3184,20 @@ RT3_REPLACE(0x46b9f0, Net_RunFrameMessages);
 // queued packet (+0x8f2c) to the pool and frees the session's tables, pools and
 // buffers, then the global stream 0x6cd8e0.
 RT3_NOINLINE void __fastcall Session_Close(uint8_t* s) {
-    hook::Global<int32_t>(0x6cd91c) = 0;
+    g_6cd91c = 0;
     if (!F<int32_t>(s, 0)) return;
     CloseFile6ce994();
     if (void* o = F<void*>(s, 0x9884)) {
-        Pack_Release(hook::Global<uint8_t*>(0x6d4020), 0, o);
+        Pack_Release(g_pack, 0, o);
         F<void*>(s, 0x9884) = nullptr;
     }
-    if (F<int32_t>(s, 0x8f18) == 1) Nop5217b0(hook::Global<void*>(0x6d40d0));
-    if (hook::Global<void*>(0x6d40d0) && Net_LockQueue()) {
+    if (F<int32_t>(s, 0x8f18) == 1) Nop5217b0(hook::As<void*>(g_6d40d0));
+    if (hook::As<void*>(g_6d40d0) && Net_LockQueue()) {
         if (Engine_FirstListEntry()) Net_DropOldMessages(s, 0, (uint8_t*)Engine_FirstListEntry(), 1);
         Net_UnlockQueue();
     }
     Peer_Shutdown();
-    Net_ShutdownShared(hook::Global<uint8_t*>(0x6d40d0));
+    Net_ShutdownShared(g_6d40d0);
     Music_Shutdown(F<uint8_t*>(s, 0));
     if (uint8_t* q = F<uint8_t*>(s, 0x8f2c)) {
         for (;;) {
@@ -3251,10 +3251,10 @@ RT3_NOINLINE void __fastcall Session_Close(uint8_t* s) {
         ExeDelete(m);
         F<void*>(s, 4) = nullptr;
     }
-    if (uint8_t* m = hook::Global<uint8_t*>(0x6cd8e0)) {
+    if (uint8_t* m = g_6cd8e0) {
         Music_Close(m);
         ExeDelete(m);
-        hook::Global<uint8_t*>(0x6cd8e0) = nullptr;
+        g_6cd8e0 = nullptr;
     }
 }
 RT3_REPLACE(0x46bc40, Session_Close);
@@ -3268,22 +3268,22 @@ RT3_REPLACE(0x46bc40, Session_Close);
 RT3_NOINLINE int32_t __fastcall Session_Open(uint8_t* s, int, int32_t gamespy, const char* nick) {
     Session_Close(s);
     if (F<int32_t>(s, 0)) return 0;
-    hook::Global<int32_t>(0x6ae4cc) = 0;
-    hook::Global<int32_t>(0x6ae4d0) = 0;
-    hook::Global<int32_t>(0x6ae4d4) = 0;
-    hook::Global<int32_t>(0x6cd96c) = 0;
-    hook::Global<int32_t>(0x6d10a0) = 0;
-    hook::Global<int32_t>(0x622090) = -1;
-    hook::Global<int32_t>(0x622094) = -1;
+    g_6ae4cc = 0;
+    g_6ae4d0 = 0;
+    g_6ae4d4 = 0;
+    g_6cd96c = 0;
+    g_6d10a0 = 0;
+    g_622090 = -1;
+    g_622094 = -1;
     static const uint32_t zeros[] = { 0x6cd92c, 0x6cd928, 0x6cd924, 0x6cd91c, 0x6cd8e4, 0x6cd8e8 };
     for (uint32_t a : zeros) hook::Global<int32_t>(a) = 0;
-    hook::Global<int32_t>(0x5f2b38) = 0x3c;
+    g_5f2b38 = 0x3c;
     static const uint32_t zeros2[] = { 0x6cd8f4, 0x6cd8f8, 0x6cd8fc, 0x6cd908, 0x6cd90c, 0x6cd918, 0x6cd8ec, 0x6cd8f0, 0x6cd900, 0x5f2b3c, 0x6cd904 };
     for (uint32_t a : zeros2) hook::Global<int32_t>(a) = 0;
-    hook::Global<int32_t>(0x5f2b40) = 1;
+    g_5f2b40 = 1;
     F<int32_t>(s, 0x988c) = 0;
     F<int32_t>(s, 0x9890) = 0;
-    uint32_t* m = hook::Global<uint32_t*>(0xd973b4);
+    uint32_t* m = g_d973b4;
     if (!m) {
         m = (uint32_t*)ExeNew(0x18);
         if (m) {
@@ -3291,16 +3291,16 @@ RT3_NOINLINE int32_t __fastcall Session_Open(uint8_t* s, int, int32_t gamespy, c
             m[1] = 1;
             m[2] = m[3] = m[4] = m[5] = 0;
         }
-        hook::Global<uint32_t*>(0xd973b4) = m;
+        g_d973b4 = m;
     }
     F<uint32_t*>(s, 0) = m;
     for (int k = 0; k < 4; ++k) ((uint32_t*)0x6257e8)[k] = ((const uint32_t*)0x5f2b28)[k];
     if (Music_Start(F<uint8_t*>(s, 0)) != 1) return 0;
-    uint8_t* net = hook::Global<uint8_t*>(0x6d40d0);
+    uint8_t* net = g_6d40d0;
     if (!net) {
         net = (uint8_t*)ExeNew(0x25a);
         net = net ? Net_Construct(net) : nullptr;
-        hook::Global<uint8_t*>(0x6d40d0) = net;
+        g_6d40d0 = net;
     }
     if (Net_InitShared(net) != 1) return 0;
     float ver = Game_VersionNumber();
@@ -3332,7 +3332,7 @@ RT3_NOINLINE int32_t __fastcall Session_Open(uint8_t* s, int, int32_t gamespy, c
     F<int32_t>(s, 0x9054) = 0;
     memset(s + 0x905c, 0, 0x800);
     F<uint32_t*>(s, 0x9878) = NewZeroed(0xc, 0xc);
-    F<uint8_t*>(s, 0x9884) = Pack_AcquireFont(hook::Global<uint8_t*>(0x6d4020), 0, 1);
+    F<uint8_t*>(s, 0x9884) = Pack_AcquireFont(g_pack, 0, 1);
     MpSession_Reset();
     RegisterSyncChecks();
     if (gamespy != 1) return 1;
@@ -3345,22 +3345,22 @@ RT3_REPLACE(0x46be80, Session_Open);
 // the music player 0xd973b4.
 RT3_NOINLINE void __fastcall Session_Shutdown(uint8_t* s) {
     Session_Close(s);
-    if (uint8_t* n = hook::Global<uint8_t*>(0x6d40d0)) {
+    if (uint8_t* n = g_6d40d0) {
         Net_DeleteLocks();
         ExeDelete(n);
-        hook::Global<uint8_t*>(0x6d40d0) = nullptr;
+        g_6d40d0 = nullptr;
     }
-    if (uint8_t* m = hook::Global<uint8_t*>(0xd973b4)) {
+    if (uint8_t* m = hook::As<uint8_t*>(g_d973b4)) {
         Music_Destroy(m);
         ExeDelete(m);
-        hook::Global<uint8_t*>(0xd973b4) = nullptr;
+        hook::As<uint8_t*>(g_d973b4) = nullptr;
     }
 }
 RT3_REPLACE(0x46c230, Session_Shutdown);
 
 // 0x46c280. Detail level for value v (EDX) under setting 0x5f2b70.
 RT3_NOINLINE int32_t __fastcall DetailLevelFor(int32_t, int32_t v) {
-    int32_t s = hook::Global<int32_t>(0x5f2b70);
+    int32_t s = hook::As<int32_t>(g_5f2b70);
     if (s < 1000) return v <= 1000 ? 0xff : 9;
     if (s < 2000) {
         if (v <= 1000) return 8;
@@ -3402,18 +3402,18 @@ RT3_REPLACE(0x46c330, FirstFreeSlot6ce2e8);
 // 0x46c360. Adds a chat line: to the game log (kind 5) during a game, else to
 // the lobby chat.
 RT3_NOINLINE void __fastcall Chat_AddLine(const char* text) {
-    if (!hook::Global<uint8_t*>(0x6cec78)) {
+    if (!g_world) {
         Lobby_AddChatText(text);
         return;
     }
-    Log_Add(hook::Global<Collection*>(0x6acd34), 0, text, 5, 1, 0);
+    Log_Add(g_messageLog, 0, text, 5, 1, 0);
 }
 RT3_REPLACE(0x46c360, Chat_AddLine);
 
 // 0x46c390 (network handler). Sends the lobby (0x109 bytes) back to the
 // sender (EDX) as message 2. Returns 1.
 int32_t __fastcall NetMsg_SendLobby(void*, uint8_t* from) {
-    if (uint8_t* lobby = hook::Global<uint8_t*>(0x6cec7c)) Net_Send(hook::Global<uint8_t*>(0x6cd8d8), 0, (const char*)(from + 8), 2, 0x109, lobby, 1, 0);
+    if (uint8_t* lobby = g_newGame) Net_Send(g_session, 0, (const char*)(from + 8), 2, 0x109, lobby, 1, 0);
     return 1;
 }
 RT3_REPLACE(0x46c390, NetMsg_SendLobby);
@@ -3423,13 +3423,13 @@ RT3_REPLACE(0x46c390, NetMsg_SendLobby);
 // lobby's +0x97 and sets 0x6ce9c4. Returns 1.
 int32_t NetMsg_GameStarted() {
     SetGlobal6cfeac();
-    hook::Global<int32_t>(0x6cd90c) = 1;
-    hook::Global<int32_t>(0x6cd8e8) = 1;
+    g_6cd90c = 1;
+    g_6cd8e8 = 1;
     Peer_LeaveStaging();
-    hook::Global<int32_t>(0x6cd96c) = 0;
-    if (hook::Global<int32_t>(0x6ce9bc)) {
-        hook::Global<uint8_t*>(0x6cec7c)[0x97] = 0;
-        hook::Global<int32_t>(0x6ce9c4) = 1;
+    g_6cd96c = 0;
+    if (g_6ce9bc) {
+        g_newGame[0x97] = 0;
+        g_6ce9c4 = 1;
     }
     return 1;
 }
@@ -3443,9 +3443,9 @@ int32_t __fastcall NetMsg_GameOptions(uint8_t* m) {
                                         0xfc, 0x100, 0x104, 0x108, 0x10c, 0x110, 0x118, 0x143, 0x153, 0x157, 0x15b, 0x15f, 0x163, 0x16f, 0x173,
                                         0x17b, 0x1df, 0x1ef, 0x223, 0x227, 0x22b, 0x22f, 0x233, 0x237, 0x23b, 0x24f, 0x258 };
     uint8_t* d = F<uint8_t*>(m, 8);
-    for (uint16_t off : kFields) F<uint32_t>(hook::Global<uint8_t*>(0x6cec74), off + 0x70) = F<uint32_t>(d, off);
-    Options_Save(hook::Global<uint8_t*>(0x6cec74), 0, 0);
-    if (hook::Global<HMENU*>(0x6ada8c)) Menu_Attach(hook::Global<HMENU*>(0x6ada8c));
+    for (uint16_t off : kFields) F<uint32_t>(g_app, off + 0x70) = F<uint32_t>(d, off);
+    Options_Save(g_app, 0, 0);
+    if (hook::As<HMENU*>(g_6ada8c)) Menu_Attach(hook::As<HMENU*>(g_6ada8c));
     return 1;
 }
 RT3_REPLACE(0x46c420, NetMsg_GameOptions);
@@ -3461,7 +3461,7 @@ int32_t __fastcall NetMsg_SendEngineValue(uint8_t* m, uint8_t* from) {
     int32_t buf[2];
     buf[0] = F<int32_t>(e, 0x48);
     buf[1] = F<int32_t>(F<uint8_t*>(m, 8), 4);
-    Net_Send(hook::Global<uint8_t*>(0x6cd8d8), 0, (const char*)(from + 8), 7, 8, (const uint8_t*)buf, 0, 0);
+    Net_Send(g_session, 0, (const char*)(from + 8), 7, 8, (const uint8_t*)buf, 0, 0);
     return 1;
 }
 RT3_REPLACE(0x46c770, NetMsg_SendEngineValue);
@@ -3483,9 +3483,9 @@ RT3_REPLACE(0x46c7c0, NetMsg_TextureTime);
 // 0x46c810 (network handler). Stores the packet as camera bookmark 0 and
 // moves there. Returns 1.
 int32_t __fastcall NetMsg_CameraBookmark(uint8_t* m) {
-    if (hook::Global<uint8_t*>(0x62be68)) {
-        Obj_SetEntry10e(hook::Global<uint8_t*>(0x62be68), 0, F<const uint32_t*>(m, 8), 0);
-        Camera_RecallBookmark(hook::Global<uint8_t*>(0x62be68), 0, 0);
+    if (g_62be68) {
+        Obj_SetEntry10e(g_62be68, 0, F<const uint32_t*>(m, 8), 0);
+        Camera_RecallBookmark(g_62be68, 0, 0);
     }
     return 1;
 }
@@ -3518,7 +3518,7 @@ RT3_REPLACE(0x46c870, NetMsg_TextureFlag1);
 // values} becomes n 9-byte records {1..n, value, id}, any other packet is
 // queued as it is. Returns 1.
 int32_t __fastcall NetMsg_QueueRecords(uint8_t* msg, uint8_t* from) {
-    if (hook::Global<int32_t>(0x6cd8ec) != 1 && !hook::Global<int32_t>(0x6cd918)) return 1;
+    if (g_6cd8ec != 1 && !g_6cd918) return 1;
     const uint8_t* p = F<const uint8_t*>(msg, 8);
     if (p[0] == 0xff) {
         uint8_t rec[9];
@@ -3544,7 +3544,7 @@ int32_t __fastcall NetMsg_SendCounter(void*, uint8_t* from) {
     uint8_t* e = (uint8_t*)Engine_FirstListEntry();
     int32_t v = F<int32_t>(e, 0x74);
     F<int32_t>(e, 0x74) = F<int32_t>(e, 0x74) - 1;
-    Net_Send(hook::Global<uint8_t*>(0x6cd8d8), 0, (const char*)(from + 8), 0xf, 4, (const uint8_t*)&v, 1, 0);
+    Net_Send(g_session, 0, (const char*)(from + 8), 0xf, 4, (const uint8_t*)&v, 1, 0);
     return 1;
 }
 RT3_REPLACE(0x46c990, NetMsg_SendCounter);
@@ -3605,19 +3605,19 @@ RT3_REPLACE(0x46ccd0, Return1_46ccd0);
 // 0x46cce0 (network handler). Pauses the world locally and starts the
 // resync clock (0x6cd91c, 0x6ce990 / 0x6cd8e4). Returns 1.
 int32_t NetMsg_PauseForSync() {
-    World_SetSpeed(hook::Global<uint8_t*>(0x6cec78), 0, 0, 0, 0);
-    hook::Global<int32_t>(0x6cd91c) = 1;
+    World_SetSpeed(g_world, 0, 0, 0, 0);
+    g_6cd91c = 1;
     const int32_t t = ClockMs();
-    hook::Global<int32_t>(0x6ce990) = t;
-    hook::Global<int32_t>(0x6cd8e4) = t;
+    g_6ce990 = t;
+    g_6cd8e4 = t;
     return 1;
 }
 RT3_REPLACE(0x46cce0, NetMsg_PauseForSync);
 
 // 0x46cd10 / 0x4721a0 / 0x4720b0 (network handlers, return 1).
 int32_t __fastcall NetMsg_Store6d1284(uint8_t* m) {
-    hook::Global<int32_t>(0x6d1284) = *F<int32_t*>(m, 8);
-    hook::Global<int32_t>(0x6d1280) = 3;
+    g_6d1284 = *F<int32_t*>(m, 8);
+    g_6d1280 = 3;
     return 1;
 }
 RT3_REPLACE(0x46cd10, NetMsg_Store6d1284);
@@ -3631,14 +3631,14 @@ int32_t NetMsg_SendProfile() {
     strcpy((char*)Engine_FirstListEntry() + 0x258c, a);
     const float version = Game_VersionNumber();
     F<float>((uint8_t*)Engine_FirstListEntry(), 0x268c) = version;
-    F<int32_t>((uint8_t*)Engine_FirstListEntry(), 0x2690) = hook::Global<int32_t>(0x6226d0);
+    F<int32_t>((uint8_t*)Engine_FirstListEntry(), 0x2690) = g_6226d0;
     uint8_t pkt[0x12c];
     strcpy((char*)pkt, (const char*)Engine_FirstListEntry() + 0x258c);
     pkt[0x1f] = ((uint8_t*)Engine_FirstListEntry())[0x5c] & 1;
     F<float>(pkt, 0x20) = Game_VersionNumber();
-    F<int32_t>(pkt, 0x24) = hook::Global<int32_t>(0x6226d0);
+    F<int32_t>(pkt, 0x24) = g_6226d0;
     F<uint32_t>(pkt, 0x28) = F<uint32_t>((uint8_t*)Engine_FirstListEntry(), 0x2694);
-    Net_Send(hook::Global<uint8_t*>(0x6cd8d8), 0, nullptr, 0x54, 0x2c, pkt, 3, 0);
+    Net_Send(g_session, 0, nullptr, 0x54, 0x2c, pkt, 3, 0);
     return 1;
 }
 RT3_REPLACE(0x46cd30, NetMsg_SendProfile);
@@ -3665,18 +3665,18 @@ RT3_REPLACE(0x46ce10, NetMsg_TextureInfo);
 // runs (0x6d127c): 0 fails it (state 8), 0xff ends it (0xd), and enough
 // replies (0x6d4100) complete it (9). Returns 1.
 int32_t __fastcall NetMsg_DownloadReply(uint8_t* m) {
-    if (!hook::Global<int32_t>(0x6d127c)) return 1;
-    ++hook::Global<int32_t>(0x6d128c);
+    if (!g_6d127c) return 1;
+    ++g_6d128c;
     const int32_t v = *F<const int32_t*>(m, 8);
     if (!v) {
-        hook::Global<int32_t>(0x6d1280) = 8;
+        g_6d1280 = 8;
         return 1;
     }
     if (v == 0xff) {
-        hook::Global<int32_t>(0x6d1280) = 0xd;
+        g_6d1280 = 0xd;
         return 1;
     }
-    if (hook::Global<int32_t>(0x6d128c) >= Global6d4100()) hook::Global<int32_t>(0x6d1280) = 9;
+    if (g_6d128c >= Global6d4100()) g_6d1280 = 9;
     return 1;
 }
 RT3_REPLACE(0x46ce90, NetMsg_DownloadReply);
@@ -3693,7 +3693,7 @@ RT3_REPLACE(0x46cf10, NetMsg_TextureFlag4);
 // 0x46cf40 (network handler). Copies the packet into the world at +0x66be.
 // Returns 1.
 int32_t __fastcall NetMsg_CopyToWorld(uint8_t* m) {
-    memcpy(hook::Global<uint8_t*>(0x6cec78) + 0x66be, F<const void*>(m, 8), F<uint32_t>(m, 0xc));
+    memcpy(g_world + 0x66be, F<const void*>(m, 8), F<uint32_t>(m, 0xc));
     return 1;
 }
 RT3_REPLACE(0x46cf40, NetMsg_CopyToWorld);
@@ -3714,9 +3714,9 @@ RT3_REPLACE(0x46cfa0, Return1_46cfa0);
 // and flags (+4) with 0x6ce9b8 set meanwhile. Returns 1.
 int32_t __fastcall NetMsg_SaveGame(uint8_t* m) {
     uint8_t* d = F<uint8_t*>(m, 8);
-    hook::Global<int32_t>(0x6ce9b8) = 1;
-    World_SaveGame(hook::Global<uint8_t*>(0x6cec78), 0, (const char*)d + 8, F<uint32_t>(d, 4));
-    hook::Global<int32_t>(0x6ce9b8) = 0;
+    g_6ce9b8 = 1;
+    World_SaveGame(g_world, 0, (const char*)d + 8, F<uint32_t>(d, 4));
+    g_6ce9b8 = 0;
     return 1;
 }
 RT3_REPLACE(0x46cfb0, NetMsg_SaveGame);
@@ -3738,7 +3738,7 @@ int32_t __fastcall NetMsg_BeginTransfer(uint8_t* m) {
     auto fopen_ = (void*(__cdecl*)(const char*, const char*))0x5a1887;
     void* f;
     if (F<int32_t>(d, 0x4c)) {
-        FormatText(path, (const char*)0x5c9d00, Options_SaveFolder(hook::Global<void*>(0x6cec74)), name, 0, 0, 0, 0, 0, 0);
+        FormatText(path, (const char*)0x5c9d00, Options_SaveFolder(hook::As<void*>(g_app)), name, 0, 0, 0, 0, 0, 0);
         f = fopen_(path, (const char*)0x5ca334);
     } else {
         f = fopen_(name, (const char*)0x5ca334);
@@ -3764,14 +3764,14 @@ int32_t __fastcall NetMsg_TransferChunk(uint8_t* m) {
     uint8_t* slot = (uint8_t*)(0x6ce290 + i * 0x5c);
     ((size_t(__cdecl*)(const void*, size_t, size_t, void*))0x5a276f)(d + 6, len, 1, F<void*>(slot, 0x58));
     F<int32_t>(slot, 0x54) += F<uint16_t>(d, 4);
-    if (!hook::Global<uint8_t*>(0x6d401c)) return 1;
+    if (!g_windowManager) return 1;
     const float got = (float)F<int32_t>(slot, 0x54), total = (float)F<int32_t>(slot, 0x50);
     const int32_t pct = Ftol((double)got / (double)total * Fl(0x5c8c28));
     char num[0x190], text[0x200];
     const char* s = Num_Format(num, 1, (double)pct, 10, 1, 0, 0);
     const char* who = Net_PlayerNameById(F<int32_t>(slot, 0));
     FormatText(text, GetString(0x10f6), (const char*)(slot + 8), who, s, 0, 0, 0, 0, 0);
-    Status_SetMessage(hook::Global<uint8_t*>(0x6d401c), 0, text);
+    Status_SetMessage(g_windowManager, 0, text);
     return 1;
 }
 RT3_REPLACE(0x46d090, NetMsg_TransferChunk);
@@ -3795,11 +3795,11 @@ int32_t __fastcall NetMsg_EndTransfer(uint8_t* m) {
 RT3_REPLACE(0x46d1d0, NetMsg_EndTransfer);
 
 // 0x46d230 (callback). Sets 0x6ce9c8; returns 1.
-int32_t Set6ce9c8() { return hook::Global<int32_t>(0x6ce9c8) = 1; }
+int32_t Set6ce9c8() { return g_6ce9c8 = 1; }
 RT3_REPLACE(0x46d230, Set6ce9c8);
 
 RT3_NOINLINE void CloseFile6ce994() {
-    void*& f = hook::Global<void*>(0x6ce994);
+    void*& f = g_6ce994;
     if (!f) return;
     ((int(__cdecl*)(void*))0x5a1740)(f);
     f = nullptr;
@@ -3808,7 +3808,7 @@ RT3_REPLACE(0x46d240, CloseFile6ce994);
 
 // 0x46d260. Appends an 18-byte record {u16, 4 dwords} to the table 0x6cd990 (max 128).
 void __fastcall Queue6cd990_Push(uint16_t a, int32_t b, int32_t c, int32_t d, int32_t e) {
-    int32_t n = hook::Global<int32_t>(0x6ce9a0);
+    int32_t n = g_6ce9a0;
     if (n >= 0x80) return;
     uint8_t* r = (uint8_t*)0x6cd990 + n * 18;
     F<uint16_t>(r, 0) = a;
@@ -3816,13 +3816,13 @@ void __fastcall Queue6cd990_Push(uint16_t a, int32_t b, int32_t c, int32_t d, in
     F<int32_t>(r, 6) = c;
     F<int32_t>(r, 0xa) = d;
     F<int32_t>(r, 0xe) = e;
-    hook::Global<int32_t>(0x6ce9a0) = n + 1;
+    g_6ce9a0 = n + 1;
 }
 RT3_REPLACE(0x46d260, Queue6cd990_Push);
 
 // 0x46d2b0. Whether every session player (0x6cd8d8) has at least version v.
 RT3_NOINLINE int32_t __stdcall Net_AllHaveVersion(float v) {
-    if (!hook::Global<void*>(0x6cd8d8)) return 1;
+    if (!hook::As<void*>(g_session)) return 1;
     float cv = Net_CommonVersion();
     float need = (float)VersionInt(v);
     return cv < need || cv != cv ? 0 : 1;
@@ -3841,7 +3841,7 @@ RT3_NOINLINE void __fastcall Net_FeedResync(uint8_t* s) {
             uint8_t* rec = (uint8_t*)0x6ce290 + off;
             if (F<int32_t>(rec, 0) != Global6d40e4()) continue;
             int32_t queued = 0, bytes = 0;
-            if (Net_SendQueueTotals(hook::Global<uint8_t*>(0x6d40d0), 0, &queued, &bytes) && (uint32_t)queued < 0x19) {
+            if (Net_SendQueueTotals(g_6d40d0, 0, &queued, &bytes) && (uint32_t)queued < 0x19) {
                 for (int32_t chunk = 0;;) {
                     struct {
                         uint32_t crc;
@@ -3853,7 +3853,7 @@ RT3_NOINLINE void __fastcall Net_FeedResync(uint8_t* s) {
                                                                                                   F<void*>(rec, 0x58));
                     if (n && !F<int32_t>(rec, 4)) {
                         pkt.len = (uint16_t)n;
-                        Net_Send(hook::Global<uint8_t*>(0x6cd8d8), 0, nullptr, 0x80, n + 6, (const uint8_t*)&pkt, 3, 0);
+                        Net_Send(g_session, 0, nullptr, 0x80, n + 6, (const uint8_t*)&pkt, 3, 0);
                         F<int32_t>(rec, 0x54) += n;
                     }
                     if (n == 0xf00) {
@@ -3861,13 +3861,13 @@ RT3_NOINLINE void __fastcall Net_FeedResync(uint8_t* s) {
                         break;
                     }
                     uint32_t crc = F<uint32_t>(rec, 0x48);
-                    Net_Send(hook::Global<uint8_t*>(0x6cd8d8), 0, nullptr, 0x81, 4, (const uint8_t*)&crc, 3, 0);
+                    Net_Send(g_session, 0, nullptr, 0x81, 4, (const uint8_t*)&crc, 3, 0);
                     ((int(__cdecl*)(void*))0x5a1740)(F<void*>(rec, 0x58));
                     memset(rec, 0, 0x5c);
                     break;
                 }
             }
-            if (!hook::Global<uint8_t*>(0x6d401c) || !F<void*>(rec, 0x58)) continue;
+            if (!g_windowManager || !F<void*>(rec, 0x58)) continue;
             const char* who = F<int32_t>(rec, 4) ? Net_PlayerNameById(F<int32_t>(rec, 4)) : (const char*)0x5ca2bc;
             float sent = (float)F<int32_t>(rec, 0x54);
             float total = (float)F<int32_t>(rec, 0x50);
@@ -3885,10 +3885,10 @@ RT3_NOINLINE void __fastcall Net_FeedResync(uint8_t* s) {
             const char* pctText = Num_Format(num, 1, (double)pct, 0xa, 1, 0, 0);
             char line[0xf00];
             FormatText(line, GetString(0x10f5), (const char*)rec + 8, who, pctText, 0, 0, 0, 0, 0);
-            Status_SetMessage(hook::Global<uint8_t*>(0x6d401c), 0, line);
+            Status_SetMessage(g_windowManager, 0, line);
         }
     }
-    hook::Global<uint8_t*>(0x6ce9cc) = s;
+    g_6ce9cc = s;
 }
 RT3_REPLACE(0x46d300, Net_FeedResync);
 
@@ -3923,14 +3923,14 @@ RT3_REPLACE(0x46d610, Obj_SetDateMinutes);
 // {engine value, 0, name +8, CRC +0x48, open +0x4c, size +0x50, file +0x58} and
 // goes out reliably as message 0x7f. Nothing without other players or the file.
 RT3_NOINLINE void Net_OfferResync() {
-    if (!hook::Global<int32_t>(0x6d40dc) || Global6d4100() <= 1) return;
+    if (!g_6d40dc || Global6d4100() <= 1) return;
     int32_t slot = FirstFreeSlot6ce2e8();
     if (slot == 10) return;
     uint8_t* rec = (uint8_t*)0x6ce290 + slot * 0x5c;
     memset(rec, 0, 0x5c);
-    F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x6c) = 0;
+    F<int32_t>(g_app, 0x6c) = 0;
     char path[0x12c];
-    FormatText(path, (const char*)0x5c9d00, Options_SaveFolder(hook::Global<void*>(0x6cec74)), (const char*)0x6ce630, 0, 0, 0, 0,
+    FormatText(path, (const char*)0x5c9d00, Options_SaveFolder(hook::As<void*>(g_app)), (const char*)0x6ce630, 0, 0, 0, 0,
                0, 0);
     void* f = ((void*(__cdecl*)(const char*, const char*))0x5a1887)(path, (const char*)0x5ce2c0);
     if (!f) return;
@@ -3950,7 +3950,7 @@ RT3_NOINLINE void Net_OfferResync() {
     F<int32_t>(rec, 4) = 0;
     F<void*>(rec, 0x58) = ((void*(__cdecl*)(const char*, const char*))0x5a1887)(path, (const char*)0x5c9678);
     strcpy((char*)rec + 8, (const char*)0x6ce630);
-    Net_Send(hook::Global<uint8_t*>(0x6cd8d8), 0, nullptr, 0x7f, 0x5c, rec, 3, 0);
+    Net_Send(g_session, 0, nullptr, 0x7f, 0x5c, rec, 3, 0);
 }
 RT3_REPLACE(0x46d640, Net_OfferResync);
 
@@ -3974,9 +3974,9 @@ RT3_REPLACE(0x46d780, Net_ApplyTrainPosition);
 // 7, option +0x6c set), else from the kind-12 list (option +0x6c clear, name kept
 // at 0x6ce630). Returns whether it was found.
 RT3_NOINLINE int32_t __fastcall Scenario_SelectByName(const char* name) {
-    F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x6c) = 1;
+    F<int32_t>(g_app, 0x6c) = 1;
     if (FindInList(name, 7)) return 1;
-    F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x6c) = 0;
+    F<int32_t>(g_app, 0x6c) = 0;
     return FindInList(name, 0xc);
 }
 RT3_REPLACE(0x46d7f0, Scenario_SelectByName);
@@ -3998,8 +3998,8 @@ RT3_NOINLINE int32_t __stdcall Profiles_IndexOfEntry(int32_t key) {
     int32_t idx = 0xff;
     uint8_t* e = Textures_Find(key);
     if (!e) return idx;
-    for (int32_t i = 0; i < Collection_Count(hook::Global<Collection*>(0x6ceb9c)); ++i) {
-        Collection* t = hook::Global<Collection*>(0x6ceb9c);
+    for (int32_t i = 0; i < Collection_Count(g_players); ++i) {
+        Collection* t = g_players;
         uint8_t* p = (uint8_t*)Collection_Get(t, 0, Collection_IdAt(t, 0, (uint32_t)i, 0));
         if (!Stricmp((const char*)p + 8, (const char*)e + 8)) {
             idx = i;
@@ -4013,7 +4013,7 @@ RT3_REPLACE(0x46d9e0, Profiles_IndexOfEntry);
 
 // 0x46da70. Position-weighted checksum of the map bitmap +0x213d.
 RT3_NOINLINE int32_t MapBitmapChecksum() {
-    uint8_t* map = hook::Global<uint8_t*>(0x62c120);
+    uint8_t* map = g_map;
     int32_t n = (F<int32_t>(map, 0x2161) * F<int32_t>(map, 0x215d) + 7) / 8;
     int32_t sum = 0;
     const uint8_t* buf = F<uint8_t*>(map, 0x213d);
@@ -4029,10 +4029,10 @@ RT3_REPLACE(0x46da70, MapBitmapChecksum);
 // 0x46dac0. State packet 0x6ce9d0: type 8, the map's cargo value x 0x5c8c28
 // truncated, the world clock in minutes. Null without a world and map.
 uint8_t* Net_BuildCargoPacket() {
-    if (!hook::Global<uint8_t*>(0x6cec78) || !hook::Global<uint8_t*>(0x62c120)) return nullptr;
-    hook::Global<uint8_t>(0x6ce9d0) = 8;
-    hook::Global<int32_t>(0x6ce9d1) = Ftol((double)Map_TotalCargoValue(hook::Global<uint8_t*>(0x62c120), 0, 0) * Fl(0x5c8c28));
-    hook::Global<int32_t>(0x6ce9d5) = DateToMinutes((const GameDate*)(hook::Global<uint8_t*>(0x6cec78) + 0xd));
+    if (!g_world || !g_map) return nullptr;
+    g_6ce9d0 = 8;
+    g_6ce9d1 = Ftol((double)Map_TotalCargoValue(g_map, 0, 0) * Fl(0x5c8c28));
+    g_6ce9d5 = DateToMinutes((const GameDate*)(g_world + 0xd));
     return (uint8_t*)0x6ce9d0;
 }
 RT3_REPLACE(0x46dac0, Net_BuildCargoPacket);
@@ -4040,31 +4040,31 @@ RT3_REPLACE(0x46dac0, Net_BuildCargoPacket);
 // Network state packets (type, data, the world clock in minutes); null
 // without a world and map.
 uint8_t* Net_BuildClockPacketA() {
-    uint8_t* w = hook::Global<uint8_t*>(0x6cec78);
-    if (!w || !hook::Global<uint8_t*>(0x62c120)) return nullptr;
-    hook::Global<uint8_t>(0x6ce9dc) = 0xa;
-    hook::Global<int32_t>(0x6ce9dd) = 0;
-    hook::Global<int32_t>(0x6ce9e1) = DateToMinutes((const GameDate*)(w + 0xd));
+    uint8_t* w = g_world;
+    if (!w || !g_map) return nullptr;
+    g_6ce9dc = 0xa;
+    g_6ce9dd = 0;
+    g_6ce9e1 = DateToMinutes((const GameDate*)(w + 0xd));
     return (uint8_t*)0x6ce9dc;
 }
 RT3_REPLACE(0x46db10, Net_BuildClockPacketA);
 
 uint8_t* Net_BuildClockPacket9() {
-    uint8_t* w = hook::Global<uint8_t*>(0x6cec78);
-    if (!w || !hook::Global<uint8_t*>(0x62c120)) return nullptr;
-    hook::Global<int32_t>(0x6ce9e9) = hook::Global<int32_t>(0x6cd92c);
-    hook::Global<uint8_t>(0x6ce9e8) = 9;
-    hook::Global<int32_t>(0x6ce9ed) = DateToMinutes((const GameDate*)(w + 0xd));
+    uint8_t* w = g_world;
+    if (!w || !g_map) return nullptr;
+    g_6ce9e9 = g_6cd92c;
+    g_6ce9e8 = 9;
+    g_6ce9ed = DateToMinutes((const GameDate*)(w + 0xd));
     return (uint8_t*)0x6ce9e8;
 }
 RT3_REPLACE(0x46db50, Net_BuildClockPacket9);
 
 uint8_t* Net_BuildMapPacket() {
-    uint8_t* w = hook::Global<uint8_t*>(0x6cec78);
-    if (!w || !hook::Global<uint8_t*>(0x62c120)) return nullptr;
-    hook::Global<uint8_t>(0x6ce9f4) = 7;
-    hook::Global<int32_t>(0x6ce9f5) = MapBitmapChecksum();
-    hook::Global<int32_t>(0x6ce9f9) = DateToMinutes((const GameDate*)(w + 0xd));
+    uint8_t* w = g_world;
+    if (!w || !g_map) return nullptr;
+    g_6ce9f4 = 7;
+    g_6ce9f5 = MapBitmapChecksum();
+    g_6ce9f9 = DateToMinutes((const GameDate*)(w + 0xd));
     return (uint8_t*)0x6ce9f4;
 }
 RT3_REPLACE(0x46db90, Net_BuildMapPacket);
@@ -4075,25 +4075,25 @@ RT3_REPLACE(0x46db90, Net_BuildMapPacket);
 // peer's pending value 0x622094 counts for the player's own slot). Null
 // without a world or companies.
 uint8_t* Net_BuildCompaniesPacket() {
-    if (!hook::Global<uint8_t*>(0x6cec78) || !hook::Global<Collection*>(0x62be10)) return nullptr;
-    hook::Global<uint8_t>(0x6cea00) = 6;
-    hook::Global<int32_t>(0x6cea01) = 0;
-    hook::Global<int32_t>(0x6cea05) = DateToMinutes((const GameDate*)(hook::Global<uint8_t*>(0x6cec78) + 0xd));
+    if (!g_world || !g_companies) return nullptr;
+    g_6cea00 = 6;
+    g_6cea01 = 0;
+    g_6cea05 = DateToMinutes((const GameDate*)(g_world + 0xd));
     int32_t sum = 0;
-    for (int32_t k = 1; k < Collection_Count(hook::Global<Collection*>(0x62be10)) + 1; ++k) {
-        Collection* c = hook::Global<Collection*>(0x62be10);
+    for (int32_t k = 1; k < Collection_Count(g_companies) + 1; ++k) {
+        Collection* c = g_companies;
         uint8_t* p = (uint8_t*)Collection_Get(c, 0, Collection_IdAt(c, 0, (uint32_t)(k - 1), 0));
         const int32_t w = F<int32_t>(p, 0) + 1;
         const int32_t a = F<int32_t>(p, 0x3b), b = F<int32_t>(p, 0x7664), e = F<int32_t>(p, 0x3f);
         sum += (Company_CountIdleBuildings(p) + a + b + e) * w;
         sum += Company_TrainCount(p) * w;
         int32_t v = F<int32_t>(p, 0x37);
-        if (hook::Global<uint8_t*>(0x6cec78) && Obj_Get21(hook::Global<uint8_t*>(0x6cec78)) && hook::Global<int32_t>(0x622094) != -1 &&
-            Obj_Get21(hook::Global<uint8_t*>(0x6cec78)) == w - 1)
-            v = hook::Global<int32_t>(0x622094);
+        if (g_world && Obj_Get21(g_world) && g_622094 != -1 &&
+            Obj_Get21(g_world) == w - 1)
+            v = g_622094;
         sum += v * w;
     }
-    hook::Global<int32_t>(0x6cea01) = sum;
+    g_6cea01 = sum;
     return (uint8_t*)0x6cea00;
 }
 RT3_REPLACE(0x46dbd0, Net_BuildCompaniesPacket);
@@ -4104,24 +4104,24 @@ RT3_REPLACE(0x46dbd0, Net_BuildCompaniesPacket);
 // pending colour 0x622090 counts for its own slot). Null without a world or
 // players.
 uint8_t* Net_BuildPlayersPacket() {
-    if (!hook::Global<uint8_t*>(0x6cec78) || !hook::Global<Collection*>(0x6ceb9c)) return nullptr;
-    hook::Global<uint8_t>(0x6cea0c) = 5;
-    hook::Global<int32_t>(0x6cea0d) = 0;
-    hook::Global<int32_t>(0x6cea11) = DateToMinutes((const GameDate*)(hook::Global<uint8_t*>(0x6cec78) + 0xd));
+    if (!g_world || !g_players) return nullptr;
+    g_6cea0c = 5;
+    g_6cea0d = 0;
+    g_6cea11 = DateToMinutes((const GameDate*)(g_world + 0xd));
     int32_t sum = 0;
-    for (int32_t k = 1; k < Collection_Count(hook::Global<Collection*>(0x6ceb9c)) + 1; ++k) {
-        Collection* c = hook::Global<Collection*>(0x6ceb9c);
+    for (int32_t k = 1; k < Collection_Count(g_players) + 1; ++k) {
+        Collection* c = g_players;
         uint8_t* p = (uint8_t*)Collection_Get(c, 0, Collection_IdAt(c, 0, (uint32_t)(k - 1), 0));
         const int32_t w = F<int32_t>(p, 0) + 1;
         sum += (int32_t)Crc32String((const char*)p + 8, 1);
         sum += ((int8_t)p[0x291] + F<int32_t>(p, 0x1e1) + F<int32_t>(p, 4)) * w;
         int32_t colour = p[0x15c];
-        if (hook::Global<uint8_t*>(0x6cec78) && Obj_Get25(hook::Global<uint8_t*>(0x6cec78)) && hook::Global<int32_t>(0x622090) != -1 &&
-            Obj_Get25(hook::Global<uint8_t*>(0x6cec78)) == w - 1)
-            colour = hook::Global<int32_t>(0x622090);
+        if (g_world && Obj_Get25(g_world) && g_622090 != -1 &&
+            Obj_Get25(g_world) == w - 1)
+            colour = g_622090;
         sum += colour * w;
     }
-    hook::Global<int32_t>(0x6cea0d) = sum;
+    g_6cea0d = sum;
     return (uint8_t*)0x6cea0c;
 }
 RT3_REPLACE(0x46dd10, Net_BuildPlayersPacket);
@@ -4129,10 +4129,10 @@ RT3_REPLACE(0x46dd10, Net_BuildPlayersPacket);
 // 0x46de40. Builds the 9-byte state packet 0x6cea18: type 4, the world
 // clock in minutes and the random seed. Returns the packet.
 uint8_t* Net_BuildStatePacket() {
-    hook::Global<uint8_t>(0x6cea18) = 4;
-    hook::Global<int32_t>(0x6cea19) = 0;
-    hook::Global<int32_t>(0x6cea1d) = DateToMinutes((const GameDate*)(hook::Global<uint8_t*>(0x6cec78) + 0xd));
-    hook::Global<int32_t>(0x6cea19) = GetSeed();
+    g_6cea18 = 4;
+    g_6cea19 = 0;
+    g_6cea1d = DateToMinutes((const GameDate*)(g_world + 0xd));
+    g_6cea19 = GetSeed();
     return (uint8_t*)0x6cea18;
 }
 RT3_REPLACE(0x46de40, Net_BuildStatePacket);
@@ -4144,16 +4144,16 @@ RT3_REPLACE(0x46de40, Net_BuildStatePacket);
 // (bounds of +0x24e +0x10, in quarter cells). Null without a world or
 // buildings.
 uint8_t* Net_BuildBuildingsPacket() {
-    if (!hook::Global<uint8_t*>(0x6cec78) || !hook::Global<Collection*>(0x62b26c)) return nullptr;
-    hook::Global<uint8_t>(0x6cea24) = 1;
-    hook::Global<int32_t>(0x6cea25) = 0;
-    hook::Global<int32_t>(0x6cea29) = DateToMinutes((const GameDate*)(hook::Global<uint8_t*>(0x6cec78) + 0xd));
+    if (!g_world || !g_buildings) return nullptr;
+    g_6cea24 = 1;
+    g_6cea25 = 0;
+    g_6cea29 = DateToMinutes((const GameDate*)(g_world + 0xd));
     int32_t sum = 0;
-    for (int32_t i = 0; i + 1 < Collection_Count(hook::Global<Collection*>(0x62b26c)) + 1; ++i) {
-        Collection* c = hook::Global<Collection*>(0x62b26c);
+    for (int32_t i = 0; i + 1 < Collection_Count(g_buildings) + 1; ++i) {
+        Collection* c = g_buildings;
         uint8_t* o = (uint8_t*)Collection_Get(c, 0, Collection_IdAt(c, 0, (uint32_t)i, 0));
         if (Obj_Flag3d4(o) != 1) continue;
-        const int32_t w = (int32_t)Collection_IdAt(hook::Global<Collection*>(0x62b26c), 0, (uint32_t)i, 0) + 1;
+        const int32_t w = (int32_t)Collection_IdAt(g_buildings, 0, (uint32_t)i, 0) + 1;
         uint32_t x, y, z;
         SceneObj_GetPos(o, 0, &x, &y, &z);
         const int32_t state = ((F<int32_t>(o, 0x246) != 0 ? 1 : 0) + F<int32_t>(o, 0x3cc) + F<int32_t>(o, 0x29e)) * w;
@@ -4161,15 +4161,15 @@ uint8_t* Net_BuildBuildingsPacket() {
         const int32_t pz = Ftol(*(const float*)&z);
         sum = pz + sum + state + px;
         int32_t box[4];
-        Points_Bounds(hook::Global<void*>(0x62b2fc), 0, (const uint32_t*)(F<uint8_t*>(o, 0x24e) + 0x10), box);
+        Points_Bounds(hook::As<void*>(g_buildingTypes), 0, (const uint32_t*)(F<uint8_t*>(o, 0x24e) + 0x10), box);
         const int32_t x0 = box[0] >> 2, x1 = box[1] >> 2, y0 = box[2] >> 2, y1 = box[3] >> 2;
         for (int32_t gy = y0; gy <= y1; ++gy)
             for (int32_t gx = x0; gx <= x1; ++gx) {
-                const float hgt = (float)Map_GridFloat(hook::Global<uint8_t*>(0x62c120), 0, gx, gy);
+                const float hgt = (float)Map_GridFloat(g_map, 0, gx, gy);
                 sum += Ftol((double)hgt * Fl(0x5c8c28)) * w;
             }
     }
-    hook::Global<int32_t>(0x6cea25) = sum;
+    g_6cea25 = sum;
     return (uint8_t*)0x6cea24;
 }
 RT3_REPLACE(0x46de80, Net_BuildBuildingsPacket);
@@ -4182,17 +4182,17 @@ RT3_REPLACE(0x46de80, Net_BuildBuildingsPacket);
 // id + 1) their centre cell, height, state fields and the length of the sum
 // of their four effect vectors.
 uint8_t* Net_BuildTrackPacket() {
-    if (!hook::Global<uint8_t*>(0x6cec78) || !hook::Global<Collection*>(0x6cfca8)) return nullptr;
-    hook::Global<uint8_t>(0x6cea30) = 2;
-    hook::Global<int32_t>(0x6cea31) = 0;
-    hook::Global<int32_t>(0x6cea35) = DateToMinutes((const GameDate*)(hook::Global<uint8_t*>(0x6cec78) + 0xd));
+    if (!g_world || !g_tracks) return nullptr;
+    g_6cea30 = 2;
+    g_6cea31 = 0;
+    g_6cea35 = DateToMinutes((const GameDate*)(g_world + 0xd));
     int32_t sum = 0;
-    if (!hook::Global<uint8_t*>(0x6d1a8c) || hook::Global<int32_t>(0x6ce9a4)) {
-        for (int32_t i = 0; i + 1 < Collection_Count(hook::Global<Collection*>(0x6cfca8)) + 1; ++i) {
-            Collection* c = hook::Global<Collection*>(0x6cfca8);
+    if (!g_6d1a8c || g_6ce9a4) {
+        for (int32_t i = 0; i + 1 < Collection_Count(g_tracks) + 1; ++i) {
+            Collection* c = g_tracks;
             uint8_t* o = (uint8_t*)Collection_Get(c, 0, Collection_IdAt(c, 0, (uint32_t)i, 0));
             if (o[0x216] != 2) continue;
-            const int32_t w = (int32_t)Collection_IdAt(hook::Global<Collection*>(0x6cfca8), 0, (uint32_t)i, 0) + 1;
+            const int32_t w = (int32_t)Collection_IdAt(g_tracks, 0, (uint32_t)i, 0) + 1;
             float x, y;
             Obj_CenterCell(o, 0, &x, &y);
             const int32_t cx = Ftol((double)x * Fl(0x5c8c28));
@@ -4215,7 +4215,7 @@ uint8_t* Net_BuildTrackPacket() {
             sum += Ftol(len2 * Fl(0x5c8c28)) * w;
         }
     }
-    hook::Global<int32_t>(0x6cea31) = sum;
+    g_6cea31 = sum;
     return (uint8_t*)0x6cea30;
 }
 RT3_REPLACE(0x46e030, Net_BuildTrackPacket);
@@ -4225,16 +4225,16 @@ RT3_REPLACE(0x46e030, Net_BuildTrackPacket);
 // car's position, state and speed fields, the cargo floats, the lead car's
 // piece / tilt and each further car (Train_NthCarKind1) of kind 1.
 uint8_t* Net_BuildTrainsPacket() {
-    if (!hook::Global<uint8_t*>(0x6cec78) || !hook::Global<Collection*>(0x6cfcbc)) return nullptr;
-    hook::Global<uint8_t>(0x6cea3c) = 3;
-    hook::Global<int32_t>(0x6cea3d) = 0;
-    hook::Global<int32_t>(0x6cea41) = DateToMinutes((const GameDate*)(hook::Global<uint8_t*>(0x6cec78) + 0xd));
+    if (!g_world || !g_trains) return nullptr;
+    g_6cea3c = 3;
+    g_6cea3d = 0;
+    g_6cea41 = DateToMinutes((const GameDate*)(g_world + 0xd));
     int32_t sum = 0;
     auto q = [](float v) { return Ftol((double)v * Fl(0x5ce2c4)); };
-    for (int32_t i = 0; i + 1 < Collection_Count(hook::Global<Collection*>(0x6cfcbc)) + 1; ++i) {
-        Collection* c = hook::Global<Collection*>(0x6cfcbc);
+    for (int32_t i = 0; i + 1 < Collection_Count(g_trains) + 1; ++i) {
+        Collection* c = g_trains;
         uint8_t* t = (uint8_t*)Collection_Get(c, 0, Collection_IdAt(c, 0, (uint32_t)i, 0));
-        const int32_t w = (int32_t)Collection_IdAt(hook::Global<Collection*>(0x6cfcbc), 0, (uint32_t)i, 0) + 1;
+        const int32_t w = (int32_t)Collection_IdAt(g_trains, 0, (uint32_t)i, 0) + 1;
         float px, py, pz;
         SceneObj_GetPos((uint8_t*)Obj_City41(t), 0, (uint32_t*)&px, (uint32_t*)&py, (uint32_t*)&pz);
         const int32_t a = q(px);
@@ -4267,7 +4267,7 @@ uint8_t* Net_BuildTrainsPacket() {
         for (uint8_t* car = (uint8_t*)Train_NthCarKind1(t, 0, 1); car; car = (uint8_t*)Train_NthCarKind1(t, 0, n++))
             sum += (F<int32_t>(car, 0x38c) - q(F<float>(car, 0x394))) * w;
     }
-    hook::Global<int32_t>(0x6cea3d) = sum;
+    g_6cea3d = sum;
     return (uint8_t*)0x6cea3c;
 }
 RT3_REPLACE(0x46e250, Net_BuildTrainsPacket);
@@ -4280,9 +4280,9 @@ RT3_REPLACE(0x46e250, Net_BuildTrainsPacket);
 // message in place, overwriting whatever differs (book figures through
 // Company_AddStat), and returns the companies' part size.
 RT3_NOINLINE int32_t __fastcall Finance_SyncMessage(uint8_t* msg, int32_t mode, void** out) {
-    Collection* cos = hook::Global<Collection*>(0x62be10);
-    Collection* pls = hook::Global<Collection*>(0x6ceb9c);
-    auto year = [] { return (int32_t)F<uint16_t>(hook::Global<uint8_t*>(0x6cec78), 0xd); };
+    Collection* cos = g_companies;
+    Collection* pls = g_players;
+    auto year = [] { return (int32_t)F<uint16_t>(g_world, 0xd); };
     auto book = [&](int32_t i, int32_t stat) {
         float v = 0.0f;
         uint32_t id = Collection_IdAt(cos, 0, i, 0);
@@ -4387,17 +4387,17 @@ RT3_REPLACE(0x46edb0, NetTrain_Create);
 
 // 0x46eec0. Whether a train is in state 1 or 2 (only for sessions at version 0x5c9800+).
 RT3_NOINLINE int32_t __fastcall Trains_AnyActive() {
-    if (hook::Global<void*>(0x6cd8d8)) {
+    if (hook::As<void*>(g_session)) {
         float cv = Net_CommonVersion();
         if (cv < *(const float*)0x5c9800 || cv != cv) return 0;
     }
-    Collection* c = hook::Global<Collection*>(0x6cfcbc);
+    Collection* c = g_trains;
     if (!c) return 0;
     for (int32_t i = 0; i < Collection_Count(c); ++i) {
-        c = hook::Global<Collection*>(0x6cfcbc);
+        c = g_trains;
         int32_t st = F<int32_t>(Collection_Get(c, 0, Collection_IdAt(c, 0, i, 0)), 0xe8);
         if (st == 1 || st == 2) return 1;
-        c = hook::Global<Collection*>(0x6cfcbc);
+        c = g_trains;
     }
     return 0;
 }
@@ -4410,34 +4410,34 @@ RT3_REPLACE(0x46eec0, Trains_AnyActive);
 // 32-entry ring 0x6ce808 (next 0x6ce9b0) instead of moving now. A refused
 // placement is removed again. Returns the building id or -1.
 int32_t __cdecl BuildingMsg_ApplyImpl(uint8_t* m, int32_t phase) {
-    const int32_t ok = Sites_CanPlace(hook::Global<Collection*>(0x62b2fc), 0, F<uint32_t>(m, 0x10), F<float>(m, 0), F<float>(m, 4), F<float>(m, 8),
+    const int32_t ok = Sites_CanPlace(g_buildingTypes, 0, F<uint32_t>(m, 0x10), F<float>(m, 0), F<float>(m, 4), F<float>(m, 8),
                                       F<int32_t>(m, 0xc), F<int32_t>(m, 0x14), nullptr, 0, 1, -1, 0);
     if (phase == 1) return ok ? 1 : -1;
     if (!ok) return -1;
-    hook::Global<int32_t>(0x6ce9ac) = Trains_AnyActive();
-    uint8_t* type = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62b2fc), 0, F<uint32_t>(m, 0x10));
-    const int32_t id = (int32_t)Buildings_Add(hook::Global<Collection*>(0x62b26c), 0, type, F<float>(m, 0), F<float>(m, 4), 0, F<int32_t>(m, 0xc), 0);
-    if (Collection_IsValid(hook::Global<Collection*>(0x62b26c), 0, (uint32_t)id)) {
-        uint8_t* b = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62b26c), 0, (uint32_t)id);
+    g_6ce9ac = Trains_AnyActive();
+    uint8_t* type = (uint8_t*)Collection_Get(g_buildingTypes, 0, F<uint32_t>(m, 0x10));
+    const int32_t id = (int32_t)Buildings_Add(g_buildings, 0, type, F<float>(m, 0), F<float>(m, 4), 0, F<int32_t>(m, 0xc), 0);
+    if (Collection_IsValid(g_buildings, 0, (uint32_t)id)) {
+        uint8_t* b = (uint8_t*)Collection_Get(g_buildings, 0, (uint32_t)id);
         SceneObj_SetAngle2(b, 0, F<uint32_t>(m, 8));
-        if (hook::Global<int32_t>(0x6ce9ac) && Obj_StateKindIs4(b)) {
-            const int32_t k = hook::Global<int32_t>(0x6ce9b0);
+        if (g_6ce9ac && Obj_StateKindIs4(b)) {
+            const int32_t k = g_6ce9b0;
             uint8_t* slot = (uint8_t*)0x6ce808 + k * 0xc;
             F<int32_t>(slot, 0) = id;
             F<uint32_t>(slot, 4) = F<uint32_t>(m, 0);
             F<uint32_t>(slot, 8) = F<uint32_t>(m, 4);
-            hook::Global<int32_t>(0x6ce9b0) = (k + 1) % 32;
+            g_6ce9b0 = (k + 1) % 32;
         } else {
             Building_MoveTo(b, 0, F<float>(m, 0), F<float>(m, 4), 0, 0.0f);
         }
         SceneObj_ResetAttachmentLists(b);
-        if (!Building_Place((uint8_t*)Collection_Get(hook::Global<Collection*>(0x62b26c), 0, (uint32_t)id), 0, F<float>(m, 0), F<float>(m, 4),
+        if (!Building_Place((uint8_t*)Collection_Get(g_buildings, 0, (uint32_t)id), 0, F<float>(m, 0), F<float>(m, 4),
                             F<uint32_t>(m, 0xc))) {
-            Collection* bs = hook::Global<Collection*>(0x62b26c);
+            Collection* bs = g_buildings;
             ((void(__fastcall*)(Collection*, int, int32_t))(*(void***)bs)[8 / 4])(bs, 0, id);
         }
     }
-    hook::Global<int32_t>(0x6ce9ac) = 0;
+    g_6ce9ac = 0;
     return id;
 }
 
@@ -4466,24 +4466,24 @@ RT3_REPLACE(0x46ef40, BuildingMsg_Apply);
 // Returns whether a piece resulted.
 RT3_NOINLINE int32_t __fastcall TrackMsg_ApplyImpl(uint8_t* m, int32_t phase) {
     if (phase == 1) {
-        if (Obj_RectFree(hook::Global<uint8_t*>(0x6cd8d8), 0, (const int32_t*)(m + 0x32), m[4]) == 1) {
-            NetQueue_Push(hook::Global<uint8_t*>(0x6cd8d8), 0, (const uint32_t*)(m + 0x32), m[4]);
+        if (Obj_RectFree(g_session, 0, (const int32_t*)(m + 0x32), m[4]) == 1) {
+            NetQueue_Push(g_session, 0, (const uint32_t*)(m + 0x32), m[4]);
             return 1;
         }
         return 0;
     }
-    auto tracks = [] { return hook::Global<uint8_t*>(0x6cfca8); };
+    auto tracks = [] { return hook::As<uint8_t*>(g_tracks); };
     auto valid = [&](int32_t id) { return Collection_IsValid((Collection*)tracks(), 0, (uint32_t)id) != 0; };
     Train_ResetMotion(tracks());
-    uint8_t* ed = hook::Global<uint8_t*>(0x6cec74);
+    uint8_t* ed = g_app;
     F<int32_t>(ed, 0x140) = m[0x46];
     F<int32_t>(ed, 0x13c) = m[0x47];
     F<int32_t>(ed, 0x138) = (int8_t)m[0x48];
     F<int32_t>(ed, 0x144) = (int8_t)m[0x49];
-    F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4c74) = (int8_t)m[0x4a];
-    hook::Global<uint32_t>(0x5f2b4c) = F<uint32_t>(m, 0x22);
-    hook::Global<uint32_t>(0x6cd988) = F<uint32_t>(m, 0x26);
-    hook::Global<uint32_t>(0x6ce6f8) = F<uint32_t>(m, 0x2a);
+    F<int32_t>(g_world, 0x4c74) = (int8_t)m[0x4a];
+    g_5f2b4c = F<uint32_t>(m, 0x22);
+    g_6cd988 = F<uint32_t>(m, 0x26);
+    g_6ce6f8 = F<uint32_t>(m, 0x2a);
     if (F<int32_t>(m, 6)) {
         if (valid(F<int32_t>(m, 0x12)) && !F<int32_t>(m, 0x2e)) {
             F<int32_t>(tracks(), 0x125) = F<int32_t>(m, 0x12);
@@ -4501,7 +4501,7 @@ RT3_NOINLINE int32_t __fastcall TrackMsg_ApplyImpl(uint8_t* m, int32_t phase) {
         }
         F<int32_t>(tracks(), 0x125) = F<int32_t>(m, 0x12);
     }
-    if (F<int32_t>(tracks(), 0x125) == -1 && hook::Global<uint8_t*>(0x6d1a8c)) F<int32_t>(tracks(), 0x125) = F<int32_t>(hook::Global<uint8_t*>(0x6d1a8c), 0x78);
+    if (F<int32_t>(tracks(), 0x125) == -1 && g_6d1a8c) F<int32_t>(tracks(), 0x125) = F<int32_t>(g_6d1a8c, 0x78);
     if (F<int32_t>(tracks(), 0x125) != -1 && valid(F<int32_t>(tracks(), 0x125)))
         Track_UpdateColor((uint8_t*)Collection_Get((Collection*)tracks(), 0, F<uint32_t>(tracks(), 0x125)));
     if (F<int32_t>(tracks(), 0x125) != -1 && !valid(F<int32_t>(tracks(), 0x125))) {
@@ -4512,23 +4512,23 @@ RT3_NOINLINE int32_t __fastcall TrackMsg_ApplyImpl(uint8_t* m, int32_t phase) {
             (Collection*)t, 0, F<float>(t, 0x11d), F<float>(t, 0x121), 0.0f, 0, owner, style, 0);
     }
     F<int32_t>(tracks(), 0x9c) = 0;
-    hook::Global<float>(0x6ce99c) = Route_GradeFactor(F<float>(m, 0x1a), F<float>(m, 0x1e), F<float>(m, 0x22), F<float>(m, 0x26), F<float>(m, 0x2a));
-    const int32_t last = TrackNet_ExtendTo((Collection*)tracks(), 0, F<float>(m, 0x1a), F<float>(m, 0x1e), 1, m[4], m[5], hook::Global<float>(0x6ce99c), nullptr);
+    g_6ce99c = Route_GradeFactor(F<float>(m, 0x1a), F<float>(m, 0x1e), F<float>(m, 0x22), F<float>(m, 0x26), F<float>(m, 0x2a));
+    const int32_t last = TrackNet_ExtendTo((Collection*)tracks(), 0, F<float>(m, 0x1a), F<float>(m, 0x1e), 1, m[4], m[5], g_6ce99c, nullptr);
     if (valid(last)) {
         F<int32_t>(tracks(), 0x125) = last;
-        hook::Global<int32_t>(0x6ce998) = F<int32_t>(tracks(), 0x9c);
+        g_6ce998 = F<int32_t>(tracks(), 0x9c);
     }
     if (F<int32_t>(tracks(), 0x118)) Obj_DecayCounters(tracks());
     tracks()[0x11c] = 0;
     F<int32_t>(tracks(), 0x118) = 0;
-    Obj_SetText1c(hook::Global<uint8_t*>(0xccbb20), 0, nullptr, 0xffffffff);
+    Obj_SetText1c(g_cursorManager, 0, nullptr, 0xffffffff);
     Tracks_ApplyPendingKinds((Collection*)tracks());
     Obj_FreeList1c9(tracks());
     if (valid(last)) {
         TrackList_ResetBuildState(tracks());
-        Ui_SendEvent5(hook::Global<uint8_t**>(0x6d401c), 0, 0xbb, 0x808, 0, 0, 0);
+        Ui_SendEvent5(hook::As<uint8_t**>(g_windowManager), 0, 0xbb, 0x808, 0, 0, 0);
     }
-    hook::Global<uint32_t>(0x5f2b4c) = 0x49741cf0;
+    g_5f2b4c = 0x49741cf0;
     return valid(last) ? 1 : 0;
 }
 
@@ -4544,23 +4544,23 @@ RT3_REPLACE(0x46f0a0, TrackMsg_Apply);
 // 0x6d1a8c (+0x83; cursor 4), a pick in panel 0x6d3ac8 (+0x78; 0x6d1aa4 = -1), or
 // a drag of panel 0x6d1720 (+0x94); the cursor goes back to 1.
 RT3_NOINLINE void CancelMouseAction() {
-    if (uint8_t* d = hook::Global<uint8_t*>(0x6d1a8c)) {
+    if (uint8_t* d = g_6d1a8c) {
         if (!F<int32_t>(d, 0x83)) return;
         F<int32_t>(d, 0x83) = 0;
-        Cursor_Set(hook::Global<uint8_t*>(0xccbb20), 0, 4, 0, 0);
+        Cursor_Set(g_cursorManager, 0, 4, 0, 0);
         return;
     }
-    if (uint8_t* p = hook::Global<uint8_t*>(0x6d3ac8)) {
+    if (uint8_t* p = g_6d3ac8) {
         if (!F<int32_t>(p, 0x78)) return;
         SetGlobal6d1aa4(-1);
-        Cursor_Set(hook::Global<uint8_t*>(0xccbb20), 0, 1, 0, 0);
+        Cursor_Set(g_cursorManager, 0, 1, 0, 0);
         return;
     }
-    if (uint8_t* p = hook::Global<uint8_t*>(0x6d1720)) {
+    if (uint8_t* p = g_6d1720) {
         if (!F<int32_t>(p, 0x94)) return;
         Panel_SetDragging(p, 0, 0);
     }
-    Cursor_Set(hook::Global<uint8_t*>(0xccbb20), 0, 1, 0, 0);
+    Cursor_Set(g_cursorManager, 0, 1, 0, 0);
 }
 RT3_REPLACE(0x46f410, CancelMouseAction);
 
@@ -4575,7 +4575,7 @@ RT3_REPLACE(0x46f410, CancelMouseAction);
 // a game logs the arrival (own: its line +0x78; others: string 0xb76, giving
 // them the first free colour slot 0x9864 and, as host, the notice). Always 1.
 int32_t __fastcall NetMsg_SessionEvent(uint8_t* msg) {
-    uint8_t* gs = hook::Global<uint8_t*>(0x6cd8d8);
+    uint8_t* gs = g_session;
     switch (F<int32_t>(msg, 0x10)) {
     case 1:
         F<int32_t>(gs, 0xc) = 1;
@@ -4600,12 +4600,12 @@ int32_t __fastcall NetMsg_SessionEvent(uint8_t* msg) {
         F<int32_t>(gs, 0xc) = 7;
         break;
     case 5:
-        if (Net_FindFlaggedPlayer()) Obj_SetName8f48(hook::Global<uint8_t*>(0x6cd8d8), 0, (const char*)Net_FindFlaggedPlayer() + 8);
+        if (Net_FindFlaggedPlayer()) Obj_SetName8f48(g_session, 0, (const char*)Net_FindFlaggedPlayer() + 8);
         break;
     case 4: {
-        Obj_SetName8f48(hook::Global<uint8_t*>(0x6cd8d8), 0, (const char*)Net_FindFlaggedPlayer() + 8);
-        if (!hook::Global<uint8_t*>(0x6cec78) || !hook::Global<void*>(0x6acd34)) break;
-        Net_DropOldMessages(hook::Global<uint8_t*>(0x6cd8d8), 0, (uint8_t*)Engine_FirstListEntry(), 1);
+        Obj_SetName8f48(g_session, 0, (const char*)Net_FindFlaggedPlayer() + 8);
+        if (!g_world || !hook::As<void*>(g_messageLog)) break;
+        Net_DropOldMessages(g_session, 0, (uint8_t*)Engine_FirstListEntry(), 1);
         CancelMouseAction();
         uint8_t* p = F<uint8_t*>(msg, 8);
         if (F<int32_t>(Engine_FirstListEntry(), 0x48) == F<int32_t>(p, 0x48)) {
@@ -4620,14 +4620,14 @@ int32_t __fastcall NetMsg_SessionEvent(uint8_t* msg) {
     }
     case 6: {
         NewGame_CapAiSlots();
-        if (hook::Global<uint8_t*>(0x6cec78) && hook::Global<void*>(0x6acd34)) {
+        if (g_world && hook::As<void*>(g_messageLog)) {
             uint8_t* p = F<uint8_t*>(msg, 8);
             if (F<int32_t>(p, 4) == Global6d40e4()) {
-                Log_Add(hook::Global<Collection*>(0x6acd34), 0, (const char*)p + 0x78, 4, 0, 0);
+                Log_Add(g_messageLog, 0, (const char*)p + 0x78, 4, 0, 0);
             } else {
                 FormatText((char*)0x6ce700, GetString(0xb76), (const char*)p + 8, 0, 0, 0, 0, 0, 0, 0);
                 LogLine460();
-                uint8_t* slots = hook::Global<uint8_t*>(0x6cd8d8) + 0x9864;
+                uint8_t* slots = g_session + 0x9864;
                 for (int32_t i = 0; i < 0x10; ++i) {
                     if (slots[i] != 0xff) continue;
                     const char* name = (const char*)F<uint8_t*>(msg, 8) + 8;
@@ -4642,11 +4642,11 @@ int32_t __fastcall NetMsg_SessionEvent(uint8_t* msg) {
                     slots[i] = (uint8_t)k;
                     break;
                 }
-                if (hook::Global<int32_t>(0x6d40dc) && !Stricmp((const char*)hook::Global<uint8_t*>(0x6cd8d8) + 0x8f48, (const char*)Engine_FirstListEntry() + 8))
+                if (g_6d40dc && !Stricmp((const char*)g_session + 0x8f48, (const char*)Engine_FirstListEntry() + 8))
                     SendSessionNotice460();
             }
         }
-        Net_DropOldMessages(hook::Global<uint8_t*>(0x6cd8d8), 0, F<uint8_t*>(msg, 8), 1);
+        Net_DropOldMessages(g_session, 0, F<uint8_t*>(msg, 8), 1);
         break;
     }
     }
@@ -4705,8 +4705,8 @@ int32_t __fastcall NetMsg_Chat(uint8_t* m, uint8_t* from) {
     if (r != 1) return 1;
     char text[0x200];
     ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)(text, (const char*)0x5ce18c, from + 8, F<const char*>(m, 8));
-    if (!hook::Global<uint8_t*>(0x6cec78)) Lobby_AddChatText(text);
-    else Log_Add(hook::Global<Collection*>(0x6acd34), 0, text, 5, 1, 0);
+    if (!g_world) Lobby_AddChatText(text);
+    else Log_Add(g_messageLog, 0, text, 5, 1, 0);
     return 1;
 }
 RT3_REPLACE(0x470210, NetMsg_Chat);
@@ -4723,34 +4723,34 @@ int32_t __fastcall NetMsg_ScenarioInfo(uint8_t* msg) {
     const uint8_t* info = F<uint8_t*>(msg, 8);
     const char* name = (const char*)info + 0x11;
     int32_t changed = 0, found = 1;
-    if (Stricmp((const char*)hook::Global<uint8_t*>(0x6cec7c) + 0x11, name)) {
+    if (Stricmp((const char*)g_newGame + 0x11, name)) {
         found = Scenario_SelectByName(name);
         changed = 1;
     }
-    if (hook::Global<int32_t>(0x6d127c) == 3) {
+    if (g_6d127c == 3) {
         if (found != 1) {
-            hook::Global<int32_t>(0x6d1284) = 1;
-            hook::Global<int32_t>(0x6d1280) = 3;
+            g_6d1284 = 1;
+            g_6d1280 = 3;
             return 1;
         }
-        hook::Global<int32_t>(0x6d1280) = 4;
+        g_6d1280 = 4;
         F<uint32_t>(Engine_FirstListEntry(), 0x5c) |= 2;
-        Net_Send(hook::Global<uint8_t*>(0x6cd8d8), 0, nullptr, 0x53, 0, nullptr, 1, 0);
+        Net_Send(g_session, 0, nullptr, 0x53, 0, nullptr, 1, 0);
     }
     if (found == 1) {
-        if (hook::Global<int32_t>(0x6d40dc)) GameSpy_Pump();
+        if (g_6d40dc) GameSpy_Pump();
         char title[0x80];
-        strcpy(title, (const char*)hook::Global<uint8_t*>(0x6cec7c) + 0x44);
-        memcpy(hook::Global<uint8_t*>(0x6cec7c), info, 0x109);
-        strcpy((char*)hook::Global<uint8_t*>(0x6cec7c) + 0x44, title);
+        strcpy(title, (const char*)g_newGame + 0x44);
+        memcpy(g_newGame, info, 0x109);
+        strcpy((char*)g_newGame + 0x44, title);
         if (changed == 1) {
-            strcpy((char*)hook::Global<uint8_t*>(0x6cec7c) + 0x44, (const char*)0x6ce670);
+            strcpy((char*)g_newGame + 0x44, (const char*)0x6ce670);
             MpDialog_Refresh(1);
         }
     }
-    SetSeed(F<int32_t>(hook::Global<uint8_t*>(0x6cec7c), 0x83));
-    hook::Global<int32_t>(0x6ce9bc) =
-        ((const char*(__cdecl*)(const char*, const char*))0x5a1ff0)((const char*)hook::Global<uint8_t*>(0x6cec7c) + 0x11, (const char*)0x5c9cf8) ? 1 : 0;
+    SetSeed(F<int32_t>(g_newGame, 0x83));
+    g_6ce9bc =
+        ((const char*(__cdecl*)(const char*, const char*))0x5a1ff0)((const char*)g_newGame + 0x11, (const char*)0x5c9cf8) ? 1 : 0;
     return 1;
 }
 RT3_REPLACE(0x470290, NetMsg_ScenarioInfo);
@@ -4760,10 +4760,10 @@ RT3_REPLACE(0x470290, NetMsg_ScenarioInfo);
 // clock (0x6ce98c) reset and the tooltip cleared; the host resumes speed 3.
 // Returns 1.
 int32_t NetMsg_Resume() {
-    F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x19) = 0;
-    Obj_StampDate(hook::Global<uint8_t*>(0x6cd8d8), 0, 1);
-    F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x66ae) = 1;
-    Cursor_Set(hook::Global<uint8_t*>(0xccbb20), 0, 1, 0, 1);
+    F<int32_t>(g_world, 0x19) = 0;
+    Obj_StampDate(g_session, 0, 1);
+    F<int32_t>(g_world, 0x66ae) = 1;
+    Cursor_Set(g_cursorManager, 0, 1, 0, 1);
     for (uint8_t* e = *(uint8_t**)(uintptr_t)Net_LockQueue(); e; e = *(uint8_t**)e) {
         const char* name = (const char*)e + 8;
         int32_t k;
@@ -4775,13 +4775,13 @@ int32_t NetMsg_Resume() {
             mov k, eax
         }
         if (k == 0xff) continue;
-        Collection* c = hook::Global<Collection*>(0x6ceb9c);
+        Collection* c = g_players;
         ((uint8_t*)Collection_Get(c, 0, Collection_IdAt(c, 0, (uint32_t)k, 0)))[0x15c] = e[0x2690];
     }
     Net_UnlockQueue();
-    hook::Global<int32_t>(0x6ce98c) = ClockMs();
-    if (hook::Global<uint8_t*>(0x6d401c)) Ui_ShowTooltip(hook::Global<uint8_t*>(0x6d401c), 0, (const char*)0x5c87a8, 3, 0, -1);
-    if (hook::Global<int32_t>(0x6d40dc)) World_SetSpeed(hook::Global<uint8_t*>(0x6cec78), 0, 3, 1, 0);
+    g_6ce98c = ClockMs();
+    if (g_windowManager) Ui_ShowTooltip(g_windowManager, 0, (const char*)0x5c87a8, 3, 0, -1);
+    if (g_6d40dc) World_SetSpeed(g_world, 0, 3, 1, 0);
     return 1;
 }
 RT3_REPLACE(0x4703f0, NetMsg_Resume);
@@ -4790,10 +4790,10 @@ RT3_REPLACE(0x4703f0, NetMsg_Resume);
 // the next queued part and the message is sent on (0xc, flags 0x11).
 int32_t __fastcall NetMsg_Forward0c(uint8_t* m, uint8_t* from) {
     if (!F<int32_t>(from, 0x50)) return 1;
-    uint8_t* part = Net_CountMessagePart(hook::Global<uint8_t*>(0x6cd8d8), 0, 1);
-    uint8_t* s = hook::Global<uint8_t*>(0x6cd8d8);
+    uint8_t* part = Net_CountMessagePart(g_session, 0, 1);
+    uint8_t* s = g_session;
     F<int32_t>(s, 0x8f38) = part ? DateToMinutes((const GameDate*)part) : 0;
-    Net_Send(hook::Global<uint8_t*>(0x6cd8d8), 0, nullptr, 0xc, F<int32_t>(m, 0xc), F<const uint8_t*>(m, 8), 0x11, 0);
+    Net_Send(g_session, 0, nullptr, 0xc, F<int32_t>(m, 0xc), F<const uint8_t*>(m, 8), 0x11, 0);
     return 1;
 }
 RT3_REPLACE(0x4704d0, NetMsg_Forward0c);
@@ -4802,12 +4802,12 @@ RT3_REPLACE(0x4704d0, NetMsg_Forward0c);
 // announce d[1]) unless syncing; a pause change adjusts the pause count
 // 0x6cd8e8 and 0x5f2b38 becomes 60. Returns 1.
 int32_t __fastcall NetMsg_SetSpeed(uint8_t* m) {
-    if (F<int32_t>(m, 0xc) <= 0 || hook::Global<int32_t>(0x6cd91c)) return 1;
+    if (F<int32_t>(m, 0xc) <= 0 || g_6cd91c) return 1;
     const int8_t* d = F<const int8_t*>(m, 8);
-    if (!World_SetSpeed(hook::Global<uint8_t*>(0x6cec78), 0, d[0], 0, d[1])) return 1;
-    if (!F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x19)) ++hook::Global<int32_t>(0x6cd8e8);
-    else if (hook::Global<int32_t>(0x6cd8e8)) --hook::Global<int32_t>(0x6cd8e8);
-    hook::Global<int32_t>(0x5f2b38) = 0x3c;
+    if (!World_SetSpeed(g_world, 0, d[0], 0, d[1])) return 1;
+    if (!F<int32_t>(g_world, 0x19)) ++g_6cd8e8;
+    else if (g_6cd8e8) --g_6cd8e8;
+    g_5f2b38 = 0x3c;
     return 1;
 }
 RT3_REPLACE(0x470530, NetMsg_SetSpeed);
@@ -4824,9 +4824,9 @@ int32_t __fastcall NetMsg_SendQueued(uint8_t* m) {
         q[0] = next;
         if ((uint32_t)(uintptr_t)p == q[1]) q[1] = next;
         --q[2];
-        uint8_t* s = hook::Global<uint8_t*>(0x6cd8d8);
+        uint8_t* s = g_session;
         Net_Send(s, 0, (const char*)(s + 0x8f48), F<uint16_t>(p, 0x14), F<int32_t>(p, 0xc), F<const uint8_t*>(p, 8), F<uint32_t>(p, 0x10), (int32_t)serial);
-        NetPacket_Free(hook::Global<uint8_t*>(0x6cd8d8), 0, p);
+        NetPacket_Free(g_session, 0, p);
     }
     return 1;
 }
@@ -4837,7 +4837,7 @@ RT3_REPLACE(0x470590, NetMsg_SendQueued);
 int32_t __fastcall Net_TouchEntry(uint8_t* o) {
     uint8_t* first = (uint8_t*)Engine_FirstListEntry();
     int32_t h = Hash_Get(F<HashMap*>(first, 0x60), 0, *F<uint32_t*>(o, 8));
-    if (h) Return1_521790(hook::Global<void*>(0x6d40d0), 0, h, (int32_t)(uintptr_t)(hook::Global<uint8_t*>(0x6cd8d8) + 0x8f48));
+    if (h) Return1_521790(hook::As<void*>(g_6d40d0), 0, h, (int32_t)(uintptr_t)(g_session + 0x8f48));
     return 1;
 }
 RT3_REPLACE(0x4705f0, Net_TouchEntry);
@@ -4857,13 +4857,13 @@ int32_t __fastcall NetMsg_Building(uint8_t* m, uint8_t* from) {
         mov r, eax
     }
     if (r == -1) {
-        Net_Send(hook::Global<uint8_t*>(0x6cd8d8), 0, (const char*)(from + 8), 0x13, 0, nullptr, 0x21, 0);
+        Net_Send(g_session, 0, (const char*)(from + 8), 0x13, 0, nullptr, 0x21, 0);
         return 1;
     }
-    uint8_t* part = Net_CountMessagePart(hook::Global<uint8_t*>(0x6cd8d8), 0, 1);
-    uint8_t* s = hook::Global<uint8_t*>(0x6cd8d8);
+    uint8_t* part = Net_CountMessagePart(g_session, 0, 1);
+    uint8_t* s = g_session;
     F<int32_t>(s, 0x8f38) = part ? DateToMinutes((const GameDate*)part) : 0;
-    Net_Send(hook::Global<uint8_t*>(0x6cd8d8), 0, nullptr, 0x13, 0x1c, d, 0x11, 0);
+    Net_Send(g_session, 0, nullptr, 0x13, 0x1c, d, 0x11, 0);
     return 1;
 }
 RT3_REPLACE(0x470630, NetMsg_Building);
@@ -4877,45 +4877,45 @@ RT3_REPLACE(0x470630, NetMsg_Building);
 // tool is released either way.
 int32_t __fastcall NetMsg_PlaceBuilding(uint8_t* m) {
     if (F<int32_t>(m, 0xc) <= 0) {
-        Net_QueueText(hook::Global<uint8_t*>(0x6cd8d8), 0, GetString(0xb7c), 1, 0, 0, 0);
+        Net_QueueText(g_session, 0, GetString(0xb7c), 1, 0, 0, 0);
         PlayerOnLeft452(nullptr);
         return 1;
     }
     uint32_t* d = F<uint32_t*>(m, 8);
-    if (!CompanyForEntry452(Collection_PositionOf(hook::Global<Collection*>(0x62be10), 0, d[3], 0), d[6])) {
+    if (!CompanyForEntry452(Collection_PositionOf(g_companies, 0, d[3], 0), d[6])) {
         PlayerOnLeft452(d);
         return 1;
     }
     const float x = *(const float*)&d[0], y = *(const float*)&d[1];
     uint32_t id = 0xffffffff;
-    if (Sites_CanPlace(hook::Global<Collection*>(0x62b2fc), 0, d[4], x, y, *(const float*)&d[2], (int32_t)d[3], (int32_t)d[5], nullptr, 0, 1, -1, 0)) {
-        hook::Global<int32_t>(0x6ce9ac) = Trains_AnyActive();
-        uint8_t* type = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62b2fc), 0, d[4]);
-        id = Buildings_Add(hook::Global<Collection*>(0x62b26c), 0, type, x, y, 0, (int32_t)d[3], 0);
-        if (Collection_IsValid(hook::Global<Collection*>(0x62b26c), 0, id)) {
-            uint8_t* b = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62b26c), 0, id);
+    if (Sites_CanPlace(g_buildingTypes, 0, d[4], x, y, *(const float*)&d[2], (int32_t)d[3], (int32_t)d[5], nullptr, 0, 1, -1, 0)) {
+        g_6ce9ac = Trains_AnyActive();
+        uint8_t* type = (uint8_t*)Collection_Get(g_buildingTypes, 0, d[4]);
+        id = Buildings_Add(g_buildings, 0, type, x, y, 0, (int32_t)d[3], 0);
+        if (Collection_IsValid(g_buildings, 0, id)) {
+            uint8_t* b = (uint8_t*)Collection_Get(g_buildings, 0, id);
             SceneObj_SetAngle2(b, 0, d[2]);
-            if (hook::Global<int32_t>(0x6ce9ac) && Obj_StateKindIs4(b)) {
-                int32_t ring = hook::Global<int32_t>(0x6ce9b0);
+            if (g_6ce9ac && Obj_StateKindIs4(b)) {
+                int32_t ring = g_6ce9b0;
                 uint32_t* e = (uint32_t*)(0x6ce808 + ring * 12);
                 e[0] = id, e[1] = d[0], e[2] = d[1];
-                hook::Global<int32_t>(0x6ce9b0) = (ring + 1) % 32;
+                g_6ce9b0 = (ring + 1) % 32;
             } else {
                 Building_MoveTo(b, 0, x, y, 0, 0.0f);
             }
             SceneObj_ResetAttachmentLists(b);
-            uint8_t* placed = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62b26c), 0, id);
+            uint8_t* placed = (uint8_t*)Collection_Get(g_buildings, 0, id);
             if (!Building_Place(placed, 0, x, y, d[3])) {
-                Collection* all = hook::Global<Collection*>(0x62b26c);
+                Collection* all = g_buildings;
                 ((void(__thiscall*)(Collection*, uint32_t))(*(void***)all)[2])(all, id);
             }
         }
-        hook::Global<int32_t>(0x6ce9ac) = 0;
+        g_6ce9ac = 0;
     }
-    if (!Collection_IsValid(hook::Global<Collection*>(0x62b26c), 0, id) && hook::Global<int32_t>(0x6d40dc)) {
-        F<int32_t>(hook::Global<uint8_t*>(0x6cd8d8), 0x8f38) = DateToMinutes((const GameDate*)(hook::Global<uint8_t*>(0x6cec78) + 0xd));
+    if (!Collection_IsValid(g_buildings, 0, id) && g_6d40dc) {
+        F<int32_t>(g_session, 0x8f38) = DateToMinutes((const GameDate*)(g_world + 0xd));
         uint32_t crc = Crc32((const uint8_t*)d, 0x1c);
-        Net_Send(hook::Global<uint8_t*>(0x6cd8d8), 0, nullptr, 0x6e, 4, (const uint8_t*)&crc, 0x13, 0);
+        Net_Send(g_session, 0, nullptr, 0x6e, 4, (const uint8_t*)&crc, 0x13, 0);
     }
     PlayerOnLeft452(d);
     return 1;
@@ -4930,13 +4930,13 @@ RT3_REPLACE(0x4706b0, NetMsg_PlaceBuilding);
 int32_t __fastcall NetMsg_TrackBuildRequest(uint8_t* p, uint8_t* from) {
     uint8_t* const data = F<uint8_t*>(p, 8);
     if (TrackMsg_ApplyImpl(data, 1) == 1) {
-        uint8_t* s = hook::Global<uint8_t*>(0x6cd8d8);
+        uint8_t* s = g_session;
         uint8_t* part = Net_CountMessagePart(s, 0, 1);
-        uint8_t* s2 = hook::Global<uint8_t*>(0x6cd8d8);
+        uint8_t* s2 = g_session;
         F<int32_t>(s2, 0x8f38) = part ? DateToMinutes((const GameDate*)part) : 0;
-        Net_Send(hook::Global<uint8_t*>(0x6cd8d8), 0, nullptr, 0x15, F<int32_t>(p, 0xc), data, 0x19, 0);
+        Net_Send(g_session, 0, nullptr, 0x15, F<int32_t>(p, 0xc), data, 0x19, 0);
     } else {
-        Net_Send(hook::Global<uint8_t*>(0x6cd8d8), 0, (const char*)(from + 8), 0x15, 0, nullptr, 0x21, 0);
+        Net_Send(g_session, 0, (const char*)(from + 8), 0x15, 0, nullptr, 0x21, 0);
     }
     return 1;
 }
@@ -4953,12 +4953,12 @@ int32_t __fastcall NetMsg_TrackBuildResult(uint8_t* m) {
     uint8_t* gs;
     uint8_t* d;
     if (F<int32_t>(m, 0xc) <= 0) {
-        Net_QueueText(hook::Global<uint8_t*>(0x6cd8d8), 0, GetString(0xe35), 1, 0, 0, 0);
+        Net_QueueText(g_session, 0, GetString(0xe35), 1, 0, 0, 0);
         goto reset;
     }
     d = F<uint8_t*>(m, 8);
     {
-        const uint32_t pos = Collection_PositionOf(hook::Global<Collection*>(0x62be10), 0, d[4], 0);
+        const uint32_t pos = Collection_PositionOf(g_companies, 0, d[4], 0);
         const uint32_t key = F<uint32_t>(d, 0);
         uint8_t* company;
         __asm {
@@ -4970,8 +4970,8 @@ int32_t __fastcall NetMsg_TrackBuildResult(uint8_t* m) {
         if (company) {
             bool refused = (F<uint8_t*>(m, 4)[0xb] & 8) != 0;
             if (!refused) {
-                const int32_t saved = F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4aab);
-                F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4aab) = 0;
+                const int32_t saved = F<int32_t>(g_world, 0x4aab);
+                F<int32_t>(g_world, 0x4aab) = 0;
                 int32_t r;
                 __asm {
                     xor eax, eax
@@ -4979,18 +4979,18 @@ int32_t __fastcall NetMsg_TrackBuildResult(uint8_t* m) {
                     call TrackMsg_Apply
                     mov r, eax
                 }
-                F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4aab) = saved;
+                F<int32_t>(g_world, 0x4aab) = saved;
                 refused = r != 1;
-                if (!refused && hook::Global<int32_t>(0x6d40dc) && !hook::Global<int32_t>(0x6ce9b4)) {
-                    F<int32_t>(hook::Global<uint8_t*>(0x6cd8d8), 0x8f38) = DateToMinutes((const GameDate*)(hook::Global<uint8_t*>(0x6cec78) + 0xd));
+                if (!refused && g_6d40dc && !g_6ce9b4) {
+                    F<int32_t>(g_session, 0x8f38) = DateToMinutes((const GameDate*)(g_world + 0xd));
                     uint8_t bill[8];
-                    *(uint32_t*)bill = hook::Global<uint32_t>(0x6ce998);
+                    *(uint32_t*)bill = hook::As<uint32_t>(g_6ce998);
                     bill[4] = d[4];
-                    Net_Send(hook::Global<uint8_t*>(0x6cd8d8), 0, nullptr, 0x6b, 5, bill, 0x13, 0);
-                    ++F<int32_t>(hook::Global<uint8_t*>(0x6cd8d8), 0x987c);
-                    gs = hook::Global<uint8_t*>(0x6cd8d8);
+                    Net_Send(g_session, 0, nullptr, 0x6b, 5, bill, 0x13, 0);
+                    ++F<int32_t>(g_session, 0x987c);
+                    gs = g_session;
                     const int32_t add = Obj_Sum987c(gs) * 0x70;
-                    gs = hook::Global<uint8_t*>(0x6cd8d8);
+                    gs = g_session;
                     F<int32_t>(gs, 0x9880) += add;
                     uint8_t* b = bill;
                     __asm {
@@ -4999,17 +4999,17 @@ int32_t __fastcall NetMsg_TrackBuildResult(uint8_t* m) {
                     }
                 }
             }
-            if (refused && hook::Global<int32_t>(0x6d40dc)) {
-                F<int32_t>(hook::Global<uint8_t*>(0x6cd8d8), 0x8f38) = DateToMinutes((const GameDate*)(hook::Global<uint8_t*>(0x6cec78) + 0xd));
+            if (refused && g_6d40dc) {
+                F<int32_t>(g_session, 0x8f38) = DateToMinutes((const GameDate*)(g_world + 0xd));
                 uint32_t crc = Crc32(d, 0x4b);
-                Net_Send(hook::Global<uint8_t*>(0x6cd8d8), 0, nullptr, 0x6e, 4, (const uint8_t*)&crc, 0x13, 0);
+                Net_Send(g_session, 0, nullptr, 0x6e, 4, (const uint8_t*)&crc, 0x13, 0);
             }
         }
     }
     if ((uint32_t)Global6d40e4() != F<uint32_t>(d, 0)) return 1;
 reset:
-    F<uint32_t>(hook::Global<uint8_t*>(0x6d1a8c), 0x83) = 0;
-    Cursor_Set(hook::Global<uint8_t*>(0xccbb20), 0, 4, 0, 0);
+    F<uint32_t>(g_6d1a8c, 0x83) = 0;
+    Cursor_Set(g_cursorManager, 0, 4, 0, 0);
     return 1;
 }
 RT3_REPLACE(0x470950, NetMsg_TrackBuildResult);
@@ -5023,15 +5023,15 @@ RT3_REPLACE(0x470950, NetMsg_TrackBuildResult);
 int32_t __fastcall NetMsg_BuyTrainRequest(uint8_t* msg, uint8_t* from) {
     uint8_t* data = *(uint8_t* const*)(msg + 8);
     if (NetTrainCreate484(1, data) == -1) {
-        Net_Send(hook::Global<uint8_t*>(0x6cd8d8), 0, (const char*)from + 8, 0x17, 0, nullptr, 0x21, 0);
+        Net_Send(g_session, 0, (const char*)from + 8, 0x17, 0, nullptr, 0x21, 0);
         return 1;
     }
-    uint8_t* s = hook::Global<uint8_t*>(0x6cd8d8);
+    uint8_t* s = g_session;
     if (uint8_t* part = Net_CountMessagePart(s, 0, 1))
-        F<int32_t>(hook::Global<uint8_t*>(0x6cd8d8), 0x8f38) = DateToMinutes((const GameDate*)part);
+        F<int32_t>(g_session, 0x8f38) = DateToMinutes((const GameDate*)part);
     else
-        F<int32_t>(hook::Global<uint8_t*>(0x6cd8d8), 0x8f38) = 0;
-    Net_Send(hook::Global<uint8_t*>(0x6cd8d8), 0, nullptr, 0x17, F<int32_t>(msg, 0xc), data, 0x19, 0);
+        F<int32_t>(g_session, 0x8f38) = 0;
+    Net_Send(g_session, 0, nullptr, 0x17, F<int32_t>(msg, 0xc), data, 0x19, 0);
     return 1;
 }
 RT3_REPLACE(0x470b20, NetMsg_BuyTrainRequest);
@@ -5044,19 +5044,19 @@ RT3_REPLACE(0x470b20, NetMsg_BuyTrainRequest);
 int32_t __fastcall NetMsg_BuyTrain(uint8_t* msg) {
     int32_t id = -1;
     if (F<int32_t>(msg, 0xc) <= 0) {
-        Net_QueueText(hook::Global<uint8_t*>(0x6cd8d8), 0, GetString(0xb7e), 1, 0, 0, 0);
+        Net_QueueText(g_session, 0, GetString(0xb7e), 1, 0, 0, 0);
         SetGlobal6d1aa4(id);
         return 1;
     }
     uint8_t* data = *(uint8_t* const*)(msg + 8);
-    const uint32_t pos = Collection_PositionOf(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(data, 0x10), 0);
+    const uint32_t pos = Collection_PositionOf(g_companies, 0, F<uint32_t>(data, 0x10), 0);
     if (CompanyForEntry484(pos, F<uint32_t>(data, 0xc))) {
         uint8_t orders[0x28];
         Cursor33_Init(orders);
         bool ok = true;
         for (int32_t i = 0; i < F<int32_t>(data, 0); ++i) {
             uint8_t* e = data + 0x14 + i * 0x33;
-            if (!(e[0x28] & 0x80) && !Collection_IsValid(hook::Global<Collection*>(0x6cec20), 0, F<uint16_t>(e, 0x29))) {
+            if (!(e[0x28] & 0x80) && !Collection_IsValid(g_stations, 0, F<uint16_t>(e, 0x29))) {
                 ok = false;
                 break;
             }
@@ -5064,23 +5064,23 @@ int32_t __fastcall NetMsg_BuyTrain(uint8_t* msg) {
         }
         if (ok) {
             id = (int32_t)Train_Create(F<uint32_t>(data, 4), orders, 1, F<int32_t>(data, 0x10));
-            if (Collection_IsValid(hook::Global<Collection*>(0x6cfcbc), 0, (uint32_t)id)) {
-                uint8_t* t = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfcbc), 0, (uint32_t)id);
+            if (Collection_IsValid(g_trains, 0, (uint32_t)id)) {
+                uint8_t* t = (uint8_t*)Collection_Get(g_trains, 0, (uint32_t)id);
                 if (F<int32_t>(data, 8) >= 0) Train_SetRunning(t, 0, F<int32_t>(data, 8));
                 if (Obj_City41(t)) {
                     SceneObj_GetPos((uint8_t*)Obj_City41(t), 0, (uint32_t*)0x6ce6f0, (uint32_t*)0x6ce6f4, (uint32_t*)0x6ce988);
                 } else {
-                    hook::Global<uint32_t>(0x6ce6f0) = 0xbf800000;
-                    hook::Global<uint32_t>(0x6ce6f4) = 0xbf800000;
-                    hook::Global<uint32_t>(0x6ce988) = 0xbf800000;
+                    g_6ce6f0 = 0xbf800000;
+                    g_6ce6f4 = 0xbf800000;
+                    g_6ce988 = 0xbf800000;
                 }
             }
         }
-        if (!Collection_IsValid(hook::Global<Collection*>(0x6cfcbc), 0, (uint32_t)id) && hook::Global<int32_t>(0x6d40dc)) {
-            F<int32_t>(hook::Global<uint8_t*>(0x6cd8d8), 0x8f38) = DateToMinutes((const GameDate*)(hook::Global<uint8_t*>(0x6cec78) + 0xd));
+        if (!Collection_IsValid(g_trains, 0, (uint32_t)id) && g_6d40dc) {
+            F<int32_t>(g_session, 0x8f38) = DateToMinutes((const GameDate*)(g_world + 0xd));
             uint32_t crc[1];
             crc[0] = Crc32(data, 0x14);
-            Net_Send(hook::Global<uint8_t*>(0x6cd8d8), 0, nullptr, 0x6e, 4, (const uint8_t*)crc, 0x13, 0);
+            Net_Send(g_session, 0, nullptr, 0x6e, 4, (const uint8_t*)crc, 0x13, 0);
         }
     }
     if (Global6d40e4() == F<int32_t>(data, 0xc)) SetGlobal6d1aa4(id);
@@ -5094,7 +5094,7 @@ int32_t __fastcall NetMsg_SyncFinance(uint8_t* m) {
     uint8_t* d = F<uint8_t*>(m, 8);
     if (uint8_t* e = (uint8_t*)Engine_FirstListEntry()) {
         F<int32_t>(e, 0x2588) = F<int32_t>(d, 0);
-        hook::Global<int32_t>(0x5f2b6c) = F<int32_t>(d, 8);
+        g_5f2b6c = F<int32_t>(d, 8);
         SetSeed(F<int32_t>(d, 8));
         Finance_SyncMessage(d, 0, nullptr);
     }
@@ -5109,13 +5109,13 @@ int32_t __fastcall NetMsg_NewCompany(uint8_t* m, uint8_t* from) {
     uint8_t* d = F<uint8_t*>(m, 8);
     int32_t r = Companies_ClashCall(d);
     if (r) {
-        Net_Send(hook::Global<uint8_t*>(0x6cd8d8), 0, (const char*)(from + 8), 0x1a, 4, (const uint8_t*)&r, 0x21, 0);
+        Net_Send(g_session, 0, (const char*)(from + 8), 0x1a, 4, (const uint8_t*)&r, 0x21, 0);
         return 1;
     }
-    uint8_t* part = Net_CountMessagePart(hook::Global<uint8_t*>(0x6cd8d8), 0, 1);
-    uint8_t* s = hook::Global<uint8_t*>(0x6cd8d8);
+    uint8_t* part = Net_CountMessagePart(g_session, 0, 1);
+    uint8_t* s = g_session;
     F<int32_t>(s, 0x8f38) = part ? DateToMinutes((const GameDate*)part) : 0;
-    Net_Send(hook::Global<uint8_t*>(0x6cd8d8), 0, nullptr, 0x1a, F<int32_t>(m, 0xc), d, 0x19, 0);
+    Net_Send(g_session, 0, nullptr, 0x1a, F<int32_t>(m, 0xc), d, 0x19, 0);
     return 1;
 }
 RT3_REPLACE(0x470da0, NetMsg_NewCompany);
@@ -5135,12 +5135,12 @@ int32_t __fastcall NetMsg_CompanyAnswer(uint8_t* m) {
             Msg_FoundCompany(d);
             return 1;
         }
-        uint8_t* rec = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6ceb9c), 0, (uint32_t)d[0]);
+        uint8_t* rec = (uint8_t*)Collection_Get(g_players, 0, (uint32_t)d[0]);
         if (Stricmp445((const char*)rec + 8, (const char*)Engine_FirstListEntry() + 8)) return 1;
     }
     if (r) {
-        Cursor_Set(hook::Global<uint8_t*>(0xccbb20), 0, 1, 0, 0);
-        Net_QueueText(hook::Global<uint8_t*>(0x6cd8d8), 0, GetString(r == 1 ? 0xb7f : 0xb80), 1, 0, 0, 0);
+        Cursor_Set(g_cursorManager, 0, 1, 0, 0);
+        Net_QueueText(g_session, 0, GetString(r == 1 ? 0xb7f : 0xb80), 1, 0, 0, 0);
     }
     return 1;
 }
@@ -5216,8 +5216,8 @@ RT3_TRAINFWD(0x471830, NetMsg_TrainForward42, 0x42)
 int32_t __fastcall NetMsg_InsertOrder(uint8_t* m) {
     if (F<int32_t>(m, 0xc) <= 0) return 1;
     uint8_t* d = F<uint8_t*>(m, 8);
-    if (!Collection_IsValid(hook::Global<Collection*>(0x6cfcbc), 0, F<uint32_t>(d, 4))) return 1;
-    uint8_t* t = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cfcbc), 0, F<uint32_t>(d, 4));
+    if (!Collection_IsValid(g_trains, 0, F<uint32_t>(d, 4))) return 1;
+    uint8_t* t = (uint8_t*)Collection_Get(g_trains, 0, F<uint32_t>(d, 4));
     TrainOrders_Insert(t, 0, F<int32_t>((uint8_t*)Identity(t), 4), d + 8);
     if (Orders_Drivable((uint32_t*)t, 0, t, -1, 0, 0, -1)) return 1;
     if (Obj_CityKindIs2(t) && Orders_Drivable((uint32_t*)t, 0, t, -1, 0, 1, -1)) Train_SetState(t, 0, 0x13, 0.0f);
@@ -5243,14 +5243,14 @@ int32_t __fastcall NetMsg_TakeoverVote(uint8_t* m, uint8_t* from) {
     if ((uint32_t)Global6d40e4() == req[0]) {
         req[2] |= (1u << ((k + 0x10) & 31)) | (1u << (k & 31));
     } else {
-        Collection* players = hook::Global<Collection*>(0x6ceb9c);
+        Collection* players = g_players;
         uint8_t* p = (uint8_t*)Collection_Get(players, 0, Collection_IdAt(players, 0, (uint32_t)k, 0));
         const uint8_t* b = (const uint8_t*)req;
         if (p && F<int32_t>(p, 0x1e1) && F<int32_t>(p, 0x15d + b[5] * 4) > 0) {
-            uint8_t* target = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be10), 0, b[5]);
-            uint8_t* buyer = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be10), 0, b[4]);
+            uint8_t* target = (uint8_t*)Collection_Get(g_companies, 0, b[5]);
+            uint8_t* buyer = (uint8_t*)Collection_Get(g_companies, 0, b[4]);
             FormatText((char*)0x6ce700, GetString(0xb81), (const char*)buyer + 4, (const char*)target + 4, 0, 0, 0, 0, 0, 0);
-            uint8_t* q = Net_QueueText(hook::Global<uint8_t*>(0x6cd8d8), 0, (const char*)0x6ce700, 3, 0x7530, 0, 0x4719c0);
+            uint8_t* q = Net_QueueText(g_session, 0, (const char*)0x6ce700, 3, 0x7530, 0, 0x4719c0);
             uint32_t* copy = ((uint32_t*(__cdecl*)(size_t))0x53b070)(0xc);
             copy[0] = req[0], copy[1] = req[1], copy[2] = req[2];
             F<uint32_t*>(q, 0x1c) = copy;
@@ -5258,7 +5258,7 @@ int32_t __fastcall NetMsg_TakeoverVote(uint8_t* m, uint8_t* from) {
         }
         req[2] |= 1u << ((k + 0x10) & 31);
     }
-    Net_Send(hook::Global<uint8_t*>(0x6cd8d8), 0, (const char*)from + 8, 0x49, F<int32_t>(m, 0xc), (const uint8_t*)req, 1, 0);
+    Net_Send(g_session, 0, (const char*)from + 8, 0x49, F<int32_t>(m, 0xc), (const uint8_t*)req, 1, 0);
     return 1;
 }
 RT3_REPLACE(0x471a30, NetMsg_TakeoverVote);
@@ -5298,13 +5298,13 @@ int32_t __fastcall NetMsg_MergerRequest(uint8_t* m, uint8_t* from) {
     }
     if (Global6d40e4() == F<int32_t>(req, 0)) {
         F<uint32_t>(req, 6) |= 1u << (k + 0x10) | 1u << k;
-        Net_Send(hook::Global<uint8_t*>(0x6cd8d8), 0, (const char*)(from + 8), 0x4d, F<int32_t>(m, 0xc), req, 1, 0);
+        Net_Send(g_session, 0, (const char*)(from + 8), 0x4d, F<int32_t>(m, 0xc), req, 1, 0);
         return 1;
     }
-    uint8_t* player = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6ceb9c), 0, req[5]);
-    uint8_t* company = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be10), 0, req[4]);
+    uint8_t* player = (uint8_t*)Collection_Get(g_players, 0, req[5]);
+    uint8_t* company = (uint8_t*)Collection_Get(g_companies, 0, req[4]);
     FormatText((char*)0x6ce700, GetString(0xb82), (const char*)(company + 4), (const char*)(player + 8), 0, 0, 0, 0, 0, 0);
-    uint8_t* q = Net_QueueText(hook::Global<uint8_t*>(0x6cd8d8), 0, (const char*)0x6ce700, 3, 0x7530, 0, 0x471d50);
+    uint8_t* q = Net_QueueText(g_session, 0, (const char*)0x6ce700, 3, 0x7530, 0, 0x471d50);
     uint8_t* copy = ((uint8_t*(__cdecl*)(size_t))0x53b070)(0xa);
     F<uint32_t>(copy, 0) = F<uint32_t>(req, 0);
     F<uint32_t>(copy, 4) = F<uint32_t>(req, 4);
@@ -5326,9 +5326,9 @@ int32_t __fastcall NetMsg_ProxyFight(uint8_t* m) {
     uint8_t* st = (uint8_t*)state;
     F<uint16_t>(st, 4) = d[4];
     F<uint16_t>(st, 6) = d[5];
-    for (int32_t i = 0; i < Collection_Count(hook::Global<Collection*>(0x6ceb9c)); ++i) {
+    for (int32_t i = 0; i < Collection_Count(g_players); ++i) {
         st[8 + i] = 1;
-        Collection* c = hook::Global<Collection*>(0x6ceb9c);
+        Collection* c = g_players;
         uint8_t* e = (uint8_t*)Collection_Get(c, 0, Collection_IdAt(c, 0, (uint32_t)i, 0));
         if (!F<int32_t>(e, 0x1e1) || !F<int32_t>(e, 4) || (F<uint32_t>(d, 6) & (1u << i))) st[0x18 + i] = 1;
     }
@@ -5341,14 +5341,14 @@ RT3_REPLACE(0x471fd0, NetMsg_ProxyFight);
 // 0x472080 (network handler). Asks for the state (message 0x6f) unless
 // syncing. Returns 1.
 int32_t NetMsg_RequestState() {
-    if (hook::Global<int32_t>(0x6d40dc) && !hook::Global<int32_t>(0x6cd91c)) Net_Send(hook::Global<uint8_t*>(0x6cd8d8), 0, nullptr, 0x6f, 0, nullptr, 1, 0);
+    if (g_6d40dc && !g_6cd91c) Net_Send(g_session, 0, nullptr, 0x6f, 0, nullptr, 1, 0);
     return 1;
 }
 RT3_REPLACE(0x472080, NetMsg_RequestState);
 
 int32_t NetMsg_Copy9058() {
-    if (hook::Global<int32_t>(0x6d40dc)) {
-        uint8_t* s = hook::Global<uint8_t*>(0x6cd8d8);
+    if (g_6d40dc) {
+        uint8_t* s = g_session;
         F<int32_t>(s, 0x9054) = F<int32_t>(s, 0x9058);
     }
     return 1;
@@ -5363,8 +5363,8 @@ RT3_REPLACE(0x4720b0, NetMsg_Copy9058);
 int32_t __fastcall NetMsg_JoinRequest(uint8_t* m, uint8_t* from) {
     uint8_t* d = F<uint8_t*>(m, 8);
     int32_t r = 0xff;
-    if (!hook::Global<int32_t>(0x6d40dc)) return 1;
-    if (Obj_NameContains(hook::Global<uint8_t*>(0x6cd8d8), 0, (const char*)d)) {
+    if (!g_6d40dc) return 1;
+    if (Obj_NameContains(g_session, 0, (const char*)d)) {
         r = 2;
     } else {
         r = DetailLevelFor(0, F<int32_t>(d, 0x20));
@@ -5372,18 +5372,18 @@ int32_t __fastcall NetMsg_JoinRequest(uint8_t* m, uint8_t* from) {
             r = NewGame_ClaimSlot((int)(uintptr_t)from, 1);
             if (r == 0xff) {
                 NewGame_ClaimSlot((int)(uintptr_t)from, 0);
-                Net_Send(hook::Global<uint8_t*>(0x6cd8d8), 0, nullptr, 2, 0x109, hook::Global<uint8_t*>(0x6cec7c), 3, 0);
+                Net_Send(g_session, 0, nullptr, 2, 0x109, g_newGame, 3, 0);
                 return 1;
             }
         }
     }
-    Net_Send(hook::Global<uint8_t*>(0x6cd8d8), 0, (const char*)(from + 8), 0x52, 4, (const uint8_t*)&r, 0x23, 0);
+    Net_Send(g_session, 0, (const char*)(from + 8), 0x52, 4, (const uint8_t*)&r, 0x23, 0);
     return 1;
 }
 RT3_REPLACE(0x4720d0, NetMsg_JoinRequest);
 
 int32_t __fastcall NetMsg_Store9860(uint8_t* m) {
-    F<int32_t>(hook::Global<uint8_t*>(0x6cd8d8), 0x9860) = *F<int32_t*>(m, 8);
+    F<int32_t>(g_session, 0x9860) = *F<int32_t*>(m, 8);
     return 1;
 }
 RT3_REPLACE(0x4721a0, NetMsg_Store9860);
@@ -5392,7 +5392,7 @@ RT3_REPLACE(0x4721a0, NetMsg_Store9860);
 // (position) of 0x6ceb9c. Returns 1.
 int32_t __fastcall NetMsg_SetName(uint8_t* m) {
     uint8_t* d = F<uint8_t*>(m, 8);
-    Collection* c = hook::Global<Collection*>(0x6ceb9c);
+    Collection* c = g_players;
     uint8_t* e = (uint8_t*)Collection_Get(c, 0, Collection_IdAt(c, 0, F<uint32_t>(d, 4), 0));
     strcpy((char*)e + 8, (const char*)d + 8);
     return 1;
@@ -5403,7 +5403,7 @@ RT3_REPLACE(0x4721c0, NetMsg_SetName);
 // at +0x1e1. Returns 1.
 int32_t __fastcall NetMsg_Set1e1(uint8_t* m) {
     const uint32_t* d = F<const uint32_t*>(m, 8);
-    Collection* c = hook::Global<Collection*>(0x6ceb9c);
+    Collection* c = g_players;
     F<uint32_t>((uint8_t*)Collection_Get(c, 0, Collection_IdAt(c, 0, d[0], 0)), 0x1e1) = d[1];
     return 1;
 }
@@ -5413,10 +5413,10 @@ RT3_REPLACE(0x472200, NetMsg_Set1e1);
 // (+0x9864, 0xff free): their records in 0x6ceb9c lose +0x1e1 and get
 // +0x293. Returns 1.
 int32_t NetMsg_ReleaseSlots() {
-    uint8_t* slots = hook::Global<uint8_t*>(0x6cd8d8) + 0x9864;
+    uint8_t* slots = g_session + 0x9864;
     for (int32_t i = 0; i < 0x10; ++i) {
         if (slots[i] == 0xff) continue;
-        Collection* c = hook::Global<Collection*>(0x6ceb9c);
+        Collection* c = g_players;
         uint8_t* e = (uint8_t*)Collection_Get(c, 0, Collection_IdAt(c, 0, slots[i], 0));
         F<int32_t>(e, 0x1e1) = 0;
         e[0x293] = 1;
@@ -5439,11 +5439,11 @@ int32_t __fastcall NetMsg_CheckScenario(uint8_t* m, uint8_t* from) {
         int32_t players = F<int32_t>(b, 0x3b6);
         if (players >= 4) players = 4;
         F<int32_t>(b, 0x3b6) = players;
-        const int32_t inLobby = F<uint16_t>(hook::Global<uint8_t*>(0x6cec7c), 0x79);
-        if (inLobby > players || Lobby_CountFreeEntries(b) + F<uint16_t>(hook::Global<uint8_t*>(0x6cec7c), 0x79) > F<int32_t>(b, 0x3ae)) r = 0xff;
+        const int32_t inLobby = F<uint16_t>(g_newGame, 0x79);
+        if (inLobby > players || Lobby_CountFreeEntries(b) + F<uint16_t>(g_newGame, 0x79) > F<int32_t>(b, 0x3ae)) r = 0xff;
         ((void(__cdecl*)(void*))0x5a1145)(b);
     }
-    Net_Send(hook::Global<uint8_t*>(0x6cd8d8), 0, (const char*)(from + 8), 0x5a, 4, (const uint8_t*)&r, 1, 0);
+    Net_Send(g_session, 0, (const char*)(from + 8), 0x5a, 4, (const uint8_t*)&r, 1, 0);
     return 1;
 }
 RT3_REPLACE(0x472290, NetMsg_CheckScenario);
@@ -5457,15 +5457,15 @@ RT3_REPLACE(0x472360, Net_Relay5c);
 int32_t __fastcall NetMsg_Electrify(uint8_t* m) {
     if (F<int32_t>(m, 0xc) <= 0) return 1;
     const uint32_t* d = F<const uint32_t*>(m, 8);
-    if (!Collection_IsValid(hook::Global<Collection*>(0x62be10), 0, d[0])) return 1;
+    if (!Collection_IsValid(g_companies, 0, d[0])) return 1;
     if ((double)Net_CommonVersion() <= Fl(0x5c8c28)) {
-        TrackNet_ElectrifyCompany(hook::Global<Collection*>(0x6cfca8), 0, d[0], 0, nullptr, nullptr);
+        TrackNet_ElectrifyCompany(g_tracks, 0, d[0], 0, nullptr, nullptr);
         return 1;
     }
     uint32_t pkt[2];
     pkt[0] = 0;
     ((uint8_t*)pkt)[4] = *(const uint8_t*)d;
-    TrackNet_ElectrifyCompany(hook::Global<Collection*>(0x6cfca8), 0, d[0], 0, (float*)pkt, nullptr);
+    TrackNet_ElectrifyCompany(g_tracks, 0, d[0], 0, (float*)pkt, nullptr);
     uint32_t* p = pkt;
     __asm {
         mov eax, p
@@ -5479,8 +5479,8 @@ RT3_REPLACE(0x4723c0, NetMsg_Electrify);
 // (+8) a known player: then an empty 0x5e goes to the player named at to + 8.
 int32_t __fastcall Net_Relay5e(const uint8_t* msg, const char* to) {
     const uint8_t* data = F<const uint8_t*>((void*)msg, 8);
-    if (Net_HasPlayer(hook::Global<uint8_t*>(0x6cd8d8), 0, (const char*)data + 8)) {
-        Net_Send(hook::Global<uint8_t*>(0x6cd8d8), 0, to + 8, 0x5e, 0, nullptr, 0x21, 0);
+    if (Net_HasPlayer(g_session, 0, (const char*)data + 8)) {
+        Net_Send(g_session, 0, to + 8, 0x5e, 0, nullptr, 0x21, 0);
         return 1;
     }
     return Net_RelayStamped(msg, 0x5e, 0x11);
@@ -5495,20 +5495,20 @@ int32_t __fastcall NetMsg_RenamePlayer(uint8_t* m) {
     if (F<int32_t>(m, 0xc) > 0) {
         uint8_t* d = F<uint8_t*>(m, 8);
         const char* name = (const char*)d + 8;
-        Collection* c = hook::Global<Collection*>(0x6ceb9c);
+        Collection* c = g_players;
         strcpy((char*)Collection_Get(c, 0, Collection_IdAt(c, 0, F<uint32_t>(d, 4), 0)) + 8, name);
         uint8_t* t = Textures_Find(F<int32_t>(d, 0));
         strcpy((char*)t + 8, name);
         if (F<int32_t>(t, 0x50)) {
             F<uint32_t>(t, 0x48) = Crc32String(name, 1);
-            strcpy((char*)hook::Global<uint8_t*>(0x6cd8d8) + 0x8f48, name);
+            strcpy((char*)g_session + 0x8f48, name);
         }
         Net_UnlockQueueArg(F<int32_t>(d, 0));
         if (Global6d40e4() != F<int32_t>(d, 0)) return 1;
     } else {
-        Net_QueueText(hook::Global<uint8_t*>(0x6cd8d8), 0, GetString(0xb83), 1, 0, 0, 0);
+        Net_QueueText(g_session, 0, GetString(0xb83), 1, 0, 0, 0);
     }
-    if (--hook::Global<int32_t>(0x6d10a0) == 0) Cursor_Set(hook::Global<uint8_t*>(0xccbb20), 0, 1, 0, 0);
+    if (--g_6d10a0 == 0) Cursor_Set(g_cursorManager, 0, 1, 0, 0);
     return 1;
 }
 RT3_REPLACE(0x4724e0, NetMsg_RenamePlayer);
@@ -5526,17 +5526,17 @@ int32_t __fastcall NetMsg_PlayerColour(uint8_t* m) {
     if (F<int32_t>(m, 0xc) > 0) {
         uint8_t* d = F<uint8_t*>(m, 8);
         const int32_t mine = Global6d40e4() == F<int32_t>(d, 0);
-        Collection* c = hook::Global<Collection*>(0x6ceb9c);
+        Collection* c = g_players;
         uint8_t* e = (uint8_t*)Collection_Get(c, 0, Collection_IdAt(c, 0, F<uint32_t>(d, 4), 0));
         if (F<int32_t>(e, 0x1e1)) e[0x15c] = d[8];
         if (!mine) return 1;
     } else {
-        uint8_t* p = (uint8_t*)Obj_Ref25(hook::Global<uint8_t*>(0x6cec78));
-        p[0x15c] = hook::Global<uint8_t>(0x622090);
-        Net_QueueText(hook::Global<uint8_t*>(0x6cd8d8), 0, GetString(0xb84), 1, 0, 0, 0);
+        uint8_t* p = (uint8_t*)Obj_Ref25(g_world);
+        p[0x15c] = hook::As<uint8_t>(g_622090);
+        Net_QueueText(g_session, 0, GetString(0xb84), 1, 0, 0, 0);
     }
-    hook::Global<int32_t>(0x622090) = -1;
-    if (--hook::Global<int32_t>(0x6d10a0) == 0) Cursor_Set(hook::Global<uint8_t*>(0xccbb20), 0, 1, 0, 0);
+    g_622090 = -1;
+    if (--g_6d10a0 == 0) Cursor_Set(g_cursorManager, 0, 1, 0, 0);
     return 1;
 }
 RT3_REPLACE(0x472640, NetMsg_PlayerColour);
@@ -5546,16 +5546,16 @@ RT3_REPLACE(0x472640, NetMsg_PlayerColour);
 // has it, else sent to everyone. Return 1.
 int32_t __fastcall NetMsg_CompanyNameRequest(uint8_t* m, uint8_t* from) {
     uint8_t* d = F<uint8_t*>(m, 8);
-    Collection* cos = hook::Global<Collection*>(0x62be10);
-    for (int32_t i = 0; i < Collection_Count(hook::Global<Collection*>(0x62be10)); ++i) {
-        cos = hook::Global<Collection*>(0x62be10);
+    Collection* cos = g_companies;
+    for (int32_t i = 0; i < Collection_Count(g_companies); ++i) {
+        cos = g_companies;
         if (!Stricmp447((const char*)Collection_Get(cos, 0, Collection_IdAt(cos, 0, (uint32_t)i, 0)) + 4, (const char*)d + 8)) {
-            Net_Send(hook::Global<uint8_t*>(0x6cd8d8), 0, (const char*)(from + 8), 0x62, 0, nullptr, 0x21, 0);
+            Net_Send(g_session, 0, (const char*)(from + 8), 0x62, 0, nullptr, 0x21, 0);
             return 1;
         }
     }
     Session_StampNextPart();
-    Net_Send(hook::Global<uint8_t*>(0x6cd8d8), 0, nullptr, 0x62, F<int32_t>(m, 0xc), d, 0x11, 0);
+    Net_Send(g_session, 0, nullptr, 0x62, F<int32_t>(m, 0xc), d, 0x11, 0);
     return 1;
 }
 RT3_REPLACE(0x472700, NetMsg_CompanyNameRequest);
@@ -5585,24 +5585,24 @@ int32_t __fastcall NetMsg_RenameEntry(uint8_t* m) {
         if (!mine) return 1;
         if (found) goto done;
     }
-    Net_QueueText(hook::Global<uint8_t*>(0x6cd8d8), 0, GetString(0xb85), 1, 0, 0, 0);
+    Net_QueueText(g_session, 0, GetString(0xb85), 1, 0, 0, 0);
 done:
-    if (--hook::Global<int32_t>(0x6d10a0) == 0) Cursor_Set(hook::Global<uint8_t*>(0xccbb20), 0, 1, 0, 0);
+    if (--g_6d10a0 == 0) Cursor_Set(g_cursorManager, 0, 1, 0, 0);
     return 1;
 }
 RT3_REPLACE(0x4727e0, NetMsg_RenameEntry);
 
 int32_t __fastcall NetMsg_CompanyColourRequest(uint8_t* m, uint8_t* from) {
     uint8_t* d = F<uint8_t*>(m, 8);
-    for (int32_t i = 0; i < Collection_Count(hook::Global<Collection*>(0x62be10)); ++i) {
-        Collection* cos = hook::Global<Collection*>(0x62be10);
+    for (int32_t i = 0; i < Collection_Count(g_companies); ++i) {
+        Collection* cos = g_companies;
         if (F<int32_t>((uint8_t*)Collection_Get(cos, 0, Collection_IdAt(cos, 0, (uint32_t)i, 0)), 0x37) == F<int32_t>(d, 8)) {
-            Net_Send(hook::Global<uint8_t*>(0x6cd8d8), 0, (const char*)(from + 8), 0x64, 0, nullptr, 0x21, 0);
+            Net_Send(g_session, 0, (const char*)(from + 8), 0x64, 0, nullptr, 0x21, 0);
             return 1;
         }
     }
     Session_StampNextPart();
-    Net_Send(hook::Global<uint8_t*>(0x6cd8d8), 0, nullptr, 0x64, F<int32_t>(m, 0xc), d, 0x11, 0);
+    Net_Send(g_session, 0, nullptr, 0x64, F<int32_t>(m, 0xc), d, 0x11, 0);
     return 1;
 }
 RT3_REPLACE(0x472870, NetMsg_CompanyColourRequest);
@@ -5630,11 +5630,11 @@ int32_t __fastcall NetMsg_CompanyColour(uint8_t* m) {
         if (!mine) return 1;
         if (found) goto done;
     }
-    if (uint8_t* c = (uint8_t*)Obj_Company21(hook::Global<uint8_t*>(0x6cec78))) F<int32_t>(c, 0x37) = hook::Global<int32_t>(0x622094);
-    Net_QueueText(hook::Global<uint8_t*>(0x6cd8d8), 0, GetString(0xb86), 1, 0, 0, 0);
+    if (uint8_t* c = (uint8_t*)Obj_Company21(g_world)) F<int32_t>(c, 0x37) = g_622094;
+    Net_QueueText(g_session, 0, GetString(0xb86), 1, 0, 0, 0);
 done:
-    hook::Global<int32_t>(0x622094) = -1;
-    if (--hook::Global<int32_t>(0x6d10a0) == 0) Cursor_Set(hook::Global<uint8_t*>(0xccbb20), 0, 1, 0, 0);
+    g_622094 = -1;
+    if (--g_6d10a0 == 0) Cursor_Set(g_cursorManager, 0, 1, 0, 0);
     return 1;
 }
 RT3_REPLACE(0x472940, NetMsg_CompanyColour);
@@ -5646,12 +5646,12 @@ RT3_REPLACE(0x4729f0, Net_Relay74);
 // every peer has version 1.02). Returns 1.
 int32_t __fastcall NetMsg_DeleteVehicle(uint8_t* m) {
     const uint32_t id = *F<const uint32_t*>(m, 8);
-    if (Collection_IsValid(hook::Global<Collection*>(0x62b26c), 0, id)) {
-        if (Net_AllHaveVersion(1.02f)) hook::Global<int32_t>(0x6ce9a8) = 1;
-        Collection* c = hook::Global<Collection*>(0x62b26c);
+    if (Collection_IsValid(g_buildings, 0, id)) {
+        if (Net_AllHaveVersion(1.02f)) g_6ce9a8 = 1;
+        Collection* c = g_buildings;
         // EDX holds the vtable, as in the original's call.
         ((void(__fastcall*)(Collection*, int, uint32_t))(*(void***)c)[2])(c, (int)(uintptr_t) * (void***)c, id);
-        hook::Global<int32_t>(0x6ce9a8) = 0;
+        g_6ce9a8 = 0;
     }
     return 1;
 }
@@ -5671,48 +5671,48 @@ RT3_REPLACE(0x472aa0, Net_Relay72);
 int32_t __fastcall NetMsg_PlaceBuildings(uint8_t* m) {
     uint8_t* d = F<uint8_t*>(m, 8);
     if (!F<uint16_t>(d, 2)) return 1;
-    if (Net_AllHaveVersion(BitsF(0x3f828f5c))) hook::Global<int32_t>(0x6ce9a8) = 1;
+    if (Net_AllHaveVersion(BitsF(0x3f828f5c))) g_6ce9a8 = 1;
     auto relax = [](int32_t on) {
-        uint8_t* s = hook::Global<uint8_t*>(0x62b2fc);
+        uint8_t* s = hook::As<uint8_t*>(g_buildingTypes);
         F<int32_t>(s, 0x9c) = on;
         F<uint32_t>(s, 0xa0) = 0x497423f0, F<uint32_t>(s, 0xa4) = 0xc97423f0;
         F<int32_t>(s, 0xa8) = 0xf423f, F<int32_t>(s, 0xac) = (int32_t)0xfff0bdc1;
         F<int32_t>(s, 0xb0) = 0xf423f, F<int32_t>(s, 0xb4) = (int32_t)0xfff0bdc1;
     };
     auto unbound = []() {
-        uint8_t* s = hook::Global<uint8_t*>(0x62b2fc);
+        uint8_t* s = hook::As<uint8_t*>(g_buildingTypes);
         F<int32_t>(s, 0xa8) = 0xf423f, F<int32_t>(s, 0xac) = (int32_t)0xfff0bdc1;
         F<int32_t>(s, 0xb0) = 0xf423f, F<int32_t>(s, 0xb4) = (int32_t)0xfff0bdc1;
     };
     auto place = [](uint32_t type, float x, float y, float angle, uint32_t city) {
-        if (!Sites_CanPlace(hook::Global<Collection*>(0x62b2fc), 0, type, x, y, angle, 0, 0, nullptr, 0, 1, -1, 0)) return;
-        uint8_t* t = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62b2fc), 0, type);
-        Buildings_Add(hook::Global<Collection*>(0x62b26c), 0, t, x, y, *(const uint32_t*)&angle, 0, 1);
-        if (Collection_IsValid(hook::Global<Collection*>(0x62bae0), 0, city))
-            Obj_SumBuildingWeights(Collection_Get(hook::Global<Collection*>(0x62bae0), 0, city));
+        if (!Sites_CanPlace(g_buildingTypes, 0, type, x, y, angle, 0, 0, nullptr, 0, 1, -1, 0)) return;
+        uint8_t* t = (uint8_t*)Collection_Get(g_buildingTypes, 0, type);
+        Buildings_Add(g_buildings, 0, t, x, y, *(const uint32_t*)&angle, 0, 1);
+        if (Collection_IsValid(g_cities, 0, city))
+            Obj_SumBuildingWeights(Collection_Get(g_cities, 0, city));
     };
     if (F<uint16_t>(d, 2) == 1 && F<uint16_t>(d, 0)) {
         uint32_t blk[5];
         memcpy(blk, d, 0x14);
-        ++F<int32_t>(hook::Global<uint8_t*>(0x62bae0), 0x88);
+        ++F<int32_t>(hook::As<uint8_t*>(g_cities), 0x88);
         relax(1);
         place(blk[1], *(const float*)&blk[2], *(const float*)&blk[3], *(const float*)&blk[4], blk[0]);
-        --F<int32_t>(hook::Global<uint8_t*>(0x62bae0), 0x88);
+        --F<int32_t>(hook::As<uint8_t*>(g_cities), 0x88);
         unbound();
     } else {
-        ++F<int32_t>(hook::Global<uint8_t*>(0x62bae0), 0x88);
+        ++F<int32_t>(hook::As<uint8_t*>(g_cities), 0x88);
         relax(1);
         const uint8_t* r = d + 4;
         for (int32_t k = 0; k < F<uint16_t>(d, 2); ++k, r += 0x12)
             place(*(const uint32_t*)(r + 2), *(const float*)(r + 6), *(const float*)(r + 0xa), *(const float*)(r + 0xe), *(const uint16_t*)r);
-        --F<int32_t>(hook::Global<uint8_t*>(0x62bae0), 0x88);
+        --F<int32_t>(hook::As<uint8_t*>(g_cities), 0x88);
         unbound();
     }
-    uint8_t* s = hook::Global<uint8_t*>(0x62b2fc);
+    uint8_t* s = hook::As<uint8_t*>(g_buildingTypes);
     F<int32_t>(s, 0x9c) = 0;
     F<uint32_t>(s, 0xa0) = 0x497423f0;
     F<uint32_t>(s, 0xa4) = 0xc97423f0;
-    hook::Global<int32_t>(0x6ce9a8) = 0;
+    g_6ce9a8 = 0;
     return 1;
 }
 RT3_REPLACE(0x472b00, NetMsg_PlaceBuildings);
@@ -5744,18 +5744,18 @@ RT3_REPLACE(0x472dc0, NetMsg_TrainPosition);
 // is set. Returns 1.
 int32_t __fastcall NetMsg_PlayerStatus(uint8_t* m) {
     const uint32_t* d = F<const uint32_t*>(m, 8);
-    if (!hook::Global<uint8_t*>(0x6cec78)) return 1;
+    if (!g_world) return 1;
     const uint32_t id = d[0];
-    if ((uint32_t)Obj_Get25(hook::Global<uint8_t*>(0x6cec78)) == id) return 1;
-    if (Collection_IsValid(hook::Global<Collection*>(0x6ceb9c), 0, id)) {
-        uint8_t* p = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6ceb9c), 0, d[0]);
+    if ((uint32_t)Obj_Get25(g_world) == id) return 1;
+    if (Collection_IsValid(g_players, 0, id)) {
+        uint8_t* p = (uint8_t*)Collection_Get(g_players, 0, d[0]);
         char text[0x100];
         FormatText(text, GetString(0xf4e), (const char*)(p + 8), 0, 0, 0, 0, 0, 0, 0);
-        strcpy((char*)hook::Global<uint8_t*>(0x6cec78) + 0x4b47, text);
+        strcpy((char*)g_world + 0x4b47, text);
     } else {
-        hook::Global<uint8_t*>(0x6cec78)[0x4b47] = 0;
+        g_world[0x4b47] = 0;
     }
-    F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4a73) = 1;
+    F<int32_t>(g_world, 0x4a73) = 1;
     return 1;
 }
 RT3_REPLACE(0x472dd0, NetMsg_PlayerStatus);
@@ -5779,9 +5779,9 @@ RT3_REPLACE(0x472f10, Net_Relay76);
 // (0x409830, on the train chain).
 int32_t __fastcall NetMsg_AiBuyTrain(const uint8_t* msg) {
     const uint32_t id = **(const uint32_t* const*)(msg + 8);
-    if (Collection_IsValid(hook::Global<Collection*>(0x62be10), 0, id)) {
-        Collection_Get(hook::Global<Collection*>(0x62be10), 0, id);
-        ((void(__fastcall*)(void*))0x409830)(Collection_Get(hook::Global<Collection*>(0x62be10), 0, id));
+    if (Collection_IsValid(g_companies, 0, id)) {
+        Collection_Get(g_companies, 0, id);
+        ((void(__fastcall*)(void*))0x409830)(Collection_Get(g_companies, 0, id));
     }
     return 1;
 }
@@ -5795,17 +5795,17 @@ RT3_REPLACE(0x472fb0, Net_Relay78);
 // request (d[0]) resets the bulldozer cursor (0x15, sound 0x39). Returns 1.
 int32_t __fastcall NetMsg_Bulldoze(uint8_t* m) {
     const uint32_t* d = F<const uint32_t*>(m, 8);
-    if (Collection_IsValid(hook::Global<Collection*>(0x62be10), 0, d[1])) {
+    if (Collection_IsValid(g_companies, 0, d[1])) {
         float cost;
         char msg[0x3e4];
         float x, y;
         memcpy(&x, &d[2], 4), memcpy(&y, &d[3], 4);
-        if (Map_Bulldoze(hook::Global<uint8_t*>(0x62c120), 0, x, y, 0.5f, d[1], 0, &cost, msg))
-            Ui_SendEvent5(hook::Global<uint8_t**>(0x6d401c), 0, 0xba, 0x808, 0, 0, 0);
+        if (Map_Bulldoze(g_map, 0, x, y, 0.5f, d[1], 0, &cost, msg))
+            Ui_SendEvent5(hook::As<uint8_t**>(g_windowManager), 0, 0xba, 0x808, 0, 0, 0);
     }
     if ((uint32_t)Global6d40e4() == d[0]) {
-        F<int32_t>(hook::Global<uint8_t*>(0x6d1a8c), 0x83) = 0;
-        Cursor_Set(hook::Global<uint8_t*>(0xccbb20), 0, 0x15, 0, 0);
+        F<int32_t>(g_6d1a8c, 0x83) = 0;
+        Cursor_Set(g_cursorManager, 0, 0x15, 0, 0);
         Ui_PlaySound(0x39, 0, 0x3f000000);
     }
     return 1;
@@ -5821,9 +5821,9 @@ RT3_REPLACE(0x4730c0, Net_Relay7a);
 // cursor resets when the message is from this peer (0x6d40e4). Returns 1.
 int32_t __fastcall NetMsg_AbsorbCompany(uint8_t* m) {
     const uint32_t* d = F<const uint32_t*>(m, 8);
-    if (Collection_IsValid(hook::Global<Collection*>(0x62be10), 0, d[1]))
-        Company_Absorb((uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be10), 0, d[1]), 0, d[2], 0);
-    if ((uint32_t)Global6d40e4() == d[0]) Cursor_Set(hook::Global<uint8_t*>(0xccbb20), 0, 1, 0, 0);
+    if (Collection_IsValid(g_companies, 0, d[1]))
+        Company_Absorb((uint8_t*)Collection_Get(g_companies, 0, d[1]), 0, d[2], 0);
+    if ((uint32_t)Global6d40e4() == d[0]) Cursor_Set(g_cursorManager, 0, 1, 0, 0);
     return 1;
 }
 RT3_REPLACE(0x473120, NetMsg_AbsorbCompany);
@@ -5834,7 +5834,7 @@ RT3_REPLACE(0x473180, Net_Relay7c);
 // 0x4731e0 (network handler). Dissolves company d[1] if it exists.
 int32_t __fastcall NetMsg_DissolveCompany(uint8_t* m) {
     const uint32_t* d = F<const uint32_t*>(m, 8);
-    if (Collection_IsValid(hook::Global<Collection*>(0x62be10), 0, d[1])) Company_Dissolve((uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be10), 0, d[1]));
+    if (Collection_IsValid(g_companies, 0, d[1])) Company_Dissolve((uint8_t*)Collection_Get(g_companies, 0, d[1]));
     return 1;
 }
 RT3_REPLACE(0x4731e0, NetMsg_DissolveCompany);
@@ -5847,20 +5847,20 @@ RT3_REPLACE(0x473220, Net_Relay7e);
 // on the lobby object (0x6cd8d8): the default 0x46f4a0 and 129 id -> handler pairs.
 RT3_NOINLINE void MpSession_Reset() {
     memset((void*)0x6ce808, 0, 0x60 * 4);
-    hook::Global<int32_t>(0x6ce9a0) = 0;
-    hook::Global<uint32_t>(0x5f2b4c) = 0x49741cf0;
+    g_6ce9a0 = 0;
+    g_5f2b4c = 0x49741cf0;
     static const uint32_t zero1[] = { 0x6ce998, 0x6ce99c, 0x6ce98c, 0x6ce990, 0x6ce9a8, 0x6ce9ac, 0x6ce9b0 };
     for (uint32_t a : zero1) hook::Global<int32_t>(a) = 0;
-    hook::Global<int32_t>(0x5f2b6c) = 7;
+    g_5f2b6c = 7;
     SetSeed(7);
-    void* lobby = hook::Global<void*>(0x6cd8d8);
+    void* lobby = hook::As<void*>(g_session);
     memset((void*)0x6ce290, 0, 0xe6 * 4);
     static const uint32_t zero2[] = { 0x6ce800, 0x6ce628, 0x6ce9b4, 0x6ce9b8, 0x6ce9bc };
     for (uint32_t a : zero2) hook::Global<int32_t>(a) = 0;
-    hook::Global<uint8_t>(0x6ce630) = 0;
-    hook::Global<int32_t>(0x6ce9c0) = 0;
-    hook::Global<int32_t>(0x6ce9c4) = 0;
-    hook::Global<int32_t>(0x6ce9c8) = 0;
+    g_6ce630 = 0;
+    g_6ce9c0 = 0;
+    g_6ce9c4 = 0;
+    g_6ce9c8 = 0;
     Obj_Set8(lobby, 0, 0x46f4a0);
     static const uint32_t handlers[][2] = {
 { 0x1, 0x470210 },
@@ -6005,7 +6005,7 @@ RT3_NOINLINE void RegisterSyncChecks() {
         { 0x5ce3e8, 0x46dd10 }, { 0x5ce3e0, 0x46dbd0 }, { 0x5ce3d4, 0x46db90 }, { 0x5ce3cc, 0x46dac0 },
         { 0x5ce3bc, 0x46db50 }, { 0x5ce3ac, 0x46db10 },
     };
-    uint8_t* lobby = hook::Global<uint8_t*>(0x6cd8d8);
+    uint8_t* lobby = g_session;
     for (int i = 0; i < 10; ++i) Obj_AddMessage(lobby, 0, i + 1, 0, (int32_t)kChecks[i][1], (const char*)kChecks[i][0]);
 }
 RT3_REPLACE(0x473a60, RegisterSyncChecks);
@@ -6014,16 +6014,16 @@ RT3_REPLACE(0x473a60, RegisterSyncChecks);
 // player named at +0x8f48 as message 0x71 {word 0, word n, records}, reliably,
 // and clears them.
 void Net_SendPendingRecords() {
-    int32_t n = hook::Global<int32_t>(0x6ce9a0);
+    int32_t n = g_6ce9a0;
     if (n <= 0) return;
     int32_t size = n * 0x12 + 4;
     uint8_t* buf = (uint8_t*)((void*(__cdecl*)(size_t))0x5a125d)((size_t)size);
     F<uint16_t>(buf, 0) = 0;
-    F<uint16_t>(buf, 2) = (uint16_t)hook::Global<int32_t>(0x6ce9a0);
-    memcpy(buf + 4, (const void*)0x6cd990, (size_t)hook::Global<int32_t>(0x6ce9a0) * 0x12);
-    uint8_t* s = hook::Global<uint8_t*>(0x6cd8d8);
+    F<uint16_t>(buf, 2) = (uint16_t)g_6ce9a0;
+    memcpy(buf + 4, (const void*)0x6cd990, (size_t)g_6ce9a0 * 0x12);
+    uint8_t* s = g_session;
     Net_Send(s, 0, (const char*)s + 0x8f48, 0x71, size, buf, 5, 0);
-    hook::Global<int32_t>(0x6ce9a0) = 0;
+    g_6ce9a0 = 0;
     ((void(__cdecl*)(void*))0x5a1145)(buf);
 }
 RT3_REPLACE(0x473b40, Net_SendPendingRecords);
@@ -6043,7 +6043,7 @@ RT3_NOINLINE void __fastcall Buildings_ApplyQueuedMoves() {
         if (!e[0]) continue;
         if (busy == -1) busy = Trains_AnyActive();
         if (busy) return;
-        uint8_t* b = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62b26c), 0, e[0]);
+        uint8_t* b = (uint8_t*)Collection_Get(g_buildings, 0, e[0]);
         uint8_t* type = (*(uint8_t*(__fastcall**)(uint8_t*))(*(uint8_t**)b + 0x80))(b);
         if (type[0xb9] != 3) Building_MoveTo(b, 0, BitsF(e[1]), BitsF(e[2]), 0, 0.0f);
         e[0] = 0;
@@ -6070,8 +6070,8 @@ RT3_NOINLINE void __fastcall News_Init(uint8_t* e, int, int32_t kind, const char
     e[0x10] = g_world[0x11];
     e[0x18] = 0;
     F<int32_t>(e, 4) = a;
-    F<int32_t>(e, 0x14) = hook::Global<int32_t>(0x6cea48);
-    hook::Global<int32_t>(0x6cea48)++;
+    F<int32_t>(e, 0x14) = g_6cea48;
+    g_6cea48++;
 }
 RT3_REPLACE(0x473ce0, News_Init);
 

@@ -9,6 +9,7 @@
 #include <initializer_list>
 #include <intrin.h>
 #include "hook/hook.h"
+#include "core/globals.h"
 #include "core/ptrlist.h"
 #include "core/containers.h"
 #include "core/crt.h"
@@ -195,12 +196,12 @@ static inline uint8_t* FontRec(int32_t idx) { return (uint8_t*)0x625468 + idx * 
 static void ReleaseResourceIn(uint32_t slot) {
     void*& r = hook::Global<void*>(slot);
     if (!r) return;
-    Pack_Release(hook::Global<uint8_t*>(0x6d4020), 0, r);
+    Pack_Release(g_pack, 0, r);
     r = nullptr;
 }
 
 static inline const int32_t* ScreenMode() {
-    uint8_t* e = hook::Global<uint8_t*>(0x6d4024);
+    uint8_t* e = g_engine;
     return (const int32_t*)(F<uint8_t*>(e, 0x34) + F<int32_t>(e, 0x11421e) * 0x15);
 }
 
@@ -389,7 +390,7 @@ RT3_REPLACE(0x5501a0, Font_FitText);
 // (+0x18); a GDI one releases its D3DX font (+0) and deletes the HFONT (+4).
 void __fastcall Font_ReleaseHandles(uint8_t* t) {
     if (F<int32_t>(t, 0x10)) {
-        Pack_Release(hook::Global<uint8_t*>(0x6d4020), 0, F<void*>(t, 0x18));
+        Pack_Release(g_pack, 0, F<void*>(t, 0x18));
         F<void*>(t, 0x18) = nullptr;
         return;
     }
@@ -433,8 +434,8 @@ RT3_REPLACE(0x550470, Font_CountLines);
 // Indexes on a DBCS trail byte step back one.
 RT3_NOINLINE int32_t __fastcall Text_HitTest(void** font, int, float px, float py, const char* text, float x, float y, float w, float h, int32_t,
                                 int32_t, uint32_t flags, float* lineH, int32_t target, float* outX, float* outY) {
-    const int32_t* metric = (const int32_t*)(F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x34) +
-                                             F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x11421e) * 0x15);
+    const int32_t* metric = (const int32_t*)(F<int32_t>(g_engine, 0x34) +
+                                             F<int32_t>(g_engine, 0x11421e) * 0x15);
     int32_t best = -1, bestDist = 99999;
     int32_t boxW = HitFtol((double)metric[0] * w);
     int32_t boxH = HitFtol((double)h * metric[1]);
@@ -492,11 +493,11 @@ RT3_NOINLINE int32_t __fastcall Text_HitTest(void** font, int, float px, float p
             line->top = r.top;
             line->left = r.left;
             line->height = r.bottom - r.top;
-            metric = (const int32_t*)(F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x34) +
-                                      F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x11421e) * 0x15);
+            metric = (const int32_t*)(F<int32_t>(g_engine, 0x34) +
+                                      F<int32_t>(g_engine, 0x11421e) * 0x15);
             if (lineH) *lineH = (float)((double)lines[0].height / metric[1]);
-            metric = (const int32_t*)(F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x34) +
-                                      F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x11421e) * 0x15);
+            metric = (const int32_t*)(F<int32_t>(g_engine, 0x34) +
+                                      F<int32_t>(g_engine, 0x11421e) * 0x15);
             int32_t tx = HitFtol((double)metric[0] * px);
             int32_t ty = HitFtol((double)metric[1] * py);
             int32_t j = lineStart, xAcc = 0;
@@ -517,13 +518,13 @@ RT3_NOINLINE int32_t __fastcall Text_HitTest(void** font, int, float px, float p
                         best = j;
                     }
                 } else if (j == target) {
-                    const int32_t* m2 = (const int32_t*)(F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x34) +
-                                                         F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x11421e) * 0x15);
+                    const int32_t* m2 = (const int32_t*)(F<int32_t>(g_engine, 0x34) +
+                                                         F<int32_t>(g_engine, 0x11421e) * 0x15);
                     if (outX) *outX = (float)((double)cr / m2[0]);
                     if (outY) {
                         int32_t mid = (r.bottom - r.top) / 2 + r.top;
-                        m2 = (const int32_t*)(F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x34) +
-                                              F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x11421e) * 0x15);
+                        m2 = (const int32_t*)(F<int32_t>(g_engine, 0x34) +
+                                              F<int32_t>(g_engine, 0x11421e) * 0x15);
                         *outY = (float)((double)mid / m2[1]);
                     }
                     if (j > 0 && IsSingleByte(HitChr(text[j]))) --j;
@@ -535,8 +536,8 @@ RT3_NOINLINE int32_t __fastcall Text_HitTest(void** font, int, float px, float p
                 xAcc += cw;
             }
             lineStart = i;
-            metric = (const int32_t*)(F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x34) +
-                                      F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x11421e) * 0x15);
+            metric = (const int32_t*)(F<int32_t>(g_engine, 0x34) +
+                                      F<int32_t>(g_engine, 0x11421e) * 0x15);
             if ((double)y + h < (double)top / metric[1]) return -1 - j;
             top += lines[0].height;
             if (wrap == 1) {
@@ -570,11 +571,11 @@ RT3_REPLACE(0x550b50, Font_TextHeight);
 // height ('A' metrics, nudged for fonts 0x11 / 0x15), the space and tab widths ('M'
 // and '.') and the widest digit (0.001 at least).
 void __fastcall Font_LoadFromPack(uint8_t* t) {
-    uint8_t* pack = hook::Global<uint8_t*>(0x6d4020);
+    uint8_t* pack = g_pack;
     NameTable_PushPos(pack);
     const int32_t sizes[5][2] = { { 1600, 1200 }, { 1280, 1024 }, { 1024, 768 }, { 800, 600 }, { 640, 480 } };
     int32_t width = 1600;
-    uint8_t* g = hook::Global<uint8_t*>(0x6d4024);
+    uint8_t* g = g_engine;
     uint8_t* mode = F<uint8_t*>(g, 0x34) + F<int32_t>(g, 0x11421e) * 0x15;
     for (int k = 0; k < 5; ++k)
         if (sizes[k][0] == F<int32_t>(mode, 0) && sizes[k][1] == F<int32_t>(mode, 4)) width = F<int32_t>(mode, 0);
@@ -587,15 +588,15 @@ void __fastcall Font_LoadFromPack(uint8_t* t) {
     auto glyph = [&](int32_t c) { return (uint8_t*)Table_Entry(F<uint8_t*>(t, 0x18), 0, c); };
     double h = Slider_StepB(glyph(0x41));
     F<float>(t, 0x1c) = (float)h;
-    if (F<int32_t>(t, 0xc) == 0x11) F<float>(t, 0x1c) = (float)(h - hook::Global<double>(0x5d06f8));
-    if (F<int32_t>(t, 0xc) == 0x15) F<float>(t, 0x1c) = (float)(F<float>(t, 0x1c) - hook::Global<double>(0x5c9bc0));
+    if (F<int32_t>(t, 0xc) == 0x11) F<float>(t, 0x1c) = (float)(h - g_5d06f8);
+    if (F<int32_t>(t, 0xc) == 0x15) F<float>(t, 0x1c) = (float)(F<float>(t, 0x1c) - g_5c9bc0);
     double v = Slider_StepA(glyph(0x4d));
-    F<float>(t, 0x24) = (float)((v + F<float>(rec, 0x20)) * F<float>(t, 0x14) * hook::Global<double>(0x5cf0f0));
-    F<float>(t, 0x20) = (float)(F<float>(t, 0x1c) * hook::Global<double>(0x5cf0f0));
-    F<float>(t, 0x28) = (float)(F<float>(t, 0x1c) * hook::Global<double>(0x5c8608));
+    F<float>(t, 0x24) = (float)((v + F<float>(rec, 0x20)) * F<float>(t, 0x14) * g_5cf0f0);
+    F<float>(t, 0x20) = (float)(F<float>(t, 0x1c) * g_5cf0f0);
+    F<float>(t, 0x28) = (float)(F<float>(t, 0x1c) * g_5c8608);
     v = Slider_StepA(glyph(0x2e));
     F<uint32_t>(t, 0x30) = 0x3a83126f; // 0.001f
-    F<float>(t, 0x2c) = (float)((v + F<float>(rec, 0x20)) * F<float>(t, 0x14) * hook::Global<float>(0x5c8900));
+    F<float>(t, 0x2c) = (float)((v + F<float>(rec, 0x20)) * F<float>(t, 0x14) * g_5c8900);
     for (int32_t c = 0x30; c < 0x3a; ++c) {
         double d = Slider_StepA(glyph(c));
         // (sic) the digit width is fetched again when it isn't smaller.
@@ -704,7 +705,7 @@ RT3_REPLACE(0x550dd0, Font_DrawLine);
 // deleted.
 void __fastcall Texture_ReleaseHandles(uint8_t* t) {
     if (F<int32_t>(t, 0x10)) {
-        Pack_Release(hook::Global<uint8_t*>(0x6d4020), 0, F<void*>(t, 0x18));
+        Pack_Release(g_pack, 0, F<void*>(t, 0x18));
         F<void*>(t, 0x18) = nullptr;
         return;
     }
@@ -737,10 +738,10 @@ void __fastcall Font_Create(uint8_t* t) {
             strcpy(face, GetString(F<int32_t>(rec, 0)));
         }
         double size = F<float>(rec, 0xc);
-        if (hook::Global<int32_t>(0x6d3c84) == 0xc && F<int32_t>(t, 0xc) == 8) size *= hook::Global<double>(0x5ddc80);
-        uint8_t* g = hook::Global<uint8_t*>(0x6d4024);
+        if (g_language == 0xc && F<int32_t>(t, 0xc) == 8) size *= g_5ddc80;
+        uint8_t* g = g_engine;
         int32_t screenH = F<int32_t>(F<uint8_t*>(g, 0x34) + F<int32_t>(g, 0x11421e) * 0x15, 4);
-        int32_t height = Ftol(size * ((double)screenH * hook::Global<double>(0x5d0770)));
+        int32_t height = Ftol(size * ((double)screenH * g_5d0770));
         F<void*>(t, 4) = Import<void*(__stdcall*)(int, int, int, int, int, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t,
                                                   uint32_t, uint32_t, uint32_t, const char*)>(0x5c805c)(
             height, 0, 0, 0, F<int32_t>(rec, 0x10), 0, 0, 0, (uint32_t)charset, 0, 0, 0, 0, face);
@@ -761,7 +762,7 @@ void __fastcall Font_Create(uint8_t* t) {
         }
         Import<int(__stdcall*)(void*)>(0x5c8030)(dc);
     }
-    uint8_t* g = hook::Global<uint8_t*>(0x6d4024);
+    uint8_t* g = g_engine;
     ((int32_t(__stdcall*)(void*, void*, uint8_t*))0x5711b5)(F<void*>(g, 8), F<void*>(t, 4), t);
 }
 RT3_REPLACE(0x5512f0, Font_Create);
@@ -840,7 +841,7 @@ void __fastcall Font_DrawText(uint8_t* f, int, const char* text, float x, float 
                 if (align == 5) a = (overflow != 0) + 2;
                 if (a == 6) a = overflow ? 3 : 0;
             }
-            if (!(flags & 2) && !(F<float>(f, 0x20) == Fl(0x5c8598)) && F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x114697))
+            if (!(flags & 2) && !(F<float>(f, 0x20) == Fl(0x5c8598)) && F<int32_t>(g_engine, 0x114697))
                 Font_DrawLine(f, 0, (const uint8_t*)buf, (float)((double)shadowX + x), (float)((double)shadowY + yOff + y), width, 0,
                               color & 0xff000000, a, 1, (flags & 0xd) != 0, &shadowLink);
             Font_DrawLine(f, 0, (const uint8_t*)buf, x, (float)((double)yOff + y), width, 0, color, a, 0, (uint8_t)(flags & 0xcd), &link);
@@ -862,7 +863,7 @@ uint8_t* __fastcall Font_Construct(uint8_t* t, int, int32_t key) {
     F<int32_t>(t, 0x10) = 1;
     F<float>(t, 0x14) = 1.0f;
     F<int32_t>(t, 0xc) = idx;
-    if (hook::Global<int32_t>(0x6d4034)) F<int32_t>(t, 0x10) = 0;
+    if (g_6d4034) F<int32_t>(t, 0x10) = 0;
     ExeSprintf()((char*)0xd93858, F<const char*>(FontRec(idx), 8));
     F<uint32_t>(t, 0x68) = 0;
     for (int32_t o = 0x40; o <= 0x5c; o += 4) F<uint32_t>(t, o) = 0;
@@ -887,7 +888,7 @@ RT3_NOINLINE void __fastcall Font_DrawTextBox(uint8_t* f, int, const char* text,
     F<float>(f, 0x7c) = x;
     F<float>(f, 0x80) = y;
     bool turned = *(const int32_t*)(0x62547c + F<int32_t>(f, 0xc) * 0x28) != 0;
-    if (hook::Global<int32_t>(0x6d3ff8) && !F<int32_t>(f, 0x40) && !F<int32_t>(f, 0x68)) {
+    if (g_6d3ff8 && !F<int32_t>(f, 0x40) && !F<int32_t>(f, 0x68)) {
         if (turned)
             Ui_FrameRect(0xff00ff80, 0, x, (float)((double)y - w), h, w, 1.0f, 3);
         else
@@ -948,7 +949,7 @@ RT3_NOINLINE void __fastcall Font_DrawTextBox(uint8_t* f, int, const char* text,
         flags |= 0x800;
     else if (valign == 4)
         flags |= 0x1000;
-    Engine_QueueText(hook::Global<void*>(0x6d4024), 0, (uint32_t)(uintptr_t)text, x, y, 0, w, h, color, (uint32_t)(uintptr_t)f, flags);
+    Engine_QueueText(hook::As<void*>(g_engine), 0, (uint32_t)(uintptr_t)text, x, y, 0, w, h, color, (uint32_t)(uintptr_t)f, flags);
     F<float>(f, 0x14) = 1.0f;
 }
 RT3_REPLACE(0x5519f0, Font_DrawTextBox);
@@ -1094,7 +1095,7 @@ void __fastcall Glyph_SnapToPixels(uint8_t* g, int, int32_t mode, float* x, floa
     *du = 0.0f;
     *dv = 0.0f;
     if (!mode) return;
-    uint8_t* e = hook::Global<uint8_t*>(0x6d4024);
+    uint8_t* e = g_engine;
     const int32_t* scr = (const int32_t*)(F<uint8_t*>(e, 0x34) + F<int32_t>(e, 0x11421e) * 0x15);
     float fw = (float)scr[0];
     uint8_t* f = F<uint8_t*>(g, 0);
@@ -1171,7 +1172,7 @@ RT3_NOINLINE void __fastcall Glyph_Queue(uint8_t* g, int, float x, float y, uint
         float depth = Fade_Step_Impl();
         float y2 = (float)((double)hh * sy + npxh + y), x2 = (float)((double)ww * sx + npxw + x);
         float y1 = (float)((double)npxh + y), x1 = (float)((double)npxw + x);
-        Engine_QueueSprite(hook::Global<void*>(0x6d4024), 0, FBits(x1), FBits(y1), FBits(x2), FBits(y2), FBits(depth), color,
+        Engine_QueueSprite(hook::As<void*>(g_engine), 0, FBits(x1), FBits(y1), FBits(x2), FBits(y2), FBits(depth), color,
                            (uint32_t)(uintptr_t)tex, FBits(u1), FBits(v1), FBits(u2), FBits(v2), tint);
         return;
     }
@@ -1196,7 +1197,7 @@ RT3_NOINLINE void __fastcall Glyph_Queue(uint8_t* g, int, float x, float y, uint
     float depth = Fade_Step_Impl();
     float y2 = (float)((double)npxh + bottom), x2 = (float)((double)npxw + right);
     float y1 = (float)((double)npxh + top), x1 = (float)((double)npxw + left);
-    Engine_QueueSprite(hook::Global<void*>(0x6d4024), 0, FBits(x1), FBits(y1), FBits(x2), FBits(y2), FBits(depth), color,
+    Engine_QueueSprite(hook::As<void*>(g_engine), 0, FBits(x1), FBits(y1), FBits(x2), FBits(y2), FBits(depth), color,
                        (uint32_t)(uintptr_t)tex, FBits(fu1), FBits(fv1), FBits(fu2), FBits(fv2), tint);
 }
 RT3_REPLACE(0x552560, Glyph_Queue);
@@ -1253,11 +1254,11 @@ RT3_NOINLINE void __fastcall Glyph_QueueRotated(uint8_t* g, int, float x, float 
     uint32_t tex = (uint32_t)(uintptr_t)F<uint8_t*>(F<uint8_t*>(g, 0), 0x2a);
     float x3 = (float)((double)pivX - ((double)pr * s + (double)qt * c) + ox);
     float y3 = (float)(((double)pr * c - (double)qt * s) * aspect + pivY + oy);
-    Engine_QueueQuad(hook::Global<void*>(0x6d4024), 0, FBits(ax), FBits(ay), FBits(bx), FBits(by), FBits(x3), FBits(y3), FBits(depth), color, color, color, tex,
+    Engine_QueueQuad(hook::As<void*>(g_engine), 0, FBits(ax), FBits(ay), FBits(bx), FBits(by), FBits(x3), FBits(y3), FBits(depth), color, color, color, tex,
                      FBits(u1), FBits(v1), FBits(u2), FBits(v2), FBits(u2), FBits(v1), tint, tint, tint);
     float x4 = (float)((double)pivX - ((double)pl * s + (double)qb * c) + ox);
     float y4 = (float)(((double)pl * c - (double)qb * s) * aspect + pivY + oy);
-    Engine_QueueQuad(hook::Global<void*>(0x6d4024), 0, FBits(ax), FBits(ay), FBits(x4), FBits(y4), FBits(bx), FBits(by), FBits(depth), color, color, color, tex,
+    Engine_QueueQuad(hook::As<void*>(g_engine), 0, FBits(ax), FBits(ay), FBits(x4), FBits(y4), FBits(bx), FBits(by), FBits(depth), color, color, color, tex,
                      FBits(u1), FBits(v1), FBits(u1), FBits(v2), FBits(u2), FBits(v2), tint, tint, tint);
 }
 RT3_REPLACE(0x552900, Glyph_QueueRotated);
@@ -1299,14 +1300,14 @@ RT3_REPLACE(0x552e20, Jpeg_Load);
 // 0xd93988 is set it gets position / size * [0x5c8c28] (x87, then _ftol). -1 at
 // the end.
 int32_t __fastcall PackSrc_Read(uint8_t* buf, int32_t n) {
-    int32_t* c = hook::Global<int32_t*>(0xd93984);
+    int32_t* c = g_d93984;
     int32_t left = c[2] - c[1];
     if (n >= left) n = left;
     if (!n) return -1;
     memcpy(buf, (const uint8_t*)(uintptr_t)c[0] + c[1], (size_t)n);
     int32_t pos = c[1] + n;
     c[1] = pos;
-    if (void* progress = hook::Global<void*>(0xd93988)) {
+    if (void* progress = hook::As<void*>(g_d93988)) {
         int32_t* total = &c[2];
         int32_t pct;
         __asm {
@@ -1330,7 +1331,7 @@ RT3_REPLACE(0x552f30, PackSrc_Read);
 // count grows either way. n when copied, else 0.
 int32_t __fastcall PackDst_Write(uint8_t* buf, int32_t n) {
     if (!n) return 0;
-    int32_t* c = hook::Global<int32_t*>(0xd93984);
+    int32_t* c = g_d93984;
     int32_t r = 0;
     if (n + c[4] <= c[5]) {
         memcpy((uint8_t*)(uintptr_t)c[3] + c[4], buf, (size_t)n);
@@ -1354,7 +1355,7 @@ int32_t __fastcall Pack_Compress(int32_t* p, int, const void* src, int32_t n, ui
     uint8_t* buf = ((uint8_t*(__cdecl*)(size_t))0x5a125d)((size_t)(n + 0x10));
     if (!buf) return -6;
     int32_t ctx[6] = { (int32_t)(uintptr_t)src, 0, n, (int32_t)(uintptr_t)buf, 0, n };
-    hook::Global<int32_t*>(0xd93984) = ctx;
+    g_d93984 = ctx;
     int32_t r;
     bool failed = false;
     if (p[0] == 0x91) r = Lzss_Pack((StreamFn)0x552f30, (StreamFn)0x552fa0);
@@ -1364,7 +1365,7 @@ int32_t __fastcall Pack_Compress(int32_t* p, int, const void* src, int32_t n, ui
         failed = true;
     }
     if (r != 1) failed = true;
-    int32_t* c = hook::Global<int32_t*>(0xd93984);
+    int32_t* c = g_d93984;
     if (c[4] > c[5]) {
         r = -5;
         failed = true;
@@ -1394,7 +1395,7 @@ int32_t __fastcall Pack_Decompress(int32_t* p, int, const int32_t* src, int32_t 
     if (!buf) return -6;
     int32_t ctx[6] = { (int32_t)(uintptr_t)src, 0, n > 0 ? n : src[1], (int32_t)(uintptr_t)buf, 0, src[2] };
     int32_t saved = p[0];
-    hook::Global<int32_t*>(0xd93984) = ctx;
+    g_d93984 = ctx;
     int32_t method = ((const uint16_t*)src)[7];
     p[0] = method;
     int32_t r;
@@ -1409,7 +1410,7 @@ int32_t __fastcall Pack_Decompress(int32_t* p, int, const int32_t* src, int32_t 
         return r;
     }
     *out = buf;
-    *outSize = hook::Global<int32_t*>(0xd93984)[4];
+    *outSize = g_d93984[4];
     return r;
 }
 RT3_REPLACE(0x553120, Pack_Decompress);
@@ -1503,8 +1504,8 @@ void __fastcall Terrain_Save(uint8_t* t, int, int32_t s, const char* name, int32
     char path[0x130];
     strcpy(path, name);
     StripExtension(path);
-    strcat(path, F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x11471a) ? (const char*)0x5dd274 : (const char*)0x5dd27c);
-    Terrain_SaveTexture(t, 0, path, F<int32_t>(hook::Global<uint8_t*>(0x6d4024), 0x11471a), quality);
+    strcat(path, F<int32_t>(g_engine, 0x11471a) ? (const char*)0x5dd274 : (const char*)0x5dd27c);
+    Terrain_SaveTexture(t, 0, path, F<int32_t>(g_engine, 0x11471a), quality);
     StreamWriteU32(s, 0x2af9);
     uint32_t version = 0xbba;
     StreamWrite(s, &version, 4, 0);
@@ -1543,7 +1544,7 @@ RT3_REPLACE(0x553760, Terrain_Save);
 // 0x553a00. Clears +0x20 and drops the pack resource +4 (kept in the field).
 void __fastcall Sprite_ReleaseImage(uint8_t* s) {
     F<int32_t>(s, 0x20) = 0;
-    Pack_Release(hook::Global<uint8_t*>(0x6d4020), 0, F<void*>(s, 4));
+    Pack_Release(g_pack, 0, F<void*>(s, 4));
 }
 RT3_REPLACE(0x553a00, Sprite_ReleaseImage);
 
@@ -1570,7 +1571,7 @@ RT3_REPLACE(0x553a40, Obj_SetUnit25);
 uint8_t __fastcall Flags24_Low(uint8_t* o) { return o[0x24] & 0xf; }
 RT3_REPLACE(0x553a80, Flags24_Low);
 
-uint32_t __fastcall Get_d93990() { return hook::Global<uint32_t>(0xd93990); }
+uint32_t __fastcall Get_d93990() { return g_d93990; }
 RT3_REPLACE(0x553a90, Get_d93990);
 
 RT3_NOINLINE void ReleaseResourceD93990() { ReleaseResourceIn(0xd93990); }
@@ -1589,7 +1590,7 @@ RT3_NOINLINE uint8_t* __fastcall Camera_Construct(uint8_t* c, int, const char* n
     F<uint32_t>(c, 0x29) = 0;
     F<uint32_t>(c, 0x2d) = 0;
     F<uint32_t>(c, 0x31) = 0;
-    uint8_t* res = Pack_AcquireCollision(hook::Global<uint8_t*>(0x6d4020), 0, name);
+    uint8_t* res = Pack_AcquireCollision(g_pack, 0, name);
     F<uint8_t*>(c, 4) = res;
     uint8_t* shape = F<uint8_t*>(F<uint8_t*>(res, 0), 0x10);
     F<uint8_t*>(c, 8) = shape;
@@ -1656,7 +1657,7 @@ void __fastcall Particle_EmitQuads(uint8_t* pd, int, float* out, int32_t* count)
     float ry = (float)((vx * m[1] + vz * m[9]) + vy * m[5]);
     float rz = (float)((vx * m[2] + vz * m[10]) + vy * m[6]);
     float cam[3];
-    Obj_GetXYZ1c(F<uint8_t*>(hook::Global<uint8_t*>(0x6d4024), 0x28), 0, (uint32_t*)&cam[0], (uint32_t*)&cam[1],
+    Obj_GetXYZ1c(F<uint8_t*>(g_engine, 0x28), 0, (uint32_t*)&cam[0], (uint32_t*)&cam[1],
                  (uint32_t*)&cam[2]);
     float dx = (float)((double)cam[0] - wx), dy = (float)((double)cam[1] - wy), dz = (float)((double)cam[2] - wz);
     float cx, cy, cz;

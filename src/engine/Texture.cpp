@@ -9,6 +9,7 @@
 #include <windows.h>
 #include <initializer_list>
 #include "hook/hook.h"
+#include "core/globals.h"
 #include "game/collection.h"
 #include "core/crt.h"
 #include "core/ptrlist.h"
@@ -212,11 +213,11 @@ RT3_NOINLINE void __fastcall Nop558750(void*);
 RT3_NOINLINE void __fastcall Widget_ClearFlags(uint8_t* w, int, uint32_t mask);
 RT3_NOINLINE uint32_t __fastcall Widget_SetFlags(uint8_t* w, int, uint32_t mask, uint32_t a, uint32_t b);
 
-static inline uint8_t* Engine() { return hook::Global<uint8_t*>(0x6d4024); }
+static inline uint8_t* Engine() { return g_engine; }
 
 static inline void Release(void* com) { ((uint32_t(__stdcall*)(void*))(*(void***)com)[2])(com); }
 
-static inline uint8_t* Input() { return hook::Global<uint8_t*>(0x6d4018); }
+static inline uint8_t* Input() { return g_input; }
 
 static inline void RemoveImage(uint8_t* t, int32_t i) {
     t[4]--;
@@ -264,7 +265,7 @@ static inline void* ExeMalloc(size_t n) { return ((void*(__cdecl*)(size_t))0x5a1
 // kind's init, then an `n`-byte record read from the pack's current position.
 static uint8_t* Widget_ReadRecord(uint8_t* w, int32_t n) {
     uint8_t* rec = (uint8_t*)ExeMalloc(n);
-    NameTable_Read(hook::Global<uint8_t*>(0x6d4020), 0, rec, n);
+    NameTable_Read(g_pack, 0, rec, n);
     Widget_LoadBase(w, 0, rec);
     return rec;
 }
@@ -360,7 +361,7 @@ uint8_t* __fastcall Control_Load(uint8_t* w, int, int32_t) {
     memcpy(w + 0xa2, rec + 0x5f, 0x2c);
     F<uint16_t>(w, 0xd2) = F<uint16_t>(rec, 0x8f);
     F<void*>(w, 0xce) = nullptr;
-    NameTable_ReadBlock(hook::Global<uint8_t*>(0x6d4020), 0, 0xbba, &F<void*>(w, 0xce));
+    NameTable_ReadBlock(g_pack, 0, 0xbba, &F<void*>(w, 0xce));
     Free(rec);
     return w;
 }
@@ -448,7 +449,7 @@ void __fastcall Button_Draw(uint8_t* w) {
         box(&bw, &bh, &bx, &by);
         Font_DrawTextBox(F<uint8_t*>(w, 0x63), 0, text, bx, by, bw, bh, F<uint32_t>(w, 0x38), 0, 0, 2, 1.0f);
     }
-    if (!(F<uint32_t>(hook::Global<uint8_t*>(0x6d401c), 0xc79) & F<uint16_t>(w, 6))) return;
+    if (!(F<uint32_t>(g_windowManager, 0xc79) & F<uint16_t>(w, 6))) return;
     p = F<uint8_t*>(w, 0x86);
     Ui_FrameRect(0xffffffff, 0, (float)((double)F<float>(p, 5) + F<float>(w, 0xb)), (float)((double)F<float>(p, 9) + F<float>(w, 0xf)), F<float>(w, 0x13),
                  F<float>(w, 0x17), 1.0f, 3);
@@ -513,7 +514,7 @@ int32_t __fastcall Button_HandleEvent(uint8_t* w, int, uint32_t* ev) {
         return false;
     };
     auto tutorial = [&] {
-        if (hook::Global<int32_t>(0x6d3b4c) && (int32_t)F<uint16_t>(w, 4) == hook::Global<int32_t>(0x622b34)) Tutorial_Advance();
+        if (g_6d3b4c && (int32_t)F<uint16_t>(w, 4) == hook::As<int32_t>(g_622b34)) Tutorial_Advance();
     };
     switch (ev[0]) {
     case 3:
@@ -535,7 +536,7 @@ int32_t __fastcall Button_HandleEvent(uint8_t* w, int, uint32_t* ev) {
         }
         Button_OnPress(w, 0, ev);
         if (w[0xc2]) return 1;
-        Input_Block(hook::Global<uint8_t*>(0x6d4018));
+        Input_Block(g_input);
         int32_t last = ClockMs();
         while (ev[0] != 7) {
             if (ev[0] == 2) {
@@ -548,13 +549,13 @@ int32_t __fastcall Button_HandleEvent(uint8_t* w, int, uint32_t* ev) {
             }
             Engine_Nop();
             uint32_t next[12];
-            memcpy(ev, Input_NextEvent(hook::Global<uint8_t*>(0x6d4018), 0, (InputEvent*)next), 0x30);
+            memcpy(ev, Input_NextEvent(g_input, 0, (InputEvent*)next), 0x30);
             if (ClockMs() - last > 0x14 || ev[0] == 0) {
-                if (void* idle = hook::Global<void*>(0x6d4004)) ((void(*)())idle)();
+                if (void* idle = g_6d4004) ((void(*)())idle)();
                 last = ClockMs();
             }
         }
-        Input_Unblock(hook::Global<uint8_t*>(0x6d4018));
+        Input_Unblock(g_input);
         if (!(w[0x6a] & 0x10)) return 0;
         tutorial();
         Button_OnRelease(w, 0, ev);
@@ -604,7 +605,7 @@ RT3_REPLACE(0x540de0, Vec_Cross);
 // list 0xccbb2c (count 0xccbb30). Returns the previous head.
 RT3_NOINLINE uint32_t __fastcall Texture_Construct(uint8_t* s, int, uint8_t flag) {
     ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)((char*)s + 0x13, (const char*)0x5c87a8);
-    uint8_t* e = hook::Global<uint8_t*>(0x6d4024);
+    uint8_t* e = g_engine;
     s[4] = 0;
     F<uint32_t>(s, 0xd8) = F<uint32_t>(e, 0x114736);
     F<int32_t>(s, 0xcc) = 0;
@@ -619,7 +620,7 @@ RT3_NOINLINE uint32_t __fastcall Texture_Construct(uint8_t* s, int, uint8_t flag
     s[0x95] = 0;
     s[0x97] = flag;
     F<int32_t>(s, 0xd4) = 0;
-    s[0x96] = hook::Global<uint8_t*>(0x6d4024)[0x114254];
+    s[0x96] = g_engine[0x114254];
     static const uint32_t lists[] = { 0xdc, 0xe4 };
     for (uint32_t off : lists) {
         PtrList* l = (PtrList*)((void*(__cdecl*)(size_t))0x53b070)(0x18);
@@ -631,14 +632,14 @@ RT3_NOINLINE uint32_t __fastcall Texture_Construct(uint8_t* s, int, uint8_t flag
         F<int32_t>(s, 0xa0 + i * 4) = 0;
     }
     F<int32_t>(s, 7) = 0;
-    uint32_t head = hook::Global<uint32_t>(0xccbb2c);
+    uint32_t head = hook::As<uint32_t>(g_ccbb2c);
     if (!head) {
-        hook::Global<int32_t>(0xccbb30) = 0;
-        hook::Global<int32_t>(0xccbb34) = 0;
+        g_ccbb30 = 0;
+        g_ccbb34 = 0;
     }
-    hook::Global<int32_t>(0xccbb30)++;
+    g_ccbb30++;
     F<uint32_t>(s, 0) = head;
-    hook::Global<uint8_t*>(0xccbb2c) = s;
+    g_ccbb2c = s;
     return head;
 }
 RT3_REPLACE(0x540e30, Texture_Construct);
@@ -716,7 +717,7 @@ RT3_REPLACE(0x5411c0, Tga_IsPlain);
 // dithering (+0x96); frees the source unless it is kept (+0x97). Only when 16-bit
 // textures are in use and not disabled (engine +0x114255 / +0x11422f).
 RT3_NOINLINE void __fastcall Image_To4444(uint8_t* tex, int, uint8_t* img) {
-    uint8_t* e = hook::Global<uint8_t*>(0x6d4024);
+    uint8_t* e = g_engine;
     if (e[0x11422f] || !e[0x114255]) return;
     if (!F<void*>(img, 0x26)) return;
     int32_t n = F<int32_t>(img, 0xc) * F<int32_t>(img, 8);
@@ -782,7 +783,7 @@ RT3_NOINLINE void __fastcall Texture_ReleaseTarget(uint8_t* t) {
     F<int32_t>(t, 0xcc) = 0;
     F<int32_t>(t, 0xd0) = 0;
     F<int32_t>(t, 0xd4) = 0;
-    if (gen) hook::Global<int32_t>(0xccbb34)--;
+    if (gen) g_ccbb34--;
     F<int32_t>(t, 7) = 0;
 }
 RT3_REPLACE(0x541780, Texture_ReleaseTarget);
@@ -929,7 +930,7 @@ RT3_NOINLINE int32_t __fastcall Texture_LoadJpeg(uint8_t* t, int, int32_t id, ui
     typedef int(__cdecl * FseekFn)(void*, long, int);
     FioFn fread_ = (FioFn)0x5a1b05;
     FseekFn fseek_ = (FseekFn)0x5a261f;
-    uint8_t* dev = hook::Global<uint8_t*>(0x6d4024);
+    uint8_t* dev = g_engine;
     if (!F<uint8_t>(dev, 0x11422f)) {
         if (F<void*>(img, 0x2a)) return 0;
         if (F<void*>(img, 0x26)) {
@@ -939,7 +940,7 @@ RT3_NOINLINE int32_t __fastcall Texture_LoadJpeg(uint8_t* t, int, int32_t id, ui
     } else if (F<void*>(img, 0x26)) {
         return 0;
     }
-    FILE* f = NameTable_OpenFile(hook::Global<uint8_t*>(0x6d4020), 0, id, 0);
+    FILE* f = NameTable_OpenFile(g_pack, 0, id, 0);
     struct {
         uint8_t* row;
         uint8_t cinfo[0x1a0];
@@ -952,7 +953,7 @@ RT3_NOINLINE int32_t __fastcall Texture_LoadJpeg(uint8_t* t, int, int32_t id, ui
     ((int(__fastcall*)(void*))0x5b37e0)(l.cinfo);
     int32_t w = F<int32_t>(l.cinfo, 0x52), h = F<int32_t>(l.cinfo, 0x56);
     int32_t n = h * w;
-    dev = hook::Global<uint8_t*>(0x6d4024);
+    dev = g_engine;
     if (w > F<int32_t>(dev, 0x11423b) || h > F<int32_t>(dev, 0x11423f)) return 1;
     if (!F<uint8_t>(dev, 0x11422f) && t[5] && (w > 0x100 || h > 0x100)) return 1;
     uint8_t* rgb = (uint8_t*)Malloc((size_t)(n * 3));
@@ -1029,7 +1030,7 @@ RT3_REPLACE(0x541c30, Texture_LoadJpeg);
 // texture. 0 = done (or nothing to do), 1 = too big for the device or for a small
 // texture (+5, 256 max), 2 = not that kind of TGA / no memory.
 RT3_NOINLINE int32_t __fastcall Texture_LoadTga(uint8_t* tex, int, int32_t id, uint8_t* img) {
-    uint8_t* e = hook::Global<uint8_t*>(0x6d4024);
+    uint8_t* e = g_engine;
     if (!e[0x11422f]) {
         if (F<void*>(img, 0x2a)) return 0;
         if (F<void*>(img, 0x26)) {
@@ -1037,14 +1038,14 @@ RT3_NOINLINE int32_t __fastcall Texture_LoadTga(uint8_t* tex, int, int32_t id, u
             return 0;
         }
     } else if (F<void*>(img, 0x26)) return 0;
-    auto fs = []() { return hook::Global<uint8_t*>(0x6d4020); };
+    auto fs = []() { return g_pack; };
     NameTable_Seek(fs(), 0, id, 0);
     NameTable_EntrySize(fs(), 0, id);
     uint8_t hdr[0x12];
     NameTable_Read(fs(), 0, hdr, 0x12);
     uint16_t w = F<uint16_t>(hdr, 0xc), h = F<uint16_t>(hdr, 0xe);
-    e = hook::Global<uint8_t*>(0x6d4024);
-    if (!hook::Global<int32_t>(0xccbb58) &&
+    e = g_engine;
+    if (!g_ccbb58 &&
         ((int32_t)w > F<int32_t>(e, 0x11423b) || (int32_t)h > F<int32_t>(e, 0x11423f)))
         return 1;
     if (!e[0x11422f] && tex[5] && (w > 0x100 || h > 0x100)) return 1;
@@ -1113,12 +1114,12 @@ RT3_REPLACE(0x542030, Texture_LoadTga);
 RT3_NOINLINE void __stdcall Texture_DecompressDxt3(uint8_t* rec) {
     if (F<void*>(rec, 0x2a) || !F<void*>(rec, 0x2e)) return;
     int32_t w = F<int32_t>(rec, 8), h = F<int32_t>(rec, 0xc);
-    void* dev = F<void*>(hook::Global<uint8_t*>(0x6d4024), 8);
+    void* dev = F<void*>(g_engine, 8);
     auto create = (int32_t(__stdcall*)(void*, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, void**))0x570691;
     void* texA = nullptr;
     void* texB = nullptr;
     create(dev, w, h, 1, 0, 0x33545844, 3, &texA);
-    create(F<void*>(hook::Global<uint8_t*>(0x6d4024), 8), w, h, 1, 0, 0x1a, 3, &texB);
+    create(F<void*>(g_engine, 8), w, h, 1, 0, 0x1a, 3, &texB);
     void* surfA = nullptr;
     void* surfB = nullptr;
     auto level = [](void* tex, void** out) { ((int32_t(__stdcall*)(void*, uint32_t, void**))Vt(tex)[0x3c / 4])(tex, 0, out); };
@@ -1156,7 +1157,7 @@ RT3_REPLACE(0x5423d0, Texture_DecompressDxt3);
 // direction, normalised with a per-slot scale (1.0, growing by k each slot), stored
 // as two signed bytes; marks the image converted (+0x21, format 0x3c).
 RT3_NOINLINE void __fastcall Texture_MakeBumpMaps(uint8_t* o) {
-    if (!hook::Global<uint8_t*>(0x6d4024)[0x11422d] || o[0x95]) return;
+    if (!g_engine[0x11422d] || o[0x95]) return;
     o[0x95] = 1;
     float scale = 1.0f;
     const double k = *(const float*)0x5ca210, zero = *(const float*)0x5c8598, k3 = *(const float*)0x5ca0ec;
@@ -1235,7 +1236,7 @@ RT3_NOINLINE void __fastcall Texture_SaveJpeg(uint8_t* t, int, void* f, uint32_t
     int32_t n = h * w;
     uint8_t* alpha = (uint8_t*)Malloc((size_t)n);
     uint8_t* rgb = (uint8_t*)Malloc((size_t)(n * 3));
-    if (F<uint8_t>(hook::Global<uint8_t*>(0x6d4024), 0x11424f)) Texture_Pixels32(t, 0, nullptr, nullptr, 0);
+    if (F<uint8_t>(g_engine, 0x11424f)) Texture_Pixels32(t, 0, nullptr, nullptr, 0);
     const uint32_t* px = F<uint32_t*>(F<uint8_t*>(t, 0xa0), 0x26);
     uint8_t* a = alpha;
     uint8_t* c = rgb;
@@ -1317,7 +1318,7 @@ RT3_REPLACE(0x542b30, Texture_SaveTga);
 
 // 0x542c10. Releases every texture's render target (device lost).
 RT3_NOINLINE void __fastcall Textures_ReleaseTargets() {
-    for (uint8_t* t = hook::Global<uint8_t*>(0xccbb2c); t; t = F<uint8_t*>(t, 0)) {
+    for (uint8_t* t = g_ccbb2c; t; t = F<uint8_t*>(t, 0)) {
         if (!F<int32_t>(t, 7)) continue;
         if (void* p = F<void*>(t, 0xc0)) {
             Release(p);
@@ -1332,7 +1333,7 @@ RT3_NOINLINE void __fastcall Textures_ReleaseTargets() {
         F<int32_t>(t, 0xcc) = 0;
         F<int32_t>(t, 0xd0) = 0;
         F<int32_t>(t, 0xd4) = 0;
-        if (gen) hook::Global<int32_t>(0xccbb34)--;
+        if (gen) g_ccbb34--;
         F<int32_t>(t, 7) = 0;
     }
     Engine_SampleTextureMem(Engine());
@@ -1342,7 +1343,7 @@ RT3_REPLACE(0x542c10, Textures_ReleaseTargets);
 // 0x542c90. Texture teardown: frees its lists, unlinks it from the global texture
 // list, restores the back buffer if it was a render target and frees everything.
 RT3_NOINLINE void __fastcall Texture_Destroy(uint8_t* t) {
-    uint8_t* head = hook::Global<uint8_t*>(0xccbb2c);
+    uint8_t* head = g_ccbb2c;
     static const uint32_t lists[] = { 0xdc, 0xe4 };
     for (uint32_t off : lists) {
         if (PtrList* l = F<PtrList*>(t, off)) {
@@ -1351,8 +1352,8 @@ RT3_NOINLINE void __fastcall Texture_Destroy(uint8_t* t) {
         }
     }
     F<int32_t>(t, 0xe0) = 0;
-    if (hook::Global<uint8_t*>(0xccbb2c) == t) {
-        hook::Global<uint8_t*>(0xccbb2c) = F<uint8_t*>(t, 0);
+    if (g_ccbb2c == t) {
+        g_ccbb2c = F<uint8_t*>(t, 0);
     } else {
         for (uint8_t* p = head; p; p = F<uint8_t*>(p, 0))
             if (F<uint8_t*>(p, 0) == t) {
@@ -1373,19 +1374,19 @@ RT3_REPLACE(0x542c90, Texture_Destroy);
 // (+0x11423b/+0x11423f) or the texture (Texture_MaxSize), 2 = not a DDS / no memory.
 // Unpacks it right away when compressed textures are off (+0x11422f clear).
 RT3_NOINLINE int32_t __fastcall Texture_LoadDds(uint8_t* o, int, int32_t id, uint8_t* img) {
-    uint8_t* e = hook::Global<uint8_t*>(0x6d4024);
+    uint8_t* e = g_engine;
     if ((!e[0x11422f] && F<void*>(img, 0x2a)) || F<void*>(img, 0x2e)) return 0;
-    uint8_t* fs = hook::Global<uint8_t*>(0x6d4020);
+    uint8_t* fs = g_pack;
     NameTable_Seek(fs, 0, id, 0);
-    uint32_t size = (uint32_t)NameTable_EntrySize(hook::Global<uint8_t*>(0x6d4020), 0, id);
+    uint32_t size = (uint32_t)NameTable_EntrySize(g_pack, 0, id);
     uint8_t* buf = (uint8_t*)Malloc(size);
     int32_t hdr = size < 0x80 ? (int32_t)size : 0x80;
-    NameTable_Read(hook::Global<uint8_t*>(0x6d4020), 0, buf, hdr);
+    NameTable_Read(g_pack, 0, buf, hdr);
     if (F<uint32_t>(buf, 0) != 0x20534444) {
         Free(buf);
         return 2;
     }
-    e = hook::Global<uint8_t*>(0x6d4024);
+    e = g_engine;
     int32_t w = F<int32_t>(buf, 0x10), h = F<int32_t>(buf, 0xc);
     if ((uint32_t)w > F<uint32_t>(e, 0x11423b) || (uint32_t)h > F<uint32_t>(e, 0x11423f)) {
         Free(buf);
@@ -1396,7 +1397,7 @@ RT3_NOINLINE int32_t __fastcall Texture_LoadDds(uint8_t* o, int, int32_t id, uin
         Free(buf);
         return 1;
     }
-    if (hdr < (int32_t)size) NameTable_Read(hook::Global<uint8_t*>(0x6d4020), 0, buf + hdr, size - hdr);
+    if (hdr < (int32_t)size) NameTable_Read(g_pack, 0, buf + hdr, size - hdr);
     uint32_t n = (uint32_t)(h / 4 * (w / 4)) << 4; // whole 4x4 blocks only (signed division, as the original)
     uint8_t* data = (uint8_t*)Malloc(n);
     if (!data) {
@@ -1417,7 +1418,7 @@ RT3_NOINLINE int32_t __fastcall Texture_LoadDds(uint8_t* o, int, int32_t id, uin
     F<uint32_t>(img, 4) = n;
     F<uint8_t*>(img, 0x22) = data;
     img[0x20] = (h >= 0x80 || w >= 0x80) ? 1 : 0;
-    if (!hook::Global<uint8_t*>(0x6d4024)[0x11422f]) Texture_DecompressDxt3(img);
+    if (!g_engine[0x11422f]) Texture_DecompressDxt3(img);
     return 0;
 }
 RT3_REPLACE(0x542d50, Texture_LoadDds);
@@ -1518,20 +1519,20 @@ RT3_REPLACE(0x543080, Texture_Load);
 // second, and reloads at that budget the small ones (when free memory
 // exceeds the total x 0x5cadc0 x 0x5c85a8) or else the big ones over it.
 RT3_NOINLINE void __fastcall Textures_Manage(int32_t now, int32_t statsOnly) {
-    int32_t calls = ++hook::Global<int32_t>(0xccbb38);
+    int32_t calls = ++g_ccbb38;
     if (!now) {
-        if (ClockMs() - hook::Global<int32_t>(0xccbb54) < 300) return;
-        hook::Global<int32_t>(0xccbb54) = ClockMs();
+        if (ClockMs() - g_ccbb54 < 300) return;
+        g_ccbb54 = ClockMs();
         uint8_t* cam = F<uint8_t*>(Engine(), 0x28);
         if (!cam) return;
         int32_t need = 0xff;
         if (calls >= 0xff) {
-            double m = fabs((double)F<float>(cam, 0xc) - hook::Global<float>(0xccbb50));
-            m += fabs((double)F<float>(cam, 8) - hook::Global<float>(0xccbb4c));
-            m += fabs((double)F<float>(cam, 4) - hook::Global<float>(0xccbb48));
-            m += fabs((double)F<float>(cam, 0x24) - hook::Global<float>(0xccbb44));
-            m += fabs((double)F<float>(cam, 0x20) - hook::Global<float>(0xccbb40));
-            m += fabs((double)F<float>(cam, 0x1c) - hook::Global<float>(0xccbb3c));
+            double m = fabs((double)F<float>(cam, 0xc) - g_ccbb50);
+            m += fabs((double)F<float>(cam, 8) - g_ccbb4c);
+            m += fabs((double)F<float>(cam, 4) - g_ccbb48);
+            m += fabs((double)F<float>(cam, 0x24) - g_ccbb44);
+            m += fabs((double)F<float>(cam, 0x20) - g_ccbb40);
+            m += fabs((double)F<float>(cam, 0x1c) - g_ccbb3c);
             float mf = (float)m;
             if (m > *(const float*)0x5c86a0)
                 need = 0x9fb;
@@ -1550,16 +1551,16 @@ RT3_NOINLINE void __fastcall Textures_Manage(int32_t now, int32_t statsOnly) {
             else if (mf > *(const double*)0x5c8628)
                 need = 0x172;
         }
-        hook::Global<uint32_t>(0xccbb3c) = F<uint32_t>(cam, 0x1c);
-        hook::Global<uint32_t>(0xccbb40) = F<uint32_t>(cam, 0x20);
-        hook::Global<uint32_t>(0xccbb44) = F<uint32_t>(cam, 0x24);
-        hook::Global<uint32_t>(0xccbb48) = F<uint32_t>(cam, 4);
-        hook::Global<uint32_t>(0xccbb4c) = F<uint32_t>(cam, 8);
-        hook::Global<uint32_t>(0xccbb50) = F<uint32_t>(cam, 0xc);
+        hook::As<uint32_t>(g_ccbb3c) = F<uint32_t>(cam, 0x1c);
+        hook::As<uint32_t>(g_ccbb40) = F<uint32_t>(cam, 0x20);
+        hook::As<uint32_t>(g_ccbb44) = F<uint32_t>(cam, 0x24);
+        hook::As<uint32_t>(g_ccbb48) = F<uint32_t>(cam, 4);
+        hook::As<uint32_t>(g_ccbb4c) = F<uint32_t>(cam, 8);
+        hook::As<uint32_t>(g_ccbb50) = F<uint32_t>(cam, 0xc);
         if (calls < need) return;
     }
-    uint8_t* list = hook::Global<uint8_t*>(0xccbb2c);
-    hook::Global<int32_t>(0xccbb38) = 0;
+    uint8_t* list = g_ccbb2c;
+    g_ccbb38 = 0;
     int32_t frame = F<int32_t>((uint8_t*)Engine_Renderer(Engine()), 5);
     int32_t total = Engine_TotalTextureMem(Engine());
     int32_t resident;
@@ -1567,8 +1568,8 @@ RT3_NOINLINE void __fastcall Textures_Manage(int32_t now, int32_t statsOnly) {
     resident += Obj_Sub2543(Engine());
     int32_t room = (int32_t)((double)total * *(const float*)0x5cadc0);
     int32_t freeMem = total - resident;
-    if (hook::Global<int32_t>(0xccbb34))
-        hook::Global<int32_t>(0xccbb28) = (int32_t)((double)(total / hook::Global<int32_t>(0xccbb34)) * *(const double*)0x5c87d8);
+    if (g_ccbb34)
+        g_ccbb28 = (int32_t)((double)(total / g_ccbb34) * *(const double*)0x5c87d8);
     if (statsOnly) return;
     for (uint8_t* t = list; t; t = *(uint8_t**)t) {
         if (!t[5] || F<int32_t>(t, 0xd4) >= frame - 1000) continue;
@@ -1578,22 +1579,22 @@ RT3_NOINLINE void __fastcall Textures_Manage(int32_t now, int32_t statsOnly) {
         }
         Texture_FreePixels(t);
     }
-    if (!hook::Global<int32_t>(0xccbb34)) return;
+    if (!g_ccbb34) return;
     auto cost = [](uint8_t* t) { return (int32_t)(((double)t[5] * *(const double*)0x5dd8f8 + *(const double*)0x5ca250) * F<int32_t>(t, 0xd0)); };
     if ((double)room * *(const double*)0x5c85a8 < (double)freeMem) {
-        for (uint8_t* t = hook::Global<uint8_t*>(0xccbb2c); t; t = *(uint8_t**)t) {
+        for (uint8_t* t = g_ccbb2c; t; t = *(uint8_t**)t) {
             if (!F<uint32_t>(t, 7) || t[6] || !t[5]) continue;
-            if (cost(t) >= hook::Global<int32_t>(0xccbb28)) continue;
+            if (cost(t) >= g_ccbb28) continue;
             Texture_DropTarget(t);
-            Texture_Load(t, 0, hook::Global<int32_t>(0xccbb28), 0);
+            Texture_Load(t, 0, g_ccbb28, 0);
         }
     } else {
-        for (uint8_t* t = hook::Global<uint8_t*>(0xccbb2c); t; t = *(uint8_t**)t) {
+        for (uint8_t* t = g_ccbb2c; t; t = *(uint8_t**)t) {
             if (!F<uint32_t>(t, 7) || !t[5]) continue;
             int32_t c = cost(t);
-            if (c <= hook::Global<int32_t>(0xccbb28) || c <= 0x84d0) continue;
+            if (c <= g_ccbb28 || c <= 0x84d0) continue;
             Texture_DropTarget(t);
-            Texture_Load(t, 0, hook::Global<int32_t>(0xccbb28), 0);
+            Texture_Load(t, 0, g_ccbb28, 0);
         }
     }
     Engine_SampleTextureMem(Engine());
@@ -1656,7 +1657,7 @@ RT3_NOINLINE int32_t __fastcall Texture_Upload(uint8_t* t, int, void* dev, uint8
         F<void*>(e, 0x22) = nullptr;
     }
     F<uint32_t>(t, 7) = F<uint32_t>(Engine(), 0x114222);
-    ++hook::Global<int32_t>(0xccbb34);
+    ++g_ccbb34;
     Engine_SampleTextureMem(Engine());
     Texture_CountMemory(t);
     return 0;
@@ -1809,12 +1810,12 @@ void __fastcall Mouse_Poll(uint8_t* m) {
     float dz = (float)((double)st.z * k);
     int32_t right = st.b[2] != 0;
     int32_t big = fabs((double)dz) > *(const double*)0x5c8988 ? 1 : 0;
-    if (right != hook::Global<int32_t>(0xccbb5c) || big != hook::Global<int32_t>(0xccbb60)) {
+    if (right != g_ccbb5c || big != g_ccbb60) {
         dy = 0.0f;
         dx = 0.0f;
     }
-    hook::Global<int32_t>(0xccbb5c) = right;
-    hook::Global<int32_t>(0xccbb60) = big;
+    g_ccbb5c = right;
+    g_ccbb60 = big;
     double sx = (double)dx + F<float>(m, 9);
     F<float>(m, 9) = (float)sx;
     float sy = (float)((double)dy + F<float>(m, 0xd));
@@ -1835,7 +1836,7 @@ void __fastcall Mouse_Poll(uint8_t* m) {
     if (st.b[1]) f |= 4;
     if (st.b[2]) f |= 2;
     F<uint32_t>(m, 0x1d) = f;
-    if (uint8_t* in = hook::Global<uint8_t*>(0x6d4018))
+    if (uint8_t* in = g_input)
         Input_OnMouse(in, 0, F<float>(m, 9), F<float>(m, 0xd), dz, (int32_t)(f & 1), (int32_t)(f & 2), (int32_t)(f & 4));
 }
 RT3_REPLACE(0x543c50, Mouse_Poll);
@@ -1847,7 +1848,7 @@ RT3_NOINLINE uint32_t __fastcall Input_Flag2000() { return Input() ? F<uint32_t>
 RT3_REPLACE(0x543e20, Input_Flag2000);
 
 RT3_NOINLINE uint32_t __fastcall Input_Flag800() {
-    uint8_t* in = hook::Global<uint8_t*>(0x6d4018);
+    uint8_t* in = g_input;
     return in ? F<uint32_t>(in, 0xa8c) & 0x800 : 0;
 }
 RT3_REPLACE(0x543e40, Input_Flag800);
@@ -1882,7 +1883,7 @@ int32_t __fastcall Renderer_CreateBuffers(uint8_t* r) {
     VertexBuffer(r, 0x1fffe0, 0x208, 0x112, 0x2643, 0x6a);
     VertexBuffer(r, 0x1fffe0, 0x208, 0x112, 0x265b, 0x6b);
     VertexBuffer(r, 0x17ffe8, 0x208, 0x142, 0x2663, 0x6c);
-    uint8_t* e = hook::Global<uint8_t*>(0x6d4024);
+    uint8_t* e = g_engine;
     if (!e[0x11422e]) {
         F<void*>(r, 0x265f) = nullptr;
         void* dev = Device(r);

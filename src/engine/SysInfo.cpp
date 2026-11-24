@@ -9,6 +9,7 @@
 #include <math.h>
 #include <initializer_list>
 #include "hook/hook.h"
+#include "core/globals.h"
 #include "core/crt.h"
 #include "core/containers.h"
 #include "hook/keepregs.h"
@@ -96,7 +97,7 @@ static void EditBox_PostDone(uint8_t* w) {
     ev[1] = F<uint16_t>(w, 4);
     ev[0] = 0xca;
     ev[11] = (uint32_t)(uintptr_t)w;
-    Input_PushEvent(hook::Global<uint8_t*>(0x6d4018), 0, ev);
+    Input_PushEvent(g_input, 0, ev);
 }
 
 static inline double D(uint32_t a) { return *(const double*)a; }
@@ -317,28 +318,28 @@ RT3_REPLACE(0x55d3b0, SysInfo_CpuVendor);
 const char* __fastcall SysInfo_CpuName() { return (const char*)0xd97405; }
 RT3_REPLACE(0x55d3c0, SysInfo_CpuName);
 
-RT3_NOINLINE uint32_t __fastcall SysInfo_CpuSignature() { return hook::Global<uint32_t>(0xd9743b); }
+RT3_NOINLINE uint32_t __fastcall SysInfo_CpuSignature() { return g_d9743b; }
 RT3_REPLACE(0x55d3d0, SysInfo_CpuSignature);
 
-uint32_t __fastcall SysInfo_HasFeature0() { return hook::Global<uint32_t>(0xd97433) & 1; }
+uint32_t __fastcall SysInfo_HasFeature0() { return g_d97433 & 1; }
 RT3_REPLACE(0x55d3e0, SysInfo_HasFeature0);
 
-uint32_t __fastcall SysInfo_HasFeature1() { return (hook::Global<uint32_t>(0xd97433) >> 1) & 1; }
+uint32_t __fastcall SysInfo_HasFeature1() { return (g_d97433 >> 1) & 1; }
 RT3_REPLACE(0x55d3f0, SysInfo_HasFeature1);
 
-uint32_t __fastcall SysInfo_HasFeature2() { return (hook::Global<uint32_t>(0xd97433) >> 2) & 1; }
+uint32_t __fastcall SysInfo_HasFeature2() { return (g_d97433 >> 2) & 1; }
 RT3_REPLACE(0x55d400, SysInfo_HasFeature2);
 
-uint32_t __fastcall SysInfo_HasFeature3() { return (hook::Global<uint32_t>(0xd97433) >> 3) & 1; }
+uint32_t __fastcall SysInfo_HasFeature3() { return (g_d97433 >> 3) & 1; }
 RT3_REPLACE(0x55d410, SysInfo_HasFeature3);
 
-uint32_t __fastcall SysInfo_TotalMemory() { return hook::Global<uint32_t>(0xd97550); }
+uint32_t __fastcall SysInfo_TotalMemory() { return g_d97550; }
 RT3_REPLACE(0x55d430, SysInfo_TotalMemory);
 
 // 0x55d440. Refreshes the memory status (0xd97548) and returns the free physical memory.
 uint32_t __fastcall SysInfo_FreeMemory() {
     Import<void(__stdcall*)(void*)>(0x5c81d8)((void*)0xd97548);
-    return hook::Global<uint32_t>(0xd97554);
+    return g_d97554;
 }
 RT3_REPLACE(0x55d440, SysInfo_FreeMemory);
 
@@ -362,7 +363,7 @@ char* Os_VersionName() {
     OSVERSIONINFOEXA vi;
     memset(&vi, 0, sizeof vi);
     vi.dwOSVersionInfoSize = 0x9c;
-    if (!((BOOL(WINAPI*)(OSVERSIONINFOA*))hook::Global<void*>(0x5c81d4))((OSVERSIONINFOA*)&vi)) return nullptr;
+    if (!((BOOL(WINAPI*)(OSVERSIONINFOA*))g_5c81d4)((OSVERSIONINFOA*)&vi)) return nullptr;
     if (vi.dwPlatformId == 1) {
         strcpy(out, (const char*)(vi.dwMinorVersion < 10 ? 0x5ddf5c : vi.dwMinorVersion < 90 ? 0x5ddf50 : 0x5ddf44));
         return out;
@@ -433,7 +434,7 @@ RT3_REPLACE(0x55d980, Sys_Call5c81d0);
 const char* __fastcall Error_Message(uint32_t code) {
     for (uint32_t i = 0; i < code; ++i)
         if (code == ((const uint32_t*)0x6257f8)[i * 2]) return GetString(((const int32_t*)0x6257fc)[i * 2]);
-    return GetString(hook::Global<int32_t>(0x6257fc));
+    return GetString(g_6257fc);
 }
 RT3_REPLACE(0x55d990, Error_Message);
 
@@ -464,7 +465,7 @@ void SysInfo_Init() {
     memset((void*)0xd973f8, 0, 0x4b);
     memset((void*)0xd97548, 0, 0x20);
     hook::Global<void(__stdcall*)(void*)>(0x5c81d8)((void*)0xd97548);
-    hook::Global<uint32_t>(0xd9743b) = (uint32_t)SysInfo_CpuMhz();
+    g_d9743b = (uint32_t)SysInfo_CpuMhz();
     if (!Cpu_HasCpuid()) return;
     int r[4];
     char vendor[13];
@@ -497,20 +498,20 @@ void SysInfo_Init() {
         have |= 4;
         if (Cpu_ProbeFeature(4)) {
             usable |= 4;
-            hook::Global<int32_t>(0xd9743f) = 1;
+            g_d9743f = 1;
         }
     }
-    ((void(__cdecl*)(int32_t))0x5a4376)(hook::Global<int32_t>(0xd9743f));
-    hook::Global<uint32_t>(0xd97433) = usable;
-    hook::Global<uint32_t>(0xd9742f) = have;
-    hook::Global<uint32_t>(0xd9742b) = sig & 0xf;
+    ((void(__cdecl*)(int32_t))0x5a4376)(g_d9743f);
+    g_d97433 = usable;
+    g_d9742f = have;
+    g_d9742b = sig & 0xf;
     uint32_t family = sig >> 8 & 0xf;
-    hook::Global<uint32_t>(0xd97423) = family;
-    if (family == 0xf) hook::Global<uint32_t>(0xd97423) = ((sig & 0xff00000) | 0xf0000) >> 16;
-    hook::Global<uint32_t>(0xd97427) = sig >> 4 & 0xf;
+    g_d97423 = family;
+    if (family == 0xf) g_d97423 = ((sig & 0xff00000) | 0xf0000) >> 16;
+    g_d97427 = sig >> 4 & 0xf;
     strcpy((char*)0xd973f8, vendor);
-    Cpu_Name_Impl((char*)0xd97405, (const char*)0xd973f8, hook::Global<int32_t>(0xd97427), hook::Global<int32_t>(0xd97423));
-    hook::Global<int32_t>(0xd97437) = 0xf;
+    Cpu_Name_Impl((char*)0xd97405, (const char*)0xd973f8, hook::As<int32_t>(g_d97427), hook::As<int32_t>(g_d97423));
+    g_d97437 = 0xf;
 }
 RT3_REPLACE(0x55da40, SysInfo_Init);
 
@@ -562,7 +563,7 @@ RT3_REPLACE(0x55dd80, Display_DestroyRenderer);
 // the +0x49 preset validates, otherwise falls back to a simpler +0x4d and
 // +0x59; multitexture (0x114250, unless already known) by the +0x35 preset.
 void __fastcall View_RecordStagePresets(uint8_t* s) {
-    uint8_t* e = hook::Global<uint8_t*>(0x6d4024);
+    uint8_t* e = g_engine;
     uint32_t mod = (F<int32_t>(e, 0x11423f) > 0x100 || F<int32_t>(e, 0x11423b) > 0x100) ? 5 : 4;
     struct Op {
         uint8_t alpha;
@@ -582,9 +583,9 @@ void __fastcall View_RecordStagePresets(uint8_t* s) {
         else Render_SetColorOp(F<uint8_t*>(s, 0x2d), 0, o.stage, o.a1, o.op ? o.op : mod, o.a2, 0);
     }
     Render_ResetStageCache(F<uint8_t*>(s, 0x2d));
-    hook::Global<uint8_t*>(0x6d4024)[0x114251] = 0;
+    g_engine[0x114251] = 0;
     if ((uint8_t)Render_ValidateStates(F<uint8_t*>(s, 0x2d), 0, F<const uint32_t*>(s, 0x49))) {
-        hook::Global<uint8_t*>(0x6d4024)[0x114251] = 1;
+        g_engine[0x114251] = 1;
     } else if (!(uint8_t)Render_ValidateStates(F<uint8_t*>(s, 0x2d), 0, F<const uint32_t*>(s, 0x4d))) {
         F<uint32_t*>(s, 0x4d)[1] = 2;
         F<uint32_t*>(s, 0x4d)[2] = 1;
@@ -597,8 +598,8 @@ void __fastcall View_RecordStagePresets(uint8_t* s) {
         F<uint32_t*>(s, 0x59)[4] = 0;
         F<uint32_t*>(s, 0x59)[5] = 0;
     }
-    if (hook::Global<uint8_t*>(0x6d4024)[0x114250] == 0xff)
-        hook::Global<uint8_t*>(0x6d4024)[0x114250] = (uint8_t)Render_ValidateStates(F<uint8_t*>(s, 0x2d), 0, F<const uint32_t*>(s, 0x35));
+    if (g_engine[0x114250] == 0xff)
+        g_engine[0x114250] = (uint8_t)Render_ValidateStates(F<uint8_t*>(s, 0x2d), 0, F<const uint32_t*>(s, 0x35));
 }
 RT3_REPLACE(0x55ddc0, View_RecordStagePresets);
 

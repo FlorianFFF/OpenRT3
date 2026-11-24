@@ -9,6 +9,7 @@
 #include <math.h>
 #include <initializer_list>
 #include "hook/hook.h"
+#include "core/globals.h"
 #include "game/collection.h"
 #include "hook/keepregs.h"
 #include "core/crt.h"
@@ -24,21 +25,16 @@
 namespace rt3 {
 
 template <typename T> static inline T& F(void* o, uint32_t off) { return *(T*)((uint8_t*)o + off); }
-static Collection*& g_table62b2fc = hook::Global<Collection*>(0x62b2fc);
 double __fastcall Obj_CellX(void* o);
 double __fastcall Obj_CellY(void* o);
 uint32_t __fastcall Map_GridByte(void* m, int, float x, float y);
 
  // region types
-static Collection*& g_table6cec20 = hook::Global<Collection*>(0x6cec20);
 
-static Collection*& g_table62b268 = hook::Global<Collection*>(0x62b268);
 int32_t __fastcall Obj_BuildingStateActive(void* o);
 int __fastcall ToUpper(char c);
-static uint8_t*& g_world = hook::Global<uint8_t*>(0x6cec78);
 uint32_t __fastcall Table_FindByName2(Collection* t, int, const char* name, int32_t);
 void* __fastcall Obj_Building(void* o);
-static uint8_t*& g_cargoTypes = hook::Global<uint8_t*>(0x62ba8c);
 void __fastcall Obj_RefreshHighlight(void* o);
 int32_t __fastcall Vehicle_Available(void*, int, uint8_t* rec, int32_t flag);
 uint8_t __fastcall Obj_Flag3d4(void* o);
@@ -50,7 +46,6 @@ int32_t __fastcall Obj_Available(void* o);
 int32_t __fastcall SimRand(int32_t lo, int32_t hi);
 int32_t __stdcall Bracket5(int32_t value);
 void __fastcall Obj_SetPriority(void* o);
-static Collection*& g_companies   = hook::Global<Collection*>(0x62be10);
 uint8_t* __fastcall Obj_Region(void* o);
 void __fastcall Obj_TouchRegionSites(void* o);
 uint32_t __fastcall Obj_NodeNotify(uint8_t* o, int, int32_t flag);
@@ -411,7 +406,7 @@ RT3_NOINLINE void __fastcall StationWindow_PickCargo(uint8_t* w, int, int32_t ca
 
 static inline int ExeStricmp(const char* a, const char* b) { return ((int(__cdecl*)(const char*, const char*))0x5a57cf)(a, b); }
 
-static inline uint8_t* TypeOf173(void* o) { return (uint8_t*)Collection_Get(g_table62b268, 0, F<uint32_t>(o, 0x173)); }
+static inline uint8_t* TypeOf173(void* o) { return (uint8_t*)Collection_Get(g_62b268, 0, F<uint32_t>(o, 0x173)); }
 
 // 0x40dba0 / 0x40dbf0. With virtual slot 28, notifies the site's node
 // (slot 1 / 2) and sets +0x42 to 0 / 1.
@@ -419,7 +414,7 @@ static uint32_t NotifySite(uint8_t* o, int32_t flag) {
     uint32_t r = ((uint32_t(__thiscall*)(void*))(*(void***)o)[0x70 / 4])(o);
     if (r) {
         uint32_t id = F<uint32_t>(o, 0x2a8);
-        uint8_t* site = id ? (uint8_t*)Collection_Get(g_table6cec20, 0, id) : nullptr;
+        uint8_t* site = id ? (uint8_t*)Collection_Get(g_stations, 0, id) : nullptr;
         r = Obj_NodeNotify(site, 0, flag);
     }
     o[0x42] = flag ? 0 : 1;
@@ -437,9 +432,9 @@ static void ShiftHistories(uint8_t* o, uint32_t first) {
     for (int a = 0; a < 5; ++a) F<uint32_t>(o, first + a * 0x28) = 0;
 }
 
-static inline uint8_t* World() { return hook::Global<uint8_t*>(0x6cec78); }
+static inline uint8_t* World() { return g_world; }
 
-static inline uint8_t* Map() { return hook::Global<uint8_t*>(0x62c120); }
+static inline uint8_t* Map() { return g_map; }
 
 // Formats string id with one argument and exits with it.
 static void FatalFormat(int32_t id, const char* arg) {
@@ -448,7 +443,7 @@ static void FatalFormat(int32_t id, const char* arg) {
     Fatal_Exit(msg);
 }
 
-static inline uint8_t* Packs() { return hook::Global<uint8_t*>(0x6d4020); }
+static inline uint8_t* Packs() { return g_pack; }
 
 static inline void Format0(char* dst, uint32_t fmt, const char* a1 = nullptr) {
     FormatText(dst, (const char*)fmt, a1, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
@@ -479,7 +474,7 @@ static inline double Fl_189(uint32_t a) { return *(const float*)a; }
 
 // Raises the record's minimum year (+0x20, s16) to that of cargo `id`.
 static void RaiseYear(uint8_t* rec, uint32_t id) {
-    int32_t v = F<int32_t>(Collection_Get(hook::Global<Collection*>(0x62ba8c), 0, id), 0x21);
+    int32_t v = F<int32_t>(Collection_Get(g_cargoTypes, 0, id), 0x21);
     int32_t own = F<int16_t>(rec, 0x20);
     if (own > v) v = own;
     F<int16_t>(rec, 0x20) = (int16_t)v;
@@ -547,9 +542,9 @@ int32_t Count_RecordsOfClass(Collection* c, uint8_t cls) {
 void Vote_BuildState(uint8_t* st, const uint8_t* d, uint32_t mask, uint32_t present, uint32_t voted) {
     F<uint16_t>(st, 4) = d[4];
     F<uint16_t>(st, 6) = d[5];
-    for (int32_t i = 0; i < Collection_Count(hook::Global<Collection*>(0x6ceb9c)); ++i) {
+    for (int32_t i = 0; i < Collection_Count(g_players); ++i) {
         st[present + i] = 1;
-        Collection* c = hook::Global<Collection*>(0x6ceb9c);
+        Collection* c = g_players;
         uint8_t* e = (uint8_t*)Collection_Get(c, 0, Collection_IdAt(c, 0, (uint32_t)i, 0));
         if (!F<int32_t>(e, 0x1e1) || !F<int32_t>(e, 4) || (mask & (1u << i))) st[voted + i] = 1;
     }
@@ -626,7 +621,7 @@ uint32_t __fastcall Obj_SetWorld66ba(void* o, int, int32_t v) {
 RT3_REPLACE(0x40cb10, Obj_SetWorld66ba);
 
 // 0x40cb40 (vtable stub).
-float __fastcall Const5c8900_40cb40(void*) { return hook::Global<float>(0x5c8900); }
+float __fastcall Const5c8900_40cb40(void*) { return g_5c8900; }
 RT3_REPLACE(0x40cb40, Const5c8900_40cb40);
 
  // namespace
@@ -647,7 +642,7 @@ RT3_REPLACE(0x40cb60, Obj_Slot68Rounded_40cb60);
 RT3_NOINLINE uint32_t __fastcall Obj_GridByte(void* o) {
     float y = (float)Obj_CellY(o);
     float x = (float)Obj_CellX(o);
-    return Map_GridByte(hook::Global<void*>(0x62c120), 0, x, y);
+    return Map_GridByte(hook::As<void*>(g_map), 0, x, y);
 }
 RT3_REPLACE(0x40cb70, Obj_GridByte);
 
@@ -727,10 +722,10 @@ RT3_REPLACE(0x40ccf0, Obj_BuildingState8c);
 // 0x40cd10. With option +0x1c3, looks up (and discards) every site of the
 // region's key list. Kept for exact behaviour.
 RT3_NOINLINE void __fastcall Obj_TouchRegionSites(void* o) {
-    if (!F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x1c3) || F<uint8_t>(o, 0x3d4) != 1) return;
+    if (!F<int32_t>(g_app, 0x1c3) || F<uint8_t>(o, 0x3d4) != 1) return;
     uint8_t* r = Obj_Region(o);
     for (int32_t i = 0; i < F<int32_t>(r, 0xeb); ++i)
-        Collection_Get(g_table6cec20, 0, F<uint16_t>(F<uint8_t*>(r, 0xef), i * 6));
+        Collection_Get(g_stations, 0, F<uint16_t>(F<uint8_t*>(r, 0xef), i * 6));
 }
 RT3_REPLACE(0x40cd10, Obj_TouchRegionSites);
 
@@ -739,11 +734,11 @@ RT3_REPLACE(0x40cd10, Obj_TouchRegionSites);
 RT3_NOINLINE void __fastcall Obj_ResolveType3ae(uint8_t* o) {
     F<uint32_t>(o, 0x3cc) = 0;
     F<uint32_t>(o, 0x3d0) = 0;
-    for (int32_t i = 0; i < Collection_Count(hook::Global<Collection*>(0x62b2fc)); ++i) {
-        Collection* c = hook::Global<Collection*>(0x62b2fc);
+    for (int32_t i = 0; i < Collection_Count(g_buildingTypes); ++i) {
+        Collection* c = g_buildingTypes;
         if (Stricmp((const char*)o + 0x3ae, (const char*)Collection_Get(c, 0, Collection_IdAt(c, 0, i, 0)) + 4)) continue;
-        F<uint32_t>(o, 0x3cc) = Collection_IdAt(hook::Global<Collection*>(0x62b2fc), 0, i, 0);
-        c = hook::Global<Collection*>(0x62b2fc);
+        F<uint32_t>(o, 0x3cc) = Collection_IdAt(g_buildingTypes, 0, i, 0);
+        c = g_buildingTypes;
         F<uint32_t>(o, 0x3d0) = F<uint32_t>(Collection_Get(c, 0, Collection_IdAt(c, 0, i, 0)), 0x173);
         break;
     }
@@ -761,10 +756,10 @@ int32_t __fastcall Building_LoadRenamed(uint8_t* o, int, int32_t s) {
 }
 RT3_REPLACE(0x40ce60, Building_LoadRenamed);
 
-RT3_NOINLINE void* __fastcall Obj_Ref3cc(void* o) { return Collection_Get(g_table62b2fc, 0, F<uint32_t>(o, 0x3cc)); }
+RT3_NOINLINE void* __fastcall Obj_Ref3cc(void* o) { return Collection_Get(g_buildingTypes, 0, F<uint32_t>(o, 0x3cc)); }
 RT3_REPLACE(0x40cec0, Obj_Ref3cc);
 
-void* __fastcall Obj_Station3d0(uint8_t* o) { return Collection_Get(hook::Global<Collection*>(0x62b268), 0, F<uint32_t>(o, 0x3d0)); }
+void* __fastcall Obj_Station3d0(uint8_t* o) { return Collection_Get(g_62b268, 0, F<uint32_t>(o, 0x3d0)); }
 RT3_REPLACE(0x40cee0, Obj_Station3d0);
 
 // 0x40cf00. For an object being placed (+0x3d4 == 1) with a shape (+0x24e):
@@ -782,7 +777,7 @@ void __fastcall Obj_ShowConstructCursor(uint8_t* o, int, float scale) {
     F<uint8_t*>(o, 0x25a) = e;
     Obj_SetAllBc(e, 2);
     int32_t b[4];
-    Shape_Bounds(hook::Global<void*>(0x62b2fc), 0, F<uint8_t*>(o, 0x24e), b);
+    Shape_Bounds(hook::As<void*>(g_buildingTypes), 0, F<uint8_t*>(o, 0x24e), b);
     float pos[3];
     SceneObj_GetPos(o, 0, (uint32_t*)&pos[0], (uint32_t*)&pos[1], (uint32_t*)&pos[2]);
     Store3Globals((int32_t*)pos);
@@ -806,7 +801,7 @@ RT3_NOINLINE void __fastcall ModelObj_SelectTrackTool(uint8_t* object) {
     int32_t mode = result ? 5 : 10;
     int32_t id = F_runtime_wrappers<int32_t>(object, result ? 0x2a8 : 0x2a4);
     hook::Orig<void(__fastcall*)(void*, int, int32_t, int32_t)>(0x4ddbd0)(
-        hook::Global<void*>(0x6d0818), 0, mode, id);
+        hook::As<void*>(g_gameWindow), 0, mode, id);
     hook::Orig<void(__fastcall*)(uint8_t*)>(0x45b400)(object);
 }
 RT3_REPLACE(0x40d120, ModelObj_SelectTrackTool);
@@ -814,8 +809,8 @@ RT3_REPLACE(0x40d120, ModelObj_SelectTrackTool);
 // 0x40d170. Gives building o its upgraded model when its type's (+0x3cc in
 // 0x62b2fc) upgrade group (+0x173 in 0x62b268) has +0x4b.
 void __fastcall Building_RefreshUpgrade(uint8_t* o) {
-    uint8_t* type = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62b2fc), 0, F<uint32_t>(o, 0x3cc));
-    uint8_t* g = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62b268), 0, F<uint32_t>(type, 0x173));
+    uint8_t* type = (uint8_t*)Collection_Get(g_buildingTypes, 0, F<uint32_t>(o, 0x3cc));
+    uint8_t* g = (uint8_t*)Collection_Get(g_62b268, 0, F<uint32_t>(type, 0x173));
     if (F<int32_t>(g, 0x4b)) Building_AddUpgradeModel(o);
 }
 RT3_REPLACE(0x40d170, Building_RefreshUpgrade);
@@ -823,15 +818,15 @@ RT3_REPLACE(0x40d170, Building_RefreshUpgrade);
 // 0x40d1b0. Industry building o: drops its station model when its type
 // (site +0x3cc -> 0x62b2fc +0x173 -> 0x62b268) has one (+0x4b).
 void __fastcall IndustryObj_DropModel(uint8_t* o) {
-    uint8_t* site = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62b2fc), 0, F<uint32_t>(o, 0x3cc));
-    uint8_t* type = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62b268), 0, F<uint32_t>(site, 0x173));
+    uint8_t* site = (uint8_t*)Collection_Get(g_buildingTypes, 0, F<uint32_t>(o, 0x3cc));
+    uint8_t* type = (uint8_t*)Collection_Get(g_62b268, 0, F<uint32_t>(site, 0x173));
     if (F<int32_t>(type, 0x4b)) BuildingObj_DropModel(o);
 }
 RT3_REPLACE(0x40d1b0, IndustryObj_DropModel);
 
 RT3_NOINLINE void* __fastcall Obj_Ref2a8(void* o) {
     uint32_t id = F<uint32_t>(o, 0x2a8);
-    return id ? Collection_Get(g_table6cec20, 0, id) : nullptr;
+    return id ? Collection_Get(g_stations, 0, id) : nullptr;
 }
 RT3_REPLACE(0x40d1f0, Obj_Ref2a8);
 
@@ -846,7 +841,7 @@ RT3_REPLACE(0x40d210, Obj_OwnerCompany);
 RT3_NOINLINE int32_t __fastcall Obj_CheckActive(void* o) {
     if (!((int32_t(__thiscall*)(void*))(*(void***)o)[0x70 / 4])(o)) return 0;
     uint32_t id = F<uint32_t>(o, 0x2a8);
-    void* r = id ? Collection_Get(g_table6cec20, 0, id) : nullptr;
+    void* r = id ? Collection_Get(g_stations, 0, id) : nullptr;
     return Obj_BuildingStateActive(r) ? 1 : 0;
 }
 RT3_REPLACE(0x40d230, Obj_CheckActive);
@@ -855,7 +850,7 @@ RT3_REPLACE(0x40d230, Obj_CheckActive);
 // records of its chain (+0x272) whose source (+0xe) shares a region key.
 RT3_NOINLINE void __fastcall Building_DropSharedDemand(uint8_t* b, int, uint16_t k) {
     if (!Obj_HasKey(Obj_RegionAt(b), 0, k)) return;
-    Collection* demand = hook::Global<Collection*>(0x6ada90);
+    Collection* demand = g_6ada90;
     for (uint32_t id = F<uint32_t>(b, 0x272); id; ) {
         uint8_t* rec = (uint8_t*)Collection_Get(demand, 0, id);
         uint32_t next = F<uint32_t>(rec, 4);
@@ -878,7 +873,7 @@ RT3_NOINLINE void __fastcall Obj_RefreshHighlight(void* o) {
     if (!((int32_t(__thiscall*)(void*))(*(void***)o)[0x70 / 4])(o)) return;
     auto rec = [&]() -> uint8_t* {
         uint32_t id = F<uint32_t>(o, 0x2a8);
-        return id ? (uint8_t*)Collection_Get(g_table6cec20, 0, id) : nullptr;
+        return id ? (uint8_t*)Collection_Get(g_stations, 0, id) : nullptr;
     };
     if (!Obj_BuildingStateActive(rec())) return;
     volatile uint8_t* r = rec();
@@ -911,7 +906,7 @@ void __fastcall Building_ChargeUpkeep(uint8_t* b) {
     uint32_t player = 0;
     float cost = 0.0f;
     if (F<uint32_t>(b, 0x276)) {
-        comp = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(b, 0x276));
+        comp = (uint8_t*)Collection_Get(g_companies, 0, F<uint32_t>(b, 0x276));
         if (comp) player = F<uint32_t>(comp, 0x3b);
     }
     static const int32_t effect[3] = { 0x68, 0x66, 0x67 };
@@ -919,7 +914,7 @@ void __fastcall Building_ChargeUpkeep(uint8_t* b) {
     if (cls >= 0 && cls <= 2) {
         float y = (float)Obj_CellY(b);
         float x = (float)Obj_CellX(b);
-        uint32_t region = Map_GridByte(hook::Global<void*>(0x62c120), 0, x, y);
+        uint32_t region = Map_GridByte(hook::As<void*>(g_map), 0, x, y);
         float m = Effects_Multiplier(World(), 0, effect[cls], F<uint32_t>(b, 0x276), player, region);
         cost = (float)((double)m * *(const float*)scale[cls]);
     }
@@ -956,8 +951,8 @@ RT3_NOINLINE float __fastcall Building_Price(uint8_t* b, int, uint32_t company) 
     float base = (float)F<uint32_t>(type(), 0x22);
     if (F<int32_t>(b, 0x246)) base = (float)((double)(float)F<int32_t>(type(), 0x43) + base);
     uint32_t player = 0;
-    if (company) player = F<uint32_t>(Collection_Get(hook::Global<Collection*>(0x62be10), 0, company), 0x3b);
-    uint8_t* world = hook::Global<uint8_t*>(0x6cec78);
+    if (company) player = F<uint32_t>(Collection_Get(g_companies, 0, company), 0x3b);
+    uint8_t* world = g_world;
     int32_t years = F<uint16_t>(world, 0xd) - F<int32_t>(b, 0x3d5) + 1;
     float weighted = 0.0f, weights = 0.0f;
     int32_t span = 0, n = 0;
@@ -998,8 +993,8 @@ RT3_NOINLINE float __fastcall Building_Price(uint8_t* b, int, uint32_t company) 
     }
     float fp = (float)price;
     float cy = (float)Obj_CellY(b), cx = (float)Obj_CellX(b);
-    uint32_t region = Map_GridByte(hook::Global<uint8_t*>(0x62c120), 0, cx, cy);
-    return (float)(Effects_Multiplier(hook::Global<uint8_t*>(0x6cec78), 0, 0x3c, company, player, region) * (double)fp);
+    uint32_t region = Map_GridByte(g_map, 0, cx, cy);
+    return (float)(Effects_Multiplier(g_world, 0, 0x3c, company, player, region) * (double)fp);
 }
 RT3_REPLACE(0x40d540, Building_Price);
 
@@ -1008,7 +1003,7 @@ RT3_NOINLINE void __fastcall Building_RegisterWithSites(uint8_t* b) {
     uint8_t* r = Obj_Region(b);
     for (int32_t i = 0; i < F<int32_t>(r, 0xeb); ++i) {
         uint8_t* e = F<uint8_t*>(r, 0xef) + i * 6;
-        uint8_t* site = (uint8_t*)Collection_Get(g_table6cec20, 0, F<uint16_t>(e, 0));
+        uint8_t* site = (uint8_t*)Collection_Get(g_stations, 0, F<uint16_t>(e, 0));
         e = F<uint8_t*>(r, 0xef) + i * 6;
         Obj_AddKeyUnique(site, 0, F<uint16_t>(b, 0x2a4), F<int32_t>(e, 2));
     }
@@ -1033,23 +1028,23 @@ RT3_REPLACE(0x40dbf0, Obj_NotifySiteOff);
 RT3_NOINLINE int32_t __fastcall Building_ChangeType(uint8_t* b, int, uint32_t type, int32_t check, float* cost, char* text) {
     if (cost) *cost = 0.0f;
     if (text) *text = 0;
-    uint8_t* st = F<uint32_t>(b, 0x2a8) ? (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cec20), 0, F<uint32_t>(b, 0x2a8)) : nullptr;
+    uint8_t* st = F<uint32_t>(b, 0x2a8) ? (uint8_t*)Collection_Get(g_stations, 0, F<uint32_t>(b, 0x2a8)) : nullptr;
     if (!st || !Obj_BuildingStateActive(st)) return 0;
     uint8_t* bld = (uint8_t*)Obj_Building(st);
     const uint32_t kind = ((uint8_t*(__fastcall**)(uint8_t*))F<void**>(bld, 0))[0x20](bld)[0x8c];
-    uint8_t* rec = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62b2fc), 0, type);
-    float price = (float)F<uint32_t>(Collection_Get(hook::Global<Collection*>(0x62b268), 0, F<uint32_t>(rec, 0x173)), 0x22);
+    uint8_t* rec = (uint8_t*)Collection_Get(g_buildingTypes, 0, type);
+    float price = (float)F<uint32_t>(Collection_Get(g_62b268, 0, F<uint32_t>(rec, 0x173)), 0x22);
     uint8_t* owner = nullptr;
     uint32_t player = 0;
     if (F<uint32_t>(b, 0x276)) {
-        owner = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(b, 0x276));
+        owner = (uint8_t*)Collection_Get(g_companies, 0, F<uint32_t>(b, 0x276));
         if (owner) player = F<uint32_t>(owner, 0x3b);
     }
     const uint32_t company = F<uint32_t>(b, 0x276);
     const float cy = (float)Obj_CellY(b);
     const float cx = (float)Obj_CellX(b);
-    const uint32_t region = Map_GridByte(hook::Global<uint8_t*>(0x62c120), 0, cx, cy);
-    price = Effects_Multiplier(hook::Global<uint8_t*>(0x6cec78), 0, 0x3b, company, player, region) * price;
+    const uint32_t region = Map_GridByte(g_map, 0, cx, cy);
+    price = Effects_Multiplier(g_world, 0, 0x3b, company, player, region) * price;
     if (cost) *cost = price;
     if (check && owner && Company_Stat(owner, 0, 0xd, 0x2329) < (double)price) {
         if (text) {
@@ -1064,11 +1059,11 @@ RT3_NOINLINE int32_t __fastcall Building_ChangeType(uint8_t* b, int, uint32_t ty
     const float ny = Obj_NodeCenterY(st);
     const float angle = SceneObj_Angle2(b);
     float dx, dy;
-    Type_RotatedCell(hook::Global<Collection*>(0x62b2fc), 0, type, &dx, &dy, angle);
+    Type_RotatedCell(g_buildingTypes, 0, type, &dx, &dy, angle);
     const float x = dx + nx;
     const float y = ny - dy;
     if (F<uint32_t>(b, 0x24e)) Map_ClearFineBits((const uint32_t*)(F<uint8_t*>(b, 0x24e) + 0x10));
-    const int32_t ok = Sites_CanPlace(hook::Global<Collection*>(0x62b2fc), 0, type, x, y, angle, 0, 1, text, 1, 1, -1, 0);
+    const int32_t ok = Sites_CanPlace(g_buildingTypes, 0, type, x, y, angle, 0, 1, text, 1, 1, -1, 0);
     if (F<uint32_t>(b, 0x24e)) Map_SetFineBits((const uint32_t*)(F<uint8_t*>(b, 0x24e) + 0x10));
     if (!ok) return 0;
     if (check) return 1;
@@ -1079,8 +1074,8 @@ RT3_NOINLINE int32_t __fastcall Building_ChangeType(uint8_t* b, int, uint32_t ty
     uint32_t bits;
     memcpy(&bits, &angle, 4);
     SceneObj_SetAngle2(b, 0, bits);
-    uint8_t* site = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62b2fc), 0, F<uint32_t>(b, 0x3cc));
-    F<uint8_t*>(b, 0x24e) = Sites_Create(hook::Global<uint8_t*>(0x62b2fc), 0, (const char*)site + 4, x, y, SceneObj_Angle2(b), b, nullptr);
+    uint8_t* site = (uint8_t*)Collection_Get(g_buildingTypes, 0, F<uint32_t>(b, 0x3cc));
+    F<uint8_t*>(b, 0x24e) = Sites_Create(hook::As<uint8_t*>(g_buildingTypes), 0, (const char*)site + 4, x, y, SceneObj_Angle2(b), b, nullptr);
     Obj_ResolveType3ae(b);
     if (owner) {
         Company_AddStat(owner, 0, ((int32_t(__fastcall**)(uint8_t*))F<void**>(b, 0))[0x1c](b) ? 0xe : 0x11, price);
@@ -1097,7 +1092,7 @@ int32_t __fastcall Obj_NotActiveSite(void* o) {
     int32_t on = 0;
     if (((int32_t(__thiscall*)(void*))(*(void***)o)[0x70 / 4])(o)) {
         uint32_t id = F<uint32_t>(o, 0x2a8);
-        void* site = id ? Collection_Get(hook::Global<Collection*>(0x6cec20), 0, id) : nullptr;
+        void* site = id ? Collection_Get(g_stations, 0, id) : nullptr;
         if (Obj_BuildingStateActive(site)) on = 1;
     }
     return on == 0 ? 1 : 0;
@@ -1116,23 +1111,23 @@ RT3_REPLACE(0x40e030, Obj_NotActiveSite);
 void __fastcall Building_Teardown(uint8_t* b) {
     auto type = [&]() { return ((uint8_t*(__fastcall**)(uint8_t*))F<void**>(b, 0))[0x20](b); };
     auto kind = [&]() { return ((int32_t(__fastcall**)(uint8_t*))F<void**>(b, 0))[0x1c](b); };
-    if (type()[0x32] == 4) Table_RemovePairKey(hook::Global<Collection*>(0x6cec20), 0, F<int32_t>(b, 0x2a4));
+    if (type()[0x32] == 4) Table_RemovePairKey(g_stations, 0, F<int32_t>(b, 0x2a4));
     kind();
     if (b[0x3d4] == 1) {
         uint8_t* r = Obj_Region(b);
         for (int32_t i = 0; i < F<int32_t>(r, 0xeb); ++i) {
-            uint8_t* st = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cec20), 0, F<uint16_t>(F<uint8_t*>(r, 0xef), i * 6));
+            uint8_t* st = (uint8_t*)Collection_Get(g_stations, 0, F<uint16_t>(F<uint8_t*>(r, 0xef), i * 6));
             Entries6_Remove(st, 0, (int16_t)F<uint16_t>(b, 0x2a4));
         }
-        if (hook::Global<Collection*>(0x62be10) && F<uint32_t>(b, 0x276) &&
-            Collection_Get(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(b, 0x276)) && !hook::Global<uint8_t*>(0x6cec7c)[0x82]) {
+        if (g_companies && F<uint32_t>(b, 0x276) &&
+            Collection_Get(g_companies, 0, F<uint32_t>(b, 0x276)) && !g_newGame[0x82]) {
             float value = F<float>(b, 0x27a);
             if (value <= 0.0f) {
                 const uint32_t extra = F<int32_t>(b, 0x246) ? F<uint32_t>(type(), 0x43) : 0;
                 value = (float)(F<uint32_t>(type(), 0x22) + extra);
             }
             auto owner = [&]() {
-                return F<uint32_t>(b, 0x276) ? Collection_Get(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(b, 0x276)) : nullptr;
+                return F<uint32_t>(b, 0x276) ? Collection_Get(g_companies, 0, F<uint32_t>(b, 0x276)) : nullptr;
             };
             const float refund = -value;
             void* co = owner();
@@ -1141,13 +1136,13 @@ void __fastcall Building_Teardown(uint8_t* b) {
             Company_PostStat(co, 0, kind() ? 6 : 3, refund, 0);
         }
     }
-    if (hook::Global<Collection*>(0x6ada90)) Table_ReleaseKeyAny(hook::Global<Collection*>(0x6ada90), 0, F<int32_t>(b, 0x2a4));
-    if (const uint16_t city = F<uint16_t>(b, 0x26e)) Chain_Unlink((uint8_t*)Collection_Get(hook::Global<Collection*>(0x62bae0), 0, city), 0, b);
-    uint8_t* rec = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62b2fc), 0, F<uint32_t>(b, 0x3cc));
-    if (((uint8_t*)Collection_Get(hook::Global<Collection*>(0x62b268), 0, F<uint32_t>(rec, 0x173)))[0x32] == 1) {
-        if (Collection* trains = hook::Global<Collection*>(0x6cfcbc)) {
-            for (int32_t i = 0; i < Collection_Count(hook::Global<Collection*>(0x6cfcbc)); ++i) {
-                trains = hook::Global<Collection*>(0x6cfcbc);
+    if (g_6ada90) Table_ReleaseKeyAny(g_6ada90, 0, F<int32_t>(b, 0x2a4));
+    if (const uint16_t city = F<uint16_t>(b, 0x26e)) Chain_Unlink((uint8_t*)Collection_Get(g_cities, 0, city), 0, b);
+    uint8_t* rec = (uint8_t*)Collection_Get(g_buildingTypes, 0, F<uint32_t>(b, 0x3cc));
+    if (((uint8_t*)Collection_Get(g_62b268, 0, F<uint32_t>(rec, 0x173)))[0x32] == 1) {
+        if (Collection* trains = g_trains) {
+            for (int32_t i = 0; i < Collection_Count(g_trains); ++i) {
+                trains = g_trains;
                 uint8_t* t = (uint8_t*)Collection_Get(trains, 0, Collection_IdAt(trains, 0, (uint32_t)i, 0));
                 uint32_t* fx = F<uint32_t*>(t, 0xc8);
                 if (fx && fx[1] == (uint32_t)(uintptr_t)b) {
@@ -1156,15 +1151,15 @@ void __fastcall Building_Teardown(uint8_t* b) {
                 }
             }
         }
-        Collection* stations = hook::Global<Collection*>(0x6cec20);
+        Collection* stations = g_stations;
         ((void(__fastcall**)(Collection*, int, uint32_t))*(void***)stations)[2](stations, 0, F<uint32_t>(b, 0x2a8));
         F<uint32_t>(b, 0x2a8) = 0;
     }
-    uint8_t* map = hook::Global<uint8_t*>(0x62c120);
+    uint8_t* map = g_map;
     uint8_t* cell = F<uint8_t*>(map, 0x2129) + (F<int32_t>(map, 0x2145) * F<int32_t>(b, 0x38c) + F<int32_t>(b, 0x388)) * 0x1d7;
     City_RemoveBuilding(cell, 0, F<uint16_t>(b, 0x2a4));
     ModelObj_Release(b);
-    Nop436050(hook::Global<uint8_t*>(0x6cec78), 0, F<int32_t>(b, 0x2a4));
+    Nop436050(g_world, 0, F<int32_t>(b, 0x2a4));
 }
 RT3_REPLACE(0x40e080, Building_Teardown);
 
@@ -1172,14 +1167,14 @@ RT3_REPLACE(0x40e080, Building_Teardown);
 // live track node (+0x2a8 -> +8), drops it to the node's height minus a margin,
 // re-snapping x/z to its own position (via cell units).
 RT3_NOINLINE void __fastcall Obj_SettleOnNode(uint8_t* o) {
-    uint8_t* type = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62b2fc), 0, F<uint32_t>(o, 0x3cc));
-    uint8_t* kind = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62b268), 0, F<uint32_t>(type, 0x173));
+    uint8_t* type = (uint8_t*)Collection_Get(g_buildingTypes, 0, F<uint32_t>(o, 0x3cc));
+    uint8_t* kind = (uint8_t*)Collection_Get(g_62b268, 0, F<uint32_t>(type, 0x173));
     if (kind[0x32] != 1 || kind[0x8c] != 3) return;
-    Collection* places = hook::Global<Collection*>(0x6cec20);
+    Collection* places = g_stations;
     if (!F<uint32_t>(o, 0x2a8) || !Collection_Get(places, 0, F<uint32_t>(o, 0x2a8))) return;
     uint8_t* place = F<uint32_t>(o, 0x2a8) ? (uint8_t*)Collection_Get(places, 0, F<uint32_t>(o, 0x2a8)) : nullptr;
     uint32_t node = F<uint32_t>(place, 8);
-    Collection* nodes = hook::Global<Collection*>(0x6cfca8);
+    Collection* nodes = g_tracks;
     if (node == 0xffffffff || !Collection_IsValid(nodes, 0, node)) return;
     float h = Obj_Mid1ed((uint8_t*)Collection_Get(nodes, 0, node));
     h = (float)((double)h - Fl_188(0x5c8738));
@@ -1194,10 +1189,10 @@ RT3_REPLACE(0x40e360, Obj_SettleOnNode);
 // the site goes to +0x24e, its shape to +0x252, and links back (+0x73a).
 RT3_NOINLINE void __fastcall Obj_RestoreSite(uint8_t* o) {
     char name[0x100];
-    strcpy(name, (const char*)Collection_Get(hook::Global<Collection*>(0x62b2fc), 0, F<uint32_t>(o, 0x3cc)) + 4);
-    int32_t id = Collection_FindByName4(hook::Global<Collection*>(0x62b2fc), 0, name);
+    strcpy(name, (const char*)Collection_Get(g_buildingTypes, 0, F<uint32_t>(o, 0x3cc)) + 4);
+    int32_t id = Collection_FindByName4(g_buildingTypes, 0, name);
     SetGlobal5ee030(F<int32_t>(o, 0x252));
-    uint8_t* s = Sites_Restore(hook::Global<uint8_t*>(0x62b2fc), 0, (uint32_t)id, o, 0);
+    uint8_t* s = Sites_Restore(hook::As<uint8_t*>(g_buildingTypes), 0, (uint32_t)id, o, 0);
     F<uint8_t*>(o, 0x24e) = s;
     F<int32_t>(o, 0x252) = F<int32_t>(s, 0x732);
     F<uint8_t*>(s, 0x73a) = o;
@@ -1216,65 +1211,65 @@ void __fastcall StationBuilding_Hover(uint8_t* o) {
     char frame[0x1f8];
     char* text = frame;
     text[0] = 0;
-    auto toolActive = []() { return hook::Global<uint8_t*>(0x6d1a8c) && Global622b0cIs64(); };
+    auto toolActive = []() { return g_6d1a8c && Global622b0cIs64(); };
     const bool selectable = ((int32_t(__thiscall*)(uint8_t*))(*(void***)o)[0x70 / 4])(o) != 0 && !toolActive();
     if (selectable) {
         if (o[0x3d4] == 1) {
-            void* st = F<uint32_t>(o, 0x2a8) ? Collection_Get(hook::Global<Collection*>(0x6cec20), 0, F<uint32_t>(o, 0x2a8)) : nullptr;
+            void* st = F<uint32_t>(o, 0x2a8) ? Collection_Get(g_stations, 0, F<uint32_t>(o, 0x2a8)) : nullptr;
             uint8_t* node = (uint8_t*)Obj_Node8(st);
             if (!Option2bfActive()) Obj_SetArgb(node, 0, 0xff, 0, 0xff, 0);
             if (Obj_CheckActive(o)) {
-                const int32_t mode = F<int32_t>(hook::Global<uint8_t*>(0x62c120), 0x2175);
+                const int32_t mode = F<int32_t>(g_map, 0x2175);
                 if (mode == 3) {
-                    F<uint32_t>(hook::Global<uint8_t*>(0x6cec78), 0x66ba) = 0xff00;
-                    Overview_SetHighlight(hook::Global<uint8_t*>(0x62c120), 0, F<int32_t>(o, 0x2a8));
+                    F<uint32_t>(g_world, 0x66ba) = 0xff00;
+                    Overview_SetHighlight(g_map, 0, F<int32_t>(o, 0x2a8));
                 } else if (mode == 0 || mode == 0x15) {
-                    uint8_t* f = hook::Global<uint8_t*>(0x6d12f0);
+                    uint8_t* f = g_6d12f0;
                     if (!f || (F<int32_t>(f, 0x78) != 4 && F<int32_t>(f, 0x78) != 3)) {
-                        F<uint32_t>(hook::Global<uint8_t*>(0x6cec78), 0x66ba) = 0xff00;
-                        Overview_SetMode(hook::Global<uint8_t*>(0x62c120), 0, 6, F<int32_t>(o, 0x2a8), 0, 0, nullptr, 0, 0, 0x1869f, 0x1869f);
+                        F<uint32_t>(g_world, 0x66ba) = 0xff00;
+                        Overview_SetMode(g_map, 0, 6, F<int32_t>(o, 0x2a8), 0, 0, nullptr, 0, 0, 0x1869f, 0x1869f);
                     }
                 }
             }
         }
-        uint8_t* map = hook::Global<uint8_t*>(0x62c120);
+        uint8_t* map = g_map;
         if (F<int32_t>(map, 0x2171) == 1 && F<int32_t>(map, 0x2179) > 0) {
-            if (F<int32_t>(hook::Global<uint8_t*>(0x62ba8c), 0x9a + F<int32_t>(map, 0x2179) * 4) != -1) {
+            if (F<int32_t>(hook::As<uint8_t*>(g_cargoTypes), 0x9a + F<int32_t>(map, 0x2179) * 4) != -1) {
                 Overview_SetOption(map, 0, F<int32_t>(o, 0x2a8));
-                Overview_SetHighlight(hook::Global<uint8_t*>(0x62c120), 0, F<int32_t>(o, 0x2a8));
+                Overview_SetHighlight(g_map, 0, F<int32_t>(o, 0x2a8));
                 uint8_t* a = (uint8_t*)Obj_Ref2a8(o);
-                uint8_t* cargo = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba8c), 0, F<uint32_t>(hook::Global<uint8_t*>(0x62c120), 0x2179));
+                uint8_t* cargo = (uint8_t*)Collection_Get(g_cargoTypes, 0, F<uint32_t>(g_map, 0x2179));
                 uint8_t* b = (uint8_t*)Obj_Ref2a8(o);
-                uint8_t* cargo2 = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba8c), 0, F<uint32_t>(hook::Global<uint8_t*>(0x62c120), 0x2179));
+                uint8_t* cargo2 = (uint8_t*)Collection_Get(g_cargoTypes, 0, F<uint32_t>(g_map, 0x2179));
                 const char* n1 = LocalizeName((const char*)cargo2 + 4);
                 const char* n2 = LocalizeName((const char*)cargo + 4);
                 FormatText(text, GetString(0xafd), n1, (const char*)b + 0x46b, n2, (const char*)a + 0x46b, 0, 0, 0, 0);
             } else {
                 uint8_t* s = (uint8_t*)Obj_Ref2a8(o);
-                uint8_t* cargo = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba8c), 0, F<uint32_t>(hook::Global<uint8_t*>(0x62c120), 0x2179));
-                uint8_t* cargo2 = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba8c), 0, F<uint32_t>(hook::Global<uint8_t*>(0x62c120), 0x2179));
+                uint8_t* cargo = (uint8_t*)Collection_Get(g_cargoTypes, 0, F<uint32_t>(g_map, 0x2179));
+                uint8_t* cargo2 = (uint8_t*)Collection_Get(g_cargoTypes, 0, F<uint32_t>(g_map, 0x2179));
                 const char* n1 = LocalizeName((const char*)cargo2 + 4);
                 const char* n2 = LocalizeName((const char*)cargo + 4);
                 FormatText(text, GetString(0xaf), n1, n2, (const char*)s + 0x46b, 0, 0, 0, 0, 0);
             }
         } else if (toolActive()) {
-            if (F<int32_t>(o, 0x276) == Obj_Get21(hook::Global<uint8_t*>(0x6cec78))) {
+            if (F<int32_t>(o, 0x276) == Obj_Get21(g_world)) {
                 const char* name = (const char*)Obj_Ref2a8(o) + 0x46b;
                 FormatText(text, GetString(0xb1), name, 0, 0, 0, 0, 0, 0, 0);
             } else {
                 FormatText(text, GetString(0xb2), 0, 0, 0, 0, 0, 0, 0, 0);
             }
         } else {
-            uint8_t* s = F<uint32_t>(o, 0x2a8) ? (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cec20), 0, F<uint32_t>(o, 0x2a8)) : nullptr;
+            uint8_t* s = F<uint32_t>(o, 0x2a8) ? (uint8_t*)Collection_Get(g_stations, 0, F<uint32_t>(o, 0x2a8)) : nullptr;
             FormatText(text, GetString(0xb0), (const char*)s + 0x46b, 0, 0, 0, 0, 0, 0, 0);
         }
     } else if (!toolActive()) {
-        uint8_t* site = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62b2fc), 0, F<uint32_t>(o, 0x3cc));
-        uint8_t* type = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62b268), 0, F<uint32_t>(site, 0x173));
+        uint8_t* site = (uint8_t*)Collection_Get(g_buildingTypes, 0, F<uint32_t>(o, 0x3cc));
+        uint8_t* type = (uint8_t*)Collection_Get(g_62b268, 0, F<uint32_t>(site, 0x173));
         const char* name = LocalizeName((const char*)type + 0x4f);
         FormatText(text, GetString(0xb3), name, 0, 0, 0, 0, 0, 0, 0);
     }
-    Ui_ShowTooltip(hook::Global<uint8_t*>(0x6d401c), 0, text, 3, 0, -1);
+    Ui_ShowTooltip(g_windowManager, 0, text, 3, 0, -1);
 }
 RT3_REPLACE(0x40e4e0, StationBuilding_Hover);
 
@@ -1285,30 +1280,30 @@ RT3_REPLACE(0x40e4e0, StationBuilding_Hover);
 // cargo; 3: its highlight); with auto-overview on (+0x2cc, 0x6d1a8c) shows
 // the plain mode again.
 void __fastcall Station_OnStateChanged(uint8_t* b) {
-    uint8_t* map = hook::Global<uint8_t*>(0x62c120);
+    uint8_t* map = g_map;
     if (F<int32_t>(map, 0x2171) == 1 && F<int32_t>(map, 0x2179) > 0) Overview_SetOption(map, 0, 0);
-    Ui_ShowTooltip(hook::Global<uint8_t*>(0x6d401c), 0, (const char*)0x5c87a8, 3, 0, -1);
+    Ui_ShowTooltip(g_windowManager, 0, (const char*)0x5c87a8, 3, 0, -1);
     if (!((int32_t(__thiscall*)(uint8_t*))(*(void***)b)[0x70 / 4])(b)) return;
     if (b[0x3d4] != 1) return;
-    uint8_t* tp = hook::Global<uint8_t*>(0x6d12f0);
+    uint8_t* tp = g_6d12f0;
     if (!tp || (F<int32_t>(tp, 0x78) != 4 && F<int32_t>(tp, 0x78) != 3)) {
         uint32_t id = F<uint32_t>(b, 0x2a8);
-        void* o = id ? Collection_Get(hook::Global<Collection*>(0x6cec20), 0, id) : nullptr;
+        void* o = id ? Collection_Get(g_stations, 0, id) : nullptr;
         Track_UpdateColor((uint8_t*)Obj_Node8(o));
-        Table_RefreshAll(hook::Global<Collection*>(0x62b26c));
+        Table_RefreshAll(g_buildings);
     }
     if (!Obj_CheckActive(b)) return;
-    map = hook::Global<uint8_t*>(0x62c120);
+    map = g_map;
     int32_t mode = F<int32_t>(map, 0x2175);
     if (mode == 6 && F<int32_t>(map, 0x2179) == F<int32_t>(b, 0x2a8)) {
         Overview_Close(map);
-        if (hook::Global<uint8_t*>(0x6d16d8)) StationWindow_PickCargo(hook::Global<uint8_t*>(0x6d16d8), 0, hook::Global<int32_t>(0x6d16f8));
-        map = hook::Global<uint8_t*>(0x62c120);
+        if (g_stationWindow) StationWindow_PickCargo(g_stationWindow, 0, g_6d16f8);
+        map = g_map;
     } else if (mode == 3 && F<int32_t>(map, 0x2181) == F<int32_t>(b, 0x2a8)) {
         Overview_SetHighlight(map, 0, 0);
-        map = hook::Global<uint8_t*>(0x62c120);
+        map = g_map;
     }
-    if (F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x2cc) && hook::Global<uint32_t>(0x6d1a8c) && !F<int32_t>(map, 0x2175))
+    if (F<int32_t>(g_app, 0x2cc) && hook::As<uint32_t>(g_6d1a8c) && !F<int32_t>(map, 0x2175))
         Overview_SetMode(map, 0, 0x15, 0, 0, 0, nullptr, 0, 0, 99999, 99999);
 }
 RT3_REPLACE(0x40e880, Station_OnStateChanged);
@@ -1323,7 +1318,7 @@ RT3_REPLACE(0x40e880, Station_OnStateChanged);
 int32_t __fastcall OwnedObj_Tooltip(uint8_t* o, int, char* dst, int32_t n, int32_t a, int32_t b, int32_t logo) {
     auto slot = [&](uint32_t off) { return ((int32_t(__thiscall*)(uint8_t*))(*(void***)o)[off / 4])(o); };
     if (slot(0x14)) return 0;
-    uint8_t* app = hook::Global<uint8_t*>(0x6cec74);
+    uint8_t* app = g_app;
     if (F<int32_t>(app, 0x74)) {
         char text[0x130], index[0x130];
         auto sprintf_ = (int(__cdecl*)(char*, const char*, ...))0x5a19c4;
@@ -1340,15 +1335,15 @@ int32_t __fastcall OwnedObj_Tooltip(uint8_t* o, int, char* dst, int32_t n, int32
         if (mode == 2)
             show = 1;
         else if (mode == 1)
-            show = !slot(0x70) || F<int32_t>(o, 0x276) != Obj_Get21(hook::Global<uint8_t*>(0x6cec78)) ? 1 : 0;
-        if (uint8_t* f = hook::Global<uint8_t*>(0x6d12f0)) {
+            show = !slot(0x70) || F<int32_t>(o, 0x276) != Obj_Get21(g_world) ? 1 : 0;
+        if (uint8_t* f = g_6d12f0) {
             if (F<int32_t>(f, 0x78) == 4 && !slot(0x70)) show = 1;
-            f = hook::Global<uint8_t*>(0x6d12f0);
+            f = g_6d12f0;
             if (f && F<int32_t>(f, 0x78) == 3) show = F<int32_t>(o, 0x276) == F<int32_t>(f, 0x7c) ? 1 : 0;
         }
         if (show) {
             const uint32_t owner = F<uint32_t>(o, 0x276);
-            uint8_t* c = owner ? (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be10), 0, owner) : nullptr;
+            uint8_t* c = owner ? (uint8_t*)Collection_Get(g_companies, 0, owner) : nullptr;
             *(uint32_t*)(uintptr_t)logo = Company_Logo(c);
             return 2;
         }
@@ -1366,25 +1361,25 @@ RT3_REPLACE(0x40e9d0, OwnedObj_Tooltip);
 // Its station (+0x2a8) moves along, then it settles on its track node.
 RT3_NOINLINE void __fastcall Building_MoveTo(uint8_t* o, int, float x, float z, int32_t lift, float level) {
     auto type = [&]() { return (*(uint8_t*(__fastcall**)(uint8_t*))(*(uint8_t**)o + 0x80))(o); };
-    if (type()[0x32] == 4) Table_RemovePairKey(hook::Global<Collection*>(0x6cec20), 0, F<int32_t>(o, 0x2a4));
+    if (type()[0x32] == 4) Table_RemovePairKey(g_stations, 0, F<int32_t>(o, 0x2a4));
     auto cell = [&]() {
-        uint8_t* map = hook::Global<uint8_t*>(0x62c120);
+        uint8_t* map = g_map;
         return F<uint8_t*>(map, 0x2129) + (F<int32_t>(map, 0x2145) * F<int32_t>(o, 0x38c) + F<int32_t>(o, 0x388)) * 0x1d7;
     };
     City_RemoveBuilding(cell(), 0, F<uint16_t>(o, 0x2a4));
     F<int32_t>(o, 0x388) = Ftol((double)x / Fl_205(0x5c8568));
     F<int32_t>(o, 0x38c) = Ftol((double)z / Fl_205(0x5c8568));
     City_AddBuilding(cell(), 0, F<uint16_t>(o, 0x2a4));
-    if (type()[0x32] == 4) Collection_RecordNearby(hook::Global<Collection*>(0x6cec20), 0, o);
+    if (type()[0x32] == 4) Collection_RecordNearby(g_stations, 0, o);
     float wz = (float)((double)z * Fl_205(0x5c8700));
     float wx = (float)((double)x * Fl_205(0x5c8700));
-    double ground = Terrain_HeightAt((uint8_t*)Engine_Get1C(hook::Global<void*>(0x6d4024)), 0, wx, wz);
+    double ground = Terrain_HeightAt((uint8_t*)Engine_Get1C(hook::As<void*>(g_engine)), 0, wx, wz);
     float liftF = (float)lift;
     float y = (float)(ground + liftF);
-    uint8_t* r = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62b2fc), 0, F<uint32_t>(o, 0x3cc));
-    uint8_t* t = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62b268), 0, F<uint32_t>(r, 0x173));
+    uint8_t* r = (uint8_t*)Collection_Get(g_buildingTypes, 0, F<uint32_t>(o, 0x3cc));
+    uint8_t* t = (uint8_t*)Collection_Get(g_62b268, 0, F<uint32_t>(r, 0x173));
     if (t[0xba]) {
-        float lh = (float)Map_NearestLandHeight(hook::Global<uint8_t*>(0x62c120), 0, Ftol(x), Ftol(z), 6);
+        float lh = (float)Map_NearestLandHeight(g_map, 0, Ftol(x), Ftol(z), 6);
         y = (float)((double)lh - Fl_205(0x5c8840));
     }
     if (IsMultiplayer()) y = (float)Ftol(y);
@@ -1395,8 +1390,8 @@ RT3_NOINLINE void __fastcall Building_MoveTo(uint8_t* o, int, float x, float z, 
     }
     if (!(F<float>(o, 0x392) == Fl_205(0x5c8598)) && fabs((double)F<float>(o, 0x396) - level) < D(0x5c8628)) py = F<float>(o, 0x392);
     Obj_MoveTo(o, 0, wx, py, wz);
-    if (F<uint32_t>(o, 0x2a8) && Collection_Get(hook::Global<Collection*>(0x6cec20), 0, F<uint32_t>(o, 0x2a8))) {
-        uint8_t* st = F<uint32_t>(o, 0x2a8) ? (uint8_t*)Collection_Get(hook::Global<Collection*>(0x6cec20), 0, F<uint32_t>(o, 0x2a8)) : nullptr;
+    if (F<uint32_t>(o, 0x2a8) && Collection_Get(g_stations, 0, F<uint32_t>(o, 0x2a8))) {
+        uint8_t* st = F<uint32_t>(o, 0x2a8) ? (uint8_t*)Collection_Get(g_stations, 0, F<uint32_t>(o, 0x2a8)) : nullptr;
         Station_Move(st, 0, x, z, 0, -1);
     }
     Obj_SettleOnNode(o);
@@ -1412,11 +1407,11 @@ RT3_NOINLINE void __fastcall Obj_Reground(uint8_t* o) {
     float z = (float)((double)cz * Fl_189(0x5c8700));
     float x = (float)((double)cx * Fl_189(0x5c8700));
     float y = (float)Terrain_HeightAt((uint8_t*)Engine_Get1C(*(void**)0x6d4024), 0, x, z);
-    uint8_t* type = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62b2fc), 0, F<uint32_t>(o, 0x3cc));
-    uint8_t* kind = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62b268), 0, F<uint32_t>(type, 0x173));
+    uint8_t* type = (uint8_t*)Collection_Get(g_buildingTypes, 0, F<uint32_t>(o, 0x3cc));
+    uint8_t* kind = (uint8_t*)Collection_Get(g_62b268, 0, F<uint32_t>(type, 0x173));
     if (kind[0xba]) {
         int32_t iz = Ftol(cz);
-        float h = (float)Map_NearestLandHeight(hook::Global<uint8_t*>(0x62c120), 0, Ftol(cx), iz, 6);
+        float h = (float)Map_NearestLandHeight(g_map, 0, Ftol(cx), iz, 6);
         y = (float)((double)h - Fl_189(0x5c8840));
     }
     if (IsMultiplayer()) y = (float)Ftol(y);
@@ -1445,31 +1440,31 @@ RT3_REPLACE(0x40ee10, Obj_Reground);
 // QUIRK: a debug label's x is offset by the last footprint z, not by the
 // point's own x offset (its slot is overwritten first).
 RT3_NOINLINE int32_t __fastcall Building_Place(uint8_t* b, int, float x, float y, uint32_t company) {
-    Collection* const sites = hook::Global<Collection*>(0x6cec20);
+    Collection* const sites = g_stations;
     auto site = [&]() -> uint8_t* { return F<int32_t>(b, 0x2a8) ? (uint8_t*)Collection_Get(sites, 0, F<uint32_t>(b, 0x2a8)) : nullptr; };
-    if (F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4aab) && F<int32_t>(b, 0x2a8) && Collection_Get(sites, 0, F<uint32_t>(b, 0x2a8))) {
+    if (F<int32_t>(g_world, 0x4aab) && F<int32_t>(b, 0x2a8) && Collection_Get(sites, 0, F<uint32_t>(b, 0x2a8))) {
         uint8_t* st = site();
-        if (!Node_HasLink(Collection_Get(hook::Global<Collection*>(0x6cfca8), 0, F<uint32_t>(st, 8)), 0, 1) && company) {
-            uint8_t* co = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be10), 0, company);
+        if (!Node_HasLink(Collection_Get(g_tracks, 0, F<uint32_t>(st, 8)), 0, 1) && company) {
+            uint8_t* co = (uint8_t*)Collection_Get(g_companies, 0, company);
             if (F<int32_t>(co, 0x766c) + F<int32_t>(co, 0x7668) + F<int32_t>(co, 0x7664) > 0) return 0;
-            if (F<int32_t>(hook::Global<uint8_t*>(0x6cfca8), 0x98)) return 0;
+            if (F<int32_t>(hook::As<uint8_t*>(g_tracks), 0x98)) return 0;
         }
     }
     if (F<int32_t>(b, 0x2a8) && Collection_Get(sites, 0, F<uint32_t>(b, 0x2a8))) {
         uint8_t* st = site();
-        if (F<uint16_t>(Collection_Get(hook::Global<Collection*>(0x6cfca8), 0, F<uint32_t>(st, 8)), 0x22e) != company) return 0;
+        if (F<uint16_t>(Collection_Get(g_tracks, 0, F<uint32_t>(st, 8)), 0x22e) != company) return 0;
     }
-    ++hook::Global<int32_t>(0x62be40);
-    b[0x390] = hook::Global<uint8_t*>(0x6cec74)[0x68];
-    if (!company && F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x68)) F<int32_t>(b, 0x276) = 0;
+    ++g_62be40;
+    b[0x390] = g_app[0x68];
+    if (!company && F<int32_t>(g_app, 0x68)) F<int32_t>(b, 0x276) = 0;
     b[0x3d4] = 1;
-    F<int32_t>(b, 0x3d5) = F<uint16_t>(hook::Global<uint8_t*>(0x6cec78), 0xd);
+    F<int32_t>(b, 0x3d5) = F<uint16_t>(g_world, 0xd);
     Obj_RefreshHighlight(b);
     uint32_t height = 0;
     {
-        uint8_t* type = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62b2fc), 0, F<uint32_t>(b, 0x3cc));
+        uint8_t* type = (uint8_t*)Collection_Get(g_buildingTypes, 0, F<uint32_t>(b, 0x3cc));
         const float angle = SceneObj_Angle2(b);
-        uint8_t* rec = Sites_Create(hook::Global<uint8_t*>(0x62b2fc), 0, (const char*)type + 4, x, y, angle, b, &height);
+        uint8_t* rec = Sites_Create(hook::As<uint8_t*>(g_buildingTypes), 0, (const char*)type + 4, x, y, angle, b, &height);
         F<uint8_t*>(b, 0x24e) = rec;
         F<int32_t>(b, 0x252) = F<int32_t>(rec, 0x732);
     }
@@ -1486,7 +1481,7 @@ RT3_NOINLINE int32_t __fastcall Building_Place(uint8_t* b, int, float x, float y
         Obj_SetAllBc(smoke, 2);
     }
     int32_t rect[4];
-    Shape_Bounds(hook::Global<uint8_t*>(0x62b2fc), 0, F<uint8_t*>(b, 0x24e), rect);
+    Shape_Bounds(hook::As<uint8_t*>(g_buildingTypes), 0, F<uint8_t*>(b, 0x24e), rect);
     SceneObj_GetPos(b, 0, &s10.u, &s18.u, &s14.u);
     vec[0] = s10.i, vec[1] = s18.i, vec[2] = s14.i;
     Store3Globals(vec);
@@ -1506,7 +1501,7 @@ RT3_NOINLINE int32_t __fastcall Building_Place(uint8_t* b, int, float x, float y
     corner(3);
     s14.f = (float)((rect[2] + 2) * 0x17);
     corner(4);
-    if (!hook::Global<uint8_t*>(0x6cec7c)[0x82] && !F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4aef)) {
+    if (!g_newGame[0x82] && !F<int32_t>(g_world, 0x4aef)) {
         uint8_t* spark = Effect_Create(b, 9, 1.0f, 0x100000, 1);
         F<uint8_t*>(b, 0x25e) = spark;
         uint32_t n = BuildingSparkCount(F<uint32_t>(BuildingType(b), 0x22)) < 1 ? 1 : BuildingSparkCount(F<uint32_t>(BuildingType(b), 0x22));
@@ -1516,31 +1511,31 @@ RT3_NOINLINE int32_t __fastcall Building_Place(uint8_t* b, int, float x, float y
         Store3Globals(vec);
         Obj_ApplyStored3(F<uint8_t*>(b, 0x25e), 0);
     }
-    if (F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x78)) {
-        Markers_Add(hook::Global<Collection*>(0x6ada80), 0, *(uint32_t*)&x, *(uint32_t*)&y, GetString(0xb5), 1);
+    if (F<int32_t>(g_app, 0x78)) {
+        Markers_Add(g_6ada80, 0, *(uint32_t*)&x, *(uint32_t*)&y, GetString(0xb5), 1);
         for (int32_t k = 0; k < 0xc; ++k) {
-            if (!((uint8_t*)Collection_Get(hook::Global<Collection*>(0x62b2fc), 0, F<uint32_t>(b, 0x3cc)))[0xe7 + k]) continue;
+            if (!((uint8_t*)Collection_Get(g_buildingTypes, 0, F<uint32_t>(b, 0x3cc)))[0xe7 + k]) continue;
             const uint32_t id = F<uint32_t>(b, 0x3cc);
             const float angle = SceneObj_Angle2(b);
-            Type_RotatedOffset(hook::Global<Collection*>(0x62b2fc), 0, id, k, &s14.f, &s10.f, angle);
+            Type_RotatedOffset(g_buildingTypes, 0, id, k, &s14.f, &s10.f, angle);
             char num[0x20], label[0xd0];
             const char* sn = Num_Format(num, 1, (double)(k + 1), 10, 1, 0, 0);
             const char* fmt = GetString(0xb6);
             FormatText(label, fmt, sn, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
             const float ly = (float)((double)s10.f + y);
             const float lx = (float)((double)x - s14.f);
-            Markers_Add(hook::Global<Collection*>(0x6ada80), 0, *(const uint32_t*)&lx, *(const uint32_t*)&ly, label, 1);
+            Markers_Add(g_6ada80, 0, *(const uint32_t*)&lx, *(const uint32_t*)&ly, label, 1);
         }
     }
-    if ((int32_t)company > 0 && (BuildingIsOwned(b) || (!hook::Global<uint8_t*>(0x6cec7c)[0x82] && !Global6d07b4Set2()))) {
-        uint8_t* co = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62be10), 0, company);
+    if ((int32_t)company > 0 && (BuildingIsOwned(b) || (!g_newGame[0x82] && !Global6d07b4Set2()))) {
+        uint8_t* co = (uint8_t*)Collection_Get(g_companies, 0, company);
         float price = (float)(double)F<uint32_t>(BuildingType(b), 0x22);
         const int32_t owned = BuildingIsOwned(b);
         const uint32_t player = F<uint32_t>(co, 0x3b);
         float cy = (float)Obj_CellY(b);
         float cx = (float)Obj_CellX(b);
-        const uint32_t region = Map_GridByte(hook::Global<uint8_t*>(0x62c120), 0, cx, cy);
-        price = (float)((double)Effects_Multiplier(hook::Global<uint8_t*>(0x6cec78), 0, owned ? 0x3b : 0x3c, company, player, region) * price);
+        const uint32_t region = Map_GridByte(g_map, 0, cx, cy);
+        price = (float)((double)Effects_Multiplier(g_world, 0, owned ? 0x3b : 0x3c, company, player, region) * price);
         price = (float)((double)Building_RoundedValue(F<uint32_t>(BuildingType(b), 0xe4), 0, price) + price);
         Company_AddStat(co, 0, BuildingIsOwned(b) ? 0xe : 0x11, price);
         Company_AddStat(co, 0, 0xd, -price);
@@ -1551,14 +1546,14 @@ RT3_NOINLINE int32_t __fastcall Building_Place(uint8_t* b, int, float x, float y
     Building_RegisterWithSites(b);
     if (!F<int32_t>(b, 0x29e)) Industry_Produce(b, 0, 1);
     {
-        const int32_t mode = F<int32_t>(hook::Global<uint8_t*>(0x62c120), 0x2175);
-        if (mode == 0x29 || mode == 0x2a || mode == 0x2b || mode == 0x2c) Overview_Redraw(hook::Global<uint8_t*>(0x62c120), 0, nullptr);
+        const int32_t mode = F<int32_t>(g_map, 0x2175);
+        if (mode == 0x29 || mode == 0x2a || mode == 0x2b || mode == 0x2c) Overview_Redraw(g_map, 0, nullptr);
     }
     if (BuildingIsOwned(b)) {
-        Buildings_DropSharedDemand(hook::Global<Collection*>(0x62b26c), 0, F<uint16_t>(b, 0x2a8));
-        if (b[0x3d4] == 1) Events_Fire(hook::Global<Collection*>(0x62be18), 0, 6, nullptr, 0);
+        Buildings_DropSharedDemand(g_buildings, 0, F<uint16_t>(b, 0x2a8));
+        if (b[0x3d4] == 1) Events_Fire(g_events, 0, 6, nullptr, 0);
     }
-    --hook::Global<int32_t>(0x62be40);
+    --g_62be40;
     RunDebugValidation();
     return 1;
 }
@@ -1592,7 +1587,7 @@ RT3_NOINLINE void __fastcall Building_Setup(uint8_t* o, int, int32_t owner, uint
     F<int32_t>(o, 0x272) = 0;
     F<int32_t>(o, 0x27a) = 0;
     F<int32_t>(o, 0x29e) = 0;
-    F<uint32_t>(o, 0x3d5) = F<uint16_t>(hook::Global<uint8_t*>(0x6cec78), 0xd);
+    F<uint32_t>(o, 0x3d5) = F<uint16_t>(g_world, 0xd);
     F<int32_t>(o, 0x296) = 0;
     F<int32_t>(o, 0x29a) = 0;
     for (uint32_t off = 0x2ac; off <= 0x2bc; off += 4) F<int32_t>(o, off) = 0;
@@ -1600,8 +1595,8 @@ RT3_NOINLINE void __fastcall Building_Setup(uint8_t* o, int, int32_t owner, uint
     F<int32_t>(o, 0x388) = Ftol(x / Fl_207(0x5c8568));
     F<int32_t>(o, 0x38c) = Ftol(y / Fl_207(0x5c8568));
     auto type = [&] { return ((uint8_t*(__fastcall*)(uint8_t*))(*(void***)o)[0x20])(o); };
-    if (type()[0x32] != 4 || !hook::Global<int32_t>(0x6ce9ac)) {
-        uint8_t* m = hook::Global<uint8_t*>(0x62c120);
+    if (type()[0x32] != 4 || !g_6ce9ac) {
+        uint8_t* m = g_map;
         uint8_t* tile = F<uint8_t*>(m, 0x2129) + (F<int32_t>(m, 0x2145) * F<int32_t>(o, 0x38c) + F<int32_t>(o, 0x388)) * 0x1d7;
         City_AddBuilding(tile, 0, F<uint16_t>(o, 0x2a4));
     }
@@ -1617,24 +1612,24 @@ RT3_NOINLINE void __fastcall Building_Setup(uint8_t* o, int, int32_t owner, uint
         F<int32_t>(o, 0x360 + k * 4) = 0;
     }
     if (place == 1) {
-        uint8_t* bt = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62b2fc), 0, F<uint32_t>(o, 0x3cc));
+        uint8_t* bt = (uint8_t*)Collection_Get(g_buildingTypes, 0, F<uint32_t>(o, 0x3cc));
         float a = SceneObj_Angle2(o);
-        F<uint8_t*>(o, 0x24e) = Sites_Create(hook::Global<uint8_t*>(0x62b2fc), 0, (const char*)bt + 4, x, y, a, o, nullptr);
+        F<uint8_t*>(o, 0x24e) = Sites_Create(hook::As<uint8_t*>(g_buildingTypes), 0, (const char*)bt + 4, x, y, a, o, nullptr);
         Building_MoveTo(o, 0, x, y, 0, 0.0f);
         F<int32_t>(o, 0x252) = F<int32_t>(F<uint8_t*>(o, 0x24e), 0x732);
     }
     auto btype = [&] {
-        return (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62b268), 0,
-                                        F<uint32_t>(Collection_Get(hook::Global<Collection*>(0x62b2fc), 0, F<uint32_t>(o, 0x3cc)), 0x173));
+        return (uint8_t*)Collection_Get(g_62b268, 0,
+                                        F<uint32_t>(Collection_Get(g_buildingTypes, 0, F<uint32_t>(o, 0x3cc)), 0x173));
     };
-    if (btype()[0x32] == 1) F<uint32_t>(o, 0x2a8) = Stations_Add(hook::Global<Collection*>(0x6cec20), 0, (uint32_t)owner, x, y);
-    if (F<int32_t>(btype(), 0x4b) && F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x8c)) ((void(__fastcall*)(uint8_t*))(*(void***)o)[0x1d])(o);
+    if (btype()[0x32] == 1) F<uint32_t>(o, 0x2a8) = Stations_Add(g_stations, 0, (uint32_t)owner, x, y);
+    if (F<int32_t>(btype(), 0x4b) && F<int32_t>(g_app, 0x8c)) ((void(__fastcall*)(uint8_t*))(*(void***)o)[0x1d])(o);
     int32_t yi = Ftol(y);
-    uint16_t city = (uint16_t)Map_CellCity(hook::Global<uint8_t*>(0x62c120), 0, Ftol(x), yi);
+    uint16_t city = (uint16_t)Map_CellCity(g_map, 0, Ftol(x), yi);
     F<uint16_t>(o, 0x26e) = city;
     F<uint16_t>(o, 0x270) = 0;
-    if (city) Obj_PushBuilding(Collection_Get(hook::Global<Collection*>(0x62bae0), 0, city), 0, o);
-    if (type()[0x32] == 4 && !hook::Global<int32_t>(0x6ce9ac)) Collection_RecordNearby(hook::Global<Collection*>(0x6cec20), 0, o);
+    if (city) Obj_PushBuilding(Collection_Get(g_cities, 0, city), 0, o);
+    if (type()[0x32] == 4 && !g_6ce9ac) Collection_RecordNearby(g_stations, 0, o);
     if (place == 1) Building_RegisterWithSites(o);
     F<int32_t>(o, 0x3d9) = Rand(0, 9);
     F<int32_t>(o, 0x3dd) = Rand(0, 9);
@@ -1645,7 +1640,7 @@ RT3_REPLACE(0x40f6d0, Building_Setup);
 RT3_NOINLINE uint8_t* __fastcall Obj_RegionAt(void* o) {
     int32_t col = (int32_t)(Obj_CellX(o) / 4.0f);
     int32_t row = (int32_t)(Obj_CellY(o) / 4.0f);
-    uint8_t* grid = hook::Global<uint8_t*>(0x62c120);
+    uint8_t* grid = g_map;
     return F<uint8_t*>(grid, 0x2129) + (F<int32_t>(grid, 0x2145) * row + col) * 0x1d7;
 }
 RT3_REPLACE(0x40fa50, Obj_RegionAt);
@@ -1705,10 +1700,10 @@ RT3_REPLACE(0x40fba0, Building_CargoOutput);
 RT3_NOINLINE int32_t __fastcall Obj_SharesRegionKey(void* o, int, uint32_t bid) {
     int32_t cx = (int32_t)(Obj_CellX(o) / *(const float*)0x5c8568);
     int32_t cy = (int32_t)(Obj_CellY(o) / *(const float*)0x5c8568);
-    uint8_t* map = hook::Global<uint8_t*>(0x62c120);
+    uint8_t* map = g_map;
     uint8_t* cell = F<uint8_t*>(map, 0x2129) + (F<int32_t>(map, 0x2145) * cy + cx) * 0x1d7;
     if (F<int32_t>(cell, 0xeb) <= 0) return 0;
-    uint8_t* r = Obj_RegionAt(Collection_Get(hook::Global<Collection*>(0x62b26c), 0, bid));
+    uint8_t* r = Obj_RegionAt(Collection_Get(g_buildings, 0, bid));
     for (int32_t i = 0; i < F<int32_t>(cell, 0xeb); ++i) {
         uint16_t k = F<uint16_t>(F<uint8_t*>(cell, 0xef), i * 6);
         for (int32_t j = 0; j < F<int32_t>(r, 0xeb); ++j)
@@ -1762,7 +1757,7 @@ RT3_REPLACE(0x40fcc0, Building_ProfitScore);
 // stations) wins; a strong want or scanning past a tenth of the buildings ends the
 // search. No lot if the two share a region key.
 RT3_NOINLINE void __fastcall Building_SpawnLot(uint8_t* b, int, int32_t kind, float factor) {
-    Collection* blds = hook::Global<Collection*>(0x62b26c);
+    Collection* blds = g_buildings;
     int32_t n = Collection_Count(blds);
     int32_t start = SimRand(0, n - 1);
     float best = -1.0f;
@@ -1782,8 +1777,8 @@ RT3_NOINLINE void __fastcall Building_SpawnLot(uint8_t* b, int, int32_t kind, fl
     int32_t lim = n / 10 + 1;
     bool found = false;
     for (int32_t i = 0; i < n; ++i) {
-        uint8_t* o = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62b26c), 0,
-                                              Collection_IdAt(hook::Global<Collection*>(0x62b26c), 0, (i + start) % n, 0));
+        uint8_t* o = (uint8_t*)Collection_Get(g_buildings, 0,
+                                              Collection_IdAt(g_buildings, 0, (i + start) % n, 0));
         if (F<float>(o, 0x27e + kind * 4) <= Fl(0x5c8598)) continue;
         float oy = (float)Obj_CellY(o);
         double dy = Fabs(oy - Obj_CellY(b));
@@ -1823,8 +1818,8 @@ RT3_NOINLINE void __fastcall Industry_Produce(uint8_t* ind, int, int32_t bulk) {
     typedef uint8_t*(__fastcall * RecFn)(uint8_t*);
     auto recOf = [&]() { return ((RecFn)(*(void***)ind)[0x80 / 4])(ind); };
     if (Obj_Flag3d4(ind) != 1) return;
-    if (hook::Global<uint8_t*>(0x6cec7c)[0x82]) return;
-    uint8_t* w = hook::Global<uint8_t*>(0x6cec78);
+    if (g_newGame[0x82]) return;
+    uint8_t* w = g_world;
     if (F<int32_t>(w, 0x4af7)) {
         if (!F<int32_t>(w, 0x46c38)) return;
     } else if (F<int32_t>(w, 0x4aef)) return;
@@ -1838,9 +1833,9 @@ RT3_NOINLINE void __fastcall Industry_Produce(uint8_t* ind, int, int32_t bulk) {
     float scale = (float)F<int32_t>(Obj_Ref3cc(ind), 0x141);
     uint8_t* region = Obj_RegionAt(ind);
     int32_t vehicles = Obj_CountAvailableVehicles(recOf(), 0, F<int32_t>(ind, 0x246) != 0);
-    int32_t pop = Collection_Count(hook::Global<Collection*>(0x6cfca8));
+    int32_t pop = Collection_Count(g_tracks);
     if (IsMultiplayer()) pop = 1000;
-    if (F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4af7)) pop = 0x514;
+    if (F<int32_t>(g_world, 0x4af7)) pop = 0x514;
     // Rate by the number of industries.
     uint32_t rateBits;
     if (Game_EffectiveVersion() < 0x67) {
@@ -1853,24 +1848,24 @@ RT3_NOINLINE void __fastcall Industry_Produce(uint8_t* ind, int, int32_t bulk) {
     }
     float rate = BitsF(rateBits);
     uint32_t company = F<uint32_t>(ind, 0x276);
-    uint32_t player = company ? F<uint32_t>(Collection_Get(hook::Global<Collection*>(0x62be10), 0, company), 0x3b) : 0;
+    uint32_t player = company ? F<uint32_t>(Collection_Get(g_companies, 0, company), 0x3b) : 0;
     uint32_t cell = Obj_GridByte(ind);
-    float mult = Effects_Multiplier(hook::Global<uint8_t*>(0x6cec78), 0, 0xb1, F<uint32_t>(ind, 0x276), player, cell);
+    float mult = Effects_Multiplier(g_world, 0, 0xb1, F<uint32_t>(ind, 0x276), player, cell);
     int32_t e2 = F<int32_t>(rec, 0x78c) ? 0xb2 : 0xb3;
-    mult = (float)((double)Effects_Multiplier(hook::Global<uint8_t*>(0x6cec78), 0, e2, F<uint32_t>(ind, 0x276), player, cell) * mult);
-    if (hook::Global<uint8_t*>(0x6cec78)[0x4c8d]) {
+    mult = (float)((double)Effects_Multiplier(g_world, 0, e2, F<uint32_t>(ind, 0x276), player, cell) * mult);
+    if (g_world[0x4c8d]) {
         rate = (float)((double)rate + rate);
         mult = (float)((double)mult + mult);
     }
     for (int32_t i = 0; i < 3; ++i) {
         float g = (float)((double)F<float>(ind, 0x28a + i * 4) * *(float*)(0x5f3424 + i * 4) * rate);
         if (!(g > Fl_205(0x5c8598))) continue;
-        int32_t k = F<int32_t>(hook::Global<uint8_t*>(0x62ba8c), 0x8e + i * 4) + 0xb4;
+        int32_t k = F<int32_t>(hook::As<uint8_t*>(g_cargoTypes), 0x8e + i * 4) + 0xb4;
         if (k >= 0xb4 && k <= 0xfa)
-            g = (float)((double)Effects_Multiplier(hook::Global<uint8_t*>(0x6cec78), 0, k, F<uint32_t>(ind, 0x276), player, cell) * g);
+            g = (float)((double)Effects_Multiplier(g_world, 0, k, F<uint32_t>(ind, 0x276), player, cell) * g);
         g = (float)((double)g * mult);
         if (i == 0) {
-            int32_t y = F<uint16_t>(hook::Global<uint8_t*>(0x6cec78), 0xd);
+            int32_t y = F<uint16_t>(g_world, 0xd);
             if (y >= 0x7a6) g = (float)(g * D(0x5c8dd8));
             else if (y >= 0x780) g = (float)(g * D(0x5c8dd0));
         }
@@ -1960,16 +1955,16 @@ RT3_NOINLINE void __fastcall Industry_Produce(uint8_t* ind, int, int32_t bulk) {
         if (!Vehicle_Available(recOf(), 0, e, F<int32_t>(ind, 0x246) != 0)) continue;
         float worst = 999.0f, inCost = 0.0f;
         float f = (float)((double)lvl * scale / D(0x5c8978));
-        if (F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4af7)) {
+        if (F<int32_t>(g_world, 0x4af7)) {
             uint8_t b = ind[0x391];
             if (!b) continue;
             f = (float)b;
         }
-        uint8_t* wv = hook::Global<uint8_t*>(0x6cec78);
+        uint8_t* wv = g_world;
         if (F<int32_t>(e, 0) != 0) {
             // A raw-material producer: rate by how well the region takes its first input.
             int32_t id = F<int32_t>(e, 0x44);
-            float price = F<float>(Collection_Get(hook::Global<Collection*>(0x62ba8c), 0, id), 0x18);
+            float price = F<float>(Collection_Get(g_cargoTypes, 0, id), 0x18);
             double pr = AtLeastMilli(price);
             float x = (float)((double)City_CargoQuota(region, 0, id) / pr);
             if (x < Fl_205(0x5c85b4)) x = (float)((x + D(0x5c8770)) / D(0x5c85d0));
@@ -1977,7 +1972,7 @@ RT3_NOINLINE void __fastcall Industry_Produce(uint8_t* ind, int, int32_t bulk) {
             else x = (float)((x + D(0x5c88c8)) / D(0x5c8660) * (x - D(0x5c8770)));
             if (nuclear) x = (float)((x + D(0x5c8dc0)) / D(0x5c8c30));
             else if (electric) x = (float)((x + D(0x5c8698)) / D(0x5c8db8));
-            wv = hook::Global<uint8_t*>(0x6cec78);
+            wv = g_world;
             if (!F<int32_t>(wv, 0x4af7)) {
                 f = (float)((double)f / x);
                 f = (float)((double)f * *(float*)(0x5f337c + F<int32_t>(wv, 0x2d) * 4));
@@ -1985,10 +1980,10 @@ RT3_NOINLINE void __fastcall Industry_Produce(uint8_t* ind, int, int32_t bulk) {
         } else if (F<int32_t>(e, 0x2c) == 0) {
             // No inputs: rate by the region's demand for the output.
             int32_t id = F<int32_t>(e, 0x1c);
-            float price = F<float>(Collection_Get(hook::Global<Collection*>(0x62ba8c), 0, id), 0x18);
+            float price = F<float>(Collection_Get(g_cargoTypes, 0, id), 0x18);
             double pr = AtLeastMilli(price);
             float x = (float)((double)City_CargoQuota(region, 0, id) / pr);
-            uint8_t* w2 = hook::Global<uint8_t*>(0x6cec78);
+            uint8_t* w2 = g_world;
             if (!F<int32_t>(w2, 0x4af7)) {
                 double y;
                 if (x < Fl_205(0x5c85b4)) y = (x + D(0x5c8770)) / D(0x5c85d0);
@@ -2012,7 +2007,7 @@ RT3_NOINLINE void __fastcall Industry_Produce(uint8_t* ind, int, int32_t bulk) {
             int32_t k = F<int32_t>(e, 0x1c) + 0xb4;
             if (k >= 0xb4 && k <= 0xfa) f = (float)((double)Effects_Multiplier(wv, 0, k, F<uint32_t>(ind, 0x276), player, cell) * f);
             float net = (float)Recipe_NetValue(ind, 0, e);
-            uint8_t* w2 = hook::Global<uint8_t*>(0x6cec78);
+            uint8_t* w2 = g_world;
             if (!recycle && !F<int32_t>(w2, 0x4af7)) {
                 if (net < Fl_205(0x5c8598)) f = (float)((double)f * D(0x5c8758));
                 else {
@@ -2029,7 +2024,7 @@ RT3_NOINLINE void __fastcall Industry_Produce(uint8_t* ind, int, int32_t bulk) {
             if (vehicles > 1) {
                 uint8_t* e2p = F<uint8_t*>(rec, 0x37) + i * 0xbc;
                 if (F<int32_t>(e2p, 0) == 0 && F<int32_t>(e2p, 0x2c) != 0) {
-                    if (F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4af7)) {
+                    if (F<int32_t>(g_world, 0x4af7)) {
                         float b = (float)(int32_t)ind[0x391];
                         float nv = (float)vehicles;
                         f = (float)((double)b / nv);
@@ -2044,7 +2039,7 @@ RT3_NOINLINE void __fastcall Industry_Produce(uint8_t* ind, int, int32_t bulk) {
                 float t = (float)((double)f * F<float>(in, 4));
                 float* stock = (float*)(region + 0x103 + F<int32_t>(in, 0) * 4);
                 if (pass == 0) {
-                    if (F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4af7)) {
+                    if (F<int32_t>(g_world, 0x4af7)) {
                         if (!(*stock > t)) *stock = t;
                     } else {
                         float have = *stock;
@@ -2055,14 +2050,14 @@ RT3_NOINLINE void __fastcall Industry_Produce(uint8_t* ind, int, int32_t bulk) {
                 if (t > Fl_205(0x5c8598)) {
                     if (t > *stock) t = *stock;
                     *stock = (float)((double)*stock - t);
-                    uint8_t* cg = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba8c), 0, F<int32_t>(in, 0));
+                    uint8_t* cg = (uint8_t*)Collection_Get(g_cargoTypes, 0, F<int32_t>(in, 0));
                     costs = (float)((double)t * F<float>(cg, 0x18) + costs);
                     float qf = (float)City_CargoQuota(region, 0, F<int32_t>(in, 0));
                     inCost = (float)((double)qf * t + inCost);
                     F<float>(ind, 0x2c0) = (float)((double)t + F<float>(ind, 0x2c0));
                     made = (float)((double)t + made);
                     used = (float)((double)t + used);
-                    Cargo_MoveTo62(Collection_Get(hook::Global<Collection*>(0x62ba8c), 0, F<int32_t>(in, 0)), 0, t);
+                    Cargo_MoveTo62(Collection_Get(g_cargoTypes, 0, F<int32_t>(in, 0)), 0, t);
                     float left = (float)((double)*stock / AtLeastMilli(t));
                     if (Fl_205(0x5c8c28) < left) left = 100.0f;
                     if (left < worst) worst = left;
@@ -2090,7 +2085,7 @@ RT3_NOINLINE void __fastcall Industry_Produce(uint8_t* ind, int, int32_t bulk) {
                     if (!(waste == Fl_205(0x5c8598))) {
                         waste = (float)(waste * Fl_205(0x5c8784));
                         F<float>(ind, 0x2e8) = (float)((double)waste + F<float>(ind, 0x2e8));
-                        uint8_t* w3 = hook::Global<uint8_t*>(0x6cec78);
+                        uint8_t* w3 = g_world;
                         F<float>(w3, 0x4caa) = (float)((double)waste + F<float>(w3, 0x4caa));
                         if (F<int32_t>(ind, 0x276)) {
                             uint8_t* oc = (uint8_t*)Obj_OwnerCompany(ind);
@@ -2111,7 +2106,7 @@ RT3_NOINLINE void __fastcall Industry_Produce(uint8_t* ind, int, int32_t bulk) {
             F<float>(ind, 0x2e8) = (float)((double)out + F<float>(ind, 0x2e8));
             float earned = (float)City_ProduceCargo(region, 0, F<int32_t>(e, 0x1c), out);
             if (recycle) earned = (float)(earned * D(0x5c8d98) + inCost);
-            uint8_t* cg = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62ba8c), 0, F<int32_t>(e, 0x1c));
+            uint8_t* cg = (uint8_t*)Collection_Get(g_cargoTypes, 0, F<int32_t>(e, 0x1c));
             value = (float)((double)out * F<float>(cg, 0x18) + value);
             F<float>(ind, 0x310) = (float)((double)earned + F<float>(ind, 0x310));
             F<float>(ind, 0x338) = (float)((double)inCost + F<float>(ind, 0x338));
@@ -2167,9 +2162,9 @@ RT3_NOINLINE void __fastcall Industry_Produce(uint8_t* ind, int, int32_t bulk) {
         float spent = (float)((double)maint + inputValue);
         float net = (float)((double)revenue - spent);
         if (F<int32_t>(ind, 0x276) && !((int32_t(__fastcall*)(uint8_t*))(*(void***)ind)[0x70 / 4])(ind))
-            Company_PostStat(Collection_Get(hook::Global<Collection*>(0x62be10), 0, F<uint32_t>(ind, 0x276)), 0, 3, net, 1);
+            Company_PostStat(Collection_Get(g_companies, 0, F<uint32_t>(ind, 0x276)), 0, 3, net, 1);
         if (F<uint16_t>(ind, 0x26e)) {
-            uint8_t* city = (uint8_t*)Collection_Get(hook::Global<Collection*>(0x62bae0), 0, F<uint16_t>(ind, 0x26e));
+            uint8_t* city = (uint8_t*)Collection_Get(g_cities, 0, F<uint16_t>(ind, 0x26e));
             if (F<int32_t>(rec, 0x790)) {
                 F<float>(city, 0x2b2) = (float)((double)revenue + F<float>(city, 0x2b2));
                 F<float>(city, 0x2b6) = (float)((double)net + F<float>(city, 0x2b6));
@@ -2204,16 +2199,16 @@ RT3_NOINLINE void __fastcall Industry_Produce(uint8_t* ind, int, int32_t bulk) {
                 const char* name = LocalizeName((const char*)recOf() + 0x4f);
                 float cy = (float)Obj_CellY(ind);
                 float cx = (float)Obj_CellX(ind);
-                const char* town = Table_NearestName(hook::Global<Collection*>(0x62bae0), 0, cx, cy);
+                const char* town = Table_NearestName(g_cities, 0, cx, cy);
                 char msg[0x184];
                 FormatText(msg, GetString(0xb7), name, town, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
-                Log_Add(hook::Global<Collection*>(0x6acd34), 0, msg, 9, F<int32_t>(ind, 0x2a4), 0);
+                Log_Add(g_messageLog, 0, msg, 9, F<int32_t>(ind, 0x2a4), 0);
                 ((void(__fastcall*)(uint8_t*))(*(void***)ind)[0x74 / 4])(ind);
             }
         }
     }
 done:
-    if (F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4af7)) ind[0x391] = 0;
+    if (F<int32_t>(g_world, 0x4af7)) ind[0x391] = 0;
 }
 RT3_REPLACE(0x4101e0, Industry_Produce);
 
@@ -2361,7 +2356,7 @@ RT3_NOINLINE void __fastcall BuildingType_Load(uint8_t* o, int, const char* path
     rd(0x32, 1);
     rd(0x33, 4);
     F<uint8_t*>(o, 0x37) = (uint8_t*)Malloc(F<int32_t>(o, 0x33) * 0xbc + 1);
-    Collection* cargos = hook::Global<Collection*>(0x62ba8c);
+    Collection* cargos = g_cargoTypes;
     for (int32_t i = 0; i < F<int32_t>(o, 0x33); ++i) {
         uint8_t* rec = F<uint8_t*>(o, 0x37) + i * 0xbc;
         memset(rec, 0, 0xbc);
@@ -2423,7 +2418,7 @@ RT3_REPLACE(0x4120b0, BuildingType_Load);
 // 0x412510. Available: enabled (+0x7ac) and (option +0x17c, or its year (u16 +0x26) reached).
 RT3_NOINLINE int32_t __fastcall Obj_Available(void* o) {
     if (F<int32_t>(o, 0x7ac) == 0) return 0;
-    if (F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x17c) != 0) return 1;
+    if (F<int32_t>(g_app, 0x17c) != 0) return 1;
     uint16_t year = F<int32_t>(g_world, 0x46c38) ? F<uint16_t>(g_world, 0x5) : F<uint16_t>(g_world, 0xd);
     return year >= F<uint16_t>(o, 0x26) ? 1 : 0;
 }
@@ -2433,7 +2428,7 @@ RT3_REPLACE(0x412510, Obj_Available);
 // rec[0] == 0), within its year range, not barred by the flag/scenario bits,
 // and all its listed cargo types enabled (unless world +0x4afb).
 RT3_NOINLINE int32_t __fastcall Vehicle_Available(void*, int, uint8_t* rec, int32_t flag) {
-    const int32_t* avail = (const int32_t*)(g_cargoTypes + 0x16e);
+    const int32_t* avail = (const int32_t*)(hook::As<uint8_t*>(g_cargoTypes) + 0x16e);
     int32_t ok = 0;
     bool pass = true;
     if (F<int32_t>(rec, 0) == 0 && avail[F<int32_t>(rec, 0x1c)] == 0) pass = false;
@@ -2523,9 +2518,9 @@ RT3_REPLACE(0x412650, Industry_CargoStats);
 
 // 0x412880. ID of the 0x62b2fc record whose +0x173 equals this +0xe4, or 0.
 uint32_t __fastcall Obj_FindRecord62b2fc(void* o) {
-    for (int32_t i = 0; i < Collection_Count(g_table62b2fc); ++i) {
-        uint8_t* r = (uint8_t*)Collection_Get(g_table62b2fc, 0, Collection_IdAt(g_table62b2fc, 0, i, 0));
-        if (F<int32_t>(r, 0x173) == F<int32_t>(o, 0xe4)) return Collection_IdAt(g_table62b2fc, 0, i, 0);
+    for (int32_t i = 0; i < Collection_Count(g_buildingTypes); ++i) {
+        uint8_t* r = (uint8_t*)Collection_Get(g_buildingTypes, 0, Collection_IdAt(g_buildingTypes, 0, i, 0));
+        if (F<int32_t>(r, 0x173) == F<int32_t>(o, 0xe4)) return Collection_IdAt(g_buildingTypes, 0, i, 0);
     }
     return 0;
 }
@@ -2570,7 +2565,7 @@ int32_t __fastcall Industry_HandlesCargo(uint8_t* ind, int, int32_t cargo) {
     float base, share, in, inShare;
     Industry_CargoStats(ind, 0, cargo, 0, &base, &share, &in, &inShare);
     if ((double)base + share > D(0x5c8678)) return 1;
-    int32_t idx = F<int32_t>(hook::Global<uint8_t*>(0x62ba8c), 0x9a + cargo * 4);
+    int32_t idx = F<int32_t>(hook::As<uint8_t*>(g_cargoTypes), 0x9a + cargo * 4);
     if (idx == -1) return 0;
     if (F<float>(ind, 0xad + idx * 4) > Fl(0x5c8598)) return 1;
     return F<float>(ind, 0xa1 + idx * 4) > Fl(0x5c8598) ? 1 : 0;
@@ -2626,13 +2621,13 @@ RT3_REPLACE(0x412bd0, Industries_BuildCargoLists);
 // (+0x7ac) from the world's named setting for its name (+4); the others are
 // available (1). Then the cargo types mark theirs (0x41eac0).
 RT3_NOINLINE void __fastcall Types_RefreshAvailable(Collection* c) {
-    if (!hook::Global<uint8_t*>(0x6cec78)) return;
+    if (!g_world) return;
     for (int32_t i = 0; i < Collection_Count(c); ++i) {
         uint8_t* r = (uint8_t*)Collection_Get(c, 0, Collection_IdAt(c, 0, (uint32_t)i, 0));
-        if (!r[0xba] && !r[0xbb] && r[0x32] == 2) F<int32_t>(r, 0x7ac) = World_LookupNamed1(hook::Global<uint8_t*>(0x6cec78), 0, (const char*)r + 4);
+        if (!r[0xba] && !r[0xbb] && r[0x32] == 2) F<int32_t>(r, 0x7ac) = World_LookupNamed1(g_world, 0, (const char*)r + 4);
         else F<int32_t>(r, 0x7ac) = 1;
     }
-    if (Collection* cargo = hook::Global<Collection*>(0x62ba8c)) CargoTypes_MarkAvailable(cargo);
+    if (Collection* cargo = g_cargoTypes) CargoTypes_MarkAvailable(cargo);
 }
 RT3_REPLACE(0x412c10, Types_RefreshAvailable);
 
@@ -2785,7 +2780,7 @@ RT3_NOINLINE int32_t __fastcall Buildings_Load(Collection* t, int, Stream s, int
     int32_t total = StreamSkip4(s, 0x36b1, 0, 0);
     total += Collection_Load(t, 0, s, recordSize);
     total += StreamSkip4(s, 0x36b2, 0, 0);
-    int32_t base = hook::Global<int32_t>(0xccb9e8);
+    int32_t base = g_skipCount;
     for (int32_t i = 0; i < Collection_Count(t); ++i) {
         uint8_t* b = (uint8_t*)Collection_Get(t, 0, Collection_IdAt(t, 0, (uint32_t)i, 0));
         alignas(8) uint8_t tmp[0x3f0];
@@ -2793,8 +2788,8 @@ RT3_NOINLINE int32_t __fastcall Buildings_Load(Collection* t, int, Stream s, int
         F<uint32_t>(b, 0) = F<uint32_t>(tmp, 0);
         total += (*(int32_t(__thiscall**)(uint8_t*, Stream))(F<uint8_t*>(b, 0) + 0x40))(b, s);
         int32_t d = Collection_Count(t) - 1 < 1 ? 1 : Collection_Count(t) - 1;
-        hook::Global<int32_t>(0xccb9e8) = i * 0x14 / d + base;
-        Loading_Pump(hook::Global<uint8_t*>(0x6cec74), 0, 0, 0);
+        g_skipCount = i * 0x14 / d + base;
+        Loading_Pump(g_app, 0, 0, 0);
         ModelObj40c950_Destructor(tmp);
     }
     total += StreamSkip4(s, 0x36b3, 0, 0);
@@ -2808,10 +2803,10 @@ RT3_REPLACE(0x413280, Buildings_Load);
 RT3_NOINLINE void __fastcall Buildings_RestoreQueued(Collection* t) {
     for (int32_t n = GetQueueCount62ba64(); n > 0; --n) {
         Obj_RestoreSite((uint8_t*)Collection_Get(t, 0, (uint32_t)PopQueue62ba70()));
-        Loading_Pump(hook::Global<uint8_t*>(0x6cec74), 0, 0, 0);
+        Loading_Pump(g_app, 0, 0, 0);
     }
-    for (int32_t i = 0; i < Collection_Count(hook::Global<Collection*>(0x62b26c)); ++i) {
-        Collection* bs = hook::Global<Collection*>(0x62b26c);
+    for (int32_t i = 0; i < Collection_Count(g_buildings); ++i) {
+        Collection* bs = g_buildings;
         Obj_Reground((uint8_t*)Collection_Get(bs, 0, Collection_IdAt(bs, 0, (uint32_t)i, 0)));
     }
 }
@@ -2864,7 +2859,7 @@ RT3_REPLACE(0x413550, Buildings_Remove);
 // picked by the week of the month (day / 7), and rerolls their animation offsets.
 void __fastcall Industries_ProduceQuarter(Collection* t) {
     int32_t n = Collection_Count(t);
-    int32_t week = hook::Global<uint8_t*>(0x6cec78)[0x11] / 7;
+    int32_t week = g_world[0x11] / 7;
     for (int32_t i = week % 4; i < n; i += 4) {
         uint8_t* ind = (uint8_t*)Collection_Get(t, 0, Collection_IdAt(t, 0, i, 0));
         if (Obj_Flag3d4(ind) != 1) continue;
@@ -2919,7 +2914,7 @@ void __fastcall Buildings_RefreshHighlight(Collection* t, int, int32_t key) {
         void** vt = *(void***)b;
         bool lit;
         if (Obj_StateKindIs4(b)) {
-            lit = Table_ActiveSiteNear(g_table6cec20, 0, F<uint32_t>(b, 0x2a4), key) != 0;
+            lit = Table_ActiveSiteNear(g_stations, 0, F<uint32_t>(b, 0x2a4), key) != 0;
             if (!lit) {
                 ((void(__thiscall*)(void*, int32_t, int32_t, int32_t))vt[0x58 / 4])(b, 0, 0, 0);
                 continue;
@@ -2933,14 +2928,14 @@ void __fastcall Buildings_RefreshHighlight(Collection* t, int, int32_t key) {
                 continue;
             }
         }
-        ((void(__thiscall*)(void*, int32_t))vt[0x54 / 4])(b, F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x66ba));
+        ((void(__thiscall*)(void*, int32_t))vt[0x54 / 4])(b, F<int32_t>(g_world, 0x66ba));
     }
 }
 RT3_REPLACE(0x413750, Buildings_RefreshHighlight);
 
 // 0x413860. With option +0x1c3, 0x40cd10 on every record.
 void __fastcall Table_TouchRegionSites(Collection* t) {
-    if (!F<int32_t>(hook::Global<uint8_t*>(0x6cec74), 0x1c3)) return;
+    if (!F<int32_t>(g_app, 0x1c3)) return;
     for (int32_t i = 0; i < Collection_Count(t); ++i)
         Obj_TouchRegionSites(Collection_Get(t, 0, Collection_IdAt(t, 0, i, 0)));
 }
@@ -3032,7 +3027,7 @@ RT3_REPLACE(0x413bc0, BuildingType_Model2D);
 
 // 0x413d80. If the 0x62b268 record (+0x173) has kind 1: outputs u16 +0xcb/+0xcd, returns 1.
 int32_t __fastcall Obj_GetCell(void* o, int, uint16_t* x, uint16_t* y) {
-    uint8_t* r = (uint8_t*)Collection_Get(g_table62b268, 0, F<uint32_t>(o, 0x173));
+    uint8_t* r = (uint8_t*)Collection_Get(g_62b268, 0, F<uint32_t>(o, 0x173));
     if (F<uint8_t>(r, 0x32) != 1) return 0;
     *x = F<uint16_t>(o, 0xcb);
     *y = F<uint16_t>(o, 0xcd);
@@ -3042,7 +3037,7 @@ RT3_REPLACE(0x413d80, Obj_GetCell);
 
 // 0x413dd0. Its 0x62b268 type (+0x173) is available.
 int32_t __fastcall Obj_TypeAvailable(void* o) {
-    return Obj_Available(Collection_Get(g_table62b268, 0, F<uint32_t>(o, 0x173)));
+    return Obj_Available(Collection_Get(g_62b268, 0, F<uint32_t>(o, 0x173)));
 }
 RT3_REPLACE(0x413dd0, Obj_TypeAvailable);
 
@@ -3054,15 +3049,15 @@ int32_t __cdecl DirtyCells_AddImpl(int32_t a, int32_t x, int32_t y) {
     uint32_t key = (uint32_t)x << 16 | (uint32_t)y;
     for (uint32_t* e = (uint32_t*)0x62b318; *e != 0xffffffff; ++e)
         if ((*e & 0x7fffffff) == key) return 0;
-    int32_t& n = hook::Global<int32_t>(0x62b7a4);
+    int32_t& n = g_62b7a4;
     ((uint32_t*)0x62b318)[n] = ((uint32_t)(x & 0x7fff) | (uint32_t)a << 15) << 16 | (uint32_t)(y & 0x7fff);
     ++n;
     ((uint32_t*)0x62b318)[n] = 0xffffffff;
     int32_t by = y >> 2, bx = x >> 2;
-    if (hook::Global<int32_t>(0x62b7a8) > by) hook::Global<int32_t>(0x62b7a8) = by;
-    if (hook::Global<int32_t>(0x62b7ac) < by) hook::Global<int32_t>(0x62b7ac) = by;
-    if (hook::Global<int32_t>(0x62b7b0) > bx) hook::Global<int32_t>(0x62b7b0) = bx;
-    if (hook::Global<int32_t>(0x62b7b4) < bx) hook::Global<int32_t>(0x62b7b4) = bx;
+    if (g_62b7a8 > by) g_62b7a8 = by;
+    if (g_62b7ac < by) g_62b7ac = by;
+    if (g_62b7b0 > bx) g_62b7b0 = bx;
+    if (g_62b7b4 < bx) g_62b7b4 = bx;
     return 1;
 }
 
@@ -3100,7 +3095,7 @@ void* __fastcall FindStaticRecord(void*, int, uint8_t* obj) {
 RT3_REPLACE(0x413eb0, FindStaticRecord);
 
 RT3_NOINLINE void FreeBuffer62b2f8() {
-    void*& p = hook::Global<void*>(0x62b2f8);
+    void*& p = g_62b2f8;
     if (p) {
         Free(p);
         p = nullptr;
@@ -3110,10 +3105,10 @@ RT3_REPLACE(0x413f30, FreeBuffer62b2f8);
 
 // 0x413f50. Pops the next id from the global queue (0x62ba70, count 0x62ba64); -1 if empty.
 RT3_NOINLINE int32_t PopQueue62ba70() {
-    if (!hook::Global<int32_t>(0x62ba6c) || hook::Global<int32_t>(0x62ba64) <= 0) return -1;
-    int32_t*& p = hook::Global<int32_t*>(0x62ba70);
+    if (!hook::As<int32_t>(g_62ba6c) || g_62ba64 <= 0) return -1;
+    int32_t*& p = g_62ba70;
     int32_t v = *p++;
-    hook::Global<int32_t>(0x62ba64)--;
+    g_62ba64--;
     return v;
 }
 RT3_REPLACE(0x413f50, PopQueue62ba70);
@@ -3125,24 +3120,24 @@ RT3_NOINLINE int32_t __stdcall Sites_LoadTable(Stream s) {
     int32_t hdr[3] = { 0, 0, 0 };
     StreamRead(s, hdr, 0xc, 0, 1);
     int32_t n = hdr[2];
-    hook::Global<int32_t>(0x62ba64) = n;
+    g_62ba64 = n;
     if (n <= 0) {
-        hook::Global<int32_t>(0x62ba74) = 0;
-        hook::Global<int32_t>(0x62ba68) = n;
+        g_62ba74 = 0;
+        g_62ba68 = n;
         return 0xc;
     }
     uint32_t* ids = (uint32_t*)Malloc(n * 4);
-    hook::Global<uint32_t*>(0x62ba6c) = ids;
-    hook::Global<uint32_t*>(0x62ba70) = ids;
-    if (hook::Global<void*>(0x62b2f8)) {
-        Free(hook::Global<void*>(0x62b2f8));
-        hook::Global<void*>(0x62b2f8) = nullptr;
+    g_62ba6c = ids;
+    hook::As<uint32_t*>(g_62ba70) = ids;
+    if (g_62b2f8) {
+        Free(g_62b2f8);
+        g_62b2f8 = nullptr;
     }
-    hook::Global<uint8_t*>(0x62b2f8) = (uint8_t*)Malloc(hook::Global<int32_t>(0x62ba64) * 0x74e);
-    for (int32_t i = 0; i < hook::Global<int32_t>(0x62ba64); ++i) {
-        uint8_t* r = hook::Global<uint8_t*>(0x62b2f8) + i * 0x74e;
+    hook::As<uint8_t*>(g_62b2f8) = (uint8_t*)Malloc(g_62ba64 * 0x74e);
+    for (int32_t i = 0; i < g_62ba64; ++i) {
+        uint8_t* r = hook::As<uint8_t*>(g_62b2f8) + i * 0x74e;
         memset(r, 0, 0x74e);
-        StreamRead(s, &hook::Global<uint32_t*>(0x62ba6c)[i], 4, 0, 1);
+        StreamRead(s, &g_62ba6c[i], 4, 0, 1);
         static const uint16_t fixed[] = { 4, 8, 0xc, 0x4b8, 0x4bc, 0x49c };
         for (uint16_t off : fixed) StreamRead(s, r + off, 4, 0, 1);
         for (uint32_t k = 0; k < F<uint32_t>(r, 0x49c) + 1; ++k) StreamRead(s, r + 0x10 + k * 4, 4, 0, 1);
@@ -3162,9 +3157,9 @@ RT3_NOINLINE int32_t __stdcall Sites_LoadTable(Stream s) {
         }
         StreamRead(s, r + 0x732, 4, 0, 1);
     }
-    int32_t cnt = hook::Global<int32_t>(0x62ba64);
-    hook::Global<int32_t>(0x62ba74) = 0;
-    hook::Global<int32_t>(0x62ba68) = cnt;
+    int32_t cnt = g_62ba64;
+    g_62ba74 = 0;
+    g_62ba68 = cnt;
     return cnt * 4 + 0xc;
 }
 RT3_REPLACE(0x413f80, Sites_LoadTable);

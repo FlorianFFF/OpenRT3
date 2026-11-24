@@ -42,6 +42,12 @@ template <typename T> inline T CallTarget(uint32_t site) {
 // Raw memory accessors for globals that still live in the exe.
 template <typename T> inline T& Global(uint32_t addr) { return *reinterpret_cast<T*>(addr); }
 
+// A global used as another type than its listed one (core/globals.h): the
+// same memory, read and written as T.
+template <typename T, typename U> inline T& As(U& g) {
+    return *reinterpret_cast<T*>(const_cast<void*>(reinterpret_cast<const volatile void*>(&g)));
+}
+
 } // namespace hook
 
 // thiscall methods are reimplemented as __fastcall(this, edx_unused, args...).
