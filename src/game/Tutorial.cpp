@@ -1,4 +1,4 @@
-// Tutorial.cpp - RT3_mp.exe 0x516000-0x517c00.
+// Tutorial.cpp - RT3.exe 0x516000-0x517c00.
 // Regrouped by tools/regroup.py from the per-batch files; one band of
 // the exe per original object file.
 

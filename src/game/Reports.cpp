@@ -1,4 +1,4 @@
-// Reports.cpp - RT3_mp.exe 0x4e2000-0x4ea000.
+// Reports.cpp - RT3.exe 0x4e2000-0x4ea000.
 // Regrouped by tools/regroup.py from the per-batch files; one band of
 // the exe per original object file.
 

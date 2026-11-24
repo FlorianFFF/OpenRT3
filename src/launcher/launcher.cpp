@@ -1,4 +1,5 @@
-// Starts RT3_mp.exe suspended, loads rt3re.dll into it, then lets it run.
+// Starts the game's exe (RT3.exe 1.06, see game_exe.h) suspended, loads
+// rt3re.dll into it, then lets it run.
 // Usage (from the game folder):
 //   rt3re.exe [game args...]          play with the reimplemented functions
 //   rt3re.exe --dev-menu             restore the original menu, windowed (-s2)
@@ -8,6 +9,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <string>
+#include "launcher/game_exe.h"
 
 // Quote one argument using the Windows CRT command-line rules. This also
 // preserves spaces/quotes in arguments forwarded to the game or test runner.
@@ -37,7 +39,14 @@ int main(int argc, char** argv) {
     char dll[MAX_PATH];
     GetFullPathNameA(test ? "rt3re_test.dll" : "rt3re.dll", MAX_PATH, dll, nullptr);
 
-    std::string cmd = "RT3_mp.exe";
+    char dir[MAX_PATH], exe[MAX_PATH];
+    GetCurrentDirectoryA(MAX_PATH, dir);
+    strcat(dir, "\\");
+    if (!rt3game::FindGameExe(dir, exe, sizeof exe)) {
+        fprintf(stderr, "no RT3.exe version 1.06 (without copy protection) in %s\n", dir);
+        return 1;
+    }
+    std::string cmd = QuoteArg(exe);
     for (int i = test ? 2 : 1; i < argc; ++i) {
         if (strcmp(argv[i], "--dev-menu") == 0) continue;
         cmd += " " + QuoteArg(argv[i]);
@@ -53,7 +62,7 @@ int main(int argc, char** argv) {
     PROCESS_INFORMATION pi;
     if (!CreateProcessA(nullptr, &cmd[0], nullptr, nullptr, FALSE, CREATE_SUSPENDED,
                         nullptr, nullptr, &si, &pi)) {
-        fprintf(stderr, "cannot start RT3_mp.exe (%lu)\n", GetLastError());
+        fprintf(stderr, "cannot start %s (%lu)\n", exe, GetLastError());
         return 1;
     }
     size_t len = strlen(dll) + 1;

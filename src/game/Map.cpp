@@ -1,4 +1,4 @@
-// Map.cpp - RT3_mp.exe 0x448000-0x454000.
+// Map.cpp - RT3.exe 0x448000-0x454000.
 // Regrouped by tools/regroup.py from the per-batch files; one band of
 // the exe per original object file.
 

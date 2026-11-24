@@ -1,5 +1,5 @@
 // Differential tests: run original functions and our reimplementations side by
-// side on the same inputs, inside the real RT3_mp.exe process.
+// side on the same inputs, inside the real RT3.exe process.
 //
 // Built into rt3re_test.dll. Its DllMain replaces the game's WinMain (0x484440)
 // with RunTests, so the exe's own CRT is fully started but no game code has

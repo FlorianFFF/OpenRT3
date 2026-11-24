@@ -14941,11 +14941,7 @@ DIFFTEST(net_Dispatch) {
             if (Rnd() % 8 == 0) wire[0] ^= 1;
         }
         uint32_t arg = Rnd();
-        // Not 0x7f / 0x90 / 0x92 / 0x94 / 0x96: DesyncWatch (loaded with the game)
-        // replaces the original's handler lookup call (0x46ac1f) for those kinds;
-        // the rewrite follows the exe.
         uint8_t kind = (uint8_t)(Rnd() % 256);
-        if ((kind >= 0x90 && kind <= 0x96 && !(kind & 1)) || kind == 0x7f) ++kind;
         std::string logs[2];
         for (int s = 0; s < 2; ++s) {
             memset(g_b61Msg, 0, 0x40);
@@ -19117,8 +19113,7 @@ int32_t __stdcall FakeB112Caps(void* o, uint32_t ad, uint32_t type, uint32_t* ca
 }
 int32_t __stdcall FakeB112CreateDev(void* o, uint32_t ad, uint32_t type, HWND__* w, uint32_t beh, uint32_t* pp, void** dev) {
     int n = g_b112Devs++;
-    // DesyncWatch patches D3DCREATE_FPU_PRESERVE (2) into the exe's flags; the rewrite follows the unmodded exe.
-    Logf("createdev %u %u %p %x | %x %x %x %x %x %x %x %x %x %x %x %x %x", ad, type, w, beh & ~2u, pp[0], pp[1], pp[2], pp[3], pp[4], pp[5], pp[6], pp[7], pp[8], pp[9],
+    Logf("createdev %u %u %p %x | %x %x %x %x %x %x %x %x %x %x %x %x %x", ad, type, w, beh, pp[0], pp[1], pp[2], pp[3], pp[4], pp[5], pp[6], pp[7], pp[8], pp[9],
          pp[10], pp[11], pp[12]);
     bool ok = !((g_b112It >> 2) & 1) || n > 0;
     if (ok) *dev = g_b112Dev;
@@ -33725,38 +33720,8 @@ char* __fastcall FakeB244Num(char* buf, int32_t style, double v, int32_t width, 
 }
 } // namespace
 
-namespace {
-// Temporarily writes `bytes` at exe address `at` (restoring what was there).
-// DesyncWatch, which loads in the test process too, live-patches the
-// resolution cycler 0x483780; the test compares against the unmodded code.
-struct B244Code {
-    uint8_t* at;
-    uint8_t saved[16];
-    size_t n;
-    B244Code(uint32_t a, const uint8_t* bytes, size_t len) : at((uint8_t*)a), n(len) {
-        DWORD old;
-        VirtualProtect(at, n, PAGE_EXECUTE_READWRITE, &old);
-        memcpy(saved, at, n);
-        memcpy(at, bytes, n);
-        VirtualProtect(at, n, old, &old);
-        FlushInstructionCache(GetCurrentProcess(), at, n);
-    }
-    ~B244Code() {
-        DWORD old;
-        VirtualProtect(at, n, PAGE_EXECUTE_READWRITE, &old);
-        memcpy(at, saved, n);
-        VirtualProtect(at, n, old, &old);
-        FlushInstructionCache(GetCurrentProcess(), at, n);
-    }
-};
-const uint8_t kB244Pick[13] = { 0x3d, 0x00, 0x02, 0x00, 0x00, 0x57, 0x7f, 0x04, 0x33, 0xc0, 0xeb, 0x39, 0x3d };
-const uint8_t kB244H[7] = { 0x8b, 0x04, 0x95, 0x7c, 0x0e, 0x62, 0x00 };
-const uint8_t kB244W[7] = { 0x8b, 0x14, 0x95, 0x64, 0x0e, 0x62, 0x00 };
-} // namespace
-
 DIFFTEST(ui_CampaignVideoWindowsAndResolution) {
     UiTrace t;
-    B244Code unmodPick(0x4837bd, kB244Pick, 13), unmodH(0x483889, kB244H, 7), unmodW(0x483890, kB244W, 7);
     t.Add(0x5206b0, (void*)&rt3::Engine_SetDisplayMode, (void*)&FakeB244Mode);
     t.Add(0x538a30, (void*)&rt3::Obj_Incc60, (void*)&FakeB244Inc);
     t.Add(0x538a40, (void*)&rt3::Obj_Decc60, (void*)&FakeB244Dec);
@@ -35328,12 +35293,6 @@ DIFFTEST(game_PacketStockTrade) {
     t.Add(0x476460, (void*)&rt3::Player_SellShares, (void*)&FakeB260Trade);
     t.Add(0x53fe00, (void*)&rt3::Window_DeleteChildren, (void*)&FakeB260Delete);
     t.Add(0x50ba00, (void*)&rt3::CompanyList_Refill, (void*)&FakeB260Refill);
-    // DesyncWatch redirects both trade calls (trade news); test the unmodded calls.
-    uint8_t callBuy[5] = { 0xe8 }, callSell[5] = { 0xe8 };
-    int32_t relBuy = 0x477110 - (0x50c1ae + 5), relSell = 0x476460 - (0x50c24e + 5);
-    memcpy(callBuy + 1, &relBuy, 4);
-    memcpy(callSell + 1, &relSell, 4);
-    B244Code codeBuy(0x50c1ae, callBuy, 5), codeSell(0x50c24e, callSell, 5);
     const uint32_t gl[] = { 0x6cec78, 0xccbb20, 0x6d19f0, 0x625a94 };
     const int n = sizeof gl / sizeof gl[0];
     uint32_t saved[n];
@@ -39790,9 +39749,6 @@ DIFFTEST(game_ScenarioAndLobbyLabel) {
     t.Add(0x521d60, (void*)&rt3::Textures_Find, (void*)&FakeB288Player);
     t.Add(0x5216d0, (void*)&rt3::Net_UnlockQueueArg, (void*)&FakeB288Unlock);
     t.Add(0x5519f0, (void*)&rt3::Font_DrawTextBox, (void*)&FakeB288Text);
-    // DesyncWatch's always_stock_market rewrites the gate's start: compare with the exe's bytes.
-    static const uint8_t kGate[] = { 0x8b, 0x0d, 0x78, 0xec, 0x6c, 0x00 };
-    B244Code gate(0x434db0, kGate, sizeof kGate);
     const uint32_t gl[] = { 0x6cec78, 0x6d40d0, 0x6d1268, 0x6d40dc };
     const int n = sizeof gl / sizeof gl[0];
     uint32_t saved[n];

@@ -1,4 +1,4 @@
-// RulesDialog.cpp - RT3_mp.exe 0x4d2000-0x4dc000.
+// RulesDialog.cpp - RT3.exe 0x4d2000-0x4dc000.
 // Regrouped by tools/regroup.py from the per-batch files; one band of
 // the exe per original object file.
 

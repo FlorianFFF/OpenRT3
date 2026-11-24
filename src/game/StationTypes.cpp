@@ -1,4 +1,4 @@
-// StationTypes.cpp - RT3_mp.exe 0x486000-0x488000.
+// StationTypes.cpp - RT3.exe 0x486000-0x488000.
 // Regrouped by tools/regroup.py from the per-batch files; one band of
 // the exe per original object file.
 
@@ -406,7 +406,7 @@ RT3_NOINLINE uint32_t __fastcall StationTypes_Add(Collection* t, int, const char
     static uint8_t local[0xdd4];  // original: stack (initialised by 0x487620)
     for (auto& b : local) b = 0;
     Station_Construct(local);
-    uint32_t id = hook::CallTarget<uint32_t(__fastcall*)(Collection*, int, const void*, uint32_t, uint32_t, uint32_t)>(0x487d63)(t, 0, local, 0xdd1, 0, 0);
+    uint32_t id = Collection_Allocate(t, 0, local, 0xdd1, 0, 0);
     uint8_t* r = (uint8_t*)Collection_Get(t, 0, id);
     Station_InitWithId(r, 0, (int32_t)id);
     if (name) StrCopyN((char*)r + 4, name, 0x28);

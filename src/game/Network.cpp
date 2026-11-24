@@ -1,4 +1,4 @@
-// Network.cpp - RT3_mp.exe 0x468000-0x474000.
+// Network.cpp - RT3.exe 0x468000-0x474000.
 // Regrouped by tools/regroup.py from the per-batch files; one band of
 // the exe per original object file.
 
@@ -6159,7 +6159,7 @@ RT3_NOINLINE uint32_t __fastcall News_Add(Collection* t, int, const char* title,
     }
     uint8_t local[0x188] = {};  // original: uninitialised stack (overwritten by News_Init)
     ReturnThis473cc0(local);
-    uint32_t id = hook::CallTarget<uint32_t(__fastcall*)(Collection*, int, const void*, uint32_t, uint32_t, uint32_t)>(0x473fd5)(t, 0, local, 0, 0, 0);
+    uint32_t id = Collection_Allocate(t, 0, local, 0, 0, 0);
     News_Init((uint8_t*)Collection_Get(t, 0, id), 0, (int32_t)id, title, text, a, b);
     Nop473cd0(local);
     return id;

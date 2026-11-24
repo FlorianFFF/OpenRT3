@@ -1,4 +1,4 @@
-// TextDate.cpp - RT3_mp.exe 0x51a000-0x51e000.
+// TextDate.cpp - RT3.exe 0x51a000-0x51e000.
 // Regrouped by tools/regroup.py from the per-batch files; one band of
 // the exe per original object file.
 

@@ -1,4 +1,4 @@
-// Cities.cpp - RT3_mp.exe 0x420000-0x424000.
+// Cities.cpp - RT3.exe 0x420000-0x424000.
 // Regrouped by tools/regroup.py from the per-batch files; one band of
 // the exe per original object file.
 

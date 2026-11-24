@@ -1,4 +1,4 @@
-// Controls.cpp - RT3_mp.exe 0x55e000-0x564000.
+// Controls.cpp - RT3.exe 0x55e000-0x564000.
 // Regrouped by tools/regroup.py from the per-batch files; one band of
 // the exe per original object file.
 

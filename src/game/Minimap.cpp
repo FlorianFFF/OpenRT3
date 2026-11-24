@@ -1,4 +1,4 @@
-// Minimap.cpp - RT3_mp.exe 0x478000-0x47c000.
+// Minimap.cpp - RT3.exe 0x478000-0x47c000.
 // Regrouped by tools/regroup.py from the per-batch files; one band of
 // the exe per original object file.
 

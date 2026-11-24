@@ -48,7 +48,6 @@ def main():
     if r.returncode:
         print("callers rely on ECX/EDX of a replaced function: wrap it (hook/keepregs.h) or review; simcheck skipped")
         return 1
-    # DesyncWatch is informational: rewrites follow the unmodded exe.
     s = subprocess.run([sys.executable, str(root / "tools" / "simcheck.py"), *sys.argv[1:]], cwd=root,
                        capture_output=True, text=True, encoding="utf-8", errors="replace")
     print("\n".join((s.stdout + s.stderr).splitlines()[-3:]))

@@ -1,4 +1,4 @@
-// Buildings.cpp - RT3_mp.exe 0x40c000-0x414000.
+// Buildings.cpp - RT3.exe 0x40c000-0x414000.
 // Regrouped by tools/regroup.py from the per-batch files; one band of
 // the exe per original object file.
 

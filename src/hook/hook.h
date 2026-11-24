@@ -1,6 +1,6 @@
 // Function-replacement registry.
 //
-// The rebuild runs inside the original RT3_mp.exe (imagebase 0x400000, fixed).
+// The rebuild runs inside the original RT3.exe (imagebase 0x400000, fixed).
 // Every reimplemented function registers itself with the address of the
 // original it replaces; at startup the DLL patches a JMP at that address.
 // This keeps the game playable while functions are rewritten one by one, and
@@ -12,7 +12,7 @@
 namespace hook {
 
 struct Entry {
-    uint32_t    addr;   // original function VA in RT3_mp.exe
+    uint32_t    addr;   // original function VA in RT3.exe
     void*       impl;   // our replacement (same calling convention)
     const char* name;   // section/key in rt3re.ini
     Entry*      next;
@@ -32,10 +32,9 @@ void DumpCoverage(const char* path);
 // Pointer to an original function, for calling code not yet rewritten.
 template <typename T> inline T Orig(uint32_t addr) { return reinterpret_cast<T>(addr); }
 
-// The current target of the CALL rel32 at `site` in the exe. Use it where a
-// rewritten function makes a call that a loaded mod (DesyncWatch's DINPUT8.dll)
-// redirects by patching that call site, so the mod keeps working; without the
-// mod it is the original callee.
+// The current target of the CALL rel32 at `site` in the exe. The determinism
+// harness (src/harness.cpp) redirects two such call sites; rewrites of their
+// callers go through this so the redirect still applies.
 template <typename T> inline T CallTarget(uint32_t site) {
     return reinterpret_cast<T>(site + 5 + *reinterpret_cast<const int32_t*>(site + 1));
 }

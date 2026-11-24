@@ -16,6 +16,7 @@ import time
 from pathlib import Path
 
 import stockgame
+from pe import find_exe
 from replacements import REPLACEMENT_RE
 from runlock import shared_run
 
@@ -46,16 +47,23 @@ def run(tag, enabled, save, days, timeout=None):
     if target.exists():
         target.unlink()
     env = dict(os.environ, RT3RE_HARNESS=f"load={save};frames={days};out={out}", RT3RE_COVERAGE="1")
-    p = subprocess.Popen([str(GAME / "rt3re.exe"), "-s4"], cwd=GAME, env=env)  # safe mode, windowed, no sound
-    p.wait()
+    # --standalone: the rewrite runs in OpenRT3.exe (our own process) instead
+    # of being loaded into the game's exe; the original runs are unchanged.
+    image = "OpenRT3.exe" if enabled and "--standalone" in sys.argv else find_exe(GAME).name
+    exe = "OpenRT3.exe" if image == "OpenRT3.exe" else "rt3re.exe"
+    p = subprocess.Popen([str(GAME / exe), "-s4"], cwd=GAME, env=env)  # safe mode, windowed, no sound
+    try:
+        p.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        pass
     t0 = time.time()
     while time.time() - t0 < timeout:
-        r = subprocess.run(["tasklist", "/fi", "imagename eq RT3_mp.exe"], capture_output=True, text=True)
-        if "RT3_mp.exe" not in r.stdout:
+        r = subprocess.run(["tasklist", "/fi", f"imagename eq {image}"], capture_output=True, text=True)
+        if image not in r.stdout:
             break
         time.sleep(2)
     else:
-        subprocess.run(["taskkill", "/f", "/im", "RT3_mp.exe"], capture_output=True)
+        subprocess.run(["taskkill", "/f", "/im", image], capture_output=True)
         print(f"{tag}: timeout")
     ini.unlink()
     log = (GAME / "rt3re.log").read_text(errors="replace")

@@ -1,4 +1,4 @@
-// World.cpp - RT3_mp.exe 0x432000-0x438000.
+// World.cpp - RT3.exe 0x432000-0x438000.
 // Regrouped by tools/regroup.py from the per-batch files; one band of
 // the exe per original object file.
 
@@ -801,7 +801,7 @@ RT3_REPLACE(0x432e80, Collection5c9cec_Destruct);
 uint32_t __fastcall Table_AddNamedRecord(Collection* t, int, const char* name, uint32_t key) {
     uint8_t* tmp = (uint8_t*)((void*(__cdecl*)(size_t))0x53b070)(0x88f);
     if (tmp) tmp = (uint8_t*)Record42d5a0_Init(tmp);
-    uint32_t id = hook::CallTarget<uint32_t(__fastcall*)(Collection*, int, const void*, uint32_t, uint32_t, uint32_t)>(0x432ed2)(t, 0, tmp, 0x88f, key, 0);
+    uint32_t id = Collection_Allocate(t, 0, tmp, 0x88f, key, 0);
     Record42d5a0_SetName((uint8_t*)Collection_Get(t, 0, id), 0, (int32_t)id, name);
     if (tmp) {
         Obj_FreeAllLists2(tmp);
@@ -1579,8 +1579,7 @@ RT3_REPLACE(0x434d40, MarkKind2Buildings);
 // 0x434db0. The stock market gate (Stock Market button, hotkey): refused
 // when the scenario forbids it (Scenario_CheckEditable) or - with "That
 // action is not allowed in this scenario" (string 0x14e) - when the world
-// flag +0x4a7f is set. DesyncWatch's always_stock_market patches this
-// function's start into "return 1".
+// flag +0x4a7f is set.
 RT3_NOINLINE uint32_t __stdcall StockMarket_IsAllowed() {
     if (!Scenario_CheckEditable()) return 0;
     if (!F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4a7f)) return 1;

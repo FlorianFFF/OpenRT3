@@ -1,4 +1,4 @@
-// Stations.cpp - RT3_mp.exe 0x47c000-0x482000.
+// Stations.cpp - RT3.exe 0x47c000-0x482000.
 // Regrouped by tools/regroup.py from the per-batch files; one band of
 // the exe per original object file.
 
@@ -2066,7 +2066,7 @@ RT3_REPLACE(0x481310, Sites_Save);
 
 // 0x481390. Adds a station for `building` at cell (x, y) to table c; returns its id.
 RT3_NOINLINE uint32_t __fastcall Stations_Add(Collection* c, int, uint32_t building, float x, float y) {
-    uint32_t id = hook::CallTarget<uint32_t(__fastcall*)(Collection*, int, const void*, uint32_t, uint32_t, uint32_t)>(0x48139c)(
+    uint32_t id = Collection_Allocate(
         c, 0, nullptr, 0, 0, 0);
     Station_Init((uint8_t*)Collection_Get(c, 0, id), 0, (int32_t)id, building, x, y);
     return id;
@@ -2230,7 +2230,7 @@ RT3_NOINLINE int32_t __fastcall Tracks_AddPieceRotated(Collection* c, int, float
         return -1;
     uint8_t local[0x260] = {};
     TrackLight_Construct(local);
-    uint32_t id = hook::CallTarget<uint32_t(__fastcall*)(Collection*, int, const void*, uint32_t, uint32_t, uint32_t)>(0x493de4)(
+    uint32_t id = Collection_Allocate(
         c, 0, local, 0x257, 0, 0);
     if (co) Company_Add7680(Collection_Get(hook::Global<Collection*>(0x62be10), 0, co), 0, (uint8_t)style != 4 ? -1 : -2);
     uint8_t* t = (uint8_t*)Collection_Get(c, 0, id);

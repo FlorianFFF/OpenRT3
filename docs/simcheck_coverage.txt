@@ -2136,7 +2136,7 @@
 004ab980 Train_SetState 0
 004abca0 Train_RetargetRegion 0
 004abd70 Train_SetRunning 0
-004abf00 Train_ShareRevenue 615
+004abf00 Train_ShareRevenue 0
 004ac250 Train_EarnRevenue 0
 004ac3f0 Train_AddExpense 0
 004ac460 Train_RunningCost 0
@@ -2963,7 +2963,7 @@
 00518570 Collection_Init 2
 00518600 Collection_Clear 75
 00518680 Collection_Load 0
-00518900 Collection_Allocate 14844
+00518900 Collection_Allocate 14709
 00518a30 Collection_Release 438
 00518ab0 Collection_SetKey1 0
 00518b20 Collection_SwapOrder 0
@@ -2981,7 +2981,7 @@
 00518f60 StringList_Free 0
 00518fa0 Language_Select 0
 005193d0 FreeLanguageStrings 0
-005193f0 GetString 144
+005193f0 GetString 143
 0051b600 IsLeadByte 0
 0051b630 IsSingleByte 0
 0051b660 BuildNameIndex 0

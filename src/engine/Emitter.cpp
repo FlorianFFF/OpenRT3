@@ -1,4 +1,4 @@
-// Emitter.cpp - RT3_mp.exe 0x554000-0x556000.
+// Emitter.cpp - RT3.exe 0x554000-0x556000.
 // Regrouped by tools/regroup.py from the per-batch files; one band of
 // the exe per original object file.
 

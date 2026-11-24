@@ -1,4 +1,4 @@
-// Vehicles.cpp - RT3_mp.exe 0x40a000-0x40c000.
+// Vehicles.cpp - RT3.exe 0x40a000-0x40c000.
 // Regrouped by tools/regroup.py from the per-batch files; one band of
 // the exe per original object file.
 

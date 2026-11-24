@@ -1,4 +1,4 @@
-// CollectionCore.cpp - RT3_mp.exe 0x517c00-0x51a000.
+// CollectionCore.cpp - RT3.exe 0x517c00-0x51a000.
 // Regrouped by tools/regroup.py from the per-batch files; one band of
 // the exe per original object file.
 

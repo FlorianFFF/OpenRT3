@@ -1,4 +1,4 @@
-// Effects.cpp - RT3_mp.exe 0x474000-0x476000.
+// Effects.cpp - RT3.exe 0x474000-0x476000.
 // Regrouped by tools/regroup.py from the per-batch files; one band of
 // the exe per original object file.
 

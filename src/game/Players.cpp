@@ -1,4 +1,4 @@
-// Players.cpp - RT3_mp.exe 0x476000-0x478000.
+// Players.cpp - RT3.exe 0x476000-0x478000.
 // Regrouped by tools/regroup.py from the per-batch files; one band of
 // the exe per original object file.
 

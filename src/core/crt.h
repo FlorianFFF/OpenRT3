@@ -1,4 +1,4 @@
-// Bridges to the C runtime statically linked into RT3_mp.exe.
+// Bridges to the C runtime statically linked into RT3.exe.
 //
 // While rewritten and original code run side by side they share heap blocks:
 // memory we allocate may be freed by original code and vice versa. So all heap

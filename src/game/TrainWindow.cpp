@@ -1,4 +1,4 @@
-// TrainWindow.cpp - RT3_mp.exe 0x510000-0x516000.
+// TrainWindow.cpp - RT3.exe 0x510000-0x516000.
 // Regrouped by tools/regroup.py from the per-batch files; one band of
 // the exe per original object file.
 

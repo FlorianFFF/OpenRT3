@@ -1,4 +1,4 @@
-// TrackTool.cpp - RT3_mp.exe 0x50c000-0x510000.
+// TrackTool.cpp - RT3.exe 0x50c000-0x510000.
 // Regrouped by tools/regroup.py from the per-batch files; one band of
 // the exe per original object file.
 

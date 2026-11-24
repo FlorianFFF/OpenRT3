@@ -1,4 +1,4 @@
-// Camera.cpp - RT3_mp.exe 0x438000-0x440000.
+// Camera.cpp - RT3.exe 0x438000-0x440000.
 // Regrouped by tools/regroup.py from the per-batch files; one band of
 // the exe per original object file.
 

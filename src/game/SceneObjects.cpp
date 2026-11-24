@@ -1,4 +1,4 @@
-// SceneObjects.cpp - RT3_mp.exe 0x454000-0x45e000.
+// SceneObjects.cpp - RT3.exe 0x454000-0x45e000.
 // Regrouped by tools/regroup.py from the per-batch files; one band of
 // the exe per original object file.
 
@@ -1355,7 +1355,7 @@ RT3_NOINLINE uint32_t __fastcall Log_Add(Collection* t, int, const char* name, i
     }
     uint8_t local[0x21c] = {};  // original: uninitialised stack (mostly overwritten by 0x4552b0)
     ReturnThis455290(local);
-    uint32_t id = hook::CallTarget<uint32_t(__fastcall*)(Collection*, int, const void*, uint32_t, uint32_t, uint32_t)>(0x45552a)(t, 0, local, 0, 0, 0);
+    uint32_t id = Collection_Allocate(t, 0, local, 0, 0, 0);
     uint8_t* e = (uint8_t*)Collection_Get(t, 0, id);
     Entry21a_Init(e, 0, (int32_t)id, name, b, c, d);
     for (uint8_t* o = (uint8_t*)Table_Oldest(t, 0, 0); F<int32_t>(e, 4) - F<int32_t>(o, 4) > 6;

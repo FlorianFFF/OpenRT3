@@ -1,4 +1,4 @@
-// CompanyWindow.cpp - RT3_mp.exe 0x4be000-0x4c6000.
+// CompanyWindow.cpp - RT3.exe 0x4be000-0x4c6000.
 // Regrouped by tools/regroup.py from the per-batch files; one band of
 // the exe per original object file.
 

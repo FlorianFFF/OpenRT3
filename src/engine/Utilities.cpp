@@ -1,4 +1,4 @@
-// Utilities.cpp - RT3_mp.exe 0x564000-0x568000.
+// Utilities.cpp - RT3.exe 0x564000-0x568000.
 // Regrouped by tools/regroup.py from the per-batch files; one band of
 // the exe per original object file.
 

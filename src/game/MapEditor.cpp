@@ -1,4 +1,4 @@
-// MapEditor.cpp - RT3_mp.exe 0x4f6000-0x4fc000.
+// MapEditor.cpp - RT3.exe 0x4f6000-0x4fc000.
 // Regrouped by tools/regroup.py from the per-batch files; one band of
 // the exe per original object file.
 

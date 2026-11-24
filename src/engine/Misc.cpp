@@ -1,4 +1,4 @@
-// Misc.cpp - RT3_mp.exe 0x51e000-0x520000.
+// Misc.cpp - RT3.exe 0x51e000-0x520000.
 // Regrouped by tools/regroup.py from the per-batch files; one band of
 // the exe per original object file.
 
@@ -20,6 +20,8 @@
 #undef small
 
 namespace rt3 {
+
+void __fastcall Train_Init(uint8_t* t, int, int32_t id, int32_t owner);
 
 template <typename Fn> static inline Fn Import(uint32_t iat) { return (Fn)hook::Global<void*>(iat); }
 const char* __fastcall StrFind(const char* hay, const char* needle, int32_t caseSensitive);
@@ -801,9 +803,9 @@ RT3_REPLACE(0x51f510, Engine_SetCursorObject);
 RT3_NOINLINE uint32_t __fastcall Trains_Create(Collection* c, int, int32_t owner) {
     uint8_t local[0x1d8] = {};
     Cursor33_Construct(local);
-    uint32_t id = hook::CallTarget<uint32_t(__fastcall*)(Collection*, int, const void*, uint32_t, uint32_t, uint32_t)>(0x4b23f0)(
+    uint32_t id = Collection_Allocate(
         c, 0, local, 0, 0, 0);
-    hook::CallTarget<void(__fastcall*)(uint8_t*, int, int32_t, int32_t)>(0x4b240a)((uint8_t*)Collection_Get(c, 0, id), 0, (int32_t)id,
+    Train_Init((uint8_t*)Collection_Get(c, 0, id), 0, (int32_t)id,
                                                                                    owner);
     return id;
 }
@@ -832,7 +834,7 @@ int32_t __fastcall Tracks_AddPiece(Collection* c, int, float x0, float z0, float
         return -1;
     uint8_t local[0x260] = {};
     TrackLight_Construct(local);
-    uint32_t id = hook::CallTarget<uint32_t(__fastcall*)(Collection*, int, const void*, uint32_t, uint32_t, uint32_t)>(0x4940a1)(
+    uint32_t id = Collection_Allocate(
         c, 0, local, 0x257, 0, 0);
     if (co) Company_Add7680(Collection_Get(hook::Global<Collection*>(0x62be10), 0, co), 0, (uint8_t)style != 4 ? -1 : -2);
     uint8_t* t = (uint8_t*)Collection_Get(c, 0, id);
@@ -902,9 +904,7 @@ void __fastcall Engine_EnumDisplayModes(uint8_t* e) {
     for (int32_t i = 0; i < F<int32_t>(e, 0x30); ++i) {
         ((long(__stdcall*)(void*, uint32_t, uint32_t, uint32_t*))vt[0x1c / 4])(d3d, 0, (uint32_t)i, mode);
         if (mode[0] < 600 || mode[1] < 400 || mode[0] < mode[1]) continue;
-        // The 100 Hz cap is the JA at 0x51f71b, which DesyncWatch's all_resolutions
-        // option NOPs out at runtime: follow the live code.
-        if (mode[2] > 100 && *(const uint8_t*)0x51f71b != 0x90) continue;
+        if (mode[2] > 100) continue;  // refresh rates above 100 Hz are not listed
         uint32_t bpp;
         if (mode[3] == 0x16) bpp = 0x20;
         else if ((int32_t)mode[3] > 0x16 && (int32_t)mode[3] <= 0x18) bpp = 0x10;

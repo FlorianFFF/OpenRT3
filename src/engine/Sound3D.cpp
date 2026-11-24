@@ -1,4 +1,4 @@
-// Sound3D.cpp - RT3_mp.exe 0x568000-0x5a0000.
+// Sound3D.cpp - RT3.exe 0x568000-0x5a0000.
 // Regrouped by tools/regroup.py from the per-batch files; one band of
 // the exe per original object file.
 

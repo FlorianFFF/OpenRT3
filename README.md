@@ -1,38 +1,55 @@
 # OpenRT3 — Railroad Tycoon 3 rebuilt in C++
 
-> **Work in progress.** Most of the game still runs as original code; functions are replaced one at a time.
->
-> You need your own copy of Railroad Tycoon 3. This repo has no game data, binaries or decompiled game code.
+> You need your own copy of Railroad Tycoon 3. This repo has no game data, binaries or decompiled
+> game code.
 
-Goal: a complete C++ reimplementation of `RT3_mp.exe` (the 2004-09-08 build, imagebase
-`0x400000`) that runs on the original game data.
+OpenRT3 is a C++ reimplementation of Railroad Tycoon 3's `RT3.exe`, version 1.06 (built
+2004-09-08, imagebase `0x400000`), that runs on the original game data.
+
+## Status
+
+- **Every game function is rewritten** (4,376 of the 4,390 functions in the game's own code,
+  98.9% of its machine code). The other 14 still run the original code on purpose: they read
+  values their callers never wrote (leftover stack contents), and a rewrite compiled with a
+  different compiler leaves different leftovers. Each is listed with its reason in
+  `tools/replacements.py`.
+- **The rewrite plays exactly like the original.** 829 differential tests pass, and a 2,000-frame
+  run of a saved game produces the same game state, write for write, as the original game
+  (see *Verifying a rewrite*).
+- **The source is grouped like the original.** The compiler kept each source file's functions
+  together, so the code is split by address range into 69 files, one per original object file
+  (`src/game/Train.cpp`, `src/engine/Render.cpp`, …). Only `Misc.cpp` and `MouseCursor.cpp` are
+  known names (the exe still contains those two paths); the other names are reconstructions.
+- **It runs in its own process.** `OpenRT3.exe` loads the game's image itself and runs our code
+  in it (see *Running*). The game's data still lives at the original addresses, and the
+  libraries the game had compiled in (C runtime, D3DX 8, GameSpy SDK) still run from that image.
+
+Next: moving the game's global data into our own code, so the original image is only needed for
+those libraries, and then replacing them as well.
 
 ## How: replace the game one function at a time
 
-Rewriting ~5,100 game functions from scratch and only testing at the end does not work; nothing
-runs until everything runs. So this project uses the method that rebuilt GTA III (re3) and
-RollerCoaster Tycoon 2 (OpenRCT2):
+Rewriting thousands of functions and only testing at the end does not work; nothing runs until
+everything runs. So this project uses the method that rebuilt GTA III (re3) and RollerCoaster
+Tycoon 2 (OpenRCT2):
 
-1. `rt3re.exe` (launcher) starts `RT3_mp.exe` suspended and loads `rt3re.dll` into it.
+1. The game starts with `rt3re.dll` loaded into it (see *Running*).
 2. Every rewritten function is tagged `RT3_REPLACE(0xADDRESS, Function)`. At startup the DLL
    writes a `JMP` over the original, so the game calls our code instead.
-3. The game stays fully playable the whole time. Anything not yet rewritten is still the
-   original code; a rewritten function calls not-yet-rewritten ones through their address.
+3. The game stays playable the whole time; anything not rewritten still runs as original code.
 4. Each replacement can be switched off in `rt3re.ini` (`[replace] Name=0`) to compare
    behaviour with the original.
-5. When every game function is replaced, the original exe is no longer needed: the same
-   sources link into a standalone `rt3.exe`.
 
 Calling conventions: `__thiscall` methods are written as `__fastcall(this, int /*edx*/, ...)`,
 which matches the register layout. `__cdecl`/`__stdcall`/`__fastcall` are kept as-is.
-Globals that still live in the exe are reached with `hook::Global<T>(0xADDR)`.
+Globals that still live in the game's image are reached with `hook::Global<T>(0xADDR)`.
 
 ## Verifying a rewrite
 
-`build.bat test` runs the **differential tests**: `rt3re_test.dll` is injected into the real
-`RT3_mp.exe`, replaces `WinMain` with a test runner (so the exe's own CRT is initialised but no
-game code has run), and calls the original function and the rewrite on the same inputs.
-Results: `difftest.log` in the game folder.
+`build.bat test` runs the **differential tests**: `rt3re_test.dll` is loaded into the real game,
+replaces `WinMain` with a test runner (so the game's own C runtime is initialised but no game code
+has run), and calls the original function and the rewrite on the same inputs. Results:
+`difftest.log` in the game folder.
 
 ```
 DIFFTEST(text_ToUpper) {
@@ -42,6 +59,13 @@ DIFFTEST(text_ToUpper) {
 }
 ```
 
+`python tools/simcheck.py` is the end-to-end check: it loads a saved game, runs 2,000 frames,
+saves, and compares every write of that save between the original game and the rewrite.
+`--standalone` runs the rewrite through `OpenRT3.exe`.
+
+Tests and simcheck run in `%TEMP%\rt3_stock`, a mirror of the game folder without mods
+(`tools/stockgame.py`), so they always compare against the unmodified game.
+
 A function only counts as done when it has a passing difftest, or, where the function only makes
 sense inside a running game (rendering, UI, networking), after a recorded in-game check.
 
@@ -49,29 +73,45 @@ sense inside a running game (rendering, UI, networking), after a recorded in-gam
 
 | Path | What |
 |---|---|
-| `src/hook/` | replacement registry + JMP patching |
+| `src/game/` | the rewritten game code (below `0x517c00`), one file per original object file |
+| `src/engine/` | the rewritten engine (`0x517c00` on: `Misc.cpp`, `MouseCursor.cpp`, `Render.cpp`, …) |
 | `src/core/` | logging, and headers for the shared engine types (streams, lists, containers, CRT bridges) |
-| `src/assets/` | file-format readers (PK4, …) — see `docs/formats.md` |
-| `src/game/` | the rewritten game code (RT3_mp.exe below 0x517c00), one file per original object file (`Train.cpp`, `MapEditor.cpp`, …) |
-| `src/engine/` | the rewritten engine (0x517c00 on: `Misc.cpp`, `MouseCursor.cpp`, `Render.cpp`, …) |
-| `src/launcher/` | `rt3re.exe` |
+| `src/hook/` | replacement registry + JMP patching |
+| `src/assets/` | file-format readers (PK4, …) |
+| `src/launcher/` | `rt3re.exe` and `OpenRT3.exe` |
 | `tests/` | differential tests |
-| `tools/` | Python format tools, progress report, `vc.bat` (run anything in the MSVC x86 env) |
+| `tools/` | progress report, simcheck, mirror, Python format tools, `vc.bat` (runs anything in the MSVC x86 environment) |
 | `decomp/` | full Ghidra decompile, one `.c` per function + `index.tsv` call graph (regenerable, not committed) |
-| `docs/` | formats, progress |
+| `docs/` | progress, fun findings |
 
 ## Build
 
 Needs Visual Studio 2019 C++ build tools (x86). The game folder is expected next to this repo as
-`..\Railroad Tycoon 3 Full Game\`.
+`..\Railroad Tycoon 3 Full Game\`, with `RT3.exe` version 1.06 without copy protection. A
+copy-protected `RT3.exe` (as on the original CD) cannot be used. The tools check the exe's
+headers and tell you if no suitable one is found.
 
 First build only: `src/game/builtin_strings.inc` holds text from the original exe and is not
 committed. Generate it by running the `dump_tables` difftest (writes `builtin_strings.tsv` to the
 game folder) and then `python tools/gen_builtin_strings.py`.
 
-`build.bat` builds and copies `rt3re.dll`,
-`rt3re_test.dll` and `rt3re.exe` into `Railroad Tycoon 3 Full Game\`. `build.bat test` also
-runs the tests. Play with the rewrite by starting `rt3re.exe` from the game folder.
+`build.bat` builds and copies `rt3re.dll`, `rt3re_test.dll`, `rt3re.exe` and `OpenRT3.exe` into
+the game folder. `build.bat test` also runs the tests.
+
+## Running
+
+From the game folder, either:
+
+- `OpenRT3.exe`: runs the game in its own process. It copies the game's image from `RT3.exe` to
+  its original address, connects its imports, loads `rt3re.dll`, and starts it. Game arguments
+  (such as `-s2`) are passed on.
+- `rt3re.exe`: starts `RT3.exe` itself and loads `rt3re.dll` into it.
+
+Multiplayer: GameSpy's servers are gone. To play online, use
+[RT3Multiplayer](https://github.com/FlorianFFF/RT3Multiplayer/releases), which provides a
+replacement lobby server and sets the game up to use it. The GameSpy code still runs from the
+game's image as-is, so a game set up that way should also work with `OpenRT3.exe` and
+`rt3re.exe` (not yet tested in an online game).
 
 ## Original developer menu
 
@@ -81,35 +121,35 @@ Start `LaunchDeveloperMenu.bat` in the game folder, or run:
 rt3re.exe --dev-menu
 ```
 
-This loads the original `MNUDFLT` menu resource from `RT3_mp.exe` and attaches it
-to the window. Its original command IDs use the game's existing command handler.
-The launcher adds the game's `-s2` windowed safe-mode preset (with sound), which
-resets display settings to that preset. Normal `rt3re.exe` launches are unchanged.
-The original EXE is not modified on disk.
+This loads the original `MNUDFLT` menu resource from `RT3.exe` and attaches it to the window. Its
+original command IDs use the game's existing command handler. The launcher adds the game's `-s2`
+windowed safe-mode preset (with sound), which resets display settings to that preset. Normal
+`rt3re.exe` launches are unchanged. The original exe is not modified on disk.
 
-For a windowed game using your current settings, enable the menu without the
-safe-mode preset by adding this to `rt3re.ini` beside the launcher:
+For a windowed game using your current settings, enable the menu without the safe-mode preset by
+adding this to `rt3re.ini` beside the launcher:
 
 ```ini
 [developer]
 menu=1
 ```
 
-The menu is attached on the game's UI thread and reattached after window
-recreation. Its height is added to the outer window so the rendering/input area
-keeps its size. Some entries need a loaded map or refer to unfinished developer
-features. Use a test save when experimenting with commands that change game state.
+The menu is attached on the game's UI thread and reattached after window recreation. Its height is
+added to the outer window so the rendering/input area keeps its size. Some entries need a loaded
+map or refer to unfinished developer features. Use a test save when experimenting with commands
+that change game state.
 
 The opt-in extension is in `src/developer_menu.cpp`; it is separate from the
 function-for-function rewrites and disabled during ordinary differential tests.
 
+## Decompile and progress
+
 Regenerate the decompile (Ghidra 11.3.2 headless, ~10 min):
+
 ```
-analyzeHeadless <tmp-proj-dir> RT3H -import RT3_mp.exe -scriptPath reversing_notes/tools ^
+analyzeHeadless <tmp-proj-dir> RT3H -import RT3.exe -scriptPath reversing_notes/tools ^
     -postScript DecompAll.java rebuild/decomp
 ```
 
-## Progress
-
-`python tools/progress.py` counts replaced functions against the game's function list
-(CRT, D3DX and GameSpy SDK code excluded) and writes `docs/progress.md`.
+`python tools/progress.py` counts replaced functions against the game's function list (by code
+band: game, D3DX, GameSpy SDK, C runtime) and writes `docs/progress.md`.

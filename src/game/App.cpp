@@ -1,4 +1,4 @@
-// App.cpp - RT3_mp.exe 0x482000-0x486000.
+// App.cpp - RT3.exe 0x482000-0x486000.
 // Regrouped by tools/regroup.py from the per-batch files; one band of
 // the exe per original object file.
 
@@ -907,7 +907,7 @@ RT3_NOINLINE const char* __fastcall Game_VersionText() {
         uint32_t lo = File_Version((const char*)0x5cec18) & 0xffff;
         uint32_t hi = File_Version((const char*)0x5cec18) >> 16;
         ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)(buf, (const char*)0x5ced5c, hi, lo);
-        FormatText((char*)0x6cec24, hook::CallTarget<const char*(__fastcall*)(int32_t)>(0x482ddb)(0xf54), buf, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
+        FormatText((char*)0x6cec24, GetString(0xf54), buf, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
     }
     return (const char*)0x6cec24;
 }

@@ -1,4 +1,4 @@
-"""Read data from RT3_mp.exe by virtual address (vtables, constants, tables).
+"""Read data from the game's exe (RT3.exe 1.06) by virtual address (vtables, constants, tables).
 
     python pe.py dd 0x5d1aa0 16      # 16 dwords
     python pe.py f 0x5c99fc 4        # 4 floats
@@ -10,7 +10,34 @@ import struct
 import sys
 from pathlib import Path
 
-EXE = Path(__file__).resolve().parents[2] / "Railroad Tycoon 3 Full Game" / "RT3_mp.exe"
+GAME_DIR = Path(__file__).resolve().parents[2] / "Railroad Tycoon 3 Full Game"
+
+
+def is_game_image(path):
+    """Whether `path` is RT3.exe 1.06 without copy protection (by its PE headers).
+
+    Same test as src/launcher/game_exe.h: image base 0x400000, entry point
+    0x1a313b, image size 0x9c8260.
+    """
+    try:
+        head = Path(path).read_bytes()[:0x1000]
+        pe = struct.unpack_from("<I", head, 0x3C)[0]
+        base, entry, size = (struct.unpack_from("<I", head, pe + 24 + off)[0] for off in (28, 16, 56))
+        return head[:2] == b"MZ" and head[pe:pe + 4] == b"PE\0\0" and (base, entry, size) == (0x400000, 0x1A313B, 0x9C8260)
+    except (OSError, struct.error, IndexError):
+        return False
+
+
+def find_exe(folder=GAME_DIR):
+    """RT3.exe if it is the 1.06 image, else the first .exe in `folder` that is."""
+    folder = Path(folder)
+    for p in [folder / "RT3.exe"] + sorted(folder.glob("*.exe")):
+        if is_game_image(p):
+            return p
+    raise FileNotFoundError("no RT3.exe 1.06 (without copy protection) in %s" % folder)
+
+
+EXE = find_exe()
 
 
 class PE:

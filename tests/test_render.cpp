@@ -5507,16 +5507,7 @@ DIFFTEST(engine_EnumDisplayModes) {
     static const uint32_t heights[] = { 240, 480, 600, 768, 1024, 1200, 640, 400 };
     static const uint32_t okDesktop[] = { 0x14, 0x16, 0x17, 0x18 };
     static uint8_t ea[0x100], eb[0x100];
-    // The 100 Hz cap (JA at 0x51f71b) may be NOPped by DesyncWatch; test both forms.
-    uint8_t* cap = (uint8_t*)0x51f71b;
-    uint8_t capSaved[6];
-    static const uint8_t capOrig[6] = { 0x0f, 0x87, 0xa2, 0x00, 0x00, 0x00 }, capNops[6] = { 0x90, 0x90, 0x90, 0x90, 0x90, 0x90 };
-    DWORD capProt;
-    VirtualProtect(cap, 6, PAGE_EXECUTE_READWRITE, &capProt);
-    memcpy(capSaved, cap, 6);
     for (int it = 0; it < 2000; ++it) {
-        memcpy(cap, it % 2 ? capOrig : capNops, 6);
-        FlushInstructionCache(GetCurrentProcess(), cap, 6);
         g_modeCount = 1 + (int32_t)(Rnd() % 24);
         for (int k = 0; k < g_modeCount; ++k) {
             int s = (int)(Rnd() % 8);
@@ -5546,9 +5537,6 @@ DIFFTEST(engine_EnumDisplayModes) {
         ((void(__cdecl*)(void*))0x5a1145)(la);
         ((void(__cdecl*)(void*))0x5a1145)(lb);
     }
-    memcpy(cap, capSaved, 6);
-    FlushInstructionCache(GetCurrentProcess(), cap, 6);
-    VirtualProtect(cap, 6, capProt, &capProt);
     *iat = sCreate;
     VirtualProtect(iat, 4, oldProt, &oldProt);
 }
@@ -7532,8 +7520,6 @@ DIFFTEST(game_DialogSetupHelpers3) {
     hook::Global<Collection*>(0x62ba8c) = &cargoTypes;
     static uint8_t cargoFlagsSaved[0x40], regionGrid[64][0x1d7], orderList[8];
     memcpy(cargoFlagsSaved, (void*)0x6cfd38, sizeof cargoFlagsSaved);
-    static uint8_t dswSaved[6];
-    memcpy(dswSaved, (void*)0x4c6e4a, 6);
     *(uint8_t**)(map + 0x2129) = regionGrid[0];
     *(int32_t*)(map + 0x2145) = 8;
     *(uint8_t**)orderList = trains[0];
@@ -7823,15 +7809,6 @@ DIFFTEST(game_DialogSetupHelpers3) {
         *(int32_t*)(pl + 0x2a7) = (int32_t)(Rnd() % 3);
         for (int k = 0x4acb; k <= 0x4ad7; k += 4) *(int32_t*)(world + k) = Rnd() % 3 == 0;
         if (op == 40) {
-            // DesyncWatch's always_new_company jump at 0x4c6e4a, on or off.
-            static const uint8_t dswOff[6] = { 0x8b, 0x0d, 0x78, 0xec, 0x6c, 0x00 };
-            uint8_t dswOn[6] = { 0xe9, 0, 0, 0, 0, 0x90 };
-            *(int32_t*)(dswOn + 1) = 0x4c6e8b - (0x4c6e4a + 5);
-            DWORD dp;
-            VirtualProtect((void*)0x4c6e4a, 6, PAGE_EXECUTE_READWRITE, &dp);
-            memcpy((void*)0x4c6e4a, Rnd() % 2 ? dswOn : dswOff, 6);
-            VirtualProtect((void*)0x4c6e4a, 6, dp, &dp);
-            FlushInstructionCache(GetCurrentProcess(), (void*)0x4c6e4a, 6);
             *(int32_t*)(world + 0x21) = (int32_t)(Rnd() % 4);
             *(int32_t*)(world + 0x25) = 1;
             *(int32_t*)(win + 0x78) = (int32_t)(Rnd() % 6) - 1;
@@ -8520,13 +8497,6 @@ DIFFTEST(game_DialogSetupHelpers3) {
     memcpy(g_stState, stStateSaved, sizeof g_stState);
     memset(g_ansId, 0, sizeof g_ansId);
     memcpy((void*)0x6cfd38, cargoFlagsSaved, sizeof cargoFlagsSaved);
-    {
-        DWORD dp;
-        VirtualProtect((void*)0x4c6e4a, 6, PAGE_EXECUTE_READWRITE, &dp);
-        memcpy((void*)0x4c6e4a, dswSaved, 6);
-        VirtualProtect((void*)0x4c6e4a, 6, dp, &dp);
-        FlushInstructionCache(GetCurrentProcess(), (void*)0x4c6e4a, 6);
-    }
 }
 
 namespace rt3 {

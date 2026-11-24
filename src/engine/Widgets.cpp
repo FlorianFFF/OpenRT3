@@ -1,4 +1,4 @@
-// Widgets.cpp - RT3_mp.exe 0x558000-0x55c000.
+// Widgets.cpp - RT3.exe 0x558000-0x55c000.
 // Regrouped by tools/regroup.py from the per-batch files; one band of
 // the exe per original object file.
 

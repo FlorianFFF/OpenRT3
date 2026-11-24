@@ -1,4 +1,4 @@
-// Cargo.cpp - RT3_mp.exe 0x41e000-0x420000.
+// Cargo.cpp - RT3.exe 0x41e000-0x420000.
 // Regrouped by tools/regroup.py from the per-batch files; one band of
 // the exe per original object file.
 

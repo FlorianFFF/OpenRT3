@@ -1,4 +1,4 @@
-// Commands.cpp - RT3_mp.exe 0x440000-0x444000.
+// Commands.cpp - RT3.exe 0x440000-0x444000.
 // Regrouped by tools/regroup.py from the per-batch files; one band of
 // the exe per original object file.
 

@@ -1,4 +1,4 @@
-// SceneNode.cpp - RT3_mp.exe 0x52c000-0x530000.
+// SceneNode.cpp - RT3.exe 0x52c000-0x530000.
 // Regrouped by tools/regroup.py from the per-batch files; one band of
 // the exe per original object file.
 

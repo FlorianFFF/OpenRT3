@@ -17,6 +17,7 @@ from fragments import FRAGMENTS
 from replacements import REPLACEMENT_RE
 
 ROOT = Path(__file__).resolve().parents[1]
+MACRO_RE = re.compile(r"^\s*RT3_(?!REPLACE\b)[A-Z0-9_]+\(\s*0x([0-9a-fA-F]+)\s*,\s*(\w+)", re.M)
 BANDS = [("game", 0x401000, 0x56c850), ("d3dx", 0x56c850, 0x58bc30),
          ("imports", 0x58bc30, 0x58bc90), ("gamespy", 0x58bc90, 0x5a1000),
          ("crt", 0x5a1000, 0x10000000)]
@@ -40,8 +41,12 @@ def main():
         funcs[int(addr, 16)] = (name, int(size))
     done = {}
     for p in (ROOT / "src").rglob("*.cpp"):
-        for m in REPLACEMENT_RE.finditer(p.read_text(encoding="utf-8")):
+        text = p.read_text(encoding="utf-8")
+        for m in REPLACEMENT_RE.finditer(text):
             done[int(m.group(1), 16)] = (m.group(2), p.relative_to(ROOT).as_posix())
+        # Families registered through a local macro: RT3_LEDGER(0x440700, 1) etc.
+        for m in MACRO_RE.finditer(text):
+            done.setdefault(int(m.group(1), 16), (m.group(2), p.relative_to(ROOT).as_posix()))
 
     for frag, parent in FRAGMENTS.items():
         if parent in done:

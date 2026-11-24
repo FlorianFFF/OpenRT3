@@ -1,6 +1,6 @@
 # Fun & interesting findings
 
-Things noticed while rebuilding RT3_mp.exe function by function. Addresses are
+Things noticed while rebuilding RT3.exe (1.06) function by function. Addresses are
 the original exe's; the rewrite's name is in parentheses.
 
 ## Economy & simulation
@@ -218,9 +218,7 @@ the original exe's; the rewrite's name is in parentheses.
 - **Fast monitors were hidden.** The display mode list (0x51f540) drops every mode
   above 100 Hz, and it treats an A8R8G8B8 desktop as an unsupported format (a
   fatal error) while accepting R8G8B8, X8R8G8B8 and the two 16-bit formats. Only
-  landscape modes of at least 600x400 are listed. (DesyncWatch's all_resolutions
-  option NOPs out the 100 Hz cap at runtime; the rewrite reads the live
-  instruction so it keeps working.)
+  landscape modes of at least 600x400 are listed.
 - **Scripted history.** 0x435b50 fires fixed events on New Year's Day:
   - Headlines: steel railway bridges (1865, "cheaper than stone"); suspension
     bridges that let track cross lakes and oceans (1895); "Automobile usage
@@ -393,7 +391,7 @@ the original exe's; the rewrite's name is in parentheses.
   ends in CRLF every reported line number is one too low.
 
 - **A whole developer menu survives (found by the project owner).** The
-  MNUDFLT menu resource is identical in RT3.exe and RT3_mp.exe: 631 labelled
+  MNUDFLT menu resource is identical in the retail and the 1.06 RT3.exe: 631 labelled
   commands in 64 submenus.
   - "Fun Stuff" adds a tank, geese, and biplanes, propeller planes and jets you
     can fly by hand. The tank command reaches code that still builds a

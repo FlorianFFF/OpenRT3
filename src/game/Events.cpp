@@ -1,4 +1,4 @@
-// Events.cpp - RT3_mp.exe 0x430000-0x432000.
+// Events.cpp - RT3.exe 0x430000-0x432000.
 // Regrouped by tools/regroup.py from the per-batch files; one band of
 // the exe per original object file.
 

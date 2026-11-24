@@ -1,4 +1,4 @@
-// StockWindow.cpp - RT3_mp.exe 0x50a000-0x50c000.
+// StockWindow.cpp - RT3.exe 0x50a000-0x50c000.
 // Regrouped by tools/regroup.py from the per-batch files; one band of
 // the exe per original object file.
 

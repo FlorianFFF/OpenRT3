@@ -1,4 +1,4 @@
-// TrackNet.cpp - RT3_mp.exe 0x494000-0x4a6000.
+// TrackNet.cpp - RT3.exe 0x494000-0x4a6000.
 // Regrouped by tools/regroup.py from the per-batch files; one band of
 // the exe per original object file.
 
@@ -5086,7 +5086,7 @@ RT3_NOINLINE uint32_t __fastcall Routes_Add(Collection* t) {
     uint8_t local[0x4c] = {};
     Route_Init(local);
     F<int32_t>(t, 0x8c) = 1;
-    uint32_t id = hook::CallTarget<uint32_t(__fastcall*)(Collection*, int, const void*, uint32_t, uint32_t, uint32_t)>(0x4a42d7)(t, 0, local, 0, 0, 0);
+    uint32_t id = Collection_Allocate(t, 0, local, 0, 0, 0);
     Route_SetOwner((uint8_t*)Collection_Get(t, 0, id), 0, (int32_t)id);
     Nop494e80(local);
     return id;
@@ -5141,7 +5141,7 @@ RT3_NOINLINE void __fastcall Routes_SplitBlock(Collection* c, int, uint32_t id) 
             uint8_t tmp[0x4c];
             Route_Init(tmp);
             F<int32_t>(c, 0x8c) = 1;
-            uint32_t nid = hook::CallTarget<uint32_t(__fastcall*)(Collection*, int, const void*, uint32_t, uint32_t, uint32_t)>(0x4a44fc)(c, 0, tmp, 0, 0, 0);
+            uint32_t nid = Collection_Allocate(c, 0, tmp, 0, 0, 0);
             Route_SetOwner((uint8_t*)Collection_Get(c, 0, nid), 0, nid);
             Nop494e80(tmp);
             id = nid;

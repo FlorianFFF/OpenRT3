@@ -1,4 +1,4 @@
-// Scene.cpp - RT3_mp.exe 0x524000-0x52c000.
+// Scene.cpp - RT3.exe 0x524000-0x52c000.
 // Regrouped by tools/regroup.py from the per-batch files; one band of
 // the exe per original object file.
 

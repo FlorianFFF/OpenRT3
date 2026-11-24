@@ -1,4 +1,4 @@
-// NetCore.cpp - RT3_mp.exe 0x520000-0x524000.
+// NetCore.cpp - RT3.exe 0x520000-0x524000.
 // Regrouped by tools/regroup.py from the per-batch files; one band of
 // the exe per original object file.
 

@@ -1,4 +1,4 @@
-// CompanyList.cpp - RT3_mp.exe 0x4c6000-0x4ca000.
+// CompanyList.cpp - RT3.exe 0x4c6000-0x4ca000.
 // Regrouped by tools/regroup.py from the per-batch files; one band of
 // the exe per original object file.
 
@@ -390,8 +390,7 @@ RT3_REPLACE(0x4c6bb0, CompanyList_SelectCb);
 // or "<chairman>'s <name>" (0x10d), plus string 0x10e and, for a rival with a
 // headquarters, 0xbb0; callbacks 0x4c6b40 / 0x4c6bb0 (events 0x7a / 0x79). A "none"
 // row (data 0x7fff) unless the world forbids it (+0x4ad3; +0x4ad7 while the player
-// has bought stock, +0x2a7; +0x4acb while the player has a company; always with
-// DesyncWatch's always_new_company patch in the original). Keeps the
+// has bought stock, +0x2a7; +0x4acb while the player has a company). Keeps the
 // selection +0x78, clamped to the list.
 RT3_NOINLINE void __fastcall CompanyList_Fill(uint8_t* w) {
     int32_t keep = F<int32_t>(w, 0x78);
@@ -415,15 +414,10 @@ RT3_NOINLINE void __fastcall CompanyList_Fill(uint8_t* w) {
     Window_SendEvent5(w, 0, 0x7a, 0x2ee2, 0x4c6b40, 0, 0);
     Window_SendEvent5(w, 0, 0x79, 0x2ee1, 0x4c6bb0, 0, 0);
     Window_SendEvent5(w, 0, 0x79, 0x2ee2, 0x4c6bb0, 0, 0);
-    // DesyncWatch's always_new_company option patches a jump over these checks into
-    // the original (0x4c6e4a); follow the live code.
     uint8_t* world = hook::Global<uint8_t*>(0x6cec78);
-    bool none = *(volatile uint8_t*)0x4c6e4a == 0xe9;
-    if (!none) {
-        none = !F<int32_t>(world, 0x4ad3);
-        if (none && F<int32_t>(world, 0x4ad7) && F<int32_t>(Obj_Ref25(world), 0x2a7) >= 1) none = false;
-        if (none && F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4acb) && Obj_Get21(hook::Global<uint8_t*>(0x6cec78))) none = false;
-    }
+    bool none = !F<int32_t>(world, 0x4ad3);
+    if (none && F<int32_t>(world, 0x4ad7) && F<int32_t>(Obj_Ref25(world), 0x2a7) >= 1) none = false;
+    if (none && F<int32_t>(hook::Global<uint8_t*>(0x6cec78), 0x4acb) && Obj_Get21(hook::Global<uint8_t*>(0x6cec78))) none = false;
     if (none) {
         Window_SendEvent5(w, 0, 0x88, 0x2ee1, 0, 0x7fff, 0);
         Window_SendEvent5(w, 0, 0x88, 0x2ee2, 0, 0x7fff, 0);

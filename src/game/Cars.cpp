@@ -1,4 +1,4 @@
-// Cars.cpp - RT3_mp.exe 0x41a000-0x41e000.
+// Cars.cpp - RT3.exe 0x41a000-0x41e000.
 // Regrouped by tools/regroup.py from the per-batch files; one band of
 // the exe per original object file.
 
@@ -22,6 +22,8 @@
 #undef small
 
 namespace rt3 {
+
+void __fastcall Train_ShareRevenue(uint8_t* t, int, float revenue, int32_t kind, float units, int32_t cargo);
 
 template <typename T> static inline T& F(void* o, uint32_t off) { return *(T*)((uint8_t*)o + off); }
 
@@ -916,8 +918,7 @@ float __fastcall Load_PayOut(uint8_t* o) {
         int32_t cargo = F<int32_t>(o, 0x38c);
         if (cargo == F<uint16_t>(cargos, 0x88) && t[0x198]) rev = (float)(rev * D(0x5c8698));
         int32_t kind = F<int32_t>(cargos, 0x9a + cargo * 4) != -1;
-        // Through the call site: DesyncWatch hooks it (track use income).
-        hook::CallTarget<void(__fastcall*)(uint8_t*, int, float, int32_t, float, int32_t)>(0x41cc70)(
+        Train_ShareRevenue(
             t, 0, rev, kind, F<float>(o, 0x398), cargo);
         float h = (float)(F<float>(t, 0x39) * D(0x5c8628));
         float rel = F<float>(t, 0x3d);

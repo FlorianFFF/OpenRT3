@@ -1,4 +1,4 @@
-// Train.cpp - RT3_mp.exe 0x4a6000-0x4b2000.
+// Train.cpp - RT3.exe 0x4a6000-0x4b2000.
 // Regrouped by tools/regroup.py from the per-batch files; one band of
 // the exe per original object file.
 
@@ -2754,8 +2754,7 @@ RT3_REPLACE(0x4ab830, Train_ClearBreakdown);
 // 7. Running states show the train (+0xf4 0: its cars opaque, relinking its
 // stations), the hidden states (1..10, 15, 16, 19) hide it (cars at alpha
 // 0x3f, its stations unlinked). Returns the whole value in multiplayer, else 0
-// (callers pass it on). The save check differs here (2 writes) only because
-// DesyncWatch hooks the call at 0x4ab9f1 (fair track share); this follows the exe.
+// (callers pass it on).
 RT3_NOINLINE int32_t __fastcall Train_SetState(uint8_t* t, int, int32_t state, float v) {
     for (;;) {
         F<int32_t>(t, 0x55) = 0;

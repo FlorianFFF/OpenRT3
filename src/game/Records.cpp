@@ -1,4 +1,4 @@
-// Records.cpp - RT3_mp.exe 0x42c000-0x430000.
+// Records.cpp - RT3.exe 0x42c000-0x430000.
 // Regrouped by tools/regroup.py from the per-batch files; one band of
 // the exe per original object file.
 

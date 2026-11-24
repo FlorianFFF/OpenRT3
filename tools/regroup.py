@@ -2,7 +2,7 @@
 source layout.
 
 MSVC keeps the functions of one object file together in the exe, so an
-address band of RT3_mp.exe approximates one original .cpp. The two file names
+address band of RT3.exe approximates one original .cpp. The two file names
 the exe still contains (Misc.cpp, used at 0x51e9b3, and MouseCursor.cpp, used
 at 0x53f071-0x53f473) lie inside the Misc and MouseCursor bands below.
 
@@ -405,7 +405,7 @@ def main():
         start = [s for s, n in BANDS if n == mod][0]
         end = min([s for s, n in BANDS if s > start] + [0x5a0000])
         d = "engine" if start >= ENGINE_START else "game"
-        lines = ["// %s.cpp - RT3_mp.exe 0x%06x-0x%06x." % (mod, start, end),
+        lines = ["// %s.cpp - RT3.exe 0x%06x-0x%06x." % (mod, start, end),
                  "// Regrouped by tools/regroup.py from the per-batch files; one band of",
                  "// the exe per original object file.", ""]
         inc = [i for i in includes if "<" in i] + [i for i in includes if "<" not in i]

@@ -8,7 +8,7 @@ out/
 *.lib
 *.exp
 
-# Ghidra decompile of RT3_mp.exe (regenerable, see README)
+# Ghidra decompile of RT3.exe (regenerable, see README)
 decomp/
 
 # Extracted from the original game; regenerate with tools/gen_builtin_strings.py
@@ -25,3 +25,4 @@ rt3re.ini
 experiments/
 docs/agent_coordination.md
 docs/devin_*.md
+tools/modsites.py

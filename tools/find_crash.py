@@ -10,6 +10,7 @@ import sys
 import time
 from pathlib import Path
 from replacements import REPLACEMENT_RE
+from pe import find_exe
 
 ROOT = Path(__file__).resolve().parents[1]
 GAME = ROOT.parent / "Railroad Tycoon 3 Full Game"
@@ -30,7 +31,7 @@ def crashes(enabled, all_names, secs):
         LOG.unlink()
     subprocess.Popen([str(GAME / "rt3re.exe")], cwd=GAME)
     time.sleep(secs)
-    subprocess.run(["taskkill", "/f", "/im", "RT3_mp.exe"], capture_output=True)
+    subprocess.run(["taskkill", "/f", "/im", find_exe().name], capture_output=True)
     time.sleep(1)
     text = LOG.read_text() if LOG.exists() else ""
     return "exception" in text
