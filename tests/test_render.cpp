@@ -9122,17 +9122,19 @@ DIFFTEST(game_CompanyFinance) {
     static uint8_t world[0x5000];
     static Collection companies, players, regions, trains, nodes;
     Collection* cs[5] = { &companies, &players, &regions, &trains, &nodes };
-    const uint32_t sizes[5] = { 0xe00, 0x400, 0x500, 0x60, 0x240 };
+    // The game's record sizes: companies, players, territories, trains, track pieces. Smaller
+    // records let the code under test read past their end into whatever the heap held.
+    const uint32_t sizes[5] = { 0x7684, 0xcab, 0xdd1, 0x1d5, 0x257 };
     for (int k = 0; k < 5; ++k) {
         memset(cs[k], 0, sizeof(Collection));
         Collection_Construct(cs[k], 0, 1, sizes[k], 8, 8, 0, 0, 0);
     }
-    static uint8_t blank[0xe00];
-    Collection_Allocate(&companies, 0, blank, 0xe00, 0, 0);
-    Collection_Allocate(&players, 0, blank, 0x400, 0, 0);
-    Collection_Allocate(&regions, 0, blank, 0x500, 0, 0);
-    for (int k = 0; k < 6; ++k) Collection_Allocate(&trains, 0, blank, 0x60, 0, 0);
-    for (int k = 0; k < 6; ++k) Collection_Allocate(&nodes, 0, blank, 0x240, 0, 0);
+    static uint8_t blank[0x7684];
+    Collection_Allocate(&companies, 0, blank, sizes[0], 0, 0);
+    Collection_Allocate(&players, 0, blank, sizes[1], 0, 0);
+    Collection_Allocate(&regions, 0, blank, sizes[2], 0, 0);
+    for (int k = 0; k < 6; ++k) Collection_Allocate(&trains, 0, blank, sizes[3], 0, 0);
+    for (int k = 0; k < 6; ++k) Collection_Allocate(&nodes, 0, blank, sizes[4], 0, 0);
     const uint32_t gl[6] = { 0x6cec78, 0x62be10, 0x6ceb9c, 0x6cfc9c, 0x6cfcbc, 0x6cfca8 };
     uint32_t saved[6];
     for (int k = 0; k < 6; ++k) saved[k] = hook::Global<uint32_t>(gl[k]);
@@ -9200,7 +9202,7 @@ DIFFTEST(game_CompanyFinance) {
         for (int k = 0; k < 0x2b; ++k) *(double*)(comp + 0x1c47 + k * 8) = rndVal(1);
         int op = (int)(Rnd() % 27);
         float bondRate = Rnd() % 2 ? 0.0f : RndF(0.01f, 0.1f);
-        static uint8_t player[0x300];
+        static uint8_t player[0xcab];  // a whole player record
         memset(player, 0, sizeof player);
         *(int32_t*)(player + 0x15d + 4) = (int32_t)(Rnd() % 20000) - 10000;
         *(double*)(player + 0x154) = (double)RndF(-1.0f, 1.0f) * 1e6;
@@ -9224,7 +9226,7 @@ DIFFTEST(game_CompanyFinance) {
             uint8_t* c = cc[side];
             if (op == 15) {
                 // Reprices the companies of the collection: give record 1 this company's data.
-                memcpy(rec, comp, 0xe00);
+                memset(rec, 0, 0x7684), memcpy(rec, comp, sizeof comp);
                 *(int32_t*)(rec + 0x3f) = 1;
                 side ? rt3::World_SetDifficulty(world, 0, level) : ((void(__fastcall*)(uint8_t*, int, int32_t))0x4339b0)(world, 0, level);
                 memcpy(cc[side], rec, 0xe00);
@@ -9233,7 +9235,7 @@ DIFFTEST(game_CompanyFinance) {
                 continue;
             }
             if (op == 19) {
-                memcpy(rec, comp, 0xe00);
+                memset(rec, 0, 0x7684), memcpy(rec, comp, sizeof comp);
                 *(uint32_t*)(rec + 0x3b) = store;
                 *(int32_t*)((uint8_t*)Collection_Get(&players, 0, 1) + 0x1e1) = id % 3 == 0;
                 int32_t amt = arg & 1 ? 0 : arg;
@@ -9243,20 +9245,20 @@ DIFFTEST(game_CompanyFinance) {
                 continue;
             }
             if (op == 25) {
-                memcpy(rec, comp, 0xe00);
+                memset(rec, 0, 0x7684), memcpy(rec, comp, sizeof comp);
                 *(int32_t*)(rec + 0x3f) = 1;
-                static uint8_t pl[2][0x300];
+                static uint8_t pl[2][sizeof player];
                 memcpy(pl[side], player, sizeof player);
                 for (int k = 0; k < 18; ++k) *(double*)(pl[side] + 0x1e9 + k * 8) = k * 1.5;
                 side ? rt3::Player_RecordWealth(pl[side]) : ((void(__fastcall*)(uint8_t*))0x476810)(pl[side]);
-                memcpy(cc[side], pl[side], sizeof pl[side]);
+                memcpy(cc[side], pl[side], 0x300);
                 memcpy(cc[side] + 0x300, rec, 0xe00);
                 r[side] = 0;
                 continue;
             }
             if (op == 26) {
                 // Amount slider sized from player 1's collateral worth.
-                memcpy(rec, comp, 0xe00);
+                memset(rec, 0, 0x7684), memcpy(rec, comp, sizeof comp);
                 *(int32_t*)(rec + 0x3f) = 1;
                 uint8_t* p1 = (uint8_t*)Collection_Get(&players, 0, 1);
                 memcpy(p1, player, sizeof player);
@@ -9283,7 +9285,7 @@ DIFFTEST(game_CompanyFinance) {
                 continue;
             }
             if (op >= 21 && op <= 23) {
-                memcpy(rec, comp, 0xe00);
+                memset(rec, 0, 0x7684), memcpy(rec, comp, sizeof comp);
                 *(int32_t*)(rec + 0x3f) = 1;
                 if (op == 21) r[side] = side ? rt3::Player_NetWorth(player, 0, store) : ((double(__fastcall*)(uint8_t*, int, int32_t))0x476780)(player, 0, store);
                 else if (op == 22) r[side] = side ? rt3::Player_CollateralWorth(player, 0, store) : ((double(__fastcall*)(uint8_t*, int, int32_t))0x476c20)(player, 0, store);
@@ -9293,7 +9295,7 @@ DIFFTEST(game_CompanyFinance) {
             }
             if (op == 17 || op == 18) {
                 // Holdings of company 1 (the collection's record), priced from this company's data.
-                memcpy(rec, comp, 0xe00);
+                memset(rec, 0, 0x7684), memcpy(rec, comp, sizeof comp);
                 *(int32_t*)(rec + 0x3f) = 1;
                 if (op == 17) r[side] = side ? rt3::Player_HoldingsValue(player, 0, store) : ((double(__fastcall*)(uint8_t*, int, int32_t))0x476320)(player, 0, store);
                 else r[side] = side ? rt3::Player_HoldingsCollateral(player, 0, store) : ((double(__fastcall*)(uint8_t*, int, int32_t))0x4763b0)(player, 0, store);
@@ -9324,7 +9326,8 @@ DIFFTEST(game_CompanyFinance) {
         }
         EXPECT_EQ(memcmp(&r[0], &r[1], 8), 0, "op %d id %x year %d arg %d iteration %d: %.17g vs %.17g", op, id, yr, arg, it, r[0], r[1]);
         int diff = FirstDiff(cc[0], cc[1], sizeof comp);
-        EXPECT_EQ(diff, -1, "company op %d id %x iteration %d", op, id, it);
+        EXPECT_EQ(diff, -1, "company op %d id %x iteration %d: first difference at +0x%x (%02x vs %02x)", op, id, it,
+                  diff, diff >= 0 ? cc[0][diff] : 0, diff >= 0 ? cc[1][diff] : 0);
     }
     for (int k = 0; k < 6; ++k) hook::Global<uint32_t>(gl[k]) = saved[k];
 }

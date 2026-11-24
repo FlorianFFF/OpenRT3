@@ -66495,6 +66495,17 @@ void __fastcall StockIssuePanel_DrawCb(void*, int, float x, float y, float w, fl
 }
 
 // Watched globals of the b459 callbacks (pointer ones get a buffer).
+// FormatText fake that also fills dst. The generic fake logs the call but
+// leaves dst unwritten, and Scenario_CheckSetup appends that buffer to its
+// message: the result was stack leftovers, which differ between the two sides
+// after earlier tests (the test only passed when run alone).
+char* __fastcall FakeB459Format(char* dst, const char* fmt, const char* a1, const char* a2, const char* a3,
+                                const char* a4, const char* a5, const char* a6, const char* a7, const char* a8) {
+    ((char*(__fastcall*)(char*, const char*, const char*, const char*, const char*, const char*, const char*,
+                         const char*, const char*, const char*))&GenFakeb459_4)(dst, fmt, a1, a2, a3, a4, a5, a6, a7, a8);
+    strcpy(dst, "[line]");
+    return dst;
+}
 static const uint32_t kb459Ptr[] = { 0x6d0818, 0x62be10, 0x6cfe50, 0x6cfc9c, 0x62bae0 };
 static const uint32_t kb459Int[] = { 0x6cfe64, 0x6cfe68 };
 
@@ -66504,7 +66515,7 @@ DIFFTEST(game_SmallCallbacksb459) {
     t.Add(0x42d740, (void*)&rt3::Obj_ListFlags, (void*)&GenFakeb459_1);
     t.Add(0x517d40, (void*)&rt3::Collection_IsValid, (void*)&GenFakeb459_2);
     t.Add(0x518140, (void*)&rt3::Collection_Get, (void*)&GenFakeb459_3);
-    t.Add(0x518de0, (void*)&rt3::FormatText, (void*)&GenFakeb459_4);
+    t.Add(0x518de0, (void*)&rt3::FormatText, (void*)&FakeB459Format);
     t.Add(0x51b700, (void*)&rt3::Num_Format, (void*)&GenFakeb459_5);
     t.Add(0x51bfe0, (void*)&rt3::Num_FormatSimple, (void*)&GenFakeb459_6);
     t.Add(0x51c000, (void*)&rt3::Num_FormatSimple2, (void*)&GenFakeb459_7);
