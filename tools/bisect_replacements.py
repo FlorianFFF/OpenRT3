@@ -15,7 +15,7 @@ def good(off):
     lst.write_text(",".join(off))
     r = subprocess.run([sys.executable, str(ROOT / "tools" / "simcheck.py"), f"--offfile={lst}", *sys.argv[1:]],
                        cwd=ROOT, capture_output=True, text=True)
-    ok = "MATCH:" in r.stdout
+    ok = r.returncode == 0 and "MATCH:" in r.stdout  # (save and drawing)
     print(f"  {len(off)} off -> {'good' if ok else 'bad'}", flush=True)
     return ok
 

@@ -65,6 +65,8 @@ static int __stdcall RunTests(HINSTANCE, HINSTANCE, char* cmdLine, int) {
     if (filter) sscanf(filter + 9, "%2047s", want);
     // The launcher quotes each argument: drop the closing quote.
     for (size_t n = strlen(want); n && want[n - 1] == '"'; --n) want[n - 1] = 0;
+    bool coverage = GetEnvironmentVariableA("RT3RE_COVERAGE", nullptr, 0) != 0;
+    if (coverage) hook::ProbeAll();
     for (TestCase* t = g_tests; t; t = t->next) {
         if (want[0] && !Wanted(t->name, want)) continue;
         if (!want[0] && strncmp(t->name, "dump_", 5) == 0) continue; // extraction runs only on request
@@ -77,6 +79,7 @@ static int __stdcall RunTests(HINSTANCE, HINSTANCE, char* cmdLine, int) {
     }
     fprintf(g_out, "\n%d passed, %d failed\n", g_pass, g_fail);
     fclose(g_out);
+    if (coverage) hook::DumpCoverage("difftest.coverage");
     ExitProcess(g_fail);
 }
 

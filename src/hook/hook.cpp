@@ -1,6 +1,7 @@
 #include "hook.h"
 #include <windows.h>
 #include <stdio.h>
+#include <string.h>
 
 namespace hook {
 
@@ -57,15 +58,112 @@ static void* MakeCountingStub(Entry* e) {
     return s;
 }
 
+// Coverage of the original code (a replacement switched off): a one-shot INT3
+// on the function's first byte. The first time it runs, the handler puts the
+// byte back and resumes at the same address, so the original runs unchanged.
+// Unlike the counting stubs, this also sees calls that rewritten code makes
+// directly (they never pass the exe address), so the original run is where
+// coverage is measured.
+struct Probe { Entry* e; uint8_t byte; volatile LONG hit; };
+static Probe g_probes[8192];
+static int g_numProbes;
+
+static void Unprobe(Probe* p) {
+    uint8_t* at = reinterpret_cast<uint8_t*>(p->e->addr);
+    DWORD old;
+    VirtualProtect(at, 1, PAGE_EXECUTE_READWRITE, &old);
+    if (*at == 0xCC) *at = p->byte;  // still ours (not overwritten since)
+    VirtualProtect(at, 1, old, &old);
+    FlushInstructionCache(GetCurrentProcess(), at, 1);
+}
+
+static LONG CALLBACK ProbeHit(EXCEPTION_POINTERS* ep) {
+    if (ep->ExceptionRecord->ExceptionCode != EXCEPTION_BREAKPOINT) return EXCEPTION_CONTINUE_SEARCH;
+    uint32_t at = (uint32_t)(uintptr_t)ep->ExceptionRecord->ExceptionAddress;
+    for (int i = 0; i < g_numProbes; ++i) {
+        Probe* p = &g_probes[i];
+        if (p->e->addr != at) continue;
+        InterlockedIncrement(&p->hit);
+        Unprobe(p);  // another thread may have done it already: then a no-op
+        ep->ContextRecord->Eip = at;
+        return EXCEPTION_CONTINUE_EXECUTION;
+    }
+    return EXCEPTION_CONTINUE_SEARCH;
+}
+
+static void AddProbe(Entry* e) {
+    for (int i = 0; i < g_numProbes; ++i)
+        if (g_probes[i].e->addr == e->addr) return;  // aliases share one probe
+    uint8_t* at = reinterpret_cast<uint8_t*>(e->addr);
+    Probe* p = &g_probes[g_numProbes++];
+    p->e = e;
+    p->byte = *at;
+    p->hit = 0;
+    DWORD old;
+    VirtualProtect(at, 1, PAGE_EXECUTE_READWRITE, &old);
+    *at = 0xCC;
+    VirtualProtect(at, 1, old, &old);
+    FlushInstructionCache(GetCurrentProcess(), at, 1);
+}
+
+// Rewrites of switched-off entries that now start with a JMP to the original,
+// with the bytes it replaced (Unredirect).
+struct Redirect { void* impl; uint8_t bytes[5]; };
+static Redirect g_redirects[8192];
+static int g_numRedirects;
+
+void Unredirect(void* impl) {
+    for (int i = 0; i < g_numRedirects; ++i) {
+        if (g_redirects[i].impl != impl) continue;
+        DWORD old;
+        VirtualProtect(impl, 5, PAGE_EXECUTE_READWRITE, &old);
+        memcpy(impl, g_redirects[i].bytes, 5);
+        VirtualProtect(impl, 5, old, &old);
+        FlushInstructionCache(GetCurrentProcess(), impl, 5);
+        g_redirects[i].impl = nullptr;
+    }
+}
+
+// Can the rewrite of a switched-off entry start with a JMP to the original?
+// Not when another, switched-on entry shares the rewrite, nor when the rewrite
+// might be shorter than the 5-byte JMP: a return or jump (or padding) in its
+// first five bytes leaves it alone (direct calls then still reach it).
+static bool SafeToRedirect(Entry* off, const char* iniPath) {
+    for (Entry* e = g_head; e; e = e->next)
+        if (e != off && e->impl == off->impl && GetPrivateProfileIntA("replace", e->name, 1, iniPath)) return false;
+    const uint8_t* p = reinterpret_cast<const uint8_t*>(off->impl);
+    for (int i = 0; i < 5; ++i)
+        if (p[i] == 0xC3 || p[i] == 0xC2 || p[i] == 0xEB || p[i] == 0xE9 || p[i] == 0xFF || p[i] == 0xCC) return false;
+    return true;
+}
+
 int InstallAll(const char* iniPath) {
     bool coverage = GetEnvironmentVariableA("RT3RE_COVERAGE", nullptr, 0) != 0;
     int n = 0;
     for (Entry* e = g_head; e; e = e->next) {
         // Default on; "name=0" under [replace] keeps the original.
-        if (!GetPrivateProfileIntA("replace", e->name, 1, iniPath)) continue;
+        if (!GetPrivateProfileIntA("replace", e->name, 1, iniPath)) {
+            if (coverage) AddProbe(e);
+            // Rewritten code calls the rewrite directly: send those calls to the
+            // original too, so "off" means off (bisecting with simcheck). The
+            // rewrite has the original's calling convention, as the JMP needs.
+            if (SafeToRedirect(e, iniPath) && g_numRedirects < 8192) {
+                Redirect& r = g_redirects[g_numRedirects++];
+                r.impl = e->impl;
+                memcpy(r.bytes, e->impl, 5);
+                WriteJmp((uint32_t)(uintptr_t)e->impl, reinterpret_cast<void*>(e->addr));
+            }
+            continue;
+        }
         if (WriteJmp(e->addr, coverage ? MakeCountingStub(e) : e->impl)) ++n;
     }
+    if (g_numProbes) AddVectoredExceptionHandler(1, ProbeHit);
     return n;
+}
+
+void ProbeAll() {
+    for (Entry* e = g_head; e; e = e->next) AddProbe(e);
+    if (g_numProbes) AddVectoredExceptionHandler(1, ProbeHit);
 }
 
 void DumpCoverage(const char* path) {
@@ -73,6 +171,11 @@ void DumpCoverage(const char* path) {
     if (!f) return;
     for (int i = 0; i < g_numCounted; ++i)
         fprintf(f, "%08x %s %ld\n", g_counted[i].e->addr, g_counted[i].e->name, g_counted[i].calls);
+    // Original code: 1 if it ran (the probe fires once), for every alias.
+    for (Entry* e = g_head; e; e = e->next)
+        for (int i = 0; i < g_numProbes; ++i)
+            if (g_probes[i].e->addr == e->addr)
+                fprintf(f, "%08x %s %ld\n", e->addr, e->name, g_probes[i].hit ? 1L : 0L);
     fclose(f);
 }
 

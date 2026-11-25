@@ -28,11 +28,21 @@ struct Registrar {
 // rewritten code calls the rewrite directly.
 void* Find(uint32_t addr);
 
-// Writes all enabled JMPs. Called once from DllMain.
+// Writes all enabled JMPs. Called once from DllMain. A switched-off entry's
+// rewrite gets a JMP to the original (direct calls from rewritten code).
 int InstallAll(const char* iniPath);
 
+// Undoes that JMP for a rewrite that something else calls on purpose (the
+// harness's traced save writers).
+void Unredirect(void* impl);
+
 // Writes "addr name calls" per replacement (only counted with RT3RE_COVERAGE set).
+// A replacement switched off is probed once instead: 1 if its original ran.
 void DumpCoverage(const char* path);
+
+// Probes every registered exe function (difftests with RT3RE_COVERAGE set:
+// which originals actually ran during the tests).
+void ProbeAll();
 
 // Pointer to an original function, for calling code not yet rewritten.
 template <typename T> inline T Orig(uint32_t addr) { return reinterpret_cast<T>(addr); }

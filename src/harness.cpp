@@ -20,6 +20,8 @@
 namespace rt3 { struct Collection; void __fastcall Collection_Save(Collection*, int, int32_t, int32_t);
 uint32_t __fastcall Crc32(const uint8_t* data, uint32_t len); extern FILE* g_writeTrace; void __fastcall StreamWrite(int32_t, const void*, uint32_t, int32_t); }
 
+namespace drawtrace { void Install(); void FrameEnd(long frame); }
+
 namespace harness {
 
 static char g_load[MAX_PATH], g_out[MAX_PATH];
@@ -82,6 +84,8 @@ static void UseFakeClocks() {
 
 // --- frame hook -------------------------------------------------------------
 
+static void RunActions();
+
 static int __fastcall FrameHook(void* ctx) {
     // Fake clocks from the first frame (startup busy-waits on the real clock).
     if (g_frame == 0) UseFakeClocks();
@@ -95,6 +99,9 @@ static int __fastcall FrameHook(void* ctx) {
                  g_lcg, g_seed,
                  g ? rt3::Crc32(g + 4, 0x4c00) : 0, g ? rt3::Crc32(g + 0x4c9c, 0x14) : 0, g_modalPasses);
     }
+    // Frames with a modal loop also hold that loop's draws, as many as the
+    // wall clock allowed: marked so simcheck can leave them out.
+    drawtrace::FrameEnd(g_modalPasses ? -g_frame : g_frame);
     g_modalPasses = 0;
     if (g_state == 0 && g_frame == 100) {
         // As if a saved game were started from the menu: new-game config mode 3
@@ -118,7 +125,9 @@ static int __fastcall FrameHook(void* ctx) {
         rt3::Log("harness: frame %ld, starting %s", g_frame, g_load);
         ((void(__fastcall*)(void*, int, int32_t, int32_t))0x482ec0)(ctx, 0, 1, 0);
         rt3::Log("harness: screen %d, game=%p", *(int32_t*)((uint8_t*)ctx + 8), Game());
-    } else if (g_state == 1 && g_frame - g_loadFrame >= g_frames) {
+    } else if (g_state == 1 && g_frame - g_loadFrame < g_frames) {
+        RunActions();
+    } else if (g_state == 1) {
         uint8_t* g = (uint8_t*)Game();
         rt3::Log("harness: %d frames done, date %u-%u-%u, saving %s", g_frames,
                  g ? *(uint16_t*)(g + 0xd) : 0, g ? g[0xf] : 0, g ? g[0x11] : 0, g_out);
@@ -148,6 +157,33 @@ static void PostEnter() {
         PostMessageA(w, WM_KEYUP, VK_RETURN, 0xc01c0001);
     }
 }
+// Scripted player actions ("do=<frame>:<addr>,..."): at that many frames after
+// loading, the command at the exe address runs, as when its hotkey is pressed
+// (the commands of the key table take no arguments). Through the exe address,
+// so the rewrite run gets the rewrite.
+struct Action { int frame; uint32_t addr; };
+static Action g_actions[256];
+static int g_numActions, g_nextAction;
+
+static void RunActions() {
+    while (g_nextAction < g_numActions && g_frame - g_loadFrame >= g_actions[g_nextAction].frame) {
+        const Action& a = g_actions[g_nextAction++];
+        rt3::Log("harness: frame %ld, action %06x", g_frame, a.addr);
+        ((int32_t(__cdecl*)())a.addr)();
+    }
+}
+
+static void ParseActions(char* list) {
+    for (char* p = list; *p && g_numActions < 256;) {
+        Action a;
+        a.frame = strtol(p, &p, 10);
+        if (*p++ != ':') break;
+        a.addr = strtoul(p, &p, 16);
+        g_actions[g_numActions++] = a;
+        if (*p == ',') ++p;
+    }
+}
+
 static void* __fastcall ModalGetEvent(void* input, int, void* out) {
     LONG n = InterlockedIncrement(&g_modalPasses);
     InterlockedExchangeAdd(&g_fakeMs, 33); // dialogs wait on the clock before taking input
@@ -225,14 +261,16 @@ static DWORD WINAPI Watchdog(void*) {
 }
 
 void Install() {
-    char spec[512];
+    static char spec[8192];
     if (!GetEnvironmentVariableA("RT3RE_HARNESS", spec, sizeof spec)) return;
     for (char* tok = strtok(spec, ";"); tok; tok = strtok(nullptr, ";")) {
         if (!strncmp(tok, "load=", 5)) strcpy(g_load, tok + 5);
         else if (!strncmp(tok, "out=", 4)) strcpy(g_out, tok + 4);
         else if (!strncmp(tok, "frames=", 7)) g_frames = atoi(tok + 7);
+        else if (!strncmp(tok, "do=", 3)) ParseActions(tok + 3);
     }
     CreateThread(nullptr, 0, Watchdog, nullptr, 0, nullptr);
+    drawtrace::Install();  // per-frame CRC of the draw calls (src/drawtrace.cpp)
     // Always use the (verified) rewritten StreamWrite and Collection_Save so
     // saves can be traced (Collection_Save marks its heap-pointer writes).
     auto force = [](uint32_t at, void* fn) {
@@ -243,6 +281,8 @@ void Install() {
         *(int32_t*)(p + 1) = (int32_t)((uintptr_t)fn - (uintptr_t)(p + 5));
         VirtualProtect(p, 5, o, &o);
     };
+    hook::Unredirect((void*)&rt3::StreamWrite);  // (switched off: it would jump back here)
+    hook::Unredirect((void*)&rt3::Collection_Save);
     force(0x531030, (void*)&rt3::StreamWrite);
     force(0x517d90, (void*)&rt3::Collection_Save);
     // The modal loop's event fetch (CALL rel32 at 0x538fbe).

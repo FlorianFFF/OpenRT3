@@ -679,11 +679,14 @@ RT3_NOINLINE int32_t __fastcall Event_Check(uint8_t* ev, int, uint32_t trigger, 
                     int32_t ok = type != -2;
                     if (type >= 0) {
                         int32_t idx = F<int32_t>(c, 9), value;
-                        uint8_t vf = ((const uint8_t*)0x6103fd)[idx * 0x6e];
+                        // The variable's scope flags, read only for a variable (not a
+                        // constant) and only once the scope exists: a constant's value
+                        // is no index into the table.
+                        auto vf = [idx](uint8_t bit) { return (((const uint8_t*)0x6103fd)[idx * 0x6e] & bit) != 0; };
                         if (!F<int32_t>(c, 5)) value = idx;
-                        else if (co && (vf & 1)) value = F<int32_t>(co, idx * 4 + 0x35b);
-                        else if (pl && (vf & 2)) value = F<int32_t>(pl, idx * 4 + 0x2ab);
-                        else if (terr && (vf & 4)) value = F<int32_t>(terr, idx * 4 + 0x3b5);
+                        else if (co && vf(1)) value = F<int32_t>(co, idx * 4 + 0x35b);
+                        else if (pl && vf(2)) value = F<int32_t>(pl, idx * 4 + 0x2ab);
+                        else if (terr && vf(4)) value = F<int32_t>(terr, idx * 4 + 0x3b5);
                         else value = F<int32_t>(g_world, idx * 4 + 0x8a);
                         int32_t var = F<int32_t>((void*)0x5f3d98, type * 0x81);
                         int32_t r = RuleVar_Get(var, terr, co, pl, value, idx, F<int32_t>(c, 0xe), F<int32_t>(c, 0x12));

@@ -6,7 +6,7 @@ compares the saves (via the per-write CRC trace) between runs:
   C = all replacements on.
 A == B proves the setup is deterministic; A == C proves the rewrite matches.
 
-    python tools/simcheck.py [save] [frames]
+    python tools/simcheck.py [save] [frames] [--do=<frame>:<addr>,...] [--coverage=<file>]
 """
 import os
 import re
@@ -25,6 +25,12 @@ ROOT = Path(__file__).resolve().parents[1]
 # exe, so a mod's patches would show up as differences.
 GAME = stockgame.MIRROR
 SAVES = GAME / "Saved Games"
+# --do=<frame>:<addr>,... : commands run at those frames after loading, as if
+# their hotkeys were pressed (src/harness.cpp).
+ACTIONS = next((a[5:] for a in sys.argv if a.startswith("--do=")), "")
+if ACTIONS.startswith("@"):  # a file of "<frame> <addr> [comment]" lines
+    ACTIONS = ",".join(":".join(l.split()[:2]) for l in Path(ACTIONS[1:]).read_text().splitlines()
+                       if l.strip() and not l.startswith("#"))
 
 
 def names():
@@ -46,7 +52,12 @@ def run(tag, enabled, save, days, timeout=None):
     target = SAVES / out
     if target.exists():
         target.unlink()
-    env = dict(os.environ, RT3RE_HARNESS=f"load={save};frames={days};out={out}", RT3RE_COVERAGE="1")
+    spec = f"load={save};frames={days};out={out}"
+    if ACTIONS:  # scripted commands (src/harness.cpp, "do=")
+        spec += ";do=" + ACTIONS
+    env = dict(os.environ, RT3RE_HARNESS=spec)
+    if "--nocoverage" not in sys.argv:  # coverage: counting stubs / one-shot probes (src/hook/hook.cpp)
+        env["RT3RE_COVERAGE"] = "1"
     # --standalone: the rewrite runs in OpenRT3.exe (our own process) instead
     # of being loaded into the game's exe; the original runs are unchanged.
     image = "OpenRT3.exe" if enabled and "--standalone" in sys.argv else find_exe(GAME).name
@@ -76,6 +87,21 @@ def run(tag, enabled, save, days, timeout=None):
     return [l.split()[1:] for l in trace.read_text().splitlines() if l]  # (size, crc) per write
 
 
+def draws(log):
+    """Per main-loop frame, the draw CRCs of a run's log ("D <frame> <crc> <draws>
+    <crc per kind>", src/drawtrace.cpp). Frames that ran a modal loop are logged
+    with a negative number and left out: the loop draws as often as the wall
+    clock allows."""
+    if not log.exists():
+        return {}
+    out = {}
+    for l in log.read_text(errors="replace").splitlines():
+        if l.startswith("D ") and not l.startswith("D -"):
+            f = l.split()
+            out[int(f[1])] = f[2:]
+    return out
+
+
 def main():
     stockgame.build()
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
@@ -86,7 +112,7 @@ def main():
     def cached(tag):
         t = GAME / f"simcheck_{tag}{Path(save).suffix}.trace"
         stamp = GAME / f"simcheck_{tag}.key"
-        key = f"{save} {frames}"
+        key = f"{save} {frames} {ACTIONS} {'--nocoverage' in sys.argv}"
         if "--fresh" not in sys.argv and t.exists() and stamp.exists() and stamp.read_text() == key:
             return [l.split()[1:] for l in t.read_text().splitlines() if l]
         r = run(tag, False, save, frames)
@@ -110,13 +136,31 @@ def main():
         print(f"REWRITE DIFFERS in {len(real)} writes; first: write #{real[0]}")
         return 1
     print("MATCH: rewrite produces the same game state as the original")
-    covfile = GAME / f"simcheck_rewrite{Path(save).suffix}.coverage"
+    # Drawing (src/drawtrace.cpp): one CRC per presented frame of everything
+    # handed to Direct3D. Frames that differ between the two original runs
+    # are noise; any other difference is a drawing difference.
+    da, db, dc = (draws(GAME / f"simcheck_{t}.log") for t in ("orig1", "orig2", "rewrite"))
+    if da and dc:
+        frames = sorted(set(da) & set(db) & set(dc))
+        noisy = {f for f in frames if da[f] != db[f]}
+        bad = [f for f in frames if da[f] != dc[f] and f not in noisy]
+        print(f"{len(frames)} frames drawn, {len(noisy)} vary between original runs")
+        if bad:
+            kinds = [k for k in range(6) if da[bad[0]][2 + k] != dc[bad[0]][2 + k]]
+            print(f"DRAWING DIFFERS in {len(bad)} frames; first: frame {bad[0]} (kinds {kinds}, see src/drawtrace.cpp)")
+            return 1
+        print("MATCH: rewrite draws the same frames as the original")
+    # Measured in the original run (src/hook/hook.cpp probes each function's
+    # first byte): in the rewrite run, rewritten code calls rewrites directly,
+    # past the counters at the exe addresses.
+    covfile = GAME / f"simcheck_orig1{Path(save).suffix}.coverage"
     if covfile.exists():
         rows = [l.split() for l in covfile.read_text().splitlines() if l]
         ran = [r for r in rows if int(r[2]) > 0]
         print(f"coverage: {len(ran)}/{len(rows)} replaced functions ran during the check")
-        lines = [" ".join(r) for r in sorted(rows)]
-        (ROOT / "docs" / "simcheck_coverage.txt").write_text("\n".join(lines) + "\n")
+        out = next((a[11:] for a in sys.argv if a.startswith("--coverage=")), None)
+        if out:  # one file per scenario; tools/coverage.py merges them
+            Path(out).write_text("\n".join(" ".join(r) for r in sorted(rows)) + "\n")
     return 0
 
 

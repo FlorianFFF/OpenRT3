@@ -1,0 +1,61 @@
+# Scripted player actions for tools/simcheck.py --do=@tools/actions.txt
+# One command per line: <frames after loading> <exe address of a key-table
+# command> (no arguments; the handlers of 0x45f9e0's key table). Commands
+# that write files (save, quick load, screenshot) or switch the display mode
+# are left out, and so is the consist editor (4406c0): its screen does not
+# close on Enter.
+200 441900   F1 tool
+240 4419c0   F2 tool
+280 441a00   F3 tool
+320 441940   F4 tool
+360 441980   F5 tool
+400 441040   show train
+440 440e00   select next
+470 440f20   select previous
+500 4410d0   show station
+540 440e00   select next
+570 440f20   select previous
+600 440560   tool mode 1
+640 440580   tool mode 4
+680 440530   stock tool
+720 440660   company tool
+760 440690   stock (player)
+840 440560   tool mode 1
+880 441a40   speed up
+900 441a80   speed down
+920 441160   plain overview on
+960 441160   plain overview off
+1000 440c80  rotate left
+1010 440d40  rotate right
+1020 440b00  bookmark 1 save
+1030 440ba0  bookmark 1 load
+1040 43d2a0  camera
+1050 43d2b0  camera
+1060 43d2c0  camera
+1070 43d2d0  camera
+1080 43d2e0  camera
+1090 43d2f0  camera
+1100 43d300  camera
+1110 43d310  camera
+1150 441490  previous newspaper
+1250 4414d0  last event
+1350 482b00  options dialog
+1450 441cb0  time of day up
+1460 441d20  time of day down
+1500 4412e0  next weather
+1550 441360  spawn flight
+1600 4413b0  add train
+1700 4418a0  break down train
+1800 441810  crash train
+1900 440880  pause
+1950 440880  unpause
+2000 441b50  editor on
+2050 4405a0  editor tool
+2100 4405d0  company editor tool
+2150 441260  editor buttons
+2200 4412a0  editor buttons (disabled)
+2250 441b50  editor off
+2300 440560  tool mode 1
+2350 4828b0  cursor
+2360 4828b0  cursor
+2370 4828b0  cursor

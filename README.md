@@ -78,7 +78,16 @@ DIFFTEST(text_ToUpper) {
 
 `python tools/simcheck.py` is the end-to-end check: it loads a saved game, runs 2,000 frames,
 saves, and compares every write of that save between the original game and the rewrite.
-`--standalone` runs the rewrite through `OpenRT3.exe`.
+It also compares what is drawn: everything handed to Direct3D, one CRC per frame
+(`src/drawtrace.cpp`). `--standalone` runs the rewrite through `OpenRT3.exe`;
+`--do=@tools/actions.txt` plays scripted player actions (tools, windows, editor, dialogs);
+`--off=Name,...` keeps functions original, also where rewritten code calls them
+(`tools/bisect_replacements.py` uses that to find a differing function).
+
+**Coverage**: simcheck records which original functions ran (a one-shot breakpoint on each),
+and `build.bat test` does the same for the difftests when `RT3RE_COVERAGE` is set.
+`tools/coverage.py` merges those into `docs/coverage.md`: which rewritten functions have been
+run side by side with the original, and which have only been checked by reading.
 
 Tests and simcheck run in `%TEMP%\rt3_stock`, a mirror of the game folder without mods
 (`tools/stockgame.py`), so they always compare against the unmodified game.
