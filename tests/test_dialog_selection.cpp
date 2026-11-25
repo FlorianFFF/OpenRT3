@@ -1,5 +1,6 @@
 // Native in-process oracle for 0x4ef090, reverse engineered by GPT6.1 SOL MEDIUM.
 #include "difftest.h"
+#include "hook/hook.h"
 #include <windows.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -9,15 +10,21 @@ namespace rt3 { void __fastcall MpDialog_SelectMode(uint8_t*, int, int32_t); }
 namespace {
 template <typename T> T& F(void* p, uint32_t off) { return *(T*)((uint8_t*)p + off); }
 struct Redirects {
-    struct Patch { uint8_t* at; uint8_t old[5]; } p[8];
+    struct Patch { uint8_t* at; uint8_t old[5]; } p[16];
     int n = 0;
-    void Add(uintptr_t addr, void* target) {
+    void AddOne(uintptr_t addr, void* target) {
         Patch& q = p[n++]; q.at = (uint8_t*)addr; DWORD old;
         VirtualProtect(q.at, 5, PAGE_EXECUTE_READWRITE, &old);
         memcpy(q.old, q.at, 5); q.at[0] = 0xe9;
         F<int32_t>(q.at, 1) = (int32_t)((uintptr_t)target - addr - 5);
         VirtualProtect(q.at, 5, old, &old);
         FlushInstructionCache(GetCurrentProcess(), q.at, 5);
+    }
+    // Original code calls the exe address, rewritten code calls the rewrite
+    // directly: a redirect covers both.
+    void Add(uintptr_t addr, void* target) {
+        AddOne(addr, target);
+        if (void* r = hook::Find((uint32_t)addr)) AddOne((uintptr_t)r, target);
     }
     ~Redirects() {
         while (n) {

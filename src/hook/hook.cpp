@@ -14,6 +14,12 @@ Registrar::Registrar(uint32_t addr, void* impl, const char* name) {
     g_head = e;
 }
 
+void* Find(uint32_t addr) {
+    for (Entry* e = g_head; e; e = e->next)
+        if (e->addr == addr) return e->impl;
+    return nullptr;
+}
+
 static bool WriteJmp(uint32_t at, void* to) {
     DWORD old;
     uint8_t* p = reinterpret_cast<uint8_t*>(at);

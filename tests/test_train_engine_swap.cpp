@@ -1,5 +1,6 @@
 // Engine/tender replacement fixtures for GPT6.1 SOL MEDIUM's 0x4aefb0 rewrite.
 #include "difftest.h"
+#include "hook/hook.h"
 #include <windows.h>
 #include <stdint.h>
 #include <string.h>
@@ -10,15 +11,21 @@ void __fastcall Train_ReplaceEngine(uint8_t*, int, uint32_t, int32_t);
 namespace {
 template <typename T> T& F(void* p, uint32_t off) { return *(T*)((uint8_t*)p + off); }
 struct Redirects {
-    struct Patch { uint8_t* at; uint8_t old[5]; } entries[24];
+    struct Patch { uint8_t* at; uint8_t old[5]; } entries[48];
     int count = 0;
-    void Add(uintptr_t addr, void* target) {
+    void AddOne(uintptr_t addr, void* target) {
         Patch& p = entries[count++]; p.at = (uint8_t*)addr; DWORD old;
         VirtualProtect(p.at, 5, PAGE_EXECUTE_READWRITE, &old);
         memcpy(p.old, p.at, 5); p.at[0] = 0xe9;
         F<int32_t>(p.at, 1) = (int32_t)((uintptr_t)target - addr - 5);
         VirtualProtect(p.at, 5, old, &old);
         FlushInstructionCache(GetCurrentProcess(), p.at, 5);
+    }
+    // Original code calls the exe address, rewritten code calls the rewrite
+    // directly: a redirect covers both.
+    void Add(uintptr_t addr, void* target) {
+        AddOne(addr, target);
+        if (void* r = hook::Find((uint32_t)addr)) AddOne((uintptr_t)r, target);
     }
     ~Redirects() {
         while (count) {

@@ -23,6 +23,11 @@ struct Registrar {
     Registrar(uint32_t addr, void* impl, const char* name);
 };
 
+// The rewrite registered for an exe address (null if none). Tests use it to
+// redirect a function for both callers: original code calls the exe address,
+// rewritten code calls the rewrite directly.
+void* Find(uint32_t addr);
+
 // Writes all enabled JMPs. Called once from DllMain.
 int InstallAll(const char* iniPath);
 

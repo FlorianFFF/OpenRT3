@@ -20,6 +20,14 @@
 #include <string>
 
 namespace rt3 {
+// Rewrites the game code now calls directly: a fake must replace these too, not only the exe address.
+void __fastcall World_Advance(uint8_t* w, int, int32_t minutes, int32_t nested);
+void __fastcall World_Startup(uint8_t* w, int, int32_t setup, int32_t withMap);
+int32_t __fastcall Session_Update(uint8_t* s);
+void __fastcall Train_ReplaceEngine(uint8_t* train, int, uint32_t typeId, int32_t freeUpgrade);
+void __fastcall Trains_Advance(Collection* c, int, float dt);
+void __fastcall Types_RefreshAvailable(Collection* c);
+uint8_t* __fastcall MpDialog_Construct(uint8_t* d);
 void __fastcall Font_DrawTextBox(uint8_t* f, int, const char* text, float x, float y, float w, float h, uint32_t color, int32_t align,
                                  int32_t valign, uint32_t flags, float scale);
 void __fastcall Glyph_Queue(uint8_t* g, int, float x, float y, uint32_t tint, float sx, float sy, uint32_t color, int32_t, int32_t, int32_t,
@@ -195,6 +203,9 @@ struct UiTrace {
     void Add(uint32_t exe, void* ours, void* fn) {
         if (exe) Hook((void*)exe, fn);
         if (ours) Hook(ours, fn);
+        // The rewrite registered for `exe` (called directly by rewritten code), if another.
+        void* reg = exe ? hook::Find(exe) : nullptr;
+        if (reg && reg != ours) Hook(reg, fn);
     }
     ~UiTrace() {
         for (int k = g_npatch - 1; k >= 0; --k) {
@@ -14113,7 +14124,7 @@ DIFFTEST(load_BuildingTypesAll) {
     t.Add(0x4120b0, (void*)&rt3::BuildingType_Load, (void*)&RecB50Load);
     t.Add(0x412d70, (void*)&rt3::Industries_RebuildPortsWarehouses, (void*)&RecB50Ports);
     t.Add(0x412ab0, (void*)&rt3::Table_SetPriorities, (void*)&RecB50Prio);
-    t.Add(0x412c10, nullptr, (void*)&RecB50Avail);
+    t.Add(0x412c10, (void*)&rt3::Types_RefreshAvailable, (void*)&RecB50Avail);
     t.Add(0x51c920, (void*)&rt3::LocalizeName, (void*)&FakeB50Loc);
     t.Add(0x5193f0, (void*)&rt3::GetString, (void*)&FakeB11String);
     t.Add(0x518de0, (void*)&rt3::FormatText, (void*)&FakeB50Format);
@@ -48595,7 +48606,7 @@ DIFFTEST(game_LoadingPump) {
     t.Add(0x434050, (void*)&rt3::IsMultiplayer, (void*)&FakeB361Mp);
     t.Add(0x538b60, (void*)&rt3::WindowManager_Draw, (void*)&FakeB361Draw);
     t.Add(0x520620, (void*)&rt3::Engine_DrawFrame, (void*)&FakeB361Frame);
-    t.Add(0x46b780, nullptr, (void*)&FakeB361Tick);
+    t.Add(0x46b780, (void*)&rt3::Session_Update, (void*)&FakeB361Tick);
     t.Add(0x46c230, (void*)&rt3::Session_Shutdown, (void*)&FakeB361Shutdown);
     const uint32_t gl[] = { 0xccb9e8, 0x6cfc88, 0x6cec78, 0x6cd8d8, 0x6cec80, 0x6d401c, 0x6d4024 };
     const int n = sizeof gl / sizeof gl[0];
@@ -48693,7 +48704,7 @@ DIFFTEST(game_SessionUpdate) {
     t.Add(0x469b00, (void*)&rt3::NetMessage_ShowNext, (void*)&FakeB362Show);
     t.Add(0x46a590, (void*)&rt3::NetQueue_Drain, (void*)&FakeB362Drain);
     t.Add(0x4336d0, (void*)&rt3::World_Construct, (void*)&FakeB362World);
-    t.Add(0x438890, nullptr, (void*)&FakeB362Load);
+    t.Add(0x438890, (void*)&rt3::World_Startup, (void*)&FakeB362Load);
     t.Add(0x445ac0, nullptr, (void*)&FakeB362Open);
     t.Add(0x58def0, nullptr, (void*)&FakeB362Voice);
     const uint32_t gl[] = { 0x6cd91c, 0x6d401c, 0x6cd8dc, 0x6cec78, 0x6d40d0, 0x6d4114, 0x6d0818, 0x6ce9b8, 0x6cd900, 0x6ae4d0, 0x6ce9c4, 0x6cec74, 0x6ce9c0, 0x6cd970, 0x6cd974 };
@@ -49157,7 +49168,7 @@ DIFFTEST(game_CitiesUpdateAll) {
 
 DIFFTEST(game_WorldRunAhead) {
     UiTrace t;
-    t.Add(0x40ab50, nullptr, (void*)&FakeB367Step);
+    t.Add(0x40ab50, (void*)&rt3::World_Advance, (void*)&FakeB367Step);
     t.Add(0x4834e0, (void*)&rt3::Loading_Pump, (void*)&FakeB367Pump);
     t.Add(0x517cf0, (void*)&rt3::Collection_Count, (void*)&FakeB367Count);
     t.Add(0x518380, (void*)&rt3::Collection_IdAt, (void*)&FakeB345IdAt);
@@ -49607,7 +49618,7 @@ DIFFTEST(game_TrainEngineMessages) {
     t.Add(0x4ddbd0, nullptr, (void*)&FakeB371View);
     t.Add(0x518140, (void*)&rt3::Collection_Get, (void*)&FakeB371Get);
     t.Add(0x437a90, (void*)&rt3::World_FollowEntity, (void*)&FakeB371Follow);
-    t.Add(0x4aefb0, nullptr, (void*)&FakeB371Swap);
+    t.Add(0x4aefb0, (void*)&rt3::Train_ReplaceEngine, (void*)&FakeB371Swap);
     t.Add(0x4337b0, (void*)&rt3::Obj_Get25, (void*)&FakeB371Get25);
     t.Add(0x53f000, (void*)&rt3::Cursor_Set, (void*)&FakeB371Cursor);
     t.Add(0x482150, (void*)&rt3::Game_PostInputEvent, (void*)&FakeB371Input);
@@ -50012,7 +50023,7 @@ DIFFTEST(game_WorldCheatPrompt) {
     t.Add(0x4348c0, (void*)&rt3::Obj_Ref25, (void*)&FakeB374Ref25);
     t.Add(0x476050, (void*)&rt3::Obj_AddDouble154, (void*)&FakeB374Cash);
     t.Add(0x461c00, (void*)&rt3::Table_FindByAltName, (void*)&FakeB374Find);
-    t.Add(0x4aefb0, nullptr, (void*)&FakeB374Swap);
+    t.Add(0x4aefb0, (void*)&rt3::Train_ReplaceEngine, (void*)&FakeB374Swap);
     t.Add(0x517cf0, (void*)&rt3::Collection_Count, (void*)&FakeB374Count);
     t.Add(0x518380, (void*)&rt3::Collection_IdAt, (void*)&FakeB374IdAt);
     t.Add(0x424030, (void*)&rt3::Company_SetEntryFlag, (void*)&FakeB374Entry);
@@ -56785,7 +56796,7 @@ DIFFTEST(game_AITickAndDay) {
     t.Add(0x4073a0, (void*)&rt3::Player_AiTurn, (void*)&FakeB424Player);
     t.Add(0x4019e0, (void*)&rt3::AI_CompanyTurn, (void*)&FakeB424Company);
     t.Add(0x4423d0, (void*)&rt3::Options_Restore, (void*)&FakeB424Restore);
-    t.Add(0x4b24a0, nullptr, (void*)&FakeB424Trains);
+    t.Add(0x4b24a0, (void*)&rt3::Trains_Advance, (void*)&FakeB424Trains);
     t.Add(0x40b0b0, (void*)&rt3::Vehicles_MaybeSpawn, (void*)&FakeB424Spawn);
     t.Add(0x40b2d0, (void*)&rt3::Vehicles_MaybeSpawnFlight, (void*)&FakeB424Flight);
     t.Add(0x40b060, (void*)&rt3::Vehicles_DriveAll, (void*)&FakeB424Drive);
@@ -58869,6 +58880,7 @@ void __fastcall FakeB434Tool(uint8_t* v, int, uint32_t m, int32_t r) { Logf("too
 void __fastcall FakeB434Vol(uint8_t* s, int, float v, int32_t k) { Logf("vol %08x %d", BR(v), k); }
 } // namespace
 
+
 DIFFTEST(game_AppSetScreen) {
     UiTrace t;
 #define B434ADD(addr, fn, fake) t.Add(addr, (void*)&rt3::fn, (void*)&fake)
@@ -58897,7 +58909,7 @@ DIFFTEST(game_AppSetScreen) {
     B434ADD(0x434870, Obj_Company21, FakeB434Company);
     B434ADD(0x504010, SetupScreen_Construct, FakeB434SetupC);
     B434ADD(0x5174e0, VideoWindow_Construct, FakeB434VideoC);
-    t.Add(0x4efe80, nullptr, (void*)&FakeB434OptionsC);
+    B434ADD(0x4efe80, MpDialog_Construct, FakeB434OptionsC);
     B434ADD(0x4c7fc0, CreditsWindow_Construct, FakeB434CreditsC);
     B434ADD(0x4b8e60, CampaignWindow_Construct, FakeB434CampaignC);
     B434ADD(0x5389c0, Windows_Remove, FakeB434Remove);
@@ -59321,6 +59333,9 @@ struct B435Nested {
     void Add(uint32_t exe, void* ours, void* fn) {
         if (exe) Hook((void*)exe, fn);
         if (ours) Hook(ours, fn);
+        // The rewrite registered for `exe` (called directly by rewritten code), if another.
+        void* reg = exe ? hook::Find(exe) : nullptr;
+        if (reg && reg != ours) Hook(reg, fn);
     }
     ~B435Nested() {
         for (int k = g_npatch - 1; k >= start; --k) {

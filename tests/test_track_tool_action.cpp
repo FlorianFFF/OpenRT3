@@ -1,5 +1,6 @@
 // In-game differential coverage for GPT6.1 SOL MEDIUM's 0x50d740 rewrite.
 #include "difftest.h"
+#include "hook/hook.h"
 #include <windows.h>
 #include <stdint.h>
 #include <string.h>
@@ -12,9 +13,9 @@ void __fastcall TrackList_ResetBuildState(uint8_t* tracks);
 namespace {
 template <typename T> T& F(void* o, uint32_t off) { return *(T*)((uint8_t*)o + off); }
 struct Redirects {
-    struct Patch { uint8_t* at; uint8_t bytes[5]; } patches[24];
+    struct Patch { uint8_t* at; uint8_t bytes[5]; } patches[48];
     int count = 0;
-    void Add(uintptr_t address, void* fn) {
+    void AddOne(uintptr_t address, void* fn) {
         Patch& p = patches[count++];
         p.at = (uint8_t*)address;
         DWORD old;
@@ -24,6 +25,12 @@ struct Redirects {
         F<int32_t>(p.at, 1) = (int32_t)((uintptr_t)fn - (address + 5));
         VirtualProtect(p.at, 5, old, &old);
         FlushInstructionCache(GetCurrentProcess(), p.at, 5);
+    }
+    // Original code calls the exe address, rewritten code calls the rewrite
+    // directly: a redirect covers both.
+    void Add(uintptr_t addr, void* target) {
+        AddOne(addr, target);
+        if (void* r = hook::Find((uint32_t)addr)) AddOne((uintptr_t)r, target);
     }
     ~Redirects() {
         while (count) {

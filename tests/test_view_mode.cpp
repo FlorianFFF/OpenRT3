@@ -1,5 +1,6 @@
 // In-game differential tests for view routines reversed by GPT6.1 SOL MEDIUM.
 #include "difftest.h"
+#include "hook/hook.h"
 #include <windows.h>
 #include <stdint.h>
 #include <string.h>
@@ -15,9 +16,9 @@ int32_t __stdcall View_OnModeInput(const uint32_t*);
 namespace {
 template <typename T> T& F(void* p, uint32_t o) { return *(T*)((uint8_t*)p + o); }
 struct Redirects {
-    struct Patch { uint8_t* at; uint8_t old[5]; } patches[48];
+    struct Patch { uint8_t* at; uint8_t old[5]; } patches[96];
     int count = 0;
-    void Add(uintptr_t address, void* fn) {
+    void AddOne(uintptr_t address, void* fn) {
         Patch& p = patches[count++]; p.at = (uint8_t*)address;
         DWORD old;
         VirtualProtect(p.at, 5, PAGE_EXECUTE_READWRITE, &old);
@@ -26,7 +27,13 @@ struct Redirects {
         VirtualProtect(p.at, 5, old, &old);
         FlushInstructionCache(GetCurrentProcess(), p.at, 5);
     }
-    void Pair(uintptr_t original, void* cpp, void* fn) { Add(original, fn); Add((uintptr_t)cpp, fn); }
+    // Original code calls the exe address, rewritten code calls the rewrite
+    // directly: a redirect covers both.
+    void Add(uintptr_t addr, void* target) {
+        AddOne(addr, target);
+        if (void* r = hook::Find((uint32_t)addr)) AddOne((uintptr_t)r, target);
+    }
+    void Pair(uintptr_t original, void* cpp, void* fn) { AddOne(original, fn); AddOne((uintptr_t)cpp, fn); }
     ~Redirects() {
         while (count) {
             Patch& p = patches[--count]; DWORD old;

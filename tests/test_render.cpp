@@ -10850,14 +10850,19 @@ DIFFTEST(game_WindowLoad) {
     static uint8_t options[0x600], newGame[0x100];
     hook::Global<uint8_t*>(0x6cec74) = options;
     hook::Global<uint8_t*>(0x6cec7c) = newGame;
-    // The options file write is stubbed for both sides.
-    uint8_t* osave = (uint8_t*)0x484910;
-    uint8_t osaved[5];
-    DWORD oprot;
-    VirtualProtect(osave, 5, PAGE_EXECUTE_READWRITE, &oprot);
-    memcpy(osaved, osave, 5);
-    osave[0] = 0xE9;
-    *(int32_t*)(osave + 1) = (int32_t)((uintptr_t)&FakeOptionsSave - (0x484910 + 5));
+    // The options file write is stubbed for both sides: the exe original (called
+    // by original code) and its rewrite (called directly by rewritten code).
+    uint8_t* osaves[2] = { (uint8_t*)0x484910, (uint8_t*)hook::Find(0x484910) };
+    uint8_t osaved[2][5];
+    DWORD oprot[2];
+    for (int k = 0; k < 2; ++k) {
+        uint8_t* osave = osaves[k];
+        VirtualProtect(osave, 5, PAGE_EXECUTE_READWRITE, &oprot[k]);
+        memcpy(osaved[k], osave, 5);
+        osave[0] = 0xE9;
+        *(int32_t*)(osave + 1) = (int32_t)((uintptr_t)&FakeOptionsSave - ((uintptr_t)osave + 5));
+        FlushInstructionCache(GetCurrentProcess(), osave, 5);
+    }
     void** iat = (void**)0x5c8068;
     DWORD iprot;
     VirtualProtect(iat, 4, PAGE_READWRITE, &iprot);
@@ -11140,8 +11145,11 @@ DIFFTEST(game_WindowLoad) {
     for (int k = 8; k >= 0; --k) VirtualProtect((void*)vts[k], 0x40, prot[k], &prot[k]); // shared pages: reverse order
     for (int k = 0; k < G; ++k) hook::Global<uint32_t>(gl[k]) = saved[k];
     for (Collection* c : ecs) Collection_Destruct(c);
-    memcpy(osave, osaved, 5);
-    VirtualProtect(osave, 5, oprot, &oprot);
+    for (int k = 1; k >= 0; --k) {
+        memcpy(osaves[k], osaved[k], 5);
+        VirtualProtect(osaves[k], 5, oprot[k], &oprot[k]);
+        FlushInstructionCache(GetCurrentProcess(), osaves[k], 5);
+    }
     VirtualProtect(iat, 4, PAGE_READWRITE, &iprot);
     *iat = savedIat;
     VirtualProtect(iat, 4, iprot, &iprot);
@@ -11175,8 +11183,11 @@ DIFFTEST(game_GameSpeed) {
     static void* winVtbl[4] = { nullptr, (void*)&FakeLoggingBase };
     auto xmalloc = (void*(__cdecl*)(size_t))0x5a125d;
     auto xfree = (void(__cdecl*)(void*))0x5a1145;
-    // The multiplayer senders are stubbed for both sides.
-    struct Stub { uint32_t at; void* fn; uint8_t saved[5]; DWORD prot; } stubs[2] = { { 0x407870, (void*)&FakeMpSend }, { 0x469a50, (void*)&FakeMpChat } };
+    // The multiplayer senders are stubbed for both sides: the exe originals and
+    // their rewrites (which rewritten code calls directly).
+    struct Stub { uint32_t at; void* fn; uint8_t saved[5]; DWORD prot; } stubs[4] = {
+        { 0x407870, (void*)&FakeMpSend }, { 0x469a50, (void*)&FakeMpChat },
+        { (uint32_t)(uintptr_t)hook::Find(0x407870), (void*)&FakeMpSend }, { (uint32_t)(uintptr_t)hook::Find(0x469a50), (void*)&FakeMpChat } };
     for (Stub& st : stubs) {
         uint8_t* p = (uint8_t*)st.at;
         VirtualProtect(p, 5, PAGE_EXECUTE_READWRITE, &st.prot);
@@ -11284,9 +11295,11 @@ DIFFTEST(game_GameSpeed) {
         EXPECT_EQ(evs[0] == evs[1], true, "events iteration %d", it);
     }
     for (int k = 0; k < G; ++k) hook::Global<uint32_t>(gl[k]) = saved[k];
-    for (Stub& st : stubs) {
+    for (int k = 3; k >= 0; --k) {
+        Stub& st = stubs[k];
         memcpy((void*)st.at, st.saved, 5);
         VirtualProtect((void*)st.at, 5, st.prot, &st.prot);
+        FlushInstructionCache(GetCurrentProcess(), (void*)st.at, 5);
     }
     VirtualProtect(iat, 4, PAGE_READWRITE, &iprot);
     *iat = savedIat;

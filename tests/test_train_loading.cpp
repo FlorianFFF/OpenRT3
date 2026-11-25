@@ -1,5 +1,6 @@
 // In-process oracle for 0x4ac6d0, reverse engineered by GPT6.1 SOL MEDIUM.
 #include "difftest.h"
+#include "hook/hook.h"
 #include <windows.h>
 #include <stdint.h>
 #include <string.h>
@@ -14,15 +15,21 @@ const uint64_t kDoubles[] = {0, 0x3ff0000000000000ULL, 0x3ff0000010000000ULL, 0x
                             0x7ff0000000000000ULL, 0xfff0000000000000ULL, 0x7ff812345678abcdULL, 0x7ff012345678abcdULL};
 const int32_t kClasses[] = {900, 901, 902, 17, 32, 0x12345678, 900, 901};
 struct Redirects {
-    struct Patch { uint8_t* at; uint8_t old[5]; } p[16];
+    struct Patch { uint8_t* at; uint8_t old[5]; } p[32];
     int n = 0;
-    void Add(uintptr_t addr, void* target) {
+    void AddOne(uintptr_t addr, void* target) {
         Patch& q = p[n++]; q.at = (uint8_t*)addr; DWORD old;
         VirtualProtect(q.at, 5, PAGE_EXECUTE_READWRITE, &old);
         memcpy(q.old, q.at, 5); q.at[0] = 0xe9;
         F<int32_t>(q.at, 1) = (int32_t)((uintptr_t)target - addr - 5);
         VirtualProtect(q.at, 5, old, &old);
         FlushInstructionCache(GetCurrentProcess(), q.at, 5);
+    }
+    // Original code calls the exe address, rewritten code calls the rewrite
+    // directly: a redirect covers both.
+    void Add(uintptr_t addr, void* target) {
+        AddOne(addr, target);
+        if (void* r = hook::Find((uint32_t)addr)) AddOne((uintptr_t)r, target);
     }
     ~Redirects() {
         while (n) {
