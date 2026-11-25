@@ -290,7 +290,7 @@ DEV(63, int32_t, SetTextureStageState, (void* d, uint32_t stage, uint32_t type, 
 DEV(70, int32_t, DrawPrimitive, (void* d, uint32_t type, uint32_t first, uint32_t prims)) {
     ++g_draws;
     g_kind = 2;
-    Mix4(70, type, first, prims);
+    Mix4(70, type, prims);  // (not `first`: where in a shared buffer is no content)
     g_kind = 3;
     MixVertices(first, VertexCount(type, prims));
     return Orig<int32_t(__stdcall*)(void*, uint32_t, uint32_t, uint32_t)>(70)(d, type, first, prims);
@@ -298,13 +298,23 @@ DEV(70, int32_t, DrawPrimitive, (void* d, uint32_t type, uint32_t first, uint32_
 DEV(71, int32_t, DrawIndexedPrimitive, (void* d, uint32_t type, uint32_t minIndex, uint32_t numVerts, uint32_t start, uint32_t prims)) {
     ++g_draws;
     g_kind = 2;
-    Mix4(71, type, minIndex, numVerts);
-    Mix4(71, start, prims, g_baseVertex);
+    // Content only, not positions: a shared (ring) buffer's write position
+    // depends on how much modal-loop frames drew, which the wall clock decides.
+    // So the indices count from the first vertex the call may use.
+    Mix4(71, type, numVerts, prims);
     g_kind = 4;
     if (Slot* s = Get(g_indices)) {
-        uint64_t lo = (uint64_t)start * g_indexSize, hi = lo + (uint64_t)VertexCount(type, prims) * g_indexSize;
-        if (s->shadow && hi > s->size) hi = s->size;
-        if (s->shadow && lo < hi) Mix(s->shadow + lo, (uint32_t)(hi - lo));
+        uint32_t n = VertexCount(type, prims);
+        uint64_t lo = (uint64_t)start * g_indexSize;
+        if (s->shadow && lo + (uint64_t)n * g_indexSize <= s->size) {
+            uint32_t rel[256], used = 0;
+            for (uint32_t i = 0; i < n; ++i) {
+                uint32_t x = g_indexSize == 4 ? ((const uint32_t*)(s->shadow + lo))[i] : ((const uint16_t*)(s->shadow + lo))[i];
+                rel[used++] = x - minIndex;
+                if (used == 256) { Mix(rel, sizeof rel); used = 0; }
+            }
+            if (used) Mix(rel, used * 4);
+        }
     }
     g_kind = 3;
     MixVertices(g_baseVertex + minIndex, numVerts);
@@ -343,13 +353,13 @@ DEV(79, int32_t, SetVertexShaderConstant, (void* d, uint32_t reg, const void* da
 }
 DEV(83, int32_t, SetStreamSource, (void* d, uint32_t n, void* vb, uint32_t stride)) {
     g_kind = 2;
-    Mix4(83, n, Id(vb), stride);  // (B 83 ...: stream 0's buffer id for the L lines)
+    Mix4(83, n, Id(vb), stride);
     if (n == 0) { g_stream0 = vb; g_stride0 = stride; }
     return Orig<int32_t(__stdcall*)(void*, uint32_t, void*, uint32_t)>(83)(d, n, vb, stride);
 }
 DEV(85, int32_t, SetIndices, (void* d, void* ib, uint32_t base)) {
     g_kind = 2;
-    Mix4(85, Id(ib), base);
+    Mix4(85, Id(ib));  // (not the base vertex: a position)
     g_indices = ib;
     g_baseVertex = base;
     if (ib) {

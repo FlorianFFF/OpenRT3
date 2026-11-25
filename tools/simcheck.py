@@ -6,7 +6,7 @@ compares the saves (via the per-write CRC trace) between runs:
   C = all replacements on.
 A == B proves the setup is deterministic; A == C proves the rewrite matches.
 
-    python tools/simcheck.py [save] [frames] [--do=<frame>:<addr>,...] [--coverage=<file>]
+    python tools/simcheck.py [save] [frames] [--do=<frame>:<addr>,...] [--coverage=<file>] [--mode=<n>]
 """
 import os
 import re
@@ -28,6 +28,10 @@ SAVES = GAME / "Saved Games"
 # --do=<frame>:<addr>,... : commands run at those frames after loading, as if
 # their hotkeys were pressed (src/harness.cpp).
 ACTIONS = next((a[5:] for a in sys.argv if a.startswith("--do=")), "")
+# --mode=<n>: the game's start mode (-s<n>). 4 (default) is the safe display
+# setup (640x480 windowed, low detail); 9 the 1024x768 windowed defaults, with
+# the detail levels the machine gets, so more of the rendering runs.
+MODE = next((a[7:] for a in sys.argv if a.startswith("--mode=")), "4")
 if ACTIONS.startswith("@"):  # a file of "<frame> <addr> [comment]" lines
     ACTIONS = ",".join(":".join(l.split()[:2]) for l in Path(ACTIONS[1:]).read_text().splitlines()
                        if l.strip() and not l.startswith("#"))
@@ -63,7 +67,7 @@ def run(tag, enabled, save, days, timeout=None):
     image = "OpenRT3.exe" if enabled and "--standalone" in sys.argv else find_exe(GAME).name
     exe = "OpenRT3.exe" if image == "OpenRT3.exe" else "rt3re.exe"
     stockgame.reset_settings()  # the same settings for every run
-    p = subprocess.Popen([str(GAME / exe), "-s4"], cwd=GAME, env=env)  # safe mode, windowed, no sound
+    p = subprocess.Popen([str(GAME / exe), "-s" + MODE], cwd=GAME, env=env)
     try:
         p.wait(timeout=timeout)
     except subprocess.TimeoutExpired:
@@ -113,7 +117,7 @@ def main():
     def cached(tag):
         t = GAME / f"simcheck_{tag}{Path(save).suffix}.trace"
         stamp = GAME / f"simcheck_{tag}.key"
-        key = f"{save} {frames} {ACTIONS} {'--nocoverage' in sys.argv}"
+        key = f"{save} {frames} {ACTIONS} {'--nocoverage' in sys.argv} {MODE}"
         if "--fresh" not in sys.argv and t.exists() and stamp.exists() and stamp.read_text() == key:
             return [l.split()[1:] for l in t.read_text().splitlines() if l]
         r = run(tag, False, save, frames)
