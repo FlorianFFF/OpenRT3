@@ -63,11 +63,11 @@ template <typename Fill> static void AddControlButton(uint8_t* win, Fill fill) {
     uint8_t def[0xa5];
     memset(def, 0, sizeof def);
     fill(def);
-    uint8_t* c = (uint8_t*)ExeNew(0xe9);
+    uint8_t* c = (uint8_t*)crt::operator_new(0xe9);
     if (c) c = Control_Construct(c, 0, def);
     Window_AddChild(win, 0, c, 0);
-    Free(F<void*>(def, 0x43));
-    if (F<void*>(def, 0x3f)) Free(F<void*>(def, 0x3f));
+    crt::free(F<void*>(def, 0x43));
+    if (F<void*>(def, 0x3f)) crt::free(F<void*>(def, 0x3f));
 }
 
 void* __fastcall Table_NthField4(Collection* t, int, int32_t n);
@@ -293,7 +293,6 @@ static inline double D(uint32_t a) { return *(const double*)a; }
 
 static inline double Fl(uint32_t a) { return *(const float*)a; }
 
-static inline void* ExeNew(size_t n) { return ((void*(__cdecl*)(size_t))0x53b070)(n); }
 
 static inline int32_t Ftol(double v) {
     int32_t r;
@@ -310,7 +309,6 @@ static inline float BitsF(uint32_t b) { return *(float*)&b; }
 
 static inline double BitsD(uint64_t b) { return *(double*)&b; }
 
-static inline double CrtFabs(double v) { return ((double(__cdecl*)(double))0x5a152e)(v); }
 
 static inline float Prod_Bits(uint32_t b) { return *(const float*)&b; }
 
@@ -333,7 +331,6 @@ int32_t CompanyViewId() { return F<int32_t>(g_gameWindow, 0x90); }
 }
 
 namespace {
-void Callback_Free(void* p) { ((void(__cdecl*)(void*))0x53b080)(p); }
 uint32_t Message_Dialog(const char* text, uint32_t px) {
     return Dialog_RunMessage(text, 1, px, 0xbf800000, 0, nullptr, 0, 0.0f, 0, 0x1e, 0, nullptr, nullptr, 0, 0, nullptr, 0);
 }
@@ -402,11 +399,11 @@ RT3_NOINLINE void __fastcall BuildingRow_AddCargoButtons(uint8_t* w, uint8_t* li
     if (F<uint16_t>(w, 4) == 0x2aff) base -= 0x3afc;
     uint8_t def[0x89];
     auto addButton = [&] {
-        uint8_t* b = (uint8_t*)ExeNew(0x111);
+        uint8_t* b = (uint8_t*)crt::operator_new(0x111);
         b = b ? Scrollbar_Construct(b, 0, def) : nullptr;
         Window_AddChild(F<uint8_t*>(w, 0x86), 0, b, 0);
-        Free(F<void*>(def, 0x43));
-        Free(F<void*>(def, 0x3f));
+        crt::free(F<void*>(def, 0x43));
+        crt::free(F<void*>(def, 0x3f));
     };
     memset(def, 0, sizeof def);
     F<float>(def, 0xb) = (float)((double)y + D(0x5d0288));
@@ -615,11 +612,11 @@ RT3_NOINLINE void __fastcall TrainRow_Build(uint8_t* win, uint32_t trainId, int3
             def[0x8a] = 7;
             String_Assign(&F<char*>(def, 0x43), (const char*)0x5c9fa8);
             String_Assign(&F<char*>(def, 0x3f), GetString(hook::Global<int32_t>(0x621f20 + i * 4)));
-            uint8_t* b = (uint8_t*)ExeNew(0xe9);
+            uint8_t* b = (uint8_t*)crt::operator_new(0xe9);
             b = b ? Control_Construct(b, 0, def) : nullptr;
             Window_AddChild(win, 0, b, 0);
-            Free(F<void*>(def, 0x43));
-            Free(F<void*>(def, 0x3f));
+            crt::free(F<void*>(def, 0x43));
+            crt::free(F<void*>(def, 0x3f));
         }
         uint8_t def[0x89];
         memset(def, 0, sizeof def);
@@ -636,11 +633,11 @@ RT3_NOINLINE void __fastcall TrainRow_Build(uint8_t* win, uint32_t trainId, int3
         String_Assign(&F<char*>(def, 0x3f), text);
         F<uint16_t>(def, 0) = (uint16_t)(base + 0x11);
         F<uint32_t>(def, 0x4b) = trainId;
-        uint8_t* s = (uint8_t*)ExeNew(0x111);
+        uint8_t* s = (uint8_t*)crt::operator_new(0x111);
         s = s ? Scrollbar_Construct(s, 0, def) : nullptr;
         Window_AddChild(win, 0, s, 0);
-        Free(F<void*>(def, 0x43));
-        Free(F<void*>(def, 0x3f));
+        crt::free(F<void*>(def, 0x43));
+        crt::free(F<void*>(def, 0x3f));
     }
     for (int32_t i = 0; i < 4; ++i) Window_SendEvent5(win, 0, F<int32_t>(t, 0xd8) != i ? 0x87 : 0x65, base + i, 3, 0, 0);
     Window_SendEvent5(win, 0, t[0x1a1] ? 0x65 : 0x87, base + 0x11, 3, 0, 0);
@@ -706,7 +703,7 @@ RT3_NOINLINE void __fastcall TrainRow_Build(uint8_t* win, uint32_t trainId, int3
         F<uint16_t>(def, 0) = (uint16_t)(base + k - 0x332c);
         F<uint32_t>(def, 0x4b) = trainId;
         if (k != 0x3333) F<uint32_t>(def, 0x2f) = 0x90;
-        uint8_t* tw = (uint8_t*)ExeNew(0xda);
+        uint8_t* tw = (uint8_t*)crt::operator_new(0xda);
         tw = tw ? TimerWidget_Construct(tw, 0, def) : nullptr;
         Window_AddChild(win, 0, tw, 0);
         Window_SendEvent5(win, 0, 0x82, F<uint16_t>(def, 0), 0x4beea0, 0, 0);
@@ -939,8 +936,8 @@ RT3_NOINLINE void __fastcall CompanyStock_DrawChart(uint8_t* win, uint32_t linkB
         float top = 0.0f;
         for (int32_t yr = from; yr <= to; ++yr) {
             double prev = top;
-            double v = CrtFabs(Company_Stat(co, 0, stats[s], yr));
-            double nt = v < prev ? (double)top : CrtFabs(Company_Stat(co, 0, stats[s], yr));
+            double v = crt::fabs(Company_Stat(co, 0, stats[s], yr));
+            double nt = v < prev ? (double)top : crt::fabs(Company_Stat(co, 0, stats[s], yr));
             top = (float)nt;
         }
         top = (float)((double)top * D(0x5c85a8));
@@ -1317,7 +1314,7 @@ void __fastcall CompanyCredit_DrawCb(void*, int, float x, float y, float w, floa
     uint8_t* c = company();
     const float tw = (float)((double)w - D(0x5d0700));
     const float stat = (float)Company_Stat(c, 0, 0x12, F<uint16_t>(g_world, 0xd));
-    const float mag = (float)((double(__cdecl*)(double))0x5a152e)((double)stat);
+    const float mag = (float)crt::fabs((double)stat);
     char frame[0x108];
     char* num = frame + 8;
     Num_FormatSimple2(num, 0xb, (double)mag, 0xb);
@@ -2210,7 +2207,7 @@ int32_t __fastcall CompanyWindow_HandleEvent(uint8_t* w, int, int32_t* ev) {
         double cash = Company_Stat((uint8_t*)SelectedCompany(), 0, 0xd, 0x2329);
         Num_Format(num1, 8, cash, 10, 1, 0, 0);
         Dialog_RunMessage(GetString(0xe33), 9, kMsgNeg1, kMsgNeg1, 0, nullptr, 0, 0.0f, (uint32_t)(uintptr_t)num1, 0x1e, 0, nullptr, nullptr, 0, 0, nullptr, 0);
-        int32_t v = ((int(__cdecl*)(const char*))0x5a1ea5)(num1);
+        int32_t v = crt::atoi(num1);
         if (!SelectedCompany()) return 0;
         F<double>(SelectedCompany(), 0x11f7) = (double)v;
         return 0;

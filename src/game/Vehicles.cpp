@@ -24,6 +24,8 @@
 
 namespace rt3 {
 
+void __fastcall Trains_Advance(Collection* c, int, float dt);
+
 template <typename T> static inline T& F(void* o, uint32_t off) { return *(T*)((uint8_t*)o + off); }
 int32_t __fastcall StreamSkip4(Stream s, int, int32_t, int32_t count);
 int32_t __fastcall Collection_Load(Collection* c, int, Stream s, int32_t recordSize);
@@ -269,7 +271,7 @@ static inline double BitsD(uint64_t b) { return *(double*)&b; }
 static inline uint32_t Bits(float f) { return *(uint32_t*)&f; }
 
 // div() of the exe's CRT: quotient in the low, remainder in the high half.
-static inline int32_t Prod_Rem(int32_t a, int32_t b) { return (int32_t)(((uint64_t(__cdecl*)(int32_t, int32_t))0x5a16da)(a, b) >> 32); }
+static inline int32_t Prod_Rem(int32_t a, int32_t b) { return (int32_t)(crt::div(a, b) >> 32); }
 
 namespace {
 template <typename Fn> void YearEach(uint32_t global, Fn fn) {
@@ -290,11 +292,6 @@ struct RouteFrame {
     double& d(uint32_t o) { return *(double*)(b + o); }
     uint8_t*& p(uint32_t o) { return *(uint8_t**)(b + o); }
 };
-inline double RtSin(double x) { return ((double(__cdecl*)(double))0x5a1494)(x); }
-inline double RtCos(double x) { return ((double(__cdecl*)(double))0x5a13e4)(x); }
-inline double RtAbs(double x) { return ((double(__cdecl*)(double))0x5a152e)(x); }
-inline double RtMod(double x, double y) { return ((double(__cdecl*)(double, double))0x5a1390)(x, y); }
-inline int RtStricmp(const char* a, const char* b) { return ((int(__cdecl*)(const char*, const char*))0x5a57cf)(a, b); }
 inline float RtBits(uint32_t v) { return *(const float*)&v; }
 inline uint8_t* RtGet(uint32_t global, int32_t id) { return (uint8_t*)Collection_Get(hook::Global<Collection*>(global), 0, (uint32_t)id); }
 inline uint8_t* RtMap() { return g_map; }
@@ -494,7 +491,7 @@ RT3_REPLACE(0x40a9c0, World_EndOfDay);
 // QUIRK: Vehicles_DriveAll gets the minutes as float bits.
 RT3_NOINLINE void __fastcall World_AdvanceMinutes(uint8_t* w, int, int32_t minutes) {
     const float f = (float)minutes;
-    ((void(__fastcall*)(Collection*, int, float))0x4b24a0)(g_trains, 0, f);
+    Trains_Advance(g_trains, 0, f);
     Vehicles_MaybeSpawn(g_62b244, 0, f);
     Vehicles_MaybeSpawnFlight(g_62b244, 0, f, 0);
     Vehicles_DriveAll(g_62b244, 0, Bits(f));
@@ -549,17 +546,15 @@ RT3_REPLACE(0x40ab50, World_Advance);
 RT3_NOINLINE void __fastcall Airplanes_LoadTypes(uint8_t* o) {
     char path[0x100];
     FormatText(path, (const char*)0x5c89ec, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
-    auto fopen_ = (FILE*(__cdecl*)(const char*, const char*))0x5a1887;
-    auto fscanf_ = (int(__cdecl*)(FILE*, const char*, ...))0x5a17e1;
     auto fgetc_ = (int(__cdecl*)(FILE*))0x5a1791;
-    FILE* f = fopen_(path, (const char*)0x5c89e8);
+    FILE* f = ((FILE*)crt::fopen(path, (const char*)0x5c89e8));
     if (!f) FatalFormat(0xac, path);
     F<int32_t>(o, 0x8c) = 9999;
     F<int32_t>(o, 0x88) = 0;
     auto eof = [&]() { return (F<uint8_t>(f, 0xc) & 0x10) != 0; };
     while (!eof()) {
         char line[0x400];
-        fscanf_(f, (const char*)0x5c89e4, line);
+        crt::fscanf(f, (const char*)0x5c89e4, line);
         if (line[0] == ';') {
             if (fgetc_(f) != '\n')
                 while (!eof() && fgetc_(f) != '\n') {}
@@ -568,7 +563,7 @@ RT3_NOINLINE void __fastcall Airplanes_LoadTypes(uint8_t* o) {
         PlaneRec r;
         char* d = r.name;
         for (const char* s = line; (*d++ = *s++) != 0;) {}
-        fscanf_(f, (const char*)0x5c89b8, &r.i[0], &r.i[1], &r.i[2], &r.f[0], &r.f[1], &r.f[2], &r.f[7], &r.f[5],
+        crt::fscanf(f, (const char*)0x5c89b8, &r.i[0], &r.i[1], &r.i[2], &r.f[0], &r.f[1], &r.f[2], &r.f[7], &r.f[5],
                 &r.f[6], &r.f[3], &r.f[8], &r.f[9], &r.f[10], &r.f[11]);
         if ((double)r.f[3] < D(0x5c86b8)) *(uint32_t*)&r.f[3] = 0x3dcccccd;
         r.f[4] = (float)(D(0x5c8770) / r.f[3]);
@@ -579,7 +574,7 @@ RT3_NOINLINE void __fastcall Airplanes_LoadTypes(uint8_t* o) {
         F<int32_t>(o, 0x88) = ++n;
         if (n >= 0x20) break;
     }
-    ((int(__cdecl*)(FILE*))0x5a1740)(f);
+    crt::fclose(f);
 }
 RT3_REPLACE(0x40acb0, Airplanes_LoadTypes);
 
@@ -631,7 +626,7 @@ RT3_REPLACE(0x40afa0, Vehicles_Add);
 // case-insensitively; null when there is none.
 RT3_NOINLINE uint8_t* __fastcall Vehicles_AddNamed(Collection* t, int, const char* name) {
     for (int32_t k = 0; k < 0x20; ++k)
-        if (!Stricmp((const char*)t + 0x90 + k * 0x5c, name)) return k == -1 ? nullptr : Vehicles_Add(t, 0, k);
+        if (!crt::stricmp((const char*)t + 0x90 + k * 0x5c, name)) return k == -1 ? nullptr : Vehicles_Add(t, 0, k);
     return nullptr;
 }
 RT3_REPLACE(0x40b010, Vehicles_AddNamed);
@@ -709,10 +704,10 @@ RT3_NOINLINE uint32_t __fastcall Vehicles_MaybeSpawnFlight(Collection* t, int, f
     float ha = (float)((double)heading - spread);
     float hb = (float)((double)heading + spread);
     float c[2], s[2];
-    c[0] = (float)(((double(__cdecl*)(double))0x5a13e4)(ha) * step);
-    c[1] = (float)(((double(__cdecl*)(double))0x5a13e4)(hb) * step);
-    s[0] = (float)(((double(__cdecl*)(double))0x5a1494)(ha) * step);
-    s[1] = (float)(((double(__cdecl*)(double))0x5a1494)(hb) * step);
+    c[0] = (float)(crt::sin(ha) * step);
+    c[1] = (float)(crt::sin(hb) * step);
+    s[0] = (float)(crt::cos(ha) * step);
+    s[1] = (float)(crt::cos(hb) * step);
     int32_t n = Rand(3, 6) - 1;
     const float jitter = *(const float*)0x5c8554;
     for (int32_t k = 0; k < n; ++k) {
@@ -838,14 +833,10 @@ RT3_NOINLINE void Ambient_Update() {
     if (!g_62b248) return;
     int32_t dt = ClockMs() - g_62b24c;
     uint8_t* view = g_62be68;
-    auto fabs_ = (double(__cdecl*)(double))0x5a152e;
-    auto sin_ = (double(__cdecl*)(double))0x5a1494;
-    auto cos_ = (double(__cdecl*)(double))0x5a13e4;
-    auto sqrt_ = (double(__cdecl*)(double))0x5a1634;
     float vx = F<float>(view, 0x1c), vy = F<float>(view, 0x20), vz = F<float>(view, 0x24);
-    double m = fabs_((double)vz - g_62b260);
-    m = fabs_((double)vy - g_62b25c) + m;
-    float moved = (float)(fabs_((double)vx - g_62b258) + m);
+    double m = crt::fabs((double)vz - g_62b260);
+    m = crt::fabs((double)vy - g_62b25c) + m;
+    float moved = (float)(crt::fabs((double)vx - g_62b258) + m);
     if (dt <= 0x14 && !(moved > D(0x5c8c48))) return;
     view = g_62be68;
     g_62b258 = F<float>(view, 0x1c);
@@ -941,7 +932,7 @@ RT3_NOINLINE void Ambient_Update() {
         for (int32_t k = 0; k < 0x10; ++k) {
             if (!on[k] || played) continue;
             uint8_t* e = (uint8_t*)0x5ed088 + k * 0x1b;
-            float r = (float)(fabs_((double)alt - F<float>(e, 0x10)) / D(0x5c8c48) / F<float>(e, 0xc));
+            float r = (float)(crt::fabs((double)alt - F<float>(e, 0x10)) / D(0x5c8c48) / F<float>(e, 0xc));
             if (r > Fl(0x5c85f8)) continue;
             int32_t& counter = F<int32_t>(e, 4);
             counter += step;
@@ -966,9 +957,9 @@ RT3_NOINLINE void Ambient_Update() {
                 double rd = (double)rr;
                 float ang = (float)(rd / D(0x5c87f8) * D(0x5c8c08));
                 double dd = dist;
-                float px = (float)(cos_(ang) * dd + camX);
+                float px = (float)(crt::sin(ang) * dd + camX);
                 float camZ = F<float>(g_62be68, 0x24);
-                float pz = (float)(sin_(ang) * dd + camZ);
+                float pz = (float)(crt::cos(ang) * dd + camZ);
                 int32_t tx = Ftol((double)px / Fl(0x5c8700));
                 int32_t tz = Ftol((double)pz / Fl(0x5c8700));
                 grid = g_map;
@@ -1007,7 +998,7 @@ RT3_NOINLINE void Ambient_Update() {
     T[3 * 8] = (float)(T[3 * 8] * D(0x5c8888));
     double wind = T[3 * 8];
     T[3 * 8] = (float)(D(0x5c8640) < wind ? BitsD(0x3fe999999999999aull) : wind);
-    double sq = alt == Fl(0x5c8598) ? 0.0 : sqrt_((double)alt);
+    double sq = alt == Fl(0x5c8598) ? 0.0 : crt::sqrt((double)alt);
     float hf = (float)sq;
     float fade;
     if (hf > Fl(0x5c8990))
@@ -1036,7 +1027,7 @@ RT3_NOINLINE void Ambient_Update() {
         uint8_t* s = (uint8_t*)0x5ed244 + k * 0x20; // current volume; target at -4
         float& cur = F<float>(s, 0);
         float target = F<float>(s, -4);
-        if (fabs_((double)target - cur) <= stepD)
+        if (crt::fabs((double)target - cur) <= stepD)
             cur = target;
         else
             cur = cur > target ? cur - stepV : stepV + cur;

@@ -23,6 +23,8 @@
 
 namespace rt3 {
 
+void __fastcall Train_Step(uint8_t* t, int, float dt, int32_t force);
+
 template <typename T> static inline T& F(void* o, uint32_t off) { return *(T*)((uint8_t*)o + off); }
 void __fastcall Obj_ForCityChain(void* o, int, int32_t a, int32_t b, int32_t c);
 void __fastcall Array33_Save(uint32_t* o, int, Stream s);
@@ -214,7 +216,6 @@ static inline float BitsF(uint32_t b) { return *(float*)&b; }
 
 static inline double BitsD(uint64_t b) { return *(double*)&b; }
 
-static inline SprintfFn ExeSprintf() { return (SprintfFn)0x5a19c4; }
 
 static inline double Fl_207(uint32_t a) { return *(const float*)a; }
 
@@ -231,9 +232,9 @@ static inline char* Prod_Format(char* dst, const char* fmt, const char* a1, cons
 static inline char* Prod_Num(char* buf, int32_t style, double v) { return Num_Format(buf, style, v, 10, 1, 0, 0); }
 
 // div() of the exe's CRT: quotient in the low, remainder in the high half.
-static inline int32_t Prod_Rem(int32_t a, int32_t b) { return (int32_t)(((uint64_t(__cdecl*)(int32_t, int32_t))0x5a16da)(a, b) >> 32); }
+static inline int32_t Prod_Rem(int32_t a, int32_t b) { return (int32_t)(crt::div(a, b) >> 32); }
 
-static inline bool Prod_KindIs(uint8_t* o, uint32_t name) { return !Stricmp((const char*)Obj_Ref3cc(o) + 4, (const char*)name); }
+static inline bool Prod_KindIs(uint8_t* o, uint32_t name) { return !crt::stricmp((const char*)Obj_Ref3cc(o) + 4, (const char*)name); }
 
 // A text label (0xf0 widget) of the production panel.
 static void Prod_Label(uint32_t id, float x, float y, uint32_t h, uint8_t b27, uint8_t b33, const char* text) {
@@ -249,10 +250,10 @@ static void Prod_Label(uint32_t id, float x, float y, uint32_t h, uint8_t b27, u
     String_Assign(&F<char*>(d, 0x77), text);
     d[0x33] = b33;
     F<uint16_t>(d, 0) = (uint16_t)(id + 0xbd42);
-    uint8_t* e = (uint8_t*)((void*(__cdecl*)(size_t))0x53b070)(0xf0);
+    uint8_t* e = (uint8_t*)crt::operator_new(0xf0);
     e = e ? EditBox_Construct(e, 0, d) : nullptr;
     Window_AddChild(Prod_Win(), 0, e, 0);
-    Free(F<void*>(d, 0x77));
+    crt::free(F<void*>(d, 0x77));
 }
 
 // A cargo picture (0x111 widget) from `imb` (the default one when the name
@@ -270,13 +271,13 @@ static void Prod_Image(uint32_t id, float x, float y, const char* imb, const cha
     int32_t found = NameTable_ContainsName(g_pack, 0, imb, 0, nullptr);
     String_Assign(&F<char*>(d, 0x43), found ? imb : (const char*)0x5d0194);
     String_Assign(&F<char*>(d, 0x3f), tip ? tip : GetString(tipId));
-    uint8_t* w = (uint8_t*)((void*(__cdecl*)(size_t))0x53b070)(0x111);
+    uint8_t* w = (uint8_t*)crt::operator_new(0x111);
     w = w ? Scrollbar_Construct(w, 0, d) : nullptr;
     F<uint32_t>(w, 0x100) = scale;
     F<uint32_t>(w, 0x104) = scale;
     Window_AddChild(Prod_Win(), 0, w, 0);
-    Free(F<void*>(d, 0x43));
-    Free(F<void*>(d, 0x3f));
+    crt::free(F<void*>(d, 0x43));
+    crt::free(F<void*>(d, 0x3f));
 }
 
 // The hover box (0x111 widget, style 9, link `link`) showing string 0xb8e
@@ -294,11 +295,11 @@ static void Prod_Tip(uint32_t id, float x, float y, uint32_t h, uint32_t w13, ui
     char buf[0x200];
     Prod_Format(buf, GetString(0xb8e), text, nullptr);
     String_Assign(&F<char*>(d, 0x3f), buf);
-    uint8_t* t = (uint8_t*)((void*(__cdecl*)(size_t))0x53b070)(0x111);
+    uint8_t* t = (uint8_t*)crt::operator_new(0x111);
     t = t ? Scrollbar_Construct(t, 0, d) : nullptr;
     Widget_ClearFlags(t, 0, 1);
     Window_AddChild(Prod_Win(), 0, t, 0);
-    Free(F<void*>(d, 0x3f));
+    crt::free(F<void*>(d, 0x3f));
     Window_SendEvent5(Prod_Win(), 0, 0x7b, F<uint16_t>(d, 0), 0x4b3670, 0, 0);
 }
 
@@ -423,7 +424,7 @@ void __fastcall Trains_Advance(Collection* c, int, float dt) {
                 continue;
             }
             t[0x1be] = 1;
-            ((void(__fastcall*)(uint8_t*, int, float, int32_t))0x4b10d0)(t, 0, dt, 0);
+            Train_Step(t, 0, dt, 0);
             if (F<int32_t>(t, 0xe8) == 0xd) {
                 ((void(__fastcall**)(Collection*, int, uint32_t))*(void***)c)[2](c, 0, Collection_IdAt(c, 0, (uint32_t)i, 0));
                 if (i >= 1) --i;
@@ -738,14 +739,14 @@ RT3_NOINLINE void __fastcall TrainOrders_Remove(uint8_t* list, int, int32_t idx)
     }
     n = F<int32_t>(list, 4);
     if (n > 1) {
-        uint8_t* buf = ((uint8_t*(__cdecl*)(size_t))0x5a125d)((size_t)((n - 1) * 0x33));
+        uint8_t* buf = ((uint8_t*)crt::malloc((size_t)((n - 1) * 0x33)));
         if (idx > 0) memcpy(buf, F<uint8_t*>(list, 0), idx * 0x33);
         n = F<int32_t>(list, 4);
         if (idx + 1 < n) memcpy(buf + idx * 0x33, F<uint8_t*>(list, 0) + idx * 0x33 + 0x33, (n - idx - 1) * 0x33);
-        ((void(__cdecl*)(void*))0x5a1145)(F<uint8_t*>(list, 0));
+        crt::free(F<uint8_t*>(list, 0));
         F<uint8_t*>(list, 0) = buf;
     } else {
-        ((void(__cdecl*)(void*))0x5a1145)(F<uint8_t*>(list, 0));
+        crt::free(F<uint8_t*>(list, 0));
         F<uint8_t*>(list, 0) = nullptr;
     }
     --F<int32_t>(list, 4);
@@ -782,11 +783,11 @@ RT3_NOINLINE void __fastcall TrainOrders_Insert(uint8_t* list, int, int32_t idx,
         if (Obj_BuildingStateActive(Collection_Get(g_stations, 0, id)) && !Tutorial_OnBuildingPlaced((int32_t)id)) return;
     }
     if (idx < 0 || idx > F<int32_t>(list, 4)) idx = 0;
-    uint8_t* buf = ((uint8_t*(__cdecl*)(size_t))0x5a125d)((size_t)((F<int32_t>(list, 4) + 1) * 0x33));
+    uint8_t* buf = ((uint8_t*)crt::malloc((size_t)((F<int32_t>(list, 4) + 1) * 0x33)));
     if (idx > 0) memcpy(buf, F<uint8_t*>(list, 0), idx * 0x33);
     memcpy(buf + idx * 0x33, e, 0x33);
     if (idx < F<int32_t>(list, 4)) memcpy(buf + idx * 0x33 + 0x33, F<uint8_t*>(list, 0) + idx * 0x33, (F<int32_t>(list, 4) - idx) * 0x33);
-    if (uint8_t* old = F<uint8_t*>(list, 0)) ((void(__cdecl*)(void*))0x5a1145)(old);
+    if (uint8_t* old = F<uint8_t*>(list, 0)) crt::free(old);
     F<uint8_t*>(list, 0) = buf;
     if (F<int32_t>(list, 4)) {
         ++F<int32_t>(list, 4);
@@ -847,7 +848,7 @@ RT3_REPLACE(0x4b3360, TrainOrders_NextStop);
 RT3_NOINLINE int32_t __fastcall Obj_NameTableIndex(uint8_t* o) {
     int32_t found = 0;
     for (int32_t i = 0; i < 0x17; ++i)
-        if (Stricmp(((const char**)0x621ac0)[i], (const char*)o + 4) == 0) found = i;
+        if (crt::stricmp(((const char**)0x621ac0)[i], (const char*)o + 4) == 0) found = i;
     return found;
 }
 RT3_REPLACE(0x4b34e0, Obj_NameTableIndex);
@@ -960,7 +961,7 @@ RT3_NOINLINE void __fastcall BuildingView_DrawIncomeTable(uint8_t* b, int32_t ki
                 strcpy(text, GetString(labels[r]));
                 if (r == 1 && (kind == 0x13 || kind == 0x14)) strcpy(text, GetString(0xdfe));
             } else if (r == 0) {
-                if (c == 4) ExeSprintf()(text, GetString(0x263));
+                if (c == 4) crt::sprintf(text, GetString(0x263));
                 else Num_Format(text, 8, (double)(F<uint16_t>(g_world, 0xd) - c + 1), 10, 1, 0, 0);
             } else {
                 float v = 0.0f;
@@ -983,7 +984,7 @@ RT3_NOINLINE void __fastcall BuildingView_DrawIncomeTable(uint8_t* b, int32_t ki
                     case 6: v = (float)Obj_Remaining(b, 0, c - 1); break;
                     }
                 }
-                if (r <= 2) ExeSprintf()(text, (const char*)0x5d0104, (double)v);
+                if (r <= 2) crt::sprintf(text, (const char*)0x5d0104, (double)v);
                 else Num_FormatSimple(text, 0xb, (double)v, 0xb);
                 bool red;
                 if (r == 5) {

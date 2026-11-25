@@ -188,9 +188,7 @@ static int32_t TutorialBlink(bool match) {
 
 static inline int32_t TutorialStep() { return ((const int32_t*)0x622b48)[g_6d3b50 * 0x10]; }
 
-static inline void* ExeNew(size_t n) { return ((void*(__cdecl*)(size_t))0x53b070)(n); }
 
-static inline SprintfFn ExeSprintf() { return (SprintfFn)0x5a19c4; }
 
 // Company finance statistics. Ids below 0x2b are kept per year: +0x1c47 + id * 8
 // (this year so far) and +0xd7f + (id * 11 + n) * 8 (n years ago, 0 = live); larger
@@ -285,13 +283,13 @@ RT3_NOINLINE void __fastcall Tutorial_ShowPicture(int32_t page, int, float x, fl
     F<float>(def, 0xb) = y;
     F<uint16_t>(def, 0) = 0xc79f;
     F<uint32_t>(def, 0x2f) = 0x40b0;
-    ExeSprintf()(name, (const char*)0x5d19f8, page);
+    crt::sprintf(name, (const char*)0x5d19f8, page);
     String_Assign(&F<char*>(def, 0x43), name);
     F<uint16_t>(def, 0x5f) = 0;
-    uint8_t* s = (uint8_t*)ExeNew(0x111);
+    uint8_t* s = (uint8_t*)crt::operator_new(0x111);
     if (s) s = Scrollbar_Construct(s, 0, def);
     Window_AddChild(g_dialogWindow, 0, s, 0);
-    Free(F<void*>(def, 0x43));
+    crt::free(F<void*>(def, 0x43));
 }
 RT3_REPLACE(0x5163f0, Tutorial_ShowPicture);
 
@@ -420,7 +418,7 @@ RT3_NOINLINE void __fastcall Tutorial_ShowStep(int32_t step) {
     *(float*)(def + 0xf) = w;
     *(uint32_t*)(def + 0x13) = 0x3f0aaaab;
     *(uint32_t*)(def + 0x2f) = 0x40b0;
-    uint8_t* box = (uint8_t*)((void*(__cdecl*)(size_t))0x53b070)(0x111);
+    uint8_t* box = (uint8_t*)crt::operator_new(0x111);
     if (box) box = Scrollbar_Construct(box, 0, def);
     Window_AddChild(g_dialogWindow, 0, box, 0);
     Window_SendEvent5(g_dialogWindow, 0, 0x7a, 0xc79d, 0x516010, 0, 0);
@@ -462,7 +460,7 @@ RT3_NOINLINE void MapPointers_Delete() {
     Windows_Remove(g_windowManager, 0, g_dialogWindow);
     if (uint8_t* w = g_dialogWindow) {
         MapPointers_Destruct(w);
-        ((void(__cdecl*)(void*))0x53b080)(w);
+        crt::operator_delete(w);
     }
 }
 RT3_REPLACE(0x516ba0, MapPointers_Delete);
@@ -565,7 +563,7 @@ int32_t __fastcall TutorialWindow_HandleEvent(void*, int, uint32_t* msg) {
     if (goal() == 0x64) {
         uint8_t* opts = g_app;
         if (F<uint32_t>(opts, 0x305) != F<uint32_t>(Obj_Company21(g_world), 0x37) ||
-            ((int(__cdecl*)(const char*, const char*))0x5a57cf)((const char*)g_app + 0x2d2,
+            crt::stricmp((const char*)g_app + 0x2d2,
                                                                 (const char*)Obj_Company21(g_world) + 4)) {
             F<uint32_t>(g_app, 0x305) = F<uint32_t>(Obj_Company21(g_world), 0x37);
             strcpy((char*)g_app + 0x2d2, (const char*)Obj_Company21(g_world) + 4);
@@ -635,7 +633,7 @@ RT3_NOINLINE void Tutorial_Start() {
     F<int32_t>(g_world, 0x4ad7) = 1;
     Weather_ApplyIntensity(g_world);
     g_6d3b40 = Pack_AcquireFont(g_pack, 0, 3);
-    uint8_t* w = (uint8_t*)((void*(__cdecl*)(size_t))0x53b070)(0x78);
+    uint8_t* w = (uint8_t*)crt::operator_new(0x78);
     if (w) w = TutorialWindow_Construct(w);
     g_dialogWindow = w;
     WidgetList_Insert(hook::As<uint8_t**>(g_windowManager), 0, w, 1);
@@ -781,7 +779,7 @@ int32_t __fastcall IntroScreen_HandleEvent(uint8_t* s, int, uint32_t* msg) {
             left = g_6d3b7c - ClockMs() + 0x5dc;
         float f = (float)((double)left * D(0x5c96e0) / D(0x5d1a70) + D(0x5c8c18));
         if (!(f < Fl(0x5c85b4))) f = 1.0f;
-        if (((double(__cdecl*)(double))0x5a152e)((double)f - g_6d3b88) > D(0x5c85b8)) {
+        if (crt::fabs((double)f - g_6d3b88) > D(0x5c85b8)) {
             g_6d3b88 = f;
             uint8_t* e = g_engine;
             F<float>(e, 0x1146fa) = hook::As<float>(g_6d3b8c) * f;
@@ -832,7 +830,7 @@ RT3_NOINLINE void __fastcall Scenario_ShowResult(int32_t level) {
         uint8_t* best = lobby + lobby[0xc4] + 0xc6;
         if (level + 1 > *best) *best = (uint8_t)(level + 1);
     }
-    uint8_t* mem = ((uint8_t*(__cdecl*)(size_t))0x53b070)(0x78);
+    uint8_t* mem = ((uint8_t*)crt::operator_new(0x78));
     g_6d3b90 = mem ? WinLose_Construct(mem) : nullptr;
     PauseLock_Push(hook::As<int32_t*>(g_app));
     Ui_RunModal(hook::As<uint8_t**>(g_windowManager), 0, g_6d3b90, 1, 0, 0x14, 0);
@@ -841,7 +839,7 @@ RT3_NOINLINE void __fastcall Scenario_ShowResult(int32_t level) {
     if (uint8_t* w = g_6d3b90) {
         F<uint32_t>(w, 0) = 0x5d1a58;
         Widget_SetVtbl(w);
-        ((void(__cdecl*)(void*))0x53b080)(w);
+        crt::operator_delete(w);
     }
     g_6d3b90 = nullptr;
     F<uint32_t>(g_engine, 0x1146fa) = g_6d3b8c;
@@ -857,7 +855,7 @@ RT3_NOINLINE void __fastcall Scenario_ShowResult(int32_t level) {
     else if (g_language == 4) memcpy(name, (const void*)0x5d1a84, 9);
     if (HasString(0xf85)) strcpy(name, GetString(0xf85));
     char file[0x190];
-    ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)(file, (const char*)0x5d1a78, name, (uint32_t)g_newGame[0xc4]);
+    crt::sprintf(file, (const char*)0x5d1a78, name, (uint32_t)g_newGame[0xc4]);
     World_Save(g_world, 0, file, 0, nullptr);
     g_world[0x66df] = 0;
 }

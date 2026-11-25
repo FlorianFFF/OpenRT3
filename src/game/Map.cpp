@@ -23,6 +23,10 @@
 
 namespace rt3 {
 
+void __fastcall Terrain_Destructor(uint8_t* r);
+
+void PreviewModels_Free();
+
 template <typename T> static inline T& F(void* o, uint32_t off) { return *(T*)((uint8_t*)o + off); }
 uint32_t __fastcall Map_GridByte(void* m, int, float x, float y);
 void __fastcall Terrain_DeleteMarkers(uint8_t* r);
@@ -462,7 +466,6 @@ static int32_t __fastcall Map_ClampRectInclusive_Impl(uint8_t* m, int, int32_t* 
     return *x1 >= *x0 && *y1 >= *y0 ? 1 : 0;
 }
 
-static inline double ExeSqrt(double v) { return ((double(__cdecl*)(double))0x5a1634)(v); }
 
 static inline uint8_t* Renderer() { return (uint8_t*)Engine_Renderer(hook::As<void*>(g_engine)); }
 
@@ -531,7 +534,7 @@ static inline void SetBit(uint8_t* bits, int32_t idx, int32_t on) {
 }
 
 static inline uint8_t* ZeroedAlloc(size_t n) {
-    uint8_t* p = (uint8_t*)Malloc(n);
+    uint8_t* p = (uint8_t*)crt::malloc(n);
     memset(p, 0, n);
     return p;
 }
@@ -572,7 +575,6 @@ static void MarkBlocks(uint8_t* m, float x, float y, float r, uint8_t v, int32_t
 
 static inline float Bits(uint32_t u) { return *(float*)&u; }
 
-static inline double Fabs(double x) { return ((double(__cdecl*)(double))0x5a152e)(x); }
 
 static inline double Fl_194(uint32_t a) { return *(const float*)a; }
 
@@ -597,7 +599,6 @@ static inline uint32_t FBits(float f) { return *(uint32_t*)&f; }
 
 static inline double BitsD(uint64_t b) { return *(double*)&b; }
 
-static inline SprintfFn ExeSprintf() { return (SprintfFn)0x5a19c4; }
 
 static inline double Fl_207(uint32_t a) { return *(const float*)a; }
 
@@ -843,8 +844,7 @@ static void Overview_ShowPlain(uint8_t* m) {
 }
 
 static void Pump() {
-    hook::Orig<void(__fastcall*)(void*, int, int32_t, int32_t)>(0x4834e0)(
-        hook::As<void*>(g_app), 0, 0, 0);
+    Loading_Pump((uint8_t*)(hook::As<void*>(g_app)), 0, 0, 0);
 }
 
 static void Method(uint32_t address, void* self) { hook::Orig<void(__fastcall*)(void*)>(address)(self); }
@@ -853,7 +853,7 @@ static void DeleteGlobal(uint32_t slot, uint32_t destructor, bool clearEmpty = t
     void* p = hook::Global<void*>(slot);
     if (p) {
         Method(destructor, p);
-        hook::Orig<void(__cdecl*)(void*)>(0x53b080)(p);
+        crt::operator_delete(p);
     }
     if (p || clearEmpty) hook::Global<void*>(slot) = nullptr;
 }
@@ -895,11 +895,11 @@ RT3_NOINLINE void __fastcall Map_Free(uint8_t* m) {
     Map_FreeCellKeyLists(m);
     if (Collection* t = g_tracks) {
         Tracks_Destruct(t);
-        ((void(__cdecl*)(void*))0x53b080)(t);
+        crt::operator_delete(t);
         g_tracks = nullptr;
     }
     static const uint32_t kBuffers[] = { 0x2141, 0x2139, 0x213d, 0x212d, 0x2129, 0x2135, 0x2131 };
-    for (uint32_t off : kBuffers) Free(F<void*>(m, off));
+    for (uint32_t off : kBuffers) crt::free(F<void*>(m, off));
 }
 RT3_REPLACE(0x4483d0, Map_Free);
 
@@ -921,7 +921,7 @@ RT3_NOINLINE void __fastcall Map_AllocGrids(uint8_t* m) {
     F<int32_t>(m, 0x215d) = h * 4;
     F<int32_t>(m, 0x2161) = w * 4;
     F<int32_t>(m, 0x21a9) = w * h;
-    void* p = ((void*(__cdecl*)(size_t))0x53b070)(0x20a);
+    void* p = crt::operator_new(0x20a);
     g_tracks =
         p ? Tracks_Construct((Collection*)p, 0, F<int32_t>(m, 0x2155), F<int32_t>(m, 0x2159)) : nullptr;
     int32_t bits = (F<int32_t>(m, 0x215d) * F<int32_t>(m, 0x2161) + 7) / 8;
@@ -944,7 +944,7 @@ RT3_NOINLINE void __fastcall Map_AllocGrids(uint8_t* m) {
             F<uint8_t*>(m, 0x212d)[(F<int32_t>(m, 0x214d) * y + x) * 4] = 1;
             F<uint8_t*>(m, 0x212d)[(F<int32_t>(m, 0x214d) * y + x) * 4 + 3] = 0;
         }
-    F<uint8_t*>(m, 0x2129) = (uint8_t*)Malloc(cells);
+    F<uint8_t*>(m, 0x2129) = (uint8_t*)crt::malloc(cells);
     Map_ResetCells(m);
 }
 RT3_REPLACE(0x448470, Map_AllocGrids);
@@ -959,7 +959,7 @@ RT3_NOINLINE void __fastcall World_CreateTables(uint8_t* m, int, int32_t sx, int
     auto pump = [] { Loading_Pump(g_app, 0, 0, 0); };
     auto make = [&](size_t size, Collection* (__fastcall* ctor)(Collection*), uint32_t global) {
         pump();
-        Collection* c = (Collection*)((void*(__cdecl*)(size_t))0x53b070)(size);
+        Collection* c = (Collection*)crt::operator_new(size);
         hook::Global<Collection*>(global) = c ? ctor(c) : nullptr;
     };
     make(0x8c, Collection5ce044_Construct, 0x6ada80);
@@ -978,7 +978,7 @@ RT3_NOINLINE void __fastcall World_CreateTables(uint8_t* m, int, int32_t sx, int
     int32_t cx = (int32_t)x;
     double b = (double)sy * *(const double*)0x5c8628 + *(const double*)0x5c85f0;
     double y = *(const double*)0x5ca9e8 < b ? 128.0 : b;
-    uint8_t* cam = (uint8_t*)((void*(__cdecl*)(size_t))0x53b070)(0x3ba);
+    uint8_t* cam = (uint8_t*)crt::operator_new(0x3ba);
     if (cam) {
         float fz = (float)((int32_t)y * 0x5c), fx = (float)(cx * 0x5c);
         cam = Camera_ConstructView(cam, 0, (uint32_t)(uintptr_t)m, *(uint32_t*)&fx, 0, *(uint32_t*)&fz, 0x44400000);
@@ -1167,7 +1167,7 @@ float __fastcall Grid_Roughness(uint8_t* g) {
         float prev = 0.0f;
         for (int32_t x = 0; x < F<int32_t>(g, 0x15d9); ++x) {
             float v = F<float*>(g, 0x1605)[(F<int32_t>(g, 0x15d9) + 1) * y + x];
-            double d = ((double(__cdecl*)(double))0x5a152e)((double)prev - v);
+            double d = crt::fabs((double)prev - v);
             sum = (float)(d + sum);
             prev = v;
         }
@@ -1205,7 +1205,7 @@ RT3_REPLACE(0x449200, Map_Create);
 RT3_NOINLINE void __fastcall Map_UnloadWorld(uint8_t* map) {
     if (!F<uint32_t>(map, 0x2125)) return;
     Pump();
-    hook::Orig<void(*)()>(0x47bb90)();
+    PreviewModels_Free();
     DeleteGlobal(0x6ada80, 0x461560);
     DeleteGlobal(0x6cea50, 0x474480);
     Pump();
@@ -1250,8 +1250,8 @@ RT3_REPLACE(0x4494c0, Map_Resize);
 // 0x449500. Restore the map class, unload its runtime state, then destroy its base.
 RT3_NOINLINE void __fastcall Map_RuntimeDestructor(uint8_t* map) {
     F_runtime_wrappers<uint32_t>(map, 0) = 0x5ca9fc;
-    hook::Orig<void(__fastcall*)(uint8_t*)>(0x449270)(map);
-    hook::Orig<void(__fastcall*)(uint8_t*)>(0x537e30)(map);
+    Map_UnloadWorld(map);
+    Terrain_Destructor(map);
 }
 RT3_REPLACE(0x449500, Map_RuntimeDestructor);
 
@@ -1536,7 +1536,7 @@ RT3_NOINLINE uint16_t __stdcall Regions_NearestValue(int32_t x, int32_t y) {
         if (dx < 0) dx = -dx;
         int32_t dy = (int32_t)Obj_CellY(r) - y;
         if (dy < 0) dy = -dy;
-        float d = (float)ExeSqrt((double)(dy * dy + dx * dx));
+        float d = (float)crt::sqrt((double)(dy * dy + dx * dx));
         if (d < best) {
             sel = F<uint16_t>(r, 0x23a);
             best = d;
@@ -1744,7 +1744,6 @@ RT3_REPLACE(0x44afa0, Map_FogEnd);
 // (0x1a8, unless the station itself is being cleared), lack of cash (0x1a4).
 // Returns 1 when it may go ahead; *cost gets the price, msg the reason.
 RT3_NOINLINE int32_t __fastcall Map_Bulldoze(uint8_t* map, int, float x, float y, float r, uint32_t company, int32_t checkOnly, float* cost, char* msg) {
-    auto Fabs = (double(__cdecl*)(double))0x5a152e;
     msg[0] = 0;
     *(int32_t*)cost = 0;
     World_RefreshColors();
@@ -1767,8 +1766,8 @@ RT3_NOINLINE int32_t __fastcall Map_Bulldoze(uint8_t* map, int, float x, float y
         if (!p[0x216]) continue;
         float px, py;
         Obj_CenterCell(p, 0, &px, &py);
-        double dx = Fabs((double)(x - px));
-        float d = (float)(Fabs((double)(y - py)) + dx);
+        double dx = crt::fabs((double)(x - px));
+        float d = (float)(crt::fabs((double)(y - py)) + dx);
         if (!(d < Fl_207(0x5c8d4c))) continue;
         if ((uint32_t)F<uint16_t>(p, 0x22e) == company) {
             if (!(nearOwn < d)) nearOwn = d;
@@ -2050,7 +2049,7 @@ void __fastcall Water_FloodFrom(uint8_t* m, int, int32_t x, int32_t y) {
     F<int32_t>(m, 0x21b1) = y;
     F<int32_t>(m, 0x21b5) = x;
     F<int32_t>(m, 0x21b9) = y;
-    uint8_t* visited = (uint8_t*)((void*(__cdecl*)(size_t))0x5a125d)(cells);
+    uint8_t* visited = (uint8_t*)crt::malloc(cells);
     g_62c128 = visited;
     memset(visited, 0, cells);
     g_62c128[F<int32_t>(m, 0x2155) * y + x] = 1;
@@ -2076,7 +2075,7 @@ void __fastcall Water_FloodFrom(uint8_t* m, int, int32_t x, int32_t y) {
         Water_FloodFill(m, 0, nx, ny, i, flag);
     }
     Water_FloodFill(m, 0, x, y, (last + 4) % 8, flag == 0);
-    Free(g_62c128);
+    crt::free(g_62c128);
     g_62c128 = nullptr;
 }
 RT3_REPLACE(0x44c200, Water_FloodFrom);
@@ -2308,7 +2307,7 @@ RT3_NOINLINE void __fastcall Map_Load(uint8_t* m, int, int32_t s, const char* te
     StreamSkip4(s, 0x2ee2, 0, 0);
     static const uint16_t kFields[] = { 0x2145, 0x2149, 0x214d, 0x2151, 0x2155, 0x2159, 0x215d, 0x2161, 0x2201 };
     for (uint16_t off : kFields) StreamRead(s, m + off, 4, 0, 1);
-    Collection* tracks = (Collection*)((void*(__cdecl*)(size_t))0x53b070)(0x20a);
+    Collection* tracks = (Collection*)crt::operator_new(0x20a);
     g_tracks = tracks ? Tracks_Construct(tracks, 0, F<int32_t>(m, 0x2155), F<int32_t>(m, 0x2159)) : nullptr;
     StreamSkip4(s, 0x2ee3, 0, 0);
     int32_t bits = (F<int32_t>(m, 0x2161) * F<int32_t>(m, 0x215d) + 7) / 8;
@@ -2318,19 +2317,19 @@ RT3_NOINLINE void __fastcall Map_Load(uint8_t* m, int, int32_t s, const char* te
     int32_t sites = F<int32_t>(m, 0x2149) * F<int32_t>(m, 0x2145) * 0x1d7;
     F<int32_t>(m, 0x2165) = 1;
     Loading_Pump(g_app, 0, 0, 0);
-    F<void*>(m, 0x2139) = Malloc(bits);
+    F<void*>(m, 0x2139) = crt::malloc(bits);
     memset(F<void*>(m, 0x2139), 0, (uint32_t)bits);
     StreamSkip4(s, 0x2ef4, 0, 0);
-    F<void*>(m, 0x213d) = Malloc(bits);
+    F<void*>(m, 0x213d) = crt::malloc(bits);
     StreamRead(s, F<void*>(m, 0x213d), (uint32_t)bits, 0, 1);
     StreamSkip4(s, 0x2ef5, 0, 0);
-    F<void*>(m, 0x2141) = Malloc(bits);
+    F<void*>(m, 0x2141) = crt::malloc(bits);
     memset(F<void*>(m, 0x2141), 0, (uint32_t)bits);
     StreamSkip4(s, 0x2ef6, 0, 0);
     Loading_Pump(g_app, 0, 0, 0);
-    F<void*>(m, 0x2131) = Malloc(cells);
+    F<void*>(m, 0x2131) = crt::malloc(cells);
     StreamRead(s, F<void*>(m, 0x2131), (uint32_t)cells, 0, 1);
-    F<void*>(m, 0x2135) = Malloc(corners);
+    F<void*>(m, 0x2135) = crt::malloc(corners);
     if (version >= 0x2ee2) {
         StreamRead(s, F<void*>(m, 0x2135), (uint32_t)corners, 0, 1);
         for (int32_t i = 0; i < corners; ++i) F<uint8_t*>(m, 0x2135)[i] &= 0xfe;
@@ -2341,12 +2340,12 @@ RT3_NOINLINE void __fastcall Map_Load(uint8_t* m, int, int32_t s, const char* te
     Loading_Pump(g_app, 0, 0, 0);
     StreamRead(s, F<void*>(m, 0x2141), (uint32_t)bits, 0, 1);
     StreamSkip4(s, 0x2ee5, 0, 0);
-    F<void*>(m, 0x212d) = Malloc(layers);
+    F<void*>(m, 0x212d) = crt::malloc(layers);
     StreamRead(s, F<void*>(m, 0x212d), (uint32_t)layers, 0, 1);
     StreamSkip4(s, 0x2f43, 0, 0);
     Terrain_LoadLayers(m, 0, s);
     StreamSkip4(s, 0x2f44, 0, 0);
-    F<void*>(m, 0x2129) = Malloc(sites);
+    F<void*>(m, 0x2129) = crt::malloc(sites);
     for (int32_t y = 0; y < F<int32_t>(m, 0x2149); ++y)
         for (int32_t x = 0; x < F<int32_t>(m, 0x2145); ++x)
             Site_Load(F<uint8_t*>(m, 0x2129) + (F<int32_t>(m, 0x2145) * y + x) * 0x1d7, 0, s, (int16_t)x, (int16_t)y);
@@ -2590,7 +2589,7 @@ RT3_REPLACE(0x44df10, Map_DrainCell);
 // in `mask` (byte per vertex, 255 = done), which is raised to it.
 RT3_NOINLINE void __fastcall Terrain_PaintBrush(uint8_t* t, int, float cx, float cy, float r, float strength, int32_t hard,
                                    int32_t mode, const float* w, const float* p, uint8_t* mask) {
-    strength = (float)((double(__cdecl*)(double))0x5a152e)(strength);
+    strength = (float)crt::fabs(strength);
     int32_t x0 = Ftol((double)cx - r - Fl_195(0x5c85b4));
     int32_t x1 = Ftol((double)cx + r + Fl_195(0x5c85b4));
     int32_t y0 = Ftol((double)cy - r - Fl_195(0x5c85b4));
@@ -2867,7 +2866,7 @@ RT3_NOINLINE void __fastcall Map_RebuildCoast(uint8_t* m, int, int32_t x0, int32
     int32_t ty1 = Ftol(fy1);
     if (tx1 >= texW - 1) tx1 = texW - 1;
     if (ty1 >= texH - 1) ty1 = texH - 1;
-    uint8_t* flat = (uint8_t*)Malloc(H * W);
+    uint8_t* flat = (uint8_t*)crt::malloc(H * W);
     memset(flat, 0, F<int32_t>(m, 0x2155) * F<int32_t>(m, 0x2159));
     // Vertices whose reach holds only their own side.
     for (int32_t y = y0; y <= y1; ++y)
@@ -2936,7 +2935,7 @@ RT3_NOINLINE void __fastcall Map_RebuildCoast(uint8_t* m, int, int32_t x0, int32
                         float d = (float)((double)ddx * ddx + (double)ddy * ddy);
                         if (d < best) best = d;
                     }
-                dist = (float)((double(__cdecl*)(double))0x5a1634)(best);
+                dist = (float)crt::sqrt(best);
                 t = (float)((double)dist / rf);
                 if (!(t <= Fl_207(0x5c85b4))) continue;
             }
@@ -3001,7 +3000,7 @@ RT3_NOINLINE void __fastcall Map_RebuildCoast(uint8_t* m, int, int32_t x0, int32
     ((void(__thiscall*)(void*))(*(void***)cam)[0])(cam);
     Map_ReclassifySites(m);
     Territories_Recount(g_territories);
-    Free(flat);
+    crt::free(flat);
     int32_t rx0 = x0, ry0 = y0, rx1 = x1, ry1 = y1;
     if (tidied) {
         if (F<int32_t>(m, 0x21ad) - 1 < x0) rx0 = F<int32_t>(m, 0x21ad) - 1;
@@ -3121,7 +3120,7 @@ RT3_NOINLINE void __fastcall Routes_BuildCosts(uint8_t* t) {
                         k = (float)(k * D(0x5caab0));
                     }
                     d = (float)(d / D(0x5c8798));
-                    if (d < Fl_194(0x5c8598)) d = (float)(((double(__cdecl*)(double))0x5a152e)(d) / D(0x5c85c8));
+                    if (d < Fl_194(0x5c8598)) d = (float)(crt::fabs(d) / D(0x5c85c8));
                     d = (float)((double)d * d);
                     sum = (float)(((double)d + D(0x5c8698)) / D(0x5c8698) * k + sum);
                     if (water0 != water) sum = (float)(sum + D(0x5c8640));
@@ -3235,7 +3234,7 @@ RT3_NOINLINE void __fastcall Map_UpdateQuotaRange(uint8_t* m) {
         hi = (float)(mid + D(0x5caab8));
         lo = (float)(mid - D(0x5caab8));
         if (lo < Fl(0x5c8598)) {
-            hi = (float)(Fabs(lo) + hi);
+            hi = (float)(crt::fabs(lo) + hi);
             lo = 0.0f;
         }
     }
@@ -3669,7 +3668,7 @@ void __fastcall Map_DrawCellLabel(uint8_t* m, int, float x, float y, float fade,
         uint8_t* r = Grid_RegionAt(m, 0, cx / 4, cy / 4);
         float v = (float)F<uint16_t>(r, 0xf3 + F<int32_t>(m, 0x2179) % 8 * 2);
         v = v / Fl_205(0x5caacc);
-        ExeSprintf()(text, (const char*)0x5cab54, (double)v);
+        crt::sprintf(text, (const char*)0x5cab54, (double)v);
         break;
     }
     case 3: {
@@ -3678,20 +3677,20 @@ void __fastcall Map_DrawCellLabel(uint8_t* m, int, float x, float y, float fade,
         Num_FormatSimple(text, 9, (double)qf, 0xb);
         uint8_t* r = Grid_RegionAt(m, 0, cx / 4, cy / 4);
         float v = F<float>(r, 0x103 + F<int32_t>(m, 0x2179) % 0x35 * 4);
-        ExeSprintf()(buf, (const char*)0x5cab30, (double)v);
+        crt::sprintf(buf, (const char*)0x5cab30, (double)v);
         strcat(text, buf);
         break;
     }
     case 4: {
         uint8_t* r = Grid_RegionAt(m, 0, cx / 4, cy / 4);
         float v = F<float>(r, 0x103 + F<int32_t>(m, 0x2179) % 0x35 * 4);
-        ExeSprintf()(text, (const char*)0x5cab54, (double)v);
+        crt::sprintf(text, (const char*)0x5cab54, (double)v);
         break;
     }
     case 5: {
         int32_t k = F<int32_t>(m, 0x2179) % 0x35;
         float v = Obj_Level(Grid_RegionAt(m, 0, cx / 4, cy / 4), 0, k);
-        ExeSprintf()(text, (const char*)0x5cab20, (double)v);
+        crt::sprintf(text, (const char*)0x5cab20, (double)v);
         break;
     }
     case 6: {
@@ -4008,7 +4007,7 @@ RT3_REPLACE(0x453840, Map_SetCellLow);
 // 0x453890. Frees the four buffers 0x6acd20..0x6acd2c.
 RT3_NOINLINE void FreeBuffers6acd20() {
     for (void** p = (void**)0x6acd20; p < (void**)0x6acd30; ++p) {
-        if (*p) Free(*p);
+        if (*p) crt::free(*p);
         *p = nullptr;
     }
 }
@@ -4066,7 +4065,6 @@ RT3_NOINLINE void Vegetation_BuildTables() {
         F<int32_t>(row, 0) = 0;
         for (int j = 0; j < 20; ++j) F<float>(row, 0) = (float)((double)F<float>(row, 0x14 + 8 * j) + F<float>(row, 0));
     }
-    auto Stricmp = (int(__cdecl*)(const char*, const char*))0x5a57cf;
     uint8_t* flags = (uint8_t*)0x62c258;
     for (int32_t r = 0; r < 28; ++r) {
         uint8_t* row = (uint8_t*)0x5ef3e0 + r * 0xb0;
@@ -4095,7 +4093,7 @@ RT3_NOINLINE void Vegetation_BuildTables() {
                     int32_t i = 0;
                     uint8_t* p = (uint8_t*)0x5ee8e0;
                     for (; p < (uint8_t*)0x5ef24f; p += 0x45, ++i)
-                        if (!Stricmp(name, *(const char**)p)) break;
+                        if (!crt::stricmp(name, *(const char**)p)) break;
                     idx = p < (uint8_t*)0x5ef24f ? i : 0;
                 }
                 uint8_t* rec = (uint8_t*)0x5ee8e0 + idx * 0x45;

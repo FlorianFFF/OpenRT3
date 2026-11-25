@@ -23,6 +23,8 @@
 
 namespace rt3 {
 
+void __fastcall View_SetToolMode(uint8_t* view, int, uint32_t mode, int32_t requested);
+
 template <typename T> static inline T& F(void* o, uint32_t off) { return *(T*)((uint8_t*)o + off); }
 void* __fastcall Engine_Renderer(void* e);
 void __fastcall Scene_SetBrushRadius(uint8_t* s, int, float v);
@@ -227,7 +229,6 @@ static inline double D(uint32_t a) { return *(const double*)a; }
 
 static inline double Fl(uint32_t a) { return *(const float*)a; }
 
-static inline void* ExeNew(size_t n) { return ((void*(__cdecl*)(size_t))0x53b070)(n); }
 
 static inline int32_t Ftol(double v) {
     int32_t r;
@@ -373,7 +374,7 @@ void __fastcall Building_AddScrollbars(uint8_t* win, int, float x, float y, int3
     F<float>(def, 0xb) = (float)((double)y + D(0x5ca1a8));
     F<int32_t>(def, 0x75) = 9;
     F<int32_t>(def, 0x2f) = 0xb0;
-    uint8_t* bar = (uint8_t*)ExeNew(0x111);
+    uint8_t* bar = (uint8_t*)crt::operator_new(0x111);
     if (bar) bar = Scrollbar_Construct(bar, 0, def);
     Window_AddChild(win, 0, bar, 0);
     void* obj = Collection_Get(g_buildings, 0, g_6d12b4);
@@ -388,10 +389,10 @@ void __fastcall Building_AddScrollbars(uint8_t* win, int, float x, float y, int3
     String_Assign(&F<char*>(def, 0x43), name);
     F<uint16_t>(def, 0x5f) = 0;
     F<int32_t>(def, 0x2f) = 0xb0;
-    uint8_t* bar2 = (uint8_t*)ExeNew(0x111);
+    uint8_t* bar2 = (uint8_t*)crt::operator_new(0x111);
     if (bar2) bar2 = Scrollbar_Construct(bar2, 0, def);
     Window_AddChild(win, 0, bar2, 0);
-    Free(F<void*>(def, 0x43));
+    crt::free(F<void*>(def, 0x43));
 }
 RT3_REPLACE(0x4f2c20, Building_AddScrollbars);
 
@@ -413,7 +414,7 @@ RT3_NOINLINE void __fastcall BuildingInfo_Show(uint32_t a, uint32_t building) {
     g_6d12b8 = nullptr;
     if (r == 0x3f2) {
         if (uint8_t* b = (uint8_t*)Collection_Get(g_buildings, 0, g_6d12b4)) {
-            ((void(__fastcall*)(uint8_t*, int, int32_t, int32_t))0x4ddbd0)(g_gameWindow, 0, 0xa, hook::As<int32_t>(g_6d12b4));
+            View_SetToolMode(g_gameWindow, 0, (uint32_t)(0xa), hook::As<int32_t>(g_6d12b4));
             Camera_FollowObject(b, 0);
         }
     }
@@ -463,7 +464,7 @@ RT3_NOINLINE void __fastcall Newspaper_Fill(uint8_t* w, int, uint8_t* rec) {
         def[0x33] = style;
         F<int32_t>(def, 0x6f) = 1;
         F<uint16_t>(def, 0) = id;
-        uint8_t* b = (uint8_t*)ExeNew(0xf0);
+        uint8_t* b = (uint8_t*)crt::operator_new(0xf0);
         b = b ? EditBox_Construct(b, 0, def) : nullptr;
         struct R { uint8_t* box; void* str; };
         return R{ b, F<void*>(def, 0x77) };
@@ -474,7 +475,7 @@ RT3_NOINLINE void __fastcall Newspaper_Fill(uint8_t* w, int, uint8_t* rec) {
     F<float>(r1.box, 0x17) = (float)((double)t / Fl(0x5ca164));
     F<float>(w, 0x7c) = (float)((double)t + Fl(0x5d138c));
     Window_AddChild(w, 0, r1.box, 0);
-    Free(r1.str);
+    crt::free(r1.str);
     uint32_t a, b;
     if (HashRand(F<int32_t>(F<uint8_t*>(w, 0x78), 8), 0, 1)) a = 0x438f0000, b = 0x44648000;
     else a = 0x44328000, b = 0x438f0000;
@@ -484,7 +485,7 @@ RT3_NOINLINE void __fastcall Newspaper_Fill(uint8_t* w, int, uint8_t* rec) {
     F<float>(r2.box, 0x17) = (float)((double)t / Fl(0x5ca164));
     float u = (float)((double)t + F<float>(w, 0x7c) + Fl(0x5c85f8));
     Window_AddChild(w, 0, r2.box, 0);
-    Free(r2.str);
+    crt::free(r2.str);
     float bx = (float)((double)BitsF(b) / Fl(0x5ca198));
     uint32_t by = FBits((float)((double)F<float>(w, 0x7c) / Fl(0x5ca164)));
     auto r3 = textBox(0x88ea, FBits(bx), by, 0x3e800000, 0xe,
@@ -493,7 +494,7 @@ RT3_NOINLINE void __fastcall Newspaper_Fill(uint8_t* w, int, uint8_t* rec) {
     F<float>(r3.box, 0x17) = (float)((double)t / Fl(0x5ca164));
     float u3 = (float)((double)t + F<float>(w, 0x7c) + Fl(0x5c85f8));
     Window_AddChild(w, 0, r3.box, 0);
-    Free(r3.str);
+    crt::free(r3.str);
     auto frame = [&](uint16_t id, uint32_t x, uint32_t y, uint32_t h, int32_t image, uint32_t cx, uint32_t cw) {
         uint8_t def[0x89];
         memset(def, 0, sizeof def);
@@ -504,11 +505,11 @@ RT3_NOINLINE void __fastcall Newspaper_Fill(uint8_t* w, int, uint8_t* rec) {
         F<uint16_t>(def, 0) = id;
         F<uint16_t>(def, 0x5f) = (uint16_t)image;
         String_Assign(&F<char*>(def, 0x43), (const char*)0x5d1374);
-        uint8_t* s = (uint8_t*)ExeNew(0x111);
+        uint8_t* s = (uint8_t*)crt::operator_new(0x111);
         s = s ? Scrollbar_Construct(s, 0, def) : nullptr;
         Widget_SetClip(s, 0, cx, y, cw, 0x3f4a3d71);
         Window_AddChild(w, 0, s, 0);
-        Free(F<void*>(def, 0x43));
+        crt::free(F<void*>(def, 0x43));
     };
     auto seed = [&] { return F<int32_t>(F<uint8_t*>(w, 0x78), 8); };
     float uy = (float)((double)u / Fl(0x5ca164));
@@ -621,7 +622,7 @@ RT3_NOINLINE void __fastcall Newspaper_Show(uint8_t* rec) {
     int32_t mode = F<int32_t>(g_gameWindow, 0x8c);
     int32_t cursor = F<int32_t>(g_cursorManager, 4);
     Cursor_Set(g_cursorManager, 0, 1, 0, 0);
-    uint8_t* w = (uint8_t*)((void*(__cdecl*)(size_t))0x53b070)(0x80);
+    uint8_t* w = (uint8_t*)crt::operator_new(0x80);
     w = w ? Newspaper_Construct(w) : nullptr;
     g_6d12bc = w;
     Newspaper_Fill(w, 0, rec);
@@ -635,7 +636,7 @@ RT3_NOINLINE void __fastcall Newspaper_Show(uint8_t* rec) {
         g_6d12bc = nullptr;
         F<uint32_t>(p, 0x78) = 0;
         Widget_SetVtbl(p);
-        ((void(__cdecl*)(void*))0x53b080)(p);
+        crt::operator_delete(p);
     }
     g_6d12bc = nullptr;
     if (mode == F<int32_t>(g_gameWindow, 0x8c) && F<int32_t>(g_cursorManager, 4) != 6)
@@ -693,14 +694,14 @@ RT3_NOINLINE void __fastcall PickerWindow_Build(uint8_t* w) {
     Window_DeleteChildren(w, 0, 0x90ec, 0x93d9, 0);
     auto cos = [] { return g_companies; };
     auto scrollbar = [&](uint8_t* def) {
-        uint8_t* s = (uint8_t*)ExeNew(0x111);
+        uint8_t* s = (uint8_t*)crt::operator_new(0x111);
         return s ? Scrollbar_Construct(s, 0, def) : nullptr;
     };
     auto editBox = [&](uint8_t* def) {
-        uint8_t* b = (uint8_t*)ExeNew(0xf0);
+        uint8_t* b = (uint8_t*)crt::operator_new(0xf0);
         b = b ? EditBox_Construct(b, 0, def) : nullptr;
         Window_AddChild(w, 0, b, 0);
-        Free(F<void*>(def, 0x77));
+        crt::free(F<void*>(def, 0x77));
     };
     auto pick = [&](uint8_t* s, uint32_t id) {
         if (id == F<uint32_t>(w, 0x7c)) Widget_SetFlags(s, 0, 1, 0, 0);
@@ -751,8 +752,8 @@ RT3_NOINLINE void __fastcall PickerWindow_Build(uint8_t* w) {
                 F<uint32_t>(s, 0x100) = 0x3f000000;
                 F<uint32_t>(s, 0x104) = 0x3f000000;
                 Window_AddChild(w, 0, s, 0);
-                Free(F<void*>(def, 0x43));
-                Free(F<void*>(def, 0x3f));
+                crt::free(F<void*>(def, 0x43));
+                crt::free(F<void*>(def, 0x3f));
                 uint8_t eb[0x91];
                 memset(eb, 0, sizeof eb);
                 float ex = (float)(((double)rx + Fl(0x5d13d0)) / Fl(0x5ca198));
@@ -784,7 +785,7 @@ RT3_NOINLINE void __fastcall PickerWindow_Build(uint8_t* w) {
                 s = scrollbar(def);
                 pick(s, id);
                 Window_AddChild(w, 0, s, 0);
-                Free(F<void*>(def, 0x3f));
+                crt::free(F<void*>(def, 0x3f));
                 Window_SendEvent5(w, 0, 0x7b, id + 0x93a8, 0x4f3d60, 0, 0);
             }
         }
@@ -846,7 +847,7 @@ RT3_NOINLINE void __fastcall PickerWindow_Build(uint8_t* w) {
         String_Assign(&F<char*>(def, 0x43), NameTable_ContainsName(g_pack, 0, img, 0, 0) ? img : (const char*)0x5d0194);
         uint8_t* s = scrollbar(def);
         Window_AddChild(w, 0, s, 0);
-        Free(F<void*>(def, 0x43));
+        crt::free(F<void*>(def, 0x43));
         memset(def, 0, sizeof def);
         float padF = (float)(col ? 7 : 0);
         F<float>(def, 7) = (float)(((double)cx + Fl(0x5ca058) - padF) / Fl(0x5ca198));
@@ -881,7 +882,7 @@ RT3_NOINLINE void __fastcall PickerWindow_Build(uint8_t* w) {
         String_Assign(&F<char*>(def, 0x3f), tip);
         s = scrollbar(def);
         Window_AddChild(w, 0, s, 0);
-        Free(F<void*>(def, 0x3f));
+        crt::free(F<void*>(def, 0x3f));
         pick(s, id);
         Window_SendEvent5(w, 0, 0x7b, id + 0x91b4, 0x4f3c60, 0, 0);
     }
@@ -1349,17 +1350,17 @@ void __fastcall MapEditorWindow_Destruct(uint8_t* w) {
     Scene_PopBusy((uint8_t*)Engine_Renderer(g_engine));
     Pack_Release(g_pack, 0, F<void*>(w, 0x1f8));
     Terrain_CommitTexture((uint8_t*)Engine_Get1C(g_engine), 0, 0);
-    Free(F<void*>(w, 0x118));
+    crt::free(F<void*>(w, 0x118));
     for (int32_t i = 0; i < 10; ++i) {
-        Free(F<void*>(w, 0x11c + i * 4));
-        for (int32_t j = 0; j < 4; ++j) Free(F<void*>(w, 0x144 + (i * 4 + j) * 4));
+        crt::free(F<void*>(w, 0x11c + i * 4));
+        for (int32_t j = 0; j < 4; ++j) crt::free(F<void*>(w, 0x144 + (i * 4 + j) * 4));
     }
-    if (F<void*>(w, 0xf4)) Free(F<void*>(w, 0xf4));
-    if (F<void*>(w, 0xf8)) Free(F<void*>(w, 0xf8));
+    if (F<void*>(w, 0xf4)) crt::free(F<void*>(w, 0xf4));
+    if (F<void*>(w, 0xf8)) crt::free(F<void*>(w, 0xf8));
     Cities_AssignBlocks(g_cities);
     Terrain_RebuildWaterMask(g_map);
-    if (g_6d132c) Free(g_6d132c);
-    if (hook::As<void*>(g_6d1338)) Free(hook::As<void*>(g_6d1338));
+    if (g_6d132c) crt::free(g_6d132c);
+    if (hook::As<void*>(g_6d1338)) crt::free(hook::As<void*>(g_6d1338));
     hook::As<uint32_t>(g_6d1338) = 0;
     hook::As<uint32_t>(g_6d1334) = 0;
     if (g_gameWindow) Window_SendEvent5(g_gameWindow, 0, 0xba, 0x808, 0, 0, 0);

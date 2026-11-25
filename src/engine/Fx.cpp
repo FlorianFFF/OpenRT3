@@ -10,6 +10,7 @@
 #include "core/globals.h"
 #include "core/ptrlist.h"
 #include "core/crt.h"
+#include "core/imports.h"
 
 #undef near
 #undef far
@@ -154,7 +155,7 @@ static inline int32_t Rain_Clamp(int32_t v, int32_t lo, int32_t hi) { return v >
 // 0x5c9b68). Like the original it first draws 65000 rand() values it never
 // uses; restores lighting (+0x83c +0x22), z and the render target.
 double __fastcall Render_Benchmark(uint8_t* r) {
-    for (int i = 0; i < 0xfde8; ++i) ((int(__cdecl*)())0x5a29ab)();
+    for (int i = 0; i < 0xfde8; ++i) crt::rand();
     typedef int32_t(__stdcall * Clear)(void*, uint32_t, const void*, uint32_t, uint32_t, float, uint32_t);
     typedef int32_t(__stdcall * Plain)(void*);
     typedef int32_t(__stdcall * Present)(void*, const void*, const void*, void*, const void*);
@@ -218,8 +219,8 @@ double __fastcall Render_Benchmark(uint8_t* r) {
     vb = F<void*>(r, 0x2647);
     DevSlot<Plain>(vb, 0x30)(vb);
     typedef uint32_t(__stdcall * Ticks)();
-    uint32_t start = (*(Ticks*)0x5c8068)();
-    uint32_t now = (*(Ticks*)0x5c8068)();
+    uint32_t start = imp::GetTickCount();
+    uint32_t now = imp::GetTickCount();
     while (now < start + 1000) {
         F<int32_t>(r, 0x370d) = 0;
         F<int32_t>(r, 0x3711) = 0;
@@ -248,7 +249,7 @@ double __fastcall Render_Benchmark(uint8_t* r) {
         DevSlot<Plain>(dev, 0x8c)(dev);
         dev = F<void*>(r, 0x25df);
         DevSlot<Present>(dev, 0x3c)(dev, nullptr, nullptr, nullptr, nullptr);
-        now = (*(Ticks*)0x5c8068)();
+        now = imp::GetTickCount();
     }
     float rate = (float)(((double)tris * Fl(0x5dd14c)) / ((double)(now - start) * Fl(0x5c9b68)));
     if (!r[0x254c]) {
@@ -306,7 +307,7 @@ RT3_NOINLINE void __fastcall Fireworks_Update(uint8_t* s, int, uint8_t* sounds) 
     Render_AlphaTestOn(F<uint8_t*>(s, 0x2d), 0, 1);
     float intensity = (float)(((double)F<int32_t>(s, 0x19) - Fl(0x5ddb38)) * Fl(0x5dd3d4));
     typedef uint32_t(__stdcall * Ticks)();
-    Ticks ticks = *(Ticks*)0x5c8068;
+    Ticks ticks = imp::GetTickCount;
     if (!(g_d93834 & 1)) {
         g_d93834 |= 1;
         g_d93830 = ticks();
@@ -611,7 +612,7 @@ void __fastcall Rain_Update(uint8_t* s, int, uint8_t* w) {
         Renderer_SetTexture(F<uint8_t*>(s, 0x2d), 0, 0, nullptr);
         float* v = (float*)Scene_BeginBatch(s, 0, 0x3424);
         typedef uint32_t(__stdcall * Ticks)();
-        Ticks ticks = *(Ticks*)0x5c8068;
+        Ticks ticks = imp::GetTickCount;
         if (!(g_d9383c & 1)) {
             hook::As<uint32_t>(g_d9383c) |= 1;
             g_d93838 = ticks();
@@ -685,10 +686,9 @@ void __fastcall Rain_Update(uint8_t* s, int, uint8_t* w) {
                 v[32] = (float)(Z2 + d);
                 v += 36;
                 if (p[1] < Fl(0x5ddb50)) {
-                    int (*crand)() = (int (*)())0x5a29ab;
-                    p[0] = (float)((crand() & 0xff) - 0x7f);
-                    p[2] = (float)((crand() & 0xff) - 0x7f);
-                    p[1] = (float)((crand() & 0x1f) + 0x1f);
+                    p[0] = (float)((crt::rand() & 0xff) - 0x7f);
+                    p[2] = (float)((crt::rand() & 0xff) - 0x7f);
+                    p[1] = (float)((crt::rand() & 0x1f) + 0x1f);
                 }
                 F<int32_t>(s, 0x71) += 6;
                 p += 3;
@@ -709,7 +709,7 @@ void __fastcall Rain_Update(uint8_t* s, int, uint8_t* w) {
             int32_t x0 = F<int32_t>(s, 0x3682) - 3, y0 = F<int32_t>(s, 0x3686) - 3;
             int32_t x1 = F<int32_t>(s, 0x3682) + 3, y1 = F<int32_t>(s, 0x3686) + 3;
             typedef uint32_t(__stdcall * Ticks)();
-            float phase = (float)((double)(int32_t)((*(Ticks*)0x5c8068)() & 0xffff) * Fl(0x5ddae4));
+            float phase = (float)((double)(int32_t)(imp::GetTickCount() & 0xffff) * Fl(0x5ddae4));
             int32_t c2 = c * 2 > 0xff ? 0xff : c * 2;
             uint32_t col = Rain_Grey(a, c2);
             for (int32_t y = y0; y < y1; ++y) {

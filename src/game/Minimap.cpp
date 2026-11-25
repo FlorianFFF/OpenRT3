@@ -235,7 +235,6 @@ static void ClampSpan(int32_t& lo, int32_t& hi, int32_t size) {
     }
 }
 
-static inline void ExeDelete(void* p) { ((void(__cdecl*)(void*))0x53b080)(p); }
 
 static inline float BitsF(uint32_t b) { return *(float*)&b; }
 
@@ -243,12 +242,11 @@ static inline uint32_t FBits(float f) { return *(uint32_t*)&f; }
 
 static inline double BitsD(uint64_t b) { return *(double*)&b; }
 
-static inline void* ExeMalloc(size_t n) { return ((void*(__cdecl*)(size_t))0x5a125d)(n); }
 
 // Pack-loaded widgets (the constructors take an unused argument): a bare base, the
 // kind's init, then an `n`-byte record read from the pack's current position.
 static uint8_t* Widget_ReadRecord(uint8_t* w, int32_t n) {
-    uint8_t* rec = (uint8_t*)ExeMalloc(n);
+    uint8_t* rec = (uint8_t*)crt::malloc(n);
     NameTable_Read(g_pack, 0, rec, n);
     Widget_LoadBase(w, 0, rec);
     return rec;
@@ -728,12 +726,12 @@ RT3_NOINLINE void __fastcall Minimap_AddOrder(uint8_t* o, int, float x, float y)
         }
     }
     if (IsMultiplayer() && !hook::As<uint32_t>(g_6d3ae4)) {
-        uint8_t* msg = ((uint8_t*(__cdecl*)(size_t))0x5a125d)(0x3b);
+        uint8_t* msg = ((uint8_t*)crt::malloc(0x3b));
         F<int32_t>(msg, 0) = Global6d40e4();
         F<int32_t>(msg, 4) = SelectedTrainId();
         memcpy(msg + 8, e, 0x33);
         Net_SendToHost(g_session, 0, 0x41, 0x3b, msg);
-        ((void(__cdecl*)(void*))0x5a1145)(msg);
+        crt::free(msg);
     } else {
         int32_t idx = (int32_t)list[1];
         if (g_input[0xa8c] & 3) {
@@ -931,7 +929,7 @@ RT3_NOINLINE void __fastcall Minimap_Render(uint32_t* dst, int32_t w, int32_t h,
         int32_t lastRow = mh - 1;
         uint8_t* buf = nullptr;
         if (zoomed) {
-            buf = ((uint8_t*(__cdecl*)(uint32_t))0x5a125d)((uint32_t)(mw * mh));
+            buf = ((uint8_t*)crt::malloc((uint32_t)(mw * mh)));
             memset(buf, 0, (size_t)(mw * mh));
         }
         const uint8_t* cell = F<uint8_t*>(g_map, 0x2131);
@@ -993,7 +991,7 @@ RT3_NOINLINE void __fastcall Minimap_Render(uint32_t* dst, int32_t w, int32_t h,
                 }
             }
         }
-        if (buf) ((void(__cdecl*)(void*))0x5a1145)(buf);
+        if (buf) crt::free(buf);
         for (int32_t i = 0; i < Collection_Count(g_cities); ++i) {
             uint8_t* s = (uint8_t*)Collection_Get(g_cities, 0, Collection_IdAt(g_cities, 0, (uint32_t)i, 0));
             if (F<int32_t>(s, 0x23e)) continue;
@@ -1022,7 +1020,7 @@ uint8_t* __fastcall MapView_Load(uint8_t* w, int, int32_t) {
     MapView_Init(w);
     uint8_t* rec = Widget_ReadRecord(w, 0x60);
     w[0xa2] = rec[0x5f];
-    Free(rec);
+    crt::free(rec);
     return w;
 }
 RT3_REPLACE(0x47b070, MapView_Load);
@@ -1045,7 +1043,7 @@ void __fastcall MapWidget_Destruct(uint8_t* w) {
     F<void*>(w, 0xaf) = nullptr;
     if (uint8_t* t = F<uint8_t*>(w, 0xab)) {
         Texture_Destroy(t);
-        ExeDelete(t);
+        crt::operator_delete(t);
         F<void*>(w, 0xab) = nullptr;
     }
     Widget_Destruct(w);
@@ -1120,7 +1118,7 @@ RT3_REPLACE(0x47b3d0, MinimapWidget_Refresh);
 // 0x47b450. Deleting destructor of the map widget.
 uint8_t* __fastcall MapWidget_DeletingDestructor(uint8_t* w, int, uint32_t flags) {
     MapWidget_Destruct(w);
-    if (flags & 1) ExeDelete(w);
+    if (flags & 1) crt::operator_delete(w);
     return w;
 }
 RT3_REPLACE(0x47b450, MapWidget_DeletingDestructor);
@@ -1159,7 +1157,7 @@ RT3_NOINLINE uint8_t* __fastcall MinimapWidget_Texture(uint8_t* m, int, int32_t 
     }
     F<int32_t>(m, 0xa3) = w;
     F<int32_t>(m, 0xa7) = h;
-    uint8_t* t = (uint8_t*)((void*(__cdecl*)(size_t))0x53b070)(0xec);
+    uint8_t* t = (uint8_t*)crt::operator_new(0xec);
     t = t ? Texture_InitMemory(t, 0, nullptr, w, h, 1) : nullptr;
     F<uint8_t*>(m, 0xab) = t;
     MinimapWidget_Refresh(m, 0, 0, nullptr, 0, 0);
@@ -1277,11 +1275,11 @@ RT3_NOINLINE void __fastcall MapPointer_Place(int32_t slot, int32_t kind, float 
         ModelObj_Release(*p);
         if (uint8_t* m = *p) {
             ModelObj_Destructor(m);
-            ((void(__cdecl*)(void*))0x53b080)(m);
+            crt::operator_delete(m);
         }
         *p = nullptr;
     }
-    uint8_t* mem = ((uint8_t*(__cdecl*)(size_t))0x53b070)(0x26e);
+    uint8_t* mem = ((uint8_t*)crt::operator_new(0x26e));
     uint8_t* m = mem ? ModelObj_Construct(mem) : nullptr;
     *p = m;
     int32_t h = Ftol((double)lift);
@@ -1302,7 +1300,7 @@ RT3_NOINLINE void PreviewModels_Free() {
         ModelObj_Release(*p);
         if (uint8_t* m = *p) {
             ModelObj_Destructor(m);
-            ((void(__cdecl*)(void*))0x53b080)(m);
+            crt::operator_delete(m);
         }
         *p = nullptr;
     }

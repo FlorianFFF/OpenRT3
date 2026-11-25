@@ -13,6 +13,7 @@
 #include "game/collection.h"
 #include "hook/keepregs.h"
 #include "core/crt.h"
+#include "core/imports.h"
 #include "core/stream.h"
 #include "core/containers.h"
 #include "core/ptrlist.h"
@@ -23,6 +24,10 @@
 #undef small
 
 namespace rt3 {
+
+void __fastcall View_SetToolMode(uint8_t* view, int, uint32_t mode, int32_t requested);
+
+void __fastcall ModelObj_Select(uint8_t* o);
 
 template <typename T> static inline T& F(void* o, uint32_t off) { return *(T*)((uint8_t*)o + off); }
 double __fastcall Obj_CellX(void* o);
@@ -69,7 +74,6 @@ const char* __fastcall GetString(int32_t id);
 void __fastcall Fatal_Exit(const char* msg);
 int32_t __fastcall NameTable_ContainsName(uint8_t* t, int, const char* name, int32_t fatal, const char* suffix);
 
-#define SPRINTF ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)
 
 double __fastcall Obj_Remaining(void* o, int, int32_t i);
 int32_t __fastcall Obj_CountAvailableVehicles(void* o, int, int32_t flag);
@@ -404,7 +408,6 @@ RT3_NOINLINE void __fastcall Loading_Pump(uint8_t* l, int, int32_t step, int32_t
 RT3_NOINLINE uint32_t __fastcall Dialog_RunMessage(const char* text, int32_t type, uint32_t px, uint32_t py, int32_t p4, void(__fastcall* place)(uint8_t*, int, uint32_t, uint32_t, uint32_t, float), int32_t pic, float extraH, uint32_t buttonText, uint32_t a8, int32_t count, const char** choices, int32_t* selected, int32_t radio, int32_t check, int32_t* checked, int32_t timeout);
 RT3_NOINLINE void __fastcall StationWindow_PickCargo(uint8_t* w, int, int32_t cargo);
 
-static inline int ExeStricmp(const char* a, const char* b) { return ((int(__cdecl*)(const char*, const char*))0x5a57cf)(a, b); }
 
 static inline uint8_t* TypeOf173(void* o) { return (uint8_t*)Collection_Get(g_62b268, 0, F<uint32_t>(o, 0x173)); }
 
@@ -453,7 +456,6 @@ static inline double D(uint32_t a) { return *(const double*)a; }
 
 static inline float Fl(uint32_t a) { return *(const float*)a; }
 
-static inline double Fabs(double x) { return ((double(__cdecl*)(double))0x5a152e)(x); }
 
 static inline int32_t Ftol(double v) {
     int32_t r;
@@ -522,7 +524,6 @@ uint32_t Model_FrameTimeBits(uint8_t* o, int* has) {
 }
 
 namespace {
-void Free446(void* p) { ((void(__cdecl*)(void*))0x53b080)(p); }
 // Counts the records of c whose building state is 1, that pass slot 0x70
 // and whose city's building class (slot 0x80, +0x8c) is `cls`.
 int32_t Count_RecordsOfClass(Collection* c, uint8_t cls) {
@@ -736,7 +737,7 @@ RT3_NOINLINE void __fastcall Obj_ResolveType3ae(uint8_t* o) {
     F<uint32_t>(o, 0x3d0) = 0;
     for (int32_t i = 0; i < Collection_Count(g_buildingTypes); ++i) {
         Collection* c = g_buildingTypes;
-        if (Stricmp((const char*)o + 0x3ae, (const char*)Collection_Get(c, 0, Collection_IdAt(c, 0, i, 0)) + 4)) continue;
+        if (crt::stricmp((const char*)o + 0x3ae, (const char*)Collection_Get(c, 0, Collection_IdAt(c, 0, i, 0)) + 4)) continue;
         F<uint32_t>(o, 0x3cc) = Collection_IdAt(g_buildingTypes, 0, i, 0);
         c = g_buildingTypes;
         F<uint32_t>(o, 0x3d0) = F<uint32_t>(Collection_Get(c, 0, Collection_IdAt(c, 0, i, 0)), 0x173);
@@ -750,7 +751,7 @@ RT3_REPLACE(0x40cd70, Obj_ResolveType3ae);
 // name "Radio Station" (+0x3ae) to "RadioStation".
 int32_t __fastcall Building_LoadRenamed(uint8_t* o, int, int32_t s) {
     char* name = (char*)o + 0x3ae;
-    if (!Stricmp(name, (const char*)0x5c8ce4)) memcpy(name, (const void*)0x5c8cd4, 13);
+    if (!crt::stricmp(name, (const char*)0x5c8ce4)) memcpy(name, (const void*)0x5c8cd4, 13);
     Obj_ResolveType3ae(o);
     return Building_Load(o, 0, s);
 }
@@ -800,9 +801,8 @@ RT3_NOINLINE void __fastcall ModelObj_SelectTrackTool(uint8_t* object) {
     int32_t result = ((int32_t(__fastcall*)(uint8_t*))vtable[0x70 / 4])(object);
     int32_t mode = result ? 5 : 10;
     int32_t id = F_runtime_wrappers<int32_t>(object, result ? 0x2a8 : 0x2a4);
-    hook::Orig<void(__fastcall*)(void*, int, int32_t, int32_t)>(0x4ddbd0)(
-        hook::As<void*>(g_gameWindow), 0, mode, id);
-    hook::Orig<void(__fastcall*)(uint8_t*)>(0x45b400)(object);
+    View_SetToolMode((uint8_t*)(hook::As<void*>(g_gameWindow)), 0, (uint32_t)(mode), id);
+    ModelObj_Select(object);
 }
 RT3_REPLACE(0x40d120, ModelObj_SelectTrackTool);
 
@@ -1321,10 +1321,9 @@ int32_t __fastcall OwnedObj_Tooltip(uint8_t* o, int, char* dst, int32_t n, int32
     uint8_t* app = g_app;
     if (F<int32_t>(app, 0x74)) {
         char text[0x130], index[0x130];
-        auto sprintf_ = (int(__cdecl*)(char*, const char*, ...))0x5a19c4;
         const char* type = (const char*)((uint8_t*)(uintptr_t)slot(0x80) + 4);
-        sprintf_(text, GetString(0xb4), type);
-        sprintf_(index, (const char*)0x5c8d24, F<int32_t>(o, 0x2a4));
+        crt::sprintf(text, GetString(0xb4), type);
+        crt::sprintf(index, (const char*)0x5c8d24, F<int32_t>(o, 0x2a4));
         strcat(text, index);
         StrCopyN(dst, text, (size_t)(n - 1));
         return 1;
@@ -1682,7 +1681,7 @@ RT3_REPLACE(0x40faa0, Recipe_NetValue);
 uint32_t __fastcall Obj_TypeQuery(void* o, int, int32_t a) {
     int32_t flag = F<int32_t>(o, 0x246) != 0;
     void* t = ((void*(__thiscall*)(void*))(*(void***)o)[0x80 / 4])(o);
-    return ((uint32_t(__thiscall*)(void*, int32_t, int32_t))0x412560)(t, a, flag);
+    return ((uint32_t)Vehicle_Available(t, 0, (uint8_t*)(a), flag));
 }
 RT3_REPLACE(0x40fb70, Obj_TypeQuery);
 
@@ -1781,9 +1780,9 @@ RT3_NOINLINE void __fastcall Building_SpawnLot(uint8_t* b, int, int32_t kind, fl
                                               Collection_IdAt(g_buildings, 0, (i + start) % n, 0));
         if (F<float>(o, 0x27e + kind * 4) <= Fl(0x5c8598)) continue;
         float oy = (float)Obj_CellY(o);
-        double dy = Fabs(oy - Obj_CellY(b));
+        double dy = crt::fabs(oy - Obj_CellY(b));
         float ox = (float)Obj_CellX(o);
-        int32_t d = Ftol(Fabs(ox - Obj_CellX(b)) + dy);
+        int32_t d = Ftol(crt::fabs(ox - Obj_CellX(b)) + dy);
         if (d <= 0xf || d > range) continue;
         if (Obj_Flag3d4(o) != 1 || o == b) continue;
         float v = F<float>(o, 0x27e + kind * 4);
@@ -1825,9 +1824,9 @@ RT3_NOINLINE void __fastcall Industry_Produce(uint8_t* ind, int, int32_t bulk) {
     } else if (F<int32_t>(w, 0x4aef)) return;
     uint8_t* rec = recOf();
     bool nuclear = false, electric = false, recycle = false;
-    if (Stricmp((const char*)rec + 4, (const char*)0x5c8e00) == 0) nuclear = true;
-    else if (Stricmp((const char*)rec + 4, (const char*)0x5c8df0) == 0) electric = true;
-    else if (Stricmp((const char*)rec + 4, (const char*)0x5c8de0) == 0) recycle = true;
+    if (crt::stricmp((const char*)rec + 4, (const char*)0x5c8e00) == 0) nuclear = true;
+    else if (crt::stricmp((const char*)rec + 4, (const char*)0x5c8df0) == 0) electric = true;
+    else if (crt::stricmp((const char*)rec + 4, (const char*)0x5c8de0) == 0) recycle = true;
     if (Game_EffectiveVersion() < 0x68) recycle = false;
     float made = 0.0f;
     float scale = (float)F<int32_t>(Obj_Ref3cc(ind), 0x141);
@@ -2314,8 +2313,8 @@ RT3_NOINLINE void __fastcall Industry_BuildCargoLists(uint8_t* o) {
         if (marks[k] >= 1) F<int32_t>(o, 0x7a4)++;
         if (marks[k] >= 2) F<int32_t>(o, 0x7a8)++;
     }
-    F<uint16_t*>(o, 0x79c) = (uint16_t*)Malloc(F<int32_t>(o, 0x7a4) * 2 + 1);
-    F<uint16_t*>(o, 0x7a0) = (uint16_t*)Malloc(F<int32_t>(o, 0x7a8) * 2 + 1);
+    F<uint16_t*>(o, 0x79c) = (uint16_t*)crt::malloc(F<int32_t>(o, 0x7a4) * 2 + 1);
+    F<uint16_t*>(o, 0x7a0) = (uint16_t*)crt::malloc(F<int32_t>(o, 0x7a8) * 2 + 1);
     for (int32_t k = 0; k < F<int32_t>(o, 0x7a4); ++k) F<uint16_t*>(o, 0x79c)[k] = 0;
     for (int32_t k = 0; k < F<int32_t>(o, 0x7a8); ++k) F<uint16_t*>(o, 0x7a0)[k] = 0;
     if (F<int32_t>(o, 0x7a4) <= 0 && F<int32_t>(o, 0x7a8) <= 0) return;
@@ -2355,7 +2354,7 @@ RT3_NOINLINE void __fastcall BuildingType_Load(uint8_t* o, int, const char* path
     rd(0x2e, 4);
     rd(0x32, 1);
     rd(0x33, 4);
-    F<uint8_t*>(o, 0x37) = (uint8_t*)Malloc(F<int32_t>(o, 0x33) * 0xbc + 1);
+    F<uint8_t*>(o, 0x37) = (uint8_t*)crt::malloc(F<int32_t>(o, 0x33) * 0xbc + 1);
     Collection* cargos = g_cargoTypes;
     for (int32_t i = 0; i < F<int32_t>(o, 0x33); ++i) {
         uint8_t* rec = F<uint8_t*>(o, 0x37) + i * 0xbc;
@@ -2403,12 +2402,12 @@ RT3_NOINLINE void __fastcall BuildingType_Load(uint8_t* o, int, const char* path
     F<int32_t>(o, 0x798) = -1;
     char name[0x20];
     const char* own = (const char*)o + 4;
-    if (!Strnicmp(own, (const char*)0x5c8f94, 4)) memcpy(name, (const void*)0x5c8f94, 5);
-    else if (!Strnicmp(own, (const char*)0x5c8e4c, 9)) memcpy(name, (const void*)0x5c8e4c, 10);
+    if (!crt::strnicmp(own, (const char*)0x5c8f94, 4)) memcpy(name, (const void*)0x5c8f94, 5);
+    else if (!crt::strnicmp(own, (const char*)0x5c8e4c, 9)) memcpy(name, (const void*)0x5c8e4c, 10);
     else strcpy(name, own);
     int32_t slot = 0;
     for (uint32_t e = 0x5ed338; e < 0x5edca4; e += 0x24, ++slot)
-        if (!Stricmp(name, *(const char**)e)) {
+        if (!crt::stricmp(name, *(const char**)e)) {
             F<int32_t>(o, 0x798) = slot;
             return;
         }
@@ -2536,7 +2535,7 @@ RT3_NOINLINE void __fastcall Obj_SetPriority(void* o) {
         const char* prefix = (const char*)e[0];
         size_t n = 0;
         while (prefix[n]) ++n;
-        if (Strnicmp((const char*)o + 4, prefix, n) == 0) F<int32_t>(o, 0xbc) = e[1];
+        if (crt::strnicmp((const char*)o + 4, prefix, n) == 0) F<int32_t>(o, 0xbc) = e[1];
     }
 }
 RT3_REPLACE(0x4128e0, Obj_SetPriority);
@@ -2594,7 +2593,7 @@ RT3_NOINLINE uint32_t __fastcall Table_FindByName2(Collection* t, int, const cha
     for (int32_t i = 0; i < Collection_Count(t); ++i) {
         const char* r = (const char*)Collection_Get(t, 0, Collection_IdAt(t, 0, i, 0)) + 4;
         if ((char)ToUpper(name[0]) != (char)ToUpper(r[0])) continue;
-        if (ExeStricmp(r, name) == 0) return Collection_IdAt(t, 0, i, 0);
+        if (crt::stricmp(r, name) == 0) return Collection_IdAt(t, 0, i, 0);
     }
     return 0;
 }
@@ -2689,11 +2688,11 @@ RT3_NOINLINE void __fastcall Industries_RebuildPortsWarehouses(Collection* c) {
             F<int32_t>(e, 0xe4) = id;
             int32_t n = F<int32_t>(World(), off + 0x1024);
             F<int32_t>(e, 0x33) = n;
-            F<uint8_t*>(e, 0x37) = (uint8_t*)Malloc(n * 0xbc + 1);
+            F<uint8_t*>(e, 0x37) = (uint8_t*)crt::malloc(n * 0xbc + 1);
             for (int32_t j = 0; j < F<int32_t>(e, 0x33); ++j)
                 memcpy(F<uint8_t*>(e, 0x37) + j * 0xbc, World() + off + 0x1028 + j * 0xbc, 0xbc);
             F<uint32_t>(e, 0x2a) = F<uint32_t>(World(), off + 0x13d4);
-            ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)((char*)e + 4, (const char*)(e[0xba] ? 0x5c93e8 : 0x5c93d8), k);
+            crt::sprintf((char*)e + 4, (const char*)(e[0xba] ? 0x5c93e8 : 0x5c93d8), k);
             Industry_BuildCargoLists(e);
             Obj_UpdateEntryFlags(e);
         }
@@ -2711,15 +2710,15 @@ RT3_NOINLINE void __fastcall BuildingTypes_LoadAll(Collection* t) {
     char pattern[0x60], file[0xc8];
     WIN32_FIND_DATAA fd;
     FormatText(pattern, (const char*)0x5c93f4, (const char*)0x5c93fc, 0, 0, 0, 0, 0, 0, 0);
-    HANDLE h = hook::Global<HANDLE(WINAPI*)(const char*, WIN32_FIND_DATAA*)>(0x5c8190)(pattern, &fd);
+    HANDLE h = ((HANDLE(WINAPI*)(const char*, WIN32_FIND_DATAA*))imp::FindFirstFileA)(pattern, &fd);
     if (h != INVALID_HANDLE_VALUE) {
-        auto next = hook::Global<BOOL(WINAPI*)(HANDLE, WIN32_FIND_DATAA*)>(0x5c8194);
+        auto next = ((BOOL(WINAPI*)(HANDLE, WIN32_FIND_DATAA*))imp::FindNextFileA);
         do {
             int32_t id = ((int32_t(__fastcall*)(Collection*, int, int32_t, int32_t, int32_t, int32_t))(*(void***)t)[1])(t, 0, 0, 0, 0, 0);
             FormatText(file, (const char*)0x5c8730, (const char*)0x5c93fc, fd.cFileName, 0, 0, 0, 0, 0, 0);
             BuildingType_Load((uint8_t*)Collection_Get(t, 0, (uint32_t)id), 0, file, id);
         } while (next(h, &fd));
-        hook::Global<BOOL(WINAPI*)(HANDLE)>(0x5c819c)(h);
+        ((BOOL(WINAPI*)(HANDLE))imp::FindClose)(h);
     }
     Industries_RebuildPortsWarehouses(t);
     Table_SetPriorities(t);
@@ -2741,7 +2740,7 @@ RT3_NOINLINE void __fastcall BuildingTypes_LoadAll(Collection* t) {
         StrCopyN((char*)0x61dbc2 + id * 0x6e, name, 0x46);
         *(uint32_t*)(0x61dc09 + id * 0x6e) = id;
     }
-    ((void(__fastcall*)(Collection*))0x412c10)(t);
+    Types_RefreshAvailable(t);
 }
 RT3_REPLACE(0x412fb0, BuildingTypes_LoadAll);
 
@@ -2833,14 +2832,14 @@ RT3_REPLACE(0x413440, Buildings_Save);
 // sets it up as type t at (x, y) turned by `angle`. Returns its id.
 // QUIRK: the last two arguments arrive swapped (place / a7 of Building_Setup).
 RT3_NOINLINE uint32_t __fastcall Buildings_Add(Collection* c, int, uint8_t* t, float x, float y, uint32_t angle, int32_t a7, uint8_t place) {
-    uint8_t* tmp = (uint8_t*)((void*(__cdecl*)(size_t))0x53b070)(0x3e1);
+    uint8_t* tmp = (uint8_t*)crt::operator_new(0x3e1);
     if (tmp) tmp = ModelObj40c950_Construct(tmp);
     uint32_t id = Collection_Allocate(c, 0, tmp, 0x3e1, 0, 0);
     uint8_t* o = (uint8_t*)Collection_Get(c, 0, id);
     Building_Setup(o, 0, (int32_t)id, t, x, y, angle, place, a7);
     if (tmp) {
         ModelObj40c950_Destructor(tmp);
-        ((void(__cdecl*)(void*))0x53b080)(tmp);
+        crt::operator_delete(tmp);
     }
     return id;
 }
@@ -3010,16 +3009,16 @@ void __fastcall BuildingType_Model2D(uint8_t* o, int, char* out) {
     if (NameTable_ContainsName(Packs(), 0, out, 0, nullptr)) return;
     for (uint32_t a = 0x5f3c80; a < 0x5f3c98; a += 4) {
         const char* style = *(const char* const*)a;
-        SPRINTF(buf, (const char*)0x5c9504, style);
-        if (Stricmp((const char*)o + 0x7c, buf)) continue;
+        crt::sprintf(buf, (const char*)0x5c9504, style);
+        if (crt::stricmp((const char*)o + 0x7c, buf)) continue;
         Format0(out, F<int32_t>(o, 0x141) >= 2 ? 0x5c94ec : 0x5c94d4, *(const char* const*)a);
     }
     if (NameTable_ContainsName(Packs(), 0, out, 0, nullptr)) return;
     static const uint32_t pat[3] = { 0x5c94c4, 0x5c94a0, 0x5c947c }, model[3] = { 0x5c94b0, 0x5c948c, 0x5c9468 };
     for (int32_t i = 0; i < 10; ++i)
         for (int k = 0; k < 3; ++k) {
-            SPRINTF(buf, (const char*)pat[k], i);
-            if (!Stricmp(name, buf)) Format0(out, model[k]);
+            crt::sprintf(buf, (const char*)pat[k], i);
+            if (!crt::stricmp(name, buf)) Format0(out, model[k]);
         }
     if (!NameTable_ContainsName(Packs(), 0, out, 0, nullptr)) Format0(out, 0x5c9450);
 }
@@ -3088,7 +3087,7 @@ RT3_REPLACE(0x413df0, DirtyCells_Add);
 void* __fastcall FindStaticRecord(void*, int, uint8_t* obj) {
     for (int k = 0; k < 28; ++k) {
         const char* name = *(const char**)(0x5ef3f0 + k * 0xb0);
-        if (name && ExeStricmp(name, (const char*)obj + 0x123) == 0) return (void*)(0x5ef3e0 + k * 0xb0);
+        if (name && crt::stricmp(name, (const char*)obj + 0x123) == 0) return (void*)(0x5ef3e0 + k * 0xb0);
     }
     return nullptr;
 }
@@ -3097,7 +3096,7 @@ RT3_REPLACE(0x413eb0, FindStaticRecord);
 RT3_NOINLINE void FreeBuffer62b2f8() {
     void*& p = g_62b2f8;
     if (p) {
-        Free(p);
+        crt::free(p);
         p = nullptr;
     }
 }
@@ -3126,14 +3125,14 @@ RT3_NOINLINE int32_t __stdcall Sites_LoadTable(Stream s) {
         g_62ba68 = n;
         return 0xc;
     }
-    uint32_t* ids = (uint32_t*)Malloc(n * 4);
+    uint32_t* ids = (uint32_t*)crt::malloc(n * 4);
     g_62ba6c = ids;
     hook::As<uint32_t*>(g_62ba70) = ids;
     if (g_62b2f8) {
-        Free(g_62b2f8);
+        crt::free(g_62b2f8);
         g_62b2f8 = nullptr;
     }
-    hook::As<uint8_t*>(g_62b2f8) = (uint8_t*)Malloc(g_62ba64 * 0x74e);
+    hook::As<uint8_t*>(g_62b2f8) = (uint8_t*)crt::malloc(g_62ba64 * 0x74e);
     for (int32_t i = 0; i < g_62ba64; ++i) {
         uint8_t* r = hook::As<uint8_t*>(g_62b2f8) + i * 0x74e;
         memset(r, 0, 0x74e);
@@ -3144,7 +3143,7 @@ RT3_NOINLINE int32_t __stdcall Sites_LoadTable(Stream s) {
         StreamRead(s, r + 0x4a0, 0x10, 0, 1);
         StreamRead(s, r + 0x4c4, 4, 0, 1);
         if (F<int32_t>(r, 0x4c4) > 0) {
-            void* p = Malloc(F<int32_t>(r, 0x4c4));
+            void* p = crt::malloc(F<int32_t>(r, 0x4c4));
             F<void*>(r, 0x4c0) = p;
             StreamRead(s, p, F<int32_t>(r, 0x4c4), 0, 1);
         }

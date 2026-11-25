@@ -235,9 +235,7 @@ static inline double D(uint32_t a) { return *(const double*)a; }
 
 static inline double Fl(uint32_t a) { return *(const float*)a; }
 
-static inline void* ExeNew(size_t n) { return ((void*(__cdecl*)(size_t))0x53b070)(n); }
 
-static inline void ExeDelete(void* p) { ((void(__cdecl*)(void*))0x53b080)(p); }
 
 static inline int32_t Ftol(double v) {
     int32_t r;
@@ -254,7 +252,6 @@ static inline float BitsF(uint32_t b) { return *(float*)&b; }
 
 static inline double BitsD(uint64_t b) { return *(double*)&b; }
 
-static inline SprintfFn ExeSprintf() { return (SprintfFn)0x5a19c4; }
 
 // Closes the panel held in `slot`: out of the window manager (0x6d401c), back to
 // the base vtable and deleted.
@@ -266,7 +263,7 @@ static void Panel_Close(uint32_t slot, uint32_t vtbl, bool clearFirst) {
         F<uint32_t>(w, 0) = vtbl;
         if (clearFirst) p = nullptr;
         Widget_SetVtbl(w);
-        ExeDelete(w);
+        crt::operator_delete(w);
     }
     p = nullptr;
 }
@@ -276,7 +273,7 @@ static void Panel_Close(uint32_t slot, uint32_t vtbl, bool clearFirst) {
 // manager (the insert's select flag `select`).
 static uint8_t* Panel_Open(uint32_t slot, size_t size, uint32_t vtbl, const char* name, int32_t select, bool highlight) {
     if (hook::Global<uint8_t*>(slot)) return nullptr;
-    uint8_t* w = (uint8_t*)ExeNew(size);
+    uint8_t* w = (uint8_t*)crt::operator_new(size);
     if (w) {
         Widget_SetVtblRet(w);
         F<uint32_t>(w, 0) = vtbl;
@@ -316,7 +313,7 @@ static uint32_t Dialog_RunAndFree(uint8_t* w, void(__fastcall* destruct)(uint8_t
     Windows_Remove(g_windowManager, 0, w);
     if (w) {
         destruct(w);
-        ((void(__cdecl*)(void*))0x53b080)(w);
+        crt::operator_delete(w);
     }
     return r;
 }
@@ -493,7 +490,7 @@ void __fastcall CargoStats_Draw(void*, int, float x, float y, float, float, int3
                     }
                     sum = (float)((double)v + sum);
                     ++count;
-                    if (i <= 8) ExeSprintf()(text, (const char*)0x5d0104, (double)v);
+                    if (i <= 8) crt::sprintf(text, (const char*)0x5d0104, (double)v);
                     else Num_FormatSimple(text, 9, (double)v / D(0x5c87f8), 0xb);
                 }
                 float cw = (float)((double)widths[i] / D(0x5ca158));
@@ -502,7 +499,7 @@ void __fastcall CargoStats_Draw(void*, int, float x, float y, float, float, int3
             }
             rowY = (float)((double)rowY + D(0x5d0c50));
             if (i == 0) FormatText(text, GetString(0x44d), 0, 0, 0, 0, 0, 0, 0, 0);
-            else if (i <= 8) ExeSprintf()(text, (const char*)0x5d0104, (double)sum);
+            else if (i <= 8) crt::sprintf(text, (const char*)0x5d0104, (double)sum);
             else {
                 float n = (float)count;
                 Num_FormatSimple(text, 9, (double)sum / n / D(0x5c87f8), 0xb);
@@ -577,7 +574,7 @@ RT3_NOINLINE void __fastcall ScenarioVars_Draw(void*, int, float x, float y, flo
             switch (phase) {
             case 0:
                 flags = 1;
-                for (int k = 0; k < 2; ++k) ExeSprintf()(text[k], GetString(header[k]));
+                for (int k = 0; k < 2; ++k) crt::sprintf(text[k], GetString(header[k]));
                 draw = true;
                 break;
             case 1: {
@@ -1141,7 +1138,6 @@ RT3_NOINLINE int32_t __fastcall RuleDialog_StoreCondition(uint8_t* d) {
     }
     uint32_t ev[0x25];
     char num[0x64];
-    auto atoi_ = (int(__cdecl*)(const char*))0x5a1ea5;
     ev[0] = 0x94, ev[1] = 0x4fd6;
     Window_HandleEvent(d, 0, ev);
     const uint32_t cmp = ev[2] - 0x4f57;
@@ -1157,14 +1153,14 @@ RT3_NOINLINE int32_t __fastcall RuleDialog_StoreCondition(uint8_t* d) {
             F<int32_t>(F<uint8_t*>(d, 0x84), 9) = 0;
         F<int32_t>(F<uint8_t*>(d, 0x84), 5) = 0;
         strcpy(num, F<const char*>(Widget_FindChild(d, 0, 0x4f76), 0xba));
-        F<int32_t>(F<uint8_t*>(d, 0x84), 0xe) = atoi_(num);
+        F<int32_t>(F<uint8_t*>(d, 0x84), 0xe) = crt::atoi(num);
         strcpy(num, F<const char*>(Widget_FindChild(d, 0, 0x4f79), 0xba));
-        F<int32_t>(F<uint8_t*>(d, 0x84), 0x12) = atoi_(num);
+        F<int32_t>(F<uint8_t*>(d, 0x84), 0x12) = crt::atoi(num);
     } else if (kind == 1) {
         if (F<uint32_t>(Widget_FindChild(d, 0, 0x5029), 0xcc)) {
             strcpy(num, F<const char*>(Widget_FindChild(d, 0, 0x4f6a), 0xba));
             F<int32_t>(F<uint8_t*>(d, 0x84), 5) = 0;
-            F<int32_t>(F<uint8_t*>(d, 0x84), 9) = atoi_(num);
+            F<int32_t>(F<uint8_t*>(d, 0x84), 9) = crt::atoi(num);
         } else {
             F<int32_t>(F<uint8_t*>(d, 0x84), 5) = 1;
             F<uint32_t>(F<uint8_t*>(d, 0x84), 9) = F<uint32_t>(d, 0x7c);
@@ -1459,7 +1455,7 @@ RT3_NOINLINE int32_t __fastcall ConditionDialog_Store(uint8_t* w) {
     if (g_6d07d0) return 0;
     g_6d07d0 = 1;
     F<int32_t>(F<uint8_t*>(w, 0x78), 0) = F<int32_t>(w, 0x7c);
-    auto num = [w](uint32_t id) { return ((int(__cdecl*)(const char*))0x5a1ea5)(F<const char*>(Widget_FindChild(w, 0, id), 0xba)); };
+    auto num = [w](uint32_t id) { return crt::atoi(F<const char*>(Widget_FindChild(w, 0, id), 0xba)); };
     auto flags = [w]() { return ((const uint8_t*)0x6103fc)[F<int32_t>(w, 0x7c) * 0x6e]; };
     uint32_t ev[12] = {};
     auto query = [&](uint32_t id) {
@@ -1654,7 +1650,7 @@ RT3_REPLACE(0x4d7060, ConditionDialog_HandleEvent);
 // list index as a table index.
 void __fastcall TextTag_Pick(void*, char* out) {
     *out = 0;
-    const char** names = (const char**)Malloc(0xfa0);
+    const char** names = (const char**)crt::malloc(0xfa0);
     uint8_t used[0x385];
     memset(used, 0, sizeof used);
     uint8_t* tags = (uint8_t*)0x5f3d90;
@@ -1680,9 +1676,9 @@ void __fastcall TextTag_Pick(void*, char* out) {
             Dialog_RunMessage(GetString(0xbbd), 1, 0xbf800000, 0xbf800000, 0, nullptr, 0, 0.0f, 0, 0, 6, (const char**)variants, &pick, 1, 0, nullptr, 0);
         if (pick) FormatText(out, (const char*)0x5d0d1c, names[sel], variants[pick], 0, 0, 0, 0, 0, 0);
         else FormatText(out, (const char*)0x5d0d14, names[sel], 0, 0, 0, 0, 0, 0, 0);
-        for (int32_t k = 0; k < 6; ++k) Free(variants[k]);
+        for (int32_t k = 0; k < 6; ++k) crt::free(variants[k]);
     }
-    Free(names);
+    crt::free(names);
 }
 RT3_REPLACE(0x4d71b0, TextTag_Pick);
 
@@ -1976,21 +1972,21 @@ RT3_NOINLINE void __fastcall RulesDialog_FillTriggers(uint8_t* w) {
             s2[0] = 0;
             if (type == 0x4b || type == 0x4d) {
                 if (Collection_IsValid(g_territories, 0, F<uint32_t>(n, 0xe)))
-                    ExeSprintf()(s1, (const char*)0x5d0d54,
+                    crt::sprintf(s1, (const char*)0x5d0d54,
                                  (const char*)Collection_Get(g_territories, 0, F<uint32_t>(n, 0xe)) + 4);
-                else ExeSprintf()(s1, GetString(0xbc0));
+                else crt::sprintf(s1, GetString(0xbc0));
             }
             if (type == 0x4c || type == 0x4e || type == 0x35f || type == 0x360) {
                 if (Collection_IsValid(g_cities, 0, F<uint32_t>(n, 0xe)))
-                    ExeSprintf()(s1, (const char*)0x5d0d54,
+                    crt::sprintf(s1, (const char*)0x5d0d54,
                                  (const char*)Collection_Get(g_cities, 0, F<uint32_t>(n, 0xe)) + 0x356);
-                else ExeSprintf()(s1, GetString(0xbc1));
+                else crt::sprintf(s1, GetString(0xbc1));
             }
             if (type == 0x35f || type == 0x360) {
                 if (Collection_IsValid(g_cities, 0, F<uint32_t>(n, 0x12)))
-                    ExeSprintf()(s2, (const char*)0x5d0d54,
+                    crt::sprintf(s2, (const char*)0x5d0d54,
                                  (const char*)Collection_Get(g_cities, 0, F<uint32_t>(n, 0x12)) + 0x356);
-                else ExeSprintf()(s2, GetString(0xbc2));
+                else crt::sprintf(s2, GetString(0xbc2));
             }
             if (kind == 0) FormatText(t2, name, 0, 0, 0, 0, 0, 0, 0, 0);
             else if (kind == 2)
@@ -2268,7 +2264,7 @@ RT3_REPLACE(0x4d9d10, RulesDialog_UpdateButton);
 
 // 0x4d9dc0. Runs the rules dialog (0x88 bytes) for `rule`; returns its result.
 RT3_NOINLINE uint32_t __stdcall RulesDialog_Run(uint32_t a, int32_t* rule) {
-    uint8_t* w = (uint8_t*)((void*(__cdecl*)(size_t))0x53b070)(0x88);
+    uint8_t* w = (uint8_t*)crt::operator_new(0x88);
     w = w ? RulesDialog_Construct(w, 0, a, rule) : nullptr;
     return Dialog_RunAndFree(w, &Widget4d4840_Destruct);
 }
@@ -2276,7 +2272,7 @@ RT3_REPLACE(0x4d9dc0, RulesDialog_Run);
 
 // 0x4d9e40. Runs the condition dialog (0x80 bytes) for record r; returns its result.
 RT3_NOINLINE uint32_t __stdcall ConditionDialog_Run(uint8_t* r) {
-    uint8_t* w = (uint8_t*)((void*(__cdecl*)(size_t))0x53b070)(0x80);
+    uint8_t* w = (uint8_t*)crt::operator_new(0x80);
     w = w ? ConditionDialog_Construct(w, 0, r) : nullptr;
     return Dialog_RunAndFree(w, &Widget4d5b90_Destruct);
 }
@@ -2304,7 +2300,7 @@ RT3_NOINLINE void __fastcall RulesDialog_DeleteTrigger(uint8_t* w) {
     if (found && cur) {
         if (prev) F<uint8_t*>(prev, 0x1a) = F<uint8_t*>(cur, 0x1a);
         else *head = F<uint8_t*>(cur, 0x1a);
-        ExeDelete(cur);
+        crt::operator_delete(cur);
     }
     RulesDialog_FillTriggers(w);
     RulesDialog_UpdateScope(w);
@@ -2414,7 +2410,7 @@ RT3_NOINLINE void __fastcall EventEditor_AddRule(uint8_t* w) {
     if (F<int32_t>(w, 0x84) == -1) return;
     uint8_t** ev = EventEditor_Event(w);
     if (ev[0] && F<int32_t>(ev[0], 0) < 0) return;
-    uint8_t* r = (uint8_t*)((void*(__cdecl*)(size_t))0x53b070)(0x1e);
+    uint8_t* r = (uint8_t*)crt::operator_new(0x1e);
     memset(r, 0, 0x1e);
     r[4] = 4;
     F<int32_t>(r, 0) = 0xe;
@@ -2441,7 +2437,7 @@ RT3_NOINLINE void __fastcall EventEditor_EditRule(uint8_t* w) {
     uint8_t* next = F<uint8_t*>(r, 0x1a);
     if (RulesDialog_Run(r == head, (int32_t*)r) != 0x4f73) return;
     if (F<int32_t>(r, 0) < 0) {
-        uint8_t* copy = (uint8_t*)((void*(__cdecl*)(size_t))0x53b070)(0x1e);
+        uint8_t* copy = (uint8_t*)crt::operator_new(0x1e);
         memcpy(copy, r, 0x1e);
         List1a_Free(ev);
         ev[0] = copy;
@@ -2457,7 +2453,7 @@ RT3_REPLACE(0x4da700, EventEditor_EditRule);
 RT3_NOINLINE void __fastcall EventEditor_AddCondition(uint8_t* w) {
     if (F<int32_t>(w, 0x84) == -1) return;
     uint8_t** ev = EventEditor_Event(w);
-    uint8_t* c = (uint8_t*)((void*(__cdecl*)(size_t))0x53b070)(0x28);
+    uint8_t* c = (uint8_t*)crt::operator_new(0x28);
     memset(c, 0, 0x28);
     F<int32_t>(c, 0) = 2;
     if (ConditionDialog_Run(c) != 0x4fb1) return;
@@ -2512,7 +2508,7 @@ RT3_NOINLINE void __fastcall RulesDialog_DeleteCondition(uint8_t* w) {
     if (found && cur) {
         if (prev) F<uint8_t*>(prev, 0x24) = F<uint8_t*>(cur, 0x24);
         else *head = F<uint8_t*>(cur, 0x24);
-        ExeDelete(cur);
+        crt::operator_delete(cur);
     }
     RulesDialog_FillConditions(w);
     RulesDialog_UpdateSlot(w);
@@ -2685,7 +2681,7 @@ RT3_NOINLINE void __fastcall EventEditor_NewEvent(uint8_t* w, int, int32_t dupli
         int32_t n = 1;
         if (Collection_Count(g_events))
             n = (int32_t)Collection_IdAt(g_events, 0, Collection_Count(g_events) - 1, 0) + 1;
-        ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)(num, (const char*)0x5c9aec, n);
+        crt::sprintf(num, (const char*)0x5c9aec, n);
         FormatText(text, GetString(0x47a), num, 0, 0, 0, 0, 0, 0, 0);
     } else {
         if (F<int32_t>(w, 0x84) == -1) return;

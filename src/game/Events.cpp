@@ -12,6 +12,7 @@
 #include "game/collection.h"
 #include "core/stream.h"
 #include "core/crt.h"
+#include "core/imports.h"
 #include "hook/keepregs.h"
 #include "core/ptrlist.h"
 #include "core/containers.h"
@@ -127,7 +128,6 @@ RT3_NOINLINE int32_t __fastcall Ui_SendEvent5(uint8_t** mgr, int, uint32_t type,
 
 static inline uint8_t* World() { return g_world; }
 
-static inline void* ExeNew(size_t n) { return ((void*(__cdecl*)(size_t))0x53b070)(n); }
 
 static inline char* Fmt(char* dst, const char* fmt, const char* a = 0, const char* b = 0) {
     return FormatText(dst, fmt, a, b, 0, 0, 0, 0, 0, 0);
@@ -267,7 +267,7 @@ start:
     const char* p = src;
     char* out = dst;
     if (!*p) return;
-    CharNextExFn charNext = hook::As<CharNextExFn>(g_5c8244);
+    CharNextExFn charNext = ((CharNextExFn)imp::CharNextExA);
     char buf[100], name[200], fmt[700];
     for (;;) {
         if (*p == '[') {
@@ -293,7 +293,7 @@ start:
                         StrCopyN(fmt, f, (size_t)(p - f));
                         if (strlen(fmt) >= 1)
                             for (int32_t i = 0; i < 6; ++i)
-                                if (!Stricmp(fmt, GetString(*(int32_t*)(0x620b6c + i * 4)))) mode = i;
+                                if (!crt::stricmp(fmt, GetString(*(int32_t*)(0x620b6c + i * 4)))) mode = i;
                         ++p;
                     }
                     scanned = true;
@@ -306,7 +306,7 @@ start:
                 int32_t var = 0;
                 const char* e = (const char*)0x5f3d9c;
                 for (; (uint32_t)e < 0x6103a1; e += 0x81, ++var)
-                    if ((char)ToUpper(*e) == up && !Stricmp(name, e)) break;
+                    if ((char)ToUpper(*e) == up && !crt::stricmp(name, e)) break;
                 if ((uint32_t)e < 0x6103a1) {
                     int32_t v = RuleVar_Get(var, pl, co, st, 0, 0, 0, 0);
                     buf[0] = *(char*)0x5c87a8;
@@ -389,7 +389,7 @@ RT3_NOINLINE void __fastcall Events_AddTimed(uint8_t* self, int, uint8_t* cond, 
         year += (month - 1) / 12;
         month = (month - 1) % 12 + 1;
     }
-    uint8_t* e1 = (uint8_t*)ExeNew(0x1e);
+    uint8_t* e1 = (uint8_t*)crt::operator_new(0x1e);
     memset(e1, 0, 0x1e);
     F<int32_t>(e1, 0) = 7;
     e1[4] = 4;
@@ -397,7 +397,7 @@ RT3_NOINLINE void __fastcall Events_AddTimed(uint8_t* self, int, uint8_t* cond, 
     F<int32_t>(e1, 9) = year;
     e1[0xd] = 2;
     F<uint8_t*>(r, 0) = e1;
-    uint8_t* e2 = (uint8_t*)ExeNew(0x1e);
+    uint8_t* e2 = (uint8_t*)crt::operator_new(0x1e);
     memset(e2, 0, 0x1e);
     F<int32_t>(e2, 0) = 8;
     e2[4] = 4;
@@ -406,7 +406,7 @@ RT3_NOINLINE void __fastcall Events_AddTimed(uint8_t* self, int, uint8_t* cond, 
     e2[0xd] = 0;
     F<int32_t>(e2, 0x1a) = 0;
     F<uint8_t*>(e1, 0x1a) = e2;
-    uint8_t* n = (uint8_t*)ExeNew(0x28);
+    uint8_t* n = (uint8_t*)crt::operator_new(0x28);
     F<int32_t>(n, 0) = F<int32_t>(cond, 0);
     uint8_t kind = cond[8];
     if (kind == 1) F<int32_t>(n, 4) = F<int32_t>(cond, 4) != 0;

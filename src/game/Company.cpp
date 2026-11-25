@@ -14,6 +14,7 @@
 #include "hook/keepregs.h"
 #include "core/stream.h"
 #include "core/crt.h"
+#include "core/imports.h"
 #include "game/calendar.h"
 #include "core/ptrlist.h"
 #include "core/containers.h"
@@ -292,7 +293,6 @@ RT3_NOINLINE void* __fastcall Table_NthField4(Collection* t, int, int32_t n);
 RT3_NOINLINE uint32_t __fastcall Dialog_RunMessage(const char* text, int32_t type, uint32_t px, uint32_t py, int32_t p4, void(__fastcall* place)(uint8_t*, int, uint32_t, uint32_t, uint32_t, float), int32_t pic, float extraH, uint32_t buttonText, uint32_t a8, int32_t count, const char** choices, int32_t* selected, int32_t radio, int32_t check, int32_t* checked, int32_t timeout);
 RT3_NOINLINE char* __fastcall Num_Format(char* buf, int32_t style, double v, int32_t width, int32_t unused, int32_t inK, int32_t inM);
 
-static inline int ExeStricmp(const char* a, const char* b) { return ((int(__cdecl*)(const char*, const char*))0x5a57cf)(a, b); }
 
 static inline uint8_t ConfigByte82() { return g_newGame[0x82]; }
 
@@ -327,7 +327,7 @@ static void FreeCompanySlots(uint8_t freeSlot[0x88]) {
         }
         for (int32_t j = 0; j < Collection_Count(names()); ++j) {
             Collection* l = names();
-            if (Stricmp((const char*)c + 0xd65, (const char*)Collection_Get(l, 0, Collection_IdAt(l, 0, j, 0))) == 0)
+            if (crt::stricmp((const char*)c + 0xd65, (const char*)Collection_Get(l, 0, Collection_IdAt(l, 0, j, 0))) == 0)
                 freeSlot[0x24 + j] = 0;
         }
     }
@@ -486,7 +486,7 @@ RT3_NOINLINE int32_t __fastcall Company_NameIndex(void* c) {
     int32_t i = 0;
     for (; i < Collection_Count(table()); ++i) {
         Collection* t = table();
-        if (ExeStricmp((const char*)c + 0xd65, (const char*)Collection_Get(t, 0, Collection_IdAt(t, 0, i, 0))) == 0) break;
+        if (crt::stricmp((const char*)c + 0xd65, (const char*)Collection_Get(t, 0, Collection_IdAt(t, 0, i, 0))) == 0) break;
     }
     return i;
 }
@@ -707,7 +707,7 @@ RT3_NOINLINE float __fastcall Company_SharePrice(uint8_t* c, int, int32_t issued
         cap = F<float>(c, 0x4f);
     }
     double sh = shares;
-    cap = ((double(__cdecl*)(double, double))0x5a1b60)(sh / D_205(0x5c8bf8), 0.33) * cap * D_205(0x5c88f0);
+    cap = crt::pow(sh / D_205(0x5c8bf8), 0.33) * cap * D_205(0x5c88f0);
     sh = Shares(c);
     double x = (sh + cap) / sh;
     if (x < D_205(0x5c8880)) x = (x - D_205(0x5c8880)) * D_205(0x5c8628) + D_205(0x5c8880);
@@ -928,7 +928,7 @@ RT3_NOINLINE void __fastcall Company_YearEnd(uint8_t* c) {
     double h = (double)(avg / 100000);
     double r = h > D_205(0x5c8770) ? h : D_205(0x5c8770);
     float f = (float)r;
-    f = (float)((double(__cdecl*)(double))0x5a1634)(f);
+    f = (float)crt::sqrt(f);
     if (f > Fl(0x5c85f8)) f = (float)(((double)f - Fl(0x5c85f8)) / Fl(0x5c878c) + Fl(0x5c85f8));
     if (f > Fl(0x5c873c)) f = (float)(((double)f - Fl(0x5c873c)) / Fl(0x5c878c) + Fl(0x5c873c));
     if (f > Fl(0x5c8784)) f = (float)(((double)f - Fl(0x5c8784)) / Fl(0x5c878c) + Fl(0x5c8784));
@@ -1208,7 +1208,7 @@ RT3_NOINLINE uint32_t __fastcall Company_Logo(uint8_t* c) {
     for (int32_t i = 0; i < Collection_Count(F<Collection*>(g_pack, 0x429b0)); ++i) {
         Collection* names = F<Collection*>(g_pack, 0x429b0);
         const char* s = (const char*)Collection_Get(names, 0, Collection_IdAt(names, 0, i, 0));
-        if (!Stricmp((const char*)c + 0xd65, s)) return Table_Entry(F<uint8_t*>(World(), 0x46aa4 + i * 4), 0, 0);
+        if (!crt::stricmp((const char*)c + 0xd65, s)) return Table_Entry(F<uint8_t*>(World(), 0x46aa4 + i * 4), 0, 0);
     }
     int32_t r = Rand(0, CountFreeCompanySlots() - 1);
     F<int32_t>(c, 0x37) = r;
@@ -1913,7 +1913,6 @@ RT3_REPLACE(0x428a30, Company_InstallChairman);
 // bankrupt it (0x12f / 0x130; a warning 0x12e after two). Then the yearly
 // stats roll up (+0x1407, +0x1cdf) and +0x1d77.. average when positive.
 RT3_NOINLINE void __fastcall Company_AnnualReview(uint8_t* c) {
-    auto Sqrt = (double(__cdecl*)(double))0x5a1634;
     auto year = [] { return (int32_t)F<uint16_t>(g_world, 0xd); };
     if (F<int32_t>(g_world, 0x46c38) || !F<int32_t>(c, 0x3f)) return;
 
@@ -1921,8 +1920,8 @@ RT3_NOINLINE void __fastcall Company_AnnualReview(uint8_t* c) {
     double b = F<uint16_t>(c, 0x157) == F<uint16_t>(g_world, 0xd) ? (double)F<float>(c, 0x57) : Company_Stat(c, 0, 0x1c, year() - 1);
     if (!(b > D_207(0x5c85b8))) b = 0.01;
     float g = (float)(a / b - D_207(0x5c8770));
-    if (g > D_207(0x5c8770)) g = (float)Sqrt((double)g);
-    if (g < D_207(0x5c9bf0)) g = (float)-Sqrt(-(double)g);
+    if (g > D_207(0x5c8770)) g = (float)crt::sqrt((double)g);
+    if (g < D_207(0x5c9bf0)) g = (float)-crt::sqrt(-(double)g);
     if (g > D_207(0x5c85d0)) g = 2.0f;
     if (g < D_207(0x5c9be8)) g = -2.0f;
 
@@ -1942,16 +1941,16 @@ RT3_NOINLINE void __fastcall Company_AnnualReview(uint8_t* c) {
     }
     if (ratio) {
         x = x - one;
-        if (x > one) x = Sqrt(x);
-        if (x < D_207(0x5c9bf0)) x = -Sqrt(-x);
+        if (x > one) x = crt::sqrt(x);
+        if (x < D_207(0x5c9bf0)) x = -crt::sqrt(-x);
         if (x > D_207(0x5c85d0)) x = 2.0;
         else if (x < D_207(0x5c9be8)) x = -2.0;
     }
     x = x * D_207(0x5c8628);
     double r = g < x ? (double)g * D_207(0x5c87b8) + x * D_207(0x5c8610) : (double)g * D_207(0x5c8610) + x * D_207(0x5c87b8);
     r = r / D_207(0x5c9be0) * D_207(0x5c85d8);
-    if (r < zero) r = -(Sqrt(-r) * D_207(0x5c9bd8));
-    else if (r > zero) r = Sqrt(r) * D_207(0x5c9bd8);
+    if (r < zero) r = -(crt::sqrt(-r) * D_207(0x5c9bd8));
+    else if (r > zero) r = crt::sqrt(r) * D_207(0x5c9bd8);
     r = r * D_207(0x5c88f8);
     int32_t age = year() - (int32_t)F<uint16_t>(c, 0x157);
     double w = 0.45;
@@ -1967,7 +1966,7 @@ RT3_NOINLINE void __fastcall Company_AnnualReview(uint8_t* c) {
 
     int32_t rating = F<int32_t>(c, 0x34b);
     double stock = Company_Stat(c, 0, 0x2c, year());
-    int32_t v1 = Ftol((Sqrt(stock) + D_207(0x5c85e8)) * (double)(rating * 3 + 0x78) * D_207(0x5c86b8));
+    int32_t v1 = Ftol((crt::sqrt(stock) + D_207(0x5c85e8)) * (double)(rating * 3 + 0x78) * D_207(0x5c86b8));
     int32_t old = F<int32_t>(c, 0x14f);
     F<int32_t>(c, 0xd59) = old;
     int32_t up = 1;
@@ -2402,7 +2401,7 @@ void __fastcall PathToBaseName(char* dst, const char* src) {
     char* d = dst;
     while ((*d++ = *src++) != 0) {}
     dst[StrLen(dst) - 1] = 0;
-    const char* s = ((const char*(__cdecl*)(const char*, int))0x5a1df0)(dst, '\\') + 1;
+    const char* s = ((const char*)crt::strrchr(dst, '\\')) + 1;
     d = dst;
     while ((*d++ = *s++) != 0) {}
     if (StrLen(dst) == 0) return;
@@ -2422,7 +2421,7 @@ RT3_NOINLINE void __fastcall BaseNameNoSuffix(char* dst, const char* src) {
     size_t len = 0;
     while (dst[len]) ++len;
     dst[len - 1] = 0;
-    const char* slash = ((const char*(__cdecl*)(const char*, int))0x5a1df0)(dst, '\\'); // exe strrchr
+    const char* slash = ((const char*)crt::strrchr(dst, '\\')); // exe strrchr
     const char* s = slash + 1;
     d = dst;
     while ((*d++ = *s++) != 0) {}
@@ -2439,7 +2438,7 @@ RT3_REPLACE(0x42a8e0, BaseNameNoSuffix);
 // Returns whether a file was chosen.
 RT3_NOINLINE int32_t __fastcall OpenFileDialog(char* file, const char* filter, const char* initialDir) {
     char cwd[0x100];
-    ((uint32_t(__stdcall*)(uint32_t, char*))g_5c807c)(0x100, cwd);
+    (imp::GetCurrentDirectoryA)(0x100, cwd);
     uint32_t ofn[0x13] = {};
     file[0] = 0;
     ofn[0]  = 0x4c;
@@ -2456,8 +2455,8 @@ RT3_NOINLINE int32_t __fastcall OpenFileDialog(char* file, const char* filter, c
     ofn[12] = 0x5c9c04;
     ofn[15] = 0;
     ofn[13] = 0x1000;
-    ((int32_t(__stdcall*)(void*))g_5c8390)(ofn);
-    ((int32_t(__stdcall*)(const char*))g_5c80d8)(cwd);
+    (imp::GetOpenFileNameA)(ofn);
+    imp::SetCurrentDirectoryA(cwd);
     return StrLen(file) != 0 ? 1 : 0;
 }
 RT3_REPLACE(0x42a970, OpenFileDialog);
@@ -2474,7 +2473,7 @@ RT3_NOINLINE void Debug_DropModel() {
     char file[0x104], name[0x100], path[0x80];
     if (OpenFileDialog(file, (const char*)0x5c9c18, (const char*)0x5c9c34)) {
         PathToBaseName(name, file);
-        ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)(path, (const char*)0x5c9c10, name);
+        crt::sprintf(path, (const char*)0x5c9c10, name);
         if (StrLen(name)) {
             uint32_t i = 0;
             do {
@@ -2482,7 +2481,7 @@ RT3_NOINLINE void Debug_DropModel() {
                 ++i;
             } while (i < StrLen(name));
         }
-        uint8_t* o = (uint8_t*)((void*(__cdecl*)(size_t))0x53b070)(0x206);
+        uint8_t* o = (uint8_t*)crt::operator_new(0x206);
         o = o ? SceneObj_Construct(o, 0, (uint32_t)(uintptr_t)scene, path, name) : nullptr;
         double off = (double)(g_5ee268 * 40);
         uint8_t* world = g_map;
@@ -2513,11 +2512,11 @@ RT3_NOINLINE void Debug_PlaceTestCar() {
             Vehicle_Teardown(g_6cfcc0);
             if (uint8_t* m = g_6cfcc0) {
                 PartModel_Destructor(m);
-                ((void(__cdecl*)(void*))0x53b080)(m);
+                crt::operator_delete(m);
             }
             hook::As<uint32_t>(g_6cfcc0) = 0;
         }
-        uint8_t* mem = ((uint8_t*(__cdecl*)(size_t))0x53b070)(0x34a);
+        uint8_t* mem = ((uint8_t*)crt::operator_new(0x34a));
         uint8_t* m = mem ? PartModel_Construct(mem) : nullptr;
         g_6cfcc0 = m;
         float fz = (float)((double)BitsF(z) / Fl(0x5c8700));
@@ -2547,11 +2546,11 @@ RT3_NOINLINE void Debug_PlaceTestModel() {
         ModelObj_Release(g_62be14);
         if (uint8_t* m = g_62be14) {
             ModelObj_Destructor(m);
-            ((void(__cdecl*)(void*))0x53b080)(m);
+            crt::operator_delete(m);
         }
         hook::As<uint32_t>(g_62be14) = 0;
     }
-    uint8_t* mem = ((uint8_t*(__cdecl*)(size_t))0x53b070)(0x26e);
+    uint8_t* mem = ((uint8_t*)crt::operator_new(0x26e));
     uint8_t* m = mem ? ModelObj_Construct(mem) : nullptr;
     g_62be14 = m;
     float fz = (float)((double)BitsF(z) / Fl(0x5c8700));
@@ -2566,7 +2565,7 @@ RT3_REPLACE(0x42acf0, Debug_PlaceTestModel);
 
 // 0x42ae20. Frees the key list +0xef.
 void __fastcall Obj_FreeKeyList(void* o) {
-    if (F<void*>(o, 0xef)) Free(F<void*>(o, 0xef));
+    if (F<void*>(o, 0xef)) crt::free(F<void*>(o, 0xef));
     F<void*>(o, 0xef) = nullptr;
 }
 RT3_REPLACE(0x42ae20, Obj_FreeKeyList);
@@ -2601,7 +2600,7 @@ RT3_NOINLINE void __fastcall Site_Load(uint8_t* o, int, int32_t s, int16_t x, in
     int16_t n = 0;
     StreamRead(s, &n, 2, 0, 1);
     F<int32_t>(o, 0xeb) = n;
-    F<void*>(o, 0xef) = ((void*(__cdecl*)(size_t))0x5a125d)((size_t)(n * 6));
+    F<void*>(o, 0xef) = crt::malloc((size_t)(n * 6));
     for (int32_t i = 0; i < F<int32_t>(o, 0xeb); ++i) StreamRead(s, F<uint8_t*>(o, 0xef) + i * 6, 6, 0, 1);
 }
 RT3_REPLACE(0x42ae50, Site_Load);
@@ -2640,14 +2639,14 @@ RT3_REPLACE(0x42b140, Obj_AddLevel);
 // entry with `key` but shrinks the count by one (QUIRK).
 void __fastcall Obj_AddKey(void* o, int, uint16_t key, int32_t value) {
     int32_t n = F<int32_t>(o, 0xeb);
-    uint8_t* p = (uint8_t*)Malloc((n + 1) * 6);
+    uint8_t* p = (uint8_t*)crt::malloc((n + 1) * 6);
     if (n > 0) {
         const uint8_t* old = F<uint8_t*>(o, 0xef);
         for (int32_t k = 0; k < n * 6; ++k) p[k] = old[k];
     }
     F<uint16_t>(p, n * 6) = key;
     F<int32_t>(p, n * 6 + 2) = value;
-    if (F<void*>(o, 0xef)) Free(F<void*>(o, 0xef));
+    if (F<void*>(o, 0xef)) crt::free(F<void*>(o, 0xef));
     F<uint8_t*>(o, 0xef) = p;
     F<int32_t>(o, 0xeb) = n + 1;
 }
@@ -2657,7 +2656,7 @@ void __fastcall Obj_RemoveKey(void* o, int, uint16_t key) {
     uint8_t* p = nullptr;
     int32_t n = F<int32_t>(o, 0xeb);
     if (n > 1) {
-        p = (uint8_t*)Malloc((n - 1) * 6);
+        p = (uint8_t*)crt::malloc((n - 1) * 6);
         uint8_t* d = p;
         for (int32_t k = 0; k < F<int32_t>(o, 0xeb); ++k) {
             uint8_t* e = F<uint8_t*>(o, 0xef) + k * 6;
@@ -2667,7 +2666,7 @@ void __fastcall Obj_RemoveKey(void* o, int, uint16_t key) {
             d += 6;
         }
     }
-    Free(F<void*>(o, 0xef));
+    crt::free(F<void*>(o, 0xef));
     F<uint8_t*>(o, 0xef) = p;
     F<int32_t>(o, 0xeb) = F<int32_t>(o, 0xeb) - 1;
 }

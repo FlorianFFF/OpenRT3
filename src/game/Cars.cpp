@@ -14,6 +14,7 @@
 #include "core/stream.h"
 #include "core/containers.h"
 #include "core/crt.h"
+#include "core/imports.h"
 #include "hook/keepregs.h"
 #include "core/ptrlist.h"
 #include "game/calendar.h"
@@ -23,6 +24,8 @@
 #undef small
 
 namespace rt3 {
+
+void __fastcall View_SetToolMode(uint8_t* view, int, uint32_t mode, int32_t requested);
 
 void __fastcall Train_ShareRevenue(uint8_t* t, int, float revenue, int32_t kind, float units, int32_t cargo);
 
@@ -238,9 +241,7 @@ static inline void* RefNotMinus1(Collection* t, int32_t id) { return id != -1 ? 
 
 static inline void Virtual(void* o, uint32_t slot) { ((void(__thiscall*)(void*))(*(void***)o)[slot / 4])(o); }
 
-static inline double ExeSin(double v) { return ((double(__cdecl*)(double))0x5a1494)(v); }
 
-static inline double ExeCos(double v) { return ((double(__cdecl*)(double))0x5a13e4)(v); }
 
 static inline Collection* Coll(uint32_t a) { return hook::Global<Collection*>(a); }
 
@@ -275,7 +276,6 @@ static inline int32_t Ftol(double v) {
 }
 
 namespace {
-void Callback_Delete(void* p) { ((void(__cdecl*)(void*))0x53b080)(p); }
 int32_t Tooltip_Clear() { return Ui_ShowTooltip(g_windowManager, 0, (const char*)0x5c87a8, 3, 0, -1); }
 // A network message's handler gets the packet (+8) when it has one (+0xc).
 template <typename P, typename Fn> int32_t NetMsg_Forward(uint8_t* m, Fn handler) {
@@ -285,8 +285,6 @@ template <typename P, typename Fn> int32_t NetMsg_Forward(uint8_t* m, Fn handler
 }
 
 namespace {
-void Free445(void* p) { ((void(__cdecl*)(void*))0x53b080)(p); }
-int Stricmp445(const char* a, const char* b) { return ((int(__cdecl*)(const char*, const char*))0x5a57cf)(a, b); }
 int32_t Companies_ClashCall(const void* d) {
     int32_t r;
     __asm {
@@ -301,7 +299,6 @@ int32_t Companies_ClashCall(const void* d) {
 }
 
 namespace {
-inline double Fabs482(double x) { return ((double(__cdecl*)(double))0x5a152e)(x); }
 }
 
 // 0x41a950. Building type table t: releases every type, then loads the
@@ -320,16 +317,15 @@ RT3_REPLACE(0x41a950, BtyTable_Reload);
 // then loads the type files. (0x62b304 is cleared first.)
 void __fastcall BtyTable_Setup(Collection* t) {
     g_62b304 = 0;
-    auto alloc = (uint8_t*(__cdecl*)(size_t))0x53b070;
-    uint8_t* h = alloc(0x14);
+    uint8_t* h = ((uint8_t*)crt::operator_new(0x14));
     if (h) memset(h, 0, 0x14);
     F<uint8_t*>(t, 0x88) = h;
     Hash_Init((HashMap*)h, 0, 0x65, 0);
-    uint8_t* p1 = alloc(0x1c);
+    uint8_t* p1 = ((uint8_t*)crt::operator_new(0x1c));
     if (p1) memset(p1, 0, 0x1c);
     F<uint8_t*>(t, 0x90) = p1;
     Pool_Init((NodePool*)p1, 0, nullptr, 8, 0, 0);
-    uint8_t* p2 = alloc(0x1c);
+    uint8_t* p2 = ((uint8_t*)crt::operator_new(0x1c));
     if (p2) memset(p2, 0, 0x1c);
     F<uint8_t*>(t, 0x8c) = p2;
     Pool_Init((NodePool*)p2, 0, nullptr, 0x74e, 0, 0);
@@ -444,7 +440,7 @@ RT3_NOINLINE void __fastcall Car_ResolveType(uint8_t* o) {
     F<uint32_t>(o, 0x388) = 0;
     for (int32_t i = 0; i < Collection_Count(g_carTypes); ++i) {
         Collection* c = g_carTypes;
-        if (Stricmp((const char*)o + 0x36a, (const char*)Collection_Get(c, 0, Collection_IdAt(c, 0, i, 0)) + 0x82)) continue;
+        if (crt::stricmp((const char*)o + 0x36a, (const char*)Collection_Get(c, 0, Collection_IdAt(c, 0, i, 0)) + 0x82)) continue;
         F<uint32_t>(o, 0x388) = Collection_IdAt(g_carTypes, 0, i, 0);
         break;
     }
@@ -457,7 +453,7 @@ RT3_REPLACE(0x41ac60, Car_ResolveType);
 void __fastcall Car_OpenTrain(uint8_t* c) {
     if (F<int32_t>(c, 0x390) == -1) return;
     Ui_PlaySound(0x21, 0, 0x3f000000);
-    ((void(__fastcall*)(uint8_t*, int, int32_t, int32_t))0x4ddbd0)(g_gameWindow, 0, 2, F<int32_t>(c, 0x390));
+    View_SetToolMode(g_gameWindow, 0, (uint32_t)(2), F<int32_t>(c, 0x390));
     int32_t lead = F<int32_t>(Collection_Get(g_trains, 0, F<uint32_t>(c, 0x390)), 0x41);
     World_FollowEntity(g_world, 0, 1, 1, lead);
 }
@@ -477,9 +473,9 @@ void __fastcall Car_RearPoint(uint8_t* c, int, float* x, float* y) {
     *x = (float)Obj_CellX(c);
     *y = (float)Obj_CellY(c);
     float a = SceneObj_Angle2(c);
-    float h = (float)((double(__cdecl*)(double, double))0x5a1390)((double)a + *(const double*)0x5c8740, 6.2831854820251465);
-    *x = (float)((double)*x - ExeSin(h) * half);
-    *y = (float)((double)*y - ExeCos(h) * half);
+    float h = (float)crt::fmod((double)a + *(const double*)0x5c8740, 6.2831854820251465);
+    *x = (float)((double)*x - crt::cos(h) * half);
+    *y = (float)((double)*y - crt::sin(h) * half);
 }
 RT3_REPLACE(0x41add0, Car_RearPoint);
 
@@ -699,7 +695,7 @@ RT3_NOINLINE uint32_t __fastcall Car_SkinTexture(uint8_t* car) {
         for (int32_t i = 0; i < Collection_Count(F<Collection*>(Collection_Get(types, 0, F<uint32_t>(car, 0x388)), 0x196)); ++i) {
             Collection* names = F<Collection*>(Collection_Get(types, 0, F<uint32_t>(car, 0x388)), 0x196);
             const char* name = (const char*)Collection_Get(names, 0, Collection_IdAt(names, 0, i, 0));
-            if (!Stricmp((const char*)car + 0x3ac, name)) {
+            if (!crt::stricmp((const char*)car + 0x3ac, name)) {
                 uint8_t* t = (uint8_t*)Collection_Get(types, 0, F<uint32_t>(car, 0x388));
                 return Table_Entry(F<uint8_t*>(t, 0x19a + i * 4), 0, 0);
             }
@@ -998,7 +994,7 @@ RT3_REPLACE(0x41d320, Collection5c9810_Destruct);
 
 // 0x41d340. Adds a car (0x3d4-byte records) of type `type` to table t and
 // sets it up (Car_Init); returns its id.
-uint32_t __fastcall Cars_Add(Collection* t, int, uint8_t* type, uint32_t owner, float x, float z, uint32_t a6) {
+RT3_NOINLINE uint32_t __fastcall Cars_Add(Collection* t, int, uint8_t* type, uint32_t owner, float x, float z, uint32_t a6) {
     uint8_t tmp[0x3d4];
     PartModel41aae0_Construct(tmp);
     uint32_t id = Collection_Allocate(t, 0, tmp, 0x3d4, 0, 0);
@@ -1055,7 +1051,7 @@ RT3_NOINLINE int32_t __fastcall CarType_Available(uint8_t* o, int, uint32_t comp
         if (F<int32_t>(t, 0x10) == 0) bonus = Obj_CargoBonus(World(), 0, 0x1c6, company, player, 0);
         if (F<int32_t>(t, 0x10) == 1) bonus = Obj_CargoBonus(World(), 0, 0x1c7, company, player, 0);
         if (F<int32_t>(t, 0x10) == 2) bonus = Obj_CargoBonus(World(), 0, 0x1c8, company, player, 0);
-        if (!Stricmp((const char*)t + 0x34, (const char*)0x5c981c)) bonus = 0;
+        if (!crt::stricmp((const char*)t + 0x34, (const char*)0x5c981c)) bonus = 0;
         if (id >= 0xfb && id <= 0x15f) {
             int32_t b = Obj_CargoBonus(World(), 0, id, company, player, 0);
             if (b) {
@@ -1102,14 +1098,9 @@ RT3_REPLACE(0x41d7a0, Collection5c9824_Destruct);
 // / mail / stock / flat), +0x196 lists the engine's sounds (0x6d4020+0x429b8
 // by name, their handles after it), +0x262 = -1; the record is added.
 void __fastcall CarTypes_LoadAll(Collection* t) {
-    auto Stricmp = (int(__cdecl*)(const char*, const char*))0x5a57cf;
-    auto Strnicmp = (int(__cdecl*)(const char*, const char*, size_t))0x5a5f26;
-    auto Fopen = (void*(__cdecl*)(const char*, const char*))0x5a1887;
-    auto Fread = (size_t(__cdecl*)(void*, size_t, size_t, void*))0x5a1b05;
-    auto Fclose = (int(__cdecl*)(void*))0x5a1740;
-    auto FindFirst = (void*(__stdcall*)(const char*, void*))g_5c8190;
-    auto FindNext = (int32_t(__stdcall*)(void*, void*))g_5c8194;
-    auto FindClose_ = (int32_t(__stdcall*)(void*))g_5c819c;
+    auto FindFirst = ((void*(__stdcall*)(const char*, void*))imp::FindFirstFileA);
+    auto FindNext = imp::FindNextFileA;
+    auto FindClose_ = imp::FindClose;
     static const uint32_t kBase[13] = { 0x5c9934, 0x5c992c, 0x5c9920, 0x5c9910, 0x5c9900, 0x5c98f0, 0x5c98e0,
                                         0x5c98d0, 0x5c98c0, 0x5c98b0, 0x5c98a0, 0x5c9890, 0x5c9884 };
     uint8_t fd[0x140];
@@ -1124,59 +1115,59 @@ void __fastcall CarTypes_LoadAll(Collection* t) {
             const char* file = (const char*)fd + 0x2c;
             int32_t base = 0;
             for (uint32_t n : kBase)
-                if (!Stricmp(file, (const char*)n)) {
+                if (!crt::stricmp(file, (const char*)n)) {
                     base = 1;
                     break;
                 }
             if ((pass == 0 && base) || (pass == 1 && !base)) continue;
             Loading_Pump(g_app, 0, 0, 0);
             FormatText(path, (const char*)0x5c9870, file, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
-            void* f = Fopen(path, (const char*)0x5c9678);
+            void* f = crt::fopen(path, (const char*)0x5c9678);
             if (!f) continue;
             memset(rec, 0, sizeof rec);
-            Fread(&version, 1, 4, f);
-            Fread(rec + 0x41, 1, 4, f);
-            Fread(&skip4, 1, 4, f);
-            if (version >= 0x3ea) Fread(rec + 0x45, 1, 0x3c, f);
+            crt::fread(&version, 1, 4, f);
+            crt::fread(rec + 0x41, 1, 4, f);
+            crt::fread(&skip4, 1, 4, f);
+            if (version >= 0x3ea) crt::fread(rec + 0x45, 1, 0x3c, f);
             else F<uint32_t>(rec, 0x45) = 0x585858;
-            Fread(rec + 0xc0, 1, 0x3c, f);
-            Fread(rec + 0x82, 1, 0x1e, f);
-            Fread(rec + 0xa1, 1, 0x1e, f);
-            Fread(rec, 1, 0x3c, f);
-            Fread(rec + 0x3d, 1, 4, f);
-            Fread(&b1, 1, 1, f);
-            Fread(&b2, 1, 1, f);
-            Fread(rec + 0x105, 1, 4, f);
-            Fread(&b1, 1, 1, f);
-            Fread(&b2, 1, 1, f);
-            Fread(rec + 0x109, 1, 4, f);
-            Fread(rec + 0xfd, 1, 4, f);
+            crt::fread(rec + 0xc0, 1, 0x3c, f);
+            crt::fread(rec + 0x82, 1, 0x1e, f);
+            crt::fread(rec + 0xa1, 1, 0x1e, f);
+            crt::fread(rec, 1, 0x3c, f);
+            crt::fread(rec + 0x3d, 1, 4, f);
+            crt::fread(&b1, 1, 1, f);
+            crt::fread(&b2, 1, 1, f);
+            crt::fread(rec + 0x105, 1, 4, f);
+            crt::fread(&b1, 1, 1, f);
+            crt::fread(&b2, 1, 1, f);
+            crt::fread(rec + 0x109, 1, 4, f);
+            crt::fread(rec + 0xfd, 1, 4, f);
             if (F<int32_t>(rec, 0x41) == 1) {
                 FormatText(path, (const char*)0x5c9858, (const char*)rec + 0xc0, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
-                if (void* g = Fopen(path, (const char*)0x5c9678)) {
-                    Fread(rec + 0x101, 1, 4, g);
-                    Fread(rec + 0x111, 1, 0x15, g);
+                if (void* g = crt::fopen(path, (const char*)0x5c9678)) {
+                    crt::fread(rec + 0x101, 1, 4, g);
+                    crt::fread(rec + 0x111, 1, 0x15, g);
                     char* name = (char*)rec + 0x111;
                     for (int32_t i = (int32_t)strlen(name) - 1; i >= 0; --i) name[i] = (char)ToUpper(name[i]);
-                    Fclose(g);
+                    crt::fclose(g);
                 }
             } else {
                 F<uint32_t>(rec, 0x101) = F<uint32_t>(rec, 0xfd);
             }
             F<uint32_t>(rec, 0x192) = 0x3f800000;
             const char* cargo = (const char*)rec + 0xc0;
-            rec[0x12e] = (!Strnicmp(cargo, (const char*)0x5c9850, 4) || !Strnicmp(cargo, (const char*)0x5c9848, 4) || !Strnicmp(cargo, (const char*)0x5c9840, 4) ||
-                          !Strnicmp(cargo, (const char*)0x5c9838, 5) || !Strnicmp(cargo, (const char*)0x5c9830, 4))
+            rec[0x12e] = (!crt::strnicmp(cargo, (const char*)0x5c9850, 4) || !crt::strnicmp(cargo, (const char*)0x5c9848, 4) || !crt::strnicmp(cargo, (const char*)0x5c9840, 4) ||
+                          !crt::strnicmp(cargo, (const char*)0x5c9838, 5) || !crt::strnicmp(cargo, (const char*)0x5c9830, 4))
                              ? 0
                              : 1;
-            uint8_t* mem = ((uint8_t*(__cdecl*)(size_t))0x53b070)(0x88);
+            uint8_t* mem = ((uint8_t*)crt::operator_new(0x88));
             Collection* sounds = mem ? Collection_Construct((Collection*)mem, 0, 1, 0x20, 0xa, 5, 0, 0, 0) : nullptr;
             F<Collection*>(rec, 0x196) = sounds;
             uint8_t* pack = g_pack;
             for (int32_t i = 0; i < Collection_Count(F<Collection*>(pack, 0x429b8)); ++i) {
                 Collection* all = F<Collection*>(g_pack, 0x429b8);
                 uint8_t* e = (uint8_t*)Collection_Get(all, 0, Collection_IdAt(all, 0, (uint32_t)i, 0));
-                if (Stricmp((const char*)rec + 0x82, (const char*)e + 0x20)) continue;
+                if (crt::stricmp((const char*)rec + 0x82, (const char*)e + 0x20)) continue;
                 sounds = F<Collection*>(rec, 0x196);
                 sounds->vtbl->allocate(sounds, e, 0, 0, 0);
                 uint8_t* hnd = Pack_AcquireNamed(g_pack, 0, (const char*)e + 0x40);
@@ -1185,7 +1176,7 @@ void __fastcall CarTypes_LoadAll(Collection* t) {
             }
             F<int32_t>(rec, 0x262) = -1;
             t->vtbl->allocate(t, rec, 0, 0, 0);
-            Fclose(f);
+            crt::fclose(f);
         } while (FindNext(h, fd));
         FindClose_(h);
     }
@@ -1203,7 +1194,7 @@ void __fastcall BuildingTypes_Delete(Collection* c, int, uint32_t id) {
     for (int32_t i = 0; i < Collection_Count(F<Collection*>(r, 0x196)); ++i) Pack_Release(g_pack, 0, F<void*>(r, 0x19a + 4 * i));
     if (Collection* l = F<Collection*>(r, 0x196)) {
         Collection_Destruct(l);
-        Free445(l);
+        crt::operator_delete(l);
     }
     F<Collection*>(r, 0x196) = nullptr;
     Collection_Release(c, 0, id);
@@ -1223,7 +1214,7 @@ uint32_t __fastcall BuildingTypes_Add(Collection* c, int, uint8_t* rec, uint32_t
     FormatText(path, (const char*)0x5c9954, name, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
     uint32_t fail = 0xca;
     if (NameTable_ContainsName(g_pack, 0, path, 0, nullptr)) {
-        uint8_t* mem = ((uint8_t*(__cdecl*)(size_t))0x53b070)(0x206);
+        uint8_t* mem = ((uint8_t*)crt::operator_new(0x206));
         uint8_t* model = mem ? SceneObj_Construct(mem, 0, 0, path, nullptr) : nullptr;
         uint8_t* cur = nullptr;
         if (uint8_t* list = F<uint8_t*>(model, 0x14)) cur = F<uint8_t*>(list + 0x18 * F<int32_t>(model, 0x3a), 0xc) + F<int32_t>(model, 0x21) * 0x45;
@@ -1231,8 +1222,8 @@ uint32_t __fastcall BuildingTypes_Add(Collection* c, int, uint8_t* rec, uint32_t
         if (cur && next) {
             const float from = F<float>(F<uint8_t*>(cur, 0), 8), to = F<float>(F<uint8_t*>(next, 0), 8);
             SceneObj_Destructor(model);
-            ((void(__cdecl*)(void*))0x53b080)(model);
-            F<float>(rec, 0x10d) = (float)(Fabs482(to - from) / D(0x5c8c48));
+            crt::operator_delete(model);
+            F<float>(rec, 0x10d) = (float)(crt::fabs(to - from) / D(0x5c8c48));
             fail = 0;
         } else {
             fail = 0xc9;

@@ -389,7 +389,6 @@ static inline void GetCorners(uint8_t* o, Corners& k) {
     Effect_GetVectors(o, 0, (uint32_t*)k.a, (uint32_t*)k.b, (uint32_t*)k.c, (uint32_t*)k.d);
 }
 
-static inline double Atan(double v) { return ((double(__cdecl*)(double))0x5a1270)(v); }
 
 // Wraps an angle into [0, 2 pi) (0x5c96b8) in float steps.
 static inline float WrapAngle(float a) {
@@ -399,7 +398,6 @@ static inline float WrapAngle(float a) {
     return a;
 }
 
-static inline void* ExeNew(size_t n) { return ((void*(__cdecl*)(size_t))0x53b070)(n); }
 
 static inline Collection* Routes() { return g_routes; }
 
@@ -458,7 +456,6 @@ static bool Track_NeighbourCrosses(uint8_t* judge, uint8_t* of, int32_t side, bo
     return Effect_PointOnSide(judge, 0, 1, x, y) != side;
 }
 
-static inline double CrtPow(double x, double y) { return ((double(__cdecl*)(double, double))0x5a1b60)(x, y); }
 
 // Lifts track piece t's scenery object (+0x248) to the mean corner height less one.
 static void Track_LiftScenery(uint8_t* t) {
@@ -498,8 +495,7 @@ static uint8_t Track_FacingState(uint8_t* n, uint8_t* t) {
 
 // Whether corners p and q coincide (x / z within 0.009).
 static bool Track_CornersMeet(const float* p, const float* q) {
-    auto fabs_ = (double(__cdecl*)(double))0x5a152e;
-    return fabs_((double)p[0] - q[0]) < D(0x5cfdd8) && fabs_((double)p[2] - q[2]) < D(0x5cfdd8);
+    return crt::fabs((double)p[0] - q[0]) < D(0x5cfdd8) && crt::fabs((double)p[2] - q[2]) < D(0x5cfdd8);
 }
 
 namespace {
@@ -587,7 +583,7 @@ void __fastcall Group_ReplaceModel(uint8_t* g, int, const char* model) {
         SceneObj_GetAngles(first, 0, &a, &b, &c);
         SceneObj_GetPos(first, 0, &x, &y, &z);
         ((void(__thiscall*)(uint8_t*, int32_t))(*(void***)g)[0x18 / 4])(g, 0);
-        uint8_t* o = (uint8_t*)((void*(__cdecl*)(size_t))0x53b070)(0x23a);
+        uint8_t* o = (uint8_t*)crt::operator_new(0x23a);
         if (o) {
             NamedObj_Construct(o);
             *(uint32_t*)o = 0x5cfd00;
@@ -598,7 +594,7 @@ void __fastcall Group_ReplaceModel(uint8_t* g, int, const char* model) {
         Obj_MoveTo(o, 0, *(float*)&x, *(float*)&y, *(float*)&z);
         return;
     }
-    uint8_t* o = (uint8_t*)((void*(__cdecl*)(size_t))0x53b070)(0x23a);
+    uint8_t* o = (uint8_t*)crt::operator_new(0x23a);
     if (o) {
         NamedObj_Construct(o);
         *(uint32_t*)o = 0x5cfd00;
@@ -760,7 +756,7 @@ RT3_NOINLINE float __fastcall Vehicle_Tilt(uint8_t* o, int, int32_t absolute) {
     float v = (float)((double)k.a[1] - k.c[1]);
     v = (float)((double)v * *(const double*)0x5cfd88);
     if (!absolute) return v;
-    return (float)((double(__cdecl*)(double))0x5a152e)(v);
+    return (float)crt::fabs(v);
 }
 RT3_REPLACE(0x48a790, Vehicle_Tilt);
 
@@ -770,7 +766,7 @@ RT3_NOINLINE void __fastcall Track_ColorSlope(uint8_t* o) {
     Effect_GetVectors(o, 0, a, b, c, d);
     float h = (float)((double)*(float*)&a[1] - *(float*)&c[1]);
     h = (float)(h * D(0x5cfd88));
-    h = (float)((double(__cdecl*)(double))0x5a152e)(h);
+    h = (float)crt::fabs(h);
     float t = (float)(D(0x5c8770) - (double)h * Fl(0x5c8c28) / D(0x5c8610));
     Obj_SetRgbValue(o, 0, HeatColor(t) | 0xff000000);
 }
@@ -905,10 +901,10 @@ RT3_NOINLINE int32_t __fastcall Track_BuildCost(uint8_t* t, int, uint32_t compan
         float h = Obj_MidAboveGround(t);
         h = (float)((double)h - Fl_205(0x5c8900));
         if (h < Fl_205(0x5c8598)) h = 0.0f;
-        float p1 = (float)CrtPow(h, 1.2);
+        float p1 = (float)crt::pow(h, 1.2);
         float tilt = Vehicle_Tilt(t, 0, 1);
         float lk = (float)((double)tilt * Fl_205(0x5c8c28));
-        float p2 = (float)CrtPow(lk, 1.13);
+        float p2 = (float)crt::pow(lk, 1.13);
         float base = (float)Ftol((double)p1 * f3e * Fl_205(0x5c8c28) + Fl_205(0x5c86a0));
         cost = Ftol((double)p2 * f3e * Fl_205(0x5ca068) + base);
         break;
@@ -1174,7 +1170,7 @@ float __fastcall Vehicle_Heading(uint8_t* o, int, int32_t forward) {
     Effect_GetVectors(o, 0, (uint32_t*)k.a, nullptr, nullptr, (uint32_t*)k.d);
     float dx = (float)((double)k.a[0] - k.d[0]);
     if (dx == *(const float*)0x5c8598) *(uint32_t*)&dx = 0xb8d1b717;
-    float a = (float)Atan(((double)k.a[2] - k.d[2]) / dx);
+    float a = (float)crt::atan(((double)k.a[2] - k.d[2]) / dx);
     const double pi = *(const double*)0x5c96a8;
     if (k.d[0] < k.a[0]) a = (float)((double)a + pi);
     if (!forward) a = (float)((double)a + pi);
@@ -1188,7 +1184,7 @@ RT3_NOINLINE float __fastcall Vehicle_ScreenHeading(uint8_t* o, int, int32_t for
     Effect_GetVectors(o, 0, (uint32_t*)k.a, nullptr, nullptr, (uint32_t*)k.d);
     float dx = (float)((double)k.a[0] - k.d[0]);
     if (dx == *(const float*)0x5c8598) *(uint32_t*)&dx = 0xb8d1b717;
-    float a = (float)(Atan(((double)k.a[2] - k.d[2]) / dx) + *(const double*)0x5c96f0);
+    float a = (float)(crt::atan(((double)k.a[2] - k.d[2]) / dx) + *(const double*)0x5c96f0);
     a = (float)(*(const double*)0x5cfda0 - a);
     const double pi = *(const double*)0x5c96a8;
     if (k.d[0] < k.a[0]) a = (float)((double)a + pi);
@@ -1210,8 +1206,8 @@ float __fastcall Vehicle_Pitch(uint8_t* o, int, int32_t forward) {
     float ry = (float)(((double)k.d[1] + k.c[1]) / half);
     float dist = (float)Distance2D(fx, fz, rx, rz);
     if ((double)dist == *(const double*)0x5c8608) return *(const float*)0x5c8598;
-    if (forward) return (float)Atan(((double)ry - fy) / dist);
-    return (float)Atan(((double)fy - ry) / dist);
+    if (forward) return (float)crt::atan(((double)ry - fy) / dist);
+    return (float)crt::atan(((double)fy - ry) / dist);
 }
 RT3_REPLACE(0x48bc50, Vehicle_Pitch);
 
@@ -1415,7 +1411,7 @@ RT3_NOINLINE int32_t __fastcall Track_InfoText(uint8_t* t, int, char* dst, int32
     if (F<int32_t>(opts, 0x293)) {
         Num_Format(text, 8, (double)F<int32_t>(t, 0x226), 10, 1, 0, 0);
         char tmp[0x40];
-        ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)(tmp, (const char*)0x5cfdd0, (int32_t)(int8_t)t[0x219]);
+        crt::sprintf(tmp, (const char*)0x5cfdd0, (int32_t)(int8_t)t[0x219]);
         strcat(text, tmp);
         return done();
     }
@@ -1531,7 +1527,7 @@ RT3_NOINLINE int32_t __fastcall Track_LoadModels(uint8_t* t, int, int32_t s) {
     int32_t selSlot = s;
     if (F<int32_t>(g_world, 0x46c34) >= 0x2535) StreamRead(s, &selSlot, 1, 0, 1);
     for (int32_t i = 0; i < count; ++i) {
-        uint8_t* mem = ((uint8_t*(__cdecl*)(size_t))0x53b070)(0x23a);
+        uint8_t* mem = ((uint8_t*)crt::operator_new(0x23a));
         uint8_t* m = nullptr;
         if (mem) {
             NamedObj_Construct(mem);
@@ -1543,7 +1539,7 @@ RT3_NOINLINE int32_t __fastcall Track_LoadModels(uint8_t* t, int, int32_t s) {
             SceneObj_Teardown(m);
             if (m) {
                 NamedObj_Destructor(m);
-                ((void(__cdecl*)(void*))0x53b080)(m);
+                crt::operator_delete(m);
             }
         } else {
             uint32_t px, py, pz, aa, ab, ac;
@@ -1597,7 +1593,7 @@ void __fastcall Track_ClearModels(uint8_t* t, int, int32_t keepSelected) {
         if (!keepSelected && v == sel) F<void*>(t, 0x248) = nullptr;
         SceneObj_Teardown(v);
         NamedObj_Destructor(v);
-        ((void(__cdecl*)(void*))0x53b080)(v);
+        crt::operator_delete(v);
         PtrList_RemoveCurrent(F<PtrList*>(t, 8));
         v = (uint8_t*)PtrList_Next(F<PtrList*>(t, 8));
     }
@@ -1609,7 +1605,7 @@ void __fastcall Track_ClearModels(uint8_t* t, int, int32_t keepSelected) {
     PtrList_Clear(F<PtrList*>(t, 8));
     if (PtrList* d = F<PtrList*>(t, 8)) {
         PtrList_Destroy(d);
-        ((void(__cdecl*)(void*))0x53b080)(d);
+        crt::operator_delete(d);
     }
     F<void*>(t, 8) = nullptr;
 }
@@ -1909,7 +1905,7 @@ RT3_NOINLINE int32_t __fastcall Track_DropModel(uint8_t* t) {
         F<void*>(t, 0x248) = nullptr;
         SceneObj_Teardown(m);
         NamedObj_Destructor(m);
-        ((void(__cdecl*)(void*))0x53b080)(m);
+        crt::operator_delete(m);
         PtrList_RemoveCurrent(F<PtrList*>(t, 8));
         found = 1;
     }
@@ -1918,7 +1914,7 @@ RT3_NOINLINE int32_t __fastcall Track_DropModel(uint8_t* t) {
     PtrList_Clear(l);
     if (PtrList* d = F<PtrList*>(t, 8)) {
         PtrList_Destroy(d);
-        ((void(__cdecl*)(void*))0x53b080)(d);
+        crt::operator_delete(d);
     }
     F<void*>(t, 8) = nullptr;
     return found;
@@ -2293,7 +2289,7 @@ RT3_NOINLINE void __fastcall Track_SetMode(uint8_t* t, int, int32_t kind, const 
         t[0x201] |= 0xc;
     }
     if (!model) return;
-    uint8_t* o = (uint8_t*)((void*(__cdecl*)(size_t))0x53b070)(0x23a);
+    uint8_t* o = (uint8_t*)crt::operator_new(0x23a);
     if (o) {
         NamedObj_Construct(o);
         F<uint32_t>(o, 0) = 0x5cfd00;
@@ -2311,8 +2307,8 @@ RT3_REPLACE(0x490960, Track_SetMode);
 void __fastcall Track_InitRotated(uint8_t* t, int, int32_t id, int32_t group, float cx, float cy, float angle, int32_t kind,
                                   int32_t owner, int32_t style) {
     angle = -angle;
-    float c = (float)((double(__cdecl*)(double))0x5a13e4)((double)angle);
-    float s = (float)((double(__cdecl*)(double))0x5a1494)((double)angle);
+    float c = (float)crt::sin((double)angle);
+    float s = (float)crt::cos((double)angle);
     double s1 = (double)s * D(0x5cfde0), c1 = (double)c * D(0x5cfde0);
     double c2 = (double)c * D(0x5c97d8), s2 = (double)s * D(0x5c97d8);
     float x0 = (float)((s1 - c1) + cx), z0 = (float)((c1 + s1) + cy);
@@ -2402,8 +2398,8 @@ RT3_REPLACE(0x490bf0, Track_Remove);
 // The original leaves the corner heights uninitialized (zero here): the drop
 // overwrites them before anything reads them.
 void __fastcall Track_PlaceRotated(uint8_t* t, int, float cx, float cy, float angle) {
-    float c = (float)((double(__cdecl*)(double))0x5a13e4)((double)angle);
-    float s = (float)((double(__cdecl*)(double))0x5a1494)((double)angle);
+    float c = (float)crt::sin((double)angle);
+    float s = (float)crt::cos((double)angle);
     Engine_Get1C(hook::As<void*>(g_engine));
     double s1 = (double)s * D(0x5cfde0), c1 = (double)c * D(0x5cfde0);
     double c2 = (double)c * D(0x5c97d8), s2 = (double)s * D(0x5c97d8);
@@ -2457,7 +2453,7 @@ RT3_NOINLINE void __fastcall Track_AddCatenary(uint8_t* t, int, int32_t side) {
     else
         left = side;
     char model[0x30];
-    ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)(model, (const char*)0x5cfde8, left ? 0x4c : 0x52, t[0x218] != 4 ? 0x53 : 0x44);
+    crt::sprintf(model, (const char*)0x5cfde8, left ? 0x4c : 0x52, t[0x218] != 4 ? 0x53 : 0x44);
     float y = (float)(((((double)F<float>(t, 0x30) + F<float>(t, 0x24)) + F<float>(t, 0x3c)) + F<float>(t, 0x18)) / D(0x5c87b8) - D(0x5c8770));
     y = (float)(((double)F<float>(t, 0x18) - F<float>(t, 0x3c)) * D(0x5c8628) + y);
     float a = (float)((double)Vehicle_ScreenHeading(t, 0, 1) + Fl_207(0x5c8760));
@@ -2518,7 +2514,7 @@ RT3_NOINLINE void __fastcall Track_PopUndo(uint8_t* t) {
     else if (F<void*>(t, 0x248)) Track_DropModel(t);
     Track_BuildGeometry(t);
     if (t[0x216] && Node_IsRouteEnd(t)) Routes_TryMergeAt(g_routes, 0, F<uint32_t>(t, 0x212));
-    Free(rec);
+    crt::free(rec);
 }
 RT3_REPLACE(0x4912d0, Track_PopUndo);
 
@@ -2620,7 +2616,7 @@ RT3_NOINLINE Collection* __fastcall Tracks_Construct(Collection* c, int, int32_t
     F<uint32_t>(c, 0x206) = 0xbf800000;  // -1.0f
     for (int k = 0; k < 13; ++k) F<uint8_t>(c, 0x10b + k) = 0;
     F<int32_t>(c, 0x8c) = 0;
-    uint8_t* cols = (uint8_t*)Malloc(columns * 4);
+    uint8_t* cols = (uint8_t*)crt::malloc(columns * 4);
     F<uint8_t*>(c, 0x8c) = cols;
     for (int32_t k = 0; k < columns * 4; ++k) cols[k] = 0;
     return c;
@@ -2701,11 +2697,11 @@ RT3_NOINLINE void __fastcall Grid_AddObject(uint8_t* g, int, uint8_t* t) {
     uint16_t iy = (uint16_t)(int32_t)fy;
     uint8_t** column = &F<uint8_t**>(g, 0x8c)[(uint16_t)ix];
     uint8_t* cur = *column;
-    uint32_t* node = (uint32_t*)ExeNew(8);
+    uint32_t* node = (uint32_t*)crt::operator_new(8);
     node[0] = F<uint32_t>(t, 0x202);
     node[1] = 0;
     if (!*column) {
-        uint8_t* c = (uint8_t*)ExeNew(10);
+        uint8_t* c = (uint8_t*)crt::operator_new(10);
         *column = c;
         F<uint16_t>(*column, 0) = iy;
         F<uint32_t>(*column, 6) = 0;
@@ -2726,7 +2722,7 @@ RT3_NOINLINE void __fastcall Grid_AddObject(uint8_t* g, int, uint8_t* t) {
             return;
         }
         if (y > iy) {
-            uint8_t* c = (uint8_t*)ExeNew(10);
+            uint8_t* c = (uint8_t*)crt::operator_new(10);
             F<uint32_t*>(c, 2) = node;
             F<uint16_t>(c, 0) = iy;
             F<uint8_t*>(c, 6) = cur;
@@ -2735,7 +2731,7 @@ RT3_NOINLINE void __fastcall Grid_AddObject(uint8_t* g, int, uint8_t* t) {
             return;
         }
     }
-    uint8_t* c = (uint8_t*)ExeNew(10);
+    uint8_t* c = (uint8_t*)crt::operator_new(10);
     F<uint32_t*>(c, 2) = node;
     F<uint16_t>(c, 0) = iy;
     F<uint32_t>(c, 6) = 0;
@@ -2762,7 +2758,7 @@ RT3_NOINLINE int32_t __fastcall Map_RemoveTrackRef(uint8_t* o, int, uint8_t* t) 
         if (F<int32_t>(n, 0) != F<int32_t>(t, 0x202)) continue;
         if (prev) F<uint8_t*>(prev, 4) = F<uint8_t*>(n, 4);
         else F<uint8_t*>(e, 2) = F<uint8_t*>(n, 4);
-        ((void(__cdecl*)(void*))0x53b080)(n);
+        crt::operator_delete(n);
         return 1;
     }
     return 0;
@@ -2773,7 +2769,7 @@ RT3_REPLACE(0x491fd0, Map_RemoveTrackRef);
 // +6 next, +2 sub-list with +4 next), then the column array.
 RT3_NOINLINE void __fastcall Obj_FreeColumns(uint8_t* o) {
     int32_t w = F<int32_t>(g_map, 0x2155);
-    auto free53b = [](void* p) { ((void(__cdecl*)(void*))0x53b080)(p); };
+    auto free53b = [](void* p) { crt::operator_delete(p); };
     for (int32_t i = 0; i < w; ++i) {
         for (uint8_t* e = F<uint8_t**>(o, 0x8c)[i]; e; ) {
             uint8_t* next = F<uint8_t*>(e, 6);
@@ -2787,7 +2783,7 @@ RT3_NOINLINE void __fastcall Obj_FreeColumns(uint8_t* o) {
         }
         F<uint8_t**>(o, 0x8c)[i] = nullptr;
     }
-    Free(F<void*>(o, 0x8c));
+    crt::free(F<void*>(o, 0x8c));
     F<void*>(o, 0x8c) = nullptr;
 }
 RT3_REPLACE(0x492090, Obj_FreeColumns);
@@ -2824,7 +2820,7 @@ int32_t __fastcall Grid_NearestNode(Collection* g, int, float px, float py, int3
         if (id != exclude) {
             if (!Collection_IsValid(g, 0, (uint32_t)id)) {
                 F<uint32_t*>(e, 2) = (uint32_t*)F<uint32_t*>(e, 2)[1];
-                Free(n);
+                crt::free(n);
                 n = F<uint32_t*>(e, 2);
                 if (!n) break;
                 continue;
@@ -2876,7 +2872,7 @@ void __fastcall Nodes_RemarkAround(Collection* nodes, int, int32_t fx, int32_t f
                     if (n == F<uint32_t*>(e, 2)) F<uint32_t*>(e, 2) = (uint32_t*)n[1];
                     uint32_t* dead = n;
                     n = (uint32_t*)n[1];
-                    ((void(__cdecl*)(void*))0x53b080)(dead);
+                    crt::operator_delete(dead);
                 }
             }
         }

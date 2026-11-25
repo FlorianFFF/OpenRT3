@@ -14,6 +14,7 @@
 #include "core/ptrlist.h"
 #include "core/containers.h"
 #include "core/crt.h"
+#include "core/imports.h"
 #include "game/calendar.h"
 
 #undef near
@@ -115,7 +116,6 @@ RT3_NOINLINE char* __fastcall Num_Format(char* buf, int32_t style, double v, int
 RT3_NOINLINE void __fastcall Pack_Release(uint8_t* pack, int, void* obj);
 RT3_NOINLINE int32_t __fastcall Window_SendEvent5(uint8_t* w, int, uint32_t type, uint32_t id, uint32_t a, uint32_t b, uint32_t c);
 
-static inline void ExeDelete(void* p) { ((void(__cdecl*)(void*))0x53b080)(p); }
 
 static inline double D(uint32_t a) { return *(const double*)a; }
 
@@ -137,7 +137,7 @@ char* ShellCommand476(int32_t kind, const char* target) {
 // Opens target (the readme with kind 1, a web page with 0) or shows `fail`.
 int32_t Open476(int32_t kind, const char* target, uint32_t fail) {
     if (char* cmd = ShellCommand476(kind, target))
-        hook::Global<uint32_t(__stdcall*)(const char*, uint32_t)>(0x5c8088)(cmd, 1);
+        imp::WinExec(cmd, 1);
     else
         Message476(GetString(fail));
     return 0;
@@ -177,7 +177,7 @@ RT3_ONOFF(0x5021c0, Setup_Choice23bCb, g_6d14a8, 0x23b, 0x23f)
 RT3_NOINLINE void __fastcall ScenarioPanel_Update(uint8_t* d, int, const char* path, const char* name, int32_t force) {
     uint8_t* g = g_newGame;
     if (path) {
-        if (!force && g[0x10] && !Stricmp((const char*)g + 0x11, path)) return;
+        if (!force && g[0x10] && !crt::stricmp((const char*)g + 0x11, path)) return;
         g_newGame[0x10] = 1;
         StrCopyN((char*)g_newGame + 0x11, path, 0x32);
         StrCopyN((char*)g_newGame + 0x44, name, 0x32);
@@ -251,10 +251,10 @@ void __fastcall Setup_Destruct(uint8_t* w) {
     hook::As<void*>(g_6d14b4) = nullptr;
     if (void* o = hook::As<void*>(g_6d14b8)) {
         Obj_FreeBuffer8(o);
-        ExeDelete(o);
+        crt::operator_delete(o);
     }
     hook::As<void*>(g_6d14b8) = nullptr;
-    if (void* p = hook::As<void*>(g_6d14bc)) Free(p);
+    if (void* p = hook::As<void*>(g_6d14bc)) crt::free(p);
     hook::As<void*>(g_6d14bc) = nullptr;
     hook::As<int32_t>(g_6d14c0) = 0;
     Widget_SetVtbl(w);
@@ -280,10 +280,10 @@ RT3_NOINLINE void __fastcall ScenarioList_Fill(uint8_t* d) {
     Window_SendEvent5(d, 0, 0x8b, id, 0, 0, 0);
     for (int32_t i = 0; i < F<int32_t>(g_6d14b8, 0); ++i) {
         Window_SendEvent5(d, 0, 0x88, id, (uint32_t)(uintptr_t)(F<uint8_t*>(g_6d14b8, 8) + i * 0x25a + 0x12d), 0, 0);
-        if (!Stricmp((const char*)F<uint8_t*>(g_6d14b8, 8) + i * 0x25a + 0x12d, (const char*)g_newGame + 0x44))
+        if (!crt::stricmp((const char*)F<uint8_t*>(g_6d14b8, 8) + i * 0x25a + 0x12d, (const char*)g_newGame + 0x44))
             Window_SendEvent5(d, 0, 0x66, id, (uint32_t)i, 0, 0);
         for (uint32_t p = 0x622a98; p < 0x622acc; p += 4)
-            if (!Stricmp((const char*)F<uint8_t*>(g_6d14b8, 8) + i * 0x25a, hook::Global<const char*>(p)))
+            if (!crt::stricmp((const char*)F<uint8_t*>(g_6d14b8, 8) + i * 0x25a, hook::Global<const char*>(p)))
                 Window_SendEvent5(d, 0, 0xaf, id, (uint32_t)i, 0xffcfcfff, 0);
     }
     uint8_t* g = g_newGame;
@@ -395,7 +395,7 @@ RT3_NOINLINE void __fastcall SetupScreen_SetMode(uint8_t* s, int, int32_t mode) 
     if (m != 3 && m != 4 && m != 5 && m != 9 && m != 0xa && m != 6 && m != 0xc && m != 0xe) {
         if (uint8_t* list = g_6d14b8) {
             Obj_FreeBuffer8(list);
-            ((void(__cdecl*)(void*))0x53b080)(list);
+            crt::operator_delete(list);
         }
         g_6d14b8 = nullptr;
     } else if (!g_6d14b8) {
@@ -405,12 +405,12 @@ RT3_NOINLINE void __fastcall SetupScreen_SetMode(uint8_t* s, int, int32_t mode) 
         if (m == 6) kind = 8;
         if (m == 0xc) kind = 10;
         if (m == 0xe) kind = 9;
-        uint8_t* list = (uint8_t*)((void*(__cdecl*)(size_t))0x53b070)(0xc);
+        uint8_t* list = (uint8_t*)crt::operator_new(0xc);
         list = list ? SaveList_Init(list, 0, kind) : nullptr;
         g_6d14b8 = list;
         if (F<int32_t>(list, 0) > 0) {
             int32_t pick = 1;
-            if (!((int(__cdecl*)(const char*, const char*, size_t))0x5a5f26)((const char*)0x5d1670, F<const char*>(list, 8), 3) &&
+            if (!crt::strnicmp((const char*)0x5d1670, F<const char*>(list, 8), 3) &&
                 F<int32_t>(g_6d14b8, 0) > 1)
                 pick = 2;
             g_newGame[0x10] = 1;
@@ -527,7 +527,7 @@ int32_t __fastcall SetupScreen_HandleEvent(uint8_t* s, int, uint32_t* msg) {
         g_6d14a0 = (r + g_6d14a0 + 4) * 3;
         g_6d14a0 += Rand(0, 2);
         if (g_6d14a0 & 1) g_6d14a4 = 1;
-        if (!g_622a20) ((void(__cdecl*)(int))0x5a2e9c)(0);
+        if (!g_622a20) crt::exit(0);
         break;
     }
     case 0xce: {

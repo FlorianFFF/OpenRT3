@@ -24,6 +24,8 @@
 
 namespace rt3 {
 
+void __fastcall Events_Fire(Collection* events, int, uint32_t trigger, char* out, int32_t outSize);
+
 template <typename T> static inline T& F(void* o, uint32_t off) { return *(T*)((uint8_t*)o + off); }
 void __fastcall Obj_DecA4(uint8_t* o);
 void __fastcall Obj_DecAc(uint8_t* o);
@@ -357,7 +359,6 @@ int32_t __fastcall Route_FindPlain(Collection* routes, int, int32_t cur, int32_t
 void __fastcall Routes_NumberComponents(Collection* c);
 RT3_NOINLINE void __fastcall Routes_TryMergeAt(Collection* t, int, uint32_t id);
 
-static inline void Free53(void* p) { ((void(__cdecl*)(void*))0x53b080)(p); }
 
 // 0x4955b0. 1 if mode == 1, or +0x1e1 != -1 and kind +0x1fd == 3; else 4. (AL only.)
 static uint8_t __fastcall Obj_Mode1Or4_Impl(void* o, int, int32_t mode) {
@@ -407,7 +408,6 @@ static inline float Fl(uint32_t a) { return *(const float*)a; }
 
 static inline double Bits(uint64_t u) { return *(double*)&u; }
 
-static inline double Fabs(double x) { return ((double(__cdecl*)(double))0x5a152e)(x); }
 
 static inline int32_t Ftol(double v) {
     int32_t r;
@@ -442,8 +442,6 @@ static inline void Visit(Collection* c, uint32_t g, int32_t comp) {
 }
 
 namespace {
-inline void* CrtAlloc(size_t n) { return ((void*(__cdecl*)(size_t))0x5a125d)(n); }
-inline void CrtRelease(void* p) { ((void(__cdecl*)(void*))0x5a1145)(p); }
 inline uint8_t* Piece(Collection* c, uint32_t id) { return (uint8_t*)Collection_Get(c, 0, id); }
 inline uint8_t* Tracks() { return hook::As<uint8_t*>(g_tracks); }
 // Track_Reshape through its register-keeping entry.
@@ -467,25 +465,18 @@ inline void GetCorners(uint8_t* t, Corners* k) {
 
 static inline double Fl_198(uint32_t a) { return *(const float*)a; }
 
-static inline double ExeCos(double v) { return ((double(__cdecl*)(double))0x5a13e4)(v); }
 
-static inline double ExeSin(double v) { return ((double(__cdecl*)(double))0x5a1494)(v); }
 
 static inline double Fl_205(uint32_t a) { return *(const float*)a; }
 
-static inline void* ExeNew(size_t n) { return ((void*(__cdecl*)(size_t))0x53b070)(n); }
 
-static inline void ExeDelete(void* p) { ((void(__cdecl*)(void*))0x53b080)(p); }
 
 static inline float BitsF(uint32_t b) { return *(float*)&b; }
 
 static inline uint32_t FBits(float f) { return *(uint32_t*)&f; }
 
-static inline double Cos(double v) { return ((double(__cdecl*)(double))0x5a13e4)(v); }
 
-static inline double Sin(double v) { return ((double(__cdecl*)(double))0x5a1494)(v); }
 
-static inline double Atan(double v) { return ((double(__cdecl*)(double))0x5a1270)(v); }
 
 // Probe steps along a leg: one per 0.362 of distance, plus one.
 static inline float LegSteps(float x0, float y0, float x1, float y1) {
@@ -534,7 +525,6 @@ static void RoutePlain_Link(Collection* routes, uint8_t* nd, int32_t id, bool ch
     r = Route_FindPlain(routes, 0, id, target, &newCost, cur, needFlag, company, &newForeign, anyTrack);
 }
 
-static inline double CrtFabs(double v) { return ((double(__cdecl*)(double))0x5a152e)(v); }
 
 static inline double Fl_207(uint32_t a) { return *(const float*)a; }
 
@@ -642,10 +632,6 @@ struct BuildFrame {
     uint8_t& u8(uint32_t o) { return b[o]; }
     uint32_t* p(uint32_t o) { return (uint32_t*)(b + o); }
 };
-inline double BlCos(double x) { return ((double(__cdecl*)(double))0x5a13e4)(x); }
-inline double BlSin(double x) { return ((double(__cdecl*)(double))0x5a1494)(x); }
-inline double BlAbs(double x) { return ((double(__cdecl*)(double))0x5a152e)(x); }
-inline double BlAtan(double x) { return ((double(__cdecl*)(double))0x5a1270)(x); }
 inline float BlCell(float v) { return (float)((double)v / Fl_207(0x5c8700)); }
 inline uint32_t BlBits(float v) { return *(uint32_t*)&v; }
 inline uint8_t* BlTrack(Collection* c, int32_t id) { return (uint8_t*)Collection_Get(c, 0, (uint32_t)id); }
@@ -671,8 +657,7 @@ static void Method(uint32_t address, void* self) {
 }
 
 static void Notify(void* manager, uint32_t type) {
-    hook::Orig<void(__fastcall*)(void*, int, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t)>(0x538e00)(
-        manager, 0, type, 0x808, 0, 0, 0);
+    Ui_SendEvent5((uint8_t**)(manager), 0, type, 0x808, 0, 0, 0);
 }
 
 // 0x4941a0. Track piece table: deletes piece id. With `refund`, a company
@@ -1066,8 +1051,8 @@ RT3_NOINLINE float __stdcall Map_SlopeBetween(float ax0, float ay0, float ax1, f
     float h1 = (float)Terrain_HeightAt(Map(), 0, p0, p1);
     float h2 = (float)Terrain_HeightAt(Map(), 0, p2, p3);
     if ((double)dist == *(const double*)0x5c8608) return *(const float*)0x5c8598;
-    double a = ((double(__cdecl*)(double))0x5a1270)(((double)h2 - h1) / dist);
-    return (float)((double(__cdecl*)(double))0x5a152e)(a);
+    double a = crt::atan(((double)h2 - h1) / dist);
+    return (float)crt::fabs(a);
 }
 RT3_REPLACE(0x4951f0, Map_SlopeBetween);
 
@@ -1075,7 +1060,7 @@ RT3_REPLACE(0x4951f0, Map_SlopeBetween);
 // (x0, y0) via atan; returned unrounded.
 RT3_NOINLINE double __stdcall AngleOf(float x0, float y0, float x1, float y1) {
     if (x0 == x1) return y0 > y1 ? (float)4.71238898038 : (float)1.5707963267948966;
-    float a = (float)((double(__cdecl*)(double))0x5a1270)(((double)y0 - y1) / ((double)x0 - x1));
+    float a = (float)crt::atan(((double)y0 - y1) / ((double)x0 - x1));
     if (x0 > x1) return (double)a + *(const float*)0x5c8760;
     if (y0 > y1) return (double)a + *(const float*)0x5c8768;
     return a;
@@ -1149,7 +1134,7 @@ RT3_NOINLINE void __fastcall Obj_FreeList1c9(void* o) {
     uint8_t*& head = F<uint8_t*>(o, 0x1c9);
     for (uint8_t* n = head; n;) {
         uint8_t* next = *(uint8_t**)(n + 8);
-        Free53(head);
+        crt::operator_delete(head);
         head = next;
         n = next;
     }
@@ -1245,14 +1230,13 @@ RT3_NOINLINE void __fastcall TrackNet_MarkOverpasses(Collection* net, int, int32
                     Track_PairWith(p, 0, other, 1);
                     return;
                 }
-                auto fabs_ = (double(__cdecl*)(double))0x5a152e;
                 float hp = Vehicle_ScreenHeading(p, 0, 1);
                 float hq = Vehicle_ScreenHeading(q, 0, 1);
-                bool parallel = fabs_(AngleDelta(nullptr, 0, hq, hp)) < D(0x5c8880);
+                bool parallel = crt::fabs(AngleDelta(nullptr, 0, hq, hp)) < D(0x5c8880);
                 if (!parallel) {
                     hp = Vehicle_ScreenHeading(p, 0, 0);
                     hq = Vehicle_ScreenHeading(q, 0, 1);
-                    parallel = fabs_(AngleDelta(nullptr, 0, hq, hp)) < D(0x5c8880);
+                    parallel = crt::fabs(AngleDelta(nullptr, 0, hq, hp)) < D(0x5c8880);
                 }
                 if (parallel) {
                     float y = Obj_CenterCellY(p);
@@ -1461,16 +1445,16 @@ RT3_NOINLINE void __fastcall Track_SmoothHeights(Collection* tracks, int, uint32
         }
         if (pass == 0) {
             if (count <= 2) return;
-            chain = (uint8_t**)CrtAlloc(count * 4 - 4);
+            chain = (uint8_t**)crt::malloc(count * 4 - 4);
         }
     }
     int32_t n1 = count - 1;
     float* h[9];
-    for (int k = 0; k < 9; ++k) h[k] = (float*)CrtAlloc(count * 4);
-    uint8_t* locked = (uint8_t*)CrtAlloc(count);
-    float* avg = (float*)CrtAlloc(count * 4);
-    float* weight = (float*)CrtAlloc(count * 4);
-    uint8_t* forward = (uint8_t*)CrtAlloc(count);
+    for (int k = 0; k < 9; ++k) h[k] = (float*)crt::malloc(count * 4);
+    uint8_t* locked = (uint8_t*)crt::malloc(count);
+    float* avg = (float*)crt::malloc(count * 4);
+    float* weight = (float*)crt::malloc(count * 4);
+    uint8_t* forward = (uint8_t*)crt::malloc(count);
     memset(locked, 0, count);
     for (int32_t k = 0; k < count; ++k) *(uint32_t*)&weight[k] = 0x3f800000;
     for (int32_t i = 0; i < n1; ++i) {
@@ -1730,12 +1714,12 @@ RT3_NOINLINE void __fastcall Track_SmoothHeights(Collection* tracks, int, uint32
         auto live = [&](int32_t j) { return weight[j] > 0.0f || weight[j] != weight[j]; };
         if (live(i) || live(i + 1) || (i != 0 && live(i - 1)) || (i != n1 - 1 && live(i + 2))) Node_UpdateLightFromNeighbors(c);
     }
-    for (int k2 = 0; k2 < 9; ++k2) CrtRelease(h[k2]);
-    CrtRelease(forward);
-    CrtRelease(weight);
-    CrtRelease(locked);
-    CrtRelease(avg);
-    CrtRelease(chain);
+    for (int k2 = 0; k2 < 9; ++k2) crt::free(h[k2]);
+    crt::free(forward);
+    crt::free(weight);
+    crt::free(locked);
+    crt::free(avg);
+    crt::free(chain);
 }
 RT3_REPLACE(0x496070, Track_SmoothHeights);
 
@@ -1823,9 +1807,9 @@ RT3_REPLACE(0x497f80, Tracks_SettleGroup);
 // off water, sampled every tenth of a tile along the major axis.
 RT3_NOINLINE int32_t __stdcall Map_LineOnLand(float x0, float z0, float x1, float z1) {
     float dx = (float)((double)x1 - x0), dz = (float)((double)z1 - z0);
-    double major = Fabs(Fabs(dz) < Fabs(dx) ? dx : dz);
+    double major = crt::fabs(crt::fabs(dz) < crt::fabs(dx) ? dx : dz);
     int32_t n = Ftol(major / D(0x5c86b8));
-    float slope = x1 == x0 ? 1e8f : (float)Fabs((double)dz / dx);
+    float slope = x1 == x0 ? 1e8f : (float)crt::fabs((double)dz / dx);
     float sx, sz;
     if (slope < D(0x5c8770)) {
         sx = (float)(x1 > x0 ? Bits(0x3fb999999999999aull) : Bits(0xbfb999999999999aull));
@@ -1858,13 +1842,7 @@ RT3_REPLACE(0x4980c0, Map_LineOnLand);
 // then freed); 1 otherwise, also when no curve is needed.
 RT3_NOINLINE int32_t __fastcall Track_PlanCurve(uint8_t* t, int, uint32_t aId, uint32_t bId, uint32_t p4, uint32_t p5, uint32_t** out) {
     if (aId == bId) return 1;
-    auto sin_ = (double(__cdecl*)(double))0x5a1494;
-    auto cos_ = (double(__cdecl*)(double))0x5a13e4;
-    auto atan_ = (double(__cdecl*)(double))0x5a1270;
-    auto fabs_ = (double(__cdecl*)(double))0x5a152e;
     auto asin_ = (double(__cdecl*)(double))0x5a2f84;
-    auto malloc_ = (void*(__cdecl*)(size_t))0x5a125d;
-    auto free_ = (void(__cdecl*)(void*))0x5a1145;
     int32_t pass = 0;
     uint32_t* prev = nullptr;
     float r = BitsF(0x4067ae14u);
@@ -1924,18 +1902,18 @@ RT3_NOINLINE int32_t __fastcall Track_PlanCurve(uint8_t* t, int, uint32_t aId, u
             bool gt = ((double)cx - bx) * m + bz > cz;
             angB = below == gt ? (float)AngleOf(q0x, q0z, q1x, q1z) : (float)AngleOf(q1x, q1z, q0x, q0z);
         }
-        float diff = (float)fabs_(AngleDelta(nullptr, 0, angA, angB));
+        float diff = (float)crt::fabs(AngleDelta(nullptr, 0, angA, angB));
         if (diff < D(0x5c88e8)) {
             float mid = (float)AngleOf((float)(((double)dirx + p0x) / Fl_205(0x5c878c)), (float)(((double)dirz + p0z) / Fl_205(0x5c878c)),
                                        (float)(((double)dqx + q0x) / Fl_205(0x5c878c)), (float)(((double)dqz + q0z) / Fl_205(0x5c878c)));
-            diff = (float)fabs_(AngleDelta(nullptr, 0, angA, mid));
+            diff = (float)crt::fabs(AngleDelta(nullptr, 0, angA, mid));
             if (diff < D(0x5c88e8)) return 1;
         }
         // Circle centres beside each end (left = -90 degrees, right = +90).
         auto side = [&](float ang, double off, float ox, float oz, float& x, float& z) {
             float a = (float)(ang + off);
-            x = (float)(sin_(a) * r + ox);
-            z = (float)(cos_(a) * r + oz);
+            x = (float)(crt::cos(a) * r + ox);
+            z = (float)(crt::sin(a) * r + oz);
         };
         float aLx, aLz, aRx, aRz, bLx, bLz, bRx, bRz;
         side(angA, -(double)Fl_205(0x5c8764), cx, cz, aLx, aLz);
@@ -1954,30 +1932,30 @@ RT3_NOINLINE int32_t __fastcall Track_PlanCurve(uint8_t* t, int, uint32_t aId, u
         float ang1 = (float)AngleOf(aLx, aLz, bLx, bLz), ang2 = (float)AngleOf(aRx, aRz, bRx, bRz);
         nz(s1);
         nz(s4);
-        float t1 = (float)atan_(D(0x5c9bf0) / s1), t2 = (float)atan_(D(0x5c9bf0) / s4);
+        float t1 = (float)crt::atan(D(0x5c9bf0) / s1), t2 = (float)crt::atan(D(0x5c9bf0) / s4);
         // Outer tangents: points r along the normal of the centre line.
         float T1sx, T1sz, T1ex, T1ez, T2sx, T2sz, T2ex, T2ez;
         if (ang1 < Fl_205(0x5c8760) && !(ang1 <= D(0x5c8608))) {
-            T1sx = (float)((double)aLx - sin_(t1) * r);
-            T1sz = (float)((double)aLz - cos_(t1) * r);
-            T1ex = (float)((double)bLx - sin_(t1) * r);
-            T1ez = (float)((double)bLz - cos_(t1) * r);
+            T1sx = (float)((double)aLx - crt::cos(t1) * r);
+            T1sz = (float)((double)aLz - crt::sin(t1) * r);
+            T1ex = (float)((double)bLx - crt::cos(t1) * r);
+            T1ez = (float)((double)bLz - crt::sin(t1) * r);
         } else {
-            T1sx = (float)(sin_(t1) * r + aLx);
-            T1sz = (float)(cos_(t1) * r + aLz);
-            T1ex = (float)(sin_(t1) * r + bLx);
-            T1ez = (float)(cos_(t1) * r + bLz);
+            T1sx = (float)(crt::cos(t1) * r + aLx);
+            T1sz = (float)(crt::sin(t1) * r + aLz);
+            T1ex = (float)(crt::cos(t1) * r + bLx);
+            T1ez = (float)(crt::sin(t1) * r + bLz);
         }
         if (ang2 < Fl_205(0x5c8760) && !(ang2 <= D(0x5c8608))) {
-            T2sx = (float)(sin_(t2) * r + aRx);
-            T2sz = (float)(cos_(t2) * r + aRz);
-            T2ex = (float)(sin_(t2) * r + bRx);
-            T2ez = (float)(cos_(t2) * r + bRz);
+            T2sx = (float)(crt::cos(t2) * r + aRx);
+            T2sz = (float)(crt::sin(t2) * r + aRz);
+            T2ex = (float)(crt::cos(t2) * r + bRx);
+            T2ez = (float)(crt::sin(t2) * r + bRz);
         } else {
-            T2sx = (float)((double)aRx - sin_(t2) * r);
-            T2sz = (float)((double)aRz - cos_(t2) * r);
-            T2ex = (float)((double)bRx - sin_(t2) * r);
-            T2ez = (float)((double)bRz - cos_(t2) * r);
+            T2sx = (float)((double)aRx - crt::cos(t2) * r);
+            T2sz = (float)((double)aRz - crt::sin(t2) * r);
+            T2ex = (float)((double)bRx - crt::cos(t2) * r);
+            T2ez = (float)((double)bRz - crt::sin(t2) * r);
         }
         float twoR = r + r;
         // Crossing tangents (left of A to right of B and back); x = -1 when
@@ -1989,27 +1967,27 @@ RT3_NOINLINE int32_t __fastcall Track_PlanCurve(uint8_t* t, int, uint32_t aId, u
             float dd = dLR;
             if (dd == Fl_205(0x5c8598)) dd = BitsF(0x38d1b717u);
             double as = asin_((double)twoR / dd);
-            float base = (float)(atan_(s3) + as);
+            float base = (float)(crt::atan(s3) + as);
             float other = (float)(base + Fl_205(0x5c8760));
             float sa = bRx < aLx ? other : base, ea = bRx < aLx ? base : other;
-            T3sx = (float)(sin_(sa) * r + aLx);
-            T3sz = (float)(cos_(sa) * r + aLz);
-            T3ex = (float)(sin_(ea) * r + bRx);
-            T3ez = (float)(cos_(ea) * r + bRz);
+            T3sx = (float)(crt::cos(sa) * r + aLx);
+            T3sz = (float)(crt::sin(sa) * r + aLz);
+            T3ex = (float)(crt::cos(ea) * r + bRx);
+            T3ez = (float)(crt::sin(ea) * r + bRz);
         }
         if (dRL < twoR)
             T4sx = -1.0f;
         else {
             float dd = dRL;
             if (dd == Fl_205(0x5c8598)) dd = BitsF(0x38d1b717u);
-            double at = atan_(s2);
+            double at = crt::atan(s2);
             float base = (float)(at - asin_((double)twoR / dd));
             float other = (float)(base + Fl_205(0x5c8760));
             float sa = bLx < aRx ? other : base, ea = bLx < aRx ? base : other;
-            T4sx = (float)(sin_(sa) * r + aRx);
-            T4sz = (float)(cos_(sa) * r + aRz);
-            T4ex = (float)(sin_(ea) * r + bLx);
-            T4ez = (float)(cos_(ea) * r + bLz);
+            T4sx = (float)(crt::cos(sa) * r + aRx);
+            T4sz = (float)(crt::sin(sa) * r + aRz);
+            T4ex = (float)(crt::cos(ea) * r + bLx);
+            T4ez = (float)(crt::sin(ea) * r + bLz);
         }
         // Arc lengths (as angles) on each circle, wrapped to [0, 2 pi).
         auto wrap = [](float v) { return v < D(0x5c8608) ? (float)(v + Fl_205(0x5c8768)) : v; };
@@ -2029,11 +2007,11 @@ RT3_NOINLINE int32_t __fastcall Track_PlanCurve(uint8_t* t, int, uint32_t aId, u
         float len2 = (float)(((double)bR2 * r + (double)aR2 * r) + dRR);
         float len3 = T3sx < D(0x5c8608) ? BitsF(0x4e6e6b28u) : (float)((Distance2D(T3sx, T3sz, T3ex, T3ez) + (double)bR3 * r) + (double)aL3 * r);
         float len4 = T4sx < D(0x5c8608) ? BitsF(0x4e6e6b28u) : (float)((Distance2D(T4sx, T4sz, T4ex, T4ez) + (double)bL4 * r) + (double)aR4 * r);
-        uint32_t* n1 = (uint32_t*)malloc_(0xc);
+        uint32_t* n1 = (uint32_t*)crt::malloc(0xc);
         *out = n1;
-        uint32_t* n2 = (uint32_t*)malloc_(0xc);
+        uint32_t* n2 = (uint32_t*)crt::malloc(0xc);
         n1[2] = (uint32_t)(uintptr_t)n2;
-        uint32_t* n3 = (uint32_t*)malloc_(0xc);
+        uint32_t* n3 = (uint32_t*)crt::malloc(0xc);
         n2[2] = (uint32_t)(uintptr_t)n3;
         n3[0] = p4;
         n3[1] = p5;
@@ -2057,7 +2035,7 @@ RT3_NOINLINE int32_t __fastcall Track_PlanCurve(uint8_t* t, int, uint32_t aId, u
         auto freeList = [&](uint32_t* l) {
             while (l) {
                 uint32_t* next = (uint32_t*)(uintptr_t)l[2];
-                free_(l);
+                crt::free(l);
                 l = next;
             }
         };
@@ -2099,9 +2077,6 @@ RT3_REPLACE(0x498320, Track_PlanCurve);
 // that pass does not walk; dropping a short piece releases a route
 // reference by the piece's id rather than its route's.
 RT3_NOINLINE void __fastcall TrackNet_SmoothJoin(Collection* net, int, int32_t from, int32_t to, int32_t mode, int32_t a4, int32_t a5, float maxTurn) {
-    auto fabs_ = (double(__cdecl*)(double))0x5a152e;
-    auto sin_ = (double(__cdecl*)(double))0x5a1494;
-    auto cos_ = (double(__cdecl*)(double))0x5a13e4;
     Collection* routes = g_routes;
     uint8_t mb = (uint8_t)mode;
     bool build = mb == 1 || mb == 2;
@@ -2150,8 +2125,8 @@ RT3_NOINLINE void __fastcall TrackNet_SmoothJoin(Collection* net, int, int32_t f
                     float ref = (float)AngleOf(m1x, m1y, m2x, m2y);
                     float t1 = (float)AngleOf(v84.f[0], v84.f[2], v78.f[0], v78.f[2]);
                     float t2 = (float)AngleOf(v84.f[0], v84.f[2], vc0.f[0], vc0.f[2]);
-                    double d2 = fabs_(AngleDelta(nullptr, 0, t2, ref));
-                    if (fabs_(AngleDelta(nullptr, 0, t1, ref)) > d2) SwapVec(v78, vc0);
+                    double d2 = crt::fabs(AngleDelta(nullptr, 0, t2, ref));
+                    if (crt::fabs(AngleDelta(nullptr, 0, t1, ref)) > d2) SwapVec(v78, vc0);
                     Tracks_MoveEnds(net, 0, F<uint32_t>(cur, 0x202), v78.u, vc0.u, nullptr, nullptr);
                 } else {
                     if (F<int32_t>(t, 0x206) == prevId) vb4 = b, v84 = a;
@@ -2161,8 +2136,8 @@ RT3_NOINLINE void __fastcall TrackNet_SmoothJoin(Collection* net, int, int32_t f
                     float ref = (float)AngleOf(m1x, m1y, m2x, m2y);
                     float t1 = (float)AngleOf(v78.f[0], v78.f[2], v84.f[0], v84.f[2]);
                     float t2 = (float)AngleOf(v78.f[0], v78.f[2], vb4.f[0], vb4.f[2]);
-                    double d2 = fabs_(AngleDelta(nullptr, 0, t2, ref));
-                    if (fabs_(AngleDelta(nullptr, 0, t1, ref)) > d2) SwapVec(vb4, v84);
+                    double d2 = crt::fabs(AngleDelta(nullptr, 0, t2, ref));
+                    if (crt::fabs(AngleDelta(nullptr, 0, t1, ref)) > d2) SwapVec(vb4, v84);
                     Tracks_MoveEnds(net, 0, F<uint32_t>(cur, 0x202), nullptr, nullptr, vb4.u, v84.u);
                 }
                 break;
@@ -2190,7 +2165,7 @@ RT3_NOINLINE void __fastcall TrackNet_SmoothJoin(Collection* net, int, int32_t f
             Midpoint(&m2x, &m2z, c.f[0], c.f[2], d.f[0], d.f[2]);
             float along = side ? (float)AngleOf(m2x, m2z, m1x, m1z) : (float)AngleOf(m1x, m1z, m2x, m2z);
             int32_t wrapped;
-            float turn = (float)fabs_(AngleDelta(&wrapped, 0, heading, along));
+            float turn = (float)crt::fabs(AngleDelta(&wrapped, 0, heading, along));
             if (turn < maxTurn) break;
             if (D(0x5c8c08) - (double)maxTurn < (double)turn) break;
             float angle;
@@ -2199,11 +2174,11 @@ RT3_NOINLINE void __fastcall TrackNet_SmoothJoin(Collection* net, int, int32_t f
             if ((double)turn > D(0x5c85d0)) angle = heading;
             float e = (float)((double)angle + Fl_207(0x5c8764));
             if (e > Fl_207(0x5c8760)) e = (float)((double)e - Fl_207(0x5c8760));
-            float ce = (float)cos_((double)e), se = (float)sin_((double)e);
+            float ce = (float)crt::sin((double)e), se = (float)crt::cos((double)e);
             if (side) {
                 float ox = (float)((double)m2x / Fl_207(0x5c8700)), oz = (float)((double)m2z / Fl_207(0x5c8700));
-                float px = (float)(sin_((double)angle) * D(0x5c97e0) + ox);
-                float pz = (float)(cos_((double)angle) * D(0x5c97e0) + oz);
+                float px = (float)(crt::cos((double)angle) * D(0x5c97e0) + ox);
+                float pz = (float)(crt::sin((double)angle) * D(0x5c97e0) + oz);
                 v90.u[0] = a.u[0];
                 v90.u[2] = a.u[2];
                 double hx = (double)se * D(0x5c97d8);
@@ -2214,14 +2189,14 @@ RT3_NOINLINE void __fastcall TrackNet_SmoothJoin(Collection* net, int, int32_t f
                 b.f[2] = (float)(((double)pz + hz) * D(0x5c8c48));
                 float t1 = (float)AngleOf(d.f[0], d.f[2], a.f[0], a.f[2]);
                 float t2 = (float)AngleOf(d.f[0], d.f[2], b.f[0], b.f[2]);
-                double d2 = fabs_(AngleDelta(nullptr, 0, t2, angle));
-                if (fabs_(AngleDelta(nullptr, 0, t1, angle)) > d2) SwapVec(a, b);
+                double d2 = crt::fabs(AngleDelta(nullptr, 0, t2, angle));
+                if (crt::fabs(AngleDelta(nullptr, 0, t1, angle)) > d2) SwapVec(a, b);
                 v9c = a;
                 va8 = b;
             } else {
                 float ox = (float)((double)m1x / Fl_207(0x5c8700)), oz = (float)((double)m1z / Fl_207(0x5c8700));
-                float px = (float)(sin_((double)angle) * D(0x5c97e0) + ox);
-                float pz = (float)(cos_((double)angle) * D(0x5c97e0) + oz);
+                float px = (float)(crt::cos((double)angle) * D(0x5c97e0) + ox);
+                float pz = (float)(crt::sin((double)angle) * D(0x5c97e0) + oz);
                 v90 = d;
                 double hx = (double)se * D(0x5c97d8);
                 d.f[0] = (float)(((double)px + hx) * D(0x5c8c48));
@@ -2231,8 +2206,8 @@ RT3_NOINLINE void __fastcall TrackNet_SmoothJoin(Collection* net, int, int32_t f
                 c.f[2] = (float)(((double)pz - hz) * D(0x5c8c48));
                 float t1 = (float)AngleOf(a.f[0], a.f[2], d.f[0], d.f[2]);
                 float t2 = (float)AngleOf(a.f[0], a.f[2], c.f[0], c.f[2]);
-                double d2 = fabs_(AngleDelta(nullptr, 0, t2, angle));
-                if (fabs_(AngleDelta(nullptr, 0, t1, angle)) > d2) SwapVec(d, c);
+                double d2 = crt::fabs(AngleDelta(nullptr, 0, t2, angle));
+                if (crt::fabs(AngleDelta(nullptr, 0, t1, angle)) > d2) SwapVec(d, c);
                 v9c = d;
                 va8 = c;
             }
@@ -2254,8 +2229,8 @@ RT3_NOINLINE void __fastcall TrackNet_SmoothJoin(Collection* net, int, int32_t f
             if (far == -1) continue;
             Effect_GetVectors(n, 0, a.u, b.u, c.u, d.u);
             float dir = side ? (float)AngleOf(d.f[0], d.f[2], a.f[0], a.f[2]) : (float)AngleOf(a.f[0], a.f[2], d.f[0], d.f[2]);
-            float s = (float)sin_((double)dir);
-            float co = (float)cos_((double)dir);
+            float s = (float)crt::cos((double)dir);
+            float co = (float)crt::sin((double)dir);
             Track_Unlink(n, 0, far);
             Track_Unlink((uint8_t*)Collection_Get(net, 0, (uint32_t)far), 0, F<int32_t>(n, 0x202));
             float dx = (float)((double)s * step);
@@ -2381,7 +2356,7 @@ RT3_NOINLINE void __fastcall Tracks_ApplyPendingKinds(Collection* c) {
             uint8_t* t = (uint8_t*)Collection_Get(c, 0, F<uint32_t>(F<uint8_t*>(c, 0x1cd), 0));
             Track_SetKind(t, 0, F<uint8_t*>(c, 0x1cd)[4]);
         }
-        Free(F<uint8_t*>(c, 0x1cd));
+        crt::free(F<uint8_t*>(c, 0x1cd));
         F<uint8_t*>(c, 0x1cd) = next;
     }
 }
@@ -2624,7 +2599,7 @@ RT3_NOINLINE void __fastcall TrackNet_ShowStatus(uint8_t* t, int, uint32_t piece
             if (Company_Stat(co, 0, 0xd, 0x2329) <= (double)cost) colour = 0xffff5f5f;
         }
     } else
-        ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)(line, costText);
+        crt::sprintf(line, costText);
     strcat(line, crossing);
     strcat(line, note);
     const char* text = haveTip ? tip : (const char*)0x5c87a8;
@@ -2732,16 +2707,15 @@ RT3_NOINLINE int32_t __fastcall TrackNet_WalkLine(Collection* net, int, int32_t 
             }
         }
     }
-    auto fabs_ = (double(__cdecl*)(double))0x5a152e;
     float stepX, stepY;
-    if (fabs_((double)dy) < fabs_((double)dx)) {
+    if (crt::fabs((double)dy) < crt::fabs((double)dx)) {
         if (dx == 0.0f) dx = BitsF(0x38d1b717);
         stepX = (float)(dx < 0.0f ? D(0x5cfde0) : D(0x5c97d8));
-        double r = fabs_((double)dy / dx);
+        double r = crt::fabs((double)dy / dx);
         stepY = (float)(r * (dy < 0.0f ? D(0x5cfde0) : D(0x5c97d8)));
     } else {
         if (dy == 0.0f) dy = BitsF(0x38d1b717);
-        double r = fabs_((double)dx / dy);
+        double r = crt::fabs((double)dx / dy);
         stepX = (float)(r * (dx < 0.0f ? D(0x5cfde0) : D(0x5c97d8)));
         stepY = (float)(dy < 0.0f ? D(0x5cfde0) : D(0x5c97d8));
     }
@@ -2751,8 +2725,8 @@ RT3_NOINLINE int32_t __fastcall TrackNet_WalkLine(Collection* net, int, int32_t 
         int32_t r = Grid_NearestNodeWithin(net, 0, curX, curY, exclude, rad, 1, 0, 0);
         return r == -1 ? -1 : r;
     };
-    if (!(fabs_((double)dx) < fabs_(0.0))) {
-        while (!(fabs_((double)dy) < fabs_((double)sumY)) && go) {
+    if (!(crt::fabs((double)dx) < crt::fabs(0.0))) {
+        while (!(crt::fabs((double)dy) < crt::fabs((double)sumY)) && go) {
             bool reached = false;
             for (;;) {
                 if (F<int32_t>(nb, 0xe9) && cur != -1 && Node_HasFreeLink(Collection_Get(net, 0, (uint32_t)cur), 0, 1)) go = false;
@@ -2857,7 +2831,7 @@ RT3_NOINLINE int32_t __fastcall TrackNet_WalkLine(Collection* net, int, int32_t 
                 if (firstNow) first = piece;
                 count = n + 1;
                 last = piece;
-                uint8_t* node = (uint8_t*)Malloc(9);
+                uint8_t* node = (uint8_t*)crt::malloc(9);
                 if (!tail) F<uint8_t*>(nb, 0x1cd) = node;
                 else F<uint8_t*>(tail, 5) = node;
                 tail = node;
@@ -2871,7 +2845,7 @@ RT3_NOINLINE int32_t __fastcall TrackNet_WalkLine(Collection* net, int, int32_t 
                 if (Node_HasFreeLink(Collection_Get(net, 0, (uint32_t)cand), 0, 1) && !F<int32_t>(Collection_Get(net, 0, (uint32_t)cand), 0x226)) cur = cand;
                 if (!follow) prev = cand;
             }
-            if (fabs_((double)dx) < fabs_((double)sumX)) break;
+            if (crt::fabs((double)dx) < crt::fabs((double)sumX)) break;
         }
     }
 done:
@@ -2905,28 +2879,28 @@ RT3_NOINLINE int32_t __fastcall Nodes_FindAlongLine(Collection* nodes, int, floa
     *found = -1;
     float stepX, stepY;
     uint32_t stepBits[2] = { 0x0c49ba5f, 0 };
-    if (CrtFabs(dy) < CrtFabs(dx)) {
+    if (crt::fabs(dy) < crt::fabs(dx)) {
         if (dx == 0.0f) dx = 0.0001f;
         stepBits[1] = dx < 0.0f ? 0xbfc72b02 : 0x3fc72b02;
         stepX = (float)*(double*)stepBits;
-        double r = CrtFabs((double)dy / dx);
+        double r = crt::fabs((double)dy / dx);
         stepY = (float)(dy < 0.0f ? r * D(0x5cfde0) : r * D(0x5c97d8));
     } else {
         if (dy == 0.0f) dy = 0.0001f;
-        double r = CrtFabs((double)dx / dy);
+        double r = crt::fabs((double)dx / dy);
         stepX = (float)(dx < 0.0f ? r * D(0x5cfde0) : r * D(0x5c97d8));
         stepBits[1] = dy < 0.0f ? 0xbfc72b02 : 0x3fc72b02;
         stepY = (float)*(double*)stepBits;
     }
     int32_t searching = 1;
-    if (!(CrtFabs(dx) > CrtFabs(0.0))) return *found != -1;
+    if (!(crt::fabs(dx) > crt::fabs(0.0))) return *found != -1;
     for (;;) {
-        if (!(CrtFabs(dy) > CrtFabs(ty)) || !searching) break;
+        if (!(crt::fabs(dy) > crt::fabs(ty)) || !searching) break;
         int32_t r = Grid_NearestNodeWithin(nodes, 0, cx, cy, -1, 0.181f, 1, 0, 0);
         if (r != -1 && r != exclude) {
             uint8_t* n = (uint8_t*)Collection_Get(nodes, 0, (uint32_t)r);
             float heading = Vehicle_Heading(n, 0, 1);
-            float d = (float)CrtFabs(AngleDelta(nullptr, 0, heading, angle));
+            float d = (float)crt::fabs(AngleDelta(nullptr, 0, heading, angle));
             if ((d < D(0x5cfe70) || d > D(0x5cfe68)) && n[0x216]) {
                 *found = r;
                 searching = 0;
@@ -2936,7 +2910,7 @@ RT3_NOINLINE int32_t __fastcall Nodes_FindAlongLine(Collection* nodes, int, floa
         cy = (float)((double)stepY + cy);
         tx = (float)((double)stepX + tx);
         ty = (float)((double)stepY + ty);
-        if (!(CrtFabs(dx) > CrtFabs(tx))) break;
+        if (!(crt::fabs(dx) > crt::fabs(tx))) break;
     }
     return *found != -1;
 }
@@ -2958,7 +2932,7 @@ RT3_NOINLINE int32_t __fastcall Track_PlanRoute(uint8_t* self, int, float x0, fl
     if (x0 == x1 && y0 == y1) x1 = (float)((double)x1 + D(0x5c85b8));
     if (*pending == nullptr && Map_LineOnLand(x0, y0, x1, y1)) {
         Obj_FreeList1c9(self);
-        PathNode* n = (PathNode*)ExeNew(0xc);
+        PathNode* n = (PathNode*)crt::operator_new(0xc);
         *out = n;
         n->x = x1;
         n->y = y1;
@@ -2988,7 +2962,7 @@ RT3_NOINLINE int32_t __fastcall Track_PlanRoute(uint8_t* self, int, float x0, fl
             k->next = nullptr;
             while (rest) {
                 PathNode* nx = rest->next;
-                ExeDelete(rest);
+                crt::operator_delete(rest);
                 rest = nx;
             }
             return 1;
@@ -2996,7 +2970,7 @@ RT3_NOINLINE int32_t __fastcall Track_PlanRoute(uint8_t* self, int, float x0, fl
     }
     F<int32_t>(self, 0x135) = 0;
     Obj_FreeList1c9(self);
-    PathNode* node = (PathNode*)ExeNew(0xc);
+    PathNode* node = (PathNode*)crt::operator_new(0xc);
     *out = node;
     node->x = curX;
     node->y = curY;
@@ -3080,10 +3054,10 @@ RT3_NOINLINE int32_t __fastcall Track_PlanRoute(uint8_t* self, int, float x0, fl
         } else {
             if (*pending) {
                 PathNode* nx = (*pending)->next;
-                Free(*pending);
+                crt::free(*pending);
                 *pending = nx;
             }
-            PathNode* n = (PathNode*)ExeNew(0xc);
+            PathNode* n = (PathNode*)crt::operator_new(0xc);
             n->x = *pending ? (*pending)->x : x1;
             n->y = *pending ? (*pending)->y : y1;
             n->next = nullptr;
@@ -3108,7 +3082,7 @@ RT3_NOINLINE int32_t __fastcall Track_PlanRoute(uint8_t* self, int, float x0, fl
                 if (!Map_LineOnLand(a->x, a->y, b->x, b->y)) continue;
                 PathNode* skipped = a->next;
                 a->next = b;
-                ExeDelete(skipped);
+                crt::operator_delete(skipped);
                 goto restart;
             }
         }
@@ -3116,7 +3090,7 @@ RT3_NOINLINE int32_t __fastcall Track_PlanRoute(uint8_t* self, int, float x0, fl
         PathNode* q = *pending;
         do {
             PathNode* nx = q->next;
-            Free(q);
+            crt::free(q);
             q = nx;
         } while (q);
         *pending = nullptr;
@@ -3173,7 +3147,7 @@ RT3_NOINLINE int32_t __fastcall TrackNet_BuildLine(Collection* net, int, float x
     auto turn = [&](float tx, float ty) {
         float a1 = (float)AngleOf(fr.f(0x88), fr.f(0x80), tx, ty);
         float a2 = (float)AngleOf(BlCell(fr.f(0x170)), BlCell(fr.f(0x178)), BlCell(fr.f(0x164)), BlCell(fr.f(0x16c)));
-        return BlAbs(AngleDelta(nullptr, 0, a2, a1));
+        return crt::fabs(AngleDelta(nullptr, 0, a2, a1));
     };
     auto restore = [&] {
         memcpy(n + 0x139, fr.b + 0x124, 0xc);
@@ -3318,8 +3292,8 @@ searched:
     {
         pth = (float*)(uintptr_t)fr.i(0x7c);
         fr.f(0x3c) = (float)AngleOf(fr.f(0xd4), fr.f(0xe4), pth[0], pth[1]);
-        fr.f(0x18) = (float)BlCos(fr.f(0x3c));
-        fr.f(0x60) = (float)BlSin(fr.f(0x3c));
+        fr.f(0x18) = (float)crt::sin(fr.f(0x3c));
+        fr.f(0x60) = (float)crt::cos(fr.f(0x3c));
         fr.i(0x38) = 0;
         fr.i(0x94) = esi;
         uint8_t bl;
@@ -3438,17 +3412,17 @@ leg:
         fr.i(0x74) = fr.i(0x3c);
     }
     fr.f(0x3c) = (float)AngleOf(*(float*)&ebx, fr.f(0x160), pth[0], pth[1]);
-    BlCos(fr.f(0x3c));
-    BlSin(fr.f(0x3c));
-    fr.f(0x54) = (float)BlAbs(AngleDelta(nullptr, 0, fr.f(0x3c), fr.f(0x74)));
+    crt::sin(fr.f(0x3c));
+    crt::cos(fr.f(0x3c));
+    fr.f(0x54) = (float)crt::fabs(AngleDelta(nullptr, 0, fr.f(0x3c), fr.f(0x74)));
     if (fr.f(0x54) == D(0x5c8608) || fr.f(0x44) == D(0x5c8608)) {
         fr.i(0xe8) = 0;
     } else {
         // Radius of the arc that turns by the leg's heading change.
         fr.f(0xe8) = (float)((double)fr.f(0x54) + fr.f(0x54));
-        fr.f(0x40) = (float)BlCos(fr.f(0xe8));
+        fr.f(0x40) = (float)crt::sin(fr.f(0xe8));
         if (fr.f(0x40) == Fl_207(0x5c8598)) fr.i(0x40) = 0x38d1b717;
-        fr.f(0x54) = (float)(BlCos(D(0x5c96f0) - fr.f(0x54)) * fr.f(0xe8) * fr.f(0x44) / fr.f(0x40));
+        fr.f(0x54) = (float)(crt::sin(D(0x5c96f0) - fr.f(0x54)) * fr.f(0xe8) * fr.f(0x44) / fr.f(0x40));
         if (fr.f(0x54) == Fl_207(0x5c8598)) fr.i(0x54) = 0x38d1b717;
         fr.f(0xe8) = (float)((double)fr.f(0xe8) * D(0x5c97e0) / fr.f(0x54));
     }
@@ -3461,8 +3435,8 @@ leg:
         fr.f(0x4c) = (float)fr.d(0xa0);
         int32_t h = fr.i(0x3c);
         fr.d(0x28) = (double)fr.f(0x4c);
-        if (BlAbs(AngleDelta(&fr.i(0x184), 0, *(float*)&h, fr.f(0x74))) > fr.d(0x28)) fr.d(0x28) = (double)fr.f(0x4c);
-        else fr.d(0x28) = BlAbs(AngleDelta(&fr.i(0x184), 0, *(float*)&h, fr.f(0x74)));
+        if (crt::fabs(AngleDelta(&fr.i(0x184), 0, *(float*)&h, fr.f(0x74))) > fr.d(0x28)) fr.d(0x28) = (double)fr.f(0x4c);
+        else fr.d(0x28) = crt::fabs(AngleDelta(&fr.i(0x184), 0, *(float*)&h, fr.f(0x74)));
         fr.f(0x4c) = (float)fr.d(0x28);
         if (fr.f(0x3c) < fr.f(0x74)) fr.f(0x4c) = -fr.f(0x4c);
         if (fr.i(0x184)) fr.f(0x4c) = -fr.f(0x4c);
@@ -3478,19 +3452,19 @@ piece:
     if (!fr.i(0x54) && !(fr.f(0x74) == fr.f(0x3c))) {
         // Bend the heading towards the leg by one step.
         int32_t prev = fr.i(0x74), h = fr.i(0x3c);
-        fr.d(0x28) = BlAbs(AngleDelta(nullptr, 0, *(float*)&h, *(float*)&prev));
-        if (BlAbs(fr.f(0x4c)) >= fr.d(0x28)) {
+        fr.d(0x28) = crt::fabs(AngleDelta(nullptr, 0, *(float*)&h, *(float*)&prev));
+        if (crt::fabs(fr.f(0x4c)) >= fr.d(0x28)) {
             fr.i(0x74) = h;
             fr.i(0x54) = 1;
         } else {
             fr.f(0x74) = AngleAdd(nullptr, 0, *(float*)&prev, fr.f(0x4c));
         }
-        fr.f(0x18) = (float)BlCos(fr.f(0x74));
-        fr.f(0x60) = (float)BlSin(fr.f(0x74));
+        fr.f(0x18) = (float)crt::sin(fr.f(0x74));
+        fr.f(0x60) = (float)crt::cos(fr.f(0x74));
         fr.i(0x24) = 1;
     } else {
-        fr.f(0x18) = (float)BlCos(fr.f(0x3c));
-        fr.f(0x60) = (float)BlSin(fr.f(0x3c));
+        fr.f(0x18) = (float)crt::sin(fr.f(0x3c));
+        fr.f(0x60) = (float)crt::cos(fr.f(0x3c));
     }
     {
         // The piece's far corners: one step along the heading.
@@ -3508,10 +3482,10 @@ piece:
             fr.i(0x17c) = fr.i(0x60);
             if (fr.f(0x24) == Fl_207(0x5c8598)) fr.i(0x24) = 0x38d1b717;
             if (fr.f(0x17c) == Fl_207(0x5c8598)) fr.i(0x17c) = 0x38d1b717;
-            fr.f(0x24) = (float)BlAtan(D(0x5c9bf0) / ((double)fr.f(0x17c) / fr.f(0x24)));
+            fr.f(0x24) = (float)crt::atan(D(0x5c9bf0) / ((double)fr.f(0x17c) / fr.f(0x24)));
             if (fr.f(0x60) < D(0x5c8608)) fr.f(0x24) = (float)((double)fr.f(0x24) - D(0x5c96a8));
-            fr.f(0x18) = (float)(BlSin(fr.f(0x24)) * D(0x5c97e0) + fr.f(0x48));
-            double c = BlCos(fr.f(0x24));
+            fr.f(0x18) = (float)(crt::cos(fr.f(0x24)) * D(0x5c97e0) + fr.f(0x48));
+            double c = crt::sin(fr.f(0x24));
             fr.i(0x24) = 0;
             fr.f(0x60) = (float)(c * D(0x5c97e0) + fr.f(0x50));
         }
@@ -3521,7 +3495,7 @@ piece:
         if (fr.u8(0x17) == 1) {
             float a = fr.i(0xd8) ? (float)AngleOf(fr.f(0xfc), fr.f(0x5c), fr.f(0x18), fr.f(0x60)) : (float)AngleOf(fr.f(0xec), fr.f(0xe0), fr.f(0x48), fr.f(0x50));
             fr.f(0x28) = a;
-            if (BlAbs(AngleDelta(nullptr, 0, fr.f(0x28), fr.f(0x84))) > D(0x5c8880)) goto fail;
+            if (crt::fabs(AngleDelta(nullptr, 0, fr.f(0x28), fr.f(0x84))) > D(0x5c8880)) goto fail;
             esi = fr.i(0x94);
             if (build) {
                 Effect_GetVectors(BlTrack(tracks, esi), 0, fr.p(0x124), fr.p(0x13c), fr.p(0x118), fr.p(0x130));
@@ -3694,8 +3668,8 @@ nextLeg:
     fr.f(0x28) = (float)AngleOf(BlCell(fr.f(0x170)), BlCell(fr.f(0x178)), BlCell(fr.f(0x164)), BlCell(fr.f(0x16c)));
     fr.f(0x98) = (float)AngleOf(fr.f(0x88), fr.f(0x80), x1, y1);
     fr.f(0x28) = (float)AngleDelta(nullptr, 0, fr.f(0x28), fr.f(0x98));
-    if (!(BlAbs(fr.f(0x28)) > D(0x5ca1b0))) goto leg;
-    if (!(BlAbs(fr.f(0x28)) < D(0x5cfe98))) goto leg;
+    if (!(crt::fabs(fr.f(0x28)) > D(0x5ca1b0))) goto leg;
+    if (!(crt::fabs(fr.f(0x28)) < D(0x5cfe98))) goto leg;
     ebx = fr.i(0x1c);
     goto removeRun;
 
@@ -3706,12 +3680,12 @@ abandon:
     ebx = fr.i(0x10);
     goto leave;
 blockedA:
-    if (p9 || !(BlAbs(fr.f(0x4c)) < D(0x5c8590))) goto undoB;
+    if (p9 || !(crt::fabs(fr.f(0x4c)) < D(0x5c8590))) goto undoB;
     ebx = fr.i(0x10);
     F<int32_t>(n, 0x135) = 1;
     goto leave;
 blockedB:
-    if (p9 || !(BlAbs(fr.f(0x4c)) < D(0x5c8590))) {
+    if (p9 || !(crt::fabs(fr.f(0x4c)) < D(0x5c8590))) {
         ebx = fr.i(0x1c);
         if (build) goto undoAll;
         goto removeRun;
@@ -3720,7 +3694,7 @@ blockedB:
     F<int32_t>(n, 0x135) = 1;
     goto leave;
 blockedC:
-    if (p9 || !(BlAbs(fr.f(0x4c)) < D(0x5c8590))) goto undoA;
+    if (p9 || !(crt::fabs(fr.f(0x4c)) < D(0x5c8590))) goto undoA;
     ebx = fr.i(0x10);
     F<int32_t>(n, 0x135) = 1;
     goto leave;
@@ -3796,7 +3770,7 @@ reached:
                     fr.i(0x5c) = 1;
                 }
                 fr.f(0x38) = (float)AngleOf(ax, ay, bx, by);
-                return !(BlAbs(AngleDelta(nullptr, 0, fr.f(0x20), fr.f(0x38))) > D(0x5c8880));
+                return !(crt::fabs(AngleDelta(nullptr, 0, fr.f(0x20), fr.f(0x38))) > D(0x5c8880));
             };
             auto same = [&](uint32_t a, uint32_t b, uint32_t c, uint32_t d) {
                 return (fr.f(a) > fr.f(b) && fr.f(c) > fr.f(d)) || (fr.f(a) < fr.f(b) && fr.f(c) < fr.f(d));
@@ -4093,7 +4067,7 @@ RT3_REPLACE(0x4a04c0, TrackNet_ExtendTo);
 // moves away; failing when it comes closer than 1.81 or after 290 steps. Stores the
 // ramp's foot height in +0x1f1 and returns atan((foot - end) / length).
 RT3_NOINLINE float __fastcall Track_RampGrade(uint8_t* self, int, float x0, float y0, float ang, float tx, float ty) {
-    double c = Cos(ang), s = Sin(ang);
+    double c = crt::sin(ang), s = crt::cos(ang);
     float h0 = HeightAtTile(x0, y0);
     float bx = (float)((double)x0 - c * D(0x5cfed0));
     float by = (float)((double)y0 - s * D(0x5cfed0));
@@ -4116,7 +4090,7 @@ RT3_NOINLINE float __fastcall Track_RampGrade(uint8_t* self, int, float x0, floa
         sy = py;
         float ha = HeightAtTile((float)((double)px - c * D(0x5cfec0)), (float)((double)py - s * D(0x5cfec0)));
         float hc = HeightAtTile((float)(c * D(0x5cfec0) + px), (float)(s * D(0x5cfec0) + py));
-        float level = (float)Atan(((double)hc - ha) / D(0x5cfeb8));
+        float level = (float)crt::atan(((double)hc - ha) / D(0x5cfeb8));
         if (!(fabs((double)level) > D(0x5c86b8))) break;
         sx = -1.0f;
     }
@@ -4139,7 +4113,7 @@ RT3_NOINLINE float __fastcall Track_RampGrade(uint8_t* self, int, float x0, floa
     }
     float ha = HeightAtTile(ax, ay);
     float hc = HeightAtTile(cx, cy);
-    float grade = (float)Atan(((double)hc - ha) / D(0x5cfeb8));
+    float grade = (float)crt::atan(((double)hc - ha) / D(0x5cfeb8));
     float prev = (float)Distance2D(bx, by, mx, my);
     float dir = 1.0f;
     auto limit = [] { return ((const float*)0x5f3404)[F<int32_t>(hook::As<void*>(g_app), 0x140)]; };
@@ -4159,7 +4133,7 @@ RT3_NOINLINE float __fastcall Track_RampGrade(uint8_t* self, int, float x0, floa
             if (d > prev) dir = -1.0f;
             prev = d;
             if (d < D(0x5cfea8)) return Fl_205(0x5cb468);
-            grade = (float)Atan(((double)hc - ha) / D(0x5cfeb8));
+            grade = (float)crt::atan(((double)hc - ha) / D(0x5cfeb8));
             if (!(grade < limit())) break;
         }
     }
@@ -4168,7 +4142,7 @@ RT3_NOINLINE float __fastcall Track_RampGrade(uint8_t* self, int, float x0, floa
     F<float>(self, 0x1f1) = HeightAtTile(mx, my);
     float len = (float)(Distance2D(bx, by, ex, ey) * Fl_205(0x5c8700));
     if (len == D(0x5c8608)) return Fl_205(0x5c8598);
-    return (float)Atan(((double)F<float>(self, 0x1f1) - h0) / len);
+    return (float)crt::atan(((double)F<float>(self, 0x1f1) - h0) / len);
 }
 RT3_REPLACE(0x4a0d20, Track_RampGrade);
 
@@ -4278,7 +4252,7 @@ RT3_NOINLINE int32_t __fastcall TrackNet_LayOverpassRun(Collection* net, int, ui
     Track_SetFlatAndLift(t, 0, F<uint32_t>(net, 0x1d9), 1);
     if (F<int32_t>(net, 0x1e5) >= 4) {
         float before = F<float>(net, 0x1d9);
-        double slope = ((double(__cdecl*)(double))0x5a3054)((double)F<float>(net, 0x1dd));
+        double slope = crt::tan((double)F<float>(net, 0x1dd));
         F<float>(net, 0x1d9) = (float)(slope * D(0x5cfeb8) + F<float>(net, 0x1d9));
         uint32_t v[4][3];
         Effect_GetVectors(t, 0, v[0], v[1], v[2], v[3]);
@@ -4293,9 +4267,8 @@ RT3_NOINLINE int32_t __fastcall TrackNet_LayOverpassRun(Collection* net, int, ui
             forward = 1;
         }
         reshape(t, 0, v[0], v[1], v[2], v[3], 1, 0, 0);
-        auto fabs_ = (double(__cdecl*)(double))0x5a152e;
-        double stepped = fabs_((double)F<float>(net, 0x1d9) - before);
-        if (fabs_((double)F<float>(net, 0x1d9) - F<float>(net, 0x1f1)) < stepped) F<int32_t>(net, 0x1e5) = -9999;
+        double stepped = crt::fabs((double)F<float>(net, 0x1d9) - before);
+        if (crt::fabs((double)F<float>(net, 0x1d9) - F<float>(net, 0x1f1)) < stepped) F<int32_t>(net, 0x1e5) = -9999;
     }
     float pitch = Vehicle_Pitch(t, 0, forward);
     t[0x59] &= 0xef;
@@ -4392,8 +4365,8 @@ RT3_NOINLINE int32_t __fastcall TrackNet_LayBridgeRun(Collection* net, int, uint
     float h = 0;
     if (F<int32_t>(t, 0x206) == -1) h = Vehicle_ScreenHeading(t, 0, 0);
     else if (F<int32_t>(t, 0x20a) == -1) h = Vehicle_ScreenHeading(t, 0, 1);
-    float nx = (float)((double)cx - ((double(__cdecl*)(double))0x5a13e4)((double)h) * D(0x5d0020));
-    float nz = (float)((double)cz - ((double(__cdecl*)(double))0x5a1494)((double)h) * D(0x5d0020));
+    float nx = (float)((double)cx - crt::sin((double)h) * D(0x5d0020));
+    float nz = (float)((double)cz - crt::cos((double)h) * D(0x5d0020));
     float g2 = (float)Terrain_HeightAt(g_map, 0, (float)((double)nx * Fl_207(0x5c8700)), (float)((double)nz * Fl_207(0x5c8700)));
     int32_t water2 = Terrain_IsSpecial(g_map, 0, Ftol(nx), Ftol(nz));
     double low = (double)g2 + D(0x5c85f0);
@@ -4524,9 +4497,9 @@ RT3_NOINLINE int32_t __fastcall Route_ProbeLine(uint8_t* self, int, float x0, fl
     float d2;
     for (;;) {
         d1 = (float)DistanceSq2D(cx, cy, x1, y1);
-        cx = (float)((double)cx - ExeCos(angle) * D(0x5cfec8));
+        cx = (float)((double)cx - crt::sin(angle) * D(0x5cfec8));
         double sy = cy;
-        double sn = ExeSin(angle) * D(0x5cfec8);
+        double sn = crt::cos(angle) * D(0x5cfec8);
         ++F<int32_t>(self, 0x202);
         cy = (float)(sy - sn);
         d2 = (float)DistanceSq2D(cx, cy, x1, y1);
@@ -4826,8 +4799,8 @@ RT3_NOINLINE int32_t __fastcall TrackNet_ShapePiece(Collection* net, int, uint8_
         overpass = 1;
     } else {
         float a = (float)AngleOf(x, y, cx, cy);
-        tx = (float)(((double(__cdecl*)(double))0x5a1494)((double)a) * D(0x5d0020) + (double)x);
-        ty = (float)(((double(__cdecl*)(double))0x5a13e4)((double)a) * D(0x5d0020) + (double)y);
+        tx = (float)(crt::cos((double)a) * D(0x5d0020) + (double)x);
+        ty = (float)(crt::sin((double)a) * D(0x5d0020) + (double)y);
     }
     auto power = [&] {
         if (F<int32_t>(g_world, 0x4c74) && !neg) Track_Electrify(t, 0, 0, 0, 1);
@@ -4907,7 +4880,7 @@ RT3_REPLACE(0x4a3cf0, Obj_Has98);
 // 0x4a3d00. Pushes {id, a, b, next} onto the list at +0x98 and returns the id:
 // the reserved id at +0x88, or else the next one from the counter +0x90.
 RT3_NOINLINE int32_t __fastcall Obj_PushIdNode(void* o, int, int32_t a, int32_t b) {
-    int32_t* n = (int32_t*)((void*(__cdecl*)(size_t))0x5a125d)(0x10);
+    int32_t* n = (int32_t*)crt::malloc(0x10);
     if (F<int32_t>(o, 0x88) == -1) {
         int32_t c = F<int32_t>(o, 0x90);
         F<int32_t>(o, 0x88) = c + 1;
@@ -4927,7 +4900,7 @@ RT3_REPLACE(0x4a3d00, Obj_PushIdNode);
 void __fastcall Obj_FreeList98(uint8_t* o) {
     while (uint8_t* n = F<uint8_t*>(o, 0x98)) {
         F<uint8_t*>(o, 0x98) = F<uint8_t*>(n, 0xc);
-        Free(n);
+        crt::free(n);
     }
     F<int32_t>(o, 0x88) = -1;
 }
@@ -4941,10 +4914,10 @@ RT3_NOINLINE void __fastcall TrackList_ResetBuildState(uint8_t* tracks) {
     F<uint32_t>(tracks, 0x94) = F<uint32_t>(tracks, 0x90);
     bool dirty = F<uint32_t>(tracks, 0xed) != 0;
     if (F<uint32_t>(hook::As<void*>(g_app), 0x94)) {
-        int32_t count = hook::Orig<int32_t(__fastcall*)(void*)>(0x517cf0)(tracks);
+        int32_t count = Collection_Count((Collection*)(tracks));
         for (int32_t i = count - 1; i >= 0; --i) {
-            uint32_t id = hook::Orig<uint32_t(__fastcall*)(void*, int, int32_t, uint32_t)>(0x518380)(tracks, 0, i, 0);
-            uint8_t* node = (uint8_t*)hook::Orig<void*(__fastcall*)(void*, int, uint32_t)>(0x518140)(tracks, 0, id);
+            uint32_t id = Collection_IdAt((Collection*)(tracks), 0, (uint32_t)(i), (int)(0));
+            uint8_t* node = (uint8_t*)Collection_Get((Collection*)(tracks), 0, id);
             if (F<uint32_t>(node, 0x240) > F<uint32_t>(tracks, 0x102) && node[0x216] == 1) {
                 hook::Orig<void(__fastcall*)(void*, int, uint32_t)>(0x48b830)(node, 0, 2);
                 dirty = true;
@@ -4954,7 +4927,7 @@ RT3_NOINLINE void __fastcall TrackList_ResetBuildState(uint8_t* tracks) {
     }
     for (void* p = F<void*>(tracks, 0x98); p; p = F<void*>(tracks, 0x98)) {
         F<void*>(tracks, 0x98) = F<void*>(p, 0xc);
-        hook::Orig<void(__cdecl*)(void*)>(0x5a1145)(p);
+        crt::free(p);
     }
     F<uint32_t>(tracks, 0x88) = 0xffffffff;
     void* manager = hook::As<void*>(g_windowManager);
@@ -4962,8 +4935,7 @@ RT3_NOINLINE void __fastcall TrackList_ResetBuildState(uint8_t* tracks) {
     if (dirty) {
         Method(0x4358d0, hook::As<void*>(g_world));
         // This callee is in a separate unfinished call cycle.
-        hook::Orig<void(__fastcall*)(void*, int, uint32_t, uint32_t, uint32_t)>(0x432f40)(
-            hook::As<void*>(g_events), 0, 6, 0, 0);
+        Events_Fire((Collection*)(hook::As<void*>(g_events)), 0, 6, (char*)(0), (int32_t)(0));
     }
     Method(0x4682c0, hook::As<void*>(g_6ada90));
 }
@@ -5030,7 +5002,7 @@ RT3_NOINLINE void __fastcall TrackNet_Undo(Collection* net, int, uint32_t stamp)
     }
     top = F<uint8_t*>(b, 0x98);
     F<uint8_t*>(b, 0x98) = F<uint8_t*>(top, 0xc);
-    Free(top);
+    crt::free(top);
     if (!F<uint8_t*>(b, 0x98)) Train_ResetMotion(b);
     F<int32_t>(b, 0x88) = -1;
     if (hook::As<uint8_t**>(g_windowManager) && !F<int32_t>(hook::As<uint8_t*>(g_tracks), 0xed))
@@ -5438,7 +5410,7 @@ int32_t __fastcall Route_Find(Collection* routes, int, int32_t cur, int32_t targ
         bound = 0xffffffff;
         uint32_t last = Collection_IdAt(routes, 0, Collection_Count(routes) - 1, 0);
         size_t bytes = (last + 1) * 4;
-        visit = (uint32_t*)((void*(__cdecl*)(size_t))0x5a125d)(bytes);
+        visit = (uint32_t*)crt::malloc(bytes);
         memset(visit, 0, bytes);
     }
     if (*cost > bound || (cur != target && ((!anyTrack && nd[0x216] != 2) || !Node_IsRouteEnd(nd)))) {
@@ -5542,7 +5514,7 @@ int32_t __fastcall Route_Find(Collection* routes, int, int32_t cur, int32_t targ
         }
     }
     if (prev != -1) return cur;
-    Free(visit);
+    crt::free(visit);
     return next;
 }
 RT3_REPLACE(0x4a5280, Route_Find);
@@ -5567,7 +5539,7 @@ int32_t __fastcall Route_FindPlain(Collection* routes, int, int32_t cur, int32_t
         bound = 0xffffffff;
         uint32_t last = Collection_IdAt(routes, 0, Collection_Count(routes) - 1, 0);
         size_t bytes = (last + 1) * 4;
-        uint32_t* v = (uint32_t*)((void*(__cdecl*)(size_t))0x5a125d)(bytes);
+        uint32_t* v = (uint32_t*)crt::malloc(bytes);
         g_6cfcac = v;
         memset(v, 0, bytes);
     }
@@ -5637,7 +5609,7 @@ int32_t __fastcall Route_FindPlain(Collection* routes, int, int32_t cur, int32_t
         if (next == -1 || F<int32_t>(Collection_Get(nodes, 0, cur), 0x212) != F<int32_t>(Collection_Get(nodes, 0, next), 0x212))
             next = F<int32_t>(Collection_Get(nodes, 0, cur), 0x20a);
     }
-    Free(g_6cfcac);
+    crt::free(g_6cfcac);
     return next;
 }
 RT3_REPLACE(0x4a5900, Route_FindPlain);
@@ -5648,7 +5620,7 @@ RT3_REPLACE(0x4a5900, Route_FindPlain);
 void __fastcall Routes_NumberComponents(Collection* c) {
     F<int32_t>(c, 0x8c) = 0;
     if (!Collection_Count(c)) return;
-    F<uint32_t*>(c, 0x94) = (uint32_t*)Malloc(Collection_Count(c) * 4 + 0x14);
+    F<uint32_t*>(c, 0x94) = (uint32_t*)crt::malloc(Collection_Count(c) * 4 + 0x14);
     F<int32_t>(c, 0x98) = 0;
     for (int32_t i = 0; i < Collection_Count(c); ++i)
         F<int32_t>(Collection_Get(c, 0, Collection_IdAt(c, 0, i, 0)), 0xc) = -1;
@@ -5667,7 +5639,7 @@ void __fastcall Routes_NumberComponents(Collection* c) {
                 break;
             }
             if (found) continue;
-            Free(F<uint32_t*>(c, 0x94));
+            crt::free(F<uint32_t*>(c, 0x94));
             return;
         }
         uint8_t* b = (uint8_t*)Collection_Get(c, 0, cur);

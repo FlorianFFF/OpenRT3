@@ -12,6 +12,8 @@
 #include "core/globals.h"
 #include "game/collection.h"
 #include "core/crt.h"
+#include "core/imports.h"
+#include "core/jpeglib.h"
 #include "core/ptrlist.h"
 #include "hook/keepregs.h"
 #include "core/containers.h"
@@ -45,7 +47,6 @@ void __stdcall Textures_MemoryTotals(int32_t* video, int32_t* resident, int32_t*
 int32_t __fastcall Engine_TotalTextureMem(void* e);
 int32_t __fastcall Obj_Sub2543(uint8_t* o);
 void __fastcall Texture_DropTarget(uint8_t* t);
-template <typename Fn> static inline Fn Import(uint32_t iat) { return (Fn)hook::Global<void*>(iat); }
 uint32_t* __fastcall Texture_Pixels32(uint8_t* t, int, int32_t* w, int32_t* h, int32_t i);
 void __fastcall Texture_FreeImage(uint8_t*, int, uint8_t* img);
 void __fastcall Texture_ReleaseTarget(uint8_t* t);
@@ -78,7 +79,7 @@ static void Shrink(uint8_t* img, uint32_t plane, int32_t fx, int32_t fy) {
     }
     int32_t nw = w / sx, nh = h / sy;
     int32_t bytes = nw * nh * (int32_t)sizeof(P);
-    P* buf = (P*)Malloc(bytes);
+    P* buf = (P*)crt::malloc(bytes);
     P* dst = buf;
     for (int32_t r = 0, row = 0; r < nh; ++r, row += sy) {
         const P* src = F<const P*>(img, plane) + F<int32_t>(img, 8) * row;
@@ -87,7 +88,7 @@ static void Shrink(uint8_t* img, uint32_t plane, int32_t fx, int32_t fy) {
     F<int32_t>(img, 8) = nw;
     F<int32_t>(img, 0xc) = nh;
     F<int32_t>(img, 4) = bytes;
-    Free(F<void*>(img, plane));
+    crt::free(F<void*>(img, plane));
     F<P*>(img, plane) = buf;
     F<P*>(img, 0x22) = buf;
 }
@@ -255,16 +256,14 @@ static inline void IndexBuffer(uint8_t* r, uint32_t len, uint32_t at, int32_t er
     F<uint32_t>(r, 0x2543) += len;
 }
 
-static inline void ExeDelete(void* p) { ((void(__cdecl*)(void*))0x53b080)(p); }
 
 static inline uint32_t FBits(float f) { return *(uint32_t*)&f; }
 
-static inline void* ExeMalloc(size_t n) { return ((void*(__cdecl*)(size_t))0x5a125d)(n); }
 
 // Pack-loaded widgets (the constructors take an unused argument): a bare base, the
 // kind's init, then an `n`-byte record read from the pack's current position.
 static uint8_t* Widget_ReadRecord(uint8_t* w, int32_t n) {
-    uint8_t* rec = (uint8_t*)ExeMalloc(n);
+    uint8_t* rec = (uint8_t*)crt::malloc(n);
     NameTable_Read(g_pack, 0, rec, n);
     Widget_LoadBase(w, 0, rec);
     return rec;
@@ -274,12 +273,12 @@ static uint8_t* Widget_ReadRecord(uint8_t* w, int32_t n) {
 // delete when `flags` bit 0 is set.
 static uint8_t* Widget_Finish(uint8_t* w, int32_t flags) {
     Widget_Destruct(w);
-    if (flags & 1) ExeDelete(w);
+    if (flags & 1) crt::operator_delete(w);
     return w;
 }
 
 static void FreeField(uint8_t* w, uint32_t off) {
-    if (F<void*>(w, off)) Free(F<void*>(w, off));
+    if (F<void*>(w, off)) crt::free(F<void*>(w, off));
     F<void*>(w, off) = nullptr;
 }
 
@@ -362,7 +361,7 @@ uint8_t* __fastcall Control_Load(uint8_t* w, int, int32_t) {
     F<uint16_t>(w, 0xd2) = F<uint16_t>(rec, 0x8f);
     F<void*>(w, 0xce) = nullptr;
     NameTable_ReadBlock(g_pack, 0, 0xbba, &F<void*>(w, 0xce));
-    Free(rec);
+    crt::free(rec);
     return w;
 }
 RT3_REPLACE(0x5402a0, Control_Load);
@@ -568,7 +567,7 @@ int32_t __fastcall Button_HandleEvent(uint8_t* w, int, uint32_t* ev) {
     case 0x6f:
     case 0x76:
         if (ev[1] != F<uint16_t>(w, 4)) break;
-        if (void* old = F<void*>(w, 0xce)) Free(old);
+        if (void* old = F<void*>(w, 0xce)) crt::free(old);
         F<char*>(w, 0xce) = nullptr;
         if (ev[2]) String_Assign((char**)(w + 0xce), (const char*)(uintptr_t)ev[2]);
         return ev[0] != 0x6f ? 1 : 0;
@@ -604,7 +603,7 @@ RT3_REPLACE(0x540de0, Vec_Cross);
 // 0x540e30. Texture constructor: links itself at the head of the global
 // list 0xccbb2c (count 0xccbb30). Returns the previous head.
 RT3_NOINLINE uint32_t __fastcall Texture_Construct(uint8_t* s, int, uint8_t flag) {
-    ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)((char*)s + 0x13, (const char*)0x5c87a8);
+    crt::sprintf((char*)s + 0x13, (const char*)0x5c87a8);
     uint8_t* e = g_engine;
     s[4] = 0;
     F<uint32_t>(s, 0xd8) = F<uint32_t>(e, 0x114736);
@@ -623,7 +622,7 @@ RT3_NOINLINE uint32_t __fastcall Texture_Construct(uint8_t* s, int, uint8_t flag
     s[0x96] = g_engine[0x114254];
     static const uint32_t lists[] = { 0xdc, 0xe4 };
     for (uint32_t off : lists) {
-        PtrList* l = (PtrList*)((void*(__cdecl*)(size_t))0x53b070)(0x18);
+        PtrList* l = (PtrList*)crt::operator_new(0x18);
         F<PtrList*>(s, off) = l ? PtrList_Construct(l, 0, 1, 100) : nullptr;
         F<int32_t>(s, off + 4) = 0;
     }
@@ -649,11 +648,11 @@ RT3_REPLACE(0x540f50, Obj_Next0);
 
 // 0x540f60. Frees an image and its pixel buffers.
 RT3_NOINLINE void __fastcall Texture_FreeImage(uint8_t*, int, uint8_t* img) {
-    if (F<void*>(img, 0x2a)) Free(F<void*>(img, 0x2a));
-    if (F<void*>(img, 0x26)) Free(F<void*>(img, 0x26));
-    if (F<void*>(img, 0x2e)) Free(F<void*>(img, 0x2e));
+    if (F<void*>(img, 0x2a)) crt::free(F<void*>(img, 0x2a));
+    if (F<void*>(img, 0x26)) crt::free(F<void*>(img, 0x26));
+    if (F<void*>(img, 0x2e)) crt::free(F<void*>(img, 0x2e));
     for (int k = 0; k < 0x32; ++k) img[k] = 0;
-    Free(img);
+    crt::free(img);
 }
 RT3_REPLACE(0x540f60, Texture_FreeImage);
 
@@ -676,9 +675,9 @@ RT3_NOINLINE void __fastcall Texture_FreePixels(uint8_t* t) {
     for (int32_t i = 0; i < 8; ++i) {
         uint8_t* img = F<uint8_t*>(t, 0xa0 + i * 4);
         if (!img) continue;
-        if (F<void*>(img, 0x2a)) Free(F<void*>(img, 0x2a));
-        if (F<void*>(img, 0x26)) Free(F<void*>(img, 0x26));
-        if (F<void*>(img, 0x2e)) Free(F<void*>(img, 0x2e));
+        if (F<void*>(img, 0x2a)) crt::free(F<void*>(img, 0x2a));
+        if (F<void*>(img, 0x26)) crt::free(F<void*>(img, 0x26));
+        if (F<void*>(img, 0x2e)) crt::free(F<void*>(img, 0x2e));
         F<int32_t>(img, 0x2e) = 0;
         F<int32_t>(img, 0x26) = 0;
         F<int32_t>(img, 0x2a) = 0;
@@ -702,11 +701,11 @@ RT3_REPLACE(0x541160, Texture_MaxSize);
 
 // 0x5411c0. Whether the file is an uncompressed true-colour TGA (type 2, descriptor 0).
 RT3_NOINLINE int32_t __fastcall Tga_IsPlain(const char* path) {
-    int32_t fd = ((int(__cdecl*)(const char*, int))0x5a4c57)(path, 0x8000);
+    int32_t fd = crt::open(path, 0x8000);
     if (fd == -1) return 0;
     uint8_t hdr[0x12];
-    Read(fd, hdr, 0x12);
-    Close(fd);
+    crt::read(fd, hdr, 0x12);
+    crt::close(fd);
     return !hdr[0x11] && hdr[2] == 2 ? 1 : 0;
 }
 RT3_REPLACE(0x5411c0, Tga_IsPlain);
@@ -721,7 +720,7 @@ RT3_NOINLINE void __fastcall Image_To4444(uint8_t* tex, int, uint8_t* img) {
     if (e[0x11422f] || !e[0x114255]) return;
     if (!F<void*>(img, 0x26)) return;
     int32_t n = F<int32_t>(img, 0xc) * F<int32_t>(img, 8);
-    if (!F<void*>(img, 0x2a)) F<void*>(img, 0x2a) = ((void*(__cdecl*)(size_t))0x5a125d)(n * 2);
+    if (!F<void*>(img, 0x2a)) F<void*>(img, 0x2a) = crt::malloc(n * 2);
     uint16_t* dst = F<uint16_t*>(img, 0x2a);
     F<int32_t>(img, 4) = n * 2;
     const uint32_t* src = F<const uint32_t*>(img, 0x26);
@@ -750,7 +749,7 @@ RT3_NOINLINE void __fastcall Image_To4444(uint8_t* tex, int, uint8_t* img) {
         }
     }
     if (!tex[0x97]) {
-        Free(F<void*>(img, 0x26));
+        crt::free(F<void*>(img, 0x26));
         F<void*>(img, 0x26) = nullptr;
     }
 }
@@ -847,7 +846,7 @@ RT3_NOINLINE uint32_t* __fastcall Texture_Pixels32(uint8_t* t, int, int32_t* w, 
     img = F<uint8_t*>(t, 0xa0 + i * 4);
     if (!F<void*>(img, 0x26)) {
         uint32_t n = (uint32_t)(F<int32_t>(img, 0xc) * F<int32_t>(img, 8));
-        F<void*>(F<uint8_t*>(t, 0xa0 + i * 4), 0x26) = Malloc(n * 4);
+        F<void*>(F<uint8_t*>(t, 0xa0 + i * 4), 0x26) = crt::malloc(n * 4);
         img = F<uint8_t*>(t, 0xa0 + i * 4);
         const uint16_t* src = F<uint16_t*>(img, 0x2a);
         uint32_t* dst = F<uint32_t*>(img, 0x26);
@@ -887,7 +886,7 @@ RT3_NOINLINE int32_t __fastcall Texture_AddImage(uint8_t* t, int, int32_t w, int
     }
     t[4]++;
     t[0x98 + i] = 1;
-    uint8_t* img = (uint8_t*)Malloc(0x32);
+    uint8_t* img = (uint8_t*)crt::malloc(0x32);
     for (int k = 0; k < 0x32; ++k) img[k] = 0;
     F<int32_t>(img, 0xc) = h;
     F<int32_t>(img, 0x14) = format;
@@ -928,8 +927,6 @@ RT3_REPLACE(0x541c10, Texture_DropTarget);
 RT3_NOINLINE int32_t __fastcall Texture_LoadJpeg(uint8_t* t, int, int32_t id, uint8_t* img) {
     typedef size_t(__cdecl * FioFn)(void*, size_t, size_t, void*);
     typedef int(__cdecl * FseekFn)(void*, long, int);
-    FioFn fread_ = (FioFn)0x5a1b05;
-    FseekFn fseek_ = (FseekFn)0x5a261f;
     uint8_t* dev = g_engine;
     if (!F<uint8_t>(dev, 0x11422f)) {
         if (F<void*>(img, 0x2a)) return 0;
@@ -946,58 +943,58 @@ RT3_NOINLINE int32_t __fastcall Texture_LoadJpeg(uint8_t* t, int, int32_t id, ui
         uint8_t cinfo[0x1a0];
         uint8_t err[0x84];
     } l;
-    F<void*>(l.cinfo, 0) = ((void*(__fastcall*)(void*))0x5b3b30)(l.err);
-    ((void(__fastcall*)(void*, int32_t, int32_t))0x5b3230)(l.cinfo, 0x3e, 0x19f);
-    ((void(__fastcall*)(void*, void*))0x5b3980)(l.cinfo, f);
-    ((int(__fastcall*)(void*, uint8_t))0x5b3610)(l.cinfo, 1);
-    ((int(__fastcall*)(void*))0x5b37e0)(l.cinfo);
+    F<void*>(l.cinfo, 0) = jpeg::std_error(l.err);
+    jpeg::CreateDecompress(l.cinfo, 0x3e, 0x19f);
+    jpeg::stdio_src(l.cinfo, f);
+    jpeg::read_header(l.cinfo, 1);
+    jpeg::start_decompress(l.cinfo);
     int32_t w = F<int32_t>(l.cinfo, 0x52), h = F<int32_t>(l.cinfo, 0x56);
     int32_t n = h * w;
     dev = g_engine;
     if (w > F<int32_t>(dev, 0x11423b) || h > F<int32_t>(dev, 0x11423f)) return 1;
     if (!F<uint8_t>(dev, 0x11422f) && t[5] && (w > 0x100 || h > 0x100)) return 1;
-    uint8_t* rgb = (uint8_t*)Malloc((size_t)(n * 3));
+    uint8_t* rgb = (uint8_t*)crt::malloc((size_t)(n * 3));
     while (F<uint32_t>(l.cinfo, 0x6e) < F<uint32_t>(l.cinfo, 0x56)) {
         l.row = rgb + F<uint32_t>(l.cinfo, 0x6e) * F<uint32_t>(l.cinfo, 0x52) * 3;
-        ((uint32_t(__fastcall*)(void*, uint8_t**, uint32_t))0x5b3740)(l.cinfo, &l.row, 1);
+        jpeg::read_scanlines(l.cinfo, &l.row, 1);
     }
-    ((int(__fastcall*)(void*))0x5b3550)(l.cinfo);
-    ((void(__fastcall*)(void*))0x5b3300)(l.cinfo);
-    fseek_(f, 0, 2);
-    long size = ((long(__cdecl*)(void*))0x5a254f)(f);
-    fseek_(f, size - 2, 0);
+    jpeg::finish_decompress(l.cinfo);
+    jpeg::destroy_decompress(l.cinfo);
+    crt::fseek(f, 0, 2);
+    long size = crt::ftell(f);
+    crt::fseek(f, size - 2, 0);
     uint32_t mark = 0;
-    fread_(&mark, 1, 2, f);
+    crt::fread(&mark, 1, 2, f);
     uint8_t* alpha = nullptr;
     uint8_t* alphaFree = nullptr;
     if ((uint16_t)mark != 0xbabe) {
-        alpha = (uint8_t*)Malloc((size_t)(F<int32_t>(l.cinfo, 0x56) * F<int32_t>(l.cinfo, 0x52)));
+        alpha = (uint8_t*)crt::malloc((size_t)(F<int32_t>(l.cinfo, 0x56) * F<int32_t>(l.cinfo, 0x52)));
         memset(alpha, 0xff, (size_t)(h * w));
         alphaFree = alpha;
     } else {
-        fseek_(f, size - 4, 0);
-        fread_(&mark, 1, 2, f);
+        crt::fseek(f, size - 4, 0);
+        crt::fread(&mark, 1, 2, f);
         int32_t stored;
-        fseek_(f, size - 8, 0);
-        fread_(&stored, 1, 4, f);
+        crt::fseek(f, size - 8, 0);
+        crt::fread(&stored, 1, 4, f);
         int32_t packer[3] = { 0x91, 0, 0 };
-        fseek_(f, size - stored - 8, 0);
+        crt::fseek(f, size - stored - 8, 0);
         if ((uint16_t)mark == 0xbaba) {
-            uint8_t* buf = (uint8_t*)Malloc((size_t)stored);
-            fread_(buf, 1, (size_t)stored, f);
+            uint8_t* buf = (uint8_t*)crt::malloc((size_t)stored);
+            crt::fread(buf, 1, (size_t)stored, f);
             int32_t outSize;
             Pack_Decompress(packer, 0, (const int32_t*)buf, stored, &alpha, &outSize);
-            Free(buf);
+            crt::free(buf);
             alphaFree = alpha;
         } else if ((uint16_t)mark == 0xbabb) {
-            alpha = (uint8_t*)Malloc((size_t)(F<int32_t>(l.cinfo, 0x56) * F<int32_t>(l.cinfo, 0x52)));
-            fread_(alpha, 1, (size_t)stored, f);
+            alpha = (uint8_t*)crt::malloc((size_t)(F<int32_t>(l.cinfo, 0x56) * F<int32_t>(l.cinfo, 0x52)));
+            crt::fread(alpha, 1, (size_t)stored, f);
             alphaFree = alpha;
         }
         ((void(__fastcall*)(int32_t*))&Nop552ff0)(packer);
     }
     uint32_t bytes = (uint32_t)(h * w) << 2;
-    uint32_t* pix = (uint32_t*)Malloc(bytes);
+    uint32_t* pix = (uint32_t*)crt::malloc(bytes);
     const uint8_t* a = alpha;
     const uint8_t* c = rgb;
     uint32_t* p = pix;
@@ -1005,8 +1002,8 @@ RT3_NOINLINE int32_t __fastcall Texture_LoadJpeg(uint8_t* t, int, int32_t id, ui
         *p++ = (uint32_t)*a++ << 24 | (uint32_t)c[0] << 16 | (uint32_t)c[1] << 8 | c[2];
         c += 3;
     }
-    Free(alphaFree);
-    Free(rgb);
+    crt::free(alphaFree);
+    crt::free(rgb);
     F<int32_t>(img, 8) = w;
     F<int32_t>(img, 0xc) = h;
     F<int32_t>(img, 0x10) = 0x20;
@@ -1056,8 +1053,8 @@ RT3_NOINLINE int32_t __fastcall Texture_LoadTga(uint8_t* tex, int, int32_t id, u
     }
     int32_t W = w, H = h, bpp = hdr[0x10];
     int32_t n = H * W;
-    uint32_t* pix = (uint32_t*)Malloc(n * 4);
-    uint8_t* buf = (uint8_t*)Malloc(0x40000);
+    uint32_t* pix = (uint32_t*)crt::malloc(n * 4);
+    uint8_t* buf = (uint8_t*)crt::malloc(0x40000);
     if (!pix) return 2;
     int32_t inBuf = 0, left = n;
     int32_t bytes = bpp / 8;
@@ -1090,7 +1087,7 @@ RT3_NOINLINE int32_t __fastcall Texture_LoadTga(uint8_t* tex, int, int32_t id, u
             rest -= bytes;
         }
     }
-    Free(buf);
+    crt::free(buf);
     F<int32_t>(img, 0x10) = bpp;
     F<int32_t>(img, 0x14) = 3;
     F<int32_t>(img, 0x18) = 3;
@@ -1132,10 +1129,10 @@ RT3_NOINLINE void __stdcall Texture_DecompressDxt3(uint8_t* rec) {
         surfB, nullptr, nullptr, surfA, nullptr, nullptr, 0xffffffff, 0);
     Release_139(surfA);
     Release_139(texA);
-    Free(F<void*>(rec, 0x2e));
+    crt::free(F<void*>(rec, 0x2e));
     int32_t size = h * w * 2;
     F<void*>(rec, 0x2e) = nullptr;
-    void* p = Malloc(size);
+    void* p = crt::malloc(size);
     F<void*>(rec, 0x2a) = p;
     F<void*>(rec, 0x22) = p;
     F<int32_t>(rec, 4) = size;
@@ -1169,10 +1166,10 @@ RT3_NOINLINE void __fastcall Texture_MakeBumpMaps(uint8_t* o) {
         img[0x21] = 1;
         F<int32_t>(img, 0x1c) = 0x3c;
         if (F<void*>(img, 0x2a)) {
-            Free(F<void*>(img, 0x2a));
+            crt::free(F<void*>(img, 0x2a));
             F<void*>(img, 0x2a) = nullptr;
         }
-        uint16_t* out = (uint16_t*)Malloc(F<int32_t>(img, 0x10) == 0x20 ? F<int32_t>(img, 4) >> 1 : F<int32_t>(img, 4));
+        uint16_t* out = (uint16_t*)crt::malloc(F<int32_t>(img, 0x10) == 0x20 ? F<int32_t>(img, 4) >> 1 : F<int32_t>(img, 4));
         const uint32_t* src = F<const uint32_t*>(img, 0x26);
         int32_t w = F<int32_t>(img, 8);
         uint16_t* dstRow = out;
@@ -1206,7 +1203,7 @@ RT3_NOINLINE void __fastcall Texture_MakeBumpMaps(uint8_t* o) {
             dstRow += w;
             curRow += w;
         }
-        Free(F<void*>(img, 0x26));
+        crt::free(F<void*>(img, 0x26));
         F<void*>(img, 0x26) = nullptr;
         F<uint16_t*>(img, 0x22) = out;
         F<uint16_t*>(img, 0x2a) = out;
@@ -1230,12 +1227,11 @@ RT3_REPLACE(0x542870, Texture_RemoveAllImages);
 // the pixel loop advanced), so it holds the n bytes of heap that follow it.
 RT3_NOINLINE void __fastcall Texture_SaveJpeg(uint8_t* t, int, void* f, uint32_t withAlpha, int32_t quality) {
     typedef size_t(__cdecl * FwriteFn)(const void*, size_t, size_t, void*);
-    FwriteFn fwrite_ = (FwriteFn)0x5a276f;
     uint8_t* img = F<uint8_t*>(t, 0xa0);
     int32_t w = F<int32_t>(img, 8), h = F<int32_t>(img, 0xc);
     int32_t n = h * w;
-    uint8_t* alpha = (uint8_t*)Malloc((size_t)n);
-    uint8_t* rgb = (uint8_t*)Malloc((size_t)(n * 3));
+    uint8_t* alpha = (uint8_t*)crt::malloc((size_t)n);
+    uint8_t* rgb = (uint8_t*)crt::malloc((size_t)(n * 3));
     if (F<uint8_t>(g_engine, 0x11424f)) Texture_Pixels32(t, 0, nullptr, nullptr, 0);
     const uint32_t* px = F<uint32_t*>(F<uint8_t*>(t, 0xa0), 0x26);
     uint8_t* a = alpha;
@@ -1252,54 +1248,53 @@ RT3_NOINLINE void __fastcall Texture_SaveJpeg(uint8_t* t, int, void* f, uint32_t
         uint8_t cinfo[0x15c];
         uint8_t err[0x84];
     } l;
-    F<void*>(l.cinfo, 0) = ((void*(__fastcall*)(void*))0x5b3b30)(l.err);
-    ((void(__fastcall*)(void*, int32_t, int32_t))0x5b3b80)(l.cinfo, 0x3e, 0x15b);
-    ((void(__fastcall*)(void*, void*))0x5b48f0)(l.cinfo, f);
+    F<void*>(l.cinfo, 0) = jpeg::std_error(l.err);
+    jpeg::CreateCompress(l.cinfo, 0x3e, 0x15b);
+    jpeg::stdio_dest(l.cinfo, f);
     F<int32_t>(l.cinfo, 0x19) = w;
     F<int32_t>(l.cinfo, 0x1d) = h;
     F<int32_t>(l.cinfo, 0x21) = 3;
     F<int32_t>(l.cinfo, 0x25) = 2;
-    ((void(__fastcall*)(void*))0x5b4710)(l.cinfo);
-    ((void(__fastcall*)(void*, int32_t, int32_t))0x5b4290)(l.cinfo, quality, 1);
-    ((void(__fastcall*)(void*, uint8_t))0x5b3db0)(l.cinfo, 1);
+    jpeg::set_defaults(l.cinfo);
+    jpeg::set_quality(l.cinfo, quality, 1);
+    jpeg::start_compress(l.cinfo, 1);
     while (F<uint32_t>(l.cinfo, 0xc6) < F<uint32_t>(l.cinfo, 0x1d)) {
         l.row = rgb + F<uint32_t>(l.cinfo, 0xc6) * (uint32_t)w * 3;
-        ((uint32_t(__fastcall*)(void*, uint8_t**, uint32_t))0x5b3e20)(l.cinfo, &l.row, 1);
+        jpeg::write_scanlines(l.cinfo, &l.row, 1);
     }
-    ((void(__fastcall*)(void*))0x5b3cc0)(l.cinfo);
-    ((void(__fastcall*)(void*))0x5b3c40)(l.cinfo);
+    jpeg::finish_compress(l.cinfo);
+    jpeg::destroy_compress(l.cinfo);
     if ((uint8_t)withAlpha) {
         uint8_t* out;
         int32_t outSize;
         int32_t packer[3] = { 0x91, 0, 0 };
         uint32_t mark;
         if (Pack_Compress(packer, 0, alpha, n, &out, &outSize) == 1) {
-            fwrite_(out, 1, (size_t)outSize, f);
-            fwrite_(&outSize, 1, 4, f);
+            crt::fwrite(out, 1, (size_t)outSize, f);
+            crt::fwrite(&outSize, 1, 4, f);
             mark = 0xbaba;
-            fwrite_(&mark, 1, 2, f);
-            Free(out);
+            crt::fwrite(&mark, 1, 2, f);
+            crt::free(out);
         } else {
-            fwrite_(a, 1, (size_t)n, f);
+            crt::fwrite(a, 1, (size_t)n, f);
             int32_t size = n;
-            fwrite_(&size, 1, 4, f);
+            crt::fwrite(&size, 1, 4, f);
             mark = 0xbabb;
-            fwrite_(&mark, 1, 2, f);
+            crt::fwrite(&mark, 1, 2, f);
         }
         mark = 0xbabe;
-        fwrite_(&mark, 1, 2, f);
+        crt::fwrite(&mark, 1, 2, f);
         ((void(__fastcall*)(int32_t*))&Nop552ff0)(packer);
     }
-    Free(alpha);
-    Free(rgb);
+    crt::free(alpha);
+    crt::free(rgb);
 }
 RT3_REPLACE(0x5428c0, Texture_SaveJpeg);
 
 // 0x542b30. Writes image 0 as an uncompressed 32-bit TGA (top-down when asked).
 void __fastcall Texture_SaveTga(uint8_t* t, int, const char* path, int32_t topDown) {
-    void* f = ((void*(__cdecl*)(const char*, const char*))0x5a1887)(path, (const char*)0x5ca334);
+    void* f = crt::fopen(path, (const char*)0x5ca334);
     if (!f) return;
-    auto fwrite = (size_t(__cdecl*)(const void*, size_t, size_t, void*))0x5a276f;
     uint8_t hdr[0x14] = {};
     hdr[2] = 2;
     uint8_t* img = F<uint8_t*>(t, 0xa0);
@@ -1307,12 +1302,12 @@ void __fastcall Texture_SaveTga(uint8_t* t, int, const char* path, int32_t topDo
     *(uint16_t*)(hdr + 0xe) = (uint16_t)F<int32_t>(img, 0xc);
     hdr[0x10] = 0x20;
     hdr[0x11] = topDown ? 0x20 : 0;
-    fwrite(hdr, 0x12, 1, f);
+    crt::fwrite(hdr, 0x12, 1, f);
     img = F<uint8_t*>(t, 0xa0);
     uint32_t n = (uint32_t)(F<int32_t>(img, 0xc) * F<int32_t>(img, 8)) << 2;
     if (Engine()[0x11424f]) Texture_Pixels32(t, 0, nullptr, nullptr, 0);
-    fwrite(F<void*>(F<uint8_t*>(t, 0xa0), 0x26), 1, n, f);
-    ((int(__cdecl*)(void*))0x5a1740)(f);
+    crt::fwrite(F<void*>(F<uint8_t*>(t, 0xa0), 0x26), 1, n, f);
+    crt::fclose(f);
 }
 RT3_REPLACE(0x542b30, Texture_SaveTga);
 
@@ -1348,7 +1343,7 @@ RT3_NOINLINE void __fastcall Texture_Destroy(uint8_t* t) {
     for (uint32_t off : lists) {
         if (PtrList* l = F<PtrList*>(t, off)) {
             PtrList_Destroy(l);
-            ((void(__cdecl*)(void*))0x53b080)(l);
+            crt::operator_delete(l);
         }
     }
     F<int32_t>(t, 0xe0) = 0;
@@ -1379,33 +1374,33 @@ RT3_NOINLINE int32_t __fastcall Texture_LoadDds(uint8_t* o, int, int32_t id, uin
     uint8_t* fs = g_pack;
     NameTable_Seek(fs, 0, id, 0);
     uint32_t size = (uint32_t)NameTable_EntrySize(g_pack, 0, id);
-    uint8_t* buf = (uint8_t*)Malloc(size);
+    uint8_t* buf = (uint8_t*)crt::malloc(size);
     int32_t hdr = size < 0x80 ? (int32_t)size : 0x80;
     NameTable_Read(g_pack, 0, buf, hdr);
     if (F<uint32_t>(buf, 0) != 0x20534444) {
-        Free(buf);
+        crt::free(buf);
         return 2;
     }
     e = g_engine;
     int32_t w = F<int32_t>(buf, 0x10), h = F<int32_t>(buf, 0xc);
     if ((uint32_t)w > F<uint32_t>(e, 0x11423b) || (uint32_t)h > F<uint32_t>(e, 0x11423f)) {
-        Free(buf);
+        crt::free(buf);
         return 1;
     }
     int32_t m = Texture_MaxSize(o);
     if (w > m || h > m) {
-        Free(buf);
+        crt::free(buf);
         return 1;
     }
     if (hdr < (int32_t)size) NameTable_Read(g_pack, 0, buf + hdr, size - hdr);
     uint32_t n = (uint32_t)(h / 4 * (w / 4)) << 4; // whole 4x4 blocks only (signed division, as the original)
-    uint8_t* data = (uint8_t*)Malloc(n);
+    uint8_t* data = (uint8_t*)crt::malloc(n);
     if (!data) {
-        Free(buf);
+        crt::free(buf);
         return 2;
     }
     memcpy(data, buf + 0x80, n);
-    Free(buf);
+    crt::free(buf);
     F<int32_t>(img, 0x14) = 2;
     F<int32_t>(img, 0x18) = 2;
     F<int32_t>(img, 0) = id; // the record keeps its pack id (a reload after a device reset needs it)
@@ -1426,12 +1421,12 @@ RT3_REPLACE(0x542d50, Texture_LoadDds);
 // 0x542f50. Appends texture t's first image as a JPEG (Texture_SaveJpeg) to file
 // path; returns where it starts, 0 when the file can't be opened.
 RT3_NOINLINE int32_t __fastcall Texture_AppendJpeg(uint8_t* t, int, const char* path, uint32_t withAlpha, int32_t quality) {
-    void* f = ((void*(__cdecl*)(const char*, const char*))0x5a1887)(path, (const char*)0x5dd8f4);
+    void* f = crt::fopen(path, (const char*)0x5dd8f4);
     if (!f) return 0;
-    ((int(__cdecl*)(void*, long, int))0x5a261f)(f, 0, 2);
-    int32_t pos = ((long(__cdecl*)(void*))0x5a254f)(f);
+    crt::fseek(f, 0, 2);
+    int32_t pos = crt::ftell(f);
     Texture_SaveJpeg(t, 0, f, withAlpha, quality);
-    ((int(__cdecl*)(void*))0x5a1740)(f);
+    crt::fclose(f);
     return pos;
 }
 RT3_REPLACE(0x542f50, Texture_AppendJpeg);
@@ -1647,9 +1642,9 @@ RT3_NOINLINE int32_t __fastcall Texture_Upload(uint8_t* t, int, void* dev, uint8
     for (int32_t j = 0; j < t[4]; ++j) {
         uint8_t* e = F<uint8_t*>(t, 0xa0 + j * 4);
         if (!e[0x20]) continue;
-        if (F<void*>(e, 0x2a)) ((void(__cdecl*)(void*))0x5a1145)(F<void*>(e, 0x2a));
-        if (F<void*>(F<uint8_t*>(t, 0xa0 + j * 4), 0x26)) ((void(__cdecl*)(void*))0x5a1145)(F<void*>(F<uint8_t*>(t, 0xa0 + j * 4), 0x26));
-        if (F<void*>(F<uint8_t*>(t, 0xa0 + j * 4), 0x2e)) ((void(__cdecl*)(void*))0x5a1145)(F<void*>(F<uint8_t*>(t, 0xa0 + j * 4), 0x2e));
+        if (F<void*>(e, 0x2a)) crt::free(F<void*>(e, 0x2a));
+        if (F<void*>(F<uint8_t*>(t, 0xa0 + j * 4), 0x26)) crt::free(F<void*>(F<uint8_t*>(t, 0xa0 + j * 4), 0x26));
+        if (F<void*>(F<uint8_t*>(t, 0xa0 + j * 4), 0x2e)) crt::free(F<void*>(F<uint8_t*>(t, 0xa0 + j * 4), 0x2e));
         e = F<uint8_t*>(t, 0xa0 + j * 4);
         F<void*>(e, 0x2e) = nullptr;
         F<void*>(e, 0x26) = nullptr;
@@ -1672,7 +1667,7 @@ RT3_NOINLINE int32_t __fastcall Texture_SetPixels(uint8_t* t, int, void* pixels)
     uint8_t* img = F<uint8_t*>(t, 0xa0);
     if (pixels) {
         void* old = F<void*>(img, 0x26);
-        if (old && old != pixels) ((void(__cdecl*)(void*))0x5a1145)(old);
+        if (old && old != pixels) crt::free(old);
         F<void*>(F<uint8_t*>(t, 0xa0), 0x26) = pixels;
     } else if (!F<void*>(img, 0x26))
         return 0;
@@ -1693,9 +1688,9 @@ RT3_REPLACE(0x5438d0, Texture_SetPixels);
 // 0x543980. Sets texture t up as a w x h "memory bitmap" (static, pixels
 // allocated when null) and returns it.
 RT3_NOINLINE uint8_t* __fastcall Texture_InitMemory(uint8_t* t, int, void* pixels, int32_t w, int32_t h, uint8_t flag) {
-    if (!pixels) pixels = ((void*(__cdecl*)(uint32_t))0x5a125d)((uint32_t)(w * h * 4));
+    if (!pixels) pixels = crt::malloc((uint32_t)(w * h * 4));
     Texture_Construct(t, 0, flag);
-    ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)((char*)t + 0x13, (const char*)0x5dd924);
+    crt::sprintf((char*)t + 0x13, (const char*)0x5dd924);
     if (!F<void*>(t, 0xa0)) {
         t[0x94] = 1;
         t[0x96] = 0;
@@ -1761,7 +1756,7 @@ RT3_NOINLINE void __fastcall Mouse_Unacquire(uint8_t* m) {
     int32_t y = (int32_t)((double)mode[1] * F<float>(m, 0xd));
     int32_t fw, fh;
     Window_FrameSize((void**)e, 0, &fw, &fh);
-    Import<int32_t(__stdcall*)(int32_t, int32_t)>(0x5c8264)(fw + x, fh + y);
+    imp::SetCursorPos(fw + x, fh + y);
 }
 RT3_REPLACE(0x543b20, Mouse_Unacquire);
 

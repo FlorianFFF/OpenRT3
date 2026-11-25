@@ -11,6 +11,7 @@
 #include "core/globals.h"
 #include "game/collection.h"
 #include "core/crt.h"
+#include "core/imports.h"
 #include "game/calendar.h"
 #include "core/stream.h"
 #include "hook/keepregs.h"
@@ -22,6 +23,18 @@
 #undef small
 
 namespace rt3 {
+
+void __fastcall Types_RefreshAvailable(Collection* c);
+
+void __fastcall Net_SendToHost(uint8_t* s, int, uint32_t type, int32_t size, const uint8_t* data);
+
+uint8_t* __fastcall Net_QueueText(uint8_t* s, int, const char* text, int32_t a, int32_t b, int32_t c, int32_t d);
+
+void __fastcall Camera_SetFullView(uint8_t* c, int, int32_t full);
+
+void __fastcall World_Advance(uint8_t* w, int, int32_t minutes, int32_t nested);
+
+void __fastcall Train_ReplaceEngine(uint8_t* train, int, uint32_t typeId, int32_t freeUpgrade);
 
 template <typename T> static inline T& F(void* o, uint32_t off) { return *(T*)((uint8_t*)o + off); }
 
@@ -53,7 +66,6 @@ char* __fastcall FormatText(char* dst, const char* fmt, const char* a1, const ch
 
 int32_t __fastcall Game_EffectiveVersion();
 float __fastcall Effects_Multiplier(uint8_t* w, int, int32_t idx, uint32_t company, uint32_t player, uint32_t region);
-template <typename Fn> static inline Fn Import(uint32_t iat) { return (Fn)hook::Global<void*>(iat); }
 
 char* __fastcall FormatText(char*, const char*, const char*, const char*, const char*, const char*,
                             const char*, const char*, const char*, const char*);
@@ -382,7 +394,6 @@ static inline void* RefPositive(Collection* t, int32_t id) { return id > 0 ? Col
 
  // cargo-type table object (+0x16e: available flags)
 
-static inline int ExeStricmp(const char* a, const char* b) { return ((int(__cdecl*)(const char*, const char*))0x5a57cf)(a, b); }
 
 // 0x434ea0 / 0x435030. Lookups by name (+0) in world tables +0x66b2 / +0x66b6:
 // first char (name uppercased vs. stored) then exe stricmp; value +0x1e / +0x3d.
@@ -392,7 +403,7 @@ static int32_t FindNamed(Collection* t, const char* name, uint32_t valueOffset) 
     for (int32_t i = 0; i < total; ++i) {
         uint8_t* r = (uint8_t*)Collection_Get(t, 0, Collection_IdAt(t, 0, i, 0));
         if ((char)r[0] != first) continue;
-        if (ExeStricmp(name, (const char*)r) == 0) return F<int32_t>(r, valueOffset);
+        if (crt::stricmp(name, (const char*)r) == 0) return F<int32_t>(r, valueOffset);
     }
     return 0;
 }
@@ -436,7 +447,6 @@ static inline int32_t Ftol(double v) {
     return r;
 }
 
-static inline void* ExeNew(size_t n) { return ((void*(__cdecl*)(size_t))0x53b070)(n); }
 
 // Calls virtual slot +0x54 (with 0) on every record of a collection.
 static void Table_CallSlot54(Collection* (*get)()) {
@@ -491,8 +501,7 @@ void Scenario_RestoreVolumes() {
 }
 
 static void Event(void* self, uint32_t type, uint32_t id, uint32_t a, uint32_t b, uint32_t c) {
-    hook::Orig<void(__fastcall*)(void*, int, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t)>(0x540120)(
-        self, 0, type, id, a, b, c);
+    Window_SendEvent5((uint8_t*)(self), 0, type, id, a, b, c);
 }
 
 // 0x432130. Event fx: runs trigger idx's effect list (+4 + idx * 4, linked by
@@ -743,7 +752,7 @@ RT3_NOINLINE int32_t __fastcall Event_Check(uint8_t* ev, int, uint32_t trigger, 
                             memcpy(out + strlen(out), (const void*)0x5c9ce8, 2);
                             textLen += 2;
                         }
-                        ((char*(__cdecl*)(char*, const char*, size_t))0x5a1eb0)(out, text, (size_t)(outSize - textLen));
+                        crt::strncat(out, text, (size_t)(outSize - textLen));
                         textLen += (int32_t)strlen(text);
                     }
                     shown = true;
@@ -794,13 +803,13 @@ RT3_REPLACE(0x432e80, Collection5c9cec_Destruct);
 // 0x432ea0. Adds a fresh 0x88f-byte record (initialised by 0x42d5a0) under
 // `key`, names it, and frees the template. Returns the new ID.
 uint32_t __fastcall Table_AddNamedRecord(Collection* t, int, const char* name, uint32_t key) {
-    uint8_t* tmp = (uint8_t*)((void*(__cdecl*)(size_t))0x53b070)(0x88f);
+    uint8_t* tmp = (uint8_t*)crt::operator_new(0x88f);
     if (tmp) tmp = (uint8_t*)Record42d5a0_Init(tmp);
     uint32_t id = Collection_Allocate(t, 0, tmp, 0x88f, key, 0);
     Record42d5a0_SetName((uint8_t*)Collection_Get(t, 0, id), 0, (int32_t)id, name);
     if (tmp) {
         Obj_FreeAllLists2(tmp);
-        ((void(__cdecl*)(void*))0x53b080)(tmp);
+        crt::operator_delete(tmp);
     }
     return id;
 }
@@ -876,7 +885,7 @@ RT3_REPLACE(0x4331e0, Table_CountClear82b);
 
 // 0x433230. Frees the buffer at +8 and clears +8 and +0.
 RT3_NOINLINE void __fastcall Obj_FreeBuffer8(void* o) {
-    if (F<void*>(o, 8)) ((void(__cdecl*)(void*))0x5a1145)(F<void*>(o, 8));
+    if (F<void*>(o, 8)) crt::free(F<void*>(o, 8));
     F<void*>(o, 8) = nullptr;
     F<int32_t>(o, 0) = 0;
 }
@@ -895,7 +904,7 @@ RT3_NOINLINE int32_t __fastcall Save_IsCompatible(uint8_t* g, int, const char* n
     StreamRead(s, &ver, 4, 0, 1);
     int32_t ok = ver >= 0x2583 && ver <= g_620e98 ? 1 : 0;
     int32_t mode = F<int32_t>(g, 4);
-    if (mode == 0xc && !((const char*(__cdecl*)(const char*, const char*))0x5a1ff0)(name, (const char*)0x5c9cf8)) {
+    if (mode == 0xc && !((const char*)crt::strstr(name, (const char*)0x5c9cf8))) {
         ok = 0;
     } else if (ok) {
         uint8_t hdr[0x3c4];
@@ -920,9 +929,9 @@ RT3_REPLACE(0x433260, Save_IsCompatible);
 // localized for kinds 5..7), sorted by display name. Quirk: the folder is scanned twice
 // and the second pass is not bounded by the first count.
 RT3_NOINLINE void __fastcall SaveList_Scan(uint8_t* list, int, int32_t kind) {
-    auto findFirst = Import<void*(__stdcall*)(const char*, void*)>(0x5c8190);
-    auto findNext = Import<int32_t(__stdcall*)(void*, void*)>(0x5c8194);
-    auto findClose = Import<int32_t(__stdcall*)(void*)>(0x5c819c);
+    auto findFirst = ((void*(__stdcall*)(const char*, void*))imp::FindFirstFileA);
+    auto findNext = imp::FindNextFileA;
+    auto findClose = imp::FindClose;
     char fd[0x140];
     char* file = fd + 0x2c;
     F<int32_t>(list, 0) = 0;
@@ -938,7 +947,7 @@ RT3_NOINLINE void __fastcall SaveList_Scan(uint8_t* list, int, int32_t kind) {
         } while (findNext(h, fd));
     }
     findClose(h);
-    uint8_t* buf = (uint8_t*)Malloc(F<int32_t>(list, 0) * 0x25a + 1);
+    uint8_t* buf = (uint8_t*)crt::malloc(F<int32_t>(list, 0) * 0x25a + 1);
     F<uint8_t*>(list, 8) = buf;
     memset(buf, 0, F<int32_t>(list, 0) * 0x25a);
     Fmt(path2, (const char*)0x5c9d08, dir, pat);
@@ -1008,9 +1017,9 @@ RT3_REPLACE(0x4337b0, Obj_Get25);
 // 0x4337c0. Appends {next, name, a..f} (0x20 bytes) to the world's list at +0x66a6.
 RT3_NOINLINE void __fastcall World_AddNamedEntry(void* w, int, const char* name, int32_t a, int32_t b, int32_t c,
                                     int32_t d, int32_t e, int32_t f) {
-    int32_t* n = (int32_t*)((void*(__cdecl*)(size_t))0x5a125d)(0x20);
+    int32_t* n = (int32_t*)crt::malloc(0x20);
     for (int i = 0; i < 8; ++i) n[i] = 0;
-    ((void(__fastcall*)(char**, const char*))0x51d820)((char**)(n + 1), name); // String_Assign
+    String_Assign((char**)(n + 1), name); // String_Assign
     n[2] = a; n[3] = b; n[4] = c; n[5] = d; n[6] = e; n[7] = f;
     n[0] = 0;
     int32_t** head = &F<int32_t*>(w, 0x66a6);
@@ -1177,7 +1186,7 @@ RT3_NOINLINE void __stdcall World_SetEditorButtons(uint32_t modeArg, uint32_t di
     for (uint32_t id = 0x7db; id < 0x838; ++id) Event(hook::As<void*>(g_gameWindow), type, id, 3, 0, 0);
     if ((uint8_t)disabledArg) Event(hook::As<void*>(g_setupWindow), 0x87, 0x7924, 3, 0, 0);
     View_SetToolMode(g_gameWindow, 0, 25, -1);
-    hook::Orig<void(__fastcall*)(void*, int, uint32_t)>(0x43a0a0)(hook::As<void*>(g_62be68), 0, mode);
+    Camera_SetFullView((uint8_t*)(hook::As<void*>(g_62be68)), 0, (int32_t)(mode));
 }
 RT3_REPLACE(0x433da0, World_SetEditorButtons);
 
@@ -1220,11 +1229,11 @@ void __fastcall Window_AddTrainDetailStrip(uint8_t* win, int, float x, float y, 
     F<uint16_t>(def, 0) = 0x3f9;
     String_Assign(&F<char*>(def, 0x43), (const char*)0x5c9ee8);
     String_Assign(&F<char*>(def, 0x3f), GetString(0x155));
-    uint8_t* c = (uint8_t*)ExeNew(0xe9);
+    uint8_t* c = (uint8_t*)crt::operator_new(0xe9);
     if (c) c = Control_Construct(c, 0, def);
     Window_AddChild(win, 0, c, 0);
-    Free(F<void*>(def, 0x43));
-    Free(F<void*>(def, 0x3f));
+    crt::free(F<void*>(def, 0x43));
+    crt::free(F<void*>(def, 0x3f));
 }
 RT3_REPLACE(0x433f20, Window_AddTrainDetailStrip);
 
@@ -1290,7 +1299,7 @@ RT3_NOINLINE int32_t __stdcall Net_SendSlot(int32_t slot, int32_t pick) {
             strcpy((char*)p + 8, name);
             break;
         }
-        if (((int(__cdecl*)(const char*, const char*))0x5a57cf)((const char*)p + 8, (const char*)n + 8) == 0) {
+        if (crt::stricmp((const char*)p + 8, (const char*)n + 8) == 0) {
             strcpy(name, (const char*)n + 8);
             break;
         }
@@ -1310,16 +1319,15 @@ RT3_REPLACE(0x434200, Net_SendSlot);
 // from +0x46aa4) are released; the +0x66a6 list and the +0x66aa node are
 // freed, +0x66ae cleared, and the tutorial's map pointers deleted.
 RT3_NOINLINE void __fastcall World_Teardown(uint8_t* w) {
-    auto Free = (void(__cdecl*)(void*))0x53b080;
     ++F<int32_t>(w, 0x4c93);
     if (Collection* c = F<Collection*>(w, 0x66b2)) {
         Collection_Destruct(c);
-        Free(c);
+        crt::operator_delete(c);
     }
     F<Collection*>(w, 0x66b2) = nullptr;
     if (Collection* c = F<Collection*>(w, 0x66b6)) {
         Collection_Destruct(c);
-        Free(c);
+        crt::operator_delete(c);
     }
     F<Collection*>(w, 0x66b6) = nullptr;
     struct Table {
@@ -1338,7 +1346,7 @@ RT3_NOINLINE void __fastcall World_Teardown(uint8_t* w) {
     for (const Table& t : kTables) {
         if (Collection* c = hook::Global<Collection*>(t.at)) {
             t.destroy(c);
-            Free(c);
+            crt::operator_delete(c);
         }
         hook::Global<Collection*>(t.at) = nullptr;
     }
@@ -1388,7 +1396,7 @@ RT3_NOINLINE int32_t __fastcall World_SetSpeed(uint8_t* w, int, int32_t speed, i
     } else if (request == 1 && lobby) {
         if (F<int32_t>(w, 0x66ae) != 1) return 0;
         if (!g_6d40dc) {
-            ((void(__fastcall*)(uint8_t*, int, const char*, int32_t, int32_t, int32_t, int32_t))0x469a50)(lobby, 0, GetString(0xe20), 1, 0, 0, 0);
+            Net_QueueText(lobby, 0, GetString(0xe20), 1, 0, 0, 0);
             return 0;
         }
         if (g_6cd924) return 0;
@@ -1399,7 +1407,7 @@ RT3_NOINLINE int32_t __fastcall World_SetSpeed(uint8_t* w, int, int32_t speed, i
             pendingCursor = F<int32_t>(cursor, 4);
             Cursor_Set(cursor, 0, 6, 0, 0);
         }
-        ((void(__fastcall*)(uint8_t*, int, int32_t, int32_t, uint8_t*))0x407870)(g_session, 0, 0xb, 2, msg);
+        Net_SendToHost(g_session, 0, (uint32_t)(0xb), 2, (const uint8_t*)(msg));
         return 1;
     }
     g_6cd924 = 0;
@@ -1618,7 +1626,7 @@ RT3_NOINLINE void __fastcall World_SetNamedValue(uint8_t* w, int, const char* na
         if (up != (char)r[0]) continue;
         t = F<Collection*>(w, 0x66b2);
         r = (uint8_t*)Collection_Get(t, 0, Collection_IdAt(t, 0, (uint32_t)i, 0));
-        if (Stricmp(name, (const char*)r)) continue;
+        if (crt::stricmp(name, (const char*)r)) continue;
         t = F<Collection*>(w, 0x66b2);
         F<int32_t>(Collection_Get(t, 0, Collection_IdAt(t, 0, (uint32_t)i, 0)), 0x1e) = value;
         found = true;
@@ -1633,7 +1641,7 @@ RT3_NOINLINE void __fastcall World_SetNamedValue(uint8_t* w, int, const char* na
         Collection* t = F<Collection*>(w, 0x66b2);
         ((void(__fastcall*)(Collection*, int, void*, int32_t, int32_t, int32_t))(*(void***)t)[4 / 4])(t, 0, rec, 0, 0, 0);
     }
-    if (hook::As<void*>(g_62b268)) ((void(__fastcall*)(void*))0x412c10)(hook::As<void*>(g_62b268));
+    if (hook::As<void*>(g_62b268)) Types_RefreshAvailable((Collection*)(hook::As<void*>(g_62b268)));
 }
 RT3_REPLACE(0x434f20, World_SetNamedValue);
 
@@ -1655,7 +1663,7 @@ RT3_NOINLINE void __fastcall World_SetNamedFlag(uint8_t* w, int, const char* nam
         if (up != (char)r[0]) continue;
         t = F<Collection*>(w, 0x66b6);
         r = (uint8_t*)Collection_Get(t, 0, Collection_IdAt(t, 0, (uint32_t)i, 0));
-        if (Stricmp(name, (const char*)r)) continue;
+        if (crt::stricmp(name, (const char*)r)) continue;
         t = F<Collection*>(w, 0x66b6);
         F<int32_t>(Collection_Get(t, 0, Collection_IdAt(t, 0, (uint32_t)i, 0)), 0x3d) = value;
         if (Collection* f = g_6ada84) Table_RefreshNamedFlags(f);
@@ -1809,7 +1817,7 @@ RT3_NOINLINE void __fastcall Templates_Normalize(uint8_t* self) {
             if ((kind == 2 || kind == 3) && !e[8]) FirstCargoName((char*)e + 8, 0);
             if (F<int32_t>(e, 0) == 3) {
                 int32_t i = 0;
-                while (!Stricmp((const char*)e + 8, (const char*)e + 0x1c)) {
+                while (!crt::stricmp((const char*)e + 8, (const char*)e + 0x1c)) {
                     FirstCargoName((char*)e + 8, i++);
                     if (F<int32_t>(e, 0) != 3) break;
                 }
@@ -2068,7 +2076,7 @@ RT3_NOINLINE void __fastcall Scenario_End(uint8_t* w) {
     View_SetToolMode(g_gameWindow, 0, 0, -1);
     if (uint8_t* s = g_session) {
         Session_Shutdown(s);
-        ((void(__cdecl*)(void*))0x53b080)(s);
+        crt::operator_delete(s);
         g_session = nullptr;
     }
     Game_PostInputEvent(0xcc, 0, g_newGame[0xc5] ? 7 : 2, 0, 0);
@@ -2226,7 +2234,7 @@ RT3_NOINLINE int32_t __fastcall World_IsSpecialScenario(void*, int, int32_t v) {
     if (F<int32_t>(map, 0x2155) != 0x180 || F<int32_t>(map, 0x2159) != 0x1c0) return 0;
     Collection* regions = g_cities;
     if (Collection_Count(regions) != 0x41) return 0;
-    if (Stricmp((const char*)Collection_Get(regions, 0, 1) + 0x356, (const char*)0x5c9f48) != 0) return 0;
+    if (crt::stricmp((const char*)Collection_Get(regions, 0, 1) + 0x356, (const char*)0x5c9f48) != 0) return 0;
     Collection* slots = g_events;
     if (Table_CountClear82b(slots) != 0x16) return 0;
     return F<uint8_t>(Collection_RecordAtList(slots, 0, 7, 0), 0x7ef) == 6 ? 1 : 0;
@@ -2322,9 +2330,9 @@ RT3_NOINLINE void __fastcall World_Reset(uint8_t* w, int, int32_t setup) {
     for (uint32_t off : { 0x66b2u, 0x66b6u }) {
         if (Collection* old = F<Collection*>(w, off)) {
             Collection_Destruct(old);
-            ((void(__cdecl*)(void*))0x53b080)(old);
+            crt::operator_delete(old);
         }
-        Collection* c = (Collection*)((void*(__cdecl*)(size_t))0x53b070)(0x88);
+        Collection* c = (Collection*)crt::operator_new(0x88);
         F<Collection*>(w, off) = c ? Collection_Construct(c, 0, 1, off == 0x66b2u ? 0x22 : 0x41, 2, 2, 0, 0, 0) : nullptr;
     }
     if (uint8_t* view = g_gameWindow)
@@ -2595,7 +2603,7 @@ RT3_NOINLINE void __fastcall World_RunAhead(uint8_t* w) {
     int32_t n = (F<int32_t>(g_app, 0x178) != 1 ? 3 : 1) * 0x150;
     if (F<int32_t>(g_world, 0x4af7)) n = 0x150;
     for (int32_t k = 1; k <= n; ++k) {
-        ((void(__fastcall*)(uint8_t*, int, int32_t, int32_t))0x40ab50)(w, 0, 0x5a0, 0);
+        World_Advance(w, 0, 0x5a0, 0);
         g_skipCount = k * 0x50 / n + base;
         Loading_Pump(g_app, 0, 1, 0);
     }
@@ -2673,11 +2681,10 @@ RT3_NOINLINE void __fastcall World_CheatPrompt(uint8_t* w) {
     code[0] = 0;
     Obj_Incc60(g_windowManager);
     Dialog_RunMessage(GetString(0xb6a), 0xb, 0xbf800000, 0xbf800000, 0, nullptr, 0, 0.0f, (uint32_t)(uintptr_t)code, 100, 0, nullptr, nullptr, 0, 0, nullptr, 0);
-    auto Stricmp = (int(__cdecl*)(const char*, const char*))0x5a57cf;
     for (int32_t i = 0; i < 0x1a; ++i) {
         const int32_t* e = (const int32_t*)(0x5ee2c8 + i * 0x14);
         const char* text = e[0] ? GetString(e[0]) : (const char*)(uintptr_t)e[1];
-        if (Stricmp(code, text)) continue;
+        if (crt::stricmp(code, text)) continue;
         uint32_t kind = (uint32_t)e[2];
         int32_t value = e[3];
         uint8_t* world = g_world;
@@ -2700,7 +2707,7 @@ RT3_NOINLINE void __fastcall World_CheatPrompt(uint8_t* w) {
                 Collection* ts = g_trains;
                 uint8_t* t = (uint8_t*)Collection_Get(ts, 0, Collection_IdAt(ts, 0, (uint32_t)k, 0));
                 if (F<int32_t>(t, 0x51) == F<int32_t>(g_world, 0x21))
-                    ((void(__fastcall*)(uint8_t*, int, uint32_t, int32_t))0x4aefb0)(t, 0, engine, 1);
+                    Train_ReplaceEngine(t, 0, engine, 1);
             }
             break;
         }

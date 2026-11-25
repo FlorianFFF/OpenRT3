@@ -17,6 +17,7 @@
 #include "hook/keepregs.h"
 #include "core/containers.h"
 #include "core/crt.h"
+#include "core/imports.h"
 #include "game/calendar.h"
 
 #undef near
@@ -25,9 +26,10 @@
 
 namespace rt3 {
 
+void __fastcall Fatal_Exit(const char* msg);
+
 template <typename T> static inline T& F(void* o, uint32_t off) { return *(T*)((uint8_t*)o + off); }
 void* __fastcall Engine_Renderer(void* e);
-template <typename Fn> static inline Fn Import(uint32_t iat) { return (Fn)hook::Global<void*>(iat); }
 int32_t __fastcall SceneObj_Reset_Impl(uint8_t* o);
 
 // 0x531e90. Stores a 4x4 matrix (+8) for a 3D sound and marks the listener dirty.
@@ -194,9 +196,7 @@ static inline bool Is3D(uint8_t* s) { return F<int32_t>(s, 4) == 1 && !g_ccb9f4;
 
 static inline uint8_t* Sound3D() { return g_ccb9fc; }
 
-static inline void* ExeNew(size_t n) { return ((void*(__cdecl*)(size_t))0x53b070)(n); }
 
-static inline void ExeDelete(void* p) { ((void(__cdecl*)(void*))0x53b080)(p); }
 
 static inline uint8_t*& Snd2D() { return g_ccb9f8; }
 
@@ -204,13 +204,13 @@ static inline uint8_t*& Snd3D() { return g_ccb9fc; }
 
 static inline uint8_t*& Music() { return g_music; }
 
-static inline void Sleep_(uint32_t ms) { Import<void(__stdcall*)(uint32_t)>(0x5c81f0)(ms); }
+static inline void Sleep_(uint32_t ms) { imp::Sleep(ms); }
 
 // Destroys and clears one of the sound singletons.
 static void DestroySnd(uint8_t*& p, void(__fastcall* dtor)(uint8_t*)) {
     if (uint8_t* o = p) {
         dtor(o);
-        ExeDelete(o);
+        crt::operator_delete(o);
     }
     p = nullptr;
 }
@@ -247,7 +247,7 @@ static inline int32_t Ftol(double v) {
 
 static inline float BitsF(uint32_t b) { return *(float*)&b; }
 
-static inline void FatalError(const char* msg) { ((void(__fastcall*)(const char*))0x51e980)(msg); }
+static inline void FatalError(const char* msg) { Fatal_Exit(msg); }
 
 static void FatalCannotOpen(const char* path) {
     char msg[0x180];
@@ -493,28 +493,28 @@ RT3_NOINLINE void __fastcall StreamClose(Stream s) {
     switch (r.mode) {
     case kStreamWriteFile:
     case kStreamReadFile:
-        Close(r.fd);
+        crt::close(r.fd);
         r.allocated = 0;
         break;
     case kStreamWriteBuffered: {
-        int fd = Open(r.path, kOpenWrite, 0x80);
+        int fd = crt::open(r.path, kOpenWrite, 0x80);
         if (fd == -1) {
             r.open = 0;
             r.allocated = 0;
-            Close(-1);
+            crt::close(-1);
             return; // QUIRK: path and buffer are leaked
         }
-        Write(fd, r.buffer, r.size);
-        Close(fd);
-        Free(r.buffer); // QUIRK: pointer not cleared
+        crt::write(fd, r.buffer, r.size);
+        crt::close(fd);
+        crt::free(r.buffer); // QUIRK: pointer not cleared
         r.allocated = 0;
         break;
     }
     case kStreamWriteMemory:
         if (r.size < r.capacity) { // shrink to fit; stays allocated for mode-3 re-open
-            uint8_t* b = (uint8_t*)Malloc(r.size);
+            uint8_t* b = (uint8_t*)crt::malloc(r.size);
             memcpy(b, r.buffer, r.size);
-            Free(r.buffer);
+            crt::free(r.buffer);
             r.buffer = b;
             r.capacity = r.size;
         }
@@ -530,7 +530,7 @@ RT3_NOINLINE void __fastcall StreamClose(Stream s) {
         FreeAndNull((void**)&r.buffer);
         r.capacity = 0;
         r.allocated = 0;
-        Close(r.fd);
+        crt::close(r.fd);
         break;
     }
     if (r.allocated == 0) FreeAndNull((void**)&r.path);
@@ -538,7 +538,7 @@ RT3_NOINLINE void __fastcall StreamClose(Stream s) {
 }
 RT3_REPLACE(0x530a00, StreamClose);
 
-int32_t __fastcall StreamTell(Stream s) { return Tell(g_streams[s].fd); }
+int32_t __fastcall StreamTell(Stream s) { return crt::tell(g_streams[s].fd); }
 RT3_REPLACE(0x530b70, StreamTell);
 
 int32_t __fastcall StreamFd(Stream s) { return g_streams[s].fd; }
@@ -548,8 +548,8 @@ void __fastcall StreamRelease(Stream s) {
     StreamRecord& r = g_streams[s];
     if (r.open) StreamClose(s);
     if (r.allocated) {
-        Free(r.path);
-        if (r.buffer) Free(r.buffer);
+        crt::free(r.path);
+        if (r.buffer) crt::free(r.buffer);
         r.allocated = 0;
         r.path = nullptr;
         r.buffer = nullptr;
@@ -561,9 +561,9 @@ int32_t __fastcall StreamSize(Stream s) { return g_streams[s].size; }
 RT3_REPLACE(0x530c10, StreamSize);
 
 int32_t __fastcall FileExists(const char* path) {
-    int fd = Open(path, kOpenRead, 0);
+    int fd = crt::open(path, kOpenRead, 0);
     if (fd == -1) return 0;
-    Close(fd);
+    crt::close(fd);
     return 1;
 }
 RT3_REPLACE(0x530c20, FileExists);
@@ -582,7 +582,7 @@ RT3_NOINLINE Stream __fastcall StreamOpen(const char* path, int32_t mode, int32_
         for (int i = 0; i < kStreams; ++i) {
             StreamRecord& r = g_streams[i];
             if (r.allocated && (r.mode == kStreamReadMemory || r.mode == kStreamWriteMemory) &&
-                Stricmp(r.path, path) == 0) {
+                crt::stricmp(r.path, path) == 0) {
                 if (mode != kStreamWriteMemory) { // re-open the kept buffer for reading
                     r.open = 1;
                     r.pos = 0;
@@ -608,13 +608,13 @@ RT3_NOINLINE Stream __fastcall StreamOpen(const char* path, int32_t mode, int32_
     r.open = 1;
     r.allocated = 1;
     size_t n = strlen(path) + 1;
-    r.path = (char*)Malloc(n);
+    r.path = (char*)crt::malloc(n);
     r.capacity = 0;
     r.buffer = nullptr;
     memcpy(r.path, path, n);
 
     if (r.mode == kStreamReadFile || r.mode == kStreamReadWhole || r.mode == kStreamReadChunked) {
-        r.fd = Open(path, kOpenRead, 0x100);
+        r.fd = crt::open(path, kOpenRead, 0x100);
         if (r.fd == -1) {
             if (fatalIfMissing) FatalCannotOpen(path);
             FreeAndNull((void**)&r.path);
@@ -623,36 +623,36 @@ RT3_NOINLINE Stream __fastcall StreamOpen(const char* path, int32_t mode, int32_
             return -1;
         }
         if (r.mode == kStreamReadWhole) {
-            r.capacity = r.size = FileLength(r.fd);
-            r.buffer = (uint8_t*)Malloc(r.capacity);
-            Read(r.fd, r.buffer, r.capacity);
-            Close(r.fd);
+            r.capacity = r.size = crt::filelength(r.fd);
+            r.buffer = (uint8_t*)crt::malloc(r.capacity);
+            crt::read(r.fd, r.buffer, r.capacity);
+            crt::close(r.fd);
         } else if (r.mode == kStreamReadChunked) {
-            if (FileLength(r.fd) < kChunk) {
-                r.capacity = r.size = FileLength(r.fd);
+            if (crt::filelength(r.fd) < kChunk) {
+                r.capacity = r.size = crt::filelength(r.fd);
                 r.mode = kStreamReadWhole;
             } else {
                 r.capacity = r.size = kChunk;
             }
-            r.buffer = (uint8_t*)Malloc(r.capacity);
-            Read(r.fd, r.buffer, r.capacity);
-            if (r.mode == kStreamReadWhole) Close(r.fd);
+            r.buffer = (uint8_t*)crt::malloc(r.capacity);
+            crt::read(r.fd, r.buffer, r.capacity);
+            if (r.mode == kStreamReadWhole) crt::close(r.fd);
         }
         return k;
     }
     if (r.mode == kStreamWriteFile) {
-        r.fd = Open(path, kOpenWrite, 0x80);
+        r.fd = crt::open(path, kOpenWrite, 0x80);
         if (r.fd != -1) return k;
         r.allocated = 0;
         r.open = 0;
-        Close(-1);
+        crt::close(-1);
         return -1;
     }
     // Memory modes: check the file can be created (QUIRK: this truncates it).
     Stream probe = StreamOpen(path, kStreamWriteFile, kChunk, 1);
     if (probe == -1) return -1; // QUIRK: slot k stays taken
     StreamClose(probe);
-    r.buffer = (uint8_t*)Malloc(bufferSize);
+    r.buffer = (uint8_t*)crt::malloc(bufferSize);
     r.capacity = bufferSize;
     return k;
 }
@@ -675,9 +675,9 @@ RT3_NOINLINE void __fastcall StreamWrite(Stream s, const void* data, uint32_t si
     if (r.mode == kStreamWriteMemory || r.mode == kStreamWriteBuffered) {
         while (r.capacity < (int32_t)(r.size + size)) {
             int32_t grow = r.capacity / 3 > 99999 ? r.capacity / 3 : 100000;
-            uint8_t* b = (uint8_t*)Malloc(r.capacity + grow);
+            uint8_t* b = (uint8_t*)crt::malloc(r.capacity + grow);
             memcpy(b, r.buffer, r.size);
-            Free(r.buffer);
+            crt::free(r.buffer);
             r.buffer = b;
             r.capacity += grow;
         }
@@ -685,7 +685,7 @@ RT3_NOINLINE void __fastcall StreamWrite(Stream s, const void* data, uint32_t si
         r.pos += size;
         if (r.pos > r.size) r.size = r.pos;
     } else if (r.mode == kStreamWriteFile) {
-        Write(r.fd, data, size);
+        crt::write(r.fd, data, size);
     }
 }
 RT3_REPLACE(0x531030, StreamWrite);
@@ -693,7 +693,7 @@ RT3_REPLACE(0x531030, StreamWrite);
 RT3_NOINLINE int32_t __fastcall StreamRead(Stream s, void* dst, uint32_t size, int32_t, int32_t) {
     StreamRecord& r = g_streams[s];
     uint8_t* out = (uint8_t*)dst;
-    if (r.mode == kStreamReadFile) return Read(r.fd, dst, size);
+    if (r.mode == kStreamReadFile) return crt::read(r.fd, dst, size);
     if (r.mode != kStreamReadChunked) {
         int32_t n = r.size - r.pos;
         if ((int32_t)size < n) n = size;
@@ -705,7 +705,7 @@ RT3_NOINLINE int32_t __fastcall StreamRead(Stream s, void* dst, uint32_t size, i
     if (avail < (int32_t)size) {
         memcpy(out, r.buffer + r.pos, avail);
         memset(r.buffer, 0, kChunk);
-        Read(r.fd, r.buffer, kChunk);
+        crt::read(r.fd, r.buffer, kChunk);
         int32_t rest = size - avail;
         r.pos = 0;
         if (rest > kChunk) {
@@ -715,7 +715,7 @@ RT3_NOINLINE int32_t __fastcall StreamRead(Stream s, void* dst, uint32_t size, i
                 memcpy(out + avail, r.buffer, kChunk);
                 memset(r.buffer, 0, kChunk);
                 avail += kChunk;
-                Read(r.fd, r.buffer, kChunk);
+                crt::read(r.fd, r.buffer, kChunk);
             } while (--chunks);
         }
         memcpy(out + avail, r.buffer, rest);
@@ -742,7 +742,7 @@ RT3_REPLACE(0x531360, StreamSkip4);
 // Length-prefixed string: 1 byte length, or 2 bytes (high bit set) for 128..32767.
 // The stored length includes the terminator. *out = NULL for length 0.
 int32_t __fastcall StreamReadString(Stream s, char** out) {
-    if (*out) Free(*out);
+    if (*out) crt::free(*out);
     *out = nullptr;
     uint8_t len;
     int32_t total = StreamRead(s, &len, 1, 0, 1);
@@ -756,7 +756,7 @@ int32_t __fastcall StreamReadString(Stream s, char** out) {
         total += StreamRead(s, &low, 1, 0, 1);
         size |= low;
     }
-    *out = (char*)Malloc(size);
+    *out = (char*)crt::malloc(size);
     return StreamRead(s, *out, size, 0, 1) + total;
 }
 RT3_REPLACE(0x531380, StreamReadString);
@@ -797,7 +797,7 @@ RT3_NOINLINE uint32_t __fastcall Sound_Get3DProvider(int32_t n) {
     uint32_t next = 0;
     uint8_t name[4];
     g_ccba08 = 0;
-    auto enumerate = Import<int32_t(__stdcall*)(uint32_t*, void*, uint32_t*)>(0x5c8454);
+    auto enumerate = imp::AIL_enumerate_3D_providers;
     for (int32_t i = 0; i <= n; ++i)
         if (!enumerate(&next, name, (uint32_t*)0xccba08)) return 0;
     return g_ccba08;
@@ -905,8 +905,8 @@ RT3_REPLACE(0x5317b0, Sound_Stop);
 // 0x531880. Stops and releases the sound's Miles timer (+0x4c).
 RT3_NOINLINE void __fastcall Sound_ReleaseTimer(uint8_t* s) {
     if (F<int32_t>(s, 0x4c) == -1 || g_624d58 != 1) return;
-    Import<void(__stdcall*)(int32_t)>(0x5c83b8)(F<int32_t>(s, 0x4c));
-    Import<void(__stdcall*)(int32_t)>(0x5c8450)(F<int32_t>(s, 0x4c));
+    imp::AIL_stop_timer(F<int32_t>(s, 0x4c));
+    imp::AIL_release_timer_handle(F<int32_t>(s, 0x4c));
     F<int32_t>(s, 0x4c) = -1;
 }
 RT3_REPLACE(0x531880, Sound_ReleaseTimer);
@@ -928,16 +928,16 @@ RT3_REPLACE(0x5318c0, Sound_Command);
 // (0xccb9fc, provider `name`) and music (0xccba00, volume 1) systems; +4 = 1 when
 // all came up (the failed ones are torn down again).
 RT3_NOINLINE int32_t __fastcall Sound_Startup(uint8_t* snd, int, const char* name) {
-    Import<void(__stdcall*)(const char*)>(0x5c847c)((const char*)0x5dd240);
+    imp::AIL_set_redist_directory((const char*)0x5dd240);
     Module_RegisterCleanup();
-    Import<int32_t(__stdcall*)()>(0x5c83b4)();
-    uint8_t* m = (uint8_t*)ExeNew(0x30);
+    imp::AIL_startup();
+    uint8_t* m = (uint8_t*)crt::operator_new(0x30);
     Snd2D() = m ? Mixer_Construct(m) : nullptr;
     if (Sound2D_Open(Snd2D()) == 1) {
-        uint8_t* p = (uint8_t*)ExeNew(0x64);
+        uint8_t* p = (uint8_t*)crt::operator_new(0x64);
         Snd3D() = p ? Sound2D_Construct(p) : nullptr;
         if (Sound3D_Open(Snd3D(), 0, name) == 1) {
-            uint8_t* q = (uint8_t*)ExeNew(0x108);
+            uint8_t* q = (uint8_t*)crt::operator_new(0x108);
             if (q) {
                 F<uint32_t>(q, 0) = 0;
                 F<uint32_t>(q, 0x104) = 0x3f800000;
@@ -983,13 +983,13 @@ RT3_NOINLINE void __fastcall Sound_Shutdown(uint8_t* snd, int, int32_t immediate
     Sound2D_StopAll(Snd2D());
     Sound_StopAll(Snd3D());
     if (F<int32_t>(snd, 0x4c) != -1) {
-        Import<void(__stdcall*)(int32_t)>(0x5c83b8)(F<int32_t>(snd, 0x4c));
-        Import<void(__stdcall*)(int32_t)>(0x5c8450)(F<int32_t>(snd, 0x4c));
+        imp::AIL_stop_timer(F<int32_t>(snd, 0x4c));
+        imp::AIL_release_timer_handle(F<int32_t>(snd, 0x4c));
         F<int32_t>(snd, 0x4c) = -1;
     }
     Sound3D_Close(Snd3D());
     Sound2D_Close(Snd2D());
-    Import<void(__stdcall*)()>(0x5c83ac)();
+    imp::AIL_shutdown();
     DestroySnd(Music(), Music_Close);
     DestroySnd(Snd3D(), Sound3D_Destruct);
     DestroySnd(Snd2D(), Sound2D_Destruct);
@@ -1097,8 +1097,8 @@ RT3_REPLACE(0x531f40, Sound_Pause);
 int32_t __fastcall Sound_RegisterEos(uint8_t* s, int, uint32_t sample, int32_t kind) {
     if (F<int32_t>(s, 4) != 1) return 0;
     if (int32_t busy = g_ccb9f4) return busy;
-    if (kind == 0) return Import<int32_t(__stdcall*)(uint32_t, uint32_t)>(0x5c83a8)(sample, 0x531800);
-    if (kind == 1) return Import<int32_t(__stdcall*)(uint32_t, uint32_t)>(0x5c83a4)(sample, 0x531840);
+    if (kind == 0) return imp::AIL_register_EOS_callback(sample, 0x531800);
+    if (kind == 1) return imp::AIL_register_3D_EOS_callback(sample, 0x531840);
     return kind - 1;
 }
 RT3_REPLACE(0x531f90, Sound_RegisterEos);

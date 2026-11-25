@@ -61,7 +61,6 @@ int32_t __fastcall NameTable_Seek(uint8_t* t, int, int32_t id, int32_t offset);
 int32_t __fastcall NameTable_Read(uint8_t* t, int, void* dst, int32_t n);
 void __fastcall ListPair_Reset(uint8_t* o);
 
-#define SPRINTF ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)
 
 void __fastcall Timer_SetBudget(uint8_t* t, int, uint32_t v);
 void __fastcall View_SetParams(uint8_t* v, int, int32_t a, uint32_t b, uint32_t c, uint32_t d, uint32_t e, uint32_t f);
@@ -271,7 +270,7 @@ namespace {
 // A node from the effect pool 0x6cea58 (a new one while the pool is off).
 uint8_t* EffectNode() {
     uint32_t* pool = g_6cea58;
-    if (!pool[3]) return (uint8_t*)((void*(__cdecl*)(uint32_t))0x53b070)(pool[4]);
+    if (!pool[3]) return (uint8_t*)crt::operator_new(pool[4]);
     uint8_t** list = (uint8_t**)pool[0];
     uint8_t* node = list[0];
     if (!node) return nullptr;
@@ -375,7 +374,6 @@ RT3_NOINLINE static uint8_t* __stdcall Effect_PlaceSceneryImpl(uint32_t kind, fl
 
 static inline double Fl_205(uint32_t a) { return *(const float*)a; }
 
-static inline void ExeDelete(void* p) { ((void(__cdecl*)(void*))0x53b080)(p); }
 
 // Unlinks `node` from the singly linked list {head, tail, count}; a node that
 // isn't found (or is the head) makes it drop the head instead, as the original.
@@ -406,7 +404,7 @@ static void Pool_Return(uint8_t* pool, uint32_t* node) {
         free[0] = (uint32_t)(uintptr_t)node;
         if (!free[1]) free[1] = (uint32_t)(uintptr_t)node;
     } else {
-        ExeDelete(node);
+        crt::operator_delete(node);
     }
 }
 
@@ -600,7 +598,7 @@ RT3_REPLACE(0x474690, Effects_RegisterEmitters);
 // 0x6cea5c (the old copy freed) and loads the particle texture.
 RT3_NOINLINE void Particles_LoadTable() {
     if (void* old = g_6cea5c) {
-        Free(old);
+        crt::free(old);
         g_6cea5c = nullptr;
     }
     if (NameTable_ContainsName(g_pack, 0, (const char*)0x5ce4c8, 0, nullptr)) {
@@ -608,7 +606,7 @@ RT3_NOINLINE void Particles_LoadTable() {
         int32_t n = NameTable_EntrySize(g_pack, 0, id);
         if (n > 0) {
             NameTable_Seek(g_pack, 0, id, 0);
-            void* buf = Malloc((size_t)n);
+            void* buf = crt::malloc((size_t)n);
             g_6cea5c = buf;
             NameTable_Read(g_pack, 0, buf, n);
         }
@@ -620,7 +618,7 @@ RT3_REPLACE(0x474700, Particles_LoadTable);
 // 0x474790. (Re)loads emitters.dat (0x6cea60) from the packs.
 RT3_NOINLINE void __cdecl Emitters_Load() {
     if (hook::As<void*>(g_effects)) {
-        Free(hook::As<void*>(g_effects));
+        crt::free(hook::As<void*>(g_effects));
         hook::As<void*>(g_effects) = nullptr;
     }
     if (!NameTable_ContainsName(Packs(), 0, (const char*)0x5ce4d8, 0, nullptr)) return;
@@ -628,7 +626,7 @@ RT3_NOINLINE void __cdecl Emitters_Load() {
     int32_t size = NameTable_EntrySize(Packs(), 0, id);
     if (size <= 0) return;
     NameTable_Seek(Packs(), 0, id, 0);
-    void* p = Malloc(size);
+    void* p = crt::malloc(size);
     hook::As<void*>(g_effects) = p;
     NameTable_Read(Packs(), 0, p, size);
 }
@@ -662,7 +660,7 @@ uint8_t* __fastcall Emitters_NextFile(const char* prefix, int32_t restart) {
     char buf[0x100];
     for (; idx < F<int32_t>(data, 8); ++idx, e += 0x140) {
         if (n >= 0xff) continue;
-        SPRINTF(buf, (const char*)0x5ce4e8, prefix, (const char*)e + 4, n);
+        crt::sprintf(buf, (const char*)0x5ce4e8, prefix, (const char*)e + 4, n);
         int32_t r = NameTable_ContainsName(Packs(), 0, buf, 0, nullptr);
         if ((!g_6cea64 || r == 2) && r) {
             g_6ceb94 = idx;
@@ -688,7 +686,7 @@ void __fastcall Group_ResetLists(uint8_t* g) {
 RT3_REPLACE(0x474970, Group_ResetLists);
 
 // 0x4749a0. Name +0x44 equals the string 0x5ce4f4 (case-insensitive).
-int32_t __fastcall Obj_NameIs5ce4f4(uint8_t* o) { return Stricmp((const char*)o + 0x44, (const char*)0x5ce4f4) == 0 ? 1 : 0; }
+int32_t __fastcall Obj_NameIs5ce4f4(uint8_t* o) { return crt::stricmp((const char*)o + 0x44, (const char*)0x5ce4f4) == 0 ? 1 : 0; }
 RT3_REPLACE(0x4749a0, Obj_NameIs5ce4f4);
 
 // 0x4749d0. Settings in EAX; effect, flags and scale on the stack.
@@ -740,10 +738,10 @@ void Effects_Reset() {
     Particles_LoadTable();
     if (!g_6ceb98) {
         Effects_RegisterEmitters();
-        uint32_t* p = (uint32_t*)((void*(__cdecl*)(size_t))0x53b070)(0x1c);
+        uint32_t* p = (uint32_t*)crt::operator_new(0x1c);
         if (p) memset(p, 0, 0x1c);
         g_6cea58 = p;
-        void* storage = ((void*(__cdecl*)(size_t))0x5a125d)(0x88b80);
+        void* storage = crt::malloc(0x88b80);
         g_6cea54 = storage;
         Pool_Init((NodePool*)g_6cea58, 0, storage, 0x38, 0x2710, 1);
         g_6ceb98 = 1;
@@ -768,7 +766,7 @@ void FreeBuffers6cea54() {
     for (uint32_t va : kBuffers) {
         void*& p = hook::Global<void*>(va);
         if (p) {
-            Free(p);
+            crt::free(p);
             p = nullptr;
         }
     }
@@ -776,7 +774,7 @@ void FreeBuffers6cea54() {
     if (m) {
         void* p = m;
         ((void(__thiscall*)(void*))0x53dcb0)(p);
-        ((void(__cdecl*)(void*))0x53b080)(p);
+        crt::operator_delete(p);
         m = nullptr;
     }
 }
@@ -794,10 +792,10 @@ RT3_REPLACE(0x474db0, FreeBuffers6cea54);
 RT3_NOINLINE uint8_t* __fastcall Effect_Spawn(const char* name, uint8_t* parent, uint8_t* def, uint32_t flags, float scale) {
     uint32_t base = F<uint32_t>(def, 0xbc) | 4;
     if (!parent) {
-        uint8_t* p = (uint8_t*)((void*(__cdecl*)(uint32_t))0x53b070)(0x206);
+        uint8_t* p = (uint8_t*)crt::operator_new(0x206);
         parent = p ? SceneObj_Construct(p, 0, (uint32_t)(uintptr_t)Engine_Get1C(hook::As<void*>(g_engine)), nullptr, nullptr) : nullptr;
     }
-    if (((const char*(__cdecl*)(const char*, const char*))0x5a1ff0)((const char*)def + 4, (const char*)0x5ce504)) F<uint32_t>(def, 0xbc) &= 0xffffff1f;
+    if (((const char*)crt::strstr((const char*)def + 4, (const char*)0x5ce504))) F<uint32_t>(def, 0xbc) &= 0xffffff1f;
     if (!F<int32_t>(def, 0xb8)) flags &= 0xfffffbff;
     uint8_t* e;
     if (flags & 0x400) {
@@ -805,7 +803,7 @@ RT3_NOINLINE uint8_t* __fastcall Effect_Spawn(const char* name, uint8_t* parent,
         e = EmitterLibrary_Get(g_models, 0, key, F<uint32_t>(def, 0x84), name, parent, 1);
     } else {
         int32_t rate = Ftol((double)F<float>(def, 0x88) / F<float>(def, 0x90) + Fl(0x5c878c));
-        uint8_t* p = (uint8_t*)((void*(__cdecl*)(uint32_t))0x53b070)(0x1fd);
+        uint8_t* p = (uint8_t*)crt::operator_new(0x1fd);
         e = p ? Emitter_Construct(p, 0, name, F<uint32_t>(def, 0x84), rate, nullptr, parent, base | flags) : nullptr;
         CallEmitterApply(def, e, base | flags, scale);
     }
@@ -892,7 +890,7 @@ RT3_NOINLINE void __fastcall Effect_Free(uint32_t* e) {
                     if ((uint32_t)(uintptr_t)m == e[3 + i]) {
                         PtrList_RemoveCurrent(list);
                         Model_Release(m);
-                        ExeDelete(m);
+                        crt::operator_delete(m);
                         break;
                     }
                     PtrList_Next(list);

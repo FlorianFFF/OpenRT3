@@ -157,12 +157,10 @@ static inline double D(uint32_t a) { return *(const double*)a; }
 
 static inline double Fl(uint32_t a) { return *(const float*)a; }
 
-static inline void* ExeNew(size_t n) { return ((void*(__cdecl*)(size_t))0x53b070)(n); }
 
 static inline float BitsF(uint32_t b) { return *(float*)&b; }
 
 namespace {
-void Callback_Free(void* p) { ((void(__cdecl*)(void*))0x53b080)(p); }
 uint32_t Message_Dialog(const char* text, uint32_t px) {
     return Dialog_RunMessage(text, 1, px, 0xbf800000, 0, nullptr, 0, 0.0f, 0, 0x1e, 0, nullptr, nullptr, 0, 0, nullptr, 0);
 }
@@ -306,7 +304,7 @@ RT3_NOINLINE void __fastcall PlayerFinance_Draw(void*, int, float x, float y, fl
             if (pl == Obj_Ref25(g_world)) strcat(text, GetString(0x278));
             if (F<int32_t>(g_app, 0x68) && pl != Obj_Ref25(g_world)) strcat(text, GetString(0xc08));
             String_Assign(&F<char*>(def, 0x3f), text);
-            uint8_t* tw = (uint8_t*)ExeNew(0xda);
+            uint8_t* tw = (uint8_t*)crt::operator_new(0xda);
             tw = tw ? TimerWidget_Construct(tw, 0, def) : nullptr;
             Window_AddChild(g_stockWindow, 0, tw, 0);
             FreeAndNull(&F<void*>(def, 0x3f));
@@ -393,15 +391,13 @@ void __fastcall StockList_DrawRow(void*, uint32_t id, float x, float y, int32_t,
                 strcat(text, line);
             } else if (k == 1) {
                 float f = (float)F<int32_t>(p, 0x15d + id * 4);
-                auto fabs_ = (double(__cdecl*)(double))0x5a152e;
-                auto sprintf_ = (int(__cdecl*)(char*, const char*, ...))0x5a19c4;
-                if (!(fabs_((double)f) < D(0x5d18e8))) {
+                if (!(crt::fabs((double)f) < D(0x5d18e8))) {
                     char m[0x20];
-                    sprintf_(m, (const char*)0x5d0c48, (double)f / Fl(0x5c8d10));
+                    crt::sprintf(m, (const char*)0x5d0c48, (double)f / Fl(0x5c8d10));
                     FormatText(num, (const char*)0x5c8730, m, GetString(0x282), 0, 0, 0, 0, 0, 0);
-                } else if (!(fabs_((double)f) < D(0x5d18e0))) {
+                } else if (!(crt::fabs((double)f) < D(0x5d18e0))) {
                     char m[0x20];
-                    sprintf_(m, (const char*)0x5ca2ac, (double)f / Fl(0x5c8d10));
+                    crt::sprintf(m, (const char*)0x5ca2ac, (double)f / Fl(0x5c8d10));
                     FormatText(num, (const char*)0x5c8730, m, GetString(0x282), 0, 0, 0, 0, 0, 0);
                 } else
                     Num_Format(num, 2, (double)f, 10, 1, 0, 0);
@@ -426,10 +422,10 @@ void __fastcall StockList_DrawRow(void*, uint32_t id, float x, float y, int32_t,
             F<float>(def, 0xf) = w;
             F<uint16_t>(def, 0) = (uint16_t)wid;
             String_Assign(&F<char*>(def, 0x3f), text);
-            uint8_t* tw = (uint8_t*)((void*(__cdecl*)(size_t))0x53b070)(0xda);
+            uint8_t* tw = (uint8_t*)crt::operator_new(0xda);
             tw = tw ? TimerWidget_Construct(tw, 0, def) : nullptr;
             Window_AddChild(g_stockWindow, 0, tw, 0);
-            Free(F<void*>(def, 0x3f));
+            crt::free(F<void*>(def, 0x3f));
             continue;
         }
         if (k == 3) {

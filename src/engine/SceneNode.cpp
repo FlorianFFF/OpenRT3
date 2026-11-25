@@ -282,7 +282,6 @@ static inline int32_t Cell16(float v) {
 
 static inline double Fl_205(uint32_t a) { return *(const float*)a; }
 
-static inline void ExeDelete(void* p) { ((void(__cdecl*)(void*))0x53b080)(p); }
 
 static inline int32_t Ftol(double v) {
     int32_t r;
@@ -700,7 +699,7 @@ RT3_REPLACE(0x52d860, Camera_ConstructSetup);
 // appends it to the child list +0x75 (created on first use).
 PtrListNode* __fastcall SceneObj_AddChild(uint8_t* o, int, uint8_t* child) {
     if (!F<PtrList*>(o, 0x75)) {
-        PtrList* l = (PtrList*)((void*(__cdecl*)(size_t))0x53b070)(0x18);
+        PtrList* l = (PtrList*)crt::operator_new(0x18);
         F<PtrList*>(o, 0x75) = l ? PtrList_Init(l) : nullptr;
     }
     if (const float* p = F<float*>(o, 0x14)) {
@@ -718,7 +717,7 @@ RT3_REPLACE(0x52d8a0, SceneObj_AddChild);
 // 0x52d950. Appends to the listener list +0x79 (created on first use).
 PtrListNode* __fastcall Camera_AddListener(uint8_t* c, int, void* item) {
     if (!F<PtrList*>(c, 0x79)) {
-        PtrList* l = (PtrList*)((void*(__cdecl*)(size_t))0x53b070)(0x18);
+        PtrList* l = (PtrList*)crt::operator_new(0x18);
         F<PtrList*>(c, 0x79) = l ? PtrList_Init(l) : nullptr;
     }
     return PtrList_Append(F<PtrList*>(c, 0x79), 0, item);
@@ -728,7 +727,7 @@ RT3_REPLACE(0x52d950, Camera_AddListener);
 // 0x52d9a0. Adds an attachment at this object's transform origin (+0x14) to the list +0x7d.
 RT3_NOINLINE PtrListNode* __fastcall SceneObj_AddAttachment(uint8_t* o, int, uint8_t* item) {
     if (!F<PtrList*>(o, 0x7d)) {
-        PtrList* l = (PtrList*)((void*(__cdecl*)(size_t))0x53b070)(0x18);
+        PtrList* l = (PtrList*)crt::operator_new(0x18);
         F<PtrList*>(o, 0x7d) = l ? PtrList_Init(l) : nullptr;
     }
     for (int k = 0; k < 3; ++k) F<uint32_t>(item, 0x29 + k * 4) = F<uint32_t*>(o, 0x14)[k];
@@ -740,7 +739,7 @@ RT3_REPLACE(0x52d9a0, SceneObj_AddAttachment);
 // use), puts it at the object's position (+0x1e2) and makes the object its owner.
 void __fastcall Obj_AttachChannel(uint8_t* o, int, uint8_t* ch) {
     if (!F<PtrList*>(o, 0x81)) {
-        void* p = ((void*(__cdecl*)(size_t))0x53b070)(0x18);
+        void* p = crt::operator_new(0x18);
         F<PtrList*>(o, 0x81) = p ? PtrList_Init((PtrList*)p) : nullptr;
     }
     PtrList_Append(F<PtrList*>(o, 0x81), 0, ch);
@@ -796,7 +795,7 @@ void __fastcall Model_PrepareTint(uint8_t* m, int, int32_t tint) {
         if (F<void*>(fr, 0x35)) continue;
         int32_t n = F<int32_t>(fr, 8);
         g_cc3b60 = n;
-        uint8_t* buf = (uint8_t*)Malloc(n + n * 12);
+        uint8_t* buf = (uint8_t*)crt::malloc(n + n * 12);
         F<uint8_t*>(g_cc3b58, 0x35) = buf;
         const uint8_t* src = F<uint8_t*>(g_cc3b58, 0);
         for (int32_t k = 0; k < n * 12; ++k) buf[k] = src[k];
@@ -1276,11 +1275,11 @@ void __fastcall ModelSet_Clear(uint8_t* o) {
     PtrList_Rewind(F<PtrList*>(o, 0x79));
     for (uint8_t* m; (m = (uint8_t*)PtrList_Next(F<PtrList*>(o, 0x79))) != nullptr;) {
         Model_Release(m);
-        ExeDelete(m);
+        crt::operator_delete(m);
     }
     if (PtrList* l = F<PtrList*>(o, 0x79)) {
         PtrList_Destroy(l);
-        ExeDelete(l);
+        crt::operator_delete(l);
     }
     F<PtrList*>(o, 0x79) = nullptr;
 }
@@ -1293,11 +1292,11 @@ void __fastcall SpriteSet_Free(uint8_t* o) {
     PtrList_Rewind(F<PtrList*>(o, 0x7d));
     for (uint8_t* s = (uint8_t*)PtrList_Next(F<PtrList*>(o, 0x7d)); s; s = (uint8_t*)PtrList_Next(F<PtrList*>(o, 0x7d))) {
         Sprite_ReleaseImage(s);
-        ExeDelete(s);
+        crt::operator_delete(s);
     }
     if (PtrList* l = F<PtrList*>(o, 0x7d)) {
         PtrList_Destroy(l);
-        ExeDelete(l);
+        crt::operator_delete(l);
     }
     F<PtrList*>(o, 0x7d) = nullptr;
 }
@@ -1319,11 +1318,11 @@ RT3_NOINLINE void __fastcall SceneObj_Destruct(uint8_t* o) {
         for (uint8_t* c; (c = (uint8_t*)PtrList_Next(F<PtrList*>(o, 0x75))) != nullptr;) {
             F<uint32_t>(c, 0) = 0x5dd1f0;
             SceneObj_Destruct(c);
-            ExeDelete(c);
+            crt::operator_delete(c);
         }
         if (PtrList* l = F<PtrList*>(o, 0x75)) {
             PtrList_Destroy(l);
-            ExeDelete(l);
+            crt::operator_delete(l);
         }
         F<PtrList*>(o, 0x75) = nullptr;
     }
@@ -1332,11 +1331,11 @@ RT3_NOINLINE void __fastcall SceneObj_Destruct(uint8_t* o) {
         PtrList_Rewind(F<PtrList*>(o, 0x81));
         for (uint8_t* c; (c = (uint8_t*)PtrList_Next(F<PtrList*>(o, 0x81))) != nullptr;) {
             Channel_Detach(c);
-            ExeDelete(c);
+            crt::operator_delete(c);
         }
         if (PtrList* l = F<PtrList*>(o, 0x81)) {
             PtrList_Destroy(l);
-            ExeDelete(l);
+            crt::operator_delete(l);
         }
         F<PtrList*>(o, 0x81) = nullptr;
     }
@@ -1534,7 +1533,7 @@ void __fastcall Mesh_FaceCamera(uint8_t* o, int, uint8_t* cam, int32_t key, int3
     uint8_t* sub = F<uint8_t*>(lod, 0xc) + idx * 0x45;
     if (F<int32_t>(sub, 0x31) == key) return;
     F<int32_t>(sub, 0x31) = key;
-    if (!F<void*>(sub, 0x35)) F<void*>(sub, 0x35) = ((void*(__cdecl*)(size_t))0x5a125d)(F<int32_t>(sub, 8) * 0xc);
+    if (!F<void*>(sub, 0x35)) F<void*>(sub, 0x35) = crt::malloc(F<int32_t>(sub, 8) * 0xc);
     float yaw, pitch;
     float m[16] = { 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1 };
     float r[16];

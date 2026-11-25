@@ -23,6 +23,8 @@
 
 namespace rt3 {
 
+void __fastcall Types_RefreshAvailable(Collection* c);
+
 template <typename T> static inline T& F(void* o, uint32_t off) { return *(T*)((uint8_t*)o + off); }
 int32_t __fastcall Rand(int32_t lo, int32_t hi);
 uint32_t __fastcall Table_Entry(uint8_t* t, int, int32_t idx);
@@ -226,9 +228,7 @@ static inline double D(uint32_t a) { return *(const double*)a; }
 
 static inline double Fl(uint32_t a) { return *(const float*)a; }
 
-static inline void* ExeNew(size_t n) { return ((void*(__cdecl*)(size_t))0x53b070)(n); }
 
-static inline void ExeDelete(void* p) { ((void(__cdecl*)(void*))0x53b080)(p); }
 
 static inline int32_t Ftol(double v) {
     int32_t r;
@@ -247,7 +247,6 @@ static inline uint32_t FBits(float f) { return *(uint32_t*)&f; }
 
 static inline double BitsD(uint64_t b) { return *(double*)&b; }
 
-static inline SprintfFn ExeSprintf() { return (SprintfFn)0x5a19c4; }
 
 // Two-list picker dialogs (left / right lists share the selection +0x78; the
 // swap buttons are enabled by the side flag).
@@ -529,7 +528,7 @@ void __fastcall CompanyList_AddMapControls(uint8_t* win, int, float x, float y, 
     F<float>(def, 0xb) = (float)((double)y + D(0x5d01e0));
     F<int32_t>(def, 0x75) = 9;
     F<int32_t>(def, 0x2f) = 0xb0;
-    uint8_t* bar = (uint8_t*)ExeNew(0x111);
+    uint8_t* bar = (uint8_t*)crt::operator_new(0x111);
     if (bar) bar = Scrollbar_Construct(bar, 0, def);
     Window_AddChild(win, 0, bar, 0);
     uint8_t mdef[0x60];
@@ -541,11 +540,11 @@ void __fastcall CompanyList_AddMapControls(uint8_t* win, int, float x, float y, 
     F<uint32_t>(mdef, 0x2f) = 0x2000000;
     F<uint16_t>(mdef, 0) = 0xb9f6;
     String_Assign(&F<char*>(mdef, 0x3f), GetString(0x109));
-    uint8_t* map = (uint8_t*)ExeNew(0x123);
+    uint8_t* map = (uint8_t*)crt::operator_new(0x123);
     if (map) map = MapView_Construct(map, 0, mdef);
     F<uint32_t>(map, 0x11b) = g_6cfe80;
     Window_AddChild(win, 0, map, 0);
-    Free(F<void*>(mdef, 0x3f));
+    crt::free(F<void*>(mdef, 0x3f));
     Window_SendEvent5(win, 0, 0xba, 0xb9f6, 0, 0, 0);
 }
 RT3_REPLACE(0x4c73c0, CompanyList_AddMapControls);
@@ -696,7 +695,7 @@ void __fastcall Credits_Destruct(uint8_t* w) {
     g_6cfea4 = 0;
     if (uint8_t* m = g_6cfea0) {
         Music_Close(m);
-        ExeDelete(m);
+        crt::operator_delete(m);
         g_6cfea0 = nullptr;
     }
     Widget_SetVtbl(w);
@@ -767,10 +766,9 @@ uint8_t* __fastcall CreditsWindow_Construct(uint8_t* w) {
     Window_Load(w, 0, 0.0f, 0.0f, (const char*)0x5d09f8);
     Obj_Incc60(g_windowManager);
     typedef int(__cdecl * Sprintf)(char*, const char*, ...);
-    Sprintf sprintf_ = (Sprintf)0x5a19c4;
     char line[0xbb0];
     for (int32_t i = 1; i <= 0x1f; ++i) {
-        sprintf_(line, (const char*)0x5d09ec, i);
+        crt::sprintf(line, (const char*)0x5d09ec, i);
         F<uint8_t*>(w, 0x78 + (i - 1) * 8) = Pack_AcquireNamed(g_pack, 0, line);
         F<uint32_t>(w, 0x7c + (i - 1) * 8) = 0;
     }
@@ -782,27 +780,27 @@ uint8_t* __fastcall CreditsWindow_Construct(uint8_t* w) {
     F<int32_t>(w, 0x170) = g_6cfea8;
     F<uint32_t>(w, 0x178) = 0;
     Ticker_PickNext(w);
-    uint8_t* f = ((uint8_t*(__cdecl*)(const char*, const char*))0x5a1887)((const char*)0x5d09d0, (const char*)0x5c89e8);
+    uint8_t* f = ((uint8_t*)crt::fopen((const char*)0x5d09d0, (const char*)0x5c89e8));
     if (!f) {
         Message_Show(GetString(0x107), 1, 0);
         return w;
     }
     F<int32_t>(w, 0x3ed6c) = 0;
     while (!(f[0xc] & 0x10) && F<int32_t>(w, 0x3ed6c) < 0xfa) {
-        ((int(__cdecl*)(uint8_t*, const char*, ...))0x5a17e1)(f, (const char*)0x5d09c8, line);
+        crt::fscanf(f, (const char*)0x5d09c8, line);
         uint8_t* rec = w + F<int32_t>(w, 0x3ed6c) * 0x404;
         if (line[0] == '*') {
             char digit[0xc] = {};
-            ((char*(__cdecl*)(char*, const char*, size_t))0x5a18a0)(digit, line + 1, 1);
-            F<int32_t>(rec, 0x584) = ((int(__cdecl*)(const char*))0x5a1ea5)(digit);
+            crt::strncpy(digit, line + 1, 1);
+            F<int32_t>(rec, 0x584) = crt::atoi(digit);
             memmove(line, line + 2, strlen(line + 2) + 1);
         } else
             F<int32_t>(rec, 0x584) = 1;
-        if (line[0] == '-') sprintf_((char*)rec + 0x184, (const char*)0x5d09c4);
+        if (line[0] == '-') crt::sprintf((char*)rec + 0x184, (const char*)0x5d09c4);
         else StrCopyN((char*)rec + 0x184, line, 1000);
         ++F<int32_t>(w, 0x3ed6c);
     }
-    ((int(__cdecl*)(uint8_t*))0x5a1740)(f);
+    crt::fclose(f);
     g_6cfe90 = Pack_AcquireFont(g_pack, 0, 0x13);
     g_6cfe94 = Pack_AcquireFont(g_pack, 0, 4);
     g_6cfe98 = Pack_AcquireFont(g_pack, 0, 0xf);
@@ -810,7 +808,7 @@ uint8_t* __fastcall CreditsWindow_Construct(uint8_t* w) {
     Window_SendEvent5(w, 0, 0x7a, 0xedb, 0x4c7ba0, 0, 0);
     F<uint32_t>(w, 0x3ed70) = 0;
     if (g_sound && Sound_Is3D(g_sound)) {
-        uint8_t* o = (uint8_t*)((void*(__cdecl*)(size_t))0x53b070)(0x108);
+        uint8_t* o = (uint8_t*)crt::operator_new(0x108);
         if (o) {
             F<uint32_t>(o, 0) = 0;
             F<uint32_t>(o, 0x104) = 0x3f800000;
@@ -1057,10 +1055,10 @@ RT3_NOINLINE void __fastcall Dialog_Setup(uint8_t* w, int, const char* text, int
         F<float>(s, 0xb) = (float)((double)fi * Fl(0x5d0a9c) + D(0x5c9cb0) - D(0x5cab60));
         String_Assign(&F<char*>(s, 0x43), (const char*)0x5d0a68);
         F<uint16_t>(s, 0x5f) = 1;
-        uint8_t* b = (uint8_t*)ExeNew(0x111);
+        uint8_t* b = (uint8_t*)crt::operator_new(0x111);
         b = b ? Scrollbar_Construct(b, 0, s) : nullptr;
         Window_AddChild(w, 0, b, 0);
-        Free(F<void*>(s, 0x43));
+        crt::free(F<void*>(s, 0x43));
     }
     auto send = [&](uint32_t e, uint32_t id, uint32_t a, uint32_t b2 = 0) { Window_SendEvent5(w, 0, e, id, a, b2, 0); };
     auto str = [](int32_t id) { return (uint32_t)(uintptr_t)GetString(id); };
@@ -1202,11 +1200,11 @@ RT3_NOINLINE void __fastcall Dialog_Setup(uint8_t* w, int, const char* text, int
                 }
                 F<float>(b, 0x81) = h;
                 F<float>(b, 0x7d) = (float)((double)maxW + Fl(0x5d0a2c));
-                uint8_t* bt = (uint8_t*)ExeNew(0xe8);
+                uint8_t* bt = (uint8_t*)crt::operator_new(0xe8);
                 bt = bt ? Button_Construct(bt, 0, b) : nullptr;
                 Window_AddChild(w, 0, bt, 0);
-                Free(F<void*>(b, 0x43));
-                Free(F<void*>(b, 0x6f));
+                crt::free(F<void*>(b, 0x43));
+                crt::free(F<void*>(b, 0x6f));
                 y0 = (float)((double)y0 + h);
                 if (F<int32_t>(w, 0x8c) && F<int32_t*>(w, 0x90)[i]) send(0x74, 0x406 + i, 1);
             }
@@ -1225,7 +1223,7 @@ RT3_NOINLINE void __fastcall Dialog_Setup(uint8_t* w, int, const char* text, int
             F<int32_t>(s, 0x75) = 9;
             F<uint32_t>(s, 0x69) = 0xff1a5230;
             F<float>(s, 0x13) = (float)((double)(bump + 0xfe) / D(0x5ca2d0));
-            uint8_t* b = (uint8_t*)ExeNew(0x111);
+            uint8_t* b = (uint8_t*)crt::operator_new(0x111);
             b = b ? Scrollbar_Construct(b, 0, s) : nullptr;
             Window_AddChild(w, 0, b, 0);
         }
@@ -1266,10 +1264,10 @@ RT3_NOINLINE void __fastcall Dialog_Setup(uint8_t* w, int, const char* text, int
         F<float>(tv, 0x7f) = (float)((double)(bump + 0xe3) / D(0x5ca2d0));
         F<float>(tv, 0x97) = (float)((double)(bump + 0xe7) / D(0x5ca2d0));
         String_Assign(&F<char*>(tv, 0x43), (const char*)0x5d0a10);
-        uint8_t* b = (uint8_t*)ExeNew(0x1ea);
+        uint8_t* b = (uint8_t*)crt::operator_new(0x1ea);
         b = b ? TreeView_Construct(b, 0, tv) : nullptr;
         Window_AddChild(w, 0, b, 0);
-        Free(F<void*>(tv, 0x43));
+        crt::free(F<void*>(tv, 0x43));
         for (int32_t i = 0; i < count; ++i) send(0x88, 0x3ef, (uint32_t)(uintptr_t)choices[i]);
         send(0x66, 0x3ef, 0);
     }
@@ -1303,7 +1301,7 @@ RT3_NOINLINE uint32_t __fastcall Dialog_RunMessage(const char* text, int32_t typ
     int32_t cursor = F<int32_t>(g_cursorManager, 4);
     Cursor_Set(g_cursorManager, 0, 1, 0, 1);
     hook::As<uint32_t>(g_6cfeac) = 0;
-    uint8_t* dlg = (uint8_t*)((void*(__cdecl*)(size_t))0x53b070)(0xa0);
+    uint8_t* dlg = (uint8_t*)crt::operator_new(0xa0);
     if (dlg) {
         Widget_SetVtblRet(dlg);
         F<uint32_t>(dlg, 0) = 0x5d0a04;
@@ -1319,7 +1317,7 @@ RT3_NOINLINE uint32_t __fastcall Dialog_RunMessage(const char* text, int32_t typ
         F<uint32_t>(d, 0x13) = F<uint32_t>(slot, 0x17);
         F<uint16_t>(d, 0) = 0x3ee;
         F<uint32_t>(d, 0x2f) = 0xb0;
-        uint8_t* w = (uint8_t*)((void*(__cdecl*)(size_t))0x53b070)(0x111);
+        uint8_t* w = (uint8_t*)crt::operator_new(0x111);
         w = w ? Scrollbar_Construct(w, 0, d) : nullptr;
         Window_AddChild(dlg, 0, w, 0);
         Window_SendEvent5(dlg, 0, 0x7a, F<uint16_t>(d, 0), (uint32_t)pic, 0, 0);
@@ -1359,9 +1357,9 @@ RT3_NOINLINE uint32_t __fastcall Dialog_RunMessage(const char* text, int32_t typ
     if (dlg) {
         F<uint32_t>(dlg, 0) = 0x5d0a04;
         Pack_Release(g_pack, 0, F<void*>(dlg, 0x7c));
-        Free(F<void*>(dlg, 0x78));
+        crt::free(F<void*>(dlg, 0x78));
         Widget_SetVtbl(dlg);
-        ((void(__cdecl*)(void*))0x53b080)(dlg);
+        crt::operator_delete(dlg);
     }
     uint8_t* view = g_gameWindow;
     if (view && mode == F<int32_t>(view, 0x8c) && F<int32_t>(g_cursorManager, 4) != 6)
@@ -1383,7 +1381,7 @@ uint8_t* __fastcall PortraitDialog_Construct(uint8_t* d) {
     g_6cff90 = Pack_AcquireFont(g_pack, 0, 1);
     for (int32_t i = 0; i < 0x29; ++i) {
         char name[0x40];
-        ExeSprintf()(name, (const char*)0x5d0ab0, i);
+        crt::sprintf(name, (const char*)0x5d0ab0, i);
         ((uint8_t**)0x6cfed0)[i] = Pack_AcquireNamed(g_pack, 0, name);
     }
     F<int32_t>(d, 0x84) = -1;
@@ -1404,7 +1402,7 @@ void __fastcall SetupWindow_Destroy(uint8_t* w) {
     }
     hook::As<void*>(g_6cff90) = nullptr;
     for (uint32_t* p = (uint32_t*)0x6cfed0; (uint32_t)(uintptr_t)p < 0x6cff74; ++p) Pack_Release(g_pack, 0, (void*)(uintptr_t)*p);
-    ((void(__fastcall*)(void*))0x412c10)(hook::As<void*>(g_62b268));
+    Types_RefreshAvailable((Collection*)(hook::As<void*>(g_62b268)));
     Widget_SetVtbl(w);
 }
 RT3_REPLACE(0x4c9cc0, SetupWindow_Destroy);

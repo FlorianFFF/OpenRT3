@@ -15,6 +15,7 @@
 #include "core/containers.h"
 #include "game/calendar.h"
 #include "core/crt.h"
+#include "core/imports.h"
 
 #undef near
 #undef far
@@ -332,7 +333,6 @@ static inline double D(uint32_t a) { return *(const double*)a; }
 
 static inline double Fl(uint32_t a) { return *(const float*)a; }
 
-static inline void* ExeNew(size_t n) { return ((void*(__cdecl*)(size_t))0x53b070)(n); }
 
 static inline int32_t Ftol(double v) {
     int32_t r;
@@ -351,11 +351,8 @@ static inline uint32_t FBits(float f) { return *(uint32_t*)&f; }
 
 static inline double BitsD(uint64_t b) { return *(double*)&b; }
 
-static inline double Atan(double v) { return ((double(__cdecl*)(double))0x5a1270)(v); }
 
-static inline SprintfFn ExeSprintf() { return (SprintfFn)0x5a19c4; }
 
-static inline double CrtFmod(double a, double b) { return ((double(__cdecl*)(double, double))0x5a1390)(a, b); }
 
 // Company finance statistics. Ids below 0x2b are kept per year: +0x1c47 + id * 8
 // (this year so far) and +0xd7f + (id * 11 + n) * 8 (n years ago, 0 = live); larger
@@ -375,8 +372,6 @@ static void PickerDialog_Setup(uint8_t* w, uint32_t listA, uint32_t listB, uint3
 static inline uint32_t Bits(float f) { return *(uint32_t*)&f; }
 
 namespace {
-void Free447(void* p) { ((void(__cdecl*)(void*))0x53b080)(p); }
-int Stricmp447(const char* a, const char* b) { return ((int(__cdecl*)(const char*, const char*))0x5a57cf)(a, b); }
 uint32_t Message447(const char* text, int32_t type, uint32_t buttonText, uint32_t a8) {
     return Dialog_RunMessage(text, type, 0xbf800000, 0xbf800000, 0, nullptr, 0, 0.0f, buttonText, a8, 0, nullptr, nullptr, 0, 0, nullptr, 0);
 }
@@ -444,10 +439,10 @@ uint8_t* __fastcall SetupScreen_Construct(uint8_t* s) {
     g_6d14c0 = s;
     Window_Load(s, 0, 0.0f, 0.0f, (const char*)0x5d16d4);
     int32_t r = Rand(0x64, 0x7a120);
-    SetSeed(r + (int32_t)((uint32_t(__stdcall*)())g_5c8068)());
+    SetSeed(r + (int32_t)(imp::GetTickCount)());
     g_6d14b0 = Pack_AcquireNamed(g_pack, 0, (const char*)0x5d1210);
     g_6d14b4 = Pack_AcquireFont(g_pack, 0, 3);
-    hook::As<void*>(g_6d14bc) = Malloc(0x403c2);
+    hook::As<void*>(g_6d14bc) = crt::malloc(0x403c2);
     NewGameConfig_Reset(g_newGame);
     g_newGame[0x7d] = 1;
     MpSetupDialog_Show(s);
@@ -484,10 +479,10 @@ uint8_t* __fastcall SetupScreen_Construct(uint8_t* s) {
         F<uint32_t>(def, 0x13) = 0x3dda740e;
         F<uint16_t>(def, 0x5f) = 0;
         String_Assign(&F<char*>(def, 0x43), (const char*)0x5d16b4);
-        uint8_t* w = (uint8_t*)((void*(__cdecl*)(size_t))0x53b070)(0x111);
+        uint8_t* w = (uint8_t*)crt::operator_new(0x111);
         w = w ? Scrollbar_Construct(w, 0, def) : nullptr;
         Window_AddChild(s, 0, w, 0xbd0);
-        ((void(__cdecl*)(void*))0x5a1145)(F<char*>(def, 0x43));
+        crt::free(F<char*>(def, 0x43));
     }
     return s;
 }
@@ -575,7 +570,7 @@ RT3_NOINLINE void __stdcall StationDetail_DrawRows(float x, float y, float w, in
         for (int k = 0; k < 3; ++k) {
             const uint8_t* e = F<uint8_t*>(st, 0x24 + k * 4) + i * 5;
             if (e[4])
-                ExeSprintf()(cell, (const char*)0x5d16e8, (double)F<float>((void*)e, 0) / Fl(0x5c9f18));
+                crt::sprintf(cell, (const char*)0x5d16e8, (double)F<float>((void*)e, 0) / Fl(0x5c9f18));
             else
                 FormatText(cell, (const char*)0x5d16e0, 0, 0, 0, 0, 0, 0, 0, 0);
             strcat(line, cell);
@@ -705,7 +700,7 @@ void __fastcall StationWindow_CargoHover(int32_t id, int, int32_t entered, int32
                 FormatText(text, GetString(0xafd), a, (const char*)st + 0x46b, b, (const char*)st + 0x46b, 0, 0, 0, 0);
             } else {
                 char amount[0x64];
-                ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)(amount, (const char*)0x5d05ec, (double)stock);
+                crt::sprintf(amount, (const char*)0x5d05ec, (double)stock);
                 const char* name = LocalizeName((const char*)cargo + 4);
                 FormatText(text, GetString(0x2a9), name, amount, 0, 0, 0, 0, 0, 0);
                 char part[0xc8];
@@ -729,7 +724,7 @@ RT3_REPLACE(0x504ba0, StationWindow_CargoHover);
 RT3_NOINLINE void __fastcall StationDetail_DrawSummary(uint8_t* st, int, float x, float y, float w, int32_t) {
     if (!Collection_IsValid(g_stations, 0, F<uint32_t>(g_gameWindow, 0x90))) return;
     char buf[0x184];
-    ExeSprintf()(buf, (const char*)(st + 0x46b));
+    crt::sprintf(buf, (const char*)(st + 0x46b));
     uint8_t* font = g_6d16e4;
     Font_DrawTextBox(font, 0, buf, x, y, w, BitsF(0x3ccccccd), 0xffffffff, 0, 1, 0, 1.0f);
     float rowY = (float)((double)y + Fl(0x5d0100));
@@ -799,7 +794,7 @@ RT3_NOINLINE void __fastcall StationView_DrawCargoGauge(int32_t which, int, floa
     F<float>(def, 7) = x;
     F<float>(def, 0xf) = w;
     F<uint16_t>(def, 0) = (uint16_t)(which ? 0xb3f6 : 0xb3f7);
-    uint8_t* t = (uint8_t*)ExeNew(0xda);
+    uint8_t* t = (uint8_t*)crt::operator_new(0xda);
     t = t ? TimerWidget_Construct(t, 0, def) : nullptr;
     Window_AddChild(g_stationWindow, 0, t, 0);
     Window_SendEvent5(g_stationWindow, 0, 0x82, F<uint16_t>(def, 0), 0x504770, 0, 0);
@@ -839,11 +834,11 @@ RT3_NOINLINE void __fastcall StationDetail_AddKindButtons(void*, int, float x, f
             const char* n = Num_Format(num, 1, countD, 10, 1, 0, 0);
             FormatText(text, GetString(0x2b0), n, name2, plural, name1, 0, 0, 0, 0);
             String_Assign(&F<char*>(def, 0x3f), text);
-            uint8_t* b = (uint8_t*)ExeNew(0x111);
+            uint8_t* b = (uint8_t*)crt::operator_new(0x111);
             b = b ? Scrollbar_Construct(b, 0, def) : nullptr;
             Window_AddChild(g_stationWindow, 0, b, 0);
-            Free(F<void*>(def, 0x43));
-            Free(F<void*>(def, 0x3f));
+            crt::free(F<void*>(def, 0x43));
+            crt::free(F<void*>(def, 0x3f));
             if (count > 1) {
                 uint8_t ed[0x91];
                 memset(ed, 0, sizeof ed);
@@ -859,10 +854,10 @@ RT3_NOINLINE void __fastcall StationDetail_AddKindButtons(void*, int, float x, f
                 F<uint16_t>(ed, 0) = (uint16_t)(i + 0xb400);
                 Num_Format(text, 1, countD, 10, 1, 0, 0);
                 String_Assign(&F<char*>(ed, 0x77), text);
-                uint8_t* e = (uint8_t*)ExeNew(0xf0);
+                uint8_t* e = (uint8_t*)crt::operator_new(0xf0);
                 e = e ? EditBox_Construct(e, 0, ed) : nullptr;
                 Window_AddChild(g_stationWindow, 0, e, 0);
-                Free(F<void*>(ed, 0x77));
+                crt::free(F<void*>(ed, 0x77));
             }
         }
         ++row;
@@ -899,10 +894,10 @@ RT3_NOINLINE void __fastcall StationView_DrawCargoGrid(void*, int, float x, floa
             uint8_t* cargo = (uint8_t*)Collection_Get(g_cargoTypes, 0, id);
             uint32_t color = stock < D(0x5c9ba0) ? 0xff9f9f9f : 0xffffffff;
             if (hook::As<uint32_t>(g_6d16f4) == id) color = stock < D(0x5c9ba0) ? 0xff9f9f3f : 0xfffff799;
-            ExeSprintf()(text, (const char*)0x5d0eb0, (double)stock);
+            crt::sprintf(text, (const char*)0x5d0eb0, (double)stock);
             float tx = (float)((double)cx - Fl(0x5ce838));
             Font_DrawTextBox(g_6d16ec, 0, text, tx, rowY, BitsF(0x3d225700), rowH, color, 3, 0, 0, 1.0f);
-            if (cargo[0x46]) ExeSprintf()(text, (const char*)0x5d1738);
+            if (cargo[0x46]) crt::sprintf(text, (const char*)0x5d1738);
             else Num_FormatSimple(text, 9, (double)Ftol((double)quota / D(0x5c87f8)), 0xb);
             float px = (float)((double)tx + D(0x5d1730));
             Font_DrawTextBox(g_6d16ec, 0, text, px, rowY, BitsF(0x3d11b08a), rowH, color, 3, 0, 0, 1.0f);
@@ -917,10 +912,10 @@ RT3_NOINLINE void __fastcall StationView_DrawCargoGrid(void*, int, float x, floa
                 if (!id) FormatText(name, (const char*)0x5d01bc, (const char*)0x5d05d4, 0, 0, 0, 0, 0, 0, 0);
                 else FormatText(name, (const char*)0x5d01bc, (const char*)Collection_Get(g_cargoTypes, 0, id) + 4, 0, 0, 0, 0, 0, 0, 0);
                 String_Assign(&F<char*>(d, 0x43), NameTable_ContainsName(g_pack, 0, name, 0, 0) ? name : (const char*)0x5d0194);
-                uint8_t* icon = (uint8_t*)ExeNew(0x111);
+                uint8_t* icon = (uint8_t*)crt::operator_new(0x111);
                 icon = icon ? Scrollbar_Construct(icon, 0, d) : nullptr;
                 Window_AddChild(g_stationWindow, 0, icon, 0);
-                Free(F<void*>(d, 0x43));
+                crt::free(F<void*>(d, 0x43));
                 memset(d, 0, sizeof d);
                 F<float>(d, 7) = tx;
                 F<float>(d, 0xb) = rowY;
@@ -929,7 +924,7 @@ RT3_NOINLINE void __fastcall StationView_DrawCargoGrid(void*, int, float x, floa
                 F<uint16_t>(d, 0) = (uint16_t)(id + 0xb4dc);
                 d[0x29] = 0x20;
                 F<int32_t>(d, 0x61) = 2;
-                uint8_t* hot = (uint8_t*)ExeNew(0x111);
+                uint8_t* hot = (uint8_t*)crt::operator_new(0x111);
                 hot = hot ? Scrollbar_Construct(hot, 0, d) : nullptr;
                 Window_AddChild(g_stationWindow, 0, hot, 0);
                 Window_SendEvent5(g_stationWindow, 0, 0x7b, F<uint16_t>(d, 0), 0x504ba0, 0, 0);
@@ -1204,7 +1199,7 @@ void __fastcall StationDetail_DrawCb(int32_t id, int, float x, float y, float w,
         StationDetail_DrawSummary(st, 0, x, y, w, Bits(h));
         return;
     }
-    ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)(text, (const char*)st + 0x46b);
+    crt::sprintf(text, (const char*)st + 0x46b);
     Font_DrawTextBox(g_6d16e8, 0, text, x, y, w, BitsF(0x3ccccccd), 0xffffffff, 0, 1, 0, 1.0f);
     StationDetail_AddKindButtons(nullptr, 0, x, y, w, h);
     const double gauge = ((double)h - D(0x5d0238)) * D(0x5c8628) - D(0x5d01d8);
@@ -1500,7 +1495,7 @@ RT3_NOINLINE uint8_t* __fastcall StationPick_Construct(uint8_t* w) {
                 }
                 if (best >= 0) {
                     const char* b = (const char*)station(best) + 0x46b;
-                    if (Stricmp((const char*)station(i) + 0x46b, b) > 0) continue;
+                    if (crt::stricmp((const char*)station(i) + 0x46b, b) > 0) continue;
                 }
                 best = i;
             }
@@ -1522,7 +1517,7 @@ RT3_REPLACE(0x507620, StationPick_Construct);
 // 0x5d17bc when `lower`; returns the pick 0x622ae8, or -1 without stations.
 RT3_NOINLINE int32_t __fastcall StationPick_Run(uint8_t lower) {
     if (!Collection_Count(g_stations)) return -1;
-    uint8_t* w = (uint8_t*)((void*(__cdecl*)(size_t))0x53b070)(0x78);
+    uint8_t* w = (uint8_t*)crt::operator_new(0x78);
     g_6d1718 = w ? StationPick_Construct(w) : nullptr;
     if (lower) F<float>(g_6d1718, 5) += Fl(0x5d17bc);
     PauseLock_Push(hook::As<int32_t*>(g_app));
@@ -1532,7 +1527,7 @@ RT3_NOINLINE int32_t __fastcall StationPick_Run(uint8_t lower) {
     if (uint8_t* p = g_6d1718) {
         F<uint32_t>(p, 0) = 0x5d17a0;
         Widget_SetVtbl(p);
-        ((void(__cdecl*)(void*))0x53b080)(p);
+        crt::operator_delete(p);
     }
     g_6d1718 = nullptr;
     return g_622ae8;
@@ -1585,7 +1580,7 @@ void __fastcall Placement_DrawCompassCb(void*, int, float x, float y, int32_t, i
     const uint64_t twoPiBits = 0x401921fb54442eeaull;
     double twoPi;
     memcpy(&twoPi, &twoPiBits, 8);
-    const float angle = (float)((double(__cdecl*)(double, double))0x5a1390)((double)rel + D(0x5c96f8), twoPi);
+    const float angle = (float)crt::fmod((double)rel + D(0x5c96f8), twoPi);
     const float gy = (float)((double)y + D(0x5d0a60));
     const float gx = (float)((double)x + D(0x5d1170));
     uint8_t* g = (uint8_t*)(uintptr_t)Table_Entry(g_6d1724, 0, 1);
@@ -1653,10 +1648,10 @@ RT3_NOINLINE void __fastcall Placement_RotateToMouse(uint8_t* w) {
     dy = -dy;
     dy = (float)((double)dy * D(0x5c8750));
     if (dy == Fl(0x5c8598)) dy = BitsF(0x38d1b717);
-    float a = (float)Atan((double)dx / dy);
+    float a = (float)crt::atan((double)dx / dy);
     if (dy < Fl(0x5c8598)) a = (float)((double)a + Fl(0x5c8760));
     a = (float)((double)F<float>(g_62be68, 0x10) - D(0x5c96a8) + a);
-    a = (float)CrtFmod((double)a + D(0x5c96f8), BitsD(0x401921fb54442eeaull));
+    a = (float)crt::fmod((double)a + D(0x5c96f8), BitsD(0x401921fb54442eeaull));
     Placement_SetRotation(w, 0, FBits(a), 1);
 }
 RT3_REPLACE(0x507d80, Placement_RotateToMouse);
@@ -1741,8 +1736,8 @@ RT3_NOINLINE void __fastcall BuildingDialog_FindSpot(uint8_t* dlg, int, uint32_t
                     double inc = D(0x5d1800) / step;
                     int32_t first = pass == 0 ? 1 : 0;
                     for (float a = 0.0f;;) {
-                        float qx = (float)(((double(__cdecl*)(double))0x5a13e4)(th) * r + *x);
-                        float qy = (float)(((double(__cdecl*)(double))0x5a1494)(th) * r + *y);
+                        float qx = (float)(crt::sin(th) * r + *x);
+                        float qy = (float)(crt::cos(th) * r + *y);
                         float ang = (float)(a + *angle);
                         float rot = 0.0f, sx, sy;
                         int32_t ok = Station_SnapToTrack(g_buildingTypes, 0, owner, id, qx, qy, ang, &sx, &sy, &snapA, first, &node);
@@ -1751,7 +1746,7 @@ RT3_NOINLINE void __fastcall BuildingDialog_FindSpot(uint8_t* dlg, int, uint32_t
                         if (ok) {
                             if (pass == 0) px = sx, py = sy, ang = snapA;
                             const uint64_t twoPi = 0x401921fb60000000ull;
-                            rot = (float)((double(__cdecl*)(double, double))0x5a1390)((double)snapA + Fl(0x5c96e8) - ang, *(const double*)&twoPi);
+                            rot = (float)crt::fmod((double)snapA + Fl(0x5c96e8) - ang, *(const double*)&twoPi);
                             if (rot > Fl(0x5c8760)) rot = (float)(Fl(0x5c8768) - rot);
                             if (g_5c8598 > rot) rot = 0.0f;
                             eval = true;
@@ -1880,7 +1875,7 @@ RT3_NOINLINE void __fastcall BuildingDialog_Select(uint8_t* w, int, int32_t id) 
     uint8_t* b = (uint8_t*)Collection_Get(g_buildingTypes, 0, (uint32_t)id);
     uint8_t* t = (uint8_t*)Collection_Get(g_62b268, 0, F<uint32_t>(b, 0x173));
     char buf[0x1f0];
-    ExeSprintf()(buf, LocalizeName((const char*)t + 0x4f));
+    crt::sprintf(buf, LocalizeName((const char*)t + 0x4f));
     Window_SendEvent5(w, 0, 0x6f, 0x6982, (uint32_t)(uintptr_t)buf, 0, 0);
     BuildingDialog_ShowPrice(w);
     BuildingType_Model2D(b, 0, buf);
@@ -1932,7 +1927,7 @@ RT3_NOINLINE void __fastcall BuildingDialog_SetPage(uint8_t* w, int, int32_t pag
     for (int32_t i = 0; i < Collection_Count(g_buildingTypes); ++i) {
         Collection* types = g_buildingTypes;
         uint8_t* rec = (uint8_t*)Collection_Get(types, 0, Collection_IdAt(types, 0, i, 0));
-        if (Stricmp(name, (const char*)rec + 4)) continue;
+        if (crt::stricmp(name, (const char*)rec + 4)) continue;
         F<uint32_t>(w, 0x8c) = Collection_IdAt(g_buildingTypes, 0, i, 0);
         Window_SendEvent5(w, 0, 0x69, 0x69df, Collection_IdAt(g_buildingTypes, 0, i, 0), 0, 0);
         Window_SendEvent5(w, 0, 0x69, 0x69e3, Collection_IdAt(g_buildingTypes, 0, i, 0), 0, 0);
@@ -2354,7 +2349,7 @@ uint8_t* __fastcall BuildingDialog_Construct(uint8_t* w) {
             if (F<int32_t>(o, 0x4abf) && t[0x32] == 2) continue;
             char name[300];
             const char* loc = LocalizeName((const char*)Collection_Get(g_62b268, 0, F<uint32_t>(e, 0x173)) + 0x4f);
-            ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)(name, loc);
+            crt::sprintf(name, loc);
             uint32_t entry[8] = {};
             String_Assign((char**)&entry[0], name);
             entry[2] = Collection_IdAt(g_buildingTypes, 0, (uint32_t)i, 0);
@@ -2378,8 +2373,8 @@ uint8_t* __fastcall BuildingDialog_Construct(uint8_t* w) {
             String_Assign((char**)&entry[1], size);
             Window_SendEvent5(w, 0, 0x89, 0x69e3, (uint32_t)(uintptr_t)entry, 0, 0);
             Window_SendEvent5(w, 0, 0x89, 0x69df, (uint32_t)(uintptr_t)entry, 0, 0);
-            Free((void*)(uintptr_t)entry[0]);
-            Free((void*)(uintptr_t)entry[1]);
+            crt::free((void*)(uintptr_t)entry[0]);
+            crt::free((void*)(uintptr_t)entry[1]);
             if (!selected) {
                 selected = true;
                 Window_SendEvent5(w, 0, 0x68, 0x69e3, Collection_IdAt(g_buildingTypes, 0, (uint32_t)i, 0), 0, 0);

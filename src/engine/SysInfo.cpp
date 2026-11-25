@@ -11,6 +11,7 @@
 #include "hook/hook.h"
 #include "core/globals.h"
 #include "core/crt.h"
+#include "core/imports.h"
 #include "core/containers.h"
 #include "hook/keepregs.h"
 #include "game/collection.h"
@@ -23,7 +24,6 @@
 
 namespace rt3 {
 
-template <typename Fn> static inline Fn Import(uint32_t iat) { return (Fn)hook::Global<void*>(iat); }
 template <typename T> static inline T& F(void* o, uint32_t off) { return *(T*)((uint8_t*)o + off); }
 const char* __fastcall GetString(int32_t id);
 void __fastcall Render_RestoreTarget(uint8_t* r);
@@ -89,7 +89,6 @@ void __fastcall View_RecordStagePresets(uint8_t* s);
 
 static inline void Copy(char* d, const char* s) { while ((*d++ = *s++) != 0) {} }
 
-static inline void ExeDelete(void* p) { ((void(__cdecl*)(void*))0x53b080)(p); }
 
 // Posts "edit box w finished" (event 0xca with its id +4 and itself).
 static void EditBox_PostDone(uint8_t* w) {
@@ -167,9 +166,9 @@ setText : {
     char*& text = F<char*>(w, 0xba);
     if (text) {
         if (!strcmp(src, text)) return ev[0] != 0x6f;
-        Free(text);
+        crt::free(text);
     }
-    text = (char*)Malloc(strlen(src) + 2);
+    text = (char*)crt::malloc(strlen(src) + 2);
     strcpy(text, src);
     if (!(F<uint32_t>(w, 0x33) & 0x80000) || !strlen(text) || !F<uint8_t*>(w, 0x63) || w[0x67] != 0x11) return ev[0] != 0x6f;
     uint8_t* font = (uint8_t*)(uintptr_t)World46aa0();
@@ -293,8 +292,8 @@ RT3_REPLACE(0x55ce60, Cpu_Name);
 // performance counter.
 RT3_NOINLINE uint64_t __fastcall SysInfo_CpuMhz() {
     int64_t freq, t;
-    auto qpc = Import<int32_t(__stdcall*)(int64_t*)>(0x5c81e0);
-    if (!Import<int32_t(__stdcall*)(int64_t*)>(0x5c81dc)(&freq)) return 0;
+    auto qpc = imp::QueryPerformanceCounter;
+    if (!imp::QueryPerformanceFrequency(&freq)) return 0;
     qpc(&t);
     int64_t end = t + freq;
     uint64_t tsc0 = __rdtsc();
@@ -302,7 +301,7 @@ RT3_NOINLINE uint64_t __fastcall SysInfo_CpuMhz() {
         qpc(&t);
     } while (t <= end);
     uint64_t tsc1 = __rdtsc();
-    return ((uint64_t(__stdcall*)(uint64_t, uint64_t))0x5a4240)(tsc1 - tsc0, 1000000);
+    return crt::alldiv(tsc1 - tsc0, 1000000);
 }
 RT3_REPLACE(0x55d2f0, SysInfo_CpuMhz);
 
@@ -338,7 +337,7 @@ RT3_REPLACE(0x55d430, SysInfo_TotalMemory);
 
 // 0x55d440. Refreshes the memory status (0xd97548) and returns the free physical memory.
 uint32_t __fastcall SysInfo_FreeMemory() {
-    Import<void(__stdcall*)(void*)>(0x5c81d8)((void*)0xd97548);
+    imp::GlobalMemoryStatus((void*)0xd97548);
     return g_d97554;
 }
 RT3_REPLACE(0x55d440, SysInfo_FreeMemory);
@@ -348,7 +347,7 @@ uint8_t __fastcall SysInfo_IsWin9x() {
     for (int k = 0; k < 0x40; ++k) ((uint32_t*)0xd97768)[k] = 0;
     uint32_t v[0x27] = {};
     v[0] = 0x9c;
-    if (!Import<int32_t(__stdcall*)(void*)>(0x5c81d4)(v)) return 0;
+    if (!imp::GetVersionExA(v)) return 0;
     return v[4] != 2 ? 1 : 0;
 }
 RT3_REPLACE(0x55d460, SysInfo_IsWin9x);
@@ -363,7 +362,7 @@ char* Os_VersionName() {
     OSVERSIONINFOEXA vi;
     memset(&vi, 0, sizeof vi);
     vi.dwOSVersionInfoSize = 0x9c;
-    if (!((BOOL(WINAPI*)(OSVERSIONINFOA*))g_5c81d4)((OSVERSIONINFOA*)&vi)) return nullptr;
+    if (!(((BOOL(WINAPI*)(OSVERSIONINFOA*))imp::GetVersionExA))((OSVERSIONINFOA*)&vi)) return nullptr;
     if (vi.dwPlatformId == 1) {
         strcpy(out, (const char*)(vi.dwMinorVersion < 10 ? 0x5ddf5c : vi.dwMinorVersion < 90 ? 0x5ddf50 : 0x5ddf44));
         return out;
@@ -405,7 +404,7 @@ const char* __fastcall SysInfo_DisplayName() {
     *(uint32_t*)dd = 0x1a8;
     char* out = (char*)0xd97448;
     out[0] = 0;
-    auto enumDev = Import<int32_t(__stdcall*)(const char*, uint32_t, void*, uint32_t)>(0x5c8250);
+    auto enumDev = imp::EnumDisplayDevicesA;
     if (!enumDev(nullptr, 0, dd, 0)) return out;
     for (uint32_t i = 0;;) {
         if (*(uint32_t*)(dd + 0xa4) & 4) {
@@ -424,8 +423,8 @@ uint64_t __fastcall SysInfo_Zero64b() { return 0; }
 RT3_REPLACE(0x55d970, SysInfo_Zero64b);
 
 uint32_t __fastcall Sys_Call5c81d0() {
-    uint32_t v = Import<uint32_t(__stdcall*)()>(0x5c81cc)();
-    return Import<uint32_t(__stdcall*)(uint32_t)>(0x5c81d0)(v);
+    uint32_t v = imp::GetCurrentProcess();
+    return imp::GetPriorityClass(v);
 }
 RT3_REPLACE(0x55d980, Sys_Call5c81d0);
 
@@ -440,17 +439,19 @@ RT3_REPLACE(0x55d990, Error_Message);
 
 // 0x55d9c0. The file's product version (low word << 16 | high word), 0 if unknown.
 uint32_t __fastcall File_Version(const char* path) {
-    uint32_t handle, result = 0;
-    uint32_t size = ((uint32_t(__stdcall*)(const char*, uint32_t*))0x5b31ec)(path, &handle);
+    // version.dll, which the exe imports (its thunks 0x5b31ec/0x5b31e6/0x5b31e0).
+    DWORD handle;
+    uint32_t result = 0;
+    uint32_t size = GetFileVersionInfoSizeA(path, &handle);
     if (!size) return 0;
-    void* buf = ((void*(__cdecl*)(size_t))0x53b070)(size);
-    if (((int32_t(__stdcall*)(const char*, uint32_t, uint32_t, void*))0x5b31e6)(path, 0, size, buf)) {
+    void* buf = crt::operator_new(size);
+    if (GetFileVersionInfoA(path, 0, size, buf)) {
         uint8_t* info;
-        uint32_t len;
-        if (((int32_t(__stdcall*)(void*, const char*, void*, uint32_t*))0x5b31e0)(buf, (const char*)0x5cbc58, &info, &len))
+        UINT len;
+        if (VerQueryValueA(buf, (const char*)0x5cbc58, (void**)&info, &len))
             result = (F<uint32_t>(info, 0x14) << 16) | (F<uint32_t>(info, 0x10) & 0xffff);
     }
-    ((void(__cdecl*)(void*))0x53b080)(buf);
+    crt::operator_delete(buf);
     return result;
 }
 RT3_REPLACE(0x55d9c0, File_Version);
@@ -464,7 +465,7 @@ RT3_REPLACE(0x55d9c0, File_Version);
 void SysInfo_Init() {
     memset((void*)0xd973f8, 0, 0x4b);
     memset((void*)0xd97548, 0, 0x20);
-    hook::Global<void(__stdcall*)(void*)>(0x5c81d8)((void*)0xd97548);
+    imp::GlobalMemoryStatus((void*)0xd97548);
     g_d9743b = (uint32_t)SysInfo_CpuMhz();
     if (!Cpu_HasCpuid()) return;
     int r[4];
@@ -501,7 +502,7 @@ void SysInfo_Init() {
             g_d9743f = 1;
         }
     }
-    ((void(__cdecl*)(int32_t))0x5a4376)(g_d9743f);
+    crt::set_sse2_enable(g_d9743f);
     g_d97433 = usable;
     g_d9742f = have;
     g_d9742b = sig & 0xf;
@@ -551,7 +552,7 @@ RT3_NOINLINE void __fastcall Display_DestroyRenderer(uint8_t* o) {
     Textures_ReleaseTargets();
     if (uint8_t* r = F<uint8_t*>(o, 0x2d)) {
         Render_SaveAndShutdown(r);
-        ExeDelete(r);
+        crt::operator_delete(r);
     }
     F<void*>(o, 0x2d) = nullptr;
 }

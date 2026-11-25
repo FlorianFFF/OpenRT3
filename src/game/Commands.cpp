@@ -458,7 +458,6 @@ RT3_NOINLINE char* __fastcall Num_Format(char* buf, int32_t style, double v, int
 RT3_NOINLINE int32_t __fastcall Texture_AppendJpeg(uint8_t* t, int, const char* path, uint32_t withAlpha, int32_t quality);
 RT3_NOINLINE uint8_t* __fastcall Texture_InitMemory(uint8_t* t, int, void* pixels, int32_t w, int32_t h, uint8_t flag);
 
-static inline int ExeSprintf(char* d, const char* f, int32_t v) { return ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)(d, f, v); }
 
 static inline bool OwnTrain(uint8_t* t) { return F<int32_t>(t, 0x51) == Obj_Get21(hook::As<void*>(g_world)); }
 
@@ -493,7 +492,6 @@ void LoadExtractImage(const char* path, uint8_t* block, char* out) {
 }
 
 namespace {
-void Callback_Free(void* p) { ((void(__cdecl*)(void*))0x53b080)(p); }
 uint32_t Message_Dialog(const char* text, uint32_t px) {
     return Dialog_RunMessage(text, 1, px, 0xbf800000, 0, nullptr, 0, 0.0f, 0, 0x1e, 0, nullptr, nullptr, 0, 0, nullptr, 0);
 }
@@ -516,8 +514,6 @@ uint32_t Model_FrameTimeBits(uint8_t* o, int* has) {
 }
 
 namespace {
-void Free447(void* p) { ((void(__cdecl*)(void*))0x53b080)(p); }
-int Stricmp447(const char* a, const char* b) { return ((int(__cdecl*)(const char*, const char*))0x5a57cf)(a, b); }
 uint32_t Message447(const char* text, int32_t type, uint32_t buttonText, uint32_t a8) {
     return Dialog_RunMessage(text, type, 0xbf800000, 0xbf800000, 0, nullptr, 0, 0.0f, buttonText, a8, 0, nullptr, nullptr, 0, 0, nullptr, 0);
 }
@@ -550,14 +546,13 @@ static void __cdecl Block3c2_SaveImpl(void* f, const uint8_t* data, int32_t s) {
     uint32_t v = g_620e94;
     if (f) {
         typedef size_t(__cdecl * FwriteFn)(const void*, size_t, size_t, void*);
-        FwriteFn fwrite_ = (FwriteFn)0x5a276f;
-        ((int(__cdecl*)(void*, long, int))0x5a261f)(f, 0, 0);
-        fwrite_(&v, 4, 1, f);
+        crt::fseek(f, 0, 0);
+        crt::fwrite(&v, 4, 1, f);
         v = 0x2ee0;
-        fwrite_(&v, 4, 1, f);
-        fwrite_(data, 0x3c2, 1, f);
+        crt::fwrite(&v, 4, 1, f);
+        crt::fwrite(data, 0x3c2, 1, f);
         v = 0x2ee1;
-        fwrite_(&v, 4, 1, f);
+        crt::fwrite(&v, 4, 1, f);
         return;
     }
     StreamWrite(s, &v, 4, 0);
@@ -576,20 +571,20 @@ static void B49ImageName(const char* path, char* out, bool jpg) {
 // the block's +9 says jpg, else "_A.tga") to the file path, records where it
 // starts (+0x1c), deletes both image files and rewrites the block at the start.
 static void __cdecl Block_AppendImageImpl(uint8_t* block, const char* path) {
-    void* f = ((B49Fopen)0x5a1887)(path, (const char*)0x5ca330);
-    ((int(__cdecl*)(void*, long, int))0x5a261f)(f, 0, 2);
-    F<int32_t>(block, 0x1c) = ((int32_t(__cdecl*)(void*))0x5a254f)(f);
+    void* f = crt::fopen(path, (const char*)0x5ca330);
+    crt::fseek(f, 0, 2);
+    F<int32_t>(block, 0x1c) = ((int32_t)crt::ftell(f));
     char name[0x40];
     B49ImageName(path, name, block[9] != 0);
-    void* in = ((B49Fopen)0x5a1887)(name, (const char*)0x5c9678);
+    void* in = crt::fopen(name, (const char*)0x5c9678);
     uint8_t buf[0x200];
-    for (size_t n; (int32_t)(n = ((B49Fio)0x5a1b05)(buf, 1, 0x200, in)) > 0;) ((B49Fio)0x5a276f)(buf, 1, n, f);
-    ((int(__cdecl*)(void*))0x5a1740)(in);
-    ((int(__cdecl*)(const char*))0x5a27bb)(name);
+    for (size_t n; (int32_t)(n = crt::fread(buf, 1, 0x200, in)) > 0;) crt::fwrite(buf, 1, n, f);
+    crt::fclose(in);
+    crt::remove(name);
     B49ImageName(path, name, block[9] == 0);
-    ((int(__cdecl*)(const char*))0x5a27bb)(name);
+    crt::remove(name);
     Block3c2_SaveImpl(f, block, 0);
-    ((int(__cdecl*)(void*))0x5a1740)(f);
+    crt::fclose(f);
 }
 
 // 0x4420f0 body. Extracts the image appended to the file path (from the block's
@@ -597,43 +592,43 @@ static void __cdecl Block_AppendImageImpl(uint8_t* block, const char* path) {
 // file name to out. When that file can't be created the image goes into the
 // buffer 0x62bed4 (0x402ee0 bytes; its length in 0x62bed8) instead.
 static void __cdecl Block_ExtractImageImpl(const char* path, uint8_t* block, char* out) {
-    void* f = ((B49Fopen)0x5a1887)(path, (const char*)0x5c9678);
-    ((int(__cdecl*)(void*, long, int))0x5a261f)(f, F<int32_t>(block, 0x1c), 0);
+    void* f = crt::fopen(path, (const char*)0x5c9678);
+    crt::fseek(f, F<int32_t>(block, 0x1c), 0);
     char name[0x44];
     B49ImageName(path, name, block[9] != 0);
-    void* o = ((B49Fopen)0x5a1887)(name, (const char*)0x5ca334);
+    void* o = crt::fopen(name, (const char*)0x5ca334);
     uint8_t buf[0x200];
     if (!o) {
-        if (void* old = hook::As<void*>(g_62bed4)) ((void(__cdecl*)(void*))0x5a1145)(old);
+        if (void* old = hook::As<void*>(g_62bed4)) crt::free(old);
         g_62bed8 = 0x402ee0;
-        g_62bed4 = ((uint8_t*(__cdecl*)(size_t))0x5a125d)(0x402ee0);
+        g_62bed4 = ((uint8_t*)crt::malloc(0x402ee0));
         int32_t used = 0;
-        for (int32_t n = (int32_t)((B49Fio)0x5a1b05)(buf, 1, 0x200, f); n > 0; n = (int32_t)((B49Fio)0x5a1b05)(buf, 1, 0x200, f)) {
+        for (int32_t n = (int32_t)crt::fread(buf, 1, 0x200, f); n > 0; n = (int32_t)crt::fread(buf, 1, 0x200, f)) {
             if (used + 0x200 >= g_62bed8) break;
             memcpy(g_62bed4 + used, buf, (size_t)n);
             used += n;
         }
         g_62bed8 = used;
-        ((int(__cdecl*)(void*))0x5a1740)(f);
+        crt::fclose(f);
         return;
     }
-    for (size_t n; (int32_t)(n = ((B49Fio)0x5a1b05)(buf, 1, 0x200, f)) > 0;) ((B49Fio)0x5a276f)(buf, 1, n, o);
-    ((int(__cdecl*)(void*))0x5a2945)(o);
-    ((int(__cdecl*)(void*))0x5a1740)(o);
-    ((int(__cdecl*)(void*))0x5a1740)(f);
+    for (size_t n; (int32_t)(n = crt::fread(buf, 1, 0x200, f)) > 0;) crt::fwrite(buf, 1, n, o);
+    crt::fflush(o);
+    crt::fclose(o);
+    crt::fclose(f);
     NameTable_Rescan(g_pack);
     strcpy(out, name);
 }
 
 // The whole of file path in a new heap buffer (*size bytes).
 static uint8_t* B60ReadAll(const char* path, int32_t* size) {
-    void* f = ((B49Fopen)0x5a1887)(path, (const char*)0x5c9678);
-    ((B60Fseek)0x5a261f)(f, 0, 2);
-    *size = ((B60Ftell)0x5a254f)(f);
-    ((B60Fseek)0x5a261f)(f, 0, 0);
-    uint8_t* buf = ((uint8_t*(__cdecl*)(size_t))0x5a125d)((size_t)*size);
-    ((B49Fio)0x5a1b05)(buf, 1, (size_t)*size, f);
-    ((int(__cdecl*)(void*))0x5a1740)(f);
+    void* f = crt::fopen(path, (const char*)0x5c9678);
+    crt::fseek(f, 0, 2);
+    *size = crt::ftell(f);
+    crt::fseek(f, 0, 0);
+    uint8_t* buf = ((uint8_t*)crt::malloc((size_t)*size));
+    crt::fread(buf, 1, (size_t)*size, f);
+    crt::fclose(f);
     return buf;
 }
 
@@ -649,17 +644,17 @@ static void __cdecl Save_PackImpl(uint8_t* block, const char* path) {
     int32_t packer[3] = { 0x91, 0, 0 };
     g_d93988 = 0x441e20;
     Pack_Compress(packer, 0, buf + 0x3ce, F<int32_t>(block, 0x18) - 0x3ce, &out, &outSize);
-    void* f = ((B49Fopen)0x5a1887)(path, (const char*)0x5ca334);
-    ((B49Fio)0x5a276f)(buf, 1, 0x3ce, f);
-    ((B49Fio)0x5a276f)(out, 1, (size_t)outSize, f);
-    int32_t pos = ((B60Ftell)0x5a254f)(f);
-    ((B49Fio)0x5a276f)(buf + F<int32_t>(block, 0x18), 1, (size_t)(F<int32_t>(block, 0x1c) - F<int32_t>(block, 0x18)), f);
-    ((B49Fio)0x5a276f)(buf + F<int32_t>(block, 0x1c), 1, (size_t)(size - F<int32_t>(block, 0x1c)), f);
+    void* f = crt::fopen(path, (const char*)0x5ca334);
+    crt::fwrite(buf, 1, 0x3ce, f);
+    crt::fwrite(out, 1, (size_t)outSize, f);
+    int32_t pos = crt::ftell(f);
+    crt::fwrite(buf + F<int32_t>(block, 0x18), 1, (size_t)(F<int32_t>(block, 0x1c) - F<int32_t>(block, 0x18)), f);
+    crt::fwrite(buf + F<int32_t>(block, 0x1c), 1, (size_t)(size - F<int32_t>(block, 0x1c)), f);
     F<int32_t>(block, 0x18) = pos;
     Block3c2_SaveImpl(f, block, 0);
-    ((int(__cdecl*)(void*))0x5a1740)(f);
-    ((void(__cdecl*)(void*))0x5a1145)(buf);
-    ((void(__cdecl*)(void*))0x5a1145)(out);
+    crt::fclose(f);
+    crt::free(buf);
+    crt::free(out);
     g_d93988 = 0;
     ((void(__fastcall*)(int32_t*))&Nop552ff0)(packer);
 }
@@ -1051,7 +1046,7 @@ int32_t Cities_FindByPrompt() {
     for (int32_t i = 0; i < Collection_Count(g_cities); ++i) {
         Collection* cities = g_cities;
         uint8_t* c = (uint8_t*)Collection_Get(cities, 0, Collection_IdAt(cities, 0, (uint32_t)i, 0));
-        if (F<int32_t>(c, 0x23e) || Strnicmp(name, (const char*)c + 0x356, (size_t)len)) continue;
+        if (F<int32_t>(c, 0x23e) || crt::strnicmp(name, (const char*)c + 0x356, (size_t)len)) continue;
         if (g_62be68) Obj_ClearClock346(g_62be68);
         g_62be70 = 1;
         Camera_FollowObject(c, 0);
@@ -1381,7 +1376,7 @@ RT3_NOINLINE void __fastcall Block_Load(const char* name, uint8_t* block, int32_
             const uint8_t* p = pix + i * 3;
             F<uint32_t>(block, 0x3c2 + i * 4) = 0xff000000u | (uint32_t)p[0] << 16 | (uint32_t)p[1] << 8 | p[2];
         }
-    ((void(__cdecl*)(void*))0x5a1145)(pix);
+    crt::free(pix);
 }
 RT3_REPLACE(0x442400, Block_Load);
 
@@ -1408,8 +1403,8 @@ RT3_NOINLINE void __fastcall Save_LogProgress(Stream s, const char* label) {
     if (!s && !label) return;
     char kb[0x20], ms[0x20], line[0x1ec];
     int32_t pos = StreamTell(s);
-    ExeSprintf(kb, (const char*)0x5ca350, (pos - g_62c11c) / 1024);
-    ExeSprintf(ms, (const char*)0x5ca348, ClockMs() - g_62bed0);
+    crt::sprintf(kb, (const char*)0x5ca350, (pos - g_62c11c) / 1024);
+    crt::sprintf(ms, (const char*)0x5ca348, ClockMs() - g_62bed0);
     FormatText(line, GetString(0x198), kb, ms, label, nullptr, nullptr, nullptr, nullptr, nullptr);
     DebugLog(line, -1234, -1234, -1234, -1234, -1234, -1234, -1234, -1234, -1234);
     g_62c11c = pos;
@@ -1420,14 +1415,14 @@ RT3_REPLACE(0x442660, Save_LogProgress);
 // file `path` (quality 70) through a memory texture; the result goes to
 // +0x18.
 RT3_NOINLINE void __stdcall Preview_SaveJpeg(const char* path, uint8_t* o) {
-    void* pix = ((void*(__cdecl*)(uint32_t))0x5a125d)(0x40000);
+    void* pix = crt::malloc(0x40000);
     memcpy(pix, o + 0x3c2, 0x40000);
-    uint8_t* p = (uint8_t*)((void*(__cdecl*)(uint32_t))0x53b070)(0xec);
+    uint8_t* p = (uint8_t*)crt::operator_new(0xec);
     uint8_t* t = p ? Texture_InitMemory(p, 0, pix, 0x100, 0x100, 0) : nullptr;
     F<int32_t>(o, 0x18) = Texture_AppendJpeg(t, 0, path, 0, 0x46);
     if (!t) return;
     Texture_Destroy(t);
-    ((void(__cdecl*)(void*))0x53b080)(t);
+    crt::operator_delete(t);
 }
 RT3_REPLACE(0x442740, Preview_SaveJpeg);
 
@@ -1445,15 +1440,15 @@ RT3_NOINLINE void __fastcall Save_UnpackToTemp(const char* path) {
     int32_t outSize = 0;
     int32_t packer[3] = { 0x91, 0, 0 };
     if (Pack_Decompress(packer, 0, (const int32_t*)(buf + 0x3ce), 0, &out, &outSize) == 1) {
-        void* f = ((B49Fopen)0x5a1887)(name, (const char*)0x5ca334);
-        ((B49Fio)0x5a276f)(buf, 1, 0x3ce, f);
-        ((B49Fio)0x5a276f)(out, 1, (size_t)outSize, f);
+        void* f = crt::fopen(name, (const char*)0x5ca334);
+        crt::fwrite(buf, 1, 0x3ce, f);
+        crt::fwrite(out, 1, (size_t)outSize, f);
         int32_t packed = F<int32_t>(buf + 0x3ce, 4);
-        ((B49Fio)0x5a276f)(buf + 0x3ce + packed, 1, (size_t)(size - packed - 0x3ce), f);
-        ((int(__cdecl*)(void*))0x5a1740)(f);
-        ((void(__cdecl*)(void*))0x5a1145)(out);
+        crt::fwrite(buf + 0x3ce + packed, 1, (size_t)(size - packed - 0x3ce), f);
+        crt::fclose(f);
+        crt::free(out);
     }
-    ((void(__cdecl*)(void*))0x5a1145)(buf);
+    crt::free(buf);
     ((void(__fastcall*)(int32_t*))&Nop552ff0)(packer);
 }
 RT3_REPLACE(0x4427c0, Save_UnpackToTemp);
@@ -1478,7 +1473,7 @@ RT3_NOINLINE int32_t __cdecl AnyHasFixedName() {
         Collection* c = g_trains;
         void* x = Obj_City41(Collection_Get(c, 0, Collection_IdAt(c, 0, i, 0)));
         for (int k = 0; k < 8; ++k)
-            if (!Stricmp((const char*)Obj_Ref388(x) + 0x82, (const char*)names[k])) return 1;
+            if (!crt::stricmp((const char*)Obj_Ref388(x) + 0x82, (const char*)names[k])) return 1;
     }
     return 0;
 }
@@ -1510,8 +1505,8 @@ RT3_REPLACE(0x442ba0, Map_WritePreview);
 RT3_NOINLINE void __fastcall Scenario_ApplyFixes(uint8_t* scn, int, const char* name) {
     auto rule = [](uint32_t id) { return (uint8_t*)Collection_Get(g_events, 0, id); };
     auto city = [](uint32_t id) { return (uint8_t*)Collection_Get(g_cities, 0, id); };
-    auto named = [](uint8_t* r, uint32_t str) { return !Stricmp((const char*)(r + 0x18), (const char*)str); };
-    auto is = [&](uint32_t str) { return !Stricmp(name, (const char*)str); };
+    auto named = [](uint8_t* r, uint32_t str) { return !crt::stricmp((const char*)(r + 0x18), (const char*)str); };
+    auto is = [&](uint32_t str) { return !crt::stricmp(name, (const char*)str); };
     auto cond = [](uint8_t* r) { return F<uint8_t*>(r, 0); };
     if (is(0x5ca838) && !scn[0x66de]) { // Germany
         uint8_t* r = rule(7);
@@ -1704,7 +1699,7 @@ RT3_NOINLINE void __fastcall Scenario_ApplyFixes(uint8_t* scn, int, const char* 
         for (int32_t i = 0; i < Collection_Count(g_62b268); ++i) {
             Collection* types = g_62b268;
             uint8_t* t = (uint8_t*)Collection_Get(types, 0, Collection_IdAt(types, 0, i, 0));
-            if (!Stricmp((const char*)(t + 4), (const char*)0x5c8f88) && F<int32_t>(t, 0x22) == 25000) F<int32_t>(t, 0x22) = 40000;
+            if (!crt::stricmp((const char*)(t + 4), (const char*)0x5c8f88) && F<int32_t>(t, 0x22) == 25000) F<int32_t>(t, 0x22) = 40000;
         }
     }
 }
@@ -1783,7 +1778,7 @@ RT3_NOINLINE void __fastcall World_LoadGame(uint8_t* w, int, const char* name, i
     char unpacked[0x104], image[0x100];
     unpacked[0] = 0;
     image[0] = 0;
-    ((long(__cdecl*)(int))0x5c7820)(StreamFd(s));
+    crt::tell(StreamFd(s));
     if (w[0x66c8]) {
         StreamClose(s);
         strcpy(image, path);
@@ -1898,11 +1893,11 @@ RT3_NOINLINE void __fastcall World_LoadGame(uint8_t* w, int, const char* name, i
     CargoTypes_Recount(g_cargoTypes);
     Loading_Pump(ed(), 0, 0, 0);
     char mapName[0x114];
-    ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)(mapName, name);
+    crt::sprintf(mapName, name);
     mapName[strlen(mapName) - 4] = 0;
     status(0x185);
     {
-        uint8_t* m = ((uint8_t*(__cdecl*)(size_t))0x53b070)(0x2209);
+        uint8_t* m = ((uint8_t*)crt::operator_new(0x2209));
         g_map = m ? Map_ConstructLoad(m, 0, s, mapName) : nullptr;
     }
     StreamSkip4(s, 0x32ca, 1, 1);
@@ -1993,8 +1988,8 @@ RT3_NOINLINE void __fastcall World_LoadGame(uint8_t* w, int, const char* name, i
         uint8_t* map = g_map;
         if ((!F<int32_t>(map, 0x21a5) && !g_engine[0x1146eb]) || version() <= 0x2584) Map_RebuildCoast(map, 0, 0, 0, 0x270f, 0x270f, nullptr);
     }
-    if (unpacked[0]) ((int(__cdecl*)(const char*))0x5a27bb)(unpacked);
-    if (w[0x66c9]) ((int(__cdecl*)(const char*))0x5a27bb)(image);
+    if (unpacked[0]) crt::remove(unpacked);
+    if (w[0x66c9]) crt::remove(image);
     status(0x197);
     Weather_ApplyIntensity(w);
     Territories_BuildBorders(g_territories);

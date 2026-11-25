@@ -13,6 +13,7 @@
 #include "hook/keepregs.h"
 #include "game/calendar.h"
 #include "core/crt.h"
+#include "core/imports.h"
 #include "core/stream.h"
 #include "core/containers.h"
 #include "core/ptrlist.h"
@@ -22,6 +23,8 @@
 #undef small
 
 namespace rt3 {
+
+uint32_t __fastcall Map_RegionTypeAt(void* m, int, float x, float y);
 
 template <typename T> static inline T& F(void* o, uint32_t off) { return *(T*)((uint8_t*)o + off); }
 double __fastcall Obj_CellX(void* o);
@@ -62,7 +65,6 @@ void __fastcall Obj_AddKey(void* o, int, uint16_t key, int32_t value);
 void __fastcall Chain_RegisterBuildings(void* o, int, uint8_t* target, int32_t value);
 float __fastcall Station_PathCost(void* o, int, int32_t x, int32_t y);
 void __fastcall Obj_RemoveKey(void* o, int, uint16_t key);
-template <typename Fn> static inline Fn Import(uint32_t iat) { return (Fn)hook::Global<void*>(iat); }
 int32_t __fastcall Game_EffectiveVersion();
 void __fastcall Grid_AddObject(uint8_t* g, int, uint8_t* t);
 const char* __fastcall GetString(int32_t id);
@@ -332,7 +334,6 @@ static inline double D(uint32_t a) { return *(const double*)a; }
 
 static inline float Fl(uint32_t a) { return *(const float*)a; }
 
-static inline void* Memmove(void* d, const void* s, size_t n) { return ((void*(__cdecl*)(void*, const void*, size_t))0x5a20b0)(d, s, n); }
 
 static inline int32_t Ftol(double v) {
     int32_t r;
@@ -388,7 +389,6 @@ static inline double Fl_203(uint32_t a) { return *(const float*)a; }
 
 static inline double Fl_205(uint32_t a) { return *(const float*)a; }
 
-static inline void* ExeNew(size_t n) { return ((void*(__cdecl*)(size_t))0x53b070)(n); }
 
 static inline uint32_t FBits(float f) { return *(uint32_t*)&f; }
 
@@ -430,10 +430,6 @@ struct BuildFrame {
     uint8_t& u8(uint32_t o) { return b[o]; }
     uint32_t* p(uint32_t o) { return (uint32_t*)(b + o); }
 };
-inline double BlCos(double x) { return ((double(__cdecl*)(double))0x5a13e4)(x); }
-inline double BlSin(double x) { return ((double(__cdecl*)(double))0x5a1494)(x); }
-inline double BlAbs(double x) { return ((double(__cdecl*)(double))0x5a152e)(x); }
-inline double BlAtan(double x) { return ((double(__cdecl*)(double))0x5a1270)(x); }
 inline float BlCell(float v) { return (float)((double)v / Fl_207(0x5c8700)); }
 inline uint32_t BlBits(float v) { return *(uint32_t*)&v; }
 inline uint8_t* BlTrack(Collection* c, int32_t id) { return (uint8_t*)Collection_Get(c, 0, (uint32_t)id); }
@@ -615,10 +611,10 @@ void __fastcall PlayerSetup_Build(uint8_t* w, int, float x, float y, float wd, f
         }
         String_Assign(&F<char*>(e, 0x77), text);
         e[0x33] = style;
-        uint8_t* b = (uint8_t*)ExeNew(0xf0);
+        uint8_t* b = (uint8_t*)crt::operator_new(0xf0);
         b = b ? EditBox_Construct(b, 0, e) : nullptr;
         Window_AddChild(w, 0, b, 0);
-        Free(F<void*>(e, 0x77));
+        crt::free(F<void*>(e, 0x77));
     };
     auto listBox = [&](uint16_t id, float py) {
         uint8_t l[0xe3];
@@ -647,10 +643,10 @@ void __fastcall PlayerSetup_Build(uint8_t* w, int, float x, float y, float wd, f
         F<uint32_t>(l, 0xc7) = 0x3e51eb85;
         F<uint32_t>(l, 0xcb) = 0x3c088889;
         String_Assign(&F<char*>(l, 0x43), (const char*)0x5ce8d8);
-        uint8_t* b = (uint8_t*)ExeNew(0x1b9);
+        uint8_t* b = (uint8_t*)crt::operator_new(0x1b9);
         b = b ? ListBox_Construct(b, 0, l) : nullptr;
         Window_AddChild(w, 0, b, 0);
-        Free(F<void*>(l, 0x43));
+        crt::free(F<void*>(l, 0x43));
         Window_SendEvent5(w, 0, 0x84, id, 0x47c360, 0, 0);
     };
     float row = (float)((double)y + h - D(0x5ce8f0));
@@ -679,7 +675,7 @@ void __fastcall PlayerSetup_Build(uint8_t* w, int, float x, float y, float wd, f
         F<uint32_t>(s, 0x13) = 0x3d23d70a;
         F<int32_t>(s, 0x61) = 3;
         F<int32_t>(s, 0x75) = 6;
-        uint8_t* b = (uint8_t*)ExeNew(0x111);
+        uint8_t* b = (uint8_t*)crt::operator_new(0x111);
         b = b ? Scrollbar_Construct(b, 0, s) : nullptr;
         Window_AddChild(w, 0, b, 0);
     }
@@ -704,10 +700,10 @@ void __fastcall PlayerSetup_Build(uint8_t* w, int, float x, float y, float wd, f
             F<uint16_t>(s, 0x5f) = 0;
         }
         F<uint16_t>(s, 0) = 0x714e;
-        uint8_t* b = (uint8_t*)ExeNew(0x111);
+        uint8_t* b = (uint8_t*)crt::operator_new(0x111);
         b = b ? Scrollbar_Construct(b, 0, s) : nullptr;
         Window_AddChild(w, 0, b, 0);
-        Free(F<void*>(s, 0x43));
+        crt::free(F<void*>(s, 0x43));
     }
     float cx = (float)((double)x + D(0x5ce8f0));
     auto arrow = [&](uint16_t id, double dy, uint16_t i0, uint16_t i1) {
@@ -723,10 +719,10 @@ void __fastcall PlayerSetup_Build(uint8_t* w, int, float x, float y, float wd, f
         c[0x8a] = 7;
         F<uint16_t>(c, 0) = id;
         String_Assign(&F<char*>(c, 0x43), (const char*)0x5ce8d8);
-        uint8_t* b = (uint8_t*)ExeNew(0xe9);
+        uint8_t* b = (uint8_t*)crt::operator_new(0xe9);
         b = b ? Control_Construct(b, 0, c) : nullptr;
         Window_AddChild(w, 0, b, 0);
-        Free(F<void*>(c, 0x43));
+        crt::free(F<void*>(c, 0x43));
     };
     arrow(0x714c, D(0x5ce8c8), 0xa, 0xb);
     arrow(0x714d, D(0x5ce8c0), 0xc, 0xd);
@@ -768,7 +764,7 @@ RT3_NOINLINE void Player_FoundCompanyDialog() {
     if (logo >= 0x24) {
         Collection* images = F<Collection*>(g_pack, 0x429b0);
         const char* img = (const char*)Collection_Get(images, 0, Collection_IdAt(images, 0, (uint32_t)(logo - 0x24), 0));
-        ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)(logoName, img);
+        crt::sprintf(logoName, img);
         logo = -1;
     }
     uint8_t* pl = (uint8_t*)Obj_Ref25(g_world);
@@ -864,7 +860,7 @@ RT3_REPLACE(0x47d800, Obj_Int564);
 RT3_NOINLINE void __fastcall Entries6_Remove(uint8_t* o, int, int16_t key) {
     uint8_t* out = nullptr;
     if (F<int32_t>(o, 0x462) > 1) {
-        out = ((uint8_t*(__cdecl*)(size_t))0x5a125d)((size_t)((F<int32_t>(o, 0x462) * 3 - 3) * 2));
+        out = ((uint8_t*)crt::malloc((size_t)((F<int32_t>(o, 0x462) * 3 - 3) * 2)));
         int32_t kept = 0;
         uint8_t* dst = out;
         for (int32_t i = 0; i < F<int32_t>(o, 0x462); ++i) {
@@ -876,7 +872,7 @@ RT3_NOINLINE void __fastcall Entries6_Remove(uint8_t* o, int, int16_t key) {
             dst += 6;
         }
     }
-    ((void(__cdecl*)(void*))0x5a1145)(F<void*>(o, 0x466));
+    crt::free(F<void*>(o, 0x466));
     F<uint8_t*>(o, 0x466) = out;
     F<int32_t>(o, 0x462) = F<int32_t>(o, 0x462) - 1;
 }
@@ -893,13 +889,13 @@ RT3_NOINLINE int32_t __fastcall Obj_LoadArrays(uint8_t* o, int, Stream s) {
     StreamRead(s, o + 0x462, 4, 0, 1);
     F<void*>(o, 0x466) = nullptr;
     if (F<int32_t>(o, 0x462) > 0) {
-        F<uint8_t*>(o, 0x466) = (uint8_t*)Malloc((F<int32_t>(o, 0x462) * 3 + 3) * 2);
+        F<uint8_t*>(o, 0x466) = (uint8_t*)crt::malloc((F<int32_t>(o, 0x462) * 3 + 3) * 2);
         for (int32_t k = 0; k < F<int32_t>(o, 0x462); ++k) StreamRead(s, F<uint8_t*>(o, 0x466) + k * 6, 6, 0, 1);
     }
     if (F<int32_t>(o, 0x30) > 0) {
         int32_t n = F<int32_t>(o, 0x30) * 5;
         for (int j = 0; j < 3; ++j) {
-            void* p = Malloc(n);
+            void* p = crt::malloc(n);
             F<void*>(o, 0x24 + j * 4) = p;
             StreamRead(s, p, n, 0, 1);
         }
@@ -907,13 +903,13 @@ RT3_NOINLINE int32_t __fastcall Obj_LoadArrays(uint8_t* o, int, Stream s) {
     for (int j = 0; j < 5; ++j) {
         int32_t n = F<int32_t>(o, 0x590 + j * 4);
         if (n <= 0) continue;
-        void* p = Malloc(n * 8);
+        void* p = crt::malloc(n * 8);
         F<void*>(o, 0x5a4 + j * 4) = p;
         StreamRead(s, p, n * 8, 0, 1);
     }
     if (F<int32_t>(o, 0x38) > 0) {
         int32_t n = F<int32_t>(o, 0x38) * 12;
-        void* p = Malloc(n);
+        void* p = crt::malloc(n);
         F<void*>(o, 0x34) = p;
         StreamRead(s, p, n, 0, 1);
     }
@@ -948,11 +944,11 @@ void __fastcall Site_RecordMin(uint8_t* o, int, int32_t i, int32_t list, float v
         int32_t newBytes = (i + 3) * 5;
         for (int k = 0; k < 3; ++k) {
             int32_t oldBytes = F<int32_t>(o, 0x30) * 5;
-            uint8_t* nb = (uint8_t*)Malloc(newBytes);
+            uint8_t* nb = (uint8_t*)crt::malloc(newBytes);
             if (oldBytes) {
                 const uint8_t* old = F<uint8_t*>(o, 0x24 + k * 4);
                 for (int32_t b = 0; b < oldBytes; ++b) nb[b] = old[b];
-                Free(F<void*>(o, 0x24 + k * 4));
+                crt::free(F<void*>(o, 0x24 + k * 4));
             }
             F<uint8_t*>(o, 0x24 + k * 4) = nb;
             for (int32_t b = oldBytes; b < newBytes; ++b) nb[b] = 0;
@@ -993,7 +989,7 @@ RT3_NOINLINE void __fastcall Pairs_Clear(uint8_t* o) {
     for (int k = 0; k < 5; ++k) {
         void*& p = F<void*>(o, 0x5a4 + k * 4);
         if (p) {
-            Free(p);
+            crt::free(p);
             p = nullptr;
         }
         F<int32_t>(o, 0x590 + k * 4) = 0;
@@ -1010,10 +1006,10 @@ RT3_NOINLINE void __fastcall Pairs_RemoveKey(uint8_t* o, int, int32_t key) {
             uint8_t* e = buf + j * 8;
             if (F<int32_t>(e, 0) != key) continue;
             if (count == 1) {
-                Free(buf);
+                crt::free(buf);
                 F<void*>(o, 0x5a4 + k * 4) = nullptr;
             } else if (count - j - 1 > 0) {
-                ((void*(__cdecl*)(void*, const void*, size_t))0x5a20b0)(e, e + 8, (count - j - 1) * 8);
+                crt::memmove(e, e + 8, (count - j - 1) * 8);
             }
             --count;
             F<int32_t>(o, 0x5b8)--;
@@ -1030,7 +1026,7 @@ uint32_t __fastcall Obj_NodeNotify(uint8_t* o, int, int32_t flag) {
     Collection* nodes = g_tracks;
     if (!Collection_IsValid(nodes, 0, n)) return 0;
     void* node = Collection_Get(nodes, 0, F<uint32_t>(o, 8));
-    uint32_t r = ((uint32_t(__thiscall*)(void*, int32_t))0x48a090)(node, 1);
+    uint32_t r = ((uint32_t)Node_HasLink(node, 0, 1));
     if (r) return r;
     return ((uint32_t(__thiscall*)(void*))(*(void***)node)[flag ? 1 : 2])(node);
 }
@@ -1235,8 +1231,8 @@ RT3_NOINLINE void __fastcall Train_GatherLoads(uint8_t* o, int, int32_t simulate
                         int32_t last = maxN - 1 > n ? n : maxN - 1;
                         int32_t cnt = last - pos;
                         if (cnt) {
-                            Memmove(&ids[pos + 1], &ids[pos], cnt * 4);
-                            Memmove(&vals[pos + 1], &vals[pos], cnt * 4);
+                            crt::memmove(&ids[pos + 1], &ids[pos], cnt * 4);
+                            crt::memmove(&vals[pos + 1], &vals[pos], cnt * 4);
                         }
                         vals[pos] = v;
                         ids[pos] = id;
@@ -1385,7 +1381,7 @@ void __fastcall Obj_AddKeyUnique(uint8_t* o, int, uint16_t key, int32_t value) {
     int32_t n = F<int32_t>(o, 0x462);
     for (int32_t i = 0; i < F<int32_t>(o, 0x462); ++i)
         if (F<uint16_t>(F<uint8_t*>(o, 0x466), i * 6) == key) return;
-    uint8_t* p = (uint8_t*)Malloc((n + 1) * 6);
+    uint8_t* p = (uint8_t*)crt::malloc((n + 1) * 6);
     n = F<int32_t>(o, 0x462);
     if (n > 0) {
         const uint8_t* old = F<uint8_t*>(o, 0x466);
@@ -1393,7 +1389,7 @@ void __fastcall Obj_AddKeyUnique(uint8_t* o, int, uint16_t key, int32_t value) {
     }
     F<uint16_t>(p, n * 6) = key;
     F<int32_t>(p, n * 6 + 2) = value;
-    if (F<void*>(o, 0x466)) Free(F<void*>(o, 0x466));
+    if (F<void*>(o, 0x466)) crt::free(F<void*>(o, 0x466));
     F<uint8_t*>(o, 0x466) = p;
     F<int32_t>(o, 0x462) = n + 1;
 }
@@ -1430,7 +1426,7 @@ uint32_t __fastcall Obj_BuildingMapQuery(void* o) {
     void* b2 = BuildingOf4(o);
     float x = (float)Obj_CellX(b2);
     float y = (float)Obj_CellY(b1);
-    return ((uint32_t(__thiscall*)(void*, float, float))0x44e270)(hook::As<void*>(g_map), x, y);
+    return Map_RegionTypeAt(hook::As<void*>(g_map), 0, x, y);
 }
 RT3_REPLACE(0x47f1f0, Obj_BuildingMapQuery);
 
@@ -1483,13 +1479,13 @@ RT3_NOINLINE void __fastcall Station_BuildCatchment(uint8_t* st, int, int32_t re
         cy = (float)((double)Ftol(F<float>(st, 0x4ac)) + D(0x5c8628));
     }
     int32_t ri = Ftol((double)r + Fl_203(0x5c85b4));
-    if (F<void*>(st, 0x34)) Free(F<void*>(st, 0x34));
+    if (F<void*>(st, 0x34)) crt::free(F<void*>(st, 0x34));
     F<void*>(st, 0x34) = nullptr;
     F<int32_t>(st, 0x38) = 0;
     int32_t n = 0;
     uint8_t* buf = nullptr;
-    if (!remove) buf = (uint8_t*)Malloc(0x2ee0);
-    if (F<void*>(st, 0x466)) Free(F<void*>(st, 0x466));
+    if (!remove) buf = (uint8_t*)crt::malloc(0x2ee0);
+    if (F<void*>(st, 0x466)) crt::free(F<void*>(st, 0x466));
     F<void*>(st, 0x466) = nullptr;
     F<int32_t>(st, 0x462) = 0;
     float fr = (float)ri;
@@ -1524,7 +1520,7 @@ RT3_NOINLINE void __fastcall Station_BuildCatchment(uint8_t* st, int, int32_t re
         }
     }
     if (remove) return;
-    F<uint8_t*>(st, 0x34) = (uint8_t*)Malloc((n < 1 ? 1 : n) * 0xc);
+    F<uint8_t*>(st, 0x34) = (uint8_t*)crt::malloc((n < 1 ? 1 : n) * 0xc);
     F<int32_t>(st, 0x38) = n;
     uint8_t used[1000] = {};
     for (int32_t k = 0; k < n; ++k) {
@@ -1534,7 +1530,7 @@ RT3_NOINLINE void __fastcall Station_BuildCatchment(uint8_t* st, int, int32_t re
         used[best] = 1;
         memcpy(F<uint8_t*>(st, 0x34) + k * 0xc, buf + best * 0xc, 0xc);
     }
-    Free(buf);
+    crt::free(buf);
 }
 RT3_REPLACE(0x47f320, Station_BuildCatchment);
 
@@ -1588,8 +1584,8 @@ int32_t __fastcall Station_PickCargo(uint8_t* st, int, int32_t tag, uint32_t des
                     value = 10000.0f;
                     if (F<int32_t>(world(), 0x4afb)) {
                         const char* name = (const char*)Collection_Get(cargos, 0, id) + 4;
-                        if (!Stricmp(name, (const char*)0x5c99b8) || !Stricmp(name, (const char*)0x5c99b0) ||
-                            !Stricmp(name, (const char*)0x5c99a4))
+                        if (!crt::stricmp(name, (const char*)0x5c99b8) || !crt::stricmp(name, (const char*)0x5c99b0) ||
+                            !crt::stricmp(name, (const char*)0x5c99a4))
                             value = 20000.0f;
                     }
                 }
@@ -1644,12 +1640,12 @@ RT3_NOINLINE void __fastcall Station_RecordNearby(uint8_t* s, int, uint8_t* obj)
     if (!(d <= *(const float*)0x5c8738)) return;
     int32_t k = Obj_StateB9(obj);
     int32_t cnt = ++F<int32_t>(s, 0x590 + k * 4);
-    uint32_t* rec = (uint32_t*)Malloc(cnt * 8);
+    uint32_t* rec = (uint32_t*)crt::malloc(cnt * 8);
     if (F<int32_t>(s, 0x590 + k * 4) > 1) {
         uint8_t* old = F<uint8_t*>(s, 0x5a4 + k * 4);
         uint32_t n = F<int32_t>(s, 0x590 + k * 4) * 8 - 8;
         for (uint32_t j = 0; j < n; ++j) ((uint8_t*)rec)[j] = old[j];
-        Free(F<void*>(s, 0x5a4 + k * 4));
+        crt::free(F<void*>(s, 0x5a4 + k * 4));
     }
     rec[F<int32_t>(s, 0x590 + k * 4) * 2 - 2] = F<uint32_t>(obj, 0x2a4);
     rec[F<int32_t>(s, 0x590 + k * 4) * 2 - 1] = *(uint32_t*)&d;
@@ -1682,10 +1678,10 @@ RT3_NOINLINE void __fastcall Station_CollectIndustries(uint8_t* o) {
                     if (d <= Fl(0x5c8738)) {
                         ++F<int32_t>(o, 0x5b8);
                         int32_t cnt = ++F<int32_t>(o, 0x590 + kind * 4);
-                        uint8_t* arr = (uint8_t*)Malloc(cnt * 8);
+                        uint8_t* arr = (uint8_t*)crt::malloc(cnt * 8);
                         if (F<int32_t>(o, 0x590 + kind * 4) > 1) {
                             memcpy(arr, F<uint8_t*>(o, 0x5a4 + kind * 4), F<int32_t>(o, 0x590 + kind * 4) * 8 - 8);
-                            Free(F<uint8_t*>(o, 0x5a4 + kind * 4));
+                            crt::free(F<uint8_t*>(o, 0x5a4 + kind * 4));
                         }
                         F<uint32_t>(arr, F<int32_t>(o, 0x590 + kind * 4) * 8 - 8) = id;
                         F<float>(arr, F<int32_t>(o, 0x590 + kind * 4) * 8 - 4) = d;
@@ -1807,7 +1803,7 @@ RT3_REPLACE(0x480210, Station_Init);
 RT3_NOINLINE void __fastcall Station_Remove(uint8_t* s) {
     Obj_FreeEntries5bd(s);
     Pairs_Clear(s);
-    if (void* b = F<void*>(s, 0x34)) ((void(__cdecl*)(void*))0x5a1145)(b);
+    if (void* b = F<void*>(s, 0x34)) crt::free(b);
     F<void*>(s, 0x34) = nullptr;
     F<int32_t>(s, 0x38) = 0;
     Station_BuildCatchment(s, 0, 1, -1);
@@ -1824,7 +1820,7 @@ RT3_NOINLINE void __fastcall Station_Remove(uint8_t* s) {
     int32_t x = Ftol((double)F<float>(s, 0x4a8));
     Chain_Remove(F<uint8_t*>(m, 0x2129) + (y * F<int32_t>(m, 0x2145) + x) * 0x1d7, 0, id);
     for (int k = 0; k < 3; ++k)
-        if (void* b = F<void*>(s, 0x24 + 4 * k)) ((void(__cdecl*)(void*))0x5a1145)(b);
+        if (void* b = F<void*>(s, 0x24 + 4 * k)) crt::free(b);
     for (int32_t j = 0; j < Collection_Count(g_stations); ++j) {
         Collection* ss = g_stations;
         uint8_t* o = (uint8_t*)Collection_Get(ss, 0, Collection_IdAt(ss, 0, (uint32_t)j, 0));
@@ -1990,7 +1986,7 @@ RT3_NOINLINE void __fastcall Station_Place(uint8_t* s, int, float x, float y) {
             numbered(F<int32_t>(c, 0x26a));
         } else if (Obj_BuildingState8c(s) == 4) {
             ++F<int32_t>(c, 0x26e);
-            ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)(suffix, GetString(0x24e));
+            crt::sprintf(suffix, GetString(0x24e));
             numbered(F<int32_t>(c, 0x26e));
         } else {
             FormatText(suffix, (const char*)0x5ce908, GetString(((const int32_t*)0x5f2cf8)[F<int32_t>(c, 0x262)]), nullptr, nullptr, nullptr, nullptr, nullptr,
@@ -2040,7 +2036,7 @@ RT3_NOINLINE int32_t __fastcall Collection_LoadWithArrays(Collection* c, int, St
     for (int32_t i = 0; i < Collection_Count(c); ++i) {
         uint8_t* e = (uint8_t*)Collection_Get(c, 0, Collection_IdAt(c, 0, i, 0));
         if (ver == 0x4a39) {
-            ((void*(__cdecl*)(void*, const void*, size_t))0x5a20b0)(e + 0x462, e + 0x2ba, 0x168);
+            crt::memmove(e + 0x462, e + 0x2ba, 0x168);
             for (int k = 0; k < 0x35; ++k) F<int32_t>(e, 0x2ba + k * 4) = 0;
             for (int k = 0; k < 0x35; ++k) F<int32_t>(e, 0x38e + k * 4) = 0;
             for (int k = 0; k < 0x43; ++k) e[0x5ca + k] = 0;
@@ -2132,9 +2128,8 @@ RT3_NOINLINE int32_t __fastcall Stations_CargoLinked(Collection* sts, int, int32
     if (a == b && aIsRegion == bIsRegion) return 0;
     int32_t n = Collection_Count(sts);
     if (!n) return 0;
-    auto malloc_ = (void*(__cdecl*)(size_t))0x5a125d;
-    uint32_t* listA = (uint32_t*)malloc_(n * 4);
-    uint32_t* listB = (uint32_t*)malloc_(n * 4);
+    uint32_t* listA = (uint32_t*)crt::malloc(n * 4);
+    uint32_t* listB = (uint32_t*)crt::malloc(n * 4);
     memset(listA, 0, n * 4);
     memset(listB, 0, n * 4);
     int32_t cntA = 0, cntB = 0, result = 0;
@@ -2166,8 +2161,8 @@ RT3_NOINLINE int32_t __fastcall Stations_CargoLinked(Collection* sts, int, int32
             }
         }
     }
-    Free(listA);
-    Free(listB);
+    crt::free(listA);
+    crt::free(listB);
     return result;
 }
 RT3_REPLACE(0x4815d0, Stations_CargoLinked);
@@ -2367,9 +2362,7 @@ RT3_REPLACE(0x481fb0, Return1_481fb0);
 // table 0x5ee8e0 is filled with 'c'; under language 12 this exe refuses to
 // run.
 RT3_NOINLINE uint8_t* __fastcall Game_InitStart(uint8_t* g) {
-    auto driveType = Import<uint32_t(__stdcall*)(const char*)>(0x5c806c);
-    auto open_ = (int(__cdecl*)(const char*, int))0x5a4c57;
-    auto close_ = (int(__cdecl*)(int))0x5a440d;
+    auto driveType = imp::GetDriveTypeA;
     int32_t disc1 = 0;
     for (int32_t d = 0; d < 26; ++d) {
         char root[4];
@@ -2378,15 +2371,15 @@ RT3_NOINLINE uint8_t* __fastcall Game_InitStart(uint8_t* g) {
         if (driveType(root) != 5) continue;
         char path[0x1e8];
         FormatText(path, (const char*)0x5ceca4, root, 0, 0, 0, 0, 0, 0, 0);
-        int fd = open_(path, 0x8000);
+        int fd = crt::open(path, 0x8000);
         if (fd != -1)
             disc1 = 1;
         else {
             FormatText(path, (const char*)0x5cec8c, root, 0, 0, 0, 0, 0, 0, 0);
-            fd = open_(path, 0x8000);
+            fd = crt::open(path, 0x8000);
             if (fd == -1) continue;
         }
-        close_(fd);
+        crt::close(fd);
         hook::As<int32_t>(g_625a90) = d;
         if (!disc1) break;
     }

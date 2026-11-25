@@ -22,6 +22,8 @@
 
 namespace rt3 {
 
+void __fastcall TrackPicker_SetTab(uint8_t* w, int, int32_t tab, int32_t value);
+
 template <typename T> static inline T& F(void* o, uint32_t off) { return *(T*)((uint8_t*)o + off); }
 void* __fastcall Engine_Renderer(void* e);
 const char* __fastcall GetString(int32_t id);
@@ -65,11 +67,11 @@ template <typename Fill> static void AddControlButton(uint8_t* win, Fill fill) {
     uint8_t def[0xa5];
     memset(def, 0, sizeof def);
     fill(def);
-    uint8_t* c = (uint8_t*)ExeNew(0xe9);
+    uint8_t* c = (uint8_t*)crt::operator_new(0xe9);
     if (c) c = Control_Construct(c, 0, def);
     Window_AddChild(win, 0, c, 0);
-    Free(F<void*>(def, 0x43));
-    if (F<void*>(def, 0x3f)) Free(F<void*>(def, 0x3f));
+    crt::free(F<void*>(def, 0x43));
+    if (F<void*>(def, 0x3f)) crt::free(F<void*>(def, 0x3f));
 }
 
 void* __fastcall Obj_CityRef(void* o);
@@ -320,15 +322,12 @@ static inline double D(uint32_t a) { return *(const double*)a; }
 
 static inline double Fl(uint32_t a) { return *(const float*)a; }
 
-static inline void* ExeNew(size_t n) { return ((void*(__cdecl*)(size_t))0x53b070)(n); }
 
-static inline void ExeDelete(void* p) { ((void(__cdecl*)(void*))0x53b080)(p); }
 
 static inline float BitsF(uint32_t b) { return *(float*)&b; }
 
 static inline uint32_t FBits(float f) { return *(uint32_t*)&f; }
 
-static inline SprintfFn ExeSprintf() { return (SprintfFn)0x5a19c4; }
 
 // Company finance statistics. Ids below 0x2b are kept per year: +0x1c47 + id * 8
 // (this year so far) and +0xd7f + (id * 11 + n) * 8 (n years ago, 0 = live); larger
@@ -346,7 +345,7 @@ static void Panel_Close(uint32_t slot, uint32_t vtbl, bool clearFirst) {
         F<uint32_t>(w, 0) = vtbl;
         if (clearFirst) p = nullptr;
         Widget_SetVtbl(w);
-        ExeDelete(w);
+        crt::operator_delete(w);
     }
     p = nullptr;
 }
@@ -356,7 +355,7 @@ static void Panel_Close(uint32_t slot, uint32_t vtbl, bool clearFirst) {
 // manager (the insert's select flag `select`).
 static uint8_t* Panel_Open(uint32_t slot, size_t size, uint32_t vtbl, const char* name, int32_t select, bool highlight) {
     if (hook::Global<uint8_t*>(slot)) return nullptr;
-    uint8_t* w = (uint8_t*)ExeNew(size);
+    uint8_t* w = (uint8_t*)crt::operator_new(size);
     if (w) {
         Widget_SetVtblRet(w);
         F<uint32_t>(w, 0) = vtbl;
@@ -371,8 +370,6 @@ static uint8_t* Panel_Open(uint32_t slot, size_t size, uint32_t vtbl, const char
 static inline float Prod_Bits(uint32_t b) { return *(const float*)&b; }
 
 namespace {
-void Free445(void* p) { ((void(__cdecl*)(void*))0x53b080)(p); }
-int Stricmp445(const char* a, const char* b) { return ((int(__cdecl*)(const char*, const char*))0x5a57cf)(a, b); }
 int32_t Companies_ClashCall(const void* d) {
     int32_t r;
     __asm {
@@ -394,7 +391,6 @@ uint32_t Message474(const char* text, int32_t type) {
 
 namespace {
 typedef int(__cdecl* Sprintf480)(char*, const char*, ...);
-const Sprintf480 sprintf480 = (Sprintf480)0x5a19c4;
 // Dialog_RunMessage at the screen spot (0.48, -1).
 uint32_t Message480(uint32_t text, int32_t type) {
     return Dialog_RunMessage(GetString(text), type, 0x3ef5c28f, 0xbf800000, 0, nullptr, 0, 0.0f, 0, 0x1e, 0, nullptr, nullptr, 0, 0, nullptr, 0);
@@ -408,8 +404,7 @@ static void Method(uint32_t address, void* self) {
 static void Call(uint32_t address) { hook::Orig<void(*)()>(address)(); }
 
 static void Event(void* self, uint32_t type, uint32_t id, uint32_t a, uint32_t b, uint32_t c) {
-    hook::Orig<void(__fastcall*)(void*, int, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t)>(0x540120)(
-        self, 0, type, id, a, b, c);
+    Window_SendEvent5((uint8_t*)(self), 0, type, id, a, b, c);
 }
 
 // 0x4dc0d0 (draw callback). Draws the rule count 0x6d07e0 (string 0xc7b)
@@ -439,7 +434,7 @@ void __fastcall TrainDetail_AddPictures(uint8_t* win, int, float x, float y, flo
     F<int32_t>(def, 0x61) = 3;
     F<int32_t>(def, 0x75) = 9;
     F<int32_t>(def, 0x2f) = 0xb0;
-    uint8_t* frame = (uint8_t*)ExeNew(0x111);
+    uint8_t* frame = (uint8_t*)crt::operator_new(0x111);
     frame = frame ? Scrollbar_Construct(frame, 0, def) : nullptr;
     Window_AddChild(win, 0, frame, 0);
     memset(def, 0, sizeof def);
@@ -455,7 +450,7 @@ void __fastcall TrainDetail_AddPictures(uint8_t* win, int, float x, float y, flo
         for (int32_t i = 0; i < Collection_Count(F<Collection*>(g_pack, 0x429b8)); ++i) {
             Collection* t = F<Collection*>(g_pack, 0x429b8);
             const char* entry = (const char*)Collection_Get(t, 0, Collection_IdAt(t, 0, (uint32_t)i, 0));
-            if (!Stricmp((const char*)Obj_City41(g_6d07e8) + 0x3ac, entry)) {
+            if (!crt::stricmp((const char*)Obj_City41(g_6d07e8) + 0x3ac, entry)) {
                 FormatText(name, entry + 0x80, 0, 0, 0, 0, 0, 0, 0, 0);
                 break;
             }
@@ -469,10 +464,10 @@ void __fastcall TrainDetail_AddPictures(uint8_t* win, int, float x, float y, flo
     String_Assign(&F<char*>(def, 0x43), name);
     F<uint16_t>(def, 0x5f) = 0;
     F<int32_t>(def, 0x2f) = 0xb0;
-    uint8_t* pic = (uint8_t*)ExeNew(0x111);
+    uint8_t* pic = (uint8_t*)crt::operator_new(0x111);
     pic = pic ? Scrollbar_Construct(pic, 0, def) : nullptr;
     Window_AddChild(win, 0, pic, 0);
-    Free(F<void*>(def, 0x43));
+    crt::free(F<void*>(def, 0x43));
     uint8_t cd[0xa5];
     memset(cd, 0, sizeof cd);
     F<float>(cd, 7) = (float)((double)x + D(0x5c8988));
@@ -485,10 +480,10 @@ void __fastcall TrainDetail_AddPictures(uint8_t* win, int, float x, float y, flo
     cd[0x8a] = 3;
     F<uint16_t>(cd, 0) = 0xb9f5;
     String_Assign(&F<char*>(cd, 0x43), (const char*)0x5c9ee8);
-    uint8_t* c = (uint8_t*)ExeNew(0xe9);
+    uint8_t* c = (uint8_t*)crt::operator_new(0xe9);
     c = c ? Control_Construct(c, 0, cd) : nullptr;
     Window_AddChild(win, 0, c, 0);
-    Free(F<void*>(cd, 0x43));
+    crt::free(F<void*>(cd, 0x43));
 }
 RT3_REPLACE(0x4dc180, TrainDetail_AddPictures);
 
@@ -685,7 +680,7 @@ RT3_NOINLINE void FileMenu_Run() {
     const int32_t mode = F<int32_t>(g_gameWindow, 0x8c);
     Cursor_Set(g_cursorManager, 0, 1, 0, 0);
     g_6d07f4 = 0;
-    uint8_t* mem = ((uint8_t*(__cdecl*)(size_t))0x53b070)(0x7b);
+    uint8_t* mem = ((uint8_t*)crt::operator_new(0x7b));
     g_6d0800 = mem ? FileOptions_Construct(mem) : nullptr;
     PauseLock_Push(hook::As<int32_t*>(g_app));
     Ui_RunModal(hook::As<uint8_t**>(g_windowManager), 0, g_6d0800, 1, 0, 0x14, 0);
@@ -694,13 +689,13 @@ RT3_NOINLINE void FileMenu_Run() {
     if (uint8_t* win = g_6d0800) {
         F<uint32_t>(win, 0) = 0x5d0e1c;
         Widget_SetVtbl(win);
-        ((void(__cdecl*)(void*))0x53b080)(win);
+        crt::operator_delete(win);
     }
     g_6d0800 = nullptr;
     if (g_6d07f4) {
         if (uint8_t* s = g_session) {
             Session_Shutdown(s);
-            ((void(__cdecl*)(void*))0x53b080)(s);
+            crt::operator_delete(s);
             g_session = nullptr;
         }
     }
@@ -727,7 +722,7 @@ RT3_NOINLINE uint8_t* __fastcall FileRequest_Construct(uint8_t* w, int, int32_t 
     Widget_SetVtblRet(w);
     F<uint32_t>(w, 0) = 0x5d0e34;
     Window_Load(w, 0, BitsF(0x3e633333u), BitsF(0x3d23d70au), (const char*)0x5d0e40);
-    uint8_t* list = (uint8_t*)ExeNew(0xc);
+    uint8_t* list = (uint8_t*)crt::operator_new(0xc);
     if (list) list = SaveList_Init(list, 0, kind);
     g_6d0814 = list;
     for (int32_t i = 0; i < F<int32_t>(g_6d0814, 0); ++i)
@@ -748,7 +743,7 @@ RT3_NOINLINE void __fastcall Dialog_ShowAndSelect(uint8_t* w, int, const char* n
     uint8_t* list = Widget_FindChild(w, 0, 0x1f45);
     int32_t sel = -1;
     for (int32_t i = 0; i < F<int32_t>(list, 0x1d2); ++i)
-        if (!Stricmp445(name, (const char*)(uintptr_t)TreeView_NodeValue(list, 0, i))) sel = i;
+        if (!crt::stricmp(name, (const char*)(uintptr_t)TreeView_NodeValue(list, 0, i))) sel = i;
     Window_SendEvent5(w, 0, 0x66, 0x1f45, (uint32_t)sel, 0, 0);
 }
 RT3_REPLACE(0x4dce10, Dialog_ShowAndSelect);
@@ -818,7 +813,7 @@ RT3_NOINLINE uint32_t __fastcall FileDialog_Run(char* name, int32_t kind) {
     int32_t mode = g_gameWindow ? F<int32_t>(g_gameWindow, 0x8c) : 0;
     int32_t cursor = F<int32_t>(g_cursorManager, 4);
     Cursor_Set(g_cursorManager, 0, 1, 0, 0);
-    uint8_t* w = (uint8_t*)((void*(__cdecl*)(size_t))0x53b070)(0x7b);
+    uint8_t* w = (uint8_t*)crt::operator_new(0x7b);
     w = w ? FileRequest_Construct(w, 0, kind) : nullptr;
     g_6d0810 = w;
     int32_t lk = F<int32_t>(g_6d0814, 4);
@@ -842,11 +837,11 @@ RT3_NOINLINE uint32_t __fastcall FileDialog_Run(char* name, int32_t kind) {
         F<uint32_t>(p, 0) = 0x5d0e34;
         if (uint8_t* list = g_6d0814) {
             Obj_FreeBuffer8(list);
-            ((void(__cdecl*)(void*))0x53b080)(list);
+            crt::operator_delete(list);
         }
         g_6d0814 = nullptr;
         Widget_SetVtbl(p);
-        ((void(__cdecl*)(void*))0x53b080)(p);
+        crt::operator_delete(p);
     }
     uint8_t* view = g_gameWindow;
     g_6d0810 = nullptr;
@@ -949,7 +944,7 @@ RT3_NOINLINE void __fastcall StatusBar_ShowCash(uint8_t* w) {
     } else if (g_newGame[0x82]) {
         int32_t h, m, s;
         Clock_SplitD((uint8_t*)Engine_Renderer(g_engine), 0, &h, &m, &s);
-        ExeSprintf()(text, (const char*)0x5d0e68, h, m, s);
+        crt::sprintf(text, (const char*)0x5d0e68, h, m, s);
     } else if (Obj_Company21(world) && !F<int32_t>(g_world, 0x4aef)) {
         double cash = Company_Stat((uint8_t*)Obj_Company21(g_world), 0, 0xd, 0x2329);
         Num_FormatSimple2(text, 0xb, cash, 9);
@@ -991,7 +986,7 @@ RT3_REPLACE(0x4dd910, Map_CellAtQuarter);
 RT3_NOINLINE void __fastcall View_DestroyToolForMode(uint8_t* view, int, uint32_t mode) {
     void* tool = F<void*>(view, 0x88);
     if (!tool) return;
-    hook::Orig<void(__fastcall*)(void*, int, void*)>(0x5389c0)(hook::As<void*>(g_windowManager), 0, tool);
+    Windows_Remove((uint8_t*)(hook::As<void*>(g_windowManager)), 0, (uint8_t*)(tool));
     static const uint32_t destroyers[27] = {
         0x53f7d0, 0x5157c0, 0x512f10, 0, 0x506a80, 0x505bf0, 0x507b50,
         0x4c6ae0, 0x4c2320, 0x4f3b30, 0x4b3520, 0x50bac0, 0x50db10, 0x4b8440,
@@ -1003,7 +998,7 @@ RT3_NOINLINE void __fastcall View_DestroyToolForMode(uint8_t* view, int, uint32_
         if (tool) {
             // Exe-address calls use the installed replacements when enabled.
             Method(destroyers[mode], tool);
-            hook::Orig<void(__cdecl*)(void*)>(0x53b080)(tool);
+            crt::operator_delete(tool);
         }
     }
     F<void*>(view, 0x88) = nullptr;
@@ -1030,11 +1025,9 @@ RT3_NOINLINE void __fastcall View_SetToolMode(uint8_t* view, int, uint32_t mode,
         Call(0x4d44f0);
         if (F<uint32_t>(view, 0x8c) == 2) Call(0x514410);
         else if (F<uint32_t>(view, 0x8c) == 9) {
-            hook::Orig<void(__fastcall*)(void*, int, int32_t, int32_t)>(0x4f4970)(
-                hook::As<void*>(g_6d12f0), 0, selection, -1);
+            TrackPicker_SetTab((uint8_t*)(hook::As<void*>(g_6d12f0)), 0, selection, -1);
             if (hook::As<uint32_t>(g_6d3b4c))
-                hook::Orig<void(__fastcall*)(void*, int, int32_t, int32_t)>(0x4f4970)(
-                    hook::As<void*>(g_6d12f0), 0, 0, -1);
+                TrackPicker_SetTab((uint8_t*)(hook::As<void*>(g_6d12f0)), 0, 0, -1);
         }
         if (selectionChanged && F<void*>(view, 0x88)) Event(F<void*>(view, 0x88), 0x3ea, 0, 0, 0, 0);
         return;
@@ -1065,14 +1058,13 @@ RT3_NOINLINE void __fastcall View_SetToolMode(uint8_t* view, int, uint32_t mode,
     uint32_t current = F<uint32_t>(view, 0x8c);
     if (current < 27 && constructors[current].address) {
         const Constructor& ctor = constructors[current];
-        void* memory = hook::Orig<void*(__cdecl*)(uint32_t)>(0x53b070)(ctor.bytes);
+        void* memory = crt::operator_new(ctor.bytes);
         if (memory) tool = hook::Orig<uint8_t*(__fastcall*)(void*)>(ctor.address)(memory);
     }
     if (!destroyFirst) View_DestroyToolForMode(view, 0, oldMode);
     Call(0x4557b0);
     F<uint8_t*>(view, 0x88) = tool;
-    if (tool) hook::Orig<void(__fastcall*)(void*, int, uint8_t*, int32_t)>(0x538e50)(
-        hook::As<void*>(g_windowManager), 0, tool, 0x1e);
+    if (tool) WidgetList_Insert((uint8_t**)(hook::As<void*>(g_windowManager)), 0, tool, 0x1e);
     Method(0x4dd410, view);
     Call(0x4d44f0);
     Method(0x4dd630, view);
@@ -1290,16 +1282,16 @@ int32_t __fastcall GameView_HandleEvent(uint8_t* d, int, uint32_t* msg) {
             text[0] = 0;
         }
     } else if (F<int32_t>(map, 0x2175) == 0x10 || F<int32_t>(map, 0x2175) == 0x1e) {
-        sprintf480(text, (const char*)0x5c87a8);
+        crt::sprintf(text, (const char*)0x5c87a8);
         if (here) {
             const int32_t ky = iy(), kx = ix();
             if (!Terrain_KindIs1Or3to5(g_map, 0, kx, ky)) {
                 if (F<int32_t>(map, 0x2175) == 0x10) {
                     const int32_t cy = iy(), cx = ix();
                     const uint16_t city = (uint16_t)Map_CellCity(g_map, 0, cx, cy);
-                    if (uint8_t* ct = (uint8_t*)Collection_Get(g_cities, 0, city)) sprintf480(text, (const char*)ct + 0x356);
+                    if (uint8_t* ct = (uint8_t*)Collection_Get(g_cities, 0, city)) crt::sprintf(text, (const char*)ct + 0x356);
                 } else {
-                    sprintf480(text, (const char*)Map_RegionAt(g_map, 0, x, y) + 4);
+                    crt::sprintf(text, (const char*)Map_RegionAt(g_map, 0, x, y) + 4);
                 }
             }
         }
@@ -1310,23 +1302,23 @@ int32_t __fastcall GameView_HandleEvent(uint8_t* d, int, uint32_t* msg) {
             uint8_t* cell = Map_CellAtQuarter(map, 0, cx, cy);
             if (cargo && !F<int32_t>(g_world, 0x4af7)) {
                 if (F<int32_t>(hook::As<uint8_t*>(g_cargoTypes), 0x9a + cargo * 4) != -1) {
-                    sprintf480(s1, (const char*)0x5d0eb0, (double)Station_TotalAvailable(cell));
+                    crt::sprintf(s1, (const char*)0x5d0eb0, (double)Station_TotalAvailable(cell));
                     FormatText(text, GetString(0x205), s1, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
-                    sprintf480(s1, (const char*)0x5d0eb0, (double)F<float>(cell, 0x103 + cargo * 4));
+                    crt::sprintf(s1, (const char*)0x5d0eb0, (double)F<float>(cell, 0x103 + cargo * 4));
                     uint8_t* cg = (uint8_t*)Collection_Get(g_cargoTypes, 0, (uint32_t)cargo);
                     const char* name = LocalizeName((const char*)cg + 4);
                     FormatText(text, GetString(0x206), name, s1, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
                     strcat(text, GetString(0xbce));
                 } else {
                     const float quota = (float)City_CargoQuota(cell, 0, cargo);
-                    sprintf480(s1, (const char*)0x5d0eb0, (double)F<float>(cell, 0x103 + cargo * 4));
+                    crt::sprintf(s1, (const char*)0x5d0eb0, (double)F<float>(cell, 0x103 + cargo * 4));
                     uint8_t* cg = (uint8_t*)Collection_Get(g_cargoTypes, 0, (uint32_t)cargo);
                     const char* name = LocalizeName((const char*)cg + 4);
                     Num_FormatSimple(e, 9, (double)(int32_t)(quota / BitsF(0x447a0000)), 0xb);
                     FormatText(text, GetString(0x207), name, e, s1, nullptr, nullptr, nullptr, nullptr, nullptr);
                 }
             } else {
-                sprintf480(s1, (const char*)0x5d0eb0, (double)Station_TotalAvailable(cell));
+                crt::sprintf(s1, (const char*)0x5d0eb0, (double)Station_TotalAvailable(cell));
                 FormatText(text, GetString(0x204), s1, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
             }
         } else {
@@ -1343,11 +1335,11 @@ int32_t __fastcall GameView_HandleEvent(uint8_t* d, int, uint32_t* msg) {
                     ++running;
             if (running > 1) {
                 tip = true;
-                sprintf480(text, (const char*)0x5c87a8);
+                crt::sprintf(text, (const char*)0x5c87a8);
                 if (here) {
                     const int32_t ky = iy(), kx = ix();
                     if (!Terrain_KindIs1Or3to5(g_map, 0, kx, ky))
-                        sprintf480(text, (const char*)Map_RegionRecordAt(g_map, 0, x, y) + 4);
+                        crt::sprintf(text, (const char*)Map_RegionRecordAt(g_map, 0, x, y) + 4);
                 }
             }
         }
@@ -1367,8 +1359,8 @@ int32_t __fastcall GameView_HandleEvent(uint8_t* d, int, uint32_t* msg) {
             text[0] = 0;
             return status();
         }
-        sprintf480(s1, (const char*)0x5c9cd0, (int32_t)x);
-        sprintf480(s2, (const char*)0x5c9cd0, (int32_t)y);
+        crt::sprintf(s1, (const char*)0x5c9cd0, (int32_t)x);
+        crt::sprintf(s2, (const char*)0x5c9cd0, (int32_t)y);
         FormatText(text, (const char*)0x5d0ea0, s1, s2, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
         // The nearest cell with terrain, rings of radius 0..4.
         for (int32_t k = 0; k <= 4; ++k)
@@ -1388,12 +1380,12 @@ int32_t __fastcall GameView_HandleEvent(uint8_t* d, int, uint32_t* msg) {
         return status();
     }
     if (!focus) {
-        sprintf480(text, GetString(0x208));
+        crt::sprintf(text, GetString(0x208));
         return status();
     }
     if (!inside) {
-        sprintf480(s2, (const char*)0x5d0e94, (double)x);
-        sprintf480(s1, (const char*)0x5d0e94, (double)y);
+        crt::sprintf(s2, (const char*)0x5d0e94, (double)x);
+        crt::sprintf(s1, (const char*)0x5d0e94, (double)y);
         FormatText(text, GetString(0x209), s2, s1, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
         return status();
     }
@@ -1402,8 +1394,8 @@ int32_t __fastcall GameView_HandleEvent(uint8_t* d, int, uint32_t* msg) {
         const float qx = x / BitsF(0x40800000);
         const int32_t bx = (int32_t)qx;
         const int32_t by = (int32_t)(y / BitsF(0x40800000));
-        sprintf480(s2, (const char*)0x5d0e94, (double)qx);
-        sprintf480(s1, (const char*)0x5d0e94, (double)(y / BitsF(0x40800000)));
+        crt::sprintf(s2, (const char*)0x5d0e94, (double)qx);
+        crt::sprintf(s1, (const char*)0x5d0e94, (double)(y / BitsF(0x40800000)));
         FormatText(text, (const char*)0x5d0e8c, s2, s1, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
         uint8_t* m = g_map;
         if (bx < 0 || by < 0 || bx >= F<int32_t>(m, 0x2145) || by >= F<int32_t>(m, 0x2149)) return status();
@@ -1412,13 +1404,13 @@ int32_t __fastcall GameView_HandleEvent(uint8_t* d, int, uint32_t* msg) {
             m = g_map;
             if (ax < 0 || ay < 0 || ax >= F<int32_t>(m, 0x2145) || ay >= F<int32_t>(m, 0x2149)) continue;
             // QUIRK: reads the centre cell's counts for every direction.
-            sprintf480(e, (const char*)0x5d0e80, n, (uint32_t)F<uint16_t>(Grid_RegionAt(m, 0, bx, by), 0xf3 + n * 2));
+            crt::sprintf(e, (const char*)0x5d0e80, n, (uint32_t)F<uint16_t>(Grid_RegionAt(m, 0, bx, by), 0xf3 + n * 2));
             strcat(text, e);
         }
         return status();
     }
-    sprintf480(s2, (const char*)0x5d0e94, (double)x);
-    sprintf480(s1, (const char*)0x5d0e94, (double)y);
+    crt::sprintf(s2, (const char*)0x5d0e94, (double)x);
+    crt::sprintf(s1, (const char*)0x5d0e94, (double)y);
     FormatText(text, (const char*)0x5d0e78, s2, s1, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
     auto kind = [&](int32_t(__fastcall * f)(uint8_t*, int, int32_t, int32_t)) {
         const int32_t ky = iy(), kx = ix();
@@ -1453,7 +1445,7 @@ RT3_NOINLINE void __fastcall StatusBar_ShowDate(uint8_t* w) {
     if (mode == 2) {
         int32_t h, m, s;
         Clock_SplitD((uint8_t*)Engine_Renderer(g_engine), 0, &h, &m, &s);
-        ExeSprintf()(text, (const char*)0x5d0e68, h, m, s);
+        crt::sprintf(text, (const char*)0x5d0e68, h, m, s);
     } else if (mode == 1) {
         Date_Format(text, world + 0xd, 5);
     } else if (F<int32_t>(world, 0x4aeb)) {
@@ -1881,7 +1873,7 @@ RT3_REPLACE(0x4e0df0, Panel6d0820_Close);
 // 0x4e0e40. Opens the setup window (0x6d0820) once and puts it on screen.
 void SetupWindow_Open() {
     if (g_setupWindow) return;
-    uint8_t* w = (uint8_t*)ExeNew(0xae);
+    uint8_t* w = (uint8_t*)crt::operator_new(0xae);
     if (w) w = SetupWindow_Construct(w);
     g_setupWindow = w;
     WidgetList_Insert(hook::As<uint8_t**>(g_windowManager), 0, w, 1);
@@ -2094,7 +2086,7 @@ uint8_t* __fastcall HighScoresDialog_Construct(uint8_t* w) {
     g_6d1080 = Pack_AcquireFont(g_pack, 0, 2);
     F<int32_t>(w, 0x78) = 0;
     if (g_sound && Sound_Is3D(g_sound)) {
-        uint8_t* s = (uint8_t*)ExeNew(0x108);
+        uint8_t* s = (uint8_t*)crt::operator_new(0x108);
         if (s) {
             F<uint32_t>(s, 0) = 0;
             F<float>(s, 0x104) = 1.0f;
@@ -2117,7 +2109,7 @@ void __fastcall HighScores_Destruct(uint8_t* w) {
     g_6d1098 = 0;
     if (uint8_t* m = g_6d1094) {
         Music_Close(m);
-        ExeDelete(m);
+        crt::operator_delete(m);
         g_6d1094 = nullptr;
     }
     Widget_SetVtbl(w);
@@ -2129,7 +2121,7 @@ RT3_REPLACE(0x4e1a70, HighScores_Destruct);
 // the modal score dialog. Callbacks may replace the dialog and app globals.
 RT3_NOINLINE void __fastcall HighScores_Show(int32_t value, int32_t extra, int32_t keepHighlight) {
     memset((void*)0x6d0828, 0, 0x850);
-    hook::Orig<void(__cdecl*)()>(0x4e1840)();
+    HighScores_Load();
     if (!keepHighlight) g_6d1088 = 0;
     if (value >= 0) {
         g_6d1090 = -1;
@@ -2137,7 +2129,7 @@ RT3_NOINLINE void __fastcall HighScores_Show(int32_t value, int32_t extra, int32
         auto company = hook::Orig<uint8_t*(__fastcall*)(uint8_t*)>(0x4348c0);
         uint8_t* world = g_world;
         if (!world || !company(world))
-            strcpy(name, hook::Orig<const char*(__fastcall*)(int32_t)>(0x5193f0)(0xbd0));
+            strcpy(name, GetString(0xbd0));
         else
             strcpy(name, (const char*)company(g_world) + 8);
         uint8_t* options = g_newGame;
@@ -2153,24 +2145,22 @@ RT3_NOINLINE void __fastcall HighScores_Show(int32_t value, int32_t extra, int32
             }
             strcpy(scenario, (const char*)options + 0x44);
         } else strcpy(scenario, "---");
-        hook::Orig<int32_t(__fastcall*)(int32_t, const char*, const char*, int32_t, int32_t, int32_t, int32_t, int32_t, int32_t)>(0x4e1650)(
+        HighScores_Add(
             list, name, scenario, value, n2, n3, n4, extra, 0);
         if (g_6d4000) return;
     }
     void* view = hook::As<void*>(g_gameWindow);
-    if (view) hook::Orig<void(__fastcall*)(void*, int, int32_t, int32_t)>(0x4ddbd0)(view, 0, 0, 0);
-    uint8_t* mem = hook::Orig<uint8_t*(__cdecl*)(uint32_t)>(0x53b070)(0x7c);
-    hook::As<uint8_t*>(g_6d1078) = mem ? hook::Orig<uint8_t*(__fastcall*)(uint8_t*)>(0x4e19a0)(mem) : nullptr;
-    hook::Orig<void(__fastcall*)(void*)>(0x483450)(hook::As<void*>(g_app));
-    hook::Orig<void(__fastcall*)(void*, int, void*, int32_t, int32_t, int32_t, int32_t)>(0x538f10)(
-        hook::As<void*>(g_windowManager), 0, g_6d1078, 1, 0, 20, 0);
-    hook::Orig<void(__fastcall*)(void*)>(0x4834a0)(hook::As<void*>(g_app));
-    hook::Orig<void(__fastcall*)(void*, int, void*)>(0x5389c0)(
-        hook::As<void*>(g_windowManager), 0, g_6d1078);
+    if (view) View_SetToolMode((uint8_t*)(view), 0, (uint32_t)(0), 0);
+    uint8_t* mem = ((uint8_t*)crt::operator_new(0x7c));
+    hook::As<uint8_t*>(g_6d1078) = mem ? HighScoresDialog_Construct(mem) : nullptr;
+    PauseLock_Push((int32_t*)(hook::As<void*>(g_app)));
+    Ui_RunModal((uint8_t**)(hook::As<void*>(g_windowManager)), 0, (uint8_t*)(g_6d1078), 1, 0, 20, 0);
+    PauseLock_Pop((int32_t*)(hook::As<void*>(g_app)));
+    Windows_Remove((uint8_t*)(hook::As<void*>(g_windowManager)), 0, (uint8_t*)(g_6d1078));
     uint8_t* dying = hook::As<uint8_t*>(g_6d1078);
     if (dying) {
-        hook::Orig<void(__fastcall*)(uint8_t*)>(0x4e1a70)(dying);
-        hook::Orig<void(__cdecl*)(void*)>(0x53b080)(dying);
+        HighScores_Destruct(dying);
+        crt::operator_delete(dying);
     }
     g_6d1078 = nullptr;
 }
@@ -2262,7 +2252,7 @@ RT3_NOINLINE void __fastcall DetailDialog_AddHeader(uint8_t* win, int, float x, 
         uint8_t* p = (uint8_t*)Collection_Get(g_players, 0, F<uint32_t>(dlg, 0x8c));
         if (p[0x15c] != 0x29) {
             p = (uint8_t*)Collection_Get(g_players, 0, F<uint32_t>(g_6d10a8, 0x8c));
-            ExeSprintf()(portrait, (const char*)0x5d0ab0, p[0x15c]);
+            crt::sprintf(portrait, (const char*)0x5d0ab0, p[0x15c]);
             pic = portrait;
         } else {
             pic = (const char*)Obj_NamedEntry40(
@@ -2280,7 +2270,7 @@ RT3_NOINLINE void __fastcall DetailDialog_AddHeader(uint8_t* win, int, float x, 
         }
     }
     String_Assign(&F<char*>(def, 0x43), pic);
-    uint8_t* img = (uint8_t*)ExeNew(0x111);
+    uint8_t* img = (uint8_t*)crt::operator_new(0x111);
     img = img ? Scrollbar_Construct(img, 0, def) : nullptr;
     if (F<int32_t>(g_6d10a8, 0x78) == 8) {
         F<uint32_t>(img, 0x100) = 0x3f3ae148;
@@ -2290,7 +2280,7 @@ RT3_NOINLINE void __fastcall DetailDialog_AddHeader(uint8_t* win, int, float x, 
         F<uint32_t>(img, 0x104) = 0x3fcccccd;
     }
     Window_AddChild(win, 0, img, 0);
-    Free(F<void*>(def, 0x43));
+    crt::free(F<void*>(def, 0x43));
     float bx = (float)((double)x + D(0x5c9c80));
     float by = (float)((double)y + D(0x5c86e0));
     AddControlButton(win, [&](uint8_t* d) {

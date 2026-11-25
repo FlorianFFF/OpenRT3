@@ -13,6 +13,7 @@
 #include "hook/keepregs.h"
 #include "core/stream.h"
 #include "core/crt.h"
+#include "core/imports.h"
 #include "core/ptrlist.h"
 #include "core/containers.h"
 #include "game/calendar.h"
@@ -30,6 +31,10 @@ struct HMENU__;
 typedef HMENU__* HMENU;
 
 namespace rt3 {
+
+void __fastcall DevMenu_Command(HMENU* m, int, uint32_t cmd);
+
+uint8_t* __fastcall MpDialog_Construct(uint8_t* d);
 
 template <typename T> static inline T& F(void* o, uint32_t off) { return *(T*)((uint8_t*)o + off); }
 void __fastcall Engine_SaveConfig(uint8_t* e);
@@ -380,29 +385,28 @@ RT3_NOINLINE void __fastcall View_SetParams(uint8_t* v, int, int32_t a, uint32_t
 RT3_NOINLINE void __fastcall Timer_SetBudget(uint8_t* t, int, uint32_t v);
 
 namespace {
-inline void* ExeNew(size_t n) { return ((void*(__cdecl*)(size_t))0x53b070)(n); }
 inline int32_t PackHas(const char* path) { return NameTable_ContainsName(g_pack, 0, path, 0, nullptr); }
 // A scene object of model `path` (texture `tex`), or none when out of memory.
 inline uint8_t* NewSceneObj(const char* path, const char* tex) {
-    uint8_t* m = (uint8_t*)ExeNew(0x206);
+    uint8_t* m = (uint8_t*)crt::operator_new(0x206);
     return m ? SceneObj_Construct(m, 0, 0, path, tex) : nullptr;
 }
 // A light of model `path` on `owner`, shown (flags 0x10).
 inline uint8_t* NewLight(const char* path, uint8_t* owner) {
-    uint8_t* m = (uint8_t*)ExeNew(0x35);
+    uint8_t* m = (uint8_t*)crt::operator_new(0x35);
     uint8_t* c = m ? Camera_Construct(m, 0, path, (uint32_t)(uintptr_t)owner) : nullptr;
     return c;
 }
 inline void ShowLight(uint8_t* c) { c[0x24] = (uint8_t)((c[0x24] & 0xf) | 0x10); }
 inline uint8_t* NewSound(const char* path, uint8_t* v, float vol) {
-    uint8_t* m = (uint8_t*)ExeNew(0x141);
+    uint8_t* m = (uint8_t*)crt::operator_new(0x141);
     return m ? Channel_Setup(m, 0, path, g_map, F<float>(v, 0x1e2), F<float>(v, 0x1e6), F<float>(v, 0x1ea), -1,
                              0, vol)
              : nullptr;
 }
 inline uint8_t* NewExhaust(const char* path, uint32_t color, int32_t perPoint, const float* rect, uint8_t* v, uint32_t flags,
                            uint32_t fade) {
-    uint8_t* m = (uint8_t*)ExeNew(0x1fd);
+    uint8_t* m = (uint8_t*)crt::operator_new(0x1fd);
     uint8_t* e = m ? Emitter_Construct(m, 0, path, color, perPoint, rect, v, flags) : nullptr;
     F<uint32_t>(e, 0x88) = 0;
     F<uint32_t>(e, 0x8c) = 0;
@@ -438,7 +442,6 @@ static inline float Fl(uint32_t a) { return *(const float*)a; }
 
 static inline double Bits_165(uint64_t u) { return *(double*)&u; }
 
-static inline double Sqrt(double x) { return ((double(__cdecl*)(double))0x5a1634)(x); }
 
 // One view distance band: when the map is larger than `minArea` and the distance is
 // above `top` - roughness, scales it down to area / sqrt(area / div), capped at that.
@@ -446,14 +449,13 @@ static inline float Band(float v, float area, float rough, uint32_t minArea, uin
     if (!(area > Fl(minArea))) return v;
     double lim = D(top) - rough;
     if (!(v > lim)) return v;
-    float s = (float)Sqrt((double)area / D(div));
+    float s = (float)crt::sqrt((double)area / D(div));
     v = (float)((double)area / s);
     return (float)(v > lim ? lim : (double)v);
 }
 
 static inline double Fl_205(uint32_t a) { return *(const float*)a; }
 
-static inline double Sin(double v) { return ((double(__cdecl*)(double))0x5a1494)(v); }
 
 static inline double Fl_207(uint32_t a) { return *(const float*)a; }
 
@@ -482,8 +484,7 @@ void Scenario_RestoreVolumes() {
 }
 
 namespace {
-uint8_t* App_New(size_t n) { return ((uint8_t*(__cdecl*)(size_t))0x53b070)(n); }
-void App_Delete(void* p) { ((void(__cdecl*)(void*))0x53b080)(p); }
+uint8_t* App_New(size_t n) { return ((uint8_t*)crt::operator_new(n)); }
 // Destroys screen window w of kind `screen` (1 game view .. 7 campaign).
 void App_DestroyScreen(int32_t screen, uint8_t* w) {
     switch (screen) {
@@ -491,28 +492,28 @@ void App_DestroyScreen(int32_t screen, uint8_t* w) {
         ViewModesPanel_Close();
         if (uint8_t* v = w) {
             View_Destroy(v);
-            App_Delete(v);
+            crt::operator_delete(v);
         }
         Panel6d0820_Close();
         Panel6d081c_Close();
         return;
     case 2:
-        if (w) Setup_Destruct(w), App_Delete(w);
+        if (w) Setup_Destruct(w), crt::operator_delete(w);
         return;
     case 3:
-        if (w) VideoWindow_Destruct(w), App_Delete(w);
+        if (w) VideoWindow_Destruct(w), crt::operator_delete(w);
         return;
     case 4:
-        if (w) TitleScreen_Destruct(w), App_Delete(w);
+        if (w) TitleScreen_Destruct(w), crt::operator_delete(w);
         return;
     case 5:
-        if (w) OptionsScreen_Destruct(w), App_Delete(w);
+        if (w) OptionsScreen_Destruct(w), crt::operator_delete(w);
         return;
     case 6:
-        if (w) Credits_Destruct(w), App_Delete(w);
+        if (w) Credits_Destruct(w), crt::operator_delete(w);
         return;
     case 7:
-        if (w) CampaignWindow_Destruct(w), App_Delete(w);
+        if (w) CampaignWindow_Destruct(w), crt::operator_delete(w);
         return;
     }
 }
@@ -522,14 +523,13 @@ namespace {
 void App_CloseSession() {
     if (uint8_t* s = g_session) {
         Session_Shutdown(s);
-        App_Delete(s);
+        crt::operator_delete(s);
         g_session = nullptr;
     }
 }
 }
 
 namespace {
-void Callback_Free(void* p) { ((void(__cdecl*)(void*))0x53b080)(p); }
 uint32_t Message_Dialog(const char* text, uint32_t px) {
     return Dialog_RunMessage(text, 1, px, 0xbf800000, 0, nullptr, 0, 0.0f, 0, 0x1e, 0, nullptr, nullptr, 0, 0, nullptr, 0);
 }
@@ -625,7 +625,7 @@ RT3_NOINLINE void __fastcall Lighting_Rebuild(uint8_t* opts) {
         difTop = (float)(difTop * om + tmp + K(fixed, 0x10));
         range = (float)((double)s * K(fixed, 8) + range * om);
         float ang = (float)(((double)t - Fl_205(0x5c89a4)) / D(0x5c8978) * D(0x5cece0));
-        t = (float)((double(__cdecl*)(double))0x5a152e)(Sin(ang));
+        t = (float)crt::fabs(crt::cos(ang));
         float u = (float)(((double)t + D(0x5c85d0)) / D(0x5c85c8));
         float p = (float)((double)u * dif);
         float q = (float)((double)u * difTop);
@@ -761,7 +761,7 @@ RT3_NOINLINE int32_t __fastcall Options_StepDetail(int32_t dir) {
     Options_SetDetail(g_app, 0, 0, level, 1);
     char num[0x40], text[0x12c];
     const char* s = Num_Format(num, 1, (double)level, 10, 1, 0, 0);
-    ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)(text, GetString(0x2fa), s);
+    crt::sprintf(text, GetString(0x2fa), s);
     StatusLine_Set(g_windowManager, 0, text, 0xbb8);
     Menu_UpdateChecks(hook::As<HMENU*>(g_6ada8c), 0, 0);
     Options_Save(g_app, 0, 1);
@@ -907,7 +907,7 @@ RT3_NOINLINE const char* __fastcall Game_VersionText() {
         char buf[0x34];
         uint32_t lo = File_Version((const char*)0x5cec18) & 0xffff;
         uint32_t hi = File_Version((const char*)0x5cec18) >> 16;
-        ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)(buf, (const char*)0x5ced5c, hi, lo);
+        crt::sprintf(buf, (const char*)0x5ced5c, hi, lo);
         FormatText((char*)0x6cec24, GetString(0xf54), buf, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
     }
     return (const char*)0x6cec24;
@@ -944,7 +944,7 @@ RT3_NOINLINE void __fastcall App_SetViewMode(uint8_t* app, int, int32_t mode) {
         }
         if (hook::As<void*>(g_map)) Method(0x44fb70, hook::As<void*>(g_map));
     } else if (hook::As<void*>(g_gameWindow)) Call(0x4d4500);
-    hook::Orig<void(__fastcall*)(void*, int, int32_t, int32_t)>(0x484d70)(app, 0, 13, 1);
+    Options_ApplyGraphics((uint8_t*)(app), 0, 13, 1);
 }
 RT3_REPLACE(0x482e50, App_SetViewMode);
 
@@ -979,7 +979,7 @@ RT3_NOINLINE void __fastcall App_SetScreen(uint8_t* a, int, int32_t screen, int3
         World_Teardown(g_world);
         if (uint8_t* w = g_world) {
             Nop433730(w);
-            App_Delete(w);
+            crt::operator_delete(w);
         }
         g_world = nullptr;
     }
@@ -1006,11 +1006,11 @@ RT3_NOINLINE void __fastcall App_SetScreen(uint8_t* a, int, int32_t screen, int3
             Windows_Remove(g_windowManager, 0, F<uint8_t*>(a, 0xc));
             uint8_t* win = F<uint8_t*>(a, 0xc);
             if (F<int32_t>(a, 8) == 7) {
-                if (win) CampaignWindow_Destruct(win), App_Delete(win);
+                if (win) CampaignWindow_Destruct(win), crt::operator_delete(win);
             } else if (F<int32_t>(a, 8) == 4) {
-                if (win) TitleScreen_Destruct(win), App_Delete(win);
+                if (win) TitleScreen_Destruct(win), crt::operator_delete(win);
             } else if (win) {
-                View_Destroy(win), App_Delete(win);
+                View_Destroy(win), crt::operator_delete(win);
             }
             F<int32_t>(a, 8) = 4;
         }
@@ -1057,7 +1057,7 @@ RT3_NOINLINE void __fastcall App_SetScreen(uint8_t* a, int, int32_t screen, int3
     case 5: {
         dim();
         uint8_t* m = App_New(0x84);
-        open(m ? ((uint8_t*(__fastcall*)(uint8_t*))0x4efe80)(m) : nullptr);
+        open(m ? MpDialog_Construct(m) : nullptr);
         break;
     }
     case 6: {
@@ -1128,10 +1128,10 @@ RT3_NOINLINE void __fastcall Loading_Pump(uint8_t* l, int, int32_t step, int32_t
     }
     if (g_world && IsMultiplayer() && !F<int32_t>(g_world, 0x66ae) && g_session) {
         int32_t n = ++g_6cec80;
-        if (!(n & 7) && !((int32_t(__fastcall*)(uint8_t*))0x46b780)(g_session)) {
+        if (!(n & 7) && !Session_Update(g_session)) {
             if (uint8_t* s = g_session) {
                 Session_Shutdown(s);
-                ((void(__cdecl*)(void*))0x53b080)(s);
+                crt::operator_delete(s);
                 g_session = nullptr;
             }
         }
@@ -1260,7 +1260,7 @@ RT3_NOINLINE int32_t __fastcall App_HandleEvent(uint8_t* a, int, uint32_t* ev) {
             Status_SetMessage(g_windowManager, 0, F<const char*>(g_engine, 0xc) + 0x43c);
         return r;
     case 1:
-        if (uint8_t* menu = g_6ada8c) ((void(__fastcall*)(uint8_t*, int, uint32_t))0x464410)(menu, 0, ev[2]);
+        if (uint8_t* menu = g_6ada8c) DevMenu_Command((HMENU*)(menu), 0, ev[2]);
         return 0;
     case 3:
     case 4:
@@ -1309,7 +1309,7 @@ RT3_REPLACE(0x483dd0, App_DispatchEvent);
 RT3_NOINLINE void __fastcall App_PumpInput(uint8_t* a) {
     if (!g_input) return;
     const int32_t start = ClockMs();
-    auto sleepEx = (uint32_t(__stdcall*)(uint32_t, int32_t))g_5c8064;
+    auto sleepEx = imp::SleepEx;
     uint32_t ev[12];
     do {
         PumpMessages();
@@ -1433,7 +1433,7 @@ RT3_NOINLINE void __fastcall App_Run(uint8_t* a, int, void* inst) {
     Effects_Reset();
     hook::As<uint32_t>(g_6d4014) = 0x483c30;
     if (uint8_t* e = g_engine) {
-        if (e[0x114226]) ((void*(__stdcall*)(HWND))g_5c823c)(Engine_Window(e));
+        if (e[0x114226]) (((void*(__stdcall*)(HWND))imp::SetFocus))(Engine_Window(e));
     }
     // Through the call site, which the simcheck harness redirects.
     while (!F<int32_t>(a, 0x10) && hook::CallTarget<int32_t(__fastcall*)(uint8_t*)>(0x48439d)(a)) {
@@ -1442,7 +1442,7 @@ RT3_NOINLINE void __fastcall App_Run(uint8_t* a, int, void* inst) {
     FreeBuffers6cea54();
     if (uint8_t* music = F<uint8_t*>(a, 0x14)) {
         Obj_Free108(music);
-        App_Delete(music);
+        crt::operator_delete(music);
     }
     F<uint8_t*>(a, 0x14) = nullptr;
     App_CloseSession();
@@ -1450,12 +1450,12 @@ RT3_NOINLINE void __fastcall App_Run(uint8_t* a, int, void* inst) {
     Models_Shutdown();
     if (uint8_t* e = g_engine) {
         Engine_Destroy(e);
-        App_Delete(e);
+        crt::operator_delete(e);
     }
     g_engine = nullptr;
     if (void** menu = hook::As<void**>(g_6ada8c)) {
         GdiPair_Release2(menu);
-        App_Delete(menu);
+        crt::operator_delete(menu);
     }
     hook::As<void*>(g_6ada8c) = nullptr;
 }
@@ -1468,7 +1468,7 @@ RT3_REPLACE(0x4840e0, App_Run);
 // the session and the memory system, and the scroll lock restored.
 int __stdcall Game_WinMain(void* inst, void* prev, char* cmdLine, int show) {
     g_6cec58 = show;
-    ((int32_t(__stdcall*)(void*, uint32_t))g_5c8494)(nullptr, 0);
+    (imp::CoInitializeEx)(nullptr, 0);
     StartClock();
     SysInfo_Init();
     ResetRand();
@@ -1486,10 +1486,10 @@ int __stdcall Game_WinMain(void* inst, void* prev, char* cmdLine, int show) {
         g_newGame = m ? (uint8_t*)ReturnThis47bbd0(m) : nullptr;
     }
     App_Run(g_app, 0, inst);
-    if (uint8_t* app = g_app) App_Delete(app);
+    if (uint8_t* app = g_app) crt::operator_delete(app);
     if (uint8_t* lobby = g_newGame) {
         Nop47bbe0(lobby);
-        App_Delete(lobby);
+        crt::operator_delete(lobby);
     }
     App_CloseSession();
     Mem_Shutdown();
@@ -1608,7 +1608,7 @@ RT3_REPLACE(0x484980, Options_Load);
 // 0x18 bytes) matching the display adapter name; -1 if none.
 RT3_NOINLINE int32_t __fastcall Adapter_KnownIndex() {
     char name[0x6c] = {};
-    ((char*(__cdecl*)(char*, const char*, size_t))0x5a18a0)(name, SysInfo_DisplayName(), 100);
+    crt::strncpy(name, SysInfo_DisplayName(), 100);
     int32_t i = 0;
     for (const char* const* e = (const char* const*)0x62142c; e < (const char* const*)0x62184c;
          e = (const char* const*)((const uint8_t*)e + 0x18), ++i) {
@@ -1902,7 +1902,7 @@ RT3_NOINLINE uint8_t* __fastcall Tank_Construct(uint8_t* t, int, const char* nam
     F<uint32_t>(t, 0x3e0) = 0x43fa0000;
     F<uint32_t>(t, 0x3e4) = 0;
     F<uint32_t>(t, 0x430) = 1;
-    ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)(tex, (const char*)0x5cf088, name);
+    crt::sprintf(tex, (const char*)0x5cf088, name);
     FormatText(path, (const char*)0x5cadc8, name, 0, 0, 0, 0, 0, 0, 0);
     SceneObj_Init(t, 0, (uint32_t)(uintptr_t)scene, path, tex);
     FormatText(path, (const char*)0x5cb3bc, name, 0, 0, 0, 0, 0, 0, 0);
@@ -1960,7 +1960,7 @@ RT3_NOINLINE uint8_t* __fastcall Tank_Construct(uint8_t* t, int, const char* nam
     FormatText(path, (const char*)0x5cef80, name, 0, 0, 0, 0, 0, 0, 0);
     if (PackHas(path)) {
         uint32_t r[4] = { 0, 0, 0x3f000000, 0x3f000000 };
-        uint8_t* m = (uint8_t*)ExeNew(0x1fd);
+        uint8_t* m = (uint8_t*)crt::operator_new(0x1fd);
         uint8_t* e = m ? Emitter_Construct(m, 0, path, 0xff1f1f1f, 0x40, (const float*)r, F<uint8_t*>(t, 0x20a), 0x120) : nullptr;
         F<uint8_t*>(t, 0x216) = e;
         F<uint32_t>(e, 0x70) = 0;
@@ -1980,7 +1980,7 @@ RT3_NOINLINE uint8_t* __fastcall Tank_Construct(uint8_t* t, int, const char* nam
     FormatText(path, (const char*)0x5cef6c, name, 0, 0, 0, 0, 0, 0, 0);
     if (PackHas(path)) {
         uint32_t r[4] = { 0, 0x3f000000, 0x3f000000, 0x3f800000 };
-        uint8_t* m = (uint8_t*)ExeNew(0x1fd);
+        uint8_t* m = (uint8_t*)crt::operator_new(0x1fd);
         uint8_t* e = m ? Emitter_Construct(m, 0, path, 0xff7f7f7f, 0x40, (const float*)r, F<uint8_t*>(t, 0x21e), 0x20) : nullptr;
         F<uint8_t*>(t, 0x21a) = e;
         F<uint32_t>(e, 0x70) = 0;
@@ -2001,7 +2001,7 @@ RT3_NOINLINE uint8_t* __fastcall Tank_Construct(uint8_t* t, int, const char* nam
     Obj_MoveTo(t, 0, x, y, z);
     static const int32_t sounds[5][3] = { { 0x5cef5c, -1, 0 }, { 0x5cef4c, -1, 0 }, { 0x5cef38, 0, 0 }, { 0x5cef28, -1, 1 }, { 0x5cef18, -1, 1 } };
     for (int k = 0; k < 5; ++k) {
-        uint8_t* m = (uint8_t*)ExeNew(0x141);
+        uint8_t* m = (uint8_t*)crt::operator_new(0x141);
         F<uint8_t*>(t, 0x3cc + k * 4) =
             m ? Channel_Setup(m, 0, (const char*)sounds[k][0], scene, x, y, z, sounds[k][1], sounds[k][2], Bits(0xbf800000)) : nullptr;
     }
@@ -2009,7 +2009,7 @@ RT3_NOINLINE uint8_t* __fastcall Tank_Construct(uint8_t* t, int, const char* nam
     F<float>(t, 0x400) = x;
     F<float>(t, 0x404) = y;
     F<float>(t, 0x408) = z;
-    F<uint32_t>(t, 0x3e8) = ((uint32_t(__stdcall*)())g_5c8068)();
+    F<uint32_t>(t, 0x3e8) = (imp::GetTickCount)();
     return t;
 }
 RT3_REPLACE(0x485760, Tank_Construct);

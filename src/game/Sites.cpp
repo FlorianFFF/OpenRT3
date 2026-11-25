@@ -13,6 +13,7 @@
 #include "hook/keepregs.h"
 #include "game/collection.h"
 #include "core/crt.h"
+#include "core/imports.h"
 #include "core/stream.h"
 #include "core/ptrlist.h"
 #include "core/containers.h"
@@ -23,6 +24,8 @@
 #undef small
 
 namespace rt3 {
+
+void __fastcall TrackNet_RelayRect(Collection* net, int, uint32_t x0, uint32_t x1, uint32_t y0, uint32_t y1);
 
 template <typename T> static inline T& F(void* o, uint32_t off) { return *(T*)((uint8_t*)o + off); }
 void __fastcall Points_Bounds(void*, int, const uint32_t* p, int32_t* out);
@@ -249,7 +252,6 @@ RT3_NOINLINE void __fastcall Loading_Pump(uint8_t* l, int, int32_t step, int32_t
 RT3_NOINLINE int32_t __fastcall Grid_NearestNodeWithin(Collection* g, int, float px, float py, int32_t exclude, float radius, int32_t unused, int32_t byDegree, int32_t skipLinked);
 RT3_NOINLINE uint32_t __fastcall Dialog_RunMessage(const char* text, int32_t type, uint32_t px, uint32_t py, int32_t p4, void(__fastcall* place)(uint8_t*, int, uint32_t, uint32_t, uint32_t, float), int32_t pic, float extraH, uint32_t buttonText, uint32_t a8, int32_t count, const char** choices, int32_t* selected, int32_t radio, int32_t check, int32_t* checked, int32_t timeout);
 
-static inline int ExeStricmp(const char* a, const char* b) { return ((int(__cdecl*)(const char*, const char*))0x5a57cf)(a, b); }
 
 static inline uint8_t* Map() { return g_map; }
 
@@ -275,7 +277,6 @@ static inline int32_t Ftol(double v) {
     return r;
 }
 
-static inline void ExeDelete(void* p) { ((void(__cdecl*)(void*))0x53b080)(p); }
 
 // The placement message 0x62b270 = string id.
 static void Site_SetMessage(int32_t id) {
@@ -331,15 +332,12 @@ int32_t CallCheckPlacement(uint8_t* rec, uint32_t a, uint32_t b) {
 inline int32_t Quarter(int32_t v) { return (v + (v < 0 ? 3 : 0)) >> 2; }
 }
 
-static inline void* ExeNew(size_t n) { return ((void*(__cdecl*)(size_t))0x53b070)(n); }
 
 static inline uint8_t* World() { return g_world; }
 
 static inline double Fl_205(uint32_t a) { return *(const float*)a; }
 
-static inline double CrtFabs(double v) { return ((double(__cdecl*)(double))0x5a152e)(v); }
 
-static inline double CrtFmod(double a, double b) { return ((double(__cdecl*)(double, double))0x5a1390)(a, b); }
 
 // Returns whether track node `id` is a plain piece usable for company `company`:
 // no junction link and no other company's claim (+0x222).
@@ -376,15 +374,12 @@ static void Terrain_RestoreRectAt(const uint8_t* src, const int32_t* r, const ui
 }
 
 namespace {
-void Callback_Free(void* p) { ((void(__cdecl*)(void*))0x53b080)(p); }
 uint32_t Message_Dialog(const char* text, uint32_t px) {
     return Dialog_RunMessage(text, 1, px, 0xbf800000, 0, nullptr, 0, 0.0f, 0, 0x1e, 0, nullptr, nullptr, 0, 0, nullptr, 0);
 }
 }
 
 namespace {
-void Free447(void* p) { ((void(__cdecl*)(void*))0x53b080)(p); }
-int Stricmp447(const char* a, const char* b) { return ((int(__cdecl*)(const char*, const char*))0x5a57cf)(a, b); }
 uint32_t Message447(const char* text, int32_t type, uint32_t buttonText, uint32_t a8) {
     return Dialog_RunMessage(text, type, 0xbf800000, 0xbf800000, 0, nullptr, 0, 0.0f, buttonText, a8, 0, nullptr, nullptr, 0, 0, nullptr, 0);
 }
@@ -487,7 +482,7 @@ RT3_REPLACE(0x414350, Map_SetHeightsInRect);
 
 // 0x4143e0 / 0x414410. Node pool alloc / release (see core/containers.cpp).
 void* __fastcall Pool_Alloc(int32_t* p) {
-    if (p[3] == 0) return ((void*(__cdecl*)(size_t))0x53b070)(p[4]);
+    if (p[3] == 0) return crt::operator_new(p[4]);
     void** f = (void**)p[0];
     void** n = (void**)f[0];
     if (!n) return nullptr;
@@ -500,7 +495,7 @@ RT3_REPLACE(0x4143e0, Pool_Alloc);
 
 void __fastcall Pool_Release(int32_t* p, int, void** node) {
     if (p[3] == 0 || (uint8_t*)node < (uint8_t*)p[1] || (uint8_t*)node >= (uint8_t*)p[2]) {
-        ((void(__cdecl*)(void*))0x53b080)(node);
+        crt::operator_delete(node);
         return;
     }
     void** f = (void**)p[0];
@@ -533,10 +528,10 @@ RT3_REPLACE(0x414480, GetQueueCount62ba64);
 // bitmasks (+0xcf..+0xdb, 32 bytes per cell; freed when unused, +0x177..). Returns
 // 1 when the file opened.
 RT3_NOINLINE int32_t __fastcall BuildingType_LoadFootprint(void*, int, uint8_t* t, const char* path) {
-    FILE* f = ((FILE*(__cdecl*)(const char*, const char*))0x5a1887)(path, (const char*)0x5c9678);
+    FILE* f = ((FILE*)crt::fopen(path, (const char*)0x5c9678));
     int32_t ok = 0;
     if (f) {
-        auto rd = [&](void* p, size_t n) { ((size_t(__cdecl*)(void*, size_t, size_t, FILE*))0x5a1b05)(p, 1, n, f); };
+        auto rd = [&](void* p, size_t n) { crt::fread(p, 1, n, f); };
         rd(t, 4);
         static const uint16_t texts[] = { 4, 0x22, 0x40, 0x5e, 0x7c, 0x9a };
         for (uint16_t o : texts) rd(t + o, 0x1e);
@@ -549,10 +544,10 @@ RT3_NOINLINE int32_t __fastcall BuildingType_LoadFootprint(void*, int, uint8_t* 
         rd(t + 0xc7, 4);
         rd(t + 0xcb, 2);
         rd(t + 0xcd, 2);
-        if (!Stricmp((const char*)t + 4, (const char*)0x5c871c)) F<uint16_t>(t, 0xcd) = 0x81;
-        if (!Stricmp((const char*)t + 4, (const char*)0x5c8710)) F<uint16_t>(t, 0xcd) = 0x9d;
+        if (!crt::stricmp((const char*)t + 4, (const char*)0x5c871c)) F<uint16_t>(t, 0xcd) = 0x81;
+        if (!crt::stricmp((const char*)t + 4, (const char*)0x5c8710)) F<uint16_t>(t, 0xcd) = 0x9d;
         int32_t size = t[0xb8] * t[0xb9] * t[0xba] * t[0xba] / 2;
-        uint8_t* buf = (uint8_t*)ExeNew(size);
+        uint8_t* buf = (uint8_t*)crt::operator_new(size);
         rd(buf, size);
         if (F<int32_t>(t, 0) >= 0x3e9) {
             rd(t + 0xdf, 4);
@@ -568,10 +563,10 @@ RT3_NOINLINE int32_t __fastcall BuildingType_LoadFootprint(void*, int, uint8_t* 
             if (!F<int32_t>(t, 0x141)) F<int32_t>(t, 0x141) = 1;
             rd(t + 0x145, 0x2e);
         }
-        ((int(__cdecl*)(FILE*))0x5a1740)(f);
+        crt::fclose(f);
         for (int32_t k = 0; k < 4; ++k) {
             uint32_t n = t[0xb8] * t[0xb9] * 32;
-            uint8_t* m = (uint8_t*)ExeNew(n);
+            uint8_t* m = (uint8_t*)crt::operator_new(n);
             F<uint8_t*>(t, 0xcf + k * 4) = m;
             memset(m, 0, n);
         }
@@ -631,13 +626,13 @@ RT3_NOINLINE int32_t __fastcall BuildingType_LoadFootprint(void*, int, uint8_t* 
                 }
             }
         }
-        ExeDelete(buf);
+        crt::operator_delete(buf);
         F<uint32_t>(t, 0x1a3) = 0x3f800000;
         ok = 1;
     }
     for (int32_t k = 0; k < 4; ++k)
         if (!F<int32_t>(t, 0x177 + k * 4)) {
-            ExeDelete(F<void*>(t, 0xcf + k * 4));
+            crt::operator_delete(F<void*>(t, 0xcf + k * 4));
             F<void*>(t, 0xcf + k * 4) = nullptr;
         }
     return ok;
@@ -842,7 +837,7 @@ RT3_NOINLINE void __cdecl Tracks_RefreshCellsImpl(const int32_t* r) {
     int32_t x0 = r[0] - 1 < 0 ? 0 : r[0] - 1;
     int32_t w = F<int32_t>(m, 0x2155);
     int32_t x1 = w >= r[1] + 1 ? r[1] + 1 : w - 1;
-    ((void(__fastcall*)(Collection*, int, int32_t, int32_t, int32_t, int32_t))0x494310)(g_tracks, 0, x0, x1, y0, y1);
+    TrackNet_RelayRect(g_tracks, 0, (uint32_t)(x0), (uint32_t)(x1), (uint32_t)(y0), (uint32_t)(y1));
 }
 
 // 0x4152d0. Rectangle in EAX.
@@ -910,7 +905,7 @@ RT3_NOINLINE int32_t __stdcall Site_ChooseShape(uint8_t* obj) {
     if (!hook::As<uint32_t*>(g_cellOwners)) {
         uint8_t* m = g_map;
         uint32_t n = (uint32_t)(F<int32_t>(m, 0x2159) * F<int32_t>(m, 0x2155)) << 2;
-        uint8_t* p = (uint8_t*)Malloc(n);
+        uint8_t* p = (uint8_t*)crt::malloc(n);
         hook::As<uint8_t*>(g_cellOwners) = p;
         for (uint32_t k = 0; k < n; ++k) p[k] = 0;
     }
@@ -957,7 +952,7 @@ RT3_NOINLINE void __cdecl Footprint_StampImpl(uint8_t* o, int32_t owner) {
     if (!g_cellOwners) {
         uint8_t* m = g_map;
         size_t n = (size_t)(F<int32_t>(m, 0x2159) * F<int32_t>(m, 0x2155) * 4);
-        void* p = ((void*(__cdecl*)(size_t))0x5a125d)(n);
+        void* p = crt::malloc(n);
         hook::As<void*>(g_cellOwners) = p;
         memset(p, 0, n);
     }
@@ -1077,8 +1072,8 @@ RT3_NOINLINE void __cdecl Site_LevelGroundImpl(int32_t id, const int32_t* r, flo
         steep = type[0x32] == 1;
         const char* name = (const char*)site + 4;
         for (const uint32_t* e = (const uint32_t*)0x5ee038; e < (const uint32_t*)0x5ee0f8; e += 2)
-            if (!Stricmp(name, (const char*)(uintptr_t)e[1])) memcpy(&upK, e, 4);
-        if (!Stricmp(name, (const char*)0x5c8710)) maint = 1;
+            if (!crt::stricmp(name, (const char*)(uintptr_t)e[1])) memcpy(&upK, e, 4);
+        if (!crt::stricmp(name, (const char*)0x5c8710)) maint = 1;
     }
     if (F<int32_t>(hook::As<uint8_t*>(g_cities), 0x88)) {
         int32_t k = (touches ? 1 : 0) + 1;
@@ -1229,7 +1224,7 @@ RT3_NOINLINE void __cdecl Sites_AddToCellHashImpl(HashMap* hash, const int32_t* 
                     --F<int32_t>(list, 8);
                 }
             } else
-                node = (uint8_t*)((void*(__cdecl*)(size_t))0x53b070)(F<uint32_t>(p, 0x10));
+                node = (uint8_t*)crt::operator_new(F<uint32_t>(p, 0x10));
             uint32_t key = (uint32_t)y << 16 | ((uint32_t)x & 0xffff);
             F<uint8_t*>(node, 4) = s;
             int32_t e = Hash_Get(g_62ba7c, 0, key);
@@ -1325,7 +1320,7 @@ RT3_NOINLINE void __stdcall Site_ReleaseCells(const int32_t* rect, HashMap* hash
                 ++l[2];
                 if (!l[1]) l[1] = (uint32_t)node;
             } else {
-                ExeDelete(node);
+                crt::operator_delete(node);
             }
         }
 }
@@ -1346,7 +1341,7 @@ RT3_NOINLINE void ResetGlobals62b308() {
     if (hook::As<void*>(g_cellOwners)) return;
     uint8_t* map = g_map;
     uint32_t n = F<int32_t>(map, 0x2159) * F<int32_t>(map, 0x2155) * 4;
-    uint8_t* p = (uint8_t*)((void*(__cdecl*)(size_t))0x5a125d)(n);
+    uint8_t* p = (uint8_t*)crt::malloc(n);
     hook::As<void*>(g_cellOwners) = p;
     for (uint32_t i = 0; i < n; ++i) p[i] = 0;
 }
@@ -1445,7 +1440,7 @@ RT3_REPLACE(0x416830, Chain_AddToSortedList);
 void __fastcall Records_DeleteWithBuffers(Collection* c, int, uint32_t id) {
     uint8_t* r = (uint8_t*)Collection_Get(c, 0, id);
     for (uint32_t off = 0xcf; off <= 0xdb; off += 4)
-        if (void* p = F<void*>(r, off)) Callback_Free(p);
+        if (void* p = F<void*>(r, off)) crt::operator_delete(p);
     Collection_Release(c, 0, id);
 }
 RT3_REPLACE(0x4168e0, Records_DeleteWithBuffers);
@@ -1460,12 +1455,12 @@ RT3_NOINLINE void __fastcall Sites_DestroyAll(Collection* c) {
     }
     Collection_Clear(c);
     if (hook::As<void*>(g_cellOwners)) {
-        Free(hook::As<void*>(g_cellOwners));
+        crt::free(hook::As<void*>(g_cellOwners));
         hook::As<void*>(g_cellOwners) = nullptr;
     }
     if (HashMap* h = F<HashMap*>(c, 0x88)) {
         Hash_DestroyThunk(h);
-        ExeDelete(h);
+        crt::operator_delete(h);
         F<void*>(c, 0x88) = nullptr;
     }
     static const uint32_t pools[2] = { 0x90, 0x8c };
@@ -1474,11 +1469,11 @@ RT3_NOINLINE void __fastcall Sites_DestroyAll(Collection* c) {
         if (!p) continue;
         void* block = F<void*>(p, 4);
         Pool_Free(p);
-        ExeDelete(p);
+        crt::operator_delete(p);
         F<void*>(c, off) = nullptr;
-        if (block) Free(block);
+        if (block) crt::free(block);
     }
-    if (hook::As<void*>(g_62ba6c)) Free(hook::As<void*>(g_62ba6c));
+    if (hook::As<void*>(g_62ba6c)) crt::free(hook::As<void*>(g_62ba6c));
     static const uint32_t globals[] = { 0x62ba74, 0x62ba58, 0x62ba5c, 0x62ba60, 0x62ba64, 0x62ba6c, 0x62ba70 };
     for (uint32_t g : globals) hook::Global<int32_t>(g) = 0;
     g_5ee030 = -1;
@@ -1490,7 +1485,7 @@ RT3_REPLACE(0x416950, Sites_DestroyAll);
 // count} header, each record with its variable parts (see Sites_LoadTable).
 RT3_NOINLINE void __fastcall Sites_SaveTable(uint8_t* c, int, Stream s) {
     int32_t one = 1;
-    uint32_t* l = (uint32_t*)ExeNew(0xc);
+    uint32_t* l = (uint32_t*)crt::operator_new(0xc);
     if (l) {
         l[0] = 0;
         l[1] = 0;
@@ -1523,7 +1518,7 @@ RT3_NOINLINE void __fastcall Sites_SaveTable(uint8_t* c, int, Stream s) {
     }
     if (MaxList* lst = g_62ba58) {
         List_DestroyThunk(lst);
-        ExeDelete(lst);
+        crt::operator_delete(lst);
     }
     hook::As<void*>(g_62ba58) = nullptr;
 }
@@ -1535,11 +1530,11 @@ RT3_REPLACE(0x416a70, Sites_SaveTable);
 // fatal (string 0xbc with the name and +4) and adds nothing.
 uint32_t __fastcall Buildings_AddByTypeName(Collection* t, int, uint8_t* rec, uint32_t a, uint32_t b, uint32_t c) {
     char* type = (char*)rec + 0x22;
-    if (!Strnicmp(type, (const char*)0x5c8f94, 4)) FormatText(type, (const char*)0x5c96a0, 0, 0, 0, 0, 0, 0, 0, 0);
-    if (!Strnicmp(type, (const char*)0x5c8e4c, 9)) FormatText(type, (const char*)0x5c9694, 0, 0, 0, 0, 0, 0, 0, 0);
+    if (!crt::strnicmp(type, (const char*)0x5c8f94, 4)) FormatText(type, (const char*)0x5c96a0, 0, 0, 0, 0, 0, 0, 0, 0);
+    if (!crt::strnicmp(type, (const char*)0x5c8e4c, 9)) FormatText(type, (const char*)0x5c9694, 0, 0, 0, 0, 0, 0, 0, 0);
     for (int32_t i = 0; i < Collection_Count(g_62b268); ++i) {
         Collection* types = g_62b268;
-        if (Stricmp(type, (const char*)Collection_Get(types, 0, Collection_IdAt(types, 0, (uint32_t)i, 0)) + 4)) continue;
+        if (crt::stricmp(type, (const char*)Collection_Get(types, 0, Collection_IdAt(types, 0, (uint32_t)i, 0)) + 4)) continue;
         F<uint32_t>(rec, 0x173) = Collection_IdAt(g_62b268, 0, (uint32_t)i, 0);
         return Collection_Allocate(t, 0, rec, a, b, c);
     }
@@ -1554,7 +1549,7 @@ RT3_REPLACE(0x416ce0, Buildings_AddByTypeName);
 // 0x416e20. Id of the element named `name` (+4); fatal (string 0xbd) and -1 if none.
 RT3_NOINLINE int32_t __fastcall Collection_FindByName4(Collection* c, int, const char* name) {
     for (int32_t i = 0; i < Collection_Count(c); ++i)
-        if (!Stricmp(name, (const char*)Collection_Get(c, 0, Collection_IdAt(c, 0, i, 0)) + 4))
+        if (!crt::stricmp(name, (const char*)Collection_Get(c, 0, Collection_IdAt(c, 0, i, 0)) + 4))
             return Collection_IdAt(c, 0, i, 0);
     FatalFormat(0xbd, name);
     return -1;
@@ -1692,7 +1687,7 @@ int32_t __fastcall Table_CountNamedWithBit(Collection* t, int, const char* name,
         uint8_t* r = (uint8_t*)Collection_Get(t, 0, Collection_IdAt(t, 0, i, 0));
         if ((char)ToUpper((char)r[0x22]) != first) continue;
         if (!(F<int32_t>(r, 0xc3) & mask)) continue;
-        if (ExeStricmp((const char*)r + 0x22, name) == 0) ++n;
+        if (crt::stricmp((const char*)r + 0x22, name) == 0) ++n;
     }
     return n;
 }
@@ -1705,7 +1700,7 @@ uint32_t __fastcall Table_NthNamedWithBit(Collection* t, int, const char* name, 
         uint8_t* r = (uint8_t*)Collection_Get(t, 0, Collection_IdAt(t, 0, i, 0));
         if ((char)ToUpper((char)r[0x22]) != first) continue;
         if (!(F<int32_t>(r, 0xc3) & mask)) continue;
-        if (ExeStricmp((const char*)r + 0x22, name) != 0) continue;
+        if (crt::stricmp((const char*)r + 0x22, name) != 0) continue;
         if (--nth <= 0) return Collection_IdAt(t, 0, i, 0);
     }
     return 0;
@@ -1750,17 +1745,15 @@ RT3_NOINLINE void __fastcall Obj_AttachmentPoint(Collection* c, int, int32_t mod
     float py = (float)((double)(int16_t)cy / k - (double)o[0xb9] / two);
     float px = (float)((double)(int16_t)cx / k - (double)o[0xb8] / two);
     RotateNegated(px, py, angle, x, z);
-    auto sinf_ = (double(__cdecl*)(double))0x5a1494;
-    auto cosf_ = (double(__cdecl*)(double))0x5a13e4;
     if (!mode) {
         double t = *x;
-        *x = (float)(t - sinf_(angle) * D(0x5c96d8));
+        *x = (float)(t - crt::cos(angle) * D(0x5c96d8));
         t = *z;
-        *z = (float)(t - cosf_(angle) * D(0x5c96d8));
+        *z = (float)(t - crt::sin(angle) * D(0x5c96d8));
         return;
     }
-    *x = (float)(sinf_(angle) * D(0x5c96d0) + *x);
-    *z = (float)(cosf_(angle) * D(0x5c96d0) + *z);
+    *x = (float)(crt::cos(angle) * D(0x5c96d0) + *x);
+    *z = (float)(crt::sin(angle) * D(0x5c96d0) + *z);
 }
 RT3_REPLACE(0x417910, Obj_AttachmentPoint);
 
@@ -1807,10 +1800,10 @@ RT3_NOINLINE int32_t __fastcall Station_SnapToTrack(Collection* types, int, int3
     }
     float heading = (float)((double)Vehicle_ScreenHeading(nd, 0, 1) - D(0x5c8748));
     const double pi = 3.14159265359, twoPi = 6.2831854820251465;
-    heading = (float)CrtFmod((double)heading + D(0x5c96f8), pi);
-    float turn = (float)CrtFabs((double)angle - heading);
+    heading = (float)crt::fmod((double)heading + D(0x5c96f8), pi);
+    float turn = (float)crt::fabs((double)angle - heading);
     if (turn > Fl_205(0x5c8760)) turn = (float)((double)Fl_205(0x5c8768) - turn);
-    if (turn > D(0x5c96f0)) heading = (float)CrtFmod((double)heading + D(0x5c96a8), twoPi);
+    if (turn > D(0x5c96f0)) heading = (float)crt::fmod((double)heading + D(0x5c96a8), twoPi);
     Type_RotatedCell(types, 0, type, &ox, &oy, heading);
     *outX = (float)((double)Obj_CenterCellX(nd) + ox);
     *outY = (float)((double)Obj_CenterCellY(nd) - oy);
@@ -1820,7 +1813,7 @@ RT3_NOINLINE int32_t __fastcall Station_SnapToTrack(Collection* types, int, int3
         y = *outY;
         angle = heading;
     }
-    float d = (float)CrtFmod(((double)heading + Fl_205(0x5c96e8)) - angle, twoPi);
+    float d = (float)crt::fmod(((double)heading + Fl_205(0x5c96e8)) - angle, twoPi);
     if (d > Fl_205(0x5c8760)) d = (float)((double)Fl_205(0x5c8768) - d);
     if (d < 0.0f) d = 0.0f;
     if (d >= D(0x5c8758)) return 0;
@@ -1868,7 +1861,7 @@ RT3_NOINLINE uint32_t* __fastcall Map_ScorchTexture(uint8_t* o, int, const uint3
         return nullptr;
     }
     g_62b7cc = size;
-    uint32_t* copy = ((uint32_t*(__cdecl*)(uint32_t))0x5a125d)(size);
+    uint32_t* copy = ((uint32_t*)crt::malloc(size));
     memcpy(copy, p, size);
     float sy, sx;
     Map_PixelsPerTile(&sx, &sy);
@@ -1943,7 +1936,7 @@ RT3_NOINLINE void __fastcall Map_ApplyTexturePatch(uint8_t* o, int, const uint32
             Terrain_CommitTexture((uint8_t*)Engine_Get1C(hook::As<void*>(g_engine)), 0, 0);
         }
     }
-    ((void(__cdecl*)(void*))0x5a1145)(pixels);
+    crt::free(pixels);
 }
 RT3_REPLACE(0x4184e0, Map_ApplyTexturePatch);
 
@@ -2066,7 +2059,7 @@ RT3_NOINLINE uint8_t* __fastcall Sites_Restore(uint8_t* mgr, int, uint32_t id, u
             --F<int32_t>(list, 8);
         }
     } else
-        s = (uint8_t*)((void*(__cdecl*)(size_t))0x53b070)(F<uint32_t>(pool, 0x10));
+        s = (uint8_t*)crt::operator_new(F<uint32_t>(pool, 0x10));
     memcpy(s, saved, 0x74e);
     F<uint8_t*>(saved, 0x742) = o;
     uint32_t* cursor;
@@ -2111,7 +2104,7 @@ RT3_NOINLINE uint8_t* __fastcall Sites_Create(uint8_t* mgr, int, const char* nam
             --F<int32_t>(list, 8);
         }
     } else
-        s = (uint8_t*)((void*(__cdecl*)(size_t))0x53b070)(F<uint32_t>(pool, 0x10));
+        s = (uint8_t*)crt::operator_new(F<uint32_t>(pool, 0x10));
     Site_CheckFootprint(mgr, 0, (uint32_t)id, x, y, angle, 0, 1);
     if (g_62ba3a != -1) Footprint_StampImpl(nullptr, (int32_t)(uintptr_t)s);
     Sites_PrepareGround(mgr, 0, (uint32_t)id, 1, 1, 0, height);
@@ -2144,7 +2137,7 @@ RT3_REPLACE(0x418be0, Sites_Create);
 // when the map wants it (+0x159b).
 RT3_NOINLINE void __fastcall Sites_Free(uint8_t* mgr, int, uint8_t* s) {
     if (g_62b2f4) {
-        ((int(__cdecl*)(void*))0x5a1740)(g_62b2f4);
+        crt::fclose(g_62b2f4);
         hook::As<uint32_t>(g_62b2f4) = 0;
     }
     if (!s) return;
@@ -2186,7 +2179,7 @@ RT3_NOINLINE void __fastcall Sites_Free(uint8_t* mgr, int, uint8_t* s) {
         ++F<int32_t>(l, 8);
         if (!F<void*>(l, 4)) F<uint8_t*>(l, 4) = s;
     } else
-        ((void(__cdecl*)(void*))0x53b080)(s);
+        crt::operator_delete(s);
     if (quiet() && g_map[0x159b]) Overview_Redraw(g_map, 0, nullptr);
 }
 RT3_REPLACE(0x418d40, Sites_Free);
@@ -2212,8 +2205,7 @@ RT3_NOINLINE void __fastcall TerrainTool_Flatten(uint8_t* t, int, int32_t x, int
                 if (h > F<float>(t, 0xa4)) F<float>(t, 0xa0) = h;
                 m = g_map;
             }
-        auto fabs_ = (double(__cdecl*)(double))0x5a152e;
-        if (fabs_((double)F<float>(t, 0xa4) - F<float>(t, 0xa0)) <= D(0x5c9710)) return;
+        if (crt::fabs((double)F<float>(t, 0xa4) - F<float>(t, 0xa0)) <= D(0x5c9710)) return;
         m = g_map;
         for (int32_t cy = y0; cy <= y1; ++cy)
             for (int32_t cx = x - r; cx <= x + r; ++cx) {
@@ -2284,18 +2276,18 @@ RT3_NOINLINE void __fastcall BuildingTypes_RebuildPortsWarehouses(Collection* c)
                 for (int t = 0; t < 4; ++t) {
                     if (!F<int32_t>(src, 0x177 + t * 4)) continue;
                     uint32_t size = (uint32_t)dst[0xb9] * dst[0xb8] * 32;
-                    void* p = ((void*(__cdecl*)(size_t))0x53b070)(size);
+                    void* p = crt::operator_new(size);
                     F<void*>(dst, 0xcf + t * 4) = p;
                     memcpy(p, F<void*>(src, 0xcf + t * 4), size);
                 }
             }
             F<int32_t>(dst, 0x187) = k;
-            ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)((char*)dst + 0x22, (const char*)(pass ? 0x5c93d8 : 0x5c93e8), k);
+            crt::sprintf((char*)dst + 0x22, (const char*)(pass ? 0x5c93d8 : 0x5c93e8), k);
             strcpy((char*)dst + 4, (const char*)dst + 0x22);
             int32_t link = -1;
             for (int32_t i = 0; i < Collection_Count(g_62b268); ++i) {
                 Collection* inds = g_62b268;
-                if (!Stricmp((const char*)dst + 0x22, (const char*)Collection_Get(inds, 0, Collection_IdAt(inds, 0, i, 0)) + 4))
+                if (!crt::stricmp((const char*)dst + 0x22, (const char*)Collection_Get(inds, 0, Collection_IdAt(inds, 0, i, 0)) + 4))
                     link = Collection_IdAt(g_62b268, 0, i, 0);
             }
             F<int32_t>(dst, 0x173) = link;
@@ -2311,7 +2303,7 @@ RT3_NOINLINE uint32_t __fastcall Records_FindComposedName(Collection* c, int, in
     FormatText(composed, (const char*)0x5c8730, ((const char* const*)0x5f3c80)[a], name, 0, 0, 0, 0, 0, 0);
     FormatText(name, composed, 0, 0, 0, 0, 0, 0, 0, 0);
     for (int32_t i = 0; i < Collection_Count(c); ++i)
-        if (!Stricmp447(name, (const char*)Collection_Get(c, 0, Collection_IdAt(c, 0, (uint32_t)i, 0)) + 4)) return Collection_IdAt(c, 0, (uint32_t)i, 0);
+        if (!crt::stricmp(name, (const char*)Collection_Get(c, 0, Collection_IdAt(c, 0, (uint32_t)i, 0)) + 4)) return Collection_IdAt(c, 0, (uint32_t)i, 0);
     return 0;
 }
 RT3_REPLACE(0x419590, Records_FindComposedName);
@@ -2322,7 +2314,7 @@ RT3_NOINLINE void __fastcall Sites_Destruct(Collection* c) {
     F<uint32_t>(c, 0) = 0x5c9718;
     Sites_DestroyAll(c);
     if (g_62b2f8) {
-        Free(g_62b2f8);
+        crt::free(g_62b2f8);
         g_62b2f8 = nullptr;
     }
     Collection_Destruct(c);
@@ -2338,17 +2330,17 @@ RT3_NOINLINE void __fastcall BuildingTypes_LoadFiles(Collection* t) {
     char pattern[0x168], path[0xc8];
     uint8_t fd[0x140];
     FormatText(pattern, (const char*)0x5c9724, (const char*)0x5c93fc, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
-    void* h = ((void*(__stdcall*)(const char*, void*))g_5c8190)(pattern, fd);
+    void* h = (((void*(__stdcall*)(const char*, void*))imp::FindFirstFileA))(pattern, fd);
     if (h != (void*)-1) {
         int32_t more;
         do {
             FormatText(path, (const char*)0x5c8730, (const char*)0x5c93fc, (const char*)fd + 0x2c, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
             memset(rec, 0, sizeof rec);
             if (BuildingType_LoadFootprint(t, 0, rec, path)) t->vtbl->allocate(t, rec, 0, 0, 0);
-            more = ((int32_t(__stdcall*)(void*, void*))g_5c8194)(h, fd);
+            more = (imp::FindNextFileA)(h, fd);
             Loading_Pump(g_app, 0, 0, 0);
         } while (more);
-        ((int32_t(__stdcall*)(void*))g_5c819c)(h);
+        (imp::FindClose)(h);
     }
     BuildingTypes_RebuildPortsWarehouses(t);
 }

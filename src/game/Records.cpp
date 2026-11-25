@@ -55,7 +55,6 @@ void __fastcall StrCopyN(char* dst, const char* src, size_t n);
 void __fastcall Str_Replace(char* str, int32_t size, const char* find, const char* repl, int32_t all);
 const char* __fastcall GetString(int32_t id);
 
-#define SPRINTF ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)
 
 void __stdcall Text_ConvertTags(char* text, int32_t maxLen, int32_t encode);
 uint32_t __fastcall Table_FindByName(Collection* t, int, const char* name);
@@ -236,7 +235,6 @@ static inline uint8_t* Map() { return g_map; }
 
 static inline Collection* Buildings() { return g_buildings; }
 
-static inline void* ExeNew(size_t n) { return ((void*(__cdecl*)(size_t))0x53b070)(n); }
 
 static inline void Refresh(uint8_t* c) {
     City_UpdateCargoFlags(c);
@@ -247,7 +245,7 @@ static inline void Refresh(uint8_t* c) {
 static void CopyList(const uint8_t* src, uint8_t** head, uint32_t size, uint32_t nextOff) {
     uint8_t* prev = nullptr;
     for (int32_t i = 0; src; src = F<const uint8_t*>((void*)src, nextOff), ++i) {
-        uint8_t* n = (uint8_t*)ExeNew(size);
+        uint8_t* n = (uint8_t*)crt::operator_new(size);
         memcpy(n, src, size);
         F<void*>(n, nextOff) = nullptr;
         if (!i) *head = n;
@@ -796,7 +794,7 @@ RT3_REPLACE(0x42d670, Record42d5a0_SetName);
 RT3_NOINLINE void __fastcall List1a_Free(uint8_t** head) {
     while (*head) {
         uint8_t* next = *(uint8_t**)(*head + 0x1a);
-        ((void(__cdecl*)(void*))0x53b080)(*head);
+        crt::operator_delete(*head);
         *head = next;
     }
     *head = nullptr;
@@ -809,7 +807,7 @@ RT3_NOINLINE void __fastcall Obj_FreeFourLists(void* o) {
         uint8_t*& head = F<uint8_t*>(o, 4 + k * 4);
         while (head) {
             uint8_t* next = *(uint8_t**)(head + 0x24);
-            ((void(__cdecl*)(void*))0x53b080)(head);
+            crt::operator_delete(head);
             head = next;
         }
         head = nullptr;
@@ -874,10 +872,10 @@ RT3_NOINLINE void __stdcall Text_ConvertTags(char* text, int32_t maxLen, int32_t
             if (encode) {
                 int32_t idx = 0;
                 for (const char* e = (const char*)0x5f3d9c; (uint32_t)e < 0x6103a1; e += 0x81, ++idx)
-                    if ((char)ToUpper(*e) == first && !Stricmp(tag, e)) SPRINTF(buf, (const char*)0x5c9cd0, idx + 10000);
+                    if ((char)ToUpper(*e) == first && !crt::stricmp(tag, e)) crt::sprintf(buf, (const char*)0x5c9cd0, idx + 10000);
             } else {
-                int32_t v = ((int(__cdecl*)(const char*))0x5a1ea5)(tag) - 10000;
-                if (v >= 0 && v < 0x385) SPRINTF(buf, (const char*)0x5f3d9c + v * 0x81);
+                int32_t v = crt::atoi(tag) - 10000;
+                if (v >= 0 && v < 0x385) crt::sprintf(buf, (const char*)0x5f3d9c + v * 0x81);
             }
             *p = term;
             int32_t start = (int32_t)(tag - text);
@@ -900,8 +898,8 @@ RT3_NOINLINE void __stdcall Text_ConvertTags(char* text, int32_t maxLen, int32_t
     if (!found) return;
     for (int32_t i = 0; i < 6; ++i) {
         char num[0x134], name[0x124];
-        SPRINTF(num, (const char*)0x5c9cdc, i + 20000);
-        SPRINTF(name, (const char*)0x5c9cd4, GetString(((const int32_t*)0x620b6c)[i]));
+        crt::sprintf(num, (const char*)0x5c9cdc, i + 20000);
+        crt::sprintf(name, (const char*)0x5c9cd4, GetString(((const int32_t*)0x620b6c)[i]));
         if (encode) Str_Replace(text, maxLen, name, num, 1);
         else Str_Replace(text, maxLen, num, name, 1);
     }
@@ -932,7 +930,7 @@ void __fastcall EventRules_Load(uint8_t* o, int, Stream st) {
     char name[0x68] = {};
     int32_t triggers;
     Rd(st, &triggers, 4);
-    auto alloc = [](size_t n) { return (uint8_t*)((void*(__cdecl*)(size_t))0x53b070)(n); };
+    auto alloc = [](size_t n) { return (uint8_t*)crt::operator_new(n); };
     Collection* cargos = g_cargoTypes;
     uint8_t* prev = nullptr;
     for (int32_t i = 0; i < triggers; ++i) {

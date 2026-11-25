@@ -11,6 +11,7 @@
 #include "core/globals.h"
 #include "core/ptrlist.h"
 #include "core/crt.h"
+#include "core/imports.h"
 #include "hook/keepregs.h"
 #include "game/collection.h"
 #include "core/containers.h"
@@ -387,7 +388,6 @@ static inline int32_t FtolD(double v) {
 
 static inline int32_t ClampLight(int32_t i) { return i >= 0x90 ? 0x8f : i < 0 ? 0 : i; }
 
-static inline void ExeDelete(void* p) { ((void(__cdecl*)(void*))0x53b080)(p); }
 
 static inline double D(uint32_t a) { return *(const double*)a; }
 
@@ -1592,7 +1592,7 @@ RT3_NOINLINE void __fastcall Scene_SetupVisitGrid(uint8_t* s, int, uint8_t* t) {
         g_624d38 = v;
         if (old) {
             VisitGrid_Free(old);
-            ExeDelete(old);
+            crt::operator_delete(old);
         }
     } else {
         Render_FixTileSeams(t);
@@ -1602,7 +1602,7 @@ RT3_NOINLINE void __fastcall Scene_SetupVisitGrid(uint8_t* s, int, uint8_t* t) {
     }
     int32_t n = cols > rows ? cols : rows;
     s[0x3749] = 1;
-    uint8_t* g = (uint8_t*)((void*(__cdecl*)(size_t))0x53b070)(0x3e83f);
+    uint8_t* g = (uint8_t*)crt::operator_new(0x3e83f);
     F<uint8_t*>(s, 0x65) = g ? VisitGrid_Init(g, 0, n + 1) : nullptr;
     uint32_t* a = (uint32_t*)0x8f2520;
     for (uint32_t k = 0; k < 0x80400; ++k) a[k] = 0;
@@ -1632,7 +1632,7 @@ RT3_REPLACE(0x527de0, Scene_SetBrushRadius);
 // game time 0x624d44) is updated on a rebuild. Only AL is meaningful.
 RT3_NOINLINE uint8_t __fastcall Scene_ViewNeedsRebuild(uint8_t* s, int, uint8_t* cam) {
     if (!F<uint8_t*>(s, 0x29)[0x61]) return 0;
-    uint32_t tick = hook::Global<uint32_t(__stdcall*)()>(0x5c8068)();
+    uint32_t tick = imp::GetTickCount();
     int32_t drawn = F<int32_t>(s, 0x3694);
     if (!drawn) return 0;
     int32_t load = drawn - (F<int32_t>(s, 0x368a) >> 4);
@@ -1846,7 +1846,7 @@ RT3_REPLACE(0x528360, View_PickTerrain);
 // 0x5c8948), unlit and alpha tested at the point (+0x3734..) tinted -+0x3728,
 // turning with the clock (GetTickCount & 0x1fff x 0x5dd178 x 0x5c8768).
 RT3_NOINLINE void __fastcall Marker_Render(uint8_t* s, int, uint8_t* cam, uint8_t* terrain) {
-    uint32_t ticks = ((uint32_t(__stdcall*)())g_5c8068)() & 0x1fff;
+    uint32_t ticks = (imp::GetTickCount)() & 0x1fff;
     float spin = (float)((double)(int32_t)ticks * *(const float*)0x5dd178 * *(const float*)0x5c8768);
     if (!s[0x3745]) return;
     if (!F<int32_t>(s, 0x3730)) View_PickTerrain(s, 0, cam, terrain);
@@ -2024,7 +2024,7 @@ RT3_NOINLINE void __fastcall Scene_QueueNode(uint8_t* r, int, uint8_t* n, uint8_
         void* ms = F<void*>(r, 0x5d);
         ((void(__stdcall*)(void*))(*(void***)ms)[5])(ms);
         SceneObj_ApplyStack(n, 0, F<void*>(r, 0x5d));
-        uint32_t now = hook::Global<uint32_t(__stdcall*)()>(0x5c8068)();
+        uint32_t now = imp::GetTickCount();
         ((void(__fastcall*)(uint8_t*, int, uint32_t))(*(void***)n)[0])(n, 0, now);
         if (hasMesh) {
             lod = SceneObj_SelectLod(n, 0, (float)((double)cx - x), (float)((double)cy - y), (float)((double)cz - z));
@@ -2542,7 +2542,7 @@ RT3_NOINLINE void __fastcall Scene_DrawEmitters(uint8_t* s, int, uint8_t* cam) {
     uint8_t* vb = (uint8_t*)Scene_BeginBatch(s, 0, 0x2000);
     float cx = 0, cy = 0, cz = 0;
     if (int32_t n85 = F<int32_t>(F<uint8_t*>(s, 0x85), 0xc)) {
-        sorted = ((uint8_t**(__cdecl*)(uint32_t))0x5a125d)((uint32_t)n85 * 4);
+        sorted = ((uint8_t**)crt::malloc((uint32_t)n85 * 4));
         Obj_GetXYZ1c(cam, 0, (uint32_t*)&cx, (uint32_t*)&cy, (uint32_t*)&cz);
         for (; item; item = (uint8_t*)PtrList_Next(F<PtrList*>(s, 0x85))) {
             Emitter_SortPoints(item, cx, cy, cz);
@@ -2592,7 +2592,7 @@ RT3_NOINLINE void __fastcall Scene_DrawEmitters(uint8_t* s, int, uint8_t* cam) {
     Render_SetDefaultMaterial(F<uint8_t*>(s, 0x2d), 0, 1);
     Render_PopStages(F<uint8_t*>(s, 0x2d), 0, 1);
     Render_LightingDefault(F<uint8_t*>(s, 0x2d));
-    if (sorted) ((void(__cdecl*)(void*))0x5a1145)(sorted);
+    if (sorted) crt::free(sorted);
 }
 RT3_REPLACE(0x52a5d0, Scene_DrawEmitters);
 
@@ -3011,7 +3011,7 @@ RT3_NOINLINE void __fastcall Scene_RenderFrame(uint8_t* s, int, uint8_t* cam, ui
                 F<int32_t>(s, 0x366e) = keepPick;
             }
             if (F<uint8_t*>(s, 0x29)[0x5d] && F<uint8_t*>(s, 0x29)[0x66]) {
-                uint8_t* c = (uint8_t*)((void*(__cdecl*)(size_t))0x53b070)(0x8a);
+                uint8_t* c = (uint8_t*)crt::operator_new(0x8a);
                 c = c ? Camera_ConstructBase(c) : nullptr;
                 float sx, sy, sz;
                 Render_SunDir(F<uint8_t*>(s, 0x2d), 0, &sx, &sy, &sz);
@@ -3026,7 +3026,7 @@ RT3_NOINLINE void __fastcall Scene_RenderFrame(uint8_t* s, int, uint8_t* cam, ui
                 F<int32_t>(s, 5) = keepFrame;
                 if (c) {
                     Camera_Destruct((uint32_t*)c);
-                    ((void(__cdecl*)(void*))0x53b080)(c);
+                    crt::operator_delete(c);
                 }
             }
             if (!zb) Render_SetZEnable(F<uint8_t*>(s, 0x2d), 0, 1);

@@ -13,6 +13,8 @@
 #include "core/ptrlist.h"
 #include "core/containers.h"
 #include "core/crt.h"
+#include "core/imports.h"
+#include "core/jpeglib.h"
 #include "game/collection.h"
 #include "core/stream.h"
 #include "hook/keepregs.h"
@@ -42,7 +44,6 @@ void __fastcall BlockGrid_Load(uint8_t* g, int, Stream s);
 void __fastcall StrCopyN(char* dst, const char* src, size_t n);
 void __fastcall Vec_Cross(float* x, float* y, float ax, float ay, float az, float bx, float by, float bz, float* z);
 void __fastcall Obj_GetXYZ1c(uint8_t* o, int, uint32_t* x, uint32_t* y, uint32_t* z);
-template <typename Fn> static inline Fn Import(uint32_t iat) { return (Fn)hook::Global<void*>(iat); }
 void __fastcall NameTable_PushPos(uint8_t* t);
 void __fastcall NameTable_PopPosition(uint8_t* t);
 const char* __fastcall GetString(int32_t id);
@@ -185,7 +186,6 @@ static inline float BitsF(uint32_t b) { return *(float*)&b; }
 
 static inline uint32_t FBits(float f) { return *(uint32_t*)&f; }
 
-static inline SprintfFn ExeSprintf() { return (SprintfFn)0x5a19c4; }
 
 // Font table (0x625468, 40 bytes per font): +0 localized face string id, +4 default
 // face, +8 pack bitmap-font name, +0xc point size, +0x10 weight, +0x20 extra spacing.
@@ -396,7 +396,7 @@ void __fastcall Font_ReleaseHandles(uint8_t* t) {
     }
     if (void* f = F<void*>(t, 0)) ((void(__stdcall*)(void*))(*(void***)f)[2])(f);
     F<void*>(t, 0) = nullptr;
-    if (void* h = F<void*>(t, 4)) Import<int(__stdcall*)(void*)>(0x5c8058)(h);
+    if (void* h = F<void*>(t, 4)) imp::DeleteObject(h);
     F<void*>(t, 4) = nullptr;
 }
 RT3_REPLACE(0x550420, Font_ReleaseHandles);
@@ -711,7 +711,7 @@ void __fastcall Texture_ReleaseHandles(uint8_t* t) {
     }
     if (void* obj = F<void*>(t, 0)) ((void(__stdcall*)(void*))(*(void***)obj)[2])(obj);
     F<void*>(t, 0) = nullptr;
-    if (void* bmp = F<void*>(t, 4)) Import<int(__stdcall*)(void*)>(0x5c8058)(bmp);
+    if (void* bmp = F<void*>(t, 4)) imp::DeleteObject(bmp);
     F<void*>(t, 4) = nullptr;
 }
 RT3_REPLACE(0x5512a0, Texture_ReleaseHandles);
@@ -732,7 +732,7 @@ void __fastcall Font_Create(uint8_t* t) {
         strcpy(face, F<const char*>(rec, 4));
         int32_t charset = 1;
         if (HasString(0xfc8)) strcpy(face, GetString(0xfc8));
-        if (HasString(0xfc9)) charset = ((int(__cdecl*)(const char*))0x5a1ea5)(GetString(0xfc9));
+        if (HasString(0xfc9)) charset = crt::atoi(GetString(0xfc9));
         if (i == 0) {
             if (!HasString(F<int32_t>(rec, 0))) continue;
             strcpy(face, GetString(F<int32_t>(rec, 0)));
@@ -742,25 +742,24 @@ void __fastcall Font_Create(uint8_t* t) {
         uint8_t* g = g_engine;
         int32_t screenH = F<int32_t>(F<uint8_t*>(g, 0x34) + F<int32_t>(g, 0x11421e) * 0x15, 4);
         int32_t height = Ftol(size * ((double)screenH * g_5d0770));
-        F<void*>(t, 4) = Import<void*(__stdcall*)(int, int, int, int, int, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t,
-                                                  uint32_t, uint32_t, uint32_t, const char*)>(0x5c805c)(
+        F<void*>(t, 4) = imp::CreateFontA(
             height, 0, 0, 0, F<int32_t>(rec, 0x10), 0, 0, 0, (uint32_t)charset, 0, 0, 0, 0, face);
-        void* dc = Import<void*(__stdcall*)(void*)>(0x5c8040)(nullptr);
-        Import<void*(__stdcall*)(void*, void*)>(0x5c803c)(dc, F<void*>(t, 4));
+        void* dc = imp::CreateCompatibleDC(nullptr);
+        imp::SelectObject(dc, F<void*>(t, 4));
         int32_t tm[0xe];
-        Import<int(__stdcall*)(void*, int32_t*)>(0x5c8038)(dc, tm);
+        imp::GetTextMetricsA(dc, tm);
         F<float>(t, 8) = (float)((double)tm[0] / F<int32_t>(F<uint8_t*>(g, 0x34) + F<int32_t>(g, 0x11421e) * 0x15, 4));
-        Import<int(__stdcall*)(void*, int, char*)>(0x5c8034)(dc, 0x1f4, picked);
+        imp::GetTextFaceA(dc, 0x1f4, picked);
         if (i == 0) {
-            if (Stricmp(picked, face)) {
-                Import<int(__stdcall*)(void*)>(0x5c8030)(dc);
-                Import<int(__stdcall*)(void*)>(0x5c8058)(F<void*>(t, 4));
+            if (crt::stricmp(picked, face)) {
+                imp::DeleteDC(dc);
+                imp::DeleteObject(F<void*>(t, 4));
                 F<void*>(t, 4) = nullptr;
                 continue;
             }
             i = 999;
         }
-        Import<int(__stdcall*)(void*)>(0x5c8030)(dc);
+        imp::DeleteDC(dc);
     }
     uint8_t* g = g_engine;
     ((int32_t(__stdcall*)(void*, void*, uint8_t*))0x5711b5)(F<void*>(g, 8), F<void*>(t, 4), t);
@@ -848,7 +847,7 @@ void __fastcall Font_DrawText(uint8_t* f, int, const char* text, float x, float 
         }
         if (!(widest > lineW.f)) widest = lineW.f;
         if (line >= firstLine) yOff = (float)(((double)F<float>(f, 0x1c) + F<float>(f, 0x28)) * F<float>(f, 0x14) + yOff);
-        if (copy && line == copyLine) ExeSprintf()(copy, buf);
+        if (copy && line == copyLine) crt::sprintf(copy, buf);
         ++line;
     }
     if (maxWidth) *maxWidth = widest;
@@ -864,7 +863,7 @@ uint8_t* __fastcall Font_Construct(uint8_t* t, int, int32_t key) {
     F<float>(t, 0x14) = 1.0f;
     F<int32_t>(t, 0xc) = idx;
     if (g_6d4034) F<int32_t>(t, 0x10) = 0;
-    ExeSprintf()((char*)0xd93858, F<const char*>(FontRec(idx), 8));
+    crt::sprintf((char*)0xd93858, F<const char*>(FontRec(idx), 8));
     F<uint32_t>(t, 0x68) = 0;
     for (int32_t o = 0x40; o <= 0x5c; o += 4) F<uint32_t>(t, o) = 0;
     F<float>(t, 0x60) = -1.0f;
@@ -1267,30 +1266,30 @@ RT3_REPLACE(0x552900, Glyph_QueueRotated);
 // bundled libjpeg: *width / *height get its size and the 24-bit pixels come back
 // in a new buffer (null when the file can't be opened).
 uint8_t* __fastcall Jpeg_Load(const char* path, int32_t* width, int32_t* height, int32_t offset) {
-    void* f = ((void*(__cdecl*)(const char*, const char*))0x5a1887)(path, (const char*)0x5c9678);
+    void* f = crt::fopen(path, (const char*)0x5c9678);
     if (!f) return nullptr;
-    if (offset) ((int(__cdecl*)(void*, int32_t, int))0x5a261f)(f, offset, 0);
+    if (offset) crt::fseek(f, offset, 0);
     struct {
         uint8_t* row;
         uint8_t cinfo[0x1a0];
         uint8_t err[0x84];
     } l;
-    F<void*>(l.cinfo, 0) = ((void*(__fastcall*)(void*))0x5b3b30)(l.err);
-    ((void(__fastcall*)(void*, int32_t, int32_t))0x5b3230)(l.cinfo, 0x3e, 0x19f);
-    ((void(__fastcall*)(void*, void*))0x5b3980)(l.cinfo, f);
-    ((int(__fastcall*)(void*, uint8_t))0x5b3610)(l.cinfo, 1);
-    ((int(__fastcall*)(void*))0x5b37e0)(l.cinfo);
+    F<void*>(l.cinfo, 0) = jpeg::std_error(l.err);
+    jpeg::CreateDecompress(l.cinfo, 0x3e, 0x19f);
+    jpeg::stdio_src(l.cinfo, f);
+    jpeg::read_header(l.cinfo, 1);
+    jpeg::start_decompress(l.cinfo);
     uint32_t w = F<uint32_t>(l.cinfo, 0x52), h = F<uint32_t>(l.cinfo, 0x56);
     *width = (int32_t)w;
     *height = (int32_t)h;
-    uint8_t* buf = ((uint8_t*(__cdecl*)(size_t))0x5a125d)(h * w * 3);
+    uint8_t* buf = ((uint8_t*)crt::malloc(h * w * 3));
     while (F<uint32_t>(l.cinfo, 0x6e) < F<uint32_t>(l.cinfo, 0x56)) {
         l.row = buf + F<uint32_t>(l.cinfo, 0x6e) * F<uint32_t>(l.cinfo, 0x52) * 3;
-        ((uint32_t(__fastcall*)(void*, uint8_t**, uint32_t))0x5b3740)(l.cinfo, &l.row, 1);
+        jpeg::read_scanlines(l.cinfo, &l.row, 1);
     }
-    ((int(__fastcall*)(void*))0x5b3550)(l.cinfo);
-    ((void(__fastcall*)(void*))0x5b3300)(l.cinfo);
-    ((int(__cdecl*)(void*))0x5a1740)(f);
+    jpeg::finish_decompress(l.cinfo);
+    jpeg::destroy_decompress(l.cinfo);
+    crt::fclose(f);
     return buf;
 }
 RT3_REPLACE(0x552e20, Jpeg_Load);
@@ -1352,7 +1351,7 @@ RT3_REPLACE(0x552ff0, Nop552ff0);
 // the packer's 1 comes back; otherwise both are cleared and the error returned
 // (-5: output overflow, -6: no memory, -7: unknown method).
 int32_t __fastcall Pack_Compress(int32_t* p, int, const void* src, int32_t n, uint8_t** out, int32_t* outSize) {
-    uint8_t* buf = ((uint8_t*(__cdecl*)(size_t))0x5a125d)((size_t)(n + 0x10));
+    uint8_t* buf = ((uint8_t*)crt::malloc((size_t)(n + 0x10)));
     if (!buf) return -6;
     int32_t ctx[6] = { (int32_t)(uintptr_t)src, 0, n, (int32_t)(uintptr_t)buf, 0, n };
     g_d93984 = ctx;
@@ -1373,7 +1372,7 @@ int32_t __fastcall Pack_Compress(int32_t* p, int, const void* src, int32_t n, ui
     if (failed) {
         *out = nullptr;
         *outSize = 0;
-        ((void(__cdecl*)(void*))0x5a1145)(buf);
+        crt::free(buf);
         return r;
     }
     F<int32_t>((void*)(uintptr_t)ctx[3], 8) = c[2];
@@ -1391,7 +1390,7 @@ RT3_REPLACE(0x553000, Pack_Compress);
 // memory, -7: unknown method). The packer's method +0 is restored afterwards.
 int32_t __fastcall Pack_Decompress(int32_t* p, int, const int32_t* src, int32_t n, uint8_t** out, int32_t* outSize) {
     if (src[0] != 0xbabe) return -4;
-    uint8_t* buf = ((uint8_t*(__cdecl*)(size_t))0x5a125d)((size_t)src[2]);
+    uint8_t* buf = ((uint8_t*)crt::malloc((size_t)src[2]));
     if (!buf) return -6;
     int32_t ctx[6] = { (int32_t)(uintptr_t)src, 0, n > 0 ? n : src[1], (int32_t)(uintptr_t)buf, 0, src[2] };
     int32_t saved = p[0];
@@ -1406,7 +1405,7 @@ int32_t __fastcall Pack_Decompress(int32_t* p, int, const int32_t* src, int32_t 
     if (r != 1) {
         *out = nullptr;
         *outSize = 0;
-        ((void(__cdecl*)(void*))0x5a1145)(buf);
+        crt::free(buf);
         return r;
     }
     *out = buf;
@@ -1483,7 +1482,7 @@ RT3_NOINLINE int32_t __fastcall Terrain_Load(uint8_t* t, int, Stream s, const ch
             for (int32_t j = 0, y = 0; j < F<int32_t>(t, 0x15d5) >> 4; ++j, y += 0x5c0) {
                 total += StreamRead(s, &packed, 1, 0, 1);
                 if (!(uint8_t)packed) continue;
-                uint8_t* g = ((uint8_t*(__cdecl*)(size_t))0x53b070)(0x54);
+                uint8_t* g = ((uint8_t*)crt::operator_new(0x54));
                 g = g ? BlockGrid_Init(g, 0, (float)x, (float)y) : nullptr;
                 F<uint8_t**>(t, 0x1685)[(F<int32_t>(t, 0x15d9) >> 4) * j + i] = g;
                 BlockGrid_Load(F<uint8_t**>(t, 0x1685)[(F<int32_t>(t, 0x15d9) >> 4) * j + i], 0, s);

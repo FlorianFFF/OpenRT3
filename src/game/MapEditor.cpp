@@ -16,6 +16,8 @@
 
 namespace rt3 {
 
+void __fastcall MapEditor_Stroke(uint8_t* d, int, float x, float y, int32_t first, int32_t erase);
+
 template <typename T> static inline T& F(void* o, uint32_t off) { return *(T*)((uint8_t*)o + off); }
 static const int32_t* const kDirX = (const int32_t*)0x624b28;
 static const int32_t* const kDirY = (const int32_t*)0x624b48;
@@ -339,7 +341,7 @@ RT3_REPLACE(0x4f6930, Overlay_ValueAt);
 void __fastcall PercentDialog_SliderCb(uint8_t* w, int32_t v) {
     if (!g_6d1334) return;
     char text[0x80];
-    ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)(text, (const char*)0x5d0b18, v);
+    crt::sprintf(text, (const char*)0x5d0b18, v);
     Window_SendEvent5(g_6d1334, 0, 0x6f, F<uint16_t>(w, 4) + 3u, (uint32_t)(uintptr_t)text, 0, 0);
     *(int32_t*)(g_6d1334 + F<uint16_t>(w, 4) * 8 - 0x150b4) = v;
     if (!g_6d1330) Window_BalancePercentages(g_6d1334);
@@ -482,7 +484,7 @@ int32_t __fastcall MapEditor_HandleEvent(uint8_t* d, int, uint32_t* msg) {
             // selection fill as a preview in overview 0x17.
             if (F<int32_t>(d, 0x8c) != 1 || !F<int32_t>(d, 0xa4)) return 1;
             if (!Scene_FocusFlagIs1(&x, &y)) goto overview17;
-            uint8_t* buf = ((uint8_t*(__cdecl*)(size_t))0x5a125d)((size_t)(F<int32_t>(world, 0x2159) * F<int32_t>(world, 0x2155)));
+            uint8_t* buf = ((uint8_t*)crt::malloc((size_t)(F<int32_t>(world, 0x2159) * F<int32_t>(world, 0x2155))));
             MapEditor_FillPaint(d, 0, x, y, ((const float*)0x622790)[F<int32_t>(d, 0x9c)], F<int32_t>(d, 0x88), F<int32_t>(d, 0xa0),
                                 F<uint32_t>(d, 0x80), g_622758, ~(msg[8] >> 2) & 1, buf, 0);
             uint8_t* w = g_map;
@@ -490,7 +492,7 @@ int32_t __fastcall MapEditor_HandleEvent(uint8_t* d, int, uint32_t* msg) {
                 Overview_Redraw(w, 0, buf);
             else
                 Overview_SetMode(w, 0, 0x17, 0, 0, 0, buf, 0, 0, 0x1869f, 0x1869f);
-            ((void(__cdecl*)(void*))0x5a1145)(buf);
+            crt::free(buf);
             return 1;
         }
         Loading_Pump(g_app, 0, 0, 0);
@@ -668,20 +670,20 @@ int32_t __fastcall MapEditor_HandleEvent(uint8_t* d, int, uint32_t* msg) {
         ++F<int32_t>(app, 0x100);
         F<int32_t>(d, 0x84) = 1;
         F<int32_t>(d, 0xf0) = 0;
-        if (F<void*>(d, 0xf4)) ((void(__cdecl*)(void*))0x5a1145)(F<void*>(d, 0xf4));
-        if (F<void*>(d, 0xf8)) ((void(__cdecl*)(void*))0x5a1145)(F<void*>(d, 0xf8));
+        if (F<void*>(d, 0xf4)) crt::free(F<void*>(d, 0xf4));
+        if (F<void*>(d, 0xf8)) crt::free(F<void*>(d, 0xf8));
         F<void*>(d, 0xf4) = nullptr;
         F<void*>(d, 0xf8) = nullptr;
         memcpy(F<void*>(d, 0x118), F<void*>(d, 0x114), (size_t)(F<int32_t>(d, 0xfc) * F<int32_t>(d, 0x100) * 4));
         F<int32_t>(d, 0x110) = F<int32_t>(d, 0x10c) = F<int32_t>(d, 0x108) = F<int32_t>(d, 0x104) = 0;
         g_622844 = x;
         g_622848 = y;
-        if (void* p = g_6d132c) ((void(__cdecl*)(void*))0x5a1145)(p);
+        if (void* p = g_6d132c) crt::free(p);
         g_6d132c = nullptr;
         uint8_t* mask = g_6d1338;
         if (!mask) {
             uint8_t* w = g_map;
-            mask = ((uint8_t*(__cdecl*)(size_t))0x5a125d)((size_t)(F<int32_t>(w, 0x2159) * F<int32_t>(w, 0x2155)));
+            mask = ((uint8_t*)crt::malloc((size_t)(F<int32_t>(w, 0x2159) * F<int32_t>(w, 0x2155))));
             g_6d1338 = mask;
         }
         uint8_t* w = g_map;
@@ -714,7 +716,7 @@ paint:
         MapBrush_PaintBit3(d, 0, x, y);
         return 0;
     default:
-        ((void(__thiscall*)(uint8_t*, float, float, int32_t, int32_t))0x4fc630)(d, x, y, first, 0);
+        MapEditor_Stroke(d, 0, x, y, first, 0);
         return 0;
     }
 overview17:
@@ -760,11 +762,11 @@ uint8_t* __fastcall MapEditorWindow_Construct(uint8_t* w) {
     F<int32_t>(w, 0x1f4) = 0x80;
     F<uint32_t*>(w, 0x114) = Terrain_ExtractTexture((uint8_t*)Engine_Get1C(hook::As<void*>(g_engine)), 0, 0.0f, 0.0f, 1.0f, 1.0f, nullptr, nullptr);
     Render_GetSize4((uint8_t*)Engine_Get1C(hook::As<void*>(g_engine)), 0, (int32_t*)(w + 0xfc), (int32_t*)(w + 0x100));
-    F<void*>(w, 0x118) = Malloc(F<int32_t>(w, 0xfc) * F<int32_t>(w, 0x100) * 4);
+    F<void*>(w, 0x118) = crt::malloc(F<int32_t>(w, 0xfc) * F<int32_t>(w, 0x100) * 4);
     F<int32_t>(w, 0x1e4) = -1;
     for (int32_t k = 0; k < 10; ++k) {
-        F<void*>(w, 0x11c + k * 4) = Malloc(F<int32_t>(w, 0xfc) * F<int32_t>(w, 0x100) * 4);
-        for (int32_t j = 0; j < 4; ++j) F<void*>(w, 0x144 + (k * 4 + j) * 4) = Malloc(Map_PointCount(hook::As<void*>(g_map)));
+        F<void*>(w, 0x11c + k * 4) = crt::malloc(F<int32_t>(w, 0xfc) * F<int32_t>(w, 0x100) * 4);
+        for (int32_t j = 0; j < 4; ++j) F<void*>(w, 0x144 + (k * 4 + j) * 4) = crt::malloc(Map_PointCount(hook::As<void*>(g_map)));
     }
     Editor_PushUndo(w);
     F<uint32_t>(w, 0xf0) = 0;
@@ -946,10 +948,6 @@ RT3_REPLACE(0x4f89b0, Map_FloodFill);
 RT3_NOINLINE void __fastcall MapEditor_PaintPath(uint8_t* d, int, int32_t cnt, float* xs, float* ys, float rad, float strength, int32_t colorMode,
                                     int32_t tex, uint32_t color, int32_t hard, int32_t erase) {
     (void)colorMode;
-    auto crtMalloc = (void*(__cdecl*)(size_t))0x5a125d;
-    auto crtFree = (void(__cdecl*)(void*))0x5a1145;
-    auto fabs_ = (double(__cdecl*)(double))0x5a152e;
-    auto sqrt_ = (double(__cdecl*)(double))0x5a1634;
     auto world = []() { return g_map; };
     if (!cnt) return;
     ++F<int32_t>(world(), 0x2205);
@@ -997,8 +995,8 @@ RT3_NOINLINE void __fastcall MapEditor_PaintPath(uint8_t* d, int, int32_t cnt, f
     }
     const float invRX = (float)(D(0x5c8770) / rTexX);
     const float invRY = (float)(D(0x5c8770) / rTexY);
-    float* us = (float*)crtMalloc((size_t)(cnt * 4));
-    float* vs = (float*)crtMalloc((size_t)(cnt * 4));
+    float* us = (float*)crt::malloc((size_t)(cnt * 4));
+    float* vs = (float*)crt::malloc((size_t)(cnt * 4));
     for (int32_t i = first; i < cnt; ++i) {
         us[i] = sx * xs[i];
         vs[i] = sy * ys[i];
@@ -1033,7 +1031,7 @@ RT3_NOINLINE void __fastcall MapEditor_PaintPath(uint8_t* d, int, int32_t cnt, f
     if (lim < v) v = lim;
     F<int32_t>(d, 0x110) = Ftol(v);
     const size_t cells = (size_t)(F<int32_t>(world(), 0x2159) * F<int32_t>(world(), 0x2155));
-    uint8_t* seen = (uint8_t*)crtMalloc(cells);
+    uint8_t* seen = (uint8_t*)crt::malloc(cells);
     memset(seen, 0, cells);
     const int32_t tool = F<int32_t>(d, 0x90);
     uint8_t tR = 0, tG = 0, tB = 0, tA = 0;
@@ -1049,9 +1047,9 @@ RT3_NOINLINE void __fastcall MapEditor_PaintPath(uint8_t* d, int, int32_t cnt, f
         const int32_t bw = F<int32_t>(d, 0x10c) - F<int32_t>(d, 0x104), bh = F<int32_t>(d, 0x110) - F<int32_t>(d, 0x108);
         nBlobs = bh * bw / 12;
         if (nBlobs <= 1) nBlobs = 1;
-        blobX = (int32_t*)crtMalloc((size_t)(nBlobs * 4));
-        blobY = (int32_t*)crtMalloc((size_t)(nBlobs * 4));
-        blobT = (int32_t*)crtMalloc((size_t)(nBlobs * 4));
+        blobX = (int32_t*)crt::malloc((size_t)(nBlobs * 4));
+        blobY = (int32_t*)crt::malloc((size_t)(nBlobs * 4));
+        blobT = (int32_t*)crt::malloc((size_t)(nBlobs * 4));
         for (int32_t k = 0; k < nBlobs; ++k) {
             blobX[k] = SimRand(0, bw - 1);
             blobY[k] = SimRand(0, bh - 1);
@@ -1078,9 +1076,9 @@ RT3_NOINLINE void __fastcall MapEditor_PaintPath(uint8_t* d, int, int32_t cnt, f
                 if (snap) {
                     dd = (float)tx == us[i] && (float)ty == vs[i] ? 0.0f : BitsF(0x497423f0);
                 } else {
-                    const float dx = (float)fabs_((double)(float)tx - us[i]);
+                    const float dx = (float)crt::fabs((double)(float)tx - us[i]);
                     if (dx > rTexX) continue;
-                    const float dy = (float)fabs_((double)(float)ty - vs[i]);
+                    const float dy = (float)crt::fabs((double)(float)ty - vs[i]);
                     if (dy > rTexY) continue;
                     const float ex = dx * invRX, ey = dy * invRY;
                     dd = (float)((double)ey * ey + (double)ex * ex);
@@ -1101,7 +1099,7 @@ RT3_NOINLINE void __fastcall MapEditor_PaintPath(uint8_t* d, int, int32_t cnt, f
                     float alpha = strength;
                     const float cy = (float)py / sy;
                     uint8_t* pix = F<uint8_t*>(d, 0x114) + (F<int32_t>(d, 0xfc) * py + px) * 4;
-                    const float dist = (float)sqrt_(bestD);
+                    const float dist = (float)crt::sqrt(bestD);
                     if (!hard) {
                         if (erase)
                             alpha = (float)((D(0x5c8770) - dist) * strength);
@@ -1287,8 +1285,8 @@ RT3_NOINLINE void __fastcall MapEditor_PaintPath(uint8_t* d, int, int32_t cnt, f
         const int32_t ir = Ftol(reach);
         float lastX = BitsF(0xc2c60000), lastY = BitsF(0xc2c60000);
         for (int32_t i = 0; i < cnt; ++i) {
-            const double dy = fabs_((double)lastY - ys[i]);
-            if (fabs_((double)lastX - xs[i]) + dy < D(0x5c8758)) continue;
+            const double dy = crt::fabs((double)lastY - ys[i]);
+            if (crt::fabs((double)lastX - xs[i]) + dy < D(0x5c8758)) continue;
             lastX = xs[i];
             lastY = ys[i];
             const int32_t cx = Ftol(xs[i]);
@@ -1456,14 +1454,14 @@ RT3_NOINLINE void __fastcall MapEditor_PaintPath(uint8_t* d, int, int32_t cnt, f
             ((void(__thiscall*)(uint8_t*, int32_t, int32_t, int32_t, int32_t))0x44d410)(world(), rx0, ry0, rx1, ry1);
         }
     }
-    crtFree(us);
-    crtFree(vs);
+    crt::free(us);
+    crt::free(vs);
     if (F<int32_t>(d, 0x8c) == 5) {
-        crtFree(blobX);
-        crtFree(blobY);
-        crtFree(blobT);
+        crt::free(blobX);
+        crt::free(blobY);
+        crt::free(blobT);
     }
-    crtFree(seen);
+    crt::free(seen);
 }
 RT3_REPLACE(0x4f8bb0, MapEditor_PaintPath);
 
@@ -1493,7 +1491,7 @@ RT3_NOINLINE void __fastcall MapEditor_FillPaint(uint8_t* ed, int, float x, floa
     int32_t W = F<int32_t>(m, 0x2155), H = F<int32_t>(m, 0x2159);
     int32_t owned = 0;
     if (!mask) {
-        mask = (uint8_t*)Malloc((size_t)(H * W));
+        mask = (uint8_t*)crt::malloc((size_t)(H * W));
         owned = 1;
     }
     memset(mask, 0, (size_t)(uint32_t)(H * W));
@@ -1634,7 +1632,7 @@ RT3_NOINLINE void __fastcall MapEditor_FillPaint(uint8_t* ed, int, float x, floa
             Map_RebuildCoast(g_map, 0, 0, 0, 0x270f, 0x270f, F<uint32_t*>(ed, 0x114));
         }
     }
-    if (owned) Free(mask);
+    if (owned) crt::free(mask);
     if (uint8_t* mm = g_gameWindow)
         if (uint8_t* w = Widget_FindChild(mm, 0, 0x808))
             MinimapWidget_Refresh(w, 0, 1, F<uint32_t*>(ed, 0x114), F<int32_t>(ed, 0xfc), F<int32_t>(ed, 0x100));

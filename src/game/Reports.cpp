@@ -219,7 +219,6 @@ static inline float BitsF(uint32_t b) { return *(float*)&b; }
 
 static inline double BitsD(uint64_t b) { return *(double*)&b; }
 
-static inline SprintfFn ExeSprintf() { return (SprintfFn)0x5a19c4; }
 
 // Report rows (0x622188, 0x16 bytes, 20 per mode; row 0 is the header): stat
 // +0xa (-1: blank / heading), extra gap +0xe, flags +0x12 (underline) / +0x13
@@ -239,7 +238,6 @@ void NamePrompt479(char* name) {
                       (void(__fastcall*)(uint8_t*, int, uint32_t, uint32_t, uint32_t, float))0x4e1fa0, 0, BitsF(0x3e2aaaab),
                       (uint32_t)(uintptr_t)name, 0x1e, 0, nullptr, nullptr, 0, 0, nullptr, 0);
 }
-int Stricmp479(const char* a, const char* b) { return ((int(__cdecl*)(const char*, const char*))0x5a57cf)(a, b); }
 // A rename request to the host: our peer, the record's position, the name.
 void SendName479(uint32_t type, Collection* table, uint32_t id, const char* name) {
     uint32_t req[0x22] = {};
@@ -300,8 +298,8 @@ RT3_NOINLINE int32_t __fastcall FacePicker_OnClick(uint8_t* w, uint32_t* ev) {
             p[0x15c] = 0x29;
             const char* name = (const char*)Collection_Get(table(), 0, Collection_IdAt(table(), 0, (uint32_t)(idx - 0x29), 0));
             StrCopyN((char*)p + 0xc47, name, 0x1e);
-            ExeSprintf()(buf, name + 0x40);
-        } else ExeSprintf()(buf, (const char*)0x5d0ab0, idx);
+            crt::sprintf(buf, name + 0x40);
+        } else crt::sprintf(buf, (const char*)0x5d0ab0, idx);
         Window_SendEvent5(w, 0, 0x70, 0x3f1f, (uint32_t)(uintptr_t)buf, 0, 0);
         return 0;
     }
@@ -750,7 +748,7 @@ int32_t __fastcall CompanyWindow_OnEvent(uint8_t* w, int, uint32_t* msg) {
         char name[0x1e8];
         strcpy(name, (const char*)p + 8);
         NamePrompt479(name);
-        if (name[0] && Stricmp479(name, (const char*)p + 8) && strlen(name) <= 0x1e) {
+        if (name[0] && crt::stricmp(name, (const char*)p + 8) && strlen(name) <= 0x1e) {
             if (!IsMultiplayer())
                 Obj_SetName8(p, 0, name);
             else if (Net_HasPlayer(g_session, 0, name) == 1)
@@ -772,13 +770,13 @@ int32_t __fastcall CompanyWindow_OnEvent(uint8_t* w, int, uint32_t* msg) {
         char name[0x1e8];
         strcpy(name, (const char*)c + 4);
         NamePrompt479(name);
-        if (name[0] && Stricmp479(name, (const char*)c + 4) && strlen(name) <= 0x32) {
+        if (name[0] && crt::stricmp(name, (const char*)c + 4) && strlen(name) <= 0x32) {
             if (!IsMultiplayer()) {
                 StrCopyN((char*)c + 4, name, 0x32);
             } else {
                 bool taken = false;
                 for (int32_t i = 0; i < Collection_Count(g_companies); ++i)
-                    if (!Stricmp479((const char*)Collection_RecordAt2(g_companies, 0, (uint32_t)i) + 4, name)) {
+                    if (!crt::stricmp((const char*)Collection_RecordAt2(g_companies, 0, (uint32_t)i) + 4, name)) {
                         taken = true;
                         break;
                     }
@@ -827,7 +825,7 @@ RT3_NOINLINE void __fastcall Ledger_Init(uint8_t* w, int, int32_t tab, int32_t y
     F<uint8_t*>(w, 0xb25) = Pack_AcquireNamed(pack(), 0, (const char*)0x5d0f04);
     char buf[0x100];
     for (int32_t i = 0; i < 0x29; ++i) {
-        ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)(buf, (const char*)0x5d0ab0, i);
+        crt::sprintf(buf, (const char*)0x5d0ab0, i);
         F<uint8_t*>(w, 0x761 + i * 4) = Pack_AcquireNamed(pack(), 0, buf);
     }
     for (int32_t j = 0; j < Collection_Count(F<Collection*>(pack(), 0x429b4)); ++j) {
@@ -856,9 +854,9 @@ RT3_NOINLINE void __fastcall Ledger_Init(uint8_t* w, int, int32_t tab, int32_t y
     char num[0x100], digit[0x10];
     Num_Format(num, 8, (double)F<int32_t>(w, 0x9c), 10, 1, 0, 0);
     for (int32_t i = 0; i < 4; ++i) {
-        ((char*(__cdecl*)(char*, const char*, size_t))0x5a18a0)(digit, num + i, 1);
+        crt::strncpy(digit, num + i, 1);
         digit[1] = 0;
-        Window_SendEvent5(w, 0, 0x6c, 0x3f14 + i, ((int(__cdecl*)(const char*))0x5a1ea5)(digit) + 2, 0, 0);
+        Window_SendEvent5(w, 0, 0x6c, 0x3f14 + i, crt::atoi(digit) + 2, 0, 0);
     }
 }
 RT3_REPLACE(0x4e4b10, Ledger_Init);
@@ -881,7 +879,7 @@ RT3_NOINLINE void __fastcall Ledger_Open(int32_t company) {
     int32_t mode = F<int32_t>(g_gameWindow, 0x8c);
     int32_t cursor = F<int32_t>(g_cursorManager, 4);
     Cursor_Set(g_cursorManager, 0, 1, 0, 0);
-    uint8_t* w = (uint8_t*)((void*(__cdecl*)(size_t))0x53b070)(0xe59);
+    uint8_t* w = (uint8_t*)crt::operator_new(0xe59);
     if (w) {
         Widget_SetVtblRet(w);
         F<uint32_t>(w, 0) = 0x5d1058;
@@ -894,7 +892,7 @@ RT3_NOINLINE void __fastcall Ledger_Open(int32_t company) {
     Windows_Remove(g_windowManager, 0, g_6d10a8);
     if (uint8_t* p = g_6d10a8) {
         PortraitWindow_Destruct(p);
-        ((void(__cdecl*)(void*))0x53b080)(p);
+        crt::operator_delete(p);
     }
     g_6d10a8 = nullptr;
     if (mode == F<int32_t>(g_gameWindow, 0x8c) && F<int32_t>(g_cursorManager, 4) != 6)
@@ -1513,7 +1511,7 @@ RT3_NOINLINE void __fastcall CompanyTrains_Draw(uint8_t* p, int, float x, float 
             Font_DrawTextBox(F<uint8_t*>(p, 0xe55), 0, buf, cxv, rowY, BitsF(wd), BitsF(0x3d2c0831), color, 3, 0, 2, 1.0f);
         };
         auto percent = [&](uint32_t off) {
-            ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)(buf, (const char*)0x5d0b18, Ftol((double)F<float>(t, off) * D(0x5c85d8)));
+            crt::sprintf(buf, (const char*)0x5d0b18, Ftol((double)F<float>(t, off) * D(0x5c85d8)));
         };
         Num_Format(buf, 8, (double)age, 10, 1, 0, 0);
         cell(colX, 0x3d23d70a);
@@ -1763,12 +1761,12 @@ RT3_NOINLINE void __fastcall CompanyStations_Draw(uint8_t* p, int, float x, floa
                 bool take;
                 if (!p[0x760]) {
                     if (sortKey) take = v > bestVal;
-                    else take = !bestName || Stricmp(name, bestName) < 0;
+                    else take = !bestName || crt::stricmp(name, bestName) < 0;
                     if (take) bestVal = v;
                 } else if (sortKey)
                     take = v < bestVal;
                 else
-                    take = !bestName || Stricmp(name, bestName) > 0;
+                    take = !bestName || crt::stricmp(name, bestName) > 0;
                 if (take) {
                     best = n - 1;
                     bestName = name;

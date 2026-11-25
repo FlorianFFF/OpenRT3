@@ -13,6 +13,7 @@
 #include "game/collection.h"
 #include "core/stream.h"
 #include "core/crt.h"
+#include "core/imports.h"
 #include "core/ptrlist.h"
 #include "core/containers.h"
 #include "hook/keepregs.h"
@@ -187,7 +188,7 @@ RT3_NOINLINE void __fastcall Territories_AddTestSet(Collection* t) {
     for (int32_t i = 1; i <= 0x18; ++i) {
         Loading_Pump(g_app, 0, 0, 0);
         char num[0x20], name[0x120];
-        ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)(num, (const char*)0x5c9aec, i);
+        crt::sprintf(num, (const char*)0x5c9aec, i);
         FormatText(name, GetString(0x11e), num, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
         alignas(8) uint8_t tmp[0xde0];
         Station_Construct(tmp);
@@ -223,7 +224,7 @@ RT3_REPLACE(0x4883b0, CountWords);
 // its words are added to the running count 0x6cfca0.
 RT3_NOINLINE void __fastcall Text_ExportLine(int32_t st, int32_t section, int32_t item, int32_t sub, const char* text) {
     int32_t len = (int32_t)strlen(text);
-    char* buf = (char*)((void*(__cdecl*)(size_t))0x5a125d)(len * 2 + 0x32);
+    char* buf = (char*)crt::malloc(len * 2 + 0x32);
     strcpy(buf, text);
     Str_Replace(buf, len * 2, (const char*)0x5cf130, (const char*)0x5cf134, 1);
     Str_Replace(buf, len * 2, (const char*)0x5c9ce8, (const char*)0x5cf134, 1);
@@ -234,7 +235,7 @@ RT3_NOINLINE void __fastcall Text_ExportLine(int32_t st, int32_t section, int32_
     Num_Format(num, 8, (double)id, 10, 1, 0, 0);
     FormatText(line, (const char*)0x5cf120, num, buf, 0, 0, 0, 0, 0, 0);
     StreamWrite(st, line, (uint32_t)strlen(line), 0);
-    Free(buf);
+    crt::free(buf);
 }
 RT3_REPLACE(0x4883f0, Text_ExportLine);
 
@@ -268,7 +269,7 @@ RT3_NOINLINE int32_t __fastcall Text_NextNumberedString(char** cursor, int32_t* 
         }
         if (n != -1 && start && end && (uint32_t)(end - 1) >= (uint32_t)start) {
             uint32_t len = (uint32_t)(end - start) + 1;
-            char* s = (char*)Malloc(len + 1);
+            char* s = (char*)crt::malloc(len + 1);
             *out = s;
             if (len) memcpy(s, start, len);
             (*out)[len] = 0;
@@ -377,7 +378,7 @@ RT3_NOINLINE int32_t __fastcall ScenarioText_Export(const char* name, int32_t re
             int32_t lines = Font_CountLines(F<uint8_t*>(g_world, 0x46a9c), 0, body, Prod_Bits(0x3e9eb852), nullptr);
             if (lines > 6) {
                 char msg[0x4ac];
-                ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)(msg, (const char*)0x5cf160, name, (const char*)e + 0x18, lines, body);
+                crt::sprintf(msg, (const char*)0x5cf160, name, (const char*)e + 0x18, lines, body);
                 DebugLog(msg, -0x4d2, -0x4d2, -0x4d2, -0x4d2, -0x4d2, -0x4d2, -0x4d2, -0x4d2, -0x4d2);
             }
         }
@@ -391,7 +392,7 @@ RT3_NOINLINE int32_t __fastcall ScenarioText_Export(const char* name, int32_t re
         StreamWrite(s, (const void*)0x5cf130, 2, 0);
     }
     char trailer[0x1f4];
-    ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)(trailer, (const char*)0x5cf138, g_6cfca0);
+    crt::sprintf(trailer, (const char*)0x5cf138, g_6cfca0);
     StreamWriteText(s, trailer);
     StreamClose(s);
     FormatText(text, GetString(0xe6e), path, 0, 0, 0, 0, 0, 0, 0);
@@ -454,7 +455,7 @@ RT3_NOINLINE uint32_t __fastcall ScenarioText_Import(const char* name, int32_t r
         return 0;
     }
     int32_t size = StreamSize(s);
-    char* buf = (char*)Malloc(size + 1);
+    char* buf = (char*)crt::malloc(size + 1);
     StreamRead(s, buf, size, 0, 1);
     buf[size] = 0;
     StreamClose(s);
@@ -486,12 +487,11 @@ RT3_NOINLINE void __fastcall Maps_BatchScenarioText(int32_t import) {
         Dialog_RunMessage(GetString(0xe70), 1, 0xbf800000, 0xbf800000, 0, nullptr, 0, 0.0f, 0, 0x1e, 0, nullptr, nullptr, 0, 0, nullptr, 0);
         return;
     }
-    auto findFirst = hook::Global<void*(__stdcall*)(const char*, void*)>(0x5c8190);
-    auto findNext = hook::Global<int32_t(__stdcall*)(void*, void*)>(0x5c8194);
-    auto findClose = hook::Global<int32_t(__stdcall*)(void*)>(0x5c819c);
+    auto findFirst = ((void*(__stdcall*)(const char*, void*))imp::FindFirstFileA);
+    auto findNext = imp::FindNextFileA;
+    auto findClose = imp::FindClose;
     char names[100][200], msg[5000], failed[3000], pattern[504], status[400], stem[304], num1[0x30], num2[0x30];
     char fd[0x140];
-    auto sprintf_ = (int(__cdecl*)(char*, const char*, ...))0x5a19c4;
     g_6cfca4 = 1;
     int32_t count = 0, exported = 0, imported = 0;
     failed[0] = 0;
@@ -505,7 +505,7 @@ RT3_NOINLINE void __fastcall Maps_BatchScenarioText(int32_t import) {
     for (int32_t i = 0; i < count; ++i) {
         const char* name = names[i];
         F<int32_t>(g_newGame, 1) = 3;
-        sprintf_(status, (const char*)0x5cfcc4, i, count, GetString(0xe71), name);
+        crt::sprintf(status, (const char*)0x5cfcc4, i, count, GetString(0xe71), name);
         Status_SetMessage(g_windowManager, 0, status);
         F<int32_t>(g_app, 0x6c) = 1;
         World_Load(g_world, 0, name, 0, nullptr);
@@ -517,7 +517,7 @@ RT3_NOINLINE void __fastcall Maps_BatchScenarioText(int32_t import) {
             exported += ScenarioText_Export(stem, 0);
         } else if (ScenarioText_Import(stem, 0)) {
             ++imported;
-            sprintf_(status, (const char*)0x5cfcc4, i, count, GetString(0xe72), name);
+            crt::sprintf(status, (const char*)0x5cfcc4, i, count, GetString(0xe72), name);
             Status_SetMessage(g_windowManager, 0, status);
             World_Save(g_world, 0, name, 0, nullptr);
         } else {
@@ -559,7 +559,7 @@ RT3_REPLACE(0x489e80, Effect489e80_Release);
 // 0x489e90. Pushes an undo record (0x42 bytes: state, flags and the corners) onto
 // the chain +0x244 and sets the new state (+0x240, +0x218).
 void __fastcall Vehicle_PushState(uint8_t* o, int, uint32_t state, uint8_t mode) {
-    uint8_t* p = (uint8_t*)Malloc(0x42);
+    uint8_t* p = (uint8_t*)crt::malloc(0x42);
     F<uint32_t>(p, 0) = F<uint32_t>(o, 0x240);
     p[4] = o[0x218];
     p[5] = o[0x216];
@@ -580,7 +580,7 @@ RT3_REPLACE(0x489e90, Vehicle_PushState);
 RT3_NOINLINE void __fastcall Obj_FreeList244(uint8_t* o) {
     while (uint8_t* n = F<uint8_t*>(o, 0x244)) {
         F<uint8_t*>(o, 0x244) = F<uint8_t*>(n, 0xe);
-        Free(n);
+        crt::free(n);
     }
 }
 RT3_REPLACE(0x489f40, Obj_FreeList244);

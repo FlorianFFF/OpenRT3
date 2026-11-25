@@ -232,7 +232,7 @@ static inline double D(uint32_t va) { return *(const double*)va; }
 static inline uint32_t Obj_Refresh420410(void* o) { return ((uint32_t(__thiscall*)(void*))0x420410)(o); }
 
 static inline void Obj_Entry41fac0(void* o, int32_t i, char* name, void* out) {
-    ((void(__thiscall*)(void*, int32_t, char*, void*))0x41fac0)(o, i, name, out);
+    Obj_Entry37f(o, 0, i, name, (int32_t*)(out));
 }
 
 static inline void* Virtual80(void* o) { return ((void*(__thiscall*)(void*))(*(void***)o)[0x80 / 4])(o); }
@@ -246,7 +246,7 @@ static int HasEntryNamed(uint8_t* r, const char* name, char first) {
         char buf[0x200];
         float out;
         Obj_Entry41fac0(r, j, buf, &out);
-        if ((char)ToUpper(buf[0]) == first && Stricmp(buf, name) == 0) return 1;
+        if ((char)ToUpper(buf[0]) == first && crt::stricmp(buf, name) == 0) return 1;
     }
     return 0;
 }
@@ -404,14 +404,13 @@ RT3_REPLACE(0x420410, Obj_UpdatePortFlags);
 // "Port%02d"/"Warehouse%02d" with number n (once per change of n, +0x2f2).
 RT3_NOINLINE void __fastcall Obj_NumberPorts(void* o, int, int32_t n) {
     if (n == F<int32_t>(o, 0x2f2)) return;
-    auto sprintf_ = (int(__cdecl*)(char*, const char*, ...))0x5a19c4;
     for (int32_t i = 0; i < Collection_Count(F<Collection*>(o, 0x37f)); ++i) {
         Collection* t = F<Collection*>(o, 0x37f);
         char* name = (char*)Collection_Get(t, 0, Collection_IdAt(t, 0, i, 0));
         uint8_t* r = (uint8_t*)Table_GetByName(g_62b268, 0, name);
         if (!r) continue;
-        if (F<uint8_t>(r, 0xba)) sprintf_(name, (const char*)0x5c93e8, n);      // "Port%02d"
-        else if (F<uint8_t>(r, 0xbb)) sprintf_(name, (const char*)0x5c93d8, n); // "Warehouse%02d"
+        if (F<uint8_t>(r, 0xba)) crt::sprintf(name, (const char*)0x5c93e8, n);      // "Port%02d"
+        else if (F<uint8_t>(r, 0xbb)) crt::sprintf(name, (const char*)0x5c93d8, n); // "Warehouse%02d"
     }
     F<int32_t>(o, 0x2f2) = n;
 }
@@ -461,7 +460,7 @@ RT3_REPLACE(0x420650, Obj_StartAgeClock);
 RT3_NOINLINE void __fastcall BuildingObj_Teardown(uint8_t* o) {
     if (Collection* t = F<Collection*>(o, 0x37f)) {
         Collection_Destruct(t);
-        ((void(__cdecl*)(void*))0x53b080)(t);
+        crt::operator_delete(t);
     }
     F<void*>(o, 0x37f) = nullptr;
     Obj_UnlinkBuildings(o);
@@ -477,7 +476,7 @@ RT3_NOINLINE uint32_t __fastcall Obj_SetNamedAmount(void* o, int, const char* na
     int32_t i = 0;
     for (; i < Collection_Count(F<Collection*>(o, 0x37f)); ++i) {
         c = F<Collection*>(o, 0x37f);
-        if (Stricmp(name, (const char*)Collection_Get(c, 0, Collection_IdAt(c, 0, i, 0))) == 0) break;
+        if (crt::stricmp(name, (const char*)Collection_Get(c, 0, Collection_IdAt(c, 0, i, 0))) == 0) break;
     }
     const float zero = *(const float*)0x5c8598;
     if (i >= Collection_Count(F<Collection*>(o, 0x37f))) {
@@ -547,7 +546,7 @@ int32_t __fastcall City_Tooltip(uint8_t* c, int, char* dst, int32_t n, uint32_t*
     char* text = frame + 0x10;
     char* popText = frame + 0x140;
     char* popNum = frame + 0x26c;
-    ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)(text, (const char*)c + 0x356);
+    crt::sprintf(text, (const char*)c + 0x356);
     const int32_t pop = F<int32_t>(c, 0x276);
     if (pop) {
         Num_FormatSimple2(popNum, 0xb, (double)pop, 0xb);
@@ -638,10 +637,10 @@ void __fastcall Obj_CopyNamedAmounts(void* o, int, void* other) {
     Collection* c = F<Collection*>(o, 0x37f);
     if (c) {
         Collection_Destruct(c);
-        ((void(__cdecl*)(void*))0x53b080)(c);
+        crt::operator_delete(c);
     }
     F<Collection*>(o, 0x37f) = nullptr;
-    Collection* n = (Collection*)((void*(__cdecl*)(size_t))0x53b070)(0x88);
+    Collection* n = (Collection*)crt::operator_new(0x88);
     if (n) n = Collection_Construct(n, 0, 1, 0x22, 2, 2, 0, 0, 0);
     F<Collection*>(o, 0x37f) = n;
     for (int32_t i = 0; i < Collection_Count(F<Collection*>(other, 0x37f)); ++i) {
@@ -662,10 +661,10 @@ RT3_REPLACE(0x420e00, Obj_CopyNamedAmounts);
 RT3_NOINLINE void __fastcall City_ResetBuildingMix(uint8_t* c) {
     if (Collection* old = F<Collection*>(c, 0x37f)) {
         Collection_Destruct(old);
-        ((void(__cdecl*)(void*))0x53b080)(old);
+        crt::operator_delete(old);
     }
     F<Collection*>(c, 0x37f) = nullptr;
-    Collection* t = (Collection*)((void*(__cdecl*)(size_t))0x53b070)(0x88);
+    Collection* t = (Collection*)crt::operator_new(0x88);
     F<Collection*>(c, 0x37f) = t ? Collection_Construct(t, 0, 1, 0x22, 2, 2, 0, 0, 0) : nullptr;
     static const uint32_t rural[] = { 0x5c9114, 0x5c9264, 0x5c9248, 0x5c923c, 0x5c9224, 0x5c920c, 0x5c91f4, 0x5c91e8, 0x5c91d0,
                                       0x5c91a0, 0x5c9188, 0x5c90d4, 0x5c8fdc, 0x5c935c, 0x5c9300, 0x5c8e74, 0x5c9108 };
@@ -702,7 +701,7 @@ RT3_NOINLINE void __fastcall City_Init(uint8_t* c, int, uint32_t id, uint32_t x,
     F<uint32_t>(c, 0x31b) = 0x3f800000;
     F<uint32_t>(c, 0x25e) = 0x42c80000;
     F<uint32_t>(c, 0x25a) = 0x42c80000;
-    Collection* t = (Collection*)((void*(__cdecl*)(size_t))0x53b070)(0x88);
+    Collection* t = (Collection*)crt::operator_new(0x88);
     F<Collection*>(c, 0x37f) = t ? Collection_Construct(t, 0, 1, 0x22, 2, 2, 0, 0, 0) : nullptr;
     memset(c + 0x262, 0, 0x10);
     F<int32_t>(c, 0x385) = F<int32_t>(g_app, 0x174) != 0;
@@ -860,7 +859,7 @@ RT3_NOINLINE void __fastcall Cities_AddTestRow(Collection* t) {
     for (int32_t i = 0, y = 1; y < 0x31; ++i, y += 2) {
         Loading_Pump(g_app, 0, 0, 0);
         char num[0x20], name[0x120];
-        ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)(num, (const char*)0x5c9aec, i);
+        crt::sprintf(num, (const char*)0x5c9aec, i);
         FormatText(name, GetString(0xb5c), num, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
         float fy = (float)y;
         uint32_t id = Cities_Add(t, 0, 0x40800000, *(uint32_t*)&fy, name, 1);
@@ -1283,9 +1282,9 @@ RT3_NOINLINE int32_t __fastcall City_BuildIndustry(uint8_t* c, int, const char* 
                 int32_t lo = Ftol(radius * D_207(0x5c87b8));
                 float r = (float)((double)SimRand(lo, hi) / D_207(0x5c85f0));
                 float a = (float)((double)SimRand(0, 0x3e8) / D_207(0x5c87f8) * D_207(0x5c8c08));
-                double ox = ((double(__cdecl*)(double))0x5a13e4)(a) * r;
+                double ox = crt::sin(a) * r;
                 fx = (float)(Obj_CellX(c) + ox);
-                double oy = ((double(__cdecl*)(double))0x5a1494)(a) * r;
+                double oy = crt::cos(a) * r;
                 fy = (float)(Obj_CellY(c) + oy);
             } else {
                 float rad = radius;

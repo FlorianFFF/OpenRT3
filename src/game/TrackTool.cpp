@@ -22,6 +22,12 @@
 
 namespace rt3 {
 
+uint8_t* __fastcall Net_QueueText(uint8_t* s, int, const char* text, int32_t a, int32_t b, int32_t c, int32_t d);
+
+int32_t __fastcall Map_Bulldoze(uint8_t* map, int, float x, float y, float r, uint32_t company, int32_t checkOnly, float* cost, char* msg);
+
+int32_t __fastcall Obj_Byte21c5(void* o);
+
 template <typename T> static inline T& F(void* o, uint32_t off) { return *(T*)((uint8_t*)o + off); }
 void __fastcall Obj_CenterCell(void* o, int, float* x, float* y);
 uint8_t* __fastcall Widget_FindChild(uint8_t* w, int, int32_t id);
@@ -275,7 +281,6 @@ static inline double D(uint32_t a) { return *(const double*)a; }
 
 static inline double Fl(uint32_t a) { return *(const float*)a; }
 
-static inline void* ExeNew(size_t n) { return ((void*(__cdecl*)(size_t))0x53b070)(n); }
 
 static inline int32_t Ftol(double v) {
     int32_t r;
@@ -292,7 +297,6 @@ static inline float BitsF(uint32_t b) { return *(float*)&b; }
 
 static inline double BitsD(uint64_t b) { return *(double*)&b; }
 
-static inline SprintfFn ExeSprintf() { return (SprintfFn)0x5a19c4; }
 
 // Refreshes the company list window (0x6d19f0) after a stock trade.
 static void StockTrade_Refresh() {
@@ -313,10 +317,6 @@ struct BuildFrame {
     uint8_t& u8(uint32_t o) { return b[o]; }
     uint32_t* p(uint32_t o) { return (uint32_t*)(b + o); }
 };
-inline double BlCos(double x) { return ((double(__cdecl*)(double))0x5a13e4)(x); }
-inline double BlSin(double x) { return ((double(__cdecl*)(double))0x5a1494)(x); }
-inline double BlAbs(double x) { return ((double(__cdecl*)(double))0x5a152e)(x); }
-inline double BlAtan(double x) { return ((double(__cdecl*)(double))0x5a1270)(x); }
 inline float BlCell(float v) { return (float)((double)v / Fl(0x5c8700)); }
 inline uint32_t BlBits(float v) { return *(uint32_t*)&v; }
 inline uint8_t* BlTrack(Collection* c, int32_t id) { return (uint8_t*)Collection_Get(c, 0, (uint32_t)id); }
@@ -342,8 +342,7 @@ static void Method(uint32_t address, void* self) {
 }
 
 static void Notify(void* manager, uint32_t type) {
-    hook::Orig<void(__fastcall*)(void*, int, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t)>(0x538e00)(
-        manager, 0, type, 0x808, 0, 0, 0);
+    Ui_SendEvent5((uint8_t**)(manager), 0, type, 0x808, 0, 0, 0);
 }
 
 // 0x50c130. Clears 0x625a94 and refills the company list window when it is open.
@@ -472,7 +471,7 @@ void __fastcall StockWindow_DrawHolders(void*, int, float x, float y, float w, f
         if (strlen(num) < 8) {
             char padded[0x1c];
             memcpy(padded, (const void*)0x5d11e0, sizeof padded);
-            ExeSprintf()(padded + 8 - strlen(num), num);
+            crt::sprintf(padded + 8 - strlen(num), num);
             strcpy(num, padded);
         }
         Font_DrawTextBox(g_6d1a34, 0, num, xs, cy, ws, h, 0xffffffff, 3, 1, 1, 1.0f);
@@ -537,7 +536,7 @@ RT3_NOINLINE void ProxyFight_Resolve() {
         uint8_t* what = (uint8_t*)Collection_Get(g_companies, 0, g_6d1a0c);
         char buf[0x100];
         FormatText(buf, GetString(0xc0a), (const char*)what + 4, (const char*)who + 8, verdict, nullptr, nullptr, nullptr, nullptr, nullptr);
-        ((void(__fastcall*)(uint8_t*, int, const char*, int32_t, int32_t, int32_t, int32_t))0x469a50)(g_session, 0, buf, 1, 0, 0, 0);
+        Net_QueueText(g_session, 0, buf, 1, 0, 0, 0);
     }
     if (win) {
         Company_InstallChairman((int32_t*)co, 0, g_6d1a0e);
@@ -764,9 +763,9 @@ RT3_REPLACE(0x50d2d0, TrackPanel_Refresh);
 RT3_NOINLINE void __fastcall TrackTool_Bulldoze(uint8_t* tool, int, uint32_t, uint32_t) {
     if (F<uint32_t>(tool, 0x83)) return;
     float x, y;
-    hook::Orig<int32_t(__stdcall*)(float*, float*)>(0x448ac0)(&x, &y);
+    Scene_FocusFlagIs1(&x, &y);
     if (tool[0x7d]) {
-        float distance = (float)hook::Orig<double(__stdcall*)(float, float, float, float)>(0x51db80)(
+        float distance = (float)Distance2D(
             x, y, hook::As<float>(g_622b1c), hook::As<float>(g_622b20));
         if ((double)distance <= *(const double*)0x5c97c0) return;
         // The original copies these with MOV, preserving signaling NaN bits.
@@ -777,46 +776,43 @@ RT3_NOINLINE void __fastcall TrackTool_Bulldoze(uint8_t* tool, int, uint32_t, ui
         g_622b1c = 0xbf800000;
     }
     bool preview = tool[0x7d] == 0;
-    if (!preview && !hook::Orig<int32_t(*)()>(0x434050)()) {
+    if (!preview && !IsMultiplayer()) {
         TrackList_ResetBuildState(hook::As<uint8_t*>(g_tracks));
-        hook::Orig<void(__fastcall*)(void*)>(0x495480)(hook::As<void*>(g_tracks));
+        Train_ResetMotion((uint8_t*)(hook::As<void*>(g_tracks)));
     }
-    int32_t count = hook::Orig<int32_t(__fastcall*)(void*)>(0x517cf0)(hook::As<void*>(g_tracks));
+    int32_t count = Collection_Count((Collection*)(hook::As<void*>(g_tracks)));
     int32_t result = 0;
     float cost;
     char message[1300];
-    if (preview || !hook::Orig<int32_t(*)()>(0x434050)()) {
-        uint32_t company = hook::Orig<uint32_t(__fastcall*)(void*)>(0x4337a0)(hook::As<void*>(g_world));
-        result = hook::Orig<int32_t(__fastcall*)(void*, int, float, float, float, uint32_t, int32_t, float*, char*)>(0x44b160)(
-            hook::As<void*>(g_map), 0, x, y, 0.5f, company, preview, &cost, message);
+    if (preview || !IsMultiplayer()) {
+        uint32_t company = ((uint32_t)Obj_Get21(hook::As<void*>(g_world)));
+        result = Map_Bulldoze((uint8_t*)(hook::As<void*>(g_map)), 0, x, y, 0.5f, company, preview, &cost, message);
     } else {
         F<uint32_t>(tool, 0x83) = 1;
-        hook::Orig<void(__fastcall*)(void*, int, int32_t, int32_t, int32_t)>(0x53f000)(
-            hook::As<void*>(g_cursorManager), 0, 6, 0, 0);
-        uint32_t company = hook::Orig<uint32_t(__fastcall*)(void*)>(0x4337a0)(hook::As<void*>(g_world)) & 0xff;
-        uint32_t frame = hook::Orig<uint32_t(*)()>(0x5216c0)();
+        Cursor_Set((uint8_t*)(hook::As<void*>(g_cursorManager)), 0, 6, 0, 0);
+        uint32_t company = ((uint32_t)Obj_Get21(hook::As<void*>(g_world))) & 0xff;
+        uint32_t frame = ((uint32_t)Global6d40e4());
         uint32_t packet[4] = { frame, company, *(uint32_t*)&x, *(uint32_t*)&y };
         uint8_t* session = g_session;
-        hook::Orig<void(__fastcall*)(uint8_t*, int, const char*, uint32_t, int32_t, const uint8_t*, uint32_t, int32_t)>(0x469d30)(
+        Net_Send(
             session, 0, (const char*)session + 0x8f48, 0x77, 16, (const uint8_t*)packet, 5, 0);
         tool[0x7d] = 0;
         message[0] = 0;
     }
-    if (!preview && count != hook::Orig<int32_t(__fastcall*)(void*)>(0x517cf0)(hook::As<void*>(g_tracks)))
+    if (!preview && count != Collection_Count((Collection*)(hook::As<void*>(g_tracks))))
         g_6d1a90 = 1;
     if (result) {
         const char* format = (const char*)0x5c87a8;
         const char* number = nullptr;
         char buffer[256];
         if (preview && !g_newGame[0x82]) {
-            number = hook::Orig<char*(__fastcall*)(char*, int32_t, double, int32_t)>(0x51bfe0)(buffer, 9, (double)cost, 11);
-            format = hook::Orig<const char*(__fastcall*)(int32_t)>(0x5193f0)(0x26e);
+            number = Num_FormatSimple(buffer, 9, (double)cost, 11);
+            format = GetString(0x26e);
         }
-        hook::Orig<char*(__fastcall*)(char*, const char*, const char*, const char*, const char*, const char*, const char*, const char*, const char*, const char*)>(0x518de0)(
+        FormatText(
             message, format, number, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
     }
-    hook::Orig<int32_t(__fastcall*)(void*, int, const char*, int32_t, int32_t, int32_t)>(0x538c70)(
-        hook::As<void*>(g_windowManager), 0, message, 1, 0, -1);
+    Ui_ShowTooltip((uint8_t*)(hook::As<void*>(g_windowManager)), 0, message, 1, 0, -1);
 }
 RT3_REPLACE(0x50d740, TrackTool_Bulldoze);
 
@@ -871,15 +867,14 @@ RT3_NOINLINE void __fastcall TrackTool_Destroy(uint8_t* tool) {
     Method(0x50d1e0, tool);
     TrackList_ResetBuildState(hook::As<uint8_t*>(g_tracks));
     hook::As<uint32_t>(g_trackTool) = 0;
-    hook::Orig<void(__fastcall*)(void*, int, const char*, int32_t)>(0x53ef90)(
-        hook::As<void*>(g_cursorManager), 0, (const char*)0x5c87a8, -1);
+    Obj_SetText1c((uint8_t*)(hook::As<void*>(g_cursorManager)), 0, (const char*)0x5c87a8, (uint32_t)(-1));
     if (F<uint32_t>(hook::As<void*>(g_app), 0x263) && !g_6d1a94) {
         void* map = hook::As<void*>(g_map);
         F<uint32_t>(map, 0x168d) = F<uint32_t>(map, 0x1689);
     }
     if (F<uint32_t>(hook::As<void*>(g_app), 0x2cc) &&
         F<uint32_t>(hook::As<void*>(g_map), 0x2175) == 0x15) {
-        if (!hook::Orig<int32_t(__fastcall*)(void*)>(0x450150)(hook::As<void*>(g_map)))
+        if (!Obj_Byte21c5(hook::As<void*>(g_map)))
             Method(0x453510, hook::As<void*>(g_map));
     }
     Method(0x4361d0, hook::As<void*>(g_world));
@@ -1578,11 +1573,11 @@ void __stdcall List_AddArrowButtons(uint32_t id, float x, float y, int32_t, floa
         F<uint16_t>(def, 0x61) = down;
         String_Assign(&F<char*>(def, 0x43), (const char*)0x5d190c);
         String_Assign(&F<char*>(def, 0x3f), GetString(0x10d8));
-        uint8_t* b = (uint8_t*)ExeNew(0xe9);
+        uint8_t* b = (uint8_t*)crt::operator_new(0xe9);
         if (b) b = Control_Construct(b, 0, def);
         Window_AddChild(g_6d3ac8, 0, b, 0);
-        Free(F<void*>(def, 0x43));
-        Free(F<void*>(def, 0x3f));
+        crt::free(F<void*>(def, 0x43));
+        crt::free(F<void*>(def, 0x3f));
     };
     add((uint16_t)(id + 0x28a0), y, 0x6e, 0x6f);
     add((uint16_t)(id + 0x2904), (float)((double)y + h - Fl(0x5d1948)), 0x70, 0x71);
@@ -1736,10 +1731,10 @@ void __fastcall TrainBuy_EngineDraw(uint8_t* p, int, float x, float y, float w, 
             F<float>(def, 0xb) = (float)(lyd - F<float>(win, 9));
             F<float>(def, 0xf) = (float)((double)w - D(0x5c8918));
             String_Assign(&F<char*>(def, 0x3f), GetString(timers[i]));
-            uint8_t* tw = (uint8_t*)ExeNew(0xda);
+            uint8_t* tw = (uint8_t*)crt::operator_new(0xda);
             tw = tw ? TimerWidget_Construct(tw, 0, def) : nullptr;
             Window_AddChild(g_6d3ac8, 0, tw, 0);
-            Free(F<void*>(def, 0x3f));
+            crt::free(F<void*>(def, 0x3f));
         }
         rowY = (float)((double)rowY + Fl(0x5d0c60));
     }

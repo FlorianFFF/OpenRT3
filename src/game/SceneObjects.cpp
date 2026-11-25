@@ -13,6 +13,7 @@
 #include "game/collection.h"
 #include "hook/keepregs.h"
 #include "core/crt.h"
+#include "core/imports.h"
 #include "game/calendar.h"
 #include "core/stream.h"
 #include "core/ptrlist.h"
@@ -426,7 +427,6 @@ RT3_NOINLINE void __fastcall SceneObj_SetTint(uint8_t* o, int, uint32_t r, uint3
 RT3_NOINLINE void __fastcall Timer_SetBudget(uint8_t* t, int, uint32_t v);
 RT3_NOINLINE void __fastcall Emitter_Tick(uint8_t* e, int, int32_t force);
 
-static inline double ExeSqrt(double x) { return ((double(__cdecl*)(double))0x5a1634)(x); }
 
 // Flags entry of `blk` in the current block iteration (0x6acd50), then calls
 // its virtual slot 4 (flag 0x800 set) or 3 (unless 0x2000).
@@ -454,34 +454,31 @@ static inline void Show(uint8_t* p) { ((void(__thiscall*)(void*))(*(void***)p)[0
 
 static inline void Hide(uint8_t* p) { ((void(__thiscall*)(void*))(*(void***)p)[0x10 / 4])(p); }
 
-static inline void* ExeNew(size_t n) { return ((void*(__cdecl*)(size_t))0x53b070)(n); }
 
-static inline void ExeDelete(void* p) { ((void(__cdecl*)(void*))0x53b080)(p); }
 
 namespace {
-inline void* ExeNew_105(size_t n) { return ((void*(__cdecl*)(size_t))0x53b070)(n); }
 inline int32_t PackHas(const char* path) { return NameTable_ContainsName(g_pack, 0, path, 0, nullptr); }
 // A scene object of model `path` (texture `tex`), or none when out of memory.
 inline uint8_t* NewSceneObj(const char* path, const char* tex) {
-    uint8_t* m = (uint8_t*)ExeNew_105(0x206);
+    uint8_t* m = (uint8_t*)crt::operator_new(0x206);
     return m ? SceneObj_Construct(m, 0, 0, path, tex) : nullptr;
 }
 // A light of model `path` on `owner`, shown (flags 0x10).
 inline uint8_t* NewLight(const char* path, uint8_t* owner) {
-    uint8_t* m = (uint8_t*)ExeNew_105(0x35);
+    uint8_t* m = (uint8_t*)crt::operator_new(0x35);
     uint8_t* c = m ? Camera_Construct(m, 0, path, (uint32_t)(uintptr_t)owner) : nullptr;
     return c;
 }
 inline void ShowLight(uint8_t* c) { c[0x24] = (uint8_t)((c[0x24] & 0xf) | 0x10); }
 inline uint8_t* NewSound(const char* path, uint8_t* v, float vol) {
-    uint8_t* m = (uint8_t*)ExeNew_105(0x141);
+    uint8_t* m = (uint8_t*)crt::operator_new(0x141);
     return m ? Channel_Setup(m, 0, path, g_map, F<float>(v, 0x1e2), F<float>(v, 0x1e6), F<float>(v, 0x1ea), -1,
                              0, vol)
              : nullptr;
 }
 inline uint8_t* NewExhaust(const char* path, uint32_t color, int32_t perPoint, const float* rect, uint8_t* v, uint32_t flags,
                            uint32_t fade) {
-    uint8_t* m = (uint8_t*)ExeNew_105(0x1fd);
+    uint8_t* m = (uint8_t*)crt::operator_new(0x1fd);
     uint8_t* e = m ? Emitter_Construct(m, 0, path, color, perPoint, rect, v, flags) : nullptr;
     F<uint32_t>(e, 0x88) = 0;
     F<uint32_t>(e, 0x8c) = 0;
@@ -548,7 +545,7 @@ static void* LoadWhole(int32_t id, int32_t* sizeOut) {
     *sizeOut = size;
     if (size <= 0) return nullptr;
     NameTable_Seek(Packs(), 0, id, 0);
-    void* p = Malloc(size);
+    void* p = crt::malloc(size);
     NameTable_Read(Packs(), 0, p, size);
     return p;
 }
@@ -559,7 +556,6 @@ static inline double D(uint32_t a) { return *(const double*)a; }
 
 static inline float Fl(uint32_t a) { return *(const float*)a; }
 
-static inline double Fabs(double x) { return ((double(__cdecl*)(double))0x5a152e)(x); }
 
 static inline uint8_t* Map() { return g_map; }
 
@@ -576,15 +572,12 @@ void BuildingClear(uint8_t* o) {
 }
 }
 
-static inline uint8_t* NewChannel() { return (uint8_t*)((void*(__cdecl*)(size_t))0x53b070)(0x141); }
+static inline uint8_t* NewChannel() { return (uint8_t*)crt::operator_new(0x141); }
 
 static inline uint32_t U(float f) { return *(uint32_t*)&f; }
 
-static inline double ExeCos(double v) { return ((double(__cdecl*)(double))0x5a13e4)(v); }
 
-static inline double ExeSin(double v) { return ((double(__cdecl*)(double))0x5a1494)(v); }
 
-static inline double ExeFabs(double v) { return ((double(__cdecl*)(double))0x5a152e)(v); }
 
 static inline double Fl_188(uint32_t a) { return *(const float*)a; }
 
@@ -606,7 +599,7 @@ inline void CarFormat(char* dst, uint32_t fmt, const char* a1, const char* a2 = 
     FormatText(dst, (const char*)fmt, a1, a2, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
 }
 inline uint8_t* CarModel(const char* name, const char* model, const char* tex) {
-    uint8_t* p = (uint8_t*)((void*(__cdecl*)(uint32_t))0x53b070)(0x23a);
+    uint8_t* p = (uint8_t*)crt::operator_new(0x23a);
     return p ? WorldModel_Construct(p, 0, name, model, tex, 0xbf800000, 0xbf800000, 1) : nullptr;
 }
 // The current mesh frame record of a scene object (null without a mesh).
@@ -614,13 +607,12 @@ inline uint8_t* CarFrame(uint8_t* o) {
     uint8_t* m = F<uint8_t*>(o, 0x14);
     return m ? *(uint8_t**)(m + 0xc + F<int32_t>(o, 0x3a) * 0x18) + F<int32_t>(o, 0x21) * 0x45 : nullptr;
 }
-inline double CarAtan(double v) { return ((double(__cdecl*)(double))0x5a1270)(v); }
 // Reads the first two frame points of a helper model `fmt` (+8 of each) into
 // *id and *len (|integer| of the second); none when the file is missing.
 void CarHelperPoint(char* path, const char* name, uint32_t fmt, uint32_t* id, float* len) {
     CarFormat(path, fmt, name);
     if (!CarHas(path)) return;
-    uint8_t* p = (uint8_t*)((void*(__cdecl*)(uint32_t))0x53b070)(0x206);
+    uint8_t* p = (uint8_t*)crt::operator_new(0x206);
     uint8_t* o = p ? SceneObj_Construct(p, 0, 0, path, nullptr) : nullptr;
     uint8_t* fr = CarFrame(o);
     *id = F<uint32_t>(*(uint8_t**)fr, 8);
@@ -634,7 +626,7 @@ void CarHelperPoint(char* path, const char* name, uint32_t fmt, uint32_t* id, fl
     }
     *len = (float)(n < 0 ? -n : n);
     SceneObj_Destructor(o);
-    ((void(__cdecl*)(void*))0x53b080)(o);
+    crt::operator_delete(o);
 }
 }
 
@@ -707,7 +699,7 @@ static void TreeTypes_BuildSpots() {
     const int32_t* ndx = (const int32_t*)0x624b28;
     const int32_t* ndy = (const int32_t*)0x624b48;
     for (int32_t g = 0; g < 4; ++g) {
-        uint8_t* tbl = (uint8_t*)Malloc(0x3600);
+        uint8_t* tbl = (uint8_t*)crt::malloc(0x3600);
         ((uint8_t**)0x6acd20)[g] = tbl;
         memset(tbl, 0, 0x3600);
         float px[6] = {}, py[6] = {};
@@ -798,7 +790,6 @@ void DriveCamera(uint8_t* v) {
 }
 
 namespace {
-void Callback_Delete(void* p) { ((void(__cdecl*)(void*))0x53b080)(p); }
 int32_t Tooltip_Clear() { return Ui_ShowTooltip(g_windowManager, 0, (const char*)0x5c87a8, 3, 0, -1); }
 // A network message's handler gets the packet (+8) when it has one (+0xc).
 template <typename P, typename Fn> int32_t NetMsg_Forward(uint8_t* m, Fn handler) {
@@ -1053,7 +1044,7 @@ RT3_NOINLINE void __fastcall Terrain_AdjustLevel(uint8_t* m, int, float x, float
                 }
                 bool up = amount > Fl(0x5c8598);
                 int32_t rnd = SimRand(0, 1000);
-                double q = (Fabs(amount) * D(0x5c87f8) + (double)rnd) / D(0x5c87f8);
+                double q = (crt::fabs(amount) * D(0x5c87f8) + (double)rnd) / D(0x5c87f8);
                 int32_t v;
                 __asm {
                     fld q
@@ -1202,8 +1193,8 @@ RT3_NOINLINE void __fastcall TreeTypes_Load(uint8_t* r) {
     char path[0x12c], err[0x11c], model[0x80], species[0x64], name[0x40];
     char letter;
     uint32_t value;
-    ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)(path, (const char*)0x5cadf0);
-    void* f = ((void*(__cdecl*)(const char*, const char*))0x5a1887)(path, (const char*)0x5c89e8);
+    crt::sprintf(path, (const char*)0x5cadf0);
+    void* f = crt::fopen(path, (const char*)0x5c89e8);
     if (!f) {
         FormatText(err, GetString(0x1a9), path, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
         Fatal_Exit(err);
@@ -1219,11 +1210,11 @@ RT3_NOINLINE void __fastcall TreeTypes_Load(uint8_t* r) {
     int32_t count = 0;
     while (!(F<uint8_t>(f, 0xc) & 0x10)) {
         Loading_Pump(g_app, 0, 0, 0);
-        ((int(__cdecl*)(void*, const char*, ...))0x5a17e1)(f, (const char*)0x5cadd4, name, &letter, &value);
+        crt::fscanf(f, (const char*)0x5cadd4, name, &letter, &value);
         if (!strlen(name)) continue;
         FormatText(model, (const char*)0x5cadc8, name, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
         uint8_t code = letter >= 0x41 ? (uint8_t)(ToUpper(letter) - 0x40) : 0;
-        uint8_t* obj = (uint8_t*)((void*(__cdecl*)(size_t))0x53b070)(0x206);
+        uint8_t* obj = (uint8_t*)crt::operator_new(0x206);
         if (obj) obj = SceneObj_Construct(obj, 0, 0, model, nullptr);
         Terrain_AddMarker(r, 0, (uint32_t)(uintptr_t)obj, (int32_t)code, (int32_t)value);
         char* u = name;
@@ -1237,7 +1228,7 @@ RT3_NOINLINE void __fastcall TreeTypes_Load(uint8_t* r) {
         int32_t size = (int8_t)u[1] - 0x31;
         int32_t idx = 0;
         for (int32_t k = 0; k < 0x23; ++k)
-            if (!((int(__cdecl*)(const char*, const char*))0x5a57cf)(species, *(const char**)(0x5ee8e0 + k * 0x45))) {
+            if (!crt::stricmp(species, *(const char**)(0x5ee8e0 + k * 0x45))) {
                 idx = k;
                 break;
             }
@@ -1248,7 +1239,7 @@ RT3_NOINLINE void __fastcall TreeTypes_Load(uint8_t* r) {
         if (++count >= 0x12c) break;
     }
     F<int32_t>(r, 0x216d) = count;
-    ((int(__cdecl*)(void*))0x5a1740)(f);
+    crt::fclose(f);
     Vegetation_BuildTables();
     TreeTypes_BuildSpots();
 }
@@ -1455,7 +1446,7 @@ RT3_NOINLINE void ModelPreview_Close() {
     ModelObj_Release(g_previewModel);
     if (uint8_t* m = g_previewModel) {
         ModelObj_Destructor(m);
-        ((void(__cdecl*)(void*))0x53b080)(m);
+        crt::operator_delete(m);
     }
     hook::As<uint32_t>(g_previewModel) = 0;
 }
@@ -1571,7 +1562,7 @@ RT3_NOINLINE void __fastcall WorldModel_Init(uint8_t* o, int, const char* name, 
     o[0x20] |= 1;
     for (int32_t i = 0; i < 0x21; ++i) {
         const char* m = F<const char*>(o, 0x20a);
-        if (!m || ((int(__cdecl*)(const char*, const char*))0x5a57cf)(*(const char**)(0x5f0720 + i * 8), m)) continue;
+        if (!m || crt::stricmp(*(const char**)(0x5f0720 + i * 8), m)) continue;
         uint8_t* mdl = F<uint8_t*>(o, 0x14);
         if (mdl && F<int32_t>(mdl, 0x14) >= 1) {
             uint8_t* mesh = F<uint8_t*>(mdl, 0xc);
@@ -1606,7 +1597,7 @@ RT3_NOINLINE void __fastcall SceneObj_Teardown(uint8_t* o) {
     ModelObj_Release(g_previewModel);
     if (uint8_t* m = g_previewModel) {
         ModelObj_Destructor(m);
-        ((void(__cdecl*)(void*))0x53b080)(m);
+        crt::operator_delete(m);
     }
     hook::As<uint32_t>(g_previewModel) = 0;
 }
@@ -1627,11 +1618,11 @@ RT3_NOINLINE void __fastcall SceneObj_ShowPreview(uint8_t* o) {
         ModelObj_Release(g_previewModel);
         if (uint8_t* m = g_previewModel) {
             ModelObj_Destructor(m);
-            ((void(__cdecl*)(void*))0x53b080)(m);
+            crt::operator_delete(m);
         }
         hook::As<uint32_t>(g_previewModel) = 0;
     }
-    uint8_t* mem = ((uint8_t*(__cdecl*)(size_t))0x53b070)(0x26e);
+    uint8_t* mem = ((uint8_t*)crt::operator_new(0x26e));
     uint8_t* m = mem ? ModelObj_Construct(mem) : nullptr;
     g_previewModel = m;
     float cz = (float)((double)F<float>(o, 0x1ea) / Fl_207(0x5c8700));
@@ -1764,37 +1755,37 @@ RT3_NOINLINE void __fastcall Vehicle_AnimateLinks(uint8_t* v, int, float step) {
         if (uint8_t* part = F<uint8_t*>(v, 0x32e + i * 4)) {
             float a;
             if (i) {
-                double c = ExeCos(F<float>(v, 0x336 + i * 4));
-                a = (float)((ExeCos(F<float>(v, 0x332 + i * 4)) + c) * w - D(0x5cb2d0));
-            } else a = (float)(ExeCos(F<float>(v, 0x336)) * w + D(0x5cb2c8));
+                double c = crt::sin(F<float>(v, 0x336 + i * 4));
+                a = (float)((crt::sin(F<float>(v, 0x332 + i * 4)) + c) * w - D(0x5cb2d0));
+            } else a = (float)(crt::sin(F<float>(v, 0x336)) * w + D(0x5cb2c8));
             SceneObj_SetAngles(part, 0, 0, 0, Bits(a));
-            float t = (float)(ExeCos(F<float>(v, 0x336 + i * 4)) * D(0x5c8798));
+            float t = (float)(crt::sin(F<float>(v, 0x336 + i * 4)) * D(0x5c8798));
             if (t < *(const float*)0x5c8598) t = 0.0f;
             F<float>(v, 0x336 + i * 4) = (float)(((double)t + F<float>(v, 0x34e)) * step + F<float>(v, 0x336 + i * 4));
         }
         if (uint8_t* part = F<uint8_t*>(v, 0x33e + i * 4)) {
             float a;
             if (i) {
-                double c = -ExeCos(F<float>(v, 0x346 + i * 4));
-                a = (float)((c - ExeCos(F<float>(v, 0x342 + i * 4))) * w + D(0x5cb2d0));
-            } else a = (float)(-(ExeCos(F<float>(v, 0x346)) * w) - D(0x5cb2c8));
+                double c = -crt::sin(F<float>(v, 0x346 + i * 4));
+                a = (float)((c - crt::sin(F<float>(v, 0x342 + i * 4))) * w + D(0x5cb2d0));
+            } else a = (float)(-(crt::sin(F<float>(v, 0x346)) * w) - D(0x5cb2c8));
             SceneObj_SetAngles(part, 0, 0, 0, Bits(a));
-            float t = (float)(ExeCos(F<float>(v, 0x346 + i * 4)) * D(0x5c8798));
+            float t = (float)(crt::sin(F<float>(v, 0x346 + i * 4)) * D(0x5c8798));
             if (t < *(const float*)0x5c8598) t = 0.0f;
             F<float>(v, 0x346 + i * 4) = (float)(((double)t + F<float>(v, 0x34e)) * step + F<float>(v, 0x346 + i * 4));
         }
     }
     double pitch = SceneObj_Angle1(v);
-    float roll = (float)(pitch - ExeSin((double)F<float>(v, 0x336) * D(0x5c8628)) * D(0x5c8678));
+    float roll = (float)(pitch - crt::cos((double)F<float>(v, 0x336) * D(0x5c8628)) * D(0x5c8678));
     float yaw = SceneObj_Angle2(v);
     SceneObj_SetAngles(v, 0, Bits(roll), Bits(yaw), 0);
-    float bob = (float)(ExeCos((double)F<float>(v, 0x336) - D(0x5c88f0)) * D(0x5c9ee0));
+    float bob = (float)(crt::sin((double)F<float>(v, 0x336) - D(0x5c88f0)) * D(0x5c9ee0));
     Obj_MoveBy(v, 0, 0.0f, bob, 0.0f);
     float acc = (float)((double)roll + F<float>(v, 0x37e));
     F<float>(v, 0x37e) = acc;
     if (!(step < *(const float*)0x5c85b4)) step = 1.0f;
     float damp = 0.1f;
-    if (ExeFabs(acc) > D(0x5c85d0)) damp = 0.3f;
+    if (crt::fabs(acc) > D(0x5c85d0)) damp = 0.3f;
     F<float>(v, 0x37e) = (float)((D(0x5c8770) - (double)damp * step) * F<float>(v, 0x37e));
 }
 RT3_REPLACE(0x456210, Vehicle_AnimateLinks);
@@ -1879,7 +1870,7 @@ RT3_REPLACE(0x456710, Vec3_Transform);
 // 0x456780. Normalises a float vec3 in place (if its length is > 0); returns it.
 RT3_NOINLINE float* __fastcall Vec3_Normalize(float* v) {
     float sq = (float)(((double)v[0] * v[0] + (double)v[1] * v[1]) + (double)v[2] * v[2]);
-    float len = (float)ExeSqrt(sq);
+    float len = (float)crt::sqrt(sq);
     if (*(const float*)0x5c8598 < len) {
         float inv = (float)(*(const float*)0x5c85b4 / (double)len);
         v[0] = (float)((double)inv * v[0]);
@@ -1903,7 +1894,7 @@ RT3_REPLACE(0x456820, Vec3_CrossInPlace);
 // 0x4568a0. Length of a float vec3 (squared sum rounded to float, result too).
 RT3_NOINLINE double __fastcall Vec3_Length(const float* v) {
     float sq = (float)(((double)v[0] * v[0] + (double)v[1] * v[1]) + (double)v[2] * v[2]);
-    float len = (float)ExeSqrt(sq);
+    float len = (float)crt::sqrt(sq);
     return len;
 }
 RT3_REPLACE(0x4568a0, Vec3_Length);
@@ -1969,7 +1960,7 @@ RT3_NOINLINE void __fastcall Vehicle_LoadParts(uint8_t* v) {
         F<uint8_t*>(v, 0x36e + k * 4) = nullptr;
         F<uint32_t>(v, 0x376 + k * 4) = 0;
         if (!PackHas(path)) continue;
-        float r = (float)(((int(__cdecl*)())0x5a29ab)() % 2000);
+        float r = (float)(crt::rand() % 2000);
         F<float>(v, 0x376 + k * 4) = (float)((double)r / *(const float*)0x5cb3f4);
         uint8_t* c = NewLight(path, v);
         F<uint8_t*>(v, 0x36e + k * 4) = c;
@@ -2042,7 +2033,7 @@ RT3_NOINLINE void __fastcall Vehicle_LoadParts(uint8_t* v) {
     FormatText(path, (const char*)0x5cb334, name, 0, 0, 0, 0, 0, 0, 0);
     if (PackHas(path)) {
         FormatText(path, (const char*)0x5cb328, name, 0, 0, 0, 0, 0, 0, 0);
-        uint8_t* m = (uint8_t*)ExeNew_105(0x141);
+        uint8_t* m = (uint8_t*)crt::operator_new(0x141);
         uint8_t* ch = nullptr;
         if (m) {
             float vol = (float)((v[0x261] ? 0.47 : 3.0) * *(const double*)0x5c8c48);
@@ -2087,7 +2078,7 @@ RT3_NOINLINE void __fastcall Vehicle_LoadParts(uint8_t* v) {
         axis[2] = vert[2];
         Vec3_Normalize((float*)axis);
         SceneObj_Destructor(o);
-        ExeDelete(o);
+        crt::operator_delete(o);
     }
 }
 RT3_REPLACE(0x456920, Vehicle_LoadParts);
@@ -2154,7 +2145,7 @@ RT3_NOINLINE void __fastcall Map_RandomEdgeEntry(uint8_t* o, int, float* outX, f
         *outY = (float)(Terrain_HeightAtTile(m, 0, (float)x0, (float)y0) + *outY);
     float dx = (float)(x0 - x1), dy = (float)(y0 - y1);
     if (dy == Fl(0x5c8598)) dy = 0.01f;
-    *heading = (float)((double(__cdecl*)(double, double))0x5a29d0)(dx, dy);
+    *heading = (float)crt::atan2(dx, dy);
 }
 RT3_REPLACE(0x4575d0, Map_RandomEdgeEntry);
 
@@ -2167,8 +2158,8 @@ RT3_REPLACE(0x4575d0, Map_RandomEdgeEntry);
 RT3_NOINLINE bool __fastcall Aircraft_Fly(uint8_t* v, int, float dt) {
     float yaw = SceneObj_Angle2(v);
     float pitch = SceneObj_Angle1(v);
-    float dx = (float)-(ExeCos(yaw) * F<float>(v, 0x275));
-    float dz = (float)-(ExeSin(yaw) * F<float>(v, 0x275));
+    float dx = (float)-(crt::sin(yaw) * F<float>(v, 0x275));
+    float dz = (float)-(crt::cos(yaw) * F<float>(v, 0x275));
     float x, y, z;
     SceneObj_GetPos(v, 0, (uint32_t*)&x, (uint32_t*)&y, (uint32_t*)&z);
     float h = (float)Terrain_HeightAt(F<uint8_t*>(v, 4), 0, (float)((double)x + dx), (float)((double)z + dz));
@@ -2298,8 +2289,8 @@ RT3_NOINLINE double __stdcall Vec3_AngleTerm(float a0, float a1, float a2, float
     double dot = (double)a[2] * b[2] + (double)a[1] * b[1];
     dot = dot + (double)a[0] * b[0];
     float t = (float)(dot * *(const float*)0x5c8764);
-    float f1 = (float)((double(__cdecl*)(double))0x5a13e4)(t);
-    float f2 = (float)((double(__cdecl*)(double))0x5a1494)(t);
+    float f1 = (float)crt::sin(t);
+    float f2 = (float)crt::cos(t);
     return (double)f2 * f1 * *(const float*)0x5c8760;
 }
 RT3_REPLACE(0x457f40, Vec3_AngleTerm);
@@ -2313,7 +2304,7 @@ RT3_NOINLINE float* __fastcall Obj_BendOffset(uint8_t* o, int, float* out, float
     double dot = (double)a[2] * b[2] + (double)a[1] * b[1];
     dot = dot + (double)a[0] * b[0];
     float t = (float)(dot * *(const float*)0x5c8764);
-    double c = ((double(__cdecl*)(double))0x5a13e4)(t);
+    double c = crt::sin(t);
     float k = (float)(c + c);
     float s = (float)-(double)F<float>(o, 0x27d);
     float l0 = (float)((double)s * F<float>(o, 0x2b5));
@@ -2349,7 +2340,7 @@ RT3_REPLACE(0x458090, Obj_AxisTerms);
 // switches the view to it.
 RT3_NOINLINE void __fastcall Obj_TakeCamera(uint8_t* o) {
     if (!F<void*>(o, 0x352)) {
-        uint8_t* c = (uint8_t*)ExeNew(0x8a);
+        uint8_t* c = (uint8_t*)crt::operator_new(0x8a);
         F<uint8_t*>(o, 0x352) = c ? Camera_ConstructSetup(c, 0, F<uint32_t>(o, 4), 0, 0, 0, 0x44800000) : nullptr;
     }
     F<int32_t>(g_app, 0xa0) = 1;
@@ -2363,7 +2354,7 @@ RT3_NOINLINE void __fastcall Obj_DropCamera(uint8_t* o) {
     F<void*>(g_engine, 0x28) = hook::As<void*>(g_62be68);
     if (uint32_t* c = F<uint32_t*>(o, 0x352)) {
         Camera_Destruct(c);
-        ((void(__cdecl*)(void*))0x53b080)(c);
+        crt::operator_delete(c);
     }
     F<void*>(o, 0x352) = nullptr;
     F<int32_t>(g_app, 0xa0) = 0;
@@ -2421,8 +2412,8 @@ RT3_NOINLINE void __fastcall Vehicle_Init(uint8_t* v, int, uint32_t id, const ui
     F<uint32_t>(v, 0x29d) = 0x42c80000;
     Obj_MoveTo(v, 0, x, y, z);
     if (v[0x240]) {
-        F<float>(v, 0x2ad) = (float)(((double(__cdecl*)(double))0x5a13e4)(heading) * *(const double*)0x5c85f0);
-        F<float>(v, 0x2b5) = (float)(((double(__cdecl*)(double))0x5a1494)(heading) * *(const double*)0x5c85f0);
+        F<float>(v, 0x2ad) = (float)(crt::sin(heading) * *(const double*)0x5c85f0);
+        F<float>(v, 0x2b5) = (float)(crt::cos(heading) * *(const double*)0x5c85f0);
         SceneObj_RotateAxis(v, 0, F<float>(v, 0x2b9), F<float>(v, 0x2bd), F<float>(v, 0x2c1), heading);
         SceneObj_ApplyQuat(v);
         SceneObj_ResetQuat(v);
@@ -2477,7 +2468,7 @@ RT3_NOINLINE void __fastcall TrainObj_CabKeys(uint8_t* o, int, float dt) {
         else
             F<uint32_t>(o, axis ? 0x2e9 : 0x2f1) = 0;
     }
-    auto scan = hook::Global<int16_t(__stdcall*)(char)>(0x5c8240);
+    auto scan = imp::VkKeyScanA;
     if (key((uint8_t)scan(']'))) {
         float v = (float)((double)F<float>(o, 0x285) / D(0x5c85c8));
         if (F<float>(o, 0x2a5) < F<float>(o, 0x285)) F<float>(o, 0x2a5) = (float)((double)v * dt + F<float>(o, 0x2a5));
@@ -2526,7 +2517,7 @@ RT3_NOINLINE bool __fastcall Vehicle_DriveUpdate(uint8_t* v, int, float dt) {
     if (!v[0x240]) {
         const char* caption = GetString(0xa2);
         const char* text = GetString(0x1ac);
-        ((int(__stdcall*)(void*, const char*, const char*, uint32_t))g_5c8220)(nullptr, text, caption, 0);
+        (((int(__stdcall*)(void*, const char*, const char*, uint32_t))imp::MessageBoxA))(nullptr, text, caption, 0);
         return false;
     }
     float throttle = (float)((double)F<float>(v, 0x2a5) / F<float>(v, 0x285));
@@ -2585,7 +2576,7 @@ RT3_NOINLINE bool __fastcall Vehicle_DriveUpdate(uint8_t* v, int, float dt) {
         uint32_t nv[3] = { vb[0], vb[1], vb[2] };
         float* n = Vec3_Normalize((float*)nv);
         double along = ((double)down[2] * n[2] + (double)down[1] * n[1]) + (double)down[0] * n[0];
-        float grip = (float)(((double(__cdecl*)(double))0x5a152e)(along) * D4588(0x5c85f0) + D4588(0x5c86b8));
+        float grip = (float)(crt::fabs(along) * D4588(0x5c85f0) + D4588(0x5c86b8));
         float gz = (float)((double)grip * bz), gy = (float)((double)grip * by), gx = (float)((double)grip * bx);
         float speed = F<float>(v, 0x2a5);
         float sz = (float)((double)down[2] * speed), sy = (float)((double)down[1] * speed), sx = (float)((double)speed * down[0]);
@@ -2624,10 +2615,10 @@ RT3_NOINLINE bool __fastcall Vehicle_DriveUpdate(uint8_t* v, int, float dt) {
                         float a;
                         SceneObj_GetAngles(F<uint8_t*>(v, 0x322), 0, nullptr, nullptr, (uint32_t*)&a);
                         a = (float)((double)t * Fl4588(0x5c873c) + a);
-                        a = (float)((double(__cdecl*)(double, double))0x5a1390)(a, 12.566370964050293);
+                        a = (float)crt::fmod(a, 12.566370964050293);
                         SceneObj_SetAngles(F<uint8_t*>(v, 0x322), 0, 0, 0, Bits4588(a));
                         Flags24_Set1(F<uint8_t*>(v, 0x326));
-                        float r = (float)(((int(__cdecl*)())0x5a29ab)() & 0xff);
+                        float r = (float)(crt::rand() & 0xff);
                         r = (float)((double)r / Fl4588(0x5cb490) + D4588(0x5c86b8));
                         Obj_SetUnit25(F<uint8_t*>(v, 0x326), 0, r);
                         if (uint8_t* s = F<uint8_t*>(v, 0x32a)) Channel_SetLoop(s, 0, 0);
@@ -2639,8 +2630,8 @@ RT3_NOINLINE bool __fastcall Vehicle_DriveUpdate(uint8_t* v, int, float dt) {
             }
         }
         char speedText[0x10], throttleText[0x10], line[0x100];
-        ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)(speedText, (const char*)0x5cb488, Vec3_Length(vel) * Fl4588(0x5c9ac8));
-        ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)(throttleText, (const char*)0x5cb488, (double)throttle * Fl4588(0x5ca19c));
+        crt::sprintf(speedText, (const char*)0x5cb488, Vec3_Length(vel) * Fl4588(0x5c9ac8));
+        crt::sprintf(throttleText, (const char*)0x5cb488, (double)throttle * Fl4588(0x5ca19c));
         FormatText(line, GetString(0x1ad), speedText, throttleText, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
         DriveStatus(line, 0x3f666666);
         DriveCamera(v);
@@ -2723,10 +2714,10 @@ RT3_NOINLINE bool __fastcall Vehicle_DriveUpdate(uint8_t* v, int, float dt) {
     }
     SceneObj_ApplyQuat(v);
     char t1[0x10], t2[0x10], t3[0x10], t4[0x10], line[0x100];
-    ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)(t1, (const char*)0x5cb488, Vec3_Length(vel) * Fl4588(0x5c9ac8));
-    ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)(t2, (const char*)0x5cb478, (double)dot);
-    ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)(t3, (const char*)0x5cb478, (double)lenC);
-    ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)(t4, (const char*)0x5cb478, (double)lenA);
+    crt::sprintf(t1, (const char*)0x5cb488, Vec3_Length(vel) * Fl4588(0x5c9ac8));
+    crt::sprintf(t2, (const char*)0x5cb478, (double)dot);
+    crt::sprintf(t3, (const char*)0x5cb478, (double)lenC);
+    crt::sprintf(t4, (const char*)0x5cb478, (double)lenA);
     FormatText(line, GetString(0x1ae), t1, t2, t3, t4, nullptr, nullptr, nullptr, nullptr);
     DriveStatus(line, 0x3f4ccccd);
     float mx = (float)-((double)k * vel[0]), my = (float)-((double)k * F<float>(v, 0x2b1)), mz = (float)-((double)k * F<float>(v, 0x2b5));
@@ -3265,7 +3256,7 @@ RT3_NOINLINE void* __fastcall Anim_LoadFile(const char* name) {
     void* p = LoadWhole(NameTable_Hash(Packs(), 0, buf), &size);
     if (!p) return nullptr;
     if (!hook::As<void*>(g_6acd5c)) {
-        uint32_t* l = (uint32_t*)((void*(__cdecl*)(size_t))0x53b070)(0x10);
+        uint32_t* l = (uint32_t*)crt::operator_new(0x10);
         if (l) {
             l[0] = 0;
             l[1] = 0;
@@ -3322,7 +3313,7 @@ RT3_NOINLINE void __fastcall EffectSet_Release(uint8_t* s) {
         }
     }
     if (!list[0]) {
-        ExeDelete(list);
+        crt::operator_delete(list);
         g_6acd5c = nullptr;
     }
 }
@@ -3373,7 +3364,7 @@ RT3_REPLACE(0x45b110, Thunk45b110);
 
 // 0x45b120 (vtable). Attaches a new camera called `name` to scene object o.
 PtrListNode* __fastcall SceneObj_AddCamera(uint8_t* o, int, const char* name) {
-    uint8_t* m = ((uint8_t*(__cdecl*)(size_t))0x53b070)(0x35);
+    uint8_t* m = ((uint8_t*)crt::operator_new(0x35));
     return SceneObj_AddAttachment(o, 0, m ? Camera_Construct(m, 0, name, (uint32_t)(uintptr_t)o) : nullptr);
 }
 RT3_REPLACE(0x45b120, SceneObj_AddCamera);
@@ -3387,7 +3378,7 @@ RT3_NOINLINE void __fastcall ModelObj_Release(uint8_t* o) {
     F<int32_t>(o, 0x24a) = 0;
     if (F<uint8_t*>(o, 0x256)) {
         EffectSet_Release(F<uint8_t*>(o, 0x256));
-        Free(F<void*>(o, 0x256));
+        crt::free(F<void*>(o, 0x256));
         F<void*>(o, 0x256) = nullptr;
     }
     if (F<uint32_t*>(o, 0x25a)) {
@@ -3594,7 +3585,7 @@ RT3_NOINLINE void __fastcall Building_LoadParts(uint8_t* o, int, int32_t upgrade
     Effects_SpawnForModel(o, 0, path, nullptr, -1, 0x400, 1.0f);
     if (!upgraded && F<uint8_t*>(o, 0x256)) {
         EffectSet_Release(F<uint8_t*>(o, 0x256));
-        ((void(__cdecl*)(void*))0x5a1145)(F<uint8_t*>(o, 0x256));
+        crt::free(F<uint8_t*>(o, 0x256));
         F<uint8_t*>(o, 0x256) = nullptr;
     }
     if (!F<uint8_t*>(o, 0x256)) {
@@ -3612,7 +3603,7 @@ RT3_NOINLINE void __fastcall Building_LoadParts(uint8_t* o, int, int32_t upgrade
         const char* n = Num_Format(num, 1, (double)i, 10, 1, 0, 0);
         FormatText(part, fmt, F<const char*>(o, 0x23e), n, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
         if (!has(part)) return;
-        uint8_t* p = (uint8_t*)((void*(__cdecl*)(uint32_t))0x53b070)(0x206);
+        uint8_t* p = (uint8_t*)crt::operator_new(0x206);
         uint8_t* m = p ? SceneObj_Construct(p, 0, 0, part, F<const char*>(o, 0x242)) : nullptr;
         SceneObj_AddChild(o, 0, m);
         uint32_t key = Crc32String(part, 1);
@@ -3691,7 +3682,7 @@ void __fastcall SceneObj_AmbientSound(uint8_t* o) {
                         const float far = (float)(range * D(0x5cb548));
                         uint32_t x, y, z;
                         SceneObj_GetPos(o, 0, &x, &y, &z);
-                        ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)(num, (const char*)0x5c9aec, Rand(1, count));
+                        crt::sprintf(num, (const char*)0x5c9aec, Rand(1, count));
                         FormatText(file, (const char*)0x5cb5b0, name, num, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
                         float vol = (float)(far * D(0x5c8750));
                         vol = (double)vol < D(0x5c8770) ? vol : 1.0f;
@@ -3836,7 +3827,7 @@ RT3_REPLACE(0x45c150, Building_Load);
 RT3_NOINLINE void __fastcall Building_AddUpgradeModel(uint8_t* o) {
     char path[0x12c];
     FormatText(path, (const char*)0x5cb5d4, F<const char*>(o, 0x23e), nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
-    uint8_t* p = (uint8_t*)((void*(__cdecl*)(uint32_t))0x53b070)(0x23a);
+    uint8_t* p = (uint8_t*)crt::operator_new(0x23a);
     uint8_t* w = p ? WorldModel_Construct(p, 0, F<const char*>(o, 0x23e), path, F<const char*>(o, 0x242), 0xbf800000, 0xbf800000, 1) : nullptr;
     F<uint8_t*>(o, 0x246) = w;
     Obj_MoveTo(w, 0, 0.0f, 0.0f, 0.0f);
@@ -3856,12 +3847,12 @@ RT3_NOINLINE void __fastcall BuildingObj_DropModel(uint8_t* o) {
     for (uint8_t* v = (uint8_t*)PtrList_Next(F<PtrList*>(o, 0x75)); v; v = (uint8_t*)PtrList_Next(F<PtrList*>(o, 0x75))) {
         if (v == F<uint8_t*>(o, 0x246)) continue;
         SceneObj_Destructor(v);
-        ((void(__cdecl*)(void*))0x53b080)(v);
+        crt::operator_delete(v);
     }
     if (!(o[0x23a] & 1)) Building_LoadParts(o, 0, 0);
     if (uint8_t* m = F<uint8_t*>(o, 0x246)) {
         NamedObj_Destructor(m);
-        ((void(__cdecl*)(void*))0x53b080)(m);
+        crt::operator_delete(m);
     }
     F<void*>(o, 0x246) = nullptr;
     PtrList_Clear(F<PtrList*>(o, 0x75));
@@ -3901,14 +3892,12 @@ RT3_REPLACE(0x45c4d0, Model_SetPartAngle2);
 // Quirk: the arm uses sin/cos of +0 alone, not +0 + angle, for its axes.
 RT3_NOINLINE void __fastcall Obj_TurnPivot(uint8_t* o, int, float angle, int32_t a, int32_t b) {
     uint8_t* p = F<uint8_t*>(F<uint8_t*>(o, 0x316), 0xa0 + (a * 48 + b) * 4);
-    auto sin_ = (double(__cdecl*)(double))0x5a1494;
-    auto cos_ = (double(__cdecl*)(double))0x5a13e4;
     float u = (float)((double)F<float>(p, 0x1c) - F<float>(p, 0x20));
     float v = (float)((double)F<float>(p, 0x28) - F<float>(p, 0x2c));
-    double t = cos_(angle) * v;
-    float rx = (float)(sin_(angle) * u + t);
-    t = cos_(angle) * u;
-    float rz = (float)(t - sin_(angle) * v);
+    double t = crt::sin(angle) * v;
+    float rx = (float)(crt::cos(angle) * u + t);
+    t = crt::sin(angle) * u;
+    float rz = (float)(t - crt::cos(angle) * v);
     SceneObj_SetAngles(F<uint8_t*>(p, 0x3c), 0, Bits(angle), 0, 0);
     if (F<uint8_t*>(p, 0x38))
         SceneObj_SetPos(F<uint8_t*>(p, 0x38), 0, F<uint32_t>(p, 0x14), Bits((float)((double)rx + F<float>(p, 0x20))),
@@ -3917,14 +3906,14 @@ RT3_NOINLINE void __fastcall Obj_TurnPivot(uint8_t* o, int, float angle, int32_t
     SceneObj_SetPos(F<uint8_t*>(p, 0x34), 0, F<uint32_t>(p, 0x10), Bits((float)((double)rx + F<float>(p, 0x20))),
                     Bits((float)((double)rz + F<float>(p, 0x2c))));
     float base = F<float>(p, 0);
-    float arm = (float)(cos_((double)base + angle) * u);
-    float az = (float)(sin_(base) * arm + F<float>(p, 0x24));
-    float ax = (float)(cos_(base) * arm + F<float>(p, 0x18));
+    float arm = (float)(crt::sin((double)base + angle) * u);
+    float az = (float)(crt::cos(base) * arm + F<float>(p, 0x24));
+    float ax = (float)(crt::sin(base) * arm + F<float>(p, 0x18));
     SceneObj_SetPos(F<uint8_t*>(p, 0x30), 0, F<uint32_t>(p, 0xc), Bits(ax), Bits(az));
     uint32_t x1, y1, z1, x2, y2, z2;
     SceneObj_GetPos2(F<uint8_t*>(p, 0x30), 0, &x1, &y1, &z1);
     SceneObj_GetPos2(F<uint8_t*>(p, 0x34), 0, &x2, &y2, &z2);
-    double r = ((double(__cdecl*)(double, double))0x5a29d0)((double)FromBits(z1) - FromBits(z2),
+    double r = crt::atan2((double)FromBits(z1) - FromBits(z2),
                                                            (double)FromBits(y1) - FromBits(y2));
     SceneObj_SetAngles(F<uint8_t*>(p, 0x34), 0, Bits((float)(r - F<float>(p, 4))), 0, 0);
 }
@@ -4297,7 +4286,7 @@ RT3_NOINLINE void __fastcall Car_LoadModel(uint8_t* c, int, const char* name, co
         ++F<int32_t>(c, 0x31a);
     }
     uint32_t bytes = (uint32_t)(F<int32_t>(c, 0x31a) * 0xc0);
-    uint8_t* recs = (uint8_t*)((void*(__cdecl*)(uint32_t))0x5a125d)(bytes);
+    uint8_t* recs = (uint8_t*)crt::malloc(bytes);
     F<uint8_t*>(c, 0x316) = recs;
     memset(recs, 0, bytes);
     for (int32_t m = 0; m < F<int32_t>(c, 0x31a); ++m) {
@@ -4331,12 +4320,12 @@ RT3_NOINLINE void __fastcall Car_LoadModel(uint8_t* c, int, const char* name, co
             }
             for (int32_t k = 2; k <= 0x20; ++k) {
                 uint8_t* slot = c + 0x276 + (k - 1) * 5;
-                ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)(num, (const char*)0x5c9aec, k);
+                crt::sprintf(num, (const char*)0x5c9aec, k);
                 CarFormat(path, 0x5cb770, name, num);
                 if (!CarHas(path)) continue;
                 if (uint8_t* old = F<uint8_t*>(slot, 1)) {
                     NamedObj_Destructor(old);
-                    ((void(__cdecl*)(void*))0x53b080)(old);
+                    crt::operator_delete(old);
                 }
                 slot[0] = 0;
                 uint8_t* w = CarModel(nullptr, path, (const char*)0x5cb764);
@@ -4356,8 +4345,8 @@ RT3_NOINLINE void __fastcall Car_LoadModel(uint8_t* c, int, const char* name, co
         // Bogies: counted, then loaded.
         for (int32_t pass = 0; pass < 2; ++pass) {
             if (pass == 1) {
-                F<void*>(rec, 0x98) = ((void*(__cdecl*)(uint32_t))0x5a125d)((uint32_t)(F<int32_t>(rec, 0) * 4 + 1));
-                F<void*>(rec, 0x9c) = ((void*(__cdecl*)(uint32_t))0x5a125d)((uint32_t)(F<int32_t>(rec, 0) * 4 + 1));
+                F<void*>(rec, 0x98) = crt::malloc((uint32_t)(F<int32_t>(rec, 0) * 4 + 1));
+                F<void*>(rec, 0x9c) = crt::malloc((uint32_t)(F<int32_t>(rec, 0) * 4 + 1));
             }
             int32_t at = 0;
             for (int32_t i = 1; i < 0xff; ++i) {
@@ -4381,7 +4370,7 @@ RT3_NOINLINE void __fastcall Car_LoadModel(uint8_t* c, int, const char* name, co
             CarFormat(path, 0x5cb710, prefix, CarNum(num, i));
             if (!CarHas(path)) break;
             int32_t idx = F<int32_t>(F<uint8_t*>(c, 0x316) + m * 0xc0, 4);
-            float* pf = (float*)((void*(__cdecl*)(uint32_t))0x5a125d)(0x44);
+            float* pf = (float*)crt::malloc(0x44);
             F<float*>(rec, 0xa0 + idx * 4) = pf;
             memset(pf, 0, 0x44);
             uint8_t* w = CarModel(name, path, texName);
@@ -4412,11 +4401,11 @@ RT3_NOINLINE void __fastcall Car_LoadModel(uint8_t* c, int, const char* name, co
                         F<uint32_t>(pf, 0) = 0x3fc90fdb;
                     else {
                         float a = (float)((double)pf[6] - pf[8]);
-                        pf[0] = (float)CarAtan((double)a / d);
+                        pf[0] = (float)crt::atan((double)a / d);
                     }
                     float n = (float)((double)pf[9] - pf[0xa]);
                     float dd = (float)((double)pf[6] - pf[7]);
-                    pf[1] = (float)CarAtan((double)n / dd);
+                    pf[1] = (float)crt::atan((double)n / dd);
                 }
             }
             ++F<int32_t>(rec, 4);
@@ -4429,7 +4418,7 @@ RT3_NOINLINE void __fastcall Car_LoadModel(uint8_t* c, int, const char* name, co
             if (!CarHas(path)) break;
             uint8_t* r = F<uint8_t*>(c, 0x316) + m * 0xc0;
             if (F<int32_t>(r, 8) >= 0x15) Fatal_Exit(GetString(0x1b0));
-            uint8_t* p = (uint8_t*)((void*(__cdecl*)(uint32_t))0x53b070)(0x35);
+            uint8_t* p = (uint8_t*)crt::operator_new(0x35);
             uint8_t* cam = p ? Camera_Construct(p, 0, path, F<uint32_t>(r, 0xc)) : nullptr;
             SceneObj_AddAttachment(F<uint8_t*>(r, 0xc), 0, cam);
             F<uint8_t*>(r, 0x44 + F<int32_t>(r, 8) * 4) = cam;

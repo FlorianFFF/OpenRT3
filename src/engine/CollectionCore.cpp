@@ -8,6 +8,7 @@
 #include "core/globals.h"
 #include "game/collection.h"
 #include "core/crt.h"
+#include "core/imports.h"
 #include "core/stream.h"
 
 namespace rt3 {
@@ -145,10 +146,10 @@ RT3_NOINLINE void __fastcall Collection_Save(Collection* c, int, Stream s, int32
         if (c->inlineRecords) {
             if (recordSize > c->stride) { // pad newer, larger records with zeros
                 uint32_t pad = recordSize - c->stride;
-                void* z = Malloc(pad);
+                void* z = crt::malloc(pad);
                 memset(z, 0, pad);
                 StreamWrite(s, z, pad, 0);
-                Free(z);
+                crt::free(z);
             }
         } else {
             StreamWrite(s, slot + 4, 2, 0);
@@ -162,29 +163,29 @@ void __fastcall Collection_Grow(Collection* c, int, uint32_t by) {
     uint32_t oldCap = c->capacity;
     uint32_t newCap = oldCap + by;
 
-    uint8_t* slots = (uint8_t*)Malloc(c->stride * newCap);
+    uint8_t* slots = (uint8_t*)crt::malloc(c->stride * newCap);
     if (c->slots) {
         memcpy(slots, c->slots, c->stride * oldCap);
-        Free(c->slots);
+        crt::free(c->slots);
     }
     c->slots = slots; // new slots are left uninitialised, as in the original
 
     uint32_t newBits = (newCap + 8) >> 3;
     uint32_t oldBits = oldCap ? (oldCap + 8) >> 3 : 0;
-    uint8_t* bits = (uint8_t*)Malloc(newBits);
+    uint8_t* bits = (uint8_t*)crt::malloc(newBits);
     if (c->freeBits) {
         memcpy(bits, c->freeBits, oldBits);
-        Free(c->freeBits);
+        crt::free(c->freeBits);
     }
     c->freeBits = bits;
     if ((int32_t)(newBits - oldBits) > 0) memset(bits + oldBits, 0xff, newBits - oldBits);
 
     for (int k = 1; k < 4; ++k) {
         if (!c->listEnabled[k]) continue;
-        CollectionNode* n = (CollectionNode*)Malloc(newCap * 12);
+        CollectionNode* n = (CollectionNode*)crt::malloc(newCap * 12);
         if (oldCap * 12 != 0) {
             memcpy(n, c->nodes[k], oldCap * 12);
-            Free(c->nodes[k]);
+            crt::free(c->nodes[k]);
         }
         memset(n + oldCap, 0, (newCap - oldCap) * 12);
         c->nodes[k] = n;
@@ -432,7 +433,7 @@ RT3_NOINLINE int32_t __fastcall Collection_Load(Collection* c, int, Stream s, in
             if (!c->inlineRecords) {
                 total += StreamRead(s, slot + 4, 2, 0, 1);
                 uint16_t size = *(uint16_t*)(slot + 4);
-                void* data = Malloc(size);
+                void* data = crt::malloc(size);
                 *(void**)slot = data;
                 total += StreamRead(s, data, size, 0, 1);
             }
@@ -456,7 +457,7 @@ RT3_NOINLINE uint32_t __fastcall Collection_Allocate(Collection* c, int, const v
 
     if (c->inlineRecords == 0) {
         uint8_t* slot = c->slots + c->stride * id;
-        void* p = Malloc(size);
+        void* p = crt::malloc(size);
         *(void**)slot = p;
         *(uint16_t*)(slot + 4) = (uint16_t)size;
         if (data) memcpy(p, data, size);
@@ -476,7 +477,7 @@ RT3_NOINLINE uint32_t __fastcall Collection_Allocate(Collection* c, int, const v
 RT3_REPLACE(0x518900, Collection_Allocate);
 
 RT3_NOINLINE void __fastcall Collection_Release(Collection* c, int, uint32_t id) {
-    if (c->inlineRecords == 0) Free(Collection_Get(c, 0, id));
+    if (c->inlineRecords == 0) crt::free(Collection_Get(c, 0, id));
     for (int k = 1; k < 4; ++k)
         if (c->listEnabled[k]) Collection_Unlink(c, 0, id, k);
     c->freeBits[id >> 3] |= (uint8_t)(1u << (id & 7));
@@ -574,7 +575,7 @@ RT3_REPLACE(0x518cc0, HashRand);
 
 // 0x518d50. Reseeds both the CRT rand() and the game LCG with 7.
 void ResetRand() {
-    ((void(__cdecl*)(unsigned))0x5a299e)(7); // srand
+    crt::srand(7); // srand
     g_lcg = 7;
 }
 RT3_REPLACE(0x518d50, ResetRand);
@@ -659,7 +660,7 @@ RT3_REPLACE(0x518de0, FormatText);
 RT3_NOINLINE void __fastcall StringList_Free(StringList* l) {
     if (!l->items) return;
     for (int32_t i = 0; i < l->count; ++i)
-        if (l->items[i]) Free(l->items[i]);
+        if (l->items[i]) crt::free(l->items[i]);
     FreeAndNull((void**)&l->items);
 }
 RT3_REPLACE(0x518f60, StringList_Free);
@@ -681,7 +682,7 @@ RT3_NOINLINE void Language_Select() {
         { 0x180c, 0x5d21ec }, { 0x410, 0x5d21e4 }, { 0x810, 0x5d21e4 }, { 0x416, 0x5d21dc }, { 0x816, 0x5d21dc },
         { 0x411, 0x5d21fc }, { 0x415, 0x5d2204 }, { 0x419, 0x5d21f4 }, { 0x40e, 0x5d220c },
     };
-    uint16_t id = ((uint16_t(__stdcall*)())g_5c8218)();
+    uint16_t id = (imp::GetUserDefaultLangID)();
     const char* name = (const char*)0x5d21c4;
     if ((id & 0x3ff) == 0xa && id >= 0x40a && id <= 0x500a) name = (const char*)0x5d21bc; // all Spanish variants
     for (const Entry& e : table)
@@ -690,9 +691,9 @@ RT3_NOINLINE void Language_Select() {
     char path[0x17];
     memcpy(path, (const void*)0x5d21a4, sizeof path);
     if (FileExists(path)) {
-        int fd = Open(path, 0x8000, 0);
-        int n = Read(fd, f.buf, 0x12c);
-        Close(fd);
+        int fd = crt::open(path, 0x8000, 0);
+        int n = crt::read(fd, f.buf, 0x12c);
+        crt::close(fd);
         f.buf[n] = 0;
         for (int32_t i = 0; i < n; ++i)
             if (f.buf[i] < 0x1f) f.buf[i] = 0;

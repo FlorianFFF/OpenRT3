@@ -12,6 +12,7 @@
 #include "core/globals.h"
 #include "core/stream.h"
 #include "core/crt.h"
+#include "core/imports.h"
 #include "game/collection.h"
 #include "core/ptrlist.h"
 #include "core/containers.h"
@@ -25,7 +26,6 @@
 namespace rt3 {
 
 template <typename T> static inline T& F(void* o, uint32_t off) { return *(T*)((uint8_t*)o + off); }
-template <typename Fn> static inline Fn Import(uint32_t iat) { return (Fn)hook::Global<void*>(iat); }
 
 double __stdcall Plane_HeightAt(float x0, float y0, float z0, float x1, float y1, float z1, float x2, float y2,
                                 float z2, float qx, float qz);
@@ -322,15 +322,13 @@ inline int32_t FlowFtol(double v) {
 }
 
 namespace {
-inline void* TerrainMalloc(uint32_t n) { return ((void*(__cdecl*)(uint32_t))0x5a125d)(n); }
-inline void* TerrainNew(uint32_t n) { return ((void*(__cdecl*)(uint32_t))0x53b070)(n); }
 inline void TerrainProgress() {
     if (hook::Global<void(__cdecl*)()>(0x6d4014)) hook::Global<void(__cdecl*)()>(0x6d4014)();
 }
 // A missing map gets `size` bytes filled with `fill`.
 inline void TerrainAllocFilled(uint8_t* t, uint32_t off, uint32_t size, uint8_t fill) {
     if (F<void*>(t, off)) return;
-    void* p = TerrainMalloc(size);
+    void* p = crt::malloc(size);
     F<void*>(t, off) = p;
     memset(p, fill, size);
 }
@@ -341,7 +339,7 @@ inline void TerrainAllocLists(uint8_t* t, uint32_t off, int32_t bx, int32_t by) 
     for (int32_t i = 0; i < bx; ++i) {
         TerrainProgress();
         for (int32_t j = 0; j < by; ++j) {
-            PtrList* l = (PtrList*)TerrainNew(0x18);
+            PtrList* l = (PtrList*)crt::operator_new(0x18);
             l = l ? PtrList_Init(l) : nullptr;
             F<PtrList**>(t, off)[(F<int32_t>(t, 0x15d9) >> 4) * j + i] = l;
         }
@@ -351,9 +349,7 @@ inline void TerrainAllocLists(uint8_t* t, uint32_t off, int32_t bx, int32_t by) 
 
 static inline double Fsqrt(double v) { double r; __asm { fld v } __asm { fsqrt } __asm { fstp r } return r; }
 
-static inline void ExeDelete(void* p) { ((void(__cdecl*)(void*))0x53b080)(p); }
 
-static inline void* ExeNew(size_t n) { return ((void*(__cdecl*)(size_t))0x53b070)(n); }
 
 // The texture name from the main pack's cache (all mips, flag 0x7f).
 static uint8_t* Texture_Acquire(const char* name) { return TextureCache_Get(g_pack, 0, name, 0, 0, 0x7f); }
@@ -441,7 +437,7 @@ uint8_t* __fastcall Sound_Construct(uint8_t* snd, int, int32_t provider) {
     F<int32_t>(snd, 0x48) = 0;
     const char* name = provider != -1 ? (const char*)Sound_Get3DProvider(provider) : nullptr;
     if (Sound_Startup(snd, 0, name) == 1) {
-        uint8_t* c = (uint8_t*)((void*(__cdecl*)(size_t))0x53b070)(0x44);
+        uint8_t* c = (uint8_t*)crt::operator_new(0x44);
         if (c) F<int32_t>(c, 0x10) = 0;
         F<uint8_t*>(snd, 0) = c;
         SoundCache_Init(c, 0, 0x100000);
@@ -456,7 +452,7 @@ RT3_NOINLINE void __fastcall Sound_Destruct(uint8_t* snd) {
     Sound_Shutdown(snd, 0, 0);
     if (uint8_t* c = F<uint8_t*>(snd, 0)) {
         SoundCache_ClearThunk(c);
-        ((void(__cdecl*)(void*))0x53b080)(c);
+        crt::operator_delete(c);
         F<void*>(snd, 0) = nullptr;
     }
 }
@@ -478,7 +474,7 @@ void __fastcall Sound_StartFadeTimer(uint8_t* s, int, int32_t mode) {
         g_624d58 = 1;
         Sound_ReleaseTimer(s);
     }
-    int32_t t = Import<int32_t(__stdcall*)(uint32_t)>(0x5c83f4)(0x531fd0);
+    int32_t t = imp::AIL_register_timer(0x531fd0);
     F<int32_t>(s, 0x4c) = t;
     if (t == -1) return;
     F<int32_t>(s, 0x50) = mode;
@@ -489,10 +485,10 @@ void __fastcall Sound_StartFadeTimer(uint8_t* s, int, int32_t mode) {
         t = F<int32_t>(s, 0x4c);
         user = 2;
     }
-    Import<void(__stdcall*)(int32_t, uint32_t)>(0x5c8400)(t, user);
-    Import<void(__stdcall*)(int32_t, uint32_t)>(0x5c83c8)(F<int32_t>(s, 0x4c), 3);
+    imp::AIL_set_timer_user(t, user);
+    imp::AIL_set_timer_frequency(F<int32_t>(s, 0x4c), 3);
     g_624d58 = 0;
-    Import<void(__stdcall*)(int32_t)>(0x5c83a0)(F<int32_t>(s, 0x4c));
+    imp::AIL_start_timer(F<int32_t>(s, 0x4c));
 }
 RT3_REPLACE(0x532260, Sound_StartFadeTimer);
 
@@ -539,7 +535,7 @@ uint32_t* __fastcall Overview_Pixels(uint8_t* r, int, int32_t w, int32_t h) {
     if (!F<uint8_t*>(r, 0x478)) {
         F<int32_t>(r, 0x159c) = w;
         F<int32_t>(r, 0x15a0) = h;
-        uint8_t* p = (uint8_t*)((void*(__cdecl*)(uint32_t))0x53b070)(0xec);
+        uint8_t* p = (uint8_t*)crt::operator_new(0xec);
         F<uint8_t*>(r, 0x478) = p ? Texture_InitMemory(p, 0, nullptr, w, h, 1) : nullptr;
     }
     return Texture_Pixels32(F<uint8_t*>(r, 0x478), 0, nullptr, nullptr, 0);
@@ -638,7 +634,7 @@ RT3_NOINLINE void __fastcall Render_DestroyCurrentTexture(uint8_t* r) {
     uint8_t* t = F<uint8_t*>(r, 8 + i * 4);
     if (!t) return;
     Texture_Destroy(t);
-    ExeDelete(t);
+    crt::operator_delete(t);
     F<uint8_t*>(r, 8 + F<int32_t>(r, 0x1558) * 4) = nullptr;
 }
 RT3_REPLACE(0x532760, Render_DestroyCurrentTexture);
@@ -703,7 +699,7 @@ RT3_REPLACE(0x532a30, Render_Get1554);
 // 0x532a40. Current frame of animated texture set A (+0x1568, +0x156c frames) from
 // the system time x 0x5dd258 (x87 with the exe's _CIfmod / _ftol); index kept in +0x1570.
 uint32_t __fastcall Render_AnimFrameA(uint8_t* r) {
-    int32_t t = (int32_t)Import<uint32_t(__stdcall*)()>(0x5c8068)();
+    int32_t t = (int32_t)imp::GetTickCount();
     int32_t n = F<int32_t>(r, 0x156c);
     int32_t idx;
     __asm {
@@ -731,7 +727,7 @@ RT3_REPLACE(0x532a90, Render_Get1578);
 
 // 0x532aa0. Current frame of animated texture set B (+0x1560, +0x1564 frames): time / 12.
 uint32_t __fastcall Render_AnimFrameB(uint8_t* r) {
-    uint32_t t = Import<uint32_t(__stdcall*)()>(0x5c8068)();
+    uint32_t t = imp::GetTickCount();
     uint32_t idx = (t / 12) % F<uint32_t>(r, 0x1564);
     return F<uint32_t>(r, (F<int32_t>(r, 0x1560) + idx) * 4 + 8);
 }
@@ -759,7 +755,7 @@ RT3_NOINLINE void __fastcall Render_ReleaseTextureSlots(uint8_t* r) {
     auto destroy = [](uint8_t*& t) {
         if (t) {
             Texture_Destroy(t);
-            ExeDelete(t);
+            crt::operator_delete(t);
         }
         t = nullptr;
     };
@@ -781,7 +777,7 @@ RT3_NOINLINE void __fastcall Render_ReleaseTextureSlots(uint8_t* r) {
         if (!slots[i]) continue;
         if (i >= 1 && i < 0x11) {
             Texture_Destroy(slots[i]);
-            ExeDelete(slots[i]);
+            crt::operator_delete(slots[i]);
         } else {
             Pack_Release(g_pack, 0, slots[i]);
         }
@@ -808,13 +804,13 @@ RT3_NOINLINE void __fastcall Render_AllocGrid(uint8_t* r, int, int32_t rows, int
         F<int32_t>(r, 0x15dd) = rows + 1;
     }
     uint32_t n = (uint32_t)((F<int32_t>(r, 0x15d9) + 1) * (F<int32_t>(r, 0x15d5) + 1));
-    uint8_t* h = (uint8_t*)Malloc(n * 4);
+    uint8_t* h = (uint8_t*)crt::malloc(n * 4);
     F<uint8_t*>(r, 0x1605) = h;
     for (uint32_t k = 0; k < n * 4; ++k) h[k] = 0;
-    for (int k = 0; k < 4; ++k) F<void*>(r, 0x1631 + k * 4) = Malloc(n);
-    F<void*>(r, 0x1655) = Malloc(n);
-    F<void*>(r, 0x1659) = Malloc(n);
-    F<void*>(r, 0x165d) = Malloc(n * 3);
+    for (int k = 0; k < 4; ++k) F<void*>(r, 0x1631 + k * 4) = crt::malloc(n);
+    F<void*>(r, 0x1655) = crt::malloc(n);
+    F<void*>(r, 0x1659) = crt::malloc(n);
+    F<void*>(r, 0x165d) = crt::malloc(n * 3);
     for (uint32_t k = 0; k < n; ++k) F<uint8_t*>(r, 0x1655)[k] = 2;
     for (uint32_t k = 0; k < n; ++k) F<uint8_t*>(r, 0x1659)[k] = 1;
     for (uint32_t k = 0; k < n * 3; ++k) F<uint8_t*>(r, 0x165d)[k] = 0;
@@ -1052,9 +1048,9 @@ RT3_NOINLINE void __fastcall Terrain_AllocMips(uint8_t* t) {
         if (F<int32_t>(t, 0x15d1)) continue;
         int32_t n = ((F<int32_t>(t, 0x15d9) >> level) + 1) * ((F<int32_t>(t, 0x15d5) >> level) + 1);
         uint8_t* slot = t + 0x15f5 + (level - 1) * 4;
-        F<void*>(slot, 0x14) = Malloc(n * 4);
-        F<void*>(slot, 0) = Malloc(n * 12);
-        F<void*>(slot, 0x28) = Malloc(n * 2);
+        F<void*>(slot, 0x14) = crt::malloc(n * 4);
+        F<void*>(slot, 0) = crt::malloc(n * 12);
+        F<void*>(slot, 0x28) = crt::malloc(n * 2);
         if (!F<void*>(slot, 0x14) || !F<void*>(slot, 0) || !F<void*>(slot, 0x28)) Fatal_Exit(GetString(0xa4));
         memset(F<void*>(slot, 0x14), 0, n * 4);
         memset(F<void*>(slot, 0), 0, n * 12);
@@ -1220,7 +1216,7 @@ void __fastcall Terrain_FreeCell167d(uint8_t* r) {
             PtrList_Rewind(l);
             void* p = PtrList_Next(l);
             do {
-                Free(p);
+                crt::free(p);
                 p = PtrList_Next(l);
             } while (--n);
             PtrList_Clear(l);
@@ -1302,7 +1298,7 @@ RT3_REPLACE(0x534100, Terrain_SetCellCount);
 RT3_NOINLINE void __fastcall Terrain_AddPoints(uint8_t* t, int, int32_t x, int32_t z, uint8_t kind, int32_t count) {
     int32_t bx = x >> 4, bz = z >> 4;
     if (!PointGrid(t, bx, bz)) {
-        uint8_t* g = (uint8_t*)ExeNew(0x54);
+        uint8_t* g = (uint8_t*)crt::operator_new(0x54);
         if (g) g = BlockGrid_Init(g, 0, (float)(bx * 0x5c0), (float)(bz * 0x5c0));
         PointGrid(t, bx, bz) = g;
     }
@@ -1322,7 +1318,7 @@ RT3_NOINLINE void __fastcall Terrain_DecCellCount(uint8_t* t, int, int32_t x, in
         if (BlockGrid_Dec(*GridSlot(t, x, y), 0, cx, cy)) continue;
         if (uint8_t* g = *GridSlot(t, x, y)) {
             BlockGrid_Free(g);
-            ((void(__cdecl*)(void*))0x53b080)(g);
+            crt::operator_delete(g);
         }
         *GridSlot(t, x, y) = nullptr;
         return;
@@ -1362,7 +1358,7 @@ RT3_NOINLINE void __fastcall Terrain_DeleteMarkers(uint8_t* r) {
         uint8_t* o = F<uint8_t*>(r, 0x1695 + i * 9);
         if (o) {
             SceneObj_Destructor(o);
-            ((void(__cdecl*)(void*))0x53b080)(o);
+            crt::operator_delete(o);
         }
         F<uint8_t*>(r, 0x1695 + i * 9) = nullptr;
     }
@@ -1505,7 +1501,7 @@ RT3_NOINLINE uint32_t* __fastcall Terrain_ExtractTexture(uint8_t* t, int, float 
     int32_t d = (int32_t)((double)th * y1);
     F<int32_t>(t, 0x1595) = d;
     int32_t w = c - a, h = d - b;
-    uint32_t* buf = (uint32_t*)Malloc(h * w * 4);
+    uint32_t* buf = (uint32_t*)crt::malloc(h * w * 4);
     F<uint32_t*>(t, 0x1584) = buf;
     uint32_t* dst = buf;
     for (int32_t row = F<int32_t>(t, 0x158d); row < F<int32_t>(t, 0x158d) + h; ++row) {
@@ -1543,7 +1539,7 @@ RT3_NOINLINE void __fastcall Terrain_CommitTexture(uint8_t* t, int, uint8_t disc
     }
     void* buf = F<void*>(t, 0x1584);
     t[0x1588] = 0;
-    ((void(__cdecl*)(void*))0x5a1145)(buf);
+    crt::free(buf);
     F<void*>(t, 0x1584) = nullptr;
 }
 RT3_REPLACE(0x534af0, Terrain_CommitTexture);
@@ -1559,8 +1555,8 @@ RT3_REPLACE(0x534c50, Render_GetSize4);
 // `quality`.
 RT3_NOINLINE void __fastcall Terrain_SaveTexture(uint8_t* t, int, const char* path, int32_t mode, int32_t quality) {
     int32_t tw = F<int32_t>(t, 0x157c) * 4, th = F<int32_t>(t, 0x1580) * 4;
-    uint32_t* buf = (uint32_t*)((void*(__cdecl*)(uint32_t))0x5a125d)((uint32_t)(th * tw * 4));
-    uint8_t* p = (uint8_t*)((void*(__cdecl*)(uint32_t))0x53b070)(0xec);
+    uint32_t* buf = (uint32_t*)crt::malloc((uint32_t)(th * tw * 4));
+    uint8_t* p = (uint8_t*)crt::operator_new(0xec);
     uint8_t* tex = p ? Texture_InitMemory(p, 0, buf, tw, th, 1) : nullptr;
     for (int32_t by = 0; by < 4; ++by)
         for (int32_t bx = 0; bx < 4; ++bx) {
@@ -1576,7 +1572,7 @@ RT3_NOINLINE void __fastcall Terrain_SaveTexture(uint8_t* t, int, const char* pa
         Texture_AppendJpeg(tex, 0, path, 1, quality);
     if (!tex) return;
     Texture_Destroy(tex);
-    ((void(__cdecl*)(void*))0x53b080)(tex);
+    crt::operator_delete(tex);
 }
 RT3_REPLACE(0x534c80, Terrain_SaveTexture);
 
@@ -1630,7 +1626,7 @@ void __fastcall Render_DestroyColourMap(uint8_t* r) {
     uint8_t* t = F<uint8_t*>(r, 0x478);
     if (!t) return;
     Texture_Destroy(t);
-    ExeDelete(t);
+    crt::operator_delete(t);
     F<uint8_t*>(r, 0x478) = nullptr;
     r[0x159b] = 0;
 }
@@ -1646,7 +1642,7 @@ RT3_NOINLINE void __fastcall Render_CreateOverviewTarget(uint8_t* r, int, int32_
         F<int32_t>(r, 4)++;
     }
     if (F<void*>(r, 8 + F<int32_t>(r, 0x1558) * 4)) return;
-    uint8_t* p = (uint8_t*)((void*(__cdecl*)(size_t))0x53b070)(0xec);
+    uint8_t* p = (uint8_t*)crt::operator_new(0xec);
     F<uint8_t*>(r, 8 + F<int32_t>(r, 0x1558) * 4) = p ? Texture_ConstructDefault(p) : nullptr;
     if (!Texture_CreateTarget(F<uint8_t*>(r, 8 + F<int32_t>(r, 0x1558) * 4), 0, size, size, F<void*>(Engine(), 8))) {
         Engine()[0x1146ef] = 0;
@@ -1662,7 +1658,7 @@ RT3_NOINLINE int32_t __fastcall TextureSlots_Reset(uint8_t* t) {
     memset(t + 8, 0, 0x400);
     F<int32_t>(t, 4) = 0;
     if (!g_engine[0x11422e]) return TextureSlots_Add(t, 0, (const char*)0x5dd26c);
-    uint8_t* tex = (uint8_t*)ExeNew(0xec);
+    uint8_t* tex = (uint8_t*)crt::operator_new(0xec);
     if (tex) tex = Texture_ConstructDefault(tex);
     F<uint8_t*>(t, 8) = tex;
     if (!Texture_CreateTarget(tex, 0, 0x100, 0x100, F<void*>(g_engine, 8)))
@@ -1689,7 +1685,7 @@ RT3_NOINLINE void __fastcall Terrain_BuildTiles(uint8_t* t, int, int32_t w, int3
         for (int32_t k = 0; k < 0x10; ++k) {
             if (uint8_t* old = F<uint8_t*>(t, 8 + (F<int32_t>(t, 0x155c) + k) * 4)) {
                 Texture_Destroy(old);
-                ((void(__cdecl*)(void*))0x53b080)(old);
+                crt::operator_delete(old);
             }
             F<uint8_t*>(t, 8 + (F<int32_t>(t, 0x155c) + k) * 4) = nullptr;
         }
@@ -1707,7 +1703,7 @@ RT3_NOINLINE void __fastcall Terrain_BuildTiles(uint8_t* t, int, int32_t w, int3
             ++g_skipCount;
             if (hook::Global<void(__cdecl*)()>(0x6d4014)) hook::Global<void(__cdecl*)()>(0x6d4014)();
             int32_t tw = F<int32_t>(t, 0x157c), th = F<int32_t>(t, 0x1580);
-            uint32_t* pix = (uint32_t*)((void*(__cdecl*)(uint32_t))0x5a125d)((uint32_t)(tw * th * 4));
+            uint32_t* pix = (uint32_t*)crt::malloc((uint32_t)(tw * th * 4));
             if (src) {
                 const uint32_t* base = pixels + ((sh / 4) * by * sw + (sw / 4) * bx);
                 for (int32_t row = 0; row < F<int32_t>(t, 0x1580); ++row) {
@@ -1737,7 +1733,7 @@ RT3_NOINLINE void __fastcall Terrain_BuildTiles(uint8_t* t, int, int32_t w, int3
                 }
             } else
                 Mem_Fill32(pix, 0x96586131, (uint32_t)(F<int32_t>(t, 0x157c) * F<int32_t>(t, 0x1580)));
-            uint8_t* p = (uint8_t*)((void*(__cdecl*)(uint32_t))0x53b070)(0xec);
+            uint8_t* p = (uint8_t*)crt::operator_new(0xec);
             uint8_t* tile = p ? Texture_InitMemory(p, 0, pix, F<int32_t>(t, 0x157c), F<int32_t>(t, 0x1580), 1) : nullptr;
             F<uint8_t*>(t, 8 + (F<int32_t>(t, 0x155c) + slot) * 4) = tile;
             ++slot;
@@ -1784,7 +1780,7 @@ RT3_NOINLINE int32_t __fastcall Terrain_LoadTexture(uint8_t* t, int, const char*
         } else {
             const uint8_t* img = g_62bed4;
             if (img && g_62bed8 > 0xbb8) {
-                uint8_t* p = (uint8_t*)((void*(__cdecl*)(uint32_t))0x53b070)(0xec);
+                uint8_t* p = (uint8_t*)crt::operator_new(0xec);
                 uint8_t* mem = p ? Texture_InitMemory(p, 0, (void*)(img + img[0] + 0x12), *(const uint16_t*)(img + 0xc), *(const uint16_t*)(img + 0xe), 0)
                                  : nullptr;
                 Terrain_BuildTiles(t, 0, *(const uint16_t*)(img + 0xc), *(const uint16_t*)(img + 0xe), mem);
@@ -1820,7 +1816,7 @@ RT3_NOINLINE void __fastcall Water_LoadTextures(uint8_t* t) {
     F<int32_t>(t, 0x156c) = 1;
     for (int32_t i = 0x66; i <= 0x84; ++i) {
         char name[0x12c];
-        ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)(name, (const char*)0x5dd2a4, i);
+        crt::sprintf(name, (const char*)0x5dd2a4, i);
         int32_t slot = TextureSlots_AddInline(t, name);
         F<uint8_t*>(t, 8 + slot * 4)[5] = 0;
         if (HookFn f = hook::As<HookFn>(g_6d4014)) f();
@@ -1848,7 +1844,7 @@ RT3_NOINLINE void __fastcall Rain_LoadFrames(uint8_t* t) {
     F<int32_t>(t, 0x1560) = TextureSlots_Add(t, 0, (const char*)0x5dd2d0);
     for (int32_t i = 2; i <= 0x20; ++i) {
         char name[0x12c];
-        ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)(name, (const char*)0x5dd2bc, i);
+        crt::sprintf(name, (const char*)0x5dd2bc, i);
         int32_t slot = 0;
         while (slot < 0x100 && F<void*>(t, 8 + slot * 4)) ++slot;
         if (slot < 0x100) {
@@ -1868,7 +1864,7 @@ RT3_NOINLINE int32_t __fastcall Sound_StartInSlot(uint8_t* s, int, const char* n
     while (F<uint8_t*>(s, 0x40c + i * 4)) {
         if (++i >= 0x1b) return -1;
     }
-    uint8_t* ch = (uint8_t*)((void*(__cdecl*)(size_t))0x53b070)(0x141);
+    uint8_t* ch = (uint8_t*)crt::operator_new(0x141);
     if (ch) ch = Channel_Setup(ch, 0, name, s, 0.0f, 0.0f, 0.0f, 0, 1, -1.0f);
     F<uint8_t*>(s, 0x40c + i * 4) = ch;
     ++F<int32_t>(s, 0x408);
@@ -1882,7 +1878,7 @@ RT3_NOINLINE void __fastcall Terrain_FreeFixedChannels(uint8_t* r) {
         uint8_t* c = F<uint8_t*>(r, 0x40c + k * 4);
         if (!c) continue;
         Channel_Detach(c);
-        ExeDelete(c);
+        crt::operator_delete(c);
         F<void*>(r, 0x40c + k * 4) = nullptr;
         F<int32_t>(r, 0x408)--;
     }
@@ -1904,7 +1900,7 @@ RT3_NOINLINE void __fastcall Terrain_DestroyCell1675(uint8_t* r) {
                     do {
                         if (e) {
                             Effect_Release(e);
-                            ExeDelete(e);
+                            crt::operator_delete(e);
                         }
                         e = (uint8_t*)PtrList_Next(l);
                     } while (--n);
@@ -1912,12 +1908,12 @@ RT3_NOINLINE void __fastcall Terrain_DestroyCell1675(uint8_t* r) {
                 l = F<PtrList**>(r, 0x1675)[(F<int32_t>(r, 0x15d9) >> 4) * j + i];
                 if (l) {
                     PtrList_Destroy(l);
-                    ExeDelete(l);
+                    crt::operator_delete(l);
                 }
             }
         }
     }
-    Free(F<void*>(r, 0x1675));
+    crt::free(F<void*>(r, 0x1675));
     F<void*>(r, 0x1675) = nullptr;
 }
 RT3_REPLACE(0x535a10, Terrain_DestroyCell1675);
@@ -1936,7 +1932,7 @@ RT3_NOINLINE void __fastcall Terrain_FreeBlockObjects(uint8_t* r) {
                 do {
                     if (o) {
                         SceneObj_Destructor(o);
-                        ((void(__cdecl*)(void*))0x53b080)(o);
+                        crt::operator_delete(o);
                     }
                     o = (uint8_t*)PtrList_Next(l);
                 } while (--n);
@@ -1944,11 +1940,11 @@ RT3_NOINLINE void __fastcall Terrain_FreeBlockObjects(uint8_t* r) {
             l = F<PtrList**>(r, 0x1671)[(F<int32_t>(r, 0x15d9) >> 4) * y + x];
             if (l) {
                 PtrList_Destroy(l);
-                ((void(__cdecl*)(void*))0x53b080)(l);
+                crt::operator_delete(l);
             }
         }
     }
-    ((void(__cdecl*)(void*))0x5a1145)(F<void*>(r, 0x1671));
+    crt::free(F<void*>(r, 0x1671));
     F<void*>(r, 0x1671) = nullptr;
 }
 RT3_REPLACE(0x535b40, Terrain_FreeBlockObjects);
@@ -1963,12 +1959,12 @@ RT3_NOINLINE void __fastcall Terrain_DestroyCell1681(uint8_t* r) {
                 uint8_t* l = F<uint8_t**>(r, 0x1681)[(F<int32_t>(r, 0x15d9) >> 4) * j + i];
                 if (!l) continue;
                 Lists_Destroy(l);
-                ((void(__cdecl*)(void*))0x53b080)(l);
+                crt::operator_delete(l);
                 F<uint8_t**>(r, 0x1681)[(F<int32_t>(r, 0x15d9) >> 4) * j + i] = nullptr;
             }
         }
     }
-    Free(F<void*>(r, 0x1681));
+    crt::free(F<void*>(r, 0x1681));
     F<void*>(r, 0x1681) = nullptr;
 }
 RT3_REPLACE(0x535c70, Terrain_DestroyCell1681);
@@ -1983,12 +1979,12 @@ RT3_NOINLINE void __fastcall Terrain_DestroyCell1685(uint8_t* r) {
                 uint8_t* g = F<uint8_t**>(r, 0x1685)[(F<int32_t>(r, 0x15d9) >> 4) * j + i];
                 if (!g) continue;
                 BlockGrid_Free(g);
-                ((void(__cdecl*)(void*))0x53b080)(g);
+                crt::operator_delete(g);
                 F<uint8_t**>(r, 0x1685)[(F<int32_t>(r, 0x15d9) >> 4) * j + i] = nullptr;
             }
         }
     }
-    Free(F<void*>(r, 0x1685));
+    crt::free(F<void*>(r, 0x1685));
     F<void*>(r, 0x1685) = nullptr;
 }
 RT3_REPLACE(0x535d30, Terrain_DestroyCell1685);
@@ -2008,7 +2004,7 @@ RT3_NOINLINE void __fastcall Terrain_DestroyCell1679(uint8_t* r) {
                     do {
                         if (c) {
                             Channel_Detach(c);
-                            ExeDelete(c);
+                            crt::operator_delete(c);
                         }
                         c = (uint8_t*)PtrList_Next(l);
                     } while (--n);
@@ -2016,12 +2012,12 @@ RT3_NOINLINE void __fastcall Terrain_DestroyCell1679(uint8_t* r) {
                 l = F<PtrList**>(r, 0x1679)[(F<int32_t>(r, 0x15d9) >> 4) * j + i];
                 if (l) {
                     PtrList_Destroy(l);
-                    ExeDelete(l);
+                    crt::operator_delete(l);
                 }
             }
         }
     }
-    Free(F<void*>(r, 0x1679));
+    crt::free(F<void*>(r, 0x1679));
     F<void*>(r, 0x1679) = nullptr;
 }
 RT3_REPLACE(0x535df0, Terrain_DestroyCell1679);
@@ -2039,19 +2035,19 @@ RT3_NOINLINE void __fastcall Terrain_DestroyCell167d(uint8_t* r) {
                     PtrList_Rewind(l);
                     void* p = PtrList_Next(l);
                     do {
-                        Free(p);
+                        crt::free(p);
                         p = PtrList_Next(l);
                     } while (--n);
                 }
                 l = F<PtrList**>(r, 0x167d)[(F<int32_t>(r, 0x15d9) >> 4) * j + i];
                 if (l) {
                     PtrList_Destroy(l);
-                    ((void(__cdecl*)(void*))0x53b080)(l);
+                    crt::operator_delete(l);
                 }
             }
         }
     }
-    Free(F<void*>(r, 0x167d));
+    crt::free(F<void*>(r, 0x167d));
     F<void*>(r, 0x167d) = nullptr;
 }
 RT3_REPLACE(0x535f20, Terrain_DestroyCell167d);
@@ -2060,7 +2056,7 @@ RT3_REPLACE(0x535f20, Terrain_DestroyCell167d);
 // level grids (+0x15f1 / +0x1605 / +0x1619), the block object lists and cell
 // grids, and the remaining buffers.
 RT3_NOINLINE void __fastcall Terrain_Free(uint8_t* r) {
-    auto crtFree = [](void* p) { ((void(__cdecl*)(void*))0x5a1145)(p); };
+    auto crtFree = [](void* p) { crt::free(p); };
     if (!F<void*>(r, 0x1605)) return;
     for (int k = 0; k < 5; ++k) {
         crtFree(F<void*>(r, 0x1605 + k * 4));
@@ -2372,7 +2368,7 @@ RT3_REPLACE(0x536710, Terrain_RefreshWaterFlow);
 // raise when raise != 0) to the per-16-cell block list (+0x167d) of its centre.
 PtrListNode* __fastcall Terrain_AddQuad(uint8_t* t, int, float x0, float y0, float z0, float x1, float y1, float z1,
                                         float x2, float y2, float z2, float x3, float y3, float z3, uint8_t raise) {
-    Quad* q = (Quad*)Malloc(0x31);
+    Quad* q = (Quad*)crt::malloc(0x31);
     const float in[12] = { x0, y0, z0, x1, y1, z1, x2, y2, z2, x3, y3, z3 };
     for (int k = 0; k < 12; ++k) q->c[k] = in[k];
     q->raise = raise;
@@ -2479,13 +2475,13 @@ RT3_NOINLINE void __fastcall Terrain_Destroy(uint8_t* r) {
     Render_ReleaseTextureSlots(r);
     if (uint8_t* t = F<uint8_t*>(r, 0x478)) {
         Texture_Destroy(t);
-        ((void(__cdecl*)(void*))0x53b080)(t);
+        crt::operator_delete(t);
         F<uint8_t*>(r, 0x478) = nullptr;
         r[0x159b] = 0;
     }
     if (PtrList* l = F<PtrList*>(r, 0x166d)) {
         PtrList_Destroy(l);
-        ((void(__cdecl*)(void*))0x53b080)(l);
+        crt::operator_delete(l);
     }
     F<PtrList*>(r, 0x166d) = nullptr;
     F<int32_t>(r, 0x154c) = 0;
@@ -2563,7 +2559,7 @@ RT3_NOINLINE void __fastcall Terrain_InitMaps(uint8_t* t, int, char init, int32_
     for (int k = 0; k < 4; ++k) {
         uint8_t*& e = F<uint8_t*>(t, 0x1631 + k * 4);
         if (e) continue;
-        e = (uint8_t*)TerrainMalloc(n);
+        e = (uint8_t*)crt::malloc(n);
         for (int32_t i = 0; i < (int32_t)n; ++i) {
             uint32_t s = g_lcg * 0x19660d + 0x3c6ef35f;
             g_lcg = s;
@@ -2589,9 +2585,9 @@ RT3_NOINLINE void __fastcall Terrain_InitMaps(uint8_t* t, int, char init, int32_
     TerrainAllocLists(t, 0x1671, bx, by);
     int32_t m = F<int32_t>(t, 0x15d9) > F<int32_t>(t, 0x15d5) ? F<int32_t>(t, 0x15d9) : F<int32_t>(t, 0x15d5);
     int32_t m2 = m * 2;
-    if (!F<void*>(t, 0x15ed)) F<void*>(t, 0x15ed) = TerrainMalloc((uint32_t)(m2 * 4));
-    if (!F<void*>(t, 0x15e9)) F<void*>(t, 0x15e9) = TerrainMalloc((uint32_t)(m2 * 4));
-    if (!F<void*>(t, 0x15e5)) F<void*>(t, 0x15e5) = TerrainMalloc((uint32_t)(m2 * 4));
+    if (!F<void*>(t, 0x15ed)) F<void*>(t, 0x15ed) = crt::malloc((uint32_t)(m2 * 4));
+    if (!F<void*>(t, 0x15e9)) F<void*>(t, 0x15e9) = crt::malloc((uint32_t)(m2 * 4));
+    if (!F<void*>(t, 0x15e5)) F<void*>(t, 0x15e5) = crt::malloc((uint32_t)(m2 * 4));
     TerrainProgress();
     if (!F<void*>(t, 0x15f1) || !F<void*>(t, 0x162d) || !F<void*>(t, 0x1619) || !F<void*>(t, 0x15ed) || !F<void*>(t, 0x15e9) || !F<void*>(t, 0x1655) ||
         !F<void*>(t, 0x15e5) || !F<void*>(t, 0x1659) || !F<void*>(t, 0x165d))
@@ -2625,7 +2621,7 @@ RT3_NOINLINE void __fastcall Terrain_InitMaps(uint8_t* t, int, char init, int32_
         for (int32_t i = 0; i < bx; ++i) {
             TerrainProgress();
             for (int32_t j = 0; j < by; ++j) {
-                uint8_t* g = (uint8_t*)TerrainNew(0x28);
+                uint8_t* g = (uint8_t*)crt::operator_new(0x28);
                 g = g ? WaterGrid_Init(g, 0, i, j, t) : nullptr;
                 F<uint8_t**>(t, 0x1681)[(F<int32_t>(t, 0x15d9) >> 4) * j + i] = g;
             }
@@ -2656,7 +2652,7 @@ RT3_NOINLINE void __fastcall Terrain_Create(uint8_t* t, int, int32_t w, int32_t 
     };
     progress();
     Terrain_Init(t);
-    PtrList* l = (PtrList*)((void*(__cdecl*)(uint32_t))0x53b070)(0x18);
+    PtrList* l = (PtrList*)crt::operator_new(0x18);
     F<PtrList*>(t, 0x166d) = l ? PtrList_Init(l) : nullptr;
     progress();
     F<int32_t>(t, 0x2121) = g_ccba10;

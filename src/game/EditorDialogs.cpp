@@ -248,7 +248,6 @@ static inline double D(uint32_t a) { return *(const double*)a; }
 
 static inline double Fl(uint32_t a) { return *(const float*)a; }
 
-static inline void* ExeNew(size_t n) { return ((void*(__cdecl*)(size_t))0x53b070)(n); }
 
 static inline int32_t Ftol(double v) {
     int32_t r;
@@ -265,7 +264,6 @@ static inline float BitsF(uint32_t b) { return *(float*)&b; }
 
 static inline double BitsD(uint64_t b) { return *(double*)&b; }
 
-static inline SprintfFn ExeSprintf() { return (SprintfFn)0x5a19c4; }
 
 // Company finance statistics. Ids below 0x2b are kept per year: +0x1c47 + id * 8
 // (this year so far) and +0xd7f + (id * 11 + n) * 8 (n years ago, 0 = live); larger
@@ -289,11 +287,11 @@ static uint8_t* SetupToggle_Add(uint8_t* d, int32_t idx, float x, float y, float
     String_Assign(&F<char*>(def, 0x43), (const char*)0x5d0ae0);
     F<int32_t>(def, 0x6b) = 5;
     F<int32_t>(def, 0x67) = 6;
-    uint8_t* b = (uint8_t*)ExeNew(0xe8);
+    uint8_t* b = (uint8_t*)crt::operator_new(0xe8);
     if (b) b = Button_Construct(b, 0, def);
     F<int32_t>(b, 0x82) = idx;
     Window_AddChild(F<uint8_t*>(d, 0x86), 0, b, 0);
-    Free(F<void*>(def, 0x43));
+    crt::free(F<void*>(def, 0x43));
     return F<uint8_t*>(d, 0x86);
 }
 
@@ -490,7 +488,7 @@ void __fastcall InflationTable_DrawCb(void*, int, float x, float y, float w, flo
             Num_Format(num, 8, (double)year, 10, 1, 0, 0);
             FormatText(text, GetString(0x419), num, 0, 0, 0, 0, 0, 0, 0);
             Font_DrawTextBox(g_6cff8c, 0, text, (float)((double)x + Fl(0x5d0b20)), row, w, BitsF(0x3ce147ae), 0xffffffff, 2, 0, 0, 1.0f);
-            ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)(text, (const char*)0x5d0b18, Ftol((double)level * Fl(0x5c8c28) + D(0x5c86b8)));
+            crt::sprintf(text, (const char*)0x5d0b18, Ftol((double)level * Fl(0x5c8c28) + D(0x5c86b8)));
             Font_DrawTextBox(g_6cff8c, 0, text, (float)((double)x - Fl(0x5d0b20) - D(0x5d0b10)), row, w, BitsF(0x3ce147ae), 0xffffffff, 3, 0, 0,
                              1.0f);
             row = (float)((double)row + Fl(0x5d0b08));
@@ -517,10 +515,10 @@ RT3_NOINLINE void __fastcall EditorDialog_ShowEconomy(uint8_t* w) {
         Window_SendEvent5(w, 0, 0x66, 0x5bcd + k * 2, (uint32_t)(Ftol((double)fw(0xbe2 + k * 4) * *(const double*)0x5c87f8 + half) + 0x32), 0, 0);
     const float scale = *(const float*)0x5c8c28;
     char buf[0x130];
-    ExeSprintf()(buf, (const char*)0x5d0b18, Ftol((double)fw(0xbe2) * scale + half));
+    crt::sprintf(buf, (const char*)0x5d0b18, Ftol((double)fw(0xbe2) * scale + half));
     Window_SendEvent5(w, 0, 0x6f, 0x5bce, (uint32_t)(uintptr_t)buf, 0, 0);
     for (int32_t k = 1; k <= 5; ++k) {
-        ExeSprintf()(buf, (const char*)0x5d0b30, (double)fw(0xbe2 + k * 4) * scale + *(const double*)0x5c85b8);
+        crt::sprintf(buf, (const char*)0x5d0b30, (double)fw(0xbe2 + k * 4) * scale + *(const double*)0x5c85b8);
         Window_SendEvent5(w, 0, 0x6f, 0x5bce + k * 2, (uint32_t)(uintptr_t)buf, 0, 0);
     }
     g_6cff9c = 0;
@@ -587,7 +585,7 @@ RT3_NOINLINE int32_t __fastcall EditorDialog_OnSettingsEvent(uint8_t* w, int, ui
     case 0x5b6a:
     case 0x5b6b:
     case 0x5b6c: {
-        int32_t y = ((int(__cdecl*)(const char*))0x5a1ea5)(text());
+        int32_t y = crt::atoi(text());
         if (y < 0x725) y = 0x725;
         else if (y > 0x834) y = 0x834;
         F<int32_t>(world, ev[1] == 0x5b6a ? 0x66ca : ev[1] == 0x5b6b ? 0x66ce : 0x66d2) = y;
@@ -674,7 +672,7 @@ RT3_NOINLINE int32_t __fastcall EditorDialog_OnAchievementsEvent(uint8_t* w, int
         if (F<int32_t>(src, 0x82) == 0x19) Tracks_UpdateColor(g_tracks);
         if (F<int32_t>(src, 0x82) == 0x1a) Table_RefreshAll(g_buildings);
     } else if (ev[1] == 0xa7ff) {
-        F<int32_t>(g_world, 0x4b43) = ((int(__cdecl*)(const char*))0x5a1ea5)(F<const char*>(src, 0xba));
+        F<int32_t>(g_world, 0x4b43) = crt::atoi(F<const char*>(src, 0xba));
     } else return 1;
     EditorDialog_ShowAchievements(w, 0, 1);
     return 0;
@@ -773,7 +771,7 @@ void __fastcall Setup_AddTypeRow(uint8_t* d, int, int32_t idx, float x, float y,
     F<uint16_t>(def, 0) = (uint16_t)(idx + 0x5208);
     F<uint16_t>(def, 5) = 0x4e21;
     F<uint8_t*>(def, 0x47) = d;
-    uint8_t* frame = (uint8_t*)ExeNew(0x111);
+    uint8_t* frame = (uint8_t*)crt::operator_new(0x111);
     if (frame) frame = Scrollbar_Construct(frame, 0, def);
     F<int32_t>(frame, 0x82) = idx;
     Window_AddChild(F<uint8_t*>(d, 0x86), 0, frame, 0);
@@ -799,11 +797,11 @@ void __fastcall Setup_AddTypeRow(uint8_t* d, int, int32_t idx, float x, float y,
     F<uint32_t>(ld, 0xc7) = 0x3e0369d0;
     F<uint32_t>(ld, 0xcb) = 0x3bf5c28f;
     String_Assign(&F<char*>(ld, 0x43), (const char*)0x5d0b48);
-    uint8_t* list = (uint8_t*)ExeNew(0x1b9);
+    uint8_t* list = (uint8_t*)crt::operator_new(0x1b9);
     if (list) list = ListBox_Construct(list, 0, ld);
     Window_AddChild(F<uint8_t*>(d, 0x86), 0, list, 0);
     F<int32_t>(list, 0x82) = idx;
-    Free(F<void*>(ld, 0x43));
+    crt::free(F<void*>(ld, 0x43));
     const char* name = (const char*)Collection_Get(g_62b268, 0, (uint32_t)idx) + 4;
     int32_t v = Ftol(Obj_NamedValue(city, 0, name) * Fl(0x5c8c28) + D(0x5c8918));
     Window_SendEvent5(F<uint8_t*>(d, 0x86), 0, 0x66, F<uint16_t>(ld, 0), (uint32_t)v, 0, 0);
@@ -895,7 +893,6 @@ void __fastcall CityInfo_DrawCb(void*, int, float x, float y, float w, float h, 
     Obj_BuildingStats(c, 0, &n0, &n1, &n2, &n3, &c0, &c1, &c2, &c3, 1);
     const bool any = n2 + n0 + n3 > 0;
     const float rh = BitsF(0x3ce147ae);
-    auto sprintf_ = (int(__cdecl*)(char*, const char*, ...))0x5a19c4;
     for (int32_t i = 0; i < 4; ++i) {
         const float colw = any ? BitsF(0x3d6eeeef) : BitsF(0x3db05b06);
         if (i == 0) {
@@ -913,12 +910,12 @@ void __fastcall CityInfo_DrawCb(void*, int, float x, float y, float w, float h, 
             const int32_t kind = kKind[i];
             if (any) {
                 const int32_t count = kind == 2 ? c2 : kind == 0 ? c0 : kind == 3 ? c3 : 0;
-                sprintf_(cell, (const char*)0x5ca2ac, (double)(float)count);
+                crt::sprintf(cell, (const char*)0x5ca2ac, (double)(float)count);
                 Font_DrawTextBox(g_6cff90, 0, cell, (float)((double)x - ((double)colw + colw)), row, w, rh, 0xffffffff, 3, 0, 0, 1.0f);
             }
-            sprintf_(cell, (const char*)0x5ca2ac, (double)Obj_ProductionRate(c, 0, kind));
+            crt::sprintf(cell, (const char*)0x5ca2ac, (double)Obj_ProductionRate(c, 0, kind));
             Font_DrawTextBox(g_6cff90, 0, cell, (float)((double)x - colw), row, w, rh, 0xffffffff, 3, 0, 0, 1.0f);
-            sprintf_(cell, (const char*)0x5ca2ac, (double)Obj_ProductionRate(c, 0, kind) * level);
+            crt::sprintf(cell, (const char*)0x5ca2ac, (double)Obj_ProductionRate(c, 0, kind) * level);
             Font_DrawTextBox(g_6cff90, 0, cell, x, row, w, rh, 0xffffffff, 3, 0, 0, 1.0f);
         }
         row = (float)((double)row + Fl(0x5d0b08));
@@ -971,7 +968,7 @@ RT3_NOINLINE void __fastcall CityEditor_Fill(uint8_t* w, int, int32_t id, int32_
     float size = *(const float*)0x5c8904 < F<float>(c, 0x25a) ? 400.0f : F<float>(c, 0x25a);
     Window_SendEvent5(w, 0, 0x66, 0x5086, (uint32_t)Ftol((double)size + *(const double*)0x5c86b8), 0, 0);
     char buf[0x200], num[0x60];
-    ExeSprintf()(buf, (const char*)0x5d0b18, Ftol(F<float>(c, 0x25a)));
+    crt::sprintf(buf, (const char*)0x5d0b18, Ftol(F<float>(c, 0x25a)));
     Window_SendEvent5(w, 0, 0x6f, 0x5087, (uint32_t)(uintptr_t)buf, 0, 0);
     FormatText(buf, GetString(0xbba), Num_Format(num, 1, (double)id, 10, 1, 0, 0), 0, 0, 0, 0, 0, 0, 0);
     Window_SendEvent5(w, 0, 0x6f, 0x4a44, (uint32_t)(uintptr_t)buf, 0, 0);
@@ -1009,7 +1006,7 @@ RT3_NOINLINE void __fastcall CityEditor_Fill(uint8_t* w, int, int32_t id, int32_
             if (t[0x32] != 2 || !F<int32_t>(t, 0x7ac)) continue;
             if (best != -1 && !(weight[k] > weight[best])) {
                 if (weight[k] != weight[best]) continue;
-                if (Stricmp(LocalizeName((const char*)t + 0x4f), bestName) >= 0) continue;
+                if (crt::stricmp(LocalizeName((const char*)t + 0x4f), bestName) >= 0) continue;
             }
             strcpy(bestName, LocalizeName((const char*)t + 0x4f));
             best = k;
@@ -1037,7 +1034,7 @@ RT3_NOINLINE void __fastcall CityEditor_Fill(uint8_t* w, int, int32_t id, int32_
                 Collection* cc = g_cities;
                 uint8_t* a = (uint8_t*)Collection_Get(cc, 0, Collection_IdAt(cc, 0, (uint32_t)k, 0));
                 uint8_t* b = (uint8_t*)Collection_Get(cc, 0, Collection_IdAt(cc, 0, (uint32_t)best, 0));
-                if (Stricmp((const char*)a + 0x356, (const char*)b + 0x356) >= 0) continue;
+                if (crt::stricmp((const char*)a + 0x356, (const char*)b + 0x356) >= 0) continue;
             }
             best = k;
         }
@@ -1087,7 +1084,7 @@ RT3_NOINLINE void __fastcall TerritoryEditor_Show(uint8_t* w, int, int32_t id) {
                 Collection* c = g_territories;
                 uint8_t* a = (uint8_t*)Collection_Get(c, 0, Collection_IdAt(c, 0, k, 0));
                 uint8_t* b = (uint8_t*)Collection_Get(c, 0, Collection_IdAt(c, 0, best, 0));
-                if (Stricmp((const char*)a + 4, (const char*)b + 4) >= 0) continue;
+                if (crt::stricmp((const char*)a + 4, (const char*)b + 4) >= 0) continue;
             }
             best = k;
         }
@@ -1232,7 +1229,7 @@ RT3_NOINLINE void __fastcall EditorDialog_FillHouses(uint8_t* w, int, int32_t ke
                 uint8_t* b = entry(best);
                 const char* nk = LocalizeName((const char*)t + 0x4f);
                 const char* nb = LocalizeName((const char*)b + 0x4f);
-                if (Stricmp(nk, nb) >= 0) continue;
+                if (crt::stricmp(nk, nb) >= 0) continue;
             }
             best = k;
         }
@@ -1363,8 +1360,8 @@ RT3_NOINLINE uint32_t __fastcall CityEditor_HandleEvent(uint8_t* w, int, uint32_
         if (n > 999) n = 999;
         uint8_t used[1000];
         memset(used, 0, sizeof used);
-        const char** names = (const char**)Malloc(n * 4);
-        uint32_t* ids = (uint32_t*)Malloc(n * 4);
+        const char** names = (const char**)crt::malloc(n * 4);
+        uint32_t* ids = (uint32_t*)crt::malloc(n * 4);
         int32_t count = 0;
         for (int32_t pass = 0; pass < n; ++pass) {
             int32_t best = -1;
@@ -1374,7 +1371,7 @@ RT3_NOINLINE uint32_t __fastcall CityEditor_HandleEvent(uint8_t* w, int, uint32_
                     Collection* c = g_cities;
                     uint8_t* a = (uint8_t*)Collection_Get(c, 0, Collection_IdAt(c, 0, j, 0));
                     uint8_t* b = (uint8_t*)Collection_Get(c, 0, Collection_IdAt(c, 0, best, 0));
-                    if (Stricmp((const char*)a + 0x356, (const char*)b + 0x356) >= 0) continue;
+                    if (crt::stricmp((const char*)a + 0x356, (const char*)b + 0x356) >= 0) continue;
                 }
                 best = j;
             }
@@ -1393,8 +1390,8 @@ RT3_NOINLINE uint32_t __fastcall CityEditor_HandleEvent(uint8_t* w, int, uint32_
             Obj_CopyNamedAmounts(Collection_Get(g_cities, 0, g_selectedCity), 0, other);
             EditorDialog_SetTab(w, 0, 1, -1);
         }
-        Free(names);
-        Free(ids);
+        crt::free(names);
+        crt::free(ids);
         return 0;
     }
     case 0x507f:
@@ -1488,7 +1485,7 @@ RT3_NOINLINE uint32_t __fastcall TerritoryEditor_HandleEvent(uint8_t* w, int, ui
         TerritoryEditor_Show(w, 0, g_selectedTerritory);
         return 0;
     case 0x50e2: {
-        int32_t v = ((int(__cdecl*)(const char*))0x5a1ea5)(F<const char*>((uint8_t*)(uintptr_t)ev[11], 0xba));
+        int32_t v = crt::atoi(F<const char*>((uint8_t*)(uintptr_t)ev[11], 0xba));
         F<int32_t>(rec, 0x39) = v < 0 ? -v : v;
         TerritoryEditor_Show(w, 0, g_selectedTerritory);
         return 0;
@@ -1566,7 +1563,7 @@ RT3_NOINLINE uint32_t __fastcall NewGameDialog_HandleEvent(uint8_t* w, int, uint
             row(F<int32_t>(w, 0x80))[2] = 1;
             break;
         case 0x5a7c: {
-            int32_t v = ((int(__cdecl*)(const char*))0x5a1ea5)(F<const char*>((uint8_t*)(uintptr_t)ev[11], 0xba));
+            int32_t v = crt::atoi(F<const char*>((uint8_t*)(uintptr_t)ev[11], 0xba));
             F<int32_t>(row(F<int32_t>(w, 0x80)), 4) = v;
             return 0;
         }
@@ -1742,8 +1739,8 @@ RT3_NOINLINE void __fastcall EditorDialog_Init(uint8_t* w, int, int32_t tab, int
         String_Assign((char**)&item[1], GetString(e[1]));
         item[3] = (uint32_t)e[2];
         Window_SendEvent5(w, 0, 0x89, 0x4a3a, (uint32_t)(uintptr_t)item, 0, 0);
-        ((void(__cdecl*)(void*))0x5a1145)((void*)(uintptr_t)item[0]);
-        ((void(__cdecl*)(void*))0x5a1145)((void*)(uintptr_t)item[1]);
+        crt::free((void*)(uintptr_t)item[0]);
+        crt::free((void*)(uintptr_t)item[1]);
     }
     int32_t lang = g_language;
     if (lang == 4 || lang == 2) {
@@ -1806,7 +1803,7 @@ RT3_REPLACE(0x4cf700, EditorDialog_HandleEvent);
 RT3_NOINLINE void __fastcall EditorDialog_Run(int32_t tab, int32_t city) {
     if (tab == -1) tab = g_6cff80;
     Cursor_Set(g_cursorManager, 0, 1, 0, 0);
-    uint8_t* w = (uint8_t*)((void*(__cdecl*)(size_t))0x53b070)(0xa0);
+    uint8_t* w = (uint8_t*)crt::operator_new(0xa0);
     w = w ? PortraitDialog_Construct(w) : nullptr;
     EditorDialog_Init(w, 0, tab, city);
     if (Collection_IsValid(g_cities, 0, g_6cff78)) g_selectedCity = g_6cff78;
@@ -1816,7 +1813,7 @@ RT3_NOINLINE void __fastcall EditorDialog_Run(int32_t tab, int32_t city) {
     Windows_Remove(g_windowManager, 0, w);
     if (w) {
         SetupWindow_Destroy(w);
-        ((void(__cdecl*)(void*))0x53b080)(w);
+        crt::operator_delete(w);
     }
     if (g_gameWindow) EditTool_UpdateCursor(g_gameWindow);
 }
@@ -1860,8 +1857,8 @@ RT3_NOINLINE void __fastcall EditorDialog_ShowRegionTypes(uint8_t* w) {
         String_Assign((char**)&item[1], text);
         if (!count) item[3] = 0xffafafaf;
         Window_SendEvent5(w, 0, 0x89, 0x59d8, (uint32_t)(uintptr_t)item, 0, 0);
-        ((void(__cdecl*)(void*))0x5a1145)((void*)(uintptr_t)item[0]);
-        ((void(__cdecl*)(void*))0x5a1145)((void*)(uintptr_t)item[1]);
+        crt::free((void*)(uintptr_t)item[0]);
+        crt::free((void*)(uintptr_t)item[1]);
     }
     Window_SendEvent5(w, 0, 0x66, 0x59d8, hook::As<uint32_t>(g_6cffa4), 0, 0);
     uint8_t* tmpl = g_world + 0xfe7 + g_6cffa4 * 0x4e1;
@@ -1901,8 +1898,8 @@ RT3_NOINLINE void __fastcall EditorDialog_ShowRegionTypes(uint8_t* w) {
             Window_SendEvent5(w, 0, 0x88, id + 0x14, (uint32_t)(uintptr_t)loc, Collection_IdAt(g_cargoTypes, 0, (uint32_t)k, 0), 0);
             loc = LocalizeName(raw);
             Window_SendEvent5(w, 0, 0x88, id + 0x28, (uint32_t)(uintptr_t)loc, Collection_IdAt(g_cargoTypes, 0, (uint32_t)k, 0), 0);
-            if (!Stricmp(raw, (const char*)e + 8)) sel1 = row;
-            if (!Stricmp(raw, (const char*)e + 0x1c)) sel2 = row;
+            if (!crt::stricmp(raw, (const char*)e + 8)) sel1 = row;
+            if (!crt::stricmp(raw, (const char*)e + 0x1c)) sel2 = row;
             ++row;
         }
         Window_SendEvent5(w, 0, 0x66, id + 0x14, (uint32_t)sel1, 0, 0);
@@ -1950,7 +1947,7 @@ RT3_NOINLINE uint32_t __fastcall EditorDialog_OnRegionTypesEvent(uint8_t* w, int
         return 0;
     }
     if (ev[0] != 0xca) return 1;
-    auto atoi_ = [&]() { return ((int(__cdecl*)(const char*))0x5a1ea5)(F<const char*>((uint8_t*)(uintptr_t)ev[11], 0xba)); };
+    auto atoi_ = [&]() { return crt::atoi(F<const char*>((uint8_t*)(uintptr_t)ev[11], 0xba)); };
     if (id == 0x59d8) {
         hook::As<uint32_t>(g_6cffa4) = ev[2];
     } else if (id == 0x59de) {
@@ -2030,7 +2027,6 @@ RT3_NOINLINE void __fastcall EngineStats_Draw(void*, int, float x, float y, floa
     float lw = (float)((double)w - D(0x5d0bd8));
     Font_DrawTextBox(font, 0, GetString(0x423), lx, rowY, lw, BitsF(0x3cfc9630), 0xffffffff, 0, 0, 0, 1.0f);
     rowY = (float)((double)rowY + D(0x5d0bd0));
-    auto sprintf_ = (int(__cdecl*)(char*, const char*, ...))0x5a19c4;
     auto cells = [] { return g_6cffb4 < 1 ? 1 : g_6cffb4; };
     char buf[0x200];
     for (int32_t i = 0; i < 10; ++i) {
@@ -2042,26 +2038,26 @@ RT3_NOINLINE void __fastcall EngineStats_Draw(void*, int, float x, float y, floa
         case 1: Num_Format(buf, 1, (double)g_6cffc8, 10, 1, 0, 0); break;
         case 2: {
             int32_t m = cells();
-            sprintf_(buf, (const char*)0x5ca2ac, (double)g_6cffc8 * D(0x5c8d18) / (double)m);
+            crt::sprintf(buf, (const char*)0x5ca2ac, (double)g_6cffc8 * D(0x5c8d18) / (double)m);
             break;
         }
-        case 3: sprintf_(buf, (const char*)0x5d0bc4, (double)g_6cffd4); break;
+        case 3: crt::sprintf(buf, (const char*)0x5d0bc4, (double)g_6cffd4); break;
         case 4: {
             int32_t m = cells();
-            sprintf_(buf, (const char*)0x5d0bbc, (double)g_6cffc8 * D(0x5c8d18) * g_6cffd4 / (double)m);
+            crt::sprintf(buf, (const char*)0x5d0bbc, (double)g_6cffc8 * D(0x5c8d18) * g_6cffd4 / (double)m);
             break;
         }
-        case 5: sprintf_(buf, (const char*)0x5d0bc4, (double)g_6cffd0); break;
+        case 5: crt::sprintf(buf, (const char*)0x5d0bc4, (double)g_6cffd0); break;
         case 6: Num_Format(buf, 1, (double)Ftol((double)c0), 10, 1, 0, 0); break;
         case 7: Num_Format(buf, 1, (double)Ftol((double)cc - c0), 10, 1, 0, 0); break;
         case 8: {
             int32_t m = cells();
-            sprintf_(buf, (const char*)0x5d0104, (double)c0 * Fl(0x5c88c0) / (float)m);
+            crt::sprintf(buf, (const char*)0x5d0104, (double)c0 * Fl(0x5c88c0) / (float)m);
             break;
         }
         case 9: {
             int32_t m = cells();
-            sprintf_(buf, (const char*)0x5d0104, ((double)cc - c0) * Fl(0x5c88c0) / (float)m);
+            crt::sprintf(buf, (const char*)0x5d0104, ((double)cc - c0) * Fl(0x5c88c0) / (float)m);
             break;
         }
         }
@@ -2207,8 +2203,7 @@ void __fastcall ScenarioCheck_Draw(void*, int, float x, float y0, float w0, floa
         Collection* types = g_62b268;
         uint8_t* b = (uint8_t*)Collection_Get(types, 0, Collection_IdAt(types, 0, (uint32_t)i, 0));
         const char* name = (const char*)b + 4;
-        auto strnicmp = (int(__cdecl*)(const char*, const char*, size_t))0x5a5f26;
-        if (!World_LookupNamed1(g_world, 0, name) || !strnicmp(name, (const char*)0x5c8f94, 4) || !strnicmp(name, (const char*)0x5c8e4c, 9))
+        if (!World_LookupNamed1(g_world, 0, name) || !crt::strnicmp(name, (const char*)0x5c8f94, 4) || !crt::strnicmp(name, (const char*)0x5c8e4c, 9))
             continue;
         uint32_t id = Collection_IdAt(g_62b268, 0, (uint32_t)i, 0);
         if (Table_CountListing(g_cities, 0, id)) continue;
@@ -2335,14 +2330,13 @@ void __fastcall MapStats_DrawCb(void*, int, float x, float y, float w, float h, 
             m = g_map;
         }
     }
-    auto sprintf_ = (int(__cdecl*)(char*, const char*, ...))0x5a19c4;
     char perCell[0x40], perLand[0x40], num[0xc8], text[0x5dc];
     const float total = (float)g_6cffb8;
     const float cells = (float)(F<int32_t>(m, 0x2159) * F<int32_t>(m, 0x2155));
-    sprintf_(perCell, (const char*)0x5d0c14, (double)total / cells);
+    crt::sprintf(perCell, (const char*)0x5d0c14, (double)total / cells);
     const float total2 = (float)g_6cffb8;
     const float land = (float)g_6cffa8;
-    sprintf_(perLand, (const char*)0x5d0c14, (double)total2 / land);
+    crt::sprintf(perLand, (const char*)0x5d0c14, (double)total2 / land);
     Num_Format(num, 1, (double)g_6cffb8, 10, 1, 0, 0);
     FormatText(text, GetString(0x43e), num, perCell, perLand, 0, 0, 0, 0, 0);
     const float tw = (float)((double)w - D(0x5c8758));
@@ -2387,7 +2381,6 @@ RT3_NOINLINE void __fastcall LocoStats_DrawTable(void*, int, float x, float y, f
     static const int32_t heads[11] = { 3, 0x43f, 0x440, 0x441, 0x442, 0x443, 0x444, 0x445, 0x446, 0x447, 0x448 };
     static const uint32_t widths[11] = { 0x43340000, 0x42c5c28f, 0x42e2999a, 0x42e2999a, 0x42de7ae1, 0x42e6b852, 0x42ce0000, 0x42c5c28f, 0x42c5c28f,
                                          0x42b547ae, 0x42bd851f };
-    auto sprintf_ = (int(__cdecl*)(char*, const char*, ...))0x5a19c4;
     char buf[0x200];
     int32_t inPage = 0;
     for (int32_t i = -1; i < n; ++i) {
@@ -2415,10 +2408,10 @@ RT3_NOINLINE void __fastcall LocoStats_DrawTable(void*, int, float x, float y, f
                                           ((double)F<float>(r, 0x2d6) + F<float>(r, 0x2d2)) * D(0x5d0298),
                                       0xb);
                     break;
-                case 5: sprintf_(buf, (const char*)0x5d0c14, (double)F<float>(r, 0x2e2)); break;
-                case 6: sprintf_(buf, (const char*)0x5d0b30, (double)F<float>(r, 0x2ee) * Fl(0x5c8c28)); break;
-                case 7: sprintf_(buf, (const char*)0x5d0c48, (double)F<float>(r, 0x25a)); break;
-                case 8: sprintf_(buf, (const char*)0x5d0c48, (double)F<float>(r, 0x25e)); break;
+                case 5: crt::sprintf(buf, (const char*)0x5d0c14, (double)F<float>(r, 0x2e2)); break;
+                case 6: crt::sprintf(buf, (const char*)0x5d0b30, (double)F<float>(r, 0x2ee) * Fl(0x5c8c28)); break;
+                case 7: crt::sprintf(buf, (const char*)0x5d0c48, (double)F<float>(r, 0x25a)); break;
+                case 8: crt::sprintf(buf, (const char*)0x5d0c48, (double)F<float>(r, 0x25e)); break;
                 case 9: Num_Format(buf, 1, (double)F<int32_t>(r, 0x286), 10, 1, 0, 0); break;
                 case 10: Num_Format(buf, 1, (double)F<int32_t>(r, 0x296), 10, 1, 0, 0); break;
                 }

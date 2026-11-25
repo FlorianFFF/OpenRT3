@@ -127,7 +127,6 @@ static inline uint8_t* LiveSample(uint8_t* c) {
     return s;
 }
 
-static inline void ExeDelete(void* p) { ((void(__cdecl*)(void*))0x53b080)(p); }
 
 // Node lists {head, tail, count}; nodes link through their first dword. The pool
 // 0x6d4030 +0x14 = {free list*, lo, hi, active} recycles nodes inside its block.
@@ -145,7 +144,7 @@ static inline void FreeAll(uint32_t* l) {
         if (F<int32_t>(pool, 0xc) && (uint32_t)n >= F<uint32_t>(pool, 4) && (uint32_t)n < F<uint32_t>(pool, 8))
             PushFront(F<uint32_t*>(pool, 0), n);
         else
-            ExeDelete(n);
+            crt::operator_delete(n);
         n = next;
     }
 }
@@ -164,7 +163,6 @@ static inline int32_t CellOf(float v) {
     return r;
 }
 
-static inline void* ExeNew(size_t n) { return ((void*(__cdecl*)(size_t))0x53b070)(n); }
 
 static inline uint8_t* Snd() { return g_sound; }
 
@@ -602,11 +600,11 @@ RT3_NOINLINE void __fastcall ListPair_Clear(uint8_t* o, int, int32_t mode) {
         return;
     }
     if (void* a = F<void*>(o, 0)) {
-        ExeDelete(a);
+        crt::operator_delete(a);
         F<void*>(o, 0) = nullptr;
     }
     if (void* b = F<void*>(o, 4)) {
-        ExeDelete(b);
+        crt::operator_delete(b);
         F<void*>(o, 4) = nullptr;
     }
 }
@@ -632,7 +630,7 @@ RT3_NOINLINE int32_t __fastcall Emitter_SpawnParticle(uint8_t* e) {
         if ((uint32_t)node == l[1]) l[1] = next;
         --l[2];
     } else {
-        node = (uint32_t*)((void*(__cdecl*)(size_t))0x53b070)(F<uint32_t>(pool, 0x10));
+        node = (uint32_t*)crt::operator_new(F<uint32_t>(pool, 0x10));
     }
     if (!node) return 0;
     uint32_t* alive = F<uint32_t*>(e, 0);
@@ -670,7 +668,7 @@ RT3_NOINLINE void __fastcall Emitter_Reset(uint8_t* e, int, int32_t n, int32_t) 
         if (n <= 0) return;
     }
     for (int k = 0; k < 2; ++k) {
-        uint32_t* l = (uint32_t*)ExeNew(0xc);
+        uint32_t* l = (uint32_t*)crt::operator_new(0xc);
         if (l) {
             l[0] = 0;
             l[1] = 0;

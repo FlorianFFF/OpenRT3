@@ -12,6 +12,7 @@
 #include "core/globals.h"
 #include "game/collection.h"
 #include "core/crt.h"
+#include "core/imports.h"
 #include "core/ptrlist.h"
 #include "core/containers.h"
 #include "hook/keepregs.h"
@@ -23,9 +24,10 @@
 
 namespace rt3 {
 
+void __fastcall Fatal_Exit(const char* msg);
+
 void __fastcall Pack_Release(uint8_t* pack, int, void* obj);
 template <typename T> static inline T& F(void* o, uint32_t off) { return *(T*)((uint8_t*)o + off); }
-template <typename Fn> static inline Fn Import(uint32_t iat) { return (Fn)hook::Global<void*>(iat); }
 char* __fastcall StrCopy(char* dst, const char* src);
 void __fastcall Holder_Free(uint8_t* h);
 void __fastcall Music_Stop(uint8_t* m, int, uint32_t notify);
@@ -133,29 +135,27 @@ static void Texture_Replace(uint32_t slot, const char* name) {
     hook::Global<uint8_t*>(slot) = Texture_Acquire(name);
 }
 
-static inline void ExeDelete(void* p) { ((void(__cdecl*)(void*))0x53b080)(p); }
 
 static inline bool IsSpace(char c) { return c == ' ' || c == '\t' || c == '\n' || c == '\r'; }
 
 // 0x5574b0. Frees the two pools (+4, +0; each with a buffer +4) and the block +8.
 static inline void FreePool(uint8_t* o, uint32_t off) {
     if (!F<uint8_t*>(o, off)) return;
-    if (F<void*>(F<uint8_t*>(o, off), 4)) Free(F<void*>(F<uint8_t*>(o, off), 4));
+    if (F<void*>(F<uint8_t*>(o, off), 4)) crt::free(F<void*>(F<uint8_t*>(o, off), 4));
     if (NodePool* p = F<NodePool*>(o, off)) {
         Pool_Free(p);
-        ExeDelete(p);
+        crt::operator_delete(p);
         F<void*>(o, off) = nullptr;
     }
 }
 
-static inline void* ExeNew(size_t n) { return ((void*(__cdecl*)(size_t))0x53b070)(n); }
 
 // Music stream (+0, Miles HSTREAM; volume +0x104).
-static inline int32_t StreamStatus(void* s) { return Import<int32_t(__stdcall*)(void*)>(0x5c83c0)(s); }
+static inline int32_t StreamStatus(void* s) { return imp::AIL_stream_status(s); }
 
-static inline void StreamPause(void* s, int32_t on) { Import<void(__stdcall*)(void*, int32_t)>(0x5c8464)(s, on); }
+static inline void StreamPause(void* s, int32_t on) { imp::AIL_pause_stream(s, on); }
 
-RT3_NOINLINE static inline void StreamClose(void* s) { Import<void(__stdcall*)(void*)>(0x5c83bc)(s); }
+RT3_NOINLINE static inline void StreamClose(void* s) { imp::AIL_close_stream(s); }
 
 static inline double Fl(uint32_t a) { return *(const float*)a; }
 
@@ -181,26 +181,24 @@ static inline void X87Copy(void* dst, const void* src) {
     }
 }
 
-static inline void* ExeMalloc(size_t n) { return ((void*(__cdecl*)(size_t))0x5a125d)(n); }
 
-static inline void FatalError(const char* msg) { ((void(__fastcall*)(const char*))0x51e980)(msg); }
+static inline void FatalError(const char* msg) { Fatal_Exit(msg); }
 
 // 0x557af0 / 0x557b30. Creates the COM object 0x5c84e0 (interface 0x5c84d0) into
 // +0xc / +0x10 and initialises it (method 0x34 with 0x5c84a0). Whether both worked.
 static int32_t ComCreate(void** slot) {
     typedef HRESULT(WINAPI * CreateFn)(const void*, void*, DWORD, const void*, void**);
-    if (hook::As<CreateFn>(g_5c848c)((const void*)0x5c84e0, nullptr, 1, (const void*)0x5c84d0, slot) < 0) return 0;
+    if (((CreateFn)imp::CoCreateInstance)((const void*)0x5c84e0, nullptr, 1, (const void*)0x5c84d0, slot) < 0) return 0;
     void* o = *slot;
     return ((HRESULT(__stdcall*)(void*, const void*))(*(void***)o)[0x34 / 4])(o, (const void*)0x5c84a0) >= 0 ? 1 : 0;
 }
 
-static inline char* StrChr(const char* s, int c) { return ((char*(__cdecl*)(const char*, int))0x5a2a00)(s, c); }
 
 // 0x557330 body. Reduces s to the trimmed text between the open and close
 // characters (0x6257e0 / 0x6257e4, '(' and ')'); 0 when either is missing.
 static int32_t __cdecl Str_InnerParensImpl(char* s) {
-    char* open = StrChr(s, g_6257e0);
-    char* close = StrChr(s, g_6257e4);
+    char* open = crt::strchr(s, g_6257e0);
+    char* close = crt::strchr(s, g_6257e4);
     if (!open || !close) return 0;
     ++open;
     *close = 0;
@@ -213,7 +211,7 @@ static int32_t __cdecl Str_InnerParensImpl(char* s) {
 // 0x557390 body. Splits "key = value" into out +4 (key) and +0x104 (value), both
 // trimmed; 0 without '=' or with an empty key.
 static int32_t __cdecl Str_SplitKeyValueImpl(const char* line, uint8_t* out) {
-    const char* eq = StrChr(line, '=');
+    const char* eq = crt::strchr(line, '=');
     if (!eq) return 0;
     char key[0x100], value[0x100];
     size_t n = (size_t)(eq - line);
@@ -232,7 +230,7 @@ static int32_t __cdecl Str_SplitKeyValueImpl(const char* line, uint8_t* out) {
 
 // The node pop of a pool { list*, lo, hi, enabled, size } (heap when disabled).
 static uint8_t* Config_Take(uint8_t* pool) {
-    if (!F<int32_t>(pool, 0xc)) return (uint8_t*)ExeNew(F<uint32_t>(pool, 0x10));
+    if (!F<int32_t>(pool, 0xc)) return (uint8_t*)crt::operator_new(F<uint32_t>(pool, 0x10));
     uint8_t* list = F<uint8_t*>(pool, 0);
     uint8_t* n = F<uint8_t*>(list, 0);
     if (n) {
@@ -290,13 +288,13 @@ void __fastcall Model_Release(uint8_t* m) {
         }
     }
     if (void* p = F<void*>(m, 0x1dd)) {
-        Free(p);
+        crt::free(p);
         F<void*>(m, 0x1dd) = nullptr;
     }
     ListPair_Clear(m, 0, 1);
     if (F<uint8_t*>(m, 8)) Pack_Release(g_pack, 0, F<uint8_t*>(m, 8));
     if (void* p = F<void*>(m, 0x64)) {
-        Free(p);
+        crt::free(p);
         F<void*>(m, 0x64) = nullptr;
         hook::As<int32_t>(g_d939a4) = 0;
     }
@@ -346,14 +344,14 @@ RT3_REPLACE(0x5565e0, Ambience_Visit);
 // emitters +0x18 (count +0x1c).
 RT3_NOINLINE void __fastcall ModelLibrary_Free(uint32_t* o) {
     if (o[0]) {
-        ExeDelete((void*)(uintptr_t)o[0]);
+        crt::operator_delete((void*)(uintptr_t)o[0]);
         o[0] = 0;
     }
     if (o[2]) {
         Hash_Destroy((HashMap*)(uintptr_t)o[2]);
         if (HashMap* h = (HashMap*)(uintptr_t)o[2]) {
             Hash_DestroyThunk(h);
-            ExeDelete(h);
+            crt::operator_delete(h);
         }
         o[2] = 0;
     }
@@ -362,39 +360,39 @@ RT3_NOINLINE void __fastcall ModelLibrary_Free(uint32_t* o) {
             uint8_t*& m = F<uint8_t*>(arr, 4 + k * 8);
             if (m) {
                 Model_Release(m);
-                ExeDelete(m);
+                crt::operator_delete(m);
                 m = nullptr;
             }
         }
-        Free((void*)(uintptr_t)o[4]);
+        crt::free((void*)(uintptr_t)o[4]);
         o[4] = 0;
     }
     if (o[1]) {
         Hash_Destroy((HashMap*)(uintptr_t)o[1]);
         if (HashMap* h = (HashMap*)(uintptr_t)o[1]) {
             Hash_DestroyThunk(h);
-            ExeDelete(h);
+            crt::operator_delete(h);
         }
         o[1] = 0;
     }
     if (NodePool* p = (NodePool*)(uintptr_t)o[5]) {
         Pool_Free(p);
-        ExeDelete(p);
+        crt::operator_delete(p);
         o[5] = 0;
     }
     if (uint8_t* arr = (uint8_t*)(uintptr_t)o[6]) {
         for (int32_t k = 0; k < (int32_t)o[7]; ++k) {
             if (void* em = F<void*>(arr, 4 + k * 8)) {
                 Nop565e20();
-                ExeDelete(em);
+                crt::operator_delete(em);
             }
         }
-        Free((void*)(uintptr_t)o[6]);
+        crt::free((void*)(uintptr_t)o[6]);
         o[6] = 0;
     }
     if (NodePool* p = (NodePool*)(uintptr_t)o[3]) {
         Pool_Free(p);
-        ExeDelete(p);
+        crt::operator_delete(p);
         o[3] = 0;
     }
     o[7] = 0;
@@ -412,9 +410,9 @@ RT3_NOINLINE void __fastcall ModelLibrary_Init(uint32_t* o, int, int32_t count) 
     o[0xb] = 100;
     if (count <= 0) count = 50000;
     if (o[5]) ModelLibrary_Free(o);
-    o[6] = (uint32_t)(uintptr_t)ExeMalloc((size_t)count * 8);
+    o[6] = (uint32_t)(uintptr_t)crt::malloc((size_t)count * 8);
     auto newZeroed = [](size_t n) {
-        void* p = ExeNew(n);
+        void* p = crt::operator_new(n);
         if (p) memset(p, 0, n);
         return p;
     };
@@ -422,12 +420,12 @@ RT3_NOINLINE void __fastcall ModelLibrary_Init(uint32_t* o, int, int32_t count) 
     o[5] = (uint32_t)(uintptr_t)emitters;
     Pool_Init(emitters, 0, (void*)(uintptr_t)o[6], 8, count, 0);
     for (int32_t k = 0; k < count; ++k) {
-        uint8_t* e = (uint8_t*)ExeNew(0x79);
+        uint8_t* e = (uint8_t*)crt::operator_new(0x79);
         if (e) Emitter_Init(e);
         F<uint8_t*>((void*)(uintptr_t)o[6], 4 + k * 8) = e;
     }
     o[7] = (uint32_t)count;
-    o[4] = (uint32_t)(uintptr_t)ExeMalloc(0x640);
+    o[4] = (uint32_t)(uintptr_t)crt::malloc(0x640);
     memset((void*)(uintptr_t)o[4], 0, 0x640);
     NodePool* models = (NodePool*)newZeroed(0x1c);
     o[3] = (uint32_t)(uintptr_t)models;
@@ -459,7 +457,7 @@ RT3_NOINLINE uint8_t* __fastcall Emitter_Construct(uint8_t* e, int, const char* 
         uint8_t* shape = F<uint8_t*>(*(uint8_t**)m, 0xc);
         F<uint8_t*>(e, 0x10) = F<uint8_t*>(shape, 0);
         F<int32_t>(e, 0x30) = F<int32_t>(shape, 8);
-        uint32_t** ptrs = (uint32_t**)ExeMalloc((size_t)(F<int32_t>(shape, 8) << 4));
+        uint32_t** ptrs = (uint32_t**)crt::malloc((size_t)(F<int32_t>(shape, 8) << 4));
         F<uint32_t**>(e, 0x1dd) = ptrs;
         uint32_t* src = F<uint32_t*>(e, 0x10);
         uint32_t* dst = (uint32_t*)(ptrs + F<int32_t>(e, 0x30));
@@ -474,7 +472,7 @@ RT3_NOINLINE uint8_t* __fastcall Emitter_Construct(uint8_t* e, int, const char* 
         F<uint8_t*>(e, 8) = nullptr;
         F<uint8_t*>(e, 0x10) = nullptr;
         F<int32_t>(e, 0x30) = 1;
-        F<void*>(e, 0x1dd) = ExeMalloc(0x10);
+        F<void*>(e, 0x1dd) = crt::malloc(0x10);
         F<uint32_t>(e, 0x1d4) = 0;
     }
     F<uint8_t*>(e, 0xc) = obj;
@@ -502,7 +500,7 @@ RT3_NOINLINE uint8_t* __fastcall Emitter_Construct(uint8_t* e, int, const char* 
     for (uint32_t off : { 0xb0u, 0xd8u, 0x1e1u, 0x1edu, 0x1f1u, 0x1f5u, 0x68u, 0x64u, 0x6cu, 0x1f9u }) F<uint32_t>(e, off) = 0;
     X87Copy(e + 0xdc, g_models + 0x28);
     F<uint32_t>(e, 0x1e9) = 0x365d7591;
-    if (flags & 0x800000) F<void*>(e, 0x64) = ExeMalloc(0x3a00);
+    if (flags & 0x800000) F<void*>(e, 0x64) = crt::malloc(0x3a00);
     memset(e + 0x10c, 0, 0xa0);
     if (rect) {
         F<float>(e, 0xe0) = rect[0];
@@ -545,10 +543,10 @@ RT3_NOINLINE int32_t __fastcall EmitterLibrary_Register(uint8_t* lib, int, uint3
             --fl->count;
         }
     } else {
-        node = (uint32_t*)ExeNew((size_t)pool->elemSize);
+        node = (uint32_t*)crt::operator_new((size_t)pool->elemSize);
     }
     node[0] = 0;
-    uint8_t* e = (uint8_t*)ExeNew(0x1fd);
+    uint8_t* e = (uint8_t*)crt::operator_new(0x1fd);
     e = e ? Emitter_Construct(e, 0, nullptr, 0, perPoint, rect, nullptr, flags | 0x400) : nullptr;
     node[1] = (uint32_t)(uintptr_t)e;
     Hash_Insert(F<HashMap*>(lib, 8), 0, key, (int32_t)(uintptr_t)node);
@@ -565,7 +563,7 @@ uint8_t* __fastcall EmitterLibrary_Get(uint8_t* lib, int, uint32_t key, uint32_t
     if (!node) return nullptr;
     if (spawn != 1) return (uint8_t*)(uintptr_t)node[1];
     if (++node[0] == 1) Emitter_Reset((uint8_t*)(uintptr_t)node[1], 0, F<int32_t>((void*)(uintptr_t)node[1], 0x38), 0);
-    uint8_t* e = (uint8_t*)ExeNew(0x1fd);
+    uint8_t* e = (uint8_t*)crt::operator_new(0x1fd);
     if (!e) {
         Hash_Insert(F<HashMap*>(lib, 4), 0, 0, (int32_t)(uintptr_t)node);
         return nullptr;
@@ -594,7 +592,7 @@ PtrList* __fastcall PtrList_Init(PtrList* l) { memset(l, 0, sizeof *l); return l
 RT3_REPLACE(0x556db0, PtrList_Init);
 
 void __fastcall PtrList_CreatePool(PtrList* l) {
-    PtrList* p = (PtrList*)Malloc(sizeof(PtrList));
+    PtrList* p = (PtrList*)crt::malloc(sizeof(PtrList));
     if (!p) {
         l->pool = nullptr;
         return;
@@ -626,7 +624,7 @@ void* __fastcall PtrList_PopFront(PtrList* l) {
     l->count--;
     void* v = n->value;
     PtrListNode* next = n->next;
-    Free(n);
+    crt::free(n);
     l->head = next;
     return v;
 }
@@ -641,7 +639,7 @@ void __fastcall PtrList_RemoveNode(PtrList* l, int, PtrListNode* n) {
         l->head = n->next;
         if (l->head) l->head->prev = nullptr;
     }
-    if (!l->pool) Free(n);
+    if (!l->pool) crt::free(n);
     l->count--;
 }
 RT3_REPLACE(0x556e80, PtrList_RemoveNode);
@@ -669,7 +667,7 @@ void* __fastcall PtrList_RemoveCurrent(PtrList* l) {
         l->head = n->next;
         if (l->head) l->head->prev = nullptr;
     }
-    if (!l->pool) Free(n);
+    if (!l->pool) crt::free(n);
     l->count--;
     return v;
 }
@@ -682,8 +680,8 @@ void* __fastcall PtrList_CurrentValue(PtrList* l) { return l->cursor ? l->cursor
 RT3_REPLACE(0x556fa0, PtrList_CurrentValue);
 
 PtrListBlock* __fastcall PtrList_AddBlock(PtrList* l, int, int32_t nodes) {
-    PtrListBlock* b = (PtrListBlock*)Malloc(sizeof(PtrListBlock));
-    b->nodes = (PtrListNode*)Malloc(nodes * sizeof(PtrListNode));
+    PtrListBlock* b = (PtrListBlock*)crt::malloc(sizeof(PtrListBlock));
+    b->nodes = (PtrListNode*)crt::malloc(nodes * sizeof(PtrListNode));
     b->remaining = nodes;
     PtrList_Append(l->pool, 0, b);
     return b;
@@ -693,9 +691,9 @@ RT3_REPLACE(0x556fb0, PtrList_AddBlock);
 void __fastcall PtrList_FreePool(PtrList* l) {
     PtrList_Rewind(l->pool);
     while (PtrListBlock* b = (PtrListBlock*)PtrList_RemoveCurrent(l->pool)) {
-        Free(b->nodes);
+        crt::free(b->nodes);
         b->nodes = nullptr;
-        Free(b);
+        crt::free(b);
     }
     l->count = 0;
 }
@@ -705,7 +703,7 @@ RT3_NOINLINE void __fastcall PtrList_Clear(PtrList* l) {
     if (!l->pool) {
         for (PtrListNode* n = l->head; n;) {
             PtrListNode* next = n->next;
-            Free(n);
+            crt::free(n);
             l->count--;
             n = next;
         }
@@ -719,7 +717,7 @@ RT3_NOINLINE void __fastcall PtrList_Clear(PtrList* l) {
 RT3_REPLACE(0x5570b0, PtrList_Clear);
 
 PtrListNode* __fastcall PtrList_AllocNode(PtrList* l) {
-    if (!l->pool) return (PtrListNode*)Malloc(sizeof(PtrListNode));
+    if (!l->pool) return (PtrListNode*)crt::malloc(sizeof(PtrListNode));
     PtrListBlock* b = l->pool->tail ? (PtrListBlock*)l->pool->tail->value : nullptr;
     if (!b || b->remaining == 0) b = PtrList_AddBlock(l, 0, l->blockSize);
     b->remaining--;
@@ -742,7 +740,7 @@ RT3_NOINLINE void __fastcall PtrList_Destroy(PtrList* l) {
     PtrList_Clear(l);
     if (PtrList* p = l->pool) {
         PtrList_Destroy(p);
-        Free(p);
+        crt::free(p);
         l->pool = nullptr;
     }
     if (l->count > 0) FatalError(GetString(0x41));      // list destroyed while not empty
@@ -841,7 +839,7 @@ RT3_NOINLINE void __fastcall Holder_Free(uint8_t* h) {
     FreePool(h, 4);
     FreePool(h, 0);
     if (void* p = F<void*>(h, 8)) {
-        ExeDelete(p);
+        crt::operator_delete(p);
         F<void*>(h, 8) = nullptr;
     }
 }
@@ -856,17 +854,17 @@ RT3_NOINLINE void __fastcall Holder_Alloc(uint8_t* h) {
     if (F<void*>(h, 8)) Holder_Free(h);
     h[0x14] = 0;
     F<int32_t>(h, 0x114) = 0;
-    void* a = Malloc(F<int32_t>(h, 0xc) * 0x114);
-    void* b = Malloc(F<int32_t>(h, 0x10) * 0x204);
-    uint32_t* p = (uint32_t*)ExeNew(0x1c);
+    void* a = crt::malloc(F<int32_t>(h, 0xc) * 0x114);
+    void* b = crt::malloc(F<int32_t>(h, 0x10) * 0x204);
+    uint32_t* p = (uint32_t*)crt::operator_new(0x1c);
     if (p) for (int k = 0; k < 7; ++k) p[k] = 0;
     F<uint32_t*>(h, 4) = p;
     Pool_Init((NodePool*)p, 0, a, 0x114, F<int32_t>(h, 0xc), 0);
-    p = (uint32_t*)ExeNew(0x1c);
+    p = (uint32_t*)crt::operator_new(0x1c);
     if (p) for (int k = 0; k < 7; ++k) p[k] = 0;
     F<uint32_t*>(h, 0) = p;
     Pool_Init((NodePool*)p, 0, b, 0x204, F<int32_t>(h, 0x10), 0);
-    p = (uint32_t*)ExeNew(0xc);
+    p = (uint32_t*)crt::operator_new(0xc);
     if (p) p[0] = p[1] = p[2] = 0;
     F<uint32_t*>(h, 8) = p;
 }
@@ -881,7 +879,7 @@ RT3_REPLACE(0x557550, Holder_Alloc);
 // +0x14 and 0 comes back, else 1.
 RT3_NOINLINE int32_t __fastcall Config_Load(uint8_t* c, int, const char* path) {
     Holder_Alloc(c);
-    void* f = ((void*(__cdecl*)(const char*, const char*))0x5a1887)(path, (const char*)0x5ce2c0);
+    void* f = crt::fopen(path, (const char*)0x5ce2c0);
     if (!f) {
         strcpy((char*)c + 0x14, GetString(0x27));
         return 0;
@@ -890,8 +888,8 @@ RT3_NOINLINE int32_t __fastcall Config_Load(uint8_t* c, int, const char* path) {
     uint8_t* entry = nullptr;
     char line[0x100];
     while (!(F<uint8_t>(f, 0xc) & 0x10)) {
-        if (!((char*(__cdecl*)(char*, int, void*))0x5a3fe0)(line, 0x100, f)) continue;
-        if (char* semi = ((char*(__cdecl*)(const char*, int))0x5a2a00)(line, ';')) *semi = 0;
+        if (!crt::fgets(line, 0x100, f)) continue;
+        if (char* semi = crt::strchr(line, ';')) *semi = 0;
         const char* p = line;
         while (*p == ' ' || *p == '\t' || *p == '\n' || *p == '\r') ++p;
         if (*p) {
@@ -946,7 +944,7 @@ RT3_NOINLINE int32_t __fastcall Config_Load(uint8_t* c, int, const char* path) {
         }
         ++F<int32_t>(c, 0x114);
     }
-    ((int(__cdecl*)(void*))0x5a1740)(f);
+    crt::fclose(f);
     return c[0x14] ? 0 : 1;
 }
 RT3_REPLACE(0x557630, Config_Load);
@@ -962,7 +960,7 @@ RT3_NOINLINE wchar_t* __fastcall Str_ToWide(wchar_t* dst, const char* src, int32
         while (src[k]) ++k;
         n = k + 1;
     }
-    Import<int32_t(__stdcall*)(uint32_t, uint32_t, const char*, int32_t, wchar_t*, int32_t)>(0x5c81e8)(0, 0, src, -1, dst,
+    imp::MultiByteToWideChar(0, 0, src, -1, dst,
                                                                                                     n - 1);
     dst[n - 1] = 0;
     return dst;
@@ -970,9 +968,8 @@ RT3_NOINLINE wchar_t* __fastcall Str_ToWide(wchar_t* dst, const char* src, int32
 RT3_REPLACE(0x557930, Str_ToWide);
 
 RT3_NOINLINE char* __fastcall Str_FromWide(char* dst, const wchar_t* src, int32_t n) {
-    if (n == -1) n = (int32_t)((size_t(__cdecl*)(const wchar_t*))0x5a3e74)(src) + 1;
-    Import<int32_t(__stdcall*)(uint32_t, uint32_t, const wchar_t*, int32_t, char*, int32_t, const char*, int32_t*)>(
-        0x5c81e4)(0, 0, src, -1, dst, n - 1, nullptr, nullptr);
+    if (n == -1) n = (int32_t)crt::wcslen(src) + 1;
+    imp::WideCharToMultiByte(0, 0, src, -1, dst, n - 1, nullptr, nullptr);
     dst[n - 1] = 0;
     return dst;
 }
@@ -989,7 +986,7 @@ RT3_REPLACE(0x5579b0, Hook_Calld973b0);
 // the COM call 0x5c8494(0, 0)), then releases +0x10 and +0xc.
 RT3_NOINLINE void __fastcall Music_Shutdown(uint8_t* m) {
     if (F<void*>(m, 8) && !F<int32_t>(m, 4)) {
-        ((void(WINAPI*)(void*, void*))g_5c8494)(nullptr, nullptr);
+        (((void(WINAPI*)(void*, void*))imp::CoInitializeEx))(nullptr, nullptr);
         void* o = F<void*>(m, 8);
         F<int32_t>(m, 4) = 1;
         ((void(__stdcall*)(void*, int32_t))(*(void***)o)[0x60 / 4])(o, 0);
@@ -1015,7 +1012,7 @@ RT3_NOINLINE int32_t __fastcall Music_ReadParam(uint8_t* m) {
     void* o = F<void*>(m, 8);
     HRESULT hr = ((GetFn)(*(void***)o)[0x10 / 4])(o, (const void*)0x5c84a0, 0, nullptr, &size, &got, 0);
     if (hr == (HRESULT)0x80158100) {
-        void* buf = ExeNew(size);
+        void* buf = crt::operator_new(size);
         o = F<void*>(m, 8);
         F<void*>(m, 0x14) = buf;
         if (((GetFn)(*(void***)o)[0x10 / 4])(o, (const void*)0x5c84a0, 0, buf, &size, &got, 0) >= 0) {
@@ -1048,11 +1045,11 @@ void __fastcall Music_Destroy(uint8_t* m) {
         F<void*>(m, 8) = nullptr;
     }
     if (void* b = F<void*>(m, 0x14)) {
-        ExeDelete(b);
+        crt::operator_delete(b);
         F<void*>(m, 0x14) = nullptr;
     }
     if (F<int32_t>(m, 0) == 1) {
-        ((void(WINAPI*)())g_5c8490)();
+        (((void(WINAPI*)())imp::CoUninitialize))();
         F<int32_t>(m, 0) = 0;
     }
 }
@@ -1066,8 +1063,8 @@ RT3_NOINLINE int32_t __fastcall Music_Start(uint8_t* m) {
     typedef HRESULT(WINAPI * CreateFn)(const void*, void*, DWORD, const void*, void**);
     Music_Shutdown(m);
     if (!F<int32_t>(m, 0)) {
-        ((void(WINAPI*)(void*, void*))g_5c8494)(nullptr, nullptr);
-        HRESULT hr = hook::As<CreateFn>(g_5c848c)((const void*)0x5c84c0, nullptr, 1, (const void*)0x5c84b0, (void**)(m + 8));
+        (((void(WINAPI*)(void*, void*))imp::CoInitializeEx))(nullptr, nullptr);
+        HRESULT hr = ((CreateFn)imp::CoCreateInstance)((const void*)0x5c84c0, nullptr, 1, (const void*)0x5c84b0, (void**)(m + 8));
         if (hr < 0) {
             g_6d411c = hr;
             return 0;
@@ -1110,7 +1107,7 @@ RT3_REPLACE(0x557cb0, Music_IsPaused);
 RT3_NOINLINE void __fastcall Music_Stop(uint8_t* m, int, uint32_t notify) {
     void* s = F<void*>(m, 0);
     if (!s) return;
-    Import<void(__stdcall*)(void*, void*)>(0x5c83c4)(s, nullptr);
+    imp::AIL_register_stream_callback(s, nullptr);
     StreamPause(F<void*>(m, 0), 1);
     StreamClose(F<void*>(m, 0));
     for (int i = 0; i < 10; ++i)
@@ -1158,7 +1155,7 @@ RT3_NOINLINE void __fastcall Music_SetVolume(uint8_t* m, int, float vol) {
             StreamPause(F<void*>(m, 0), 0);
     }
     float v = (float)((double)vol * *(const float*)0x5ddcc8);
-    Import<void(__stdcall*)(void*, float, float)>(0x5c83fc)(F<void*>(m, 0), v, v);
+    imp::AIL_set_stream_volume_levels(F<void*>(m, 0), v, v);
     F<float>(m, 0x104) = vol;
 }
 RT3_REPLACE(0x557d90, Music_SetVolume);
@@ -1175,7 +1172,7 @@ RT3_NOINLINE int32_t __fastcall Music_Play(uint8_t* m, int, const char* file, vo
         for (size_t k = 0; (name[k] = file[k]) != 0; ++k) {}
     }
     Music_Stop(m, 0, 0);
-    void* s = Import<void*(__stdcall*)(void*, const char*, uint32_t)>(0x5c83d0)(digital, name, 0x80000);
+    void* s = imp::AIL_open_stream(digital, name, 0x80000);
     F<void*>(m, 0) = s;
     if (!s) return 0;
     Music_SetVolume(m, 0, F<float>(m, 0x104));
@@ -1184,8 +1181,8 @@ RT3_NOINLINE int32_t __fastcall Music_Play(uint8_t* m, int, const char* file, vo
             ((void**)0xd973b8)[i] = F<void*>(m, 0);
             break;
         }
-    Import<void(__stdcall*)(void*)>(0x5c83cc)(F<void*>(m, 0));
-    auto reg = Import<void(__stdcall*)(void*, uint32_t)>(0x5c83c4);
+    imp::AIL_start_stream(F<void*>(m, 0));
+    auto reg = ((void(__stdcall*)(void*, uint32_t))imp::AIL_register_stream_callback);
     if (onEnd) {
         g_d973e0 = onEnd;
         reg(F<void*>(m, 0), 0x557d40);

@@ -13,6 +13,7 @@
 #include "game/collection.h"
 #include "core/ptrlist.h"
 #include "core/crt.h"
+#include "core/imports.h"
 #include "core/containers.h"
 #include "core/stream.h"
 #include "hook/keepregs.h"
@@ -25,7 +26,6 @@
 namespace rt3 {
 
 template <typename T> static inline T& F(void* o, uint32_t off) { return *(T*)((uint8_t*)o + off); }
-template <typename Fn> static inline Fn Import(uint32_t iat) { return (Fn)hook::Global<void*>(iat); }
 int32_t ClockMs();
 void __fastcall Sound_TransformPoint(uint8_t* s, int, float* x, float* y, float* z);
 void __fastcall Sound_WaitIdle();
@@ -148,26 +148,25 @@ RT3_NOINLINE int32_t __fastcall Rle_Pack(StreamFn read, StreamFn write);
 RT3_NOINLINE int32_t __fastcall Rle_Unpack(StreamFn read, StreamFn write);
 int32_t __fastcall Module_RegisterCleanup();
 
-static inline void ExeDelete(void* p) { ((void(__cdecl*)(void*))0x53b080)(p); }
 
 static inline const char* ExeStrStr(const char* a, const char* b) {
-    return ((const char*(__cdecl*)(const char*, const char*))0x5a1ff0)(a, b);
+    return ((const char*)crt::strstr(a, b));
 }
 
-static inline void AilLock() { Import<void(__stdcall*)()>(0x5c8484)(); }
+static inline void AilLock() { imp::AIL_lock(); }
 
-static inline void AilUnlock() { Import<void(__stdcall*)()>(0x5c83e4)(); }
+static inline void AilUnlock() { imp::AIL_unlock(); }
 
 // 3D providers: 0xd97bc0, 16-byte {handle, name, enabled, -}, count 0xd97dc0 (max 32).
 static inline uint8_t* Provider(int32_t i) { return (uint8_t*)0xd97bc0 + i * 16; }
 
 static inline uint32_t Listener(uint8_t* s) {
-    if (!F<uint32_t>(s, 0x2c)) F<uint32_t>(s, 0x2c) = Import<uint32_t(__stdcall*)(uint32_t)>(0x5c8460)(*F<uint32_t*>(s, 0x28));
+    if (!F<uint32_t>(s, 0x2c)) F<uint32_t>(s, 0x2c) = imp::AIL_open_3D_listener(*F<uint32_t*>(s, 0x28));
     return F<uint32_t>(s, 0x2c);
 }
 
 static inline uint32_t* NewZeroed(size_t n) {
-    uint32_t* p = (uint32_t*)((void*(__cdecl*)(size_t))0x53b070)(n);
+    uint32_t* p = (uint32_t*)crt::operator_new(n);
     if (p) for (size_t k = 0; k < n / 4; ++k) p[k] = 0;
     return p;
 }
@@ -203,7 +202,6 @@ static inline uint8_t** Slot(uint8_t* g, int32_t a, int32_t b) { return (uint8_t
 
 static inline uint8_t* CellIn(uint8_t* blk, int32_t a, int32_t b) { return blk + (b % 4 + (a % 4) * 4) * 8 + 0xa; }
 
-static inline void* ExeNew(size_t n) { return ((void*(__cdecl*)(size_t))0x53b070)(n); }
 
 // Busy-waits ms milliseconds.
 static void WaitMs(int32_t ms) {
@@ -264,7 +262,7 @@ static void Sample_Drop(uint8_t* s, uint8_t* e, uint32_t h) {
     Voices_Release(s, 0, h);
     Hash_Remove((HashMap*)(s + 0xc), 0, F<uint32_t>(e, 0));
     if (void* d = F<void*>(e, 4)) {
-        Free(d);
+        crt::free(d);
         F<void*>(e, 4) = nullptr;
     }
 }
@@ -283,7 +281,6 @@ static inline int32_t Ftol(double v) {
 }
 
 namespace {
-void Free446(void* p) { ((void(__cdecl*)(void*))0x53b080)(p); }
 // Counts the records of c whose building state is 1, that pass slot 0x70
 // and whose city's building class (slot 0x80, +0x8c) is `cls`.
 int32_t Count_RecordsOfClass(Collection* c, uint8_t cls) {
@@ -524,13 +521,12 @@ static void __cdecl Tree_InsertNodeImpl(uint8_t* c, int32_t r) {
 // split, nil 0x200 in every node and root (roots 0x201..0x300).
 static void __cdecl Tree_InitImpl(uint8_t* c) {
     typedef void*(__cdecl * MallocFn)(size_t);
-    MallocFn alloc = (MallocFn)0x5a125d;
     F<int32_t>(c, 0x10) = 7;
     F<int32_t>(c, 0xc) = 9;
-    F<void*>(c, 0x24) = alloc(0x804);
-    F<void*>(c, 0x28) = alloc(0x804);
-    F<void*>(c, 0x2c) = alloc(0xc04);
-    F<void*>(c, 0x38) = alloc(0x241);
+    F<void*>(c, 0x24) = crt::malloc(0x804);
+    F<void*>(c, 0x28) = crt::malloc(0x804);
+    F<void*>(c, 0x2c) = crt::malloc(0xc04);
+    F<void*>(c, 0x38) = crt::malloc(0x241);
     F<int32_t>(c, 8) = 0x200;
     for (int32_t i = 0; i < 0x200; ++i) {
         F<int32_t*>(c, 0x24)[i] = F<int32_t>(c, 8);
@@ -545,7 +541,7 @@ static void __cdecl Tree_InitImpl(uint8_t* c) {
 uint8_t* __fastcall WaterGrid_Init(uint8_t* g, int, int32_t bx, int32_t by, uint8_t* t) {
     static const uint32_t lists[2] = { 0x1c, 0x20 };
     for (uint32_t off : lists) {
-        PtrList* l = (PtrList*)((void*(__cdecl*)(size_t))0x53b070)(0x18);
+        PtrList* l = (PtrList*)crt::operator_new(0x18);
         F<PtrList*>(g, off) = l ? PtrList_Construct(l, 0, 1, 0x64) : nullptr;
     }
     F<int32_t>(g, 4) = by << 4;
@@ -566,15 +562,15 @@ RT3_REPLACE(0x5692e0, WaterGrid_Init);
 RT3_NOINLINE int32_t __fastcall Sound_Open3DProvider(uint8_t* s) {
     uint32_t* p = F<uint32_t*>(s, 0x28);
     if (!p) return 0;
-    if (Import<int32_t(__stdcall*)(uint32_t)>(0x5c83e8)(p[0])) {
+    if (imp::AIL_open_3D_provider(p[0])) {
         F<void*>(s, 0x28) = nullptr;
         return 0;
     }
     if (g_625c7c == -2)
-        g_625c7c = Import<int32_t(__stdcall*)(uint32_t)>(0x5c83e0)(F<uint32_t*>(s, 0x28)[0]);
-    int32_t room = Import<int32_t(__stdcall*)(uint32_t)>(0x5c83dc)(F<uint32_t*>(s, 0x28)[0]);
+        g_625c7c = imp::AIL_3D_speaker_type(F<uint32_t*>(s, 0x28)[0]);
+    int32_t room = imp::AIL_3D_room_type(F<uint32_t*>(s, 0x28)[0]);
     F<uint32_t*>(s, 0x28)[3] = room != -1 ? 1 : 0;
-    Import<void(__stdcall*)(uint32_t, uint32_t)>(0x5c83d8)(F<uint32_t*>(s, 0x28)[0], 0x3e806d98);
+    imp::AIL_set_3D_distance_factor(F<uint32_t*>(s, 0x28)[0], 0x3e806d98);
     return 1;
 }
 RT3_REPLACE(0x569380, Sound_Open3DProvider);
@@ -583,7 +579,7 @@ RT3_REPLACE(0x569380, Sound_Open3DProvider);
 // (names containing 0x5de458 / 0x5de450 / 0x5de44c).
 RT3_NOINLINE void __fastcall Sound_EnumProviders() {
     for (int k = 0; k < 0x80; ++k) ((uint32_t*)0xd97bc0)[k] = 0;
-    auto enumerate = Import<int32_t(__stdcall*)(uint32_t*, void*, void*)>(0x5c8454);
+    auto enumerate = ((int32_t(__stdcall*)(uint32_t*, void*, void*))imp::AIL_enumerate_3D_providers);
     uint32_t next = 0;
     int32_t& count = g_d97dc0;
     count = 0;
@@ -624,7 +620,7 @@ void __fastcall Sound_SetSpeakerType(uint8_t* s, int, int32_t type, int32_t noAp
     ClockMs();
     int32_t until = ClockMs() + 400;
     while (ClockMs() < until) {}
-    Import<void(__stdcall*)(uint32_t, int32_t)>(0x5c83ec)(*F<uint32_t*>(s, 0x28), v);
+    imp::AIL_set_3D_speaker_type(*F<uint32_t*>(s, 0x28), v);
     until = ClockMs() + 200;
     while (ClockMs() < until) {}
 }
@@ -648,7 +644,7 @@ void __fastcall Sound_SetListenerPos(uint8_t* s, int, float x, float y, float z)
     F<float>(s, 0x30) = x;
     F<float>(s, 0x38) = z;
     F<float>(s, 0x34) = y;
-    Import<void(__stdcall*)(uint32_t, float, float, float)>(0x5c83f0)(F<uint32_t>(s, 0x2c), x, y, z);
+    imp::AIL_set_3D_position(F<uint32_t>(s, 0x2c), x, y, z);
 }
 RT3_REPLACE(0x569660, Sound_SetListenerPos);
 
@@ -660,7 +656,7 @@ void __fastcall Sound_SetListenerDir(uint8_t* s, int, float fx, float fy, float 
     F<float>(s, 0x40) = fy;
     F<float>(s, 0x50) = uz;
     F<float>(s, 0x4c) = uy;
-    Import<void(__stdcall*)(uint32_t, float, float, float, float, float, float)>(0x5c83f8)(F<uint32_t>(s, 0x2c), fx, fy,
+    imp::AIL_set_3D_orientation(F<uint32_t>(s, 0x2c), fx, fy,
                                                                                          fz, ux, uy, uz);
 }
 RT3_REPLACE(0x5696b0, Sound_SetListenerDir);
@@ -691,7 +687,7 @@ RT3_NOINLINE uint32_t __fastcall Voices_Acquire(uint8_t* v) {
             fl[2]--;
         }
     } else {
-        item = (uint32_t*)((void*(__cdecl*)(size_t))0x53b070)(F<uint32_t>(pool, 0x10));
+        item = (uint32_t*)crt::operator_new(F<uint32_t>(pool, 0x10));
     }
     if (item) {
         h = item[1];
@@ -715,7 +711,7 @@ RT3_NOINLINE void __fastcall Voices_Release(uint8_t* v, int, uint32_t key) {
         fl[2]++;
         if (!fl[1]) fl[1] = (uint32_t)e;
     } else {
-        ExeDelete(e);
+        crt::operator_delete(e);
     }
     AilUnlock();
 }
@@ -747,14 +743,14 @@ int32_t __fastcall Sound3D_Open(uint8_t* s, int, const char* name) {
     if (Sound_OpenPreferredProvider(s) != 1) return 0;
     ((void(__thiscall*)(void*, uint32_t))(*(void***)s)[0])(s, 0);
     if (!F<int32_t>(s, 0x54)) {
-        Import<void(__stdcall*)(uint32_t)>(0x5c8404)(*F<uint32_t*>(s, 0x28));
+        imp::AIL_close_3D_provider(*F<uint32_t*>(s, 0x28));
         F<void*>(s, 0x28) = nullptr;
         return 0;
     }
     Hash_Init((HashMap*)(s + 0x14), 0, 0x11, 0x40);
     F<uint32_t*>(s, 0x10) = NewZeroed(0x14);
     F<uint32_t*>(s, 0xc) = NewZeroed(0x1c);
-    void* buf = Malloc(0xe00);
+    void* buf = crt::malloc(0xe00);
     Pool_Init(F<NodePool*>(s, 0xc), 0, buf, 0x38, 0x40, 0);
     Hash_Init(F<HashMap*>(s, 0x10), 0, 0x11, 0x40);
     return 1;
@@ -765,7 +761,7 @@ RT3_REPLACE(0x5698a0, Sound3D_Open);
 // device +0x28): the voice table (+4, 7 buckets) and the pool (+8, 0x5c
 // bytes each) holding them.
 void __fastcall Sound3D_CreateVoices(uint8_t* v, int, int32_t) {
-    auto create = hook::Global<uint32_t(__stdcall*)(uint32_t)>(0x5c8408);
+    auto create = imp::AIL_allocate_3D_sample_handle;
     uint32_t voices[0x20];
     int32_t n = 0;
     do {
@@ -775,17 +771,17 @@ void __fastcall Sound3D_CreateVoices(uint8_t* v, int, int32_t) {
     } while (n < 0x20);
     F<int32_t>(v, 0x54) = n;
     if (!n) return;
-    uint32_t* m = ((uint32_t*(__cdecl*)(size_t))0x53b070)(0x14);
+    uint32_t* m = ((uint32_t*)crt::operator_new(0x14));
     if (m) memset(m, 0, 0x14);
     F<uint32_t*>(v, 4) = m;
     Hash_Init((HashMap*)m, 0, 7, n);
-    uint8_t* recs = ((uint8_t*(__cdecl*)(size_t))0x5a125d)((size_t)(n * 0x5c));
+    uint8_t* recs = ((uint8_t*)crt::malloc((size_t)(n * 0x5c)));
     uint8_t* r = recs;
     for (int32_t i = 0; i < n; ++i, r += 0x5c) {
         F<uint32_t>(r, 4) = voices[i];
         Hash_Insert(F<HashMap*>(v, 4), 0, voices[i], (int32_t)(uintptr_t)r);
     }
-    uint32_t* p = ((uint32_t*(__cdecl*)(size_t))0x53b070)(0x1c);
+    uint32_t* p = ((uint32_t*)crt::operator_new(0x1c));
     if (p) memset(p, 0, 0x1c);
     F<uint32_t*>(v, 8) = p;
     Pool_Init((NodePool*)p, 0, recs, 0x5c, n, 0);
@@ -826,7 +822,7 @@ RT3_REPLACE(0x569ae0, Sound_SetEffectsVolume);
 
 // 0x569b70. Frees a queued sample entry and recycles it in the pool (+0xc).
 RT3_NOINLINE void __fastcall SampleQueue_Free(uint8_t* q, int, uint32_t* e) {
-    ((void(__cdecl*)(void*))0x5a1145)((void*)e[4]);
+    crt::free((void*)e[4]);
     e[4] = 0;
     Hash_Remove(F<HashMap*>(q, 0x10), 0, e[0]);
     uint8_t* pool = F<uint8_t*>(q, 0xc);
@@ -838,7 +834,7 @@ RT3_NOINLINE void __fastcall SampleQueue_Free(uint8_t* q, int, uint32_t* e) {
         if (!fl[1]) fl[1] = (uint32_t)e;
         return;
     }
-    ((void(__cdecl*)(void*))0x53b080)(e);
+    crt::operator_delete(e);
 }
 RT3_REPLACE(0x569b70, SampleQueue_Free);
 
@@ -861,15 +857,15 @@ RT3_REPLACE(0x569be0, Sound3D_Retire);
 // 0x569c40. Stops a 3D sample (given, or looked up by key) and retires it.
 RT3_NOINLINE void __fastcall Sound3D_Stop(uint8_t* s, int, uint32_t key, uint8_t* smp) {
     Sound_WaitIdle();
-    Import<void(__stdcall*)()>(0x5c8484)();
+    imp::AIL_lock();
     if (!smp && key) smp = (uint8_t*)Hash_Get((HashMap*)(s + 0x14), 0, key);
     if (smp) {
         uint32_t h = F<uint32_t>(smp, -4);
-        Import<int32_t(__stdcall*)(uint32_t, uint32_t)>(0x5c83a4)(h, 0);
-        Import<void(__stdcall*)(uint32_t)>(0x5c8414)(h);
+        imp::AIL_register_3D_EOS_callback(h, 0);
+        imp::AIL_end_3D_sample(h);
         Sound3D_Retire(s, 0, h, (uint32_t*)smp);
     }
-    Import<void(__stdcall*)()>(0x5c83e4)();
+    imp::AIL_unlock();
 }
 RT3_REPLACE(0x569c40, Sound3D_Stop);
 
@@ -899,15 +895,15 @@ RT3_NOINLINE void __fastcall Voices_Free(uint8_t* v) {
         Hash_Destroy(F<HashMap*>(v, 4));
         if (HashMap* h = F<HashMap*>(v, 4)) {
             Hash_DestroyThunk(h);
-            ExeDelete(h);
+            crt::operator_delete(h);
         }
         F<void*>(v, 4) = nullptr;
     }
     if (F<uint8_t*>(v, 8) && F<void*>(F<uint8_t*>(v, 8), 4)) {
-        Free(F<void*>(F<uint8_t*>(v, 8), 4));
+        crt::free(F<void*>(F<uint8_t*>(v, 8), 4));
         if (NodePool* p = F<NodePool*>(v, 8)) {
             Pool_Free(p);
-            ExeDelete(p);
+            crt::operator_delete(p);
         }
         F<void*>(v, 8) = nullptr;
     }
@@ -921,21 +917,21 @@ RT3_NOINLINE void __fastcall Sound3D_Close(uint8_t* s) {
     if (!F<void*>(s, 0x28)) return;
     Sound_StopAll(s);
     if (F<void*>(s, 0x2c)) {
-        Import<void(__stdcall*)(void*)>(0x5c8418)(F<void*>(s, 0x2c));
+        imp::AIL_close_3D_listener(F<void*>(s, 0x2c));
         F<void*>(s, 0x2c) = nullptr;
     }
     Hash_Destroy((HashMap*)(s + 0x14));
     ((void(__thiscall*)(void*))(*(void***)s)[1])(s);
     Hash_Destroy(F<HashMap*>(s, 0x10));
-    Free(F<void*>(F<uint8_t*>(s, 0xc), 4));
+    crt::free(F<void*>(F<uint8_t*>(s, 0xc), 4));
     if (NodePool* p = F<NodePool*>(s, 0xc)) {
         Pool_Free(p);
-        ExeDelete(p);
+        crt::operator_delete(p);
     }
     F<void*>(s, 0xc) = nullptr;
     if (HashMap* h = F<HashMap*>(s, 0x10)) {
         Hash_DestroyThunk(h);
-        ExeDelete(h);
+        crt::operator_delete(h);
     }
     F<void*>(s, 0x10) = nullptr;
     int32_t want = g_625c7c, cur = g_625c78;
@@ -944,11 +940,11 @@ RT3_NOINLINE void __fastcall Sound3D_Close(uint8_t* s) {
         if (want == 99 || cur != 99) {
             ClockMs();
             WaitMs(400);
-            Import<void(__stdcall*)(uint32_t, int32_t)>(0x5c83ec)(*F<uint32_t*>(s, 0x28), want);
+            imp::AIL_set_3D_speaker_type(*F<uint32_t*>(s, 0x28), want);
             WaitMs(200);
         }
     }
-    Import<void(__stdcall*)(uint32_t)>(0x5c8404)(*F<uint32_t*>(s, 0x28));
+    imp::AIL_close_3D_provider(*F<uint32_t*>(s, 0x28));
     F<void*>(s, 0x28) = nullptr;
     F<int32_t>(s, 0x60) = 0;
 }
@@ -959,7 +955,7 @@ RT3_REPLACE(0x569d90, Sound3D_Close);
 // +4 first).
 void __fastcall Sound3D_Shutdown(uint8_t* v) {
     if (F<int32_t>(v, 0x54) > 0) {
-        auto release = hook::Global<void(__stdcall*)(uint32_t)>(0x5c841c);
+        auto release = imp::AIL_release_3D_sample_handle;
         for (int32_t i = 0; i < F<int32_t>(v, 0x54); ++i) {
             const uint32_t h = Voices_Acquire(v);
             if (!h) break;
@@ -972,15 +968,15 @@ void __fastcall Sound3D_Shutdown(uint8_t* v) {
         Hash_Destroy(F<HashMap*>(v, 4));
         if (HashMap* m = F<HashMap*>(v, 4)) {
             Hash_DestroyThunk(m);
-            Free446(m);
+            crt::operator_delete(m);
         }
         F<HashMap*>(v, 4) = nullptr;
     }
     if (F<uint8_t*>(v, 8) && F<void*>(F<uint8_t*>(v, 8), 4)) {
-        ((void(__cdecl*)(void*))0x5a1145)(F<void*>(F<uint8_t*>(v, 8), 4));
+        crt::free(F<void*>(F<uint8_t*>(v, 8), 4));
         if (NodePool* p = F<NodePool*>(v, 8)) {
             Pool_Free(p);
-            Free446(p);
+            crt::operator_delete(p);
         }
         F<NodePool*>(v, 8) = nullptr;
     }
@@ -1008,10 +1004,10 @@ RT3_NOINLINE int32_t __fastcall Sound3D_Command(uint8_t* sys, int, uint8_t* h, i
     uint8_t* r = (uint8_t*)smp;
     auto volume = [&]() {
         float v = (float)((double)F<float>(r, 0x28) * F<float>(sys, 0x58) * g_624d5c);
-        Import<void(__stdcall*)(uint32_t, float)>(0x5c842c)(handle, v);
+        imp::AIL_set_3D_sample_volume(handle, v);
     };
-    auto stop = [&]() { Import<void(__stdcall*)(uint32_t)>(0x5c8410)(handle); };
-    auto resume = [&]() { Import<void(__stdcall*)(uint32_t)>(0x5c840c)(handle); };
+    auto stop = [&]() { imp::AIL_stop_3D_sample(handle); };
+    auto resume = [&]() { imp::AIL_resume_3D_sample(handle); };
     auto paused = [&]() { return F<int32_t>(r, 0xc) == 1 || (r[0x44] & 8); };
     switch (cmd[0]) {
     case 0:
@@ -1039,22 +1035,22 @@ RT3_NOINLINE int32_t __fastcall Sound3D_Command(uint8_t* sys, int, uint8_t* h, i
                 x = (float)Ftol(x);
                 y = (float)Ftol(y);
                 z = (float)Ftol(z);
-                Import<void(__stdcall*)(uint32_t, float, float, float)>(0x5c83f0)(handle, x, y, z);
+                imp::AIL_set_3D_position(handle, x, y, z);
             }
         }
-        if (f & 0x10) Import<void(__stdcall*)(uint32_t, uint32_t, uint32_t)>(0x5c8428)(handle, F<uint32_t>(r, 0x34), F<uint32_t>(r, 0x30));
+        if (f & 0x10) imp::AIL_set_3D_sample_distances(handle, F<uint32_t>(r, 0x34), F<uint32_t>(r, 0x30));
         if (f & 0x20)
-            Import<void(__stdcall*)(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t)>(0x5c83f8)(
+            ((void(__stdcall*)(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t))imp::AIL_set_3D_orientation)(
                 handle, F<uint32_t>(r, 0x1c), F<uint32_t>(r, 0x20), F<uint32_t>(r, 0x24), 0, 0x3f800000, 0);
-        if (f & 0x40) Import<void(__stdcall*)(uint32_t, float)>(0x5c8424)(handle, (float)F<int32_t>(r, 0x38));
-        if ((int8_t)f < 0 && F<int32_t>(r, 0x3c)) Import<void(__stdcall*)(uint32_t, int32_t)>(0x5c8420)(handle, F<int32_t>(r, 0x3c));
+        if (f & 0x40) imp::AIL_set_3D_sample_effects_level(handle, (float)F<int32_t>(r, 0x38));
+        if ((int8_t)f < 0 && F<int32_t>(r, 0x3c)) imp::AIL_set_3D_sample_playback_rate(handle, F<int32_t>(r, 0x3c));
         if (!(f & 8)) return 0;
         if (F<int32_t>(r, 0xc) == 1) {
             stop();
             return 0;
         }
         if (F<int32_t>(r, 0x50) > 0) {
-            int32_t now = (int32_t)Import<DWORD(WINAPI*)()>(0x5c8068)();
+            int32_t now = (int32_t)((DWORD(WINAPI*)())imp::GetTickCount)();
             if (now - F<int32_t>(r, 0x4c) < F<int32_t>(r, 0x50)) {
                 F<uint32_t>(r, 0x44) |= 8;
                 return 0;
@@ -1134,8 +1130,8 @@ RT3_NOINLINE uint8_t* __fastcall Sound3D_PrepareSample(uint8_t* s, int, const ch
         if (victim) {
             if (uint32_t* e = (uint32_t*)Hash_Get((HashMap*)(s + 0x14), 0, victim)) {
                 uint32_t smp = e[-1];
-                Import<void(__stdcall*)(uint32_t, void*)>(0x5c83a4)(smp, nullptr);
-                Import<void(__stdcall*)(uint32_t)>(0x5c8414)(smp);
+                ((void(__stdcall*)(uint32_t, void*))imp::AIL_register_3D_EOS_callback)(smp, nullptr);
+                imp::AIL_end_3D_sample(smp);
                 if (e[2] == 1) --F<int32_t>(s, 0x5c);
                 Voices_Release(s, 0, smp);
                 Hash_Remove((HashMap*)(s + 0x14), 0, e[0]);
@@ -1164,7 +1160,7 @@ RT3_NOINLINE uint8_t* __fastcall Sound3D_PrepareSample(uint8_t* s, int, const ch
                 --l[2];
             }
         } else {
-            q = (uint8_t*)ExeNew(F<uint32_t>(pool, 0x10));
+            q = (uint8_t*)crt::operator_new(F<uint32_t>(pool, 0x10));
         }
         F<uint32_t>(q, 0) = key;
         F<int32_t>(q, 0xc) = 0;
@@ -1202,22 +1198,22 @@ uint32_t __fastcall Sound3D_Play(uint8_t* s, int, const char* name, float x, flo
     F<float>(res, 0x28) = vol;
     F<int32_t>(res, 8) = mode;
     F<int32_t>(res, 0xc) = paused;
-    Import<void(__stdcall*)(uint32_t, void*)>(0x5c843c)(smp, F<void*>((uint8_t*)res[1], 0x10));
+    imp::AIL_set_3D_sample_file(smp, F<void*>((uint8_t*)res[1], 0x10));
     int32_t loop = 1;
     if (mode == 1) {
         ++F<int32_t>(s, 0x5c);
         loop = 0;
     }
-    Import<void(__stdcall*)(uint32_t, int32_t)>(0x5c8438)(smp, loop);
-    Import<void(__stdcall*)(uint32_t, uint32_t, uint32_t, uint32_t)>(0x5c83f0)(smp, Bits(px), Bits(py), Bits(pz));
-    Import<void(__stdcall*)(uint32_t, uint32_t)>(0x5c8424)(smp, 0);
-    Import<void(__stdcall*)(uint32_t, uint32_t)>(0x5c8434)(smp, 0);
-    Import<void(__stdcall*)(uint32_t, uint32_t, uint32_t)>(0x5c8428)(smp, F<uint32_t>(res, 0x34), F<uint32_t>(res, 0x30));
+    imp::AIL_set_3D_sample_loop_count(smp, loop);
+    ((void(__stdcall*)(uint32_t, uint32_t, uint32_t, uint32_t))imp::AIL_set_3D_position)(smp, Bits(px), Bits(py), Bits(pz));
+    ((void(__stdcall*)(uint32_t, uint32_t))imp::AIL_set_3D_sample_effects_level)(smp, 0);
+    imp::AIL_set_3D_sample_occlusion(smp, 0);
+    imp::AIL_set_3D_sample_distances(smp, F<uint32_t>(res, 0x34), F<uint32_t>(res, 0x30));
     float v = (float)((double)*(const float*)0x624d5c * F<float>(s, 0x58) * F<float>(res, 0x28));
-    Import<void(__stdcall*)(uint32_t, uint32_t)>(0x5c842c)(smp, Bits(v));
+    ((void(__stdcall*)(uint32_t, uint32_t))imp::AIL_set_3D_sample_volume)(smp, Bits(v));
     Sound_RegisterEos(Snd(), 0, smp, 1);
-    if (!paused) Import<void(__stdcall*)(uint32_t)>(0x5c8430)(smp);
-    F<uint32_t>(res, 0x4c) = Import<uint32_t(__stdcall*)()>(0x5c8068)();
+    if (!paused) imp::AIL_start_3D_sample(smp);
+    F<uint32_t>(res, 0x4c) = imp::GetTickCount();
     return res[0];
 }
 RT3_REPLACE(0x56a520, Sound3D_Play);
@@ -1247,8 +1243,8 @@ RT3_REPLACE(0x56a740, Sound3D_Destruct);
 
 // 0x56a770. Opens the 22 kHz 16-bit stereo digital driver (+0x2c) and initialises.
 int32_t __fastcall Sound2D_Open(uint8_t* s) {
-    Import<int32_t(__stdcall*)(uint32_t, int32_t)>(0x5c8444)(0, 100);
-    void* drv = Import<void*(__stdcall*)(uint32_t, uint32_t, uint32_t, uint32_t)>(0x5c8440)(0x5622, 0x10, 2, 0);
+    imp::AIL_set_preference(0, 100);
+    void* drv = imp::AIL_open_digital_driver(0x5622, 0x10, 2, 0);
     F<void*>(s, 0x2c) = drv;
     if (!drv) return 0;
     Hash_Init((HashMap*)(s + 0xc), 0, 0x11, 0x40);
@@ -1262,10 +1258,10 @@ RT3_REPLACE(0x56a770, Sound2D_Open);
 void __fastcall Sound2D_AllocSamples(uint8_t* s, int, int32_t n) {
     F<uint32_t*>(s, 4) = NewZeroed(0x14);
     Hash_Init(F<HashMap*>(s, 4), 0, 7, n);
-    uint8_t* recs = (uint8_t*)Malloc(n * 0x5c);
+    uint8_t* recs = (uint8_t*)crt::malloc(n * 0x5c);
     uint8_t* r = recs;
     for (int32_t i = 0; i < n; ++i, r += 0x5c) {
-        uint32_t h = Import<uint32_t(__stdcall*)(uint32_t)>(0x5c8448)(F<uint32_t>(s, 0x2c));
+        uint32_t h = imp::AIL_allocate_sample_handle(F<uint32_t>(s, 0x2c));
         F<uint32_t>(r, 4) = h;
         Hash_Insert(F<HashMap*>(s, 4), 0, h, (int32_t)r);
     }
@@ -1313,8 +1309,8 @@ RT3_NOINLINE int32_t __fastcall Sound2D_Command(uint8_t* s, int, uint8_t* node, 
     uint8_t* e = F<uint8_t*>(node, 4);
     uint32_t h = F<uint32_t>(e, -4);
     auto volume = [&]() { return (float)((double)F<float>(e, 0x28) * F<float>(s, 0x20)); };
-    auto stop = [&]() { Import<void(__stdcall*)(uint32_t)>(0x5c846c)(h); };
-    auto resume = [&]() { Import<void(__stdcall*)(uint32_t)>(0x5c8468)(h); };
+    auto stop = [&]() { imp::AIL_stop_sample(h); };
+    auto resume = [&]() { imp::AIL_resume_sample(h); };
     auto pause = [&]() {
         if (F<int32_t>(e, 0xc) && !(F<uint32_t>(e, 0x44) & 8)) return;
         F<int32_t>(e, 0xc) = 1;
@@ -1330,14 +1326,14 @@ RT3_NOINLINE int32_t __fastcall Sound2D_Command(uint8_t* s, int, uint8_t* node, 
     switch (ctx[0]) {
     case 1:
         if (ctx[1] != -1 && F<int32_t>(e, 4) != ctx[1]) break;
-        Import<int32_t(__stdcall*)(uint32_t, uint32_t)>(0x5c83a8)(h, 0);
-        Import<void(__stdcall*)(uint32_t)>(0x5c8474)(h);
+        imp::AIL_register_EOS_callback(h, 0);
+        imp::AIL_end_sample(h);
         Sample_Drop(s, e, h);
         break;
     case 2:
         if (F<int32_t>(e, 8) == 1) {
             float v = volume();
-            Import<void(__stdcall*)(uint32_t, float, float)>(0x5c8470)(h, v, v);
+            imp::AIL_set_sample_volume_levels(h, v, v);
         }
         break;
     case 3: {
@@ -1349,20 +1345,20 @@ RT3_NOINLINE int32_t __fastcall Sound2D_Command(uint8_t* s, int, uint8_t* node, 
             Sample_Drop(s, e, h);
             break;
         }
-        if (flags & 0x200) Import<void(__stdcall*)(uint32_t, int32_t)>(0x5c845c)(h, F<int32_t>(e, 0x48));
+        if (flags & 0x200) imp::AIL_set_sample_loop_count(h, F<int32_t>(e, 0x48));
         if (flags & 1) {
             float v = volume();
-            Import<void(__stdcall*)(uint32_t, float, float)>(0x5c8470)(h, v, v);
+            imp::AIL_set_sample_volume_levels(h, v, v);
         }
-        if (flags & 4) Import<void(__stdcall*)(uint32_t, float, float)>(0x5c8458)(h, volume(), F<float>(e, 0x2c));
-        if (flags & 0x80) Import<void(__stdcall*)(uint32_t, int32_t)>(0x5c844c)(h, F<int32_t>(e, 0x3c));
+        if (flags & 4) imp::AIL_set_sample_volume_pan(h, volume(), F<float>(e, 0x2c));
+        if (flags & 0x80) imp::AIL_set_sample_playback_rate(h, F<int32_t>(e, 0x3c));
         if (!(flags & 8)) break;
         if (F<int32_t>(e, 0xc) == 1) {
             stop();
             break;
         }
         if (F<int32_t>(e, 0x50) > 0) {
-            uint32_t now = Import<uint32_t(__stdcall*)()>(0x5c8068)();
+            uint32_t now = imp::GetTickCount();
             if ((int32_t)(now - F<uint32_t>(e, 0x4c)) < F<int32_t>(e, 0x50)) {
                 F<uint32_t>(e, 0x44) |= 8;
                 break;
@@ -1407,13 +1403,13 @@ void __fastcall Sound2D_Stop(uint8_t* s, int, uint32_t key) {
     uint8_t* e = (uint8_t*)Hash_Get((HashMap*)(s + 0xc), 0, key);
     if (e) {
         uint32_t h = F<uint32_t>(e, -4);
-        Import<int32_t(__stdcall*)(uint32_t, uint32_t)>(0x5c83a8)(h, 0);
-        Import<void(__stdcall*)(uint32_t)>(0x5c8474)(h);
+        imp::AIL_register_EOS_callback(h, 0);
+        imp::AIL_end_sample(h);
         if (F<int32_t>(e, 8) == 1) F<int32_t>(s, 0x24)--;
         Voices_Release(s, 0, h);
         Hash_Remove((HashMap*)(s + 0xc), 0, key);
         if (void* d = F<void*>(e, 4)) {
-            Free(d);
+            crt::free(d);
             F<void*>(e, 4) = nullptr;
         }
     }
@@ -1428,7 +1424,7 @@ void __fastcall Sound2D_SetSampleVolume(uint8_t* s, int, uint32_t key, float vol
     uint8_t* e = (uint8_t*)Hash_Get((HashMap*)(s + 0xc), 0, key);
     if (e) {
         float v = (float)((double)vol * F<float>(s, 0x20));
-        Import<void(__stdcall*)(uint32_t, float, float)>(0x5c8470)(F<uint32_t>(e, -4), v, v);
+        imp::AIL_set_sample_volume_levels(F<uint32_t>(e, -4), v, v);
     }
     AilUnlock();
 }
@@ -1449,22 +1445,22 @@ uint32_t __fastcall Sound2D_Play(uint8_t* s, int, const char* name, float vol, u
     F<uint32_t>(res, 0x2c) = pan;
     F<int32_t>(res, 8) = mode;
     F<int32_t>(res, 0xc) = paused;
-    Import<void(__stdcall*)(uint32_t)>(0x5c83b0)(smp);
+    imp::AIL_init_sample(smp);
     if (!data) data = (void*)res[1];
-    Import<void(__stdcall*)(uint32_t, void*, int32_t)>(0x5c8480)(smp, data, 0);
+    imp::AIL_set_sample_file(smp, data, 0);
     float v = (float)((double)vol * F<float>(s, 0x20));
-    Import<void(__stdcall*)(uint32_t, uint32_t, uint32_t)>(0x5c8470)(smp, Bits(v), Bits(v));
+    ((void(__stdcall*)(uint32_t, uint32_t, uint32_t))imp::AIL_set_sample_volume_levels)(smp, Bits(v), Bits(v));
     float v2 = (float)((double)vol * F<float>(s, 0x20));
-    Import<void(__stdcall*)(uint32_t, uint32_t, uint32_t)>(0x5c8458)(smp, Bits(v2), pan);
+    ((void(__stdcall*)(uint32_t, uint32_t, uint32_t))imp::AIL_set_sample_volume_pan)(smp, Bits(v2), pan);
     int32_t loop = 1;
     if (mode == 1) {
         ++F<int32_t>(s, 0x24);
         loop = 0;
     }
-    Import<void(__stdcall*)(uint32_t, int32_t)>(0x5c845c)(smp, loop);
+    imp::AIL_set_sample_loop_count(smp, loop);
     Sound_RegisterEos(Snd(), 0, smp, 0);
-    if (!paused) Import<void(__stdcall*)(uint32_t)>(0x5c8478)(smp);
-    F<uint32_t>(res, 0x4c) = Import<uint32_t(__stdcall*)()>(0x5c8068)();
+    if (!paused) imp::AIL_start_sample(smp);
+    F<uint32_t>(res, 0x4c) = imp::GetTickCount();
     return res[0];
 }
 RT3_REPLACE(0x56ad20, Sound2D_Play);
@@ -1538,7 +1534,7 @@ RT3_REPLACE(0x56af70, BlockGrid_Init);
 
 void __fastcall BlockGrid_Free(uint8_t* g) {
     for (int k = 0; k < 16; ++k)
-        if (void* p = F<void*>(g, 0x14 + k * 4)) Free(p);
+        if (void* p = F<void*>(g, 0x14 + k * 4)) crt::free(p);
 }
 RT3_REPLACE(0x56afc0, BlockGrid_Free);
 
@@ -1567,7 +1563,7 @@ int32_t __fastcall BlockGrid_Dec(uint8_t* g, int, int32_t a, int32_t b) {
             F<int32_t>(g, 0x10)--;
         }
         if (!F<uint16_t>(blk, 0)) {
-            Free(*slot);
+            crt::free(*slot);
             *slot = nullptr;
         }
     }
@@ -1633,7 +1629,7 @@ void __fastcall BlockGrid_Load(uint8_t* g, int, Stream s) {
             uint8_t flag = 0;
             StreamRead(s, &flag, 1, 0, 1);
             if (!flag) continue;
-            void* blk = Malloc(0x8a);
+            void* blk = crt::malloc(0x8a);
             F<void*>(g, (row + k) * 4) = blk;
             StreamRead(s, blk, 0x8a, 0, 1);
         }
@@ -1658,7 +1654,7 @@ void __fastcall Grid_AddPoint(uint8_t* g, int, uint8_t* t, int32_t x, int32_t z,
     int32_t bx = x / 4, bz = z / 4;
     uint8_t** slot = &F<uint8_t*>(g, 0x14 + (bz + bx * 4) * 4);
     if (!*slot) {
-        uint8_t* blk = (uint8_t*)Malloc(0x8a);
+        uint8_t* blk = (uint8_t*)crt::malloc(0x8a);
         *slot = blk;
         for (int k = 0; k < 0x8a; ++k) blk[k] = 0;
         Block_HeightRange(g, 0, bx, bz, t);
@@ -1914,7 +1910,7 @@ RT3_NOINLINE int32_t __fastcall Lzss_Pack(StreamFn read, StreamFn write) {
     }
     static const uint32_t bufs[] = { 0x24, 0x28, 0x2c, 0x38 };
     for (uint32_t off : bufs)
-        if (void* b = F<void*>(c, off)) ((void(__cdecl*)(void*))0x5a1145)(b);
+        if (void* b = F<void*>(c, off)) crt::free(b);
     return 1;
 }
 RT3_REPLACE(0x56bfe0, Lzss_Pack);
@@ -2040,7 +2036,7 @@ RT3_REPLACE(0x56c630, Rle_Unpack);
 
 // 0x56c840. Registers the module cleanup 0x56c830 with atexit.
 int32_t __fastcall Module_RegisterCleanup() {
-    ((int(__cdecl*)(void*))0x5a2d10)((void*)0x56c830);
+    crt::atexit((void*)0x56c830);
     return 0;
 }
 RT3_REPLACE(0x56c840, Module_RegisterCleanup);

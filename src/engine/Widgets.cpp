@@ -13,6 +13,7 @@
 #include "core/globals.h"
 #include "game/collection.h"
 #include "core/crt.h"
+#include "core/imports.h"
 #include "core/ptrlist.h"
 #include "core/containers.h"
 #include "hook/keepregs.h"
@@ -29,7 +30,6 @@ const char* __fastcall GetString(int32_t id);
 void __fastcall String_Assign(char** s, const char* src);
 int32_t __fastcall Clipboard_GetText(char* buf, int32_t size);
 void __fastcall EditBox_InsertCursor(uint8_t* w, int, const char* text, int32_t pos);
-template <typename Fn> static inline Fn Import(uint32_t iat) { return (Fn)hook::Global<void*>(iat); }
 int32_t __fastcall IsSingleByte(uint16_t c);
 int32_t __fastcall NameTable_Read(uint8_t* t, int, void* dst, int32_t n);
 void __fastcall NameTable_PushPos(uint8_t* t);
@@ -210,7 +210,6 @@ int32_t __fastcall EditBox_HitTest(uint8_t* w, int, float px, float py);
 RT3_NOINLINE void __fastcall EditBox_RunModal(uint8_t* w, int, int32_t caret);
 RT3_NOINLINE void __fastcall ListBox_Select(uint8_t* l, int, int32_t node, int32_t sound);
 
-static inline void MemMove(void* d, const void* s, size_t n) { ((void*(__cdecl*)(void*, const void*, size_t))0x5a20b0)(d, s, n); }
 
 static inline size_t Len(const char* s) { size_t n = 0; while (s[n]) ++n; return n; }
 
@@ -218,18 +217,15 @@ static inline void Copy(char* d, const char* s) { while ((*d++ = *s++) != 0) {} 
 
 static inline double D(uint32_t a) { return *(const double*)a; }
 
-static inline void* ExeNew(size_t n) { return ((void*(__cdecl*)(size_t))0x53b070)(n); }
 
-static inline void ExeDelete(void* p) { ((void(__cdecl*)(void*))0x53b080)(p); }
 
 static inline uint32_t FBits(float f) { return *(uint32_t*)&f; }
 
-static inline void* ExeMalloc(size_t n) { return ((void*(__cdecl*)(size_t))0x5a125d)(n); }
 
 // Pack-loaded widgets (the constructors take an unused argument): a bare base, the
 // kind's init, then an `n`-byte record read from the pack's current position.
 static uint8_t* Widget_ReadRecord(uint8_t* w, int32_t n) {
-    uint8_t* rec = (uint8_t*)ExeMalloc(n);
+    uint8_t* rec = (uint8_t*)crt::malloc(n);
     NameTable_Read(g_pack, 0, rec, n);
     Widget_LoadBase(w, 0, rec);
     return rec;
@@ -239,7 +235,7 @@ static uint8_t* Widget_ReadRecord(uint8_t* w, int32_t n) {
 // (from pack block 0xbbb, else 0x5d09c4) duplicated with a spare byte.
 static void EditBox_DupText(uint8_t* w) {
     char* s = F<char*>(w, 0xba);
-    char* d = (char*)ExeMalloc(strlen(s) + 2);
+    char* d = (char*)crt::malloc(strlen(s) + 2);
     strcpy(d, s);
     F<char*>(w, 0xba) = d;
 }
@@ -248,12 +244,12 @@ static void EditBox_DupText(uint8_t* w) {
 // delete when `flags` bit 0 is set.
 static uint8_t* Widget_Finish(uint8_t* w, int32_t flags) {
     Widget_Destruct(w);
-    if (flags & 1) ExeDelete(w);
+    if (flags & 1) crt::operator_delete(w);
     return w;
 }
 
 static void FreeField(uint8_t* w, uint32_t off) {
-    if (F<void*>(w, off)) Free(F<void*>(w, off));
+    if (F<void*>(w, off)) crt::free(F<void*>(w, off));
     F<void*>(w, off) = nullptr;
 }
 
@@ -263,9 +259,9 @@ static inline double Fl(uint32_t a) { return *(const float*)a; }
 // (reallocated to the work buffer's length + extra + 10).
 static void EditBox_GrowText(uint8_t* w, const char* buf, size_t extra) {
     char** text = (char**)(w + 0xba);
-    char* p = ((char*(__cdecl*)(size_t))0x5a125d)(strlen(buf) + extra + 10);
+    char* p = ((char*)crt::malloc(strlen(buf) + extra + 10));
     strcpy(p, *text);
-    ((void(__cdecl*)(void*))0x5a1145)(*text);
+    crt::free(*text);
     *text = p;
 }
 
@@ -690,7 +686,7 @@ RT3_NOINLINE int32_t __fastcall Widget_HandleEvent(uint8_t* w, int, uint8_t* e) 
         if (redrawAlways) ((void(__fastcall*)(uint8_t*))vt(0x34))(w);
     };
     auto setTooltip = [&]() -> int32_t {
-        if (F<void*>(w, 0x43)) Free(F<void*>(w, 0x43));
+        if (F<void*>(w, 0x43)) crt::free(F<void*>(w, 0x43));
         F<void*>(w, 0x43) = nullptr;
         if (F<const char*>(e, 8)) String_Assign(&F<char*>(w, 0x43), F<const char*>(e, 8));
         if (F<uint8_t*>(g_windowManager, 0xc6d) == w)
@@ -962,7 +958,7 @@ void __fastcall Widget_SetPicture(uint8_t* g, int, const void* pixels, int32_t w
     if (!F<uint8_t*>(g, 0xaa)) {
         F<int32_t>(g, 0xa2) = w;
         F<int32_t>(g, 0xa6) = h;
-        uint8_t* p = (uint8_t*)((void*(__cdecl*)(uint32_t))0x53b070)(0xec);
+        uint8_t* p = (uint8_t*)crt::operator_new(0xec);
         uint8_t* t = p ? Texture_InitMemory(p, 0, nullptr, w, h, 1) : nullptr;
         F<uint8_t*>(g, 0xaa) = t;
         dst = Texture_Pixels32(t, 0, nullptr, nullptr, 0);
@@ -1138,7 +1134,7 @@ uint8_t* __fastcall Scrollbar_Load(uint8_t* w, int, int32_t) {
     Scrollbar_Init(w);
     uint8_t* rec = Widget_ReadRecord(w, 0x89);
     memcpy(w + 0xae, rec + 0x5f, 0x1a);
-    Free(rec);
+    crt::free(rec);
     return w;
 }
 RT3_REPLACE(0x559f90, Scrollbar_Load);
@@ -1161,7 +1157,7 @@ uint8_t* __fastcall Scrollbar_Delete(uint8_t* w, int, int32_t flags) {
     F<uint32_t>(w, 0) = 0x5ddd18;
     if (uint8_t* t = F<uint8_t*>(w, 0xaa)) {
         Texture_Destroy(t);
-        ExeDelete(t);
+        crt::operator_delete(t);
         F<uint8_t*>(w, 0xaa) = nullptr;
     }
     return Widget_Finish(w, flags);
@@ -1244,7 +1240,7 @@ void __fastcall Slider_Layout(uint8_t* s) {
         d[0x8a] = F<int32_t>(s, 0x125) ? (uint8_t)F<int32_t>(s, 0x125) : 7;
         if (F<int32_t>(s, 0x111)) F<uint16_t>(d, 0x67) = F<int32_t>(s, 0x109) ? 0x25 : 0x26;
         F<uint16_t>(s, 0x1a9) = id;
-        uint8_t* c = (uint8_t*)ExeNew(0xe9);
+        uint8_t* c = (uint8_t*)crt::operator_new(0xe9);
         c = c ? Control_Construct(c, 0, d) : nullptr;
         F<uint8_t*>(s, 0x1ad) = c;
         Window_AddChild(F<uint8_t*>(s, 0x86), 0, c, 0);
@@ -1258,12 +1254,12 @@ void __fastcall Slider_Layout(uint8_t* s) {
         F<uint8_t*>(d, 0x47) = s;
         if (F<int32_t>(s, 0x111)) F<uint16_t>(d, 0x67) = F<int32_t>(s, 0x109) ? 0x27 : 0x28;
         F<uint16_t>(s, 0x1ab) = id;
-        c = (uint8_t*)ExeNew(0xe9);
+        c = (uint8_t*)crt::operator_new(0xe9);
         c = c ? Control_Construct(c, 0, d) : nullptr;
         F<uint8_t*>(s, 0x1b1) = c;
         Window_AddChild(F<uint8_t*>(s, 0x86), 0, c, 0);
-        Free(F<void*>(d, 0x43));
-        if (F<const char*>(s, 0x43)) Free(F<void*>(d, 0x3f));
+        crt::free(F<void*>(d, 0x43));
+        if (F<const char*>(s, 0x43)) crt::free(F<void*>(d, 0x3f));
     }
     if (!F<int32_t>(s, 0x11d)) F<int32_t>(s, 0x11d) = 0x1f;
 }
@@ -1363,7 +1359,7 @@ uint8_t* __fastcall ListBox_Load(uint8_t* w, int, int32_t) {
     uint8_t* rec = Widget_ReadRecord(w, 0xe3);
     ListBox_Init(w);
     memcpy(w + 0x101, rec + 0x5f, 0x70);
-    Free(rec);
+    crt::free(rec);
     return w;
 }
 RT3_REPLACE(0x55a990, ListBox_Load);
@@ -1371,7 +1367,7 @@ RT3_REPLACE(0x55a990, ListBox_Load);
 // 0x55ab30. Deleting destructor of the list box.
 uint8_t* __fastcall ListBox_DeletingDestructor(uint8_t* w, int, uint32_t flags) {
     ListBox_Destruct(w);
-    if (flags & 1) ExeDelete(w);
+    if (flags & 1) crt::operator_delete(w);
     return w;
 }
 RT3_REPLACE(0x55ab30, ListBox_DeletingDestructor);
@@ -1655,7 +1651,7 @@ RT3_NOINLINE void __fastcall EditBox_DeleteAt(uint8_t* w, int, char* s, int32_t 
                 if (++to >= len - 1) break;
             }
     }
-    if (to < len - 1) MemMove(s + from, s + to + 1, len - to - 1);
+    if (to < len - 1) crt::memmove(s + from, s + to + 1, len - to - 1);
     s[from - to + len - 1] = 0;
     F<int32_t>(w, 0xd8) = from;
 }
@@ -1683,8 +1679,8 @@ RT3_NOINLINE void __fastcall TextBox_MoveCursor(uint8_t* e, int, const char* str
             const char* cur = str + pos;
             const char* q;
             uint16_t cp = hook::As<uint16_t>(g_624328);
-            if (step == 1) q = Import<const char*(__stdcall*)(uint16_t, const char*, uint32_t)>(0x5c8244)(cp, cur, 0);
-            else q = Import<const char*(__stdcall*)(uint16_t, const char*, const char*, uint32_t)>(0x5c8254)(cp, str, cur, 0);
+            if (step == 1) q = ((const char*(__stdcall*)(uint16_t, const char*, uint32_t))imp::CharNextExA)(cp, cur, 0);
+            else q = imp::CharPrevExA(cp, str, cur, 0);
             int32_t d = (int32_t)(q - cur);
             if ((d < 0 ? -d : d) <= 2) F<int32_t>(e, 0xd8) += d;
             else F<int32_t>(e, 0xd8) += step;
@@ -1726,9 +1722,9 @@ uint8_t* __fastcall EditBox_Load(uint8_t* w, int, int32_t) {
     } else {
         char* old = F<char*>(w, 0xba);
         EditBox_DupText(w);
-        Free(old);
+        crt::free(old);
     }
-    Free(rec);
+    crt::free(rec);
     return w;
 }
 RT3_REPLACE(0x55b900, EditBox_Load);
@@ -1822,12 +1818,12 @@ RT3_REPLACE(0x55bc30, EditBox_Draw);
 // 0x55bd80. Rebuilds the display text (+0xba, 5000 bytes) from `text` with the
 // cursor character inserted at pos ('|', or 0x0f / ' ' for custom fonts +0xe4).
 RT3_NOINLINE void __fastcall EditBox_InsertCursor(uint8_t* w, int, const char* text, int32_t pos) {
-    char* buf = (char*)Malloc(0x1388);
+    char* buf = (char*)crt::malloc(0x1388);
     const char* old = F<const char*>(w, 0xba);
     for (size_t k = 0; (buf[k] = old[k]) != 0; ++k) {}
-    Free(F<void*>(w, 0xba));
+    crt::free(F<void*>(w, 0xba));
     F<char*>(w, 0xba) = buf;
-    if (pos) MemMove(buf, text, pos);
+    if (pos) crt::memmove(buf, text, pos);
     char cursor;
     if (F<int32_t>(w, 0xe4)) cursor = F<int32_t>(F<uint8_t*>(w, 0x63), 0x10) ? 0x0f : 0x20;
     else cursor = 0x7c;
@@ -1835,7 +1831,7 @@ RT3_NOINLINE void __fastcall EditBox_InsertCursor(uint8_t* w, int, const char* t
     const char* rest = text + pos;
     size_t n = 0;
     while (rest[n]) ++n;
-    MemMove(F<char*>(w, 0xba) + pos + 1, rest, n + 1);
+    crt::memmove(F<char*>(w, 0xba) + pos + 1, rest, n + 1);
 }
 RT3_REPLACE(0x55bd80, EditBox_InsertCursor);
 
@@ -1852,7 +1848,7 @@ RT3_NOINLINE void __fastcall EditBox_Paste(uint8_t* w, int, char* dst) {
     F<int32_t>(w, 0xd8) = 0;
     int32_t dlen = (int32_t)Len(dst);
     if (len <= 0 || dlen + len + 1 >= F<int32_t>(w, 0xaa)) return;
-    F<char*>(w, 0xba) = (char*)Malloc(Len(dst) + len + 10);
+    F<char*>(w, 0xba) = (char*)crt::malloc(Len(dst) + len + 10);
     Copy(dst, buf);
     Copy(F<char*>(w, 0xba), buf);
     F<int32_t>(w, 0xd8) += len;

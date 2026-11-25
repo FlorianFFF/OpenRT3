@@ -146,7 +146,6 @@ RT3_NOINLINE void __fastcall Scene_GetVectors(uint8_t* s, int, uint32_t* a, uint
 RT3_NOINLINE uint8_t* __fastcall Pack_AcquireNamed(uint8_t* pack, int, const char* name);
 RT3_NOINLINE void __fastcall Ui_Line(uint32_t color, int32_t glow, float x1, float y1, float x2, float y2, float width);
 
-static inline int ExeStricmp(const char* a, const char* b) { return ((int(__cdecl*)(const char*, const char*))0x5a57cf)(a, b); }
 
 // 0x476ab0 / 0x476b30. Field +0x40 / +0x20 of the (*0x6d4020)+0x429b4 entry
 // named like this +0xc47. QUIRK: without a match the last entry is used,
@@ -157,7 +156,7 @@ static uint8_t* FindNamedEntry(uint8_t* o) {
     for (int32_t i = 0; i < Collection_Count(list()); ++i) {
         Collection* l = list();
         e = (uint8_t*)Collection_Get(l, 0, Collection_IdAt(l, 0, i, 0));
-        if (Stricmp((const char*)e, (const char*)o + 0xc47) == 0) break;
+        if (crt::stricmp((const char*)e, (const char*)o + 0xc47) == 0) break;
     }
     return e;
 }
@@ -402,7 +401,7 @@ RT3_REPLACE(0x4767a0, Player_Wealth);
 // 0x476810. Shifts the player's wealth history (+0x1e9, 18 doubles) back by two
 // and stores the current cash and holdings value in front.
 RT3_NOINLINE void __fastcall Player_RecordWealth(uint8_t* p) {
-    ((void*(__cdecl*)(void*, const void*, size_t))0x5a20b0)(p + 0x1f9, p + 0x1e9, 0x90);
+    crt::memmove(p + 0x1f9, p + 0x1e9, 0x90);
     F<double>(p, 0x1e9) = F<double>(p, 0x154);
     F<double>(p, 0x1f1) = Player_HoldingsValue(p, 0, 0);
 }
@@ -471,7 +470,7 @@ RT3_NOINLINE int32_t __fastcall Obj_NameIndex(void* o) {
     for (int32_t i = 0; i < Collection_Count(table()); ++i) {
         Collection* t = table();
         const char* name = (const char*)Collection_Get(t, 0, Collection_IdAt(t, 0, i, 0));
-        if (ExeStricmp((const char*)o + 0xc47, name) == 0) return i;
+        if (crt::stricmp((const char*)o + 0xc47, name) == 0) return i;
     }
     return -1;
 }

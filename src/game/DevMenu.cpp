@@ -13,6 +13,7 @@
 #include "game/collection.h"
 #include "game/calendar.h"
 #include "core/crt.h"
+#include "core/imports.h"
 #include "hook/keepregs.h"
 #include "core/ptrlist.h"
 #include "core/containers.h"
@@ -214,8 +215,8 @@ static void ReleaseGdiPair(void** p) {
     if (!p[1]) return;
     p[1] = nullptr;
     if (void* e = hook::As<void*>(g_engine))
-        ((int32_t(__stdcall*)(void*, void*))g_5c822c)(Engine_Window(e), nullptr);
-    if (p[0]) ((int32_t(__stdcall*)(void*))g_5c8228)(p[0]);
+        (imp::SetMenu)(Engine_Window(e), nullptr);
+    if (p[0]) (imp::DestroyMenu)(p[0]);
     p[0] = nullptr;
 }
 
@@ -302,7 +303,7 @@ RT3_NOINLINE void __fastcall Menu_UpdateChecks(HMENU* m, int, char relight) {
     typedef BOOL(WINAPI * EnableFn)(HMENU, UINT, UINT);
     typedef int(WINAPI * GetStrFn)(HMENU, UINT, LPSTR, int, UINT);
     if (!g_engine || !g_windowManager) return;
-    CheckFn checkFn = hook::As<CheckFn>(g_5c8234);
+    CheckFn checkFn = ((CheckFn)imp::CheckMenuItem);
     auto E = [] { return g_engine; };
     auto O = [] { return g_app; };
     auto check = [&](UINT id, UINT flag) {
@@ -329,7 +330,7 @@ RT3_NOINLINE void __fastcall Menu_UpdateChecks(HMENU* m, int, char relight) {
     check(0xe103, ei(0x11472a));
     check(0xe104, ei(0x11472e));
     bool half = F<float>(E(), 0x1146af) == D(0x5c8628);
-    EnableFn enableFn = hook::As<EnableFn>(g_5c8230);
+    EnableFn enableFn = ((EnableFn)imp::EnableMenuItem);
     check(0x9c4b, on(half));
     check(0x9c62, eb(0x1146e4));
     check(0x9c4c, eb(0x1146a5));
@@ -457,13 +458,13 @@ RT3_NOINLINE void __fastcall Menu_UpdateChecks(HMENU* m, int, char relight) {
     }
     sel(0xdf0c, 6, Sound_GetSpeakers(g_sound));
     // Sound provider items: checked when the active provider's name contains the item text.
-    GetStrFn getStr = hook::As<GetStrFn>(g_5c8238);
+    GetStrFn getStr = ((GetStrFn)imp::GetMenuStringA);
     for (UINT id = 0xdea9; id < 0xdea9 + 8; ++id) {
         if (!*m) continue;
         char text[256];
         getStr(*m, id, text, 0xff, 0);
         const char* prov = (const char*)(uintptr_t)Sound_ActiveProvider(g_sound);
-        bool has = ((const char*(__cdecl*)(const char*, const char*))0x5a1ff0)(prov, text) != nullptr;
+        bool has = ((const char*)crt::strstr(prov, text)) != nullptr;
         check(id, on(has));
     }
     check(0x9cb5, ei(0x114712));
@@ -510,7 +511,7 @@ RT3_REPLACE(0x464130, GdiPair_Release2);
 RT3_NOINLINE void __fastcall Menu_Attach(HMENU* m) {
     typedef BOOL(WINAPI * SetMenuFn)(HWND, HMENU);
     if (!hook::As<void*>(g_engine) || Engine_IsFullscreen(hook::As<void*>(g_engine))) return;
-    SetMenuFn setMenu = hook::As<SetMenuFn>(g_5c822c);
+    SetMenuFn setMenu = ((SetMenuFn)imp::SetMenu);
     ((int32_t*)m)[1] = 1;
     if (!*m) {
         setMenu(Engine_Window(hook::As<void*>(g_engine)), nullptr);
@@ -608,7 +609,7 @@ void __fastcall DevMenu_Command(HMENU* m, int, uint32_t cmd) {
     };
     auto checkZoom = [&](uint32_t on) {
         static const uint32_t kItems[5] = { 0x9c77, 0x9c76, 0x9c74, 0x9c75, 0x9c78 };
-        auto check = (uint32_t(__stdcall*)(HMENU, uint32_t, uint32_t))g_5c8234;
+        auto check = ((uint32_t(__stdcall*)(HMENU, uint32_t, uint32_t))imp::CheckMenuItem);
         for (uint32_t id : kItems) {
             if (!*m) return;
             check(*m, id, id == on ? 8 : 0);
@@ -690,7 +691,7 @@ void __fastcall DevMenu_Command(HMENU* m, int, uint32_t cmd) {
             Num_Format(buf, 8, (double)((ymd & 0xffff) + 10), 10, 1, 0, 0);
             Dialog_RunMessage(GetString(0x1ba), 9, 0xbf800000, 0xbf800000, 0, nullptr, 0, 0.0f, (uint32_t)(uintptr_t)buf, 0x1e, 0, nullptr, nullptr, 0,
                               0, nullptr, 0);
-            int32_t year = ((int(__cdecl*)(const char*))0x5a1ea5)(buf);
+            int32_t year = crt::atoi(buf);
             if (year < 0x708)
                 year = 0x708;
             else if (year > 0xbb7)
@@ -716,7 +717,7 @@ void __fastcall DevMenu_Command(HMENU* m, int, uint32_t cmd) {
         // A sound provider by its menu text.
         if (*m) {
             char name[0x100];
-            ((int(__stdcall*)(HMENU, uint32_t, char*, int, uint32_t))g_5c8238)(*m, cmd, name, 0xff, 0);
+            (((int(__stdcall*)(HMENU, uint32_t, char*, int, uint32_t))imp::GetMenuStringA))(*m, cmd, name, 0xff, 0);
             Sound_Restart(snd(), 0, name);
             F<int32_t>(eng(), 0x114706) = Sound_ActiveProviderIndex(snd());
         }
@@ -926,7 +927,7 @@ void __fastcall DevMenu_Command(HMENU* m, int, uint32_t cmd) {
             Num_Format(buf, 8, now, 10, 1, 0, 0);
             Dialog_RunMessage(GetString(0xe33), 9, 0xbf800000, 0xbf800000, 0, nullptr, 0, 0.0f, (uint32_t)(uintptr_t)buf, 0x1e, 0, nullptr, nullptr, 0,
                               0, nullptr, 0);
-            const int32_t want = ((int(__cdecl*)(const char*))0x5a1ea5)(buf);
+            const int32_t want = crt::atoi(buf);
             const double cash = Company_Stat((uint8_t*)company(), 0, 0xd, 0x2329);
             Company_PostStat(company(), 0, 4, (float)-cash, 1);
             Company_PostStat(company(), 0, 4, (float)want, 1);

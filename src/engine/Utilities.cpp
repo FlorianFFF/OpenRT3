@@ -12,6 +12,7 @@
 #include "core/globals.h"
 #include "game/collection.h"
 #include "core/crt.h"
+#include "core/imports.h"
 #include "core/ptrlist.h"
 #include "core/containers.h"
 #include "hook/keepregs.h"
@@ -41,7 +42,6 @@ void __fastcall Engine_QueueSprite(void* e, int, uint32_t p1, uint32_t p2, uint3
 
 int32_t __stdcall Model_FreeFrames(uint8_t* m);
 void __fastcall Lists_FreeItems(uint8_t* o);
-template <typename Fn> static inline Fn Import(uint32_t iat) { return (Fn)hook::Global<void*>(iat); }
 int32_t __fastcall NameTable_Hash(uint8_t* t, int, const char* name);
 int32_t __fastcall NameTable_Contains(uint8_t* t, int, int32_t id, int32_t fatal);
 int32_t __fastcall NameTable_EntrySize(uint8_t* t, int, int32_t id);
@@ -195,7 +195,6 @@ static void Texture_Replace(uint32_t slot, const char* name) {
     hook::Global<uint8_t*>(slot) = Texture_Acquire(name);
 }
 
-static inline void ExeDelete(void* p) { ((void(__cdecl*)(void*))0x53b080)(p); }
 
 static inline uint32_t Bits(float f) { return *(uint32_t*)&f; }
 
@@ -203,7 +202,7 @@ static inline uint32_t Bits(float f) { return *(uint32_t*)&f; }
 static inline void FreeItems(PtrList* l) {
     if (!F<int32_t>(l, 0xc)) return;
     PtrList_Rewind(l);
-    for (void* p = PtrList_Next(l); p; p = PtrList_Next(l)) Free(p);
+    for (void* p = PtrList_Next(l); p; p = PtrList_Next(l)) crt::free(p);
     PtrList_Clear(l);
 }
 
@@ -211,7 +210,6 @@ static inline double D(uint32_t a) { return *(const double*)a; }
 
 static inline float Fl(uint32_t a) { return *(const float*)a; }
 
-static inline void* ExeNew(size_t n) { return ((void*(__cdecl*)(size_t))0x53b070)(n); }
 
 static inline int32_t Ftol(double v) {
     int32_t r;
@@ -242,8 +240,6 @@ static uint32_t Shade(uint32_t col, float fade) {
 static inline double Fl_191(uint32_t a) { return *(const float*)a; }
 
 namespace {
-inline void* CrtMalloc(size_t n) { return ((void*(__cdecl*)(size_t))0x5a125d)(n); }
-inline void CrtFree(void* p) { ((void(__cdecl*)(void*))0x5a1145)(p); }
 
 // Quad corner offsets: x/z of corners 0..2 and x of corner 3 as floats, z of
 // corner 3 still unrounded, as the original keeps it on the FPU stack.
@@ -528,7 +524,7 @@ RT3_REPLACE(0x5641b0, Obj_SetName24);
 int32_t __fastcall Obj_FreeChildBuffer(uint8_t* o, int32_t keep) {
     if (!keep) {
         uint8_t* s = F<uint8_t*>(o, 4);
-        ((void(__cdecl*)(void*))0x5a1145)(F<void*>(s, 0x10));
+        crt::free(F<void*>(s, 0x10));
         F<void*>(s, 0x10) = nullptr;
     }
     return 0;
@@ -544,9 +540,9 @@ RT3_NOINLINE void* __stdcall Sound_LoadWav(const char* name, int32_t, int32_t* s
                      : (int32_t)name;
     int32_t n = NameTable_EntrySize(g_pack, 0, id);
     NameTable_Seek(g_pack, 0, id, 0);
-    void* p = Malloc(n);
+    void* p = crt::malloc(n);
     NameTable_Read(g_pack, 0, p, n);
-    Import<int32_t(__stdcall*)(const void*, void*)>(0x5c83d4)(p, (void*)0xd9798c);
+    imp::AIL_WAV_info(p, (void*)0xd9798c);
     if (size) *size = n;
     return p;
 }
@@ -558,20 +554,20 @@ RT3_NOINLINE void __fastcall SoundCache_Clear(uint8_t* s) {
     if (!F<int32_t>(s, 0x10)) return;
     Hash_ForEach(F<HashMap*>(s, 4), 0, 0, (HashVisit)0x5641d0, nullptr);
     Hash_Destroy(F<HashMap*>(s, 4));
-    Free(F<void*>(F<uint8_t*>(s, 0), 4));
+    crt::free(F<void*>(F<uint8_t*>(s, 0), 4));
     if (NodePool* p = F<NodePool*>(s, 0)) {
         Pool_Free(p);
-        ExeDelete(p);
+        crt::operator_delete(p);
     }
     F<void*>(s, 0) = nullptr;
     if (HashMap* h = F<HashMap*>(s, 4)) {
         Hash_DestroyThunk(h);
-        ExeDelete(h);
+        crt::operator_delete(h);
     }
     F<void*>(s, 4) = nullptr;
     if (MaxHeap* h = F<MaxHeap*>(s, 8)) {
         Heap_Destroy2(h);
-        ExeDelete(h);
+        crt::operator_delete(h);
     }
     F<void*>(s, 8) = nullptr;
     F<int32_t>(s, 0x10) = 0;
@@ -586,7 +582,7 @@ RT3_REPLACE(0x564280, SoundCache_Clear);
 // Returns the entry's value (+4), read after the node is released, as in the original.
 RT3_NOINLINE uint32_t __fastcall TimedQueue_Pop(uint8_t* q) {
     uint8_t* e = (uint8_t*)Heap_PopMax(F<MaxHeap*>(q, 8));
-    Free(F<void*>(e, 0x10));
+    crt::free(F<void*>(e, 0x10));
     F<void*>(e, 0x10) = nullptr;
     Hash_Remove(F<HashMap*>(q, 4), 0, F<uint32_t>(e, 0));
     uint8_t* pool = F<uint8_t*>(q, 0);
@@ -597,7 +593,7 @@ RT3_NOINLINE uint32_t __fastcall TimedQueue_Pop(uint8_t* q) {
         fl[2]++;
         if (!fl[1]) fl[1] = (uint32_t)e;
     } else {
-        ((void(__cdecl*)(void*))0x53b080)(e);
+        crt::operator_delete(e);
     }
     F<int32_t>(q, 0x20)++;
     return F<uint32_t>(e, 4);
@@ -637,7 +633,7 @@ void* __fastcall SoundCache_Load(uint8_t* s, int, const char* name, void* info) 
     }
     if (info) memcpy(info, e + 0x14, 36);
     Heap_DecrementKey(F<MaxHeap*>(s, 8), 0, F<HeapNode*>(e, 8));
-    void* p = Malloc(size);
+    void* p = crt::malloc(size);
     memcpy(p, F<void*>(e, 0x10), size);
     return p;
 }
@@ -661,16 +657,16 @@ int32_t __fastcall SoundCache_Init(uint8_t* s, int, int32_t capacity) {
         s[0x24] = 0;
         return 0;
     }
-    uint32_t* h = (uint32_t*)ExeNew(0x14);
+    uint32_t* h = (uint32_t*)crt::operator_new(0x14);
     if (h) memset(h, 0, 0x14);
     F<uint32_t*>(s, 4) = h;
-    uint32_t* p = (uint32_t*)ExeNew(0x1c);
+    uint32_t* p = (uint32_t*)crt::operator_new(0x1c);
     if (p) memset(p, 0, 0x1c);
     F<uint32_t*>(s, 0) = p;
-    uint32_t* q = (uint32_t*)ExeNew(0x1c);
+    uint32_t* q = (uint32_t*)crt::operator_new(0x1c);
     if (q) memset(q, 0, 0x10);
     F<uint32_t*>(s, 8) = q;
-    void* storage = Malloc(0x15e0);
+    void* storage = crt::malloc(0x15e0);
     Pool_Init(F<NodePool*>(s, 0), 0, storage, 0x38, 100, 0);
     Heap_Init(F<MaxHeap*>(s, 8), 0, 100);
     Hash_Init(F<HashMap*>(s, 4), 0, 0x11, 100);
@@ -833,7 +829,7 @@ RT3_NOINLINE void __fastcall UiList_Draw(uint8_t* v, int, PtrList* items, int32_
                 }
                 Render_DrawFontText(F<uint8_t*>(v, 0x2d), 0, F<const char*>(it, 0x3d), F<float>(it, 1), F<float>(it, 5), F<float>(it, 9), F<float>(it, 0xd),
                                     F<uint32_t>(it, 0x1d), F<void**>(it, 0x39), F<uint32_t>(it, 0x35));
-                ((void(__cdecl*)(void*))0x5a1145)(F<void*>(it, 0x3d));
+                crt::free(F<void*>(it, 0x3d));
             }
             F<void*>(it, 0x3d) = nullptr;
             break;
@@ -897,7 +893,7 @@ RT3_NOINLINE void __fastcall SceneList_Draw(uint8_t* v, int, uint8_t* tex, PtrLi
                 if (F<const char*>(it, 0x3d)) {
                     Render_DrawFontText(F<uint8_t*>(v, 0x2d), 0, F<const char*>(it, 0x3d), F<float>(it, 1), F<float>(it, 5), F<float>(it, 9), F<float>(it, 0xd),
                                         F<uint32_t>(it, 0x1d), F<void**>(it, 0x39), F<uint32_t>(it, 0x35));
-                    ((void(__cdecl*)(void*))0x5a1145)(F<void*>(it, 0x3d));
+                    crt::free(F<void*>(it, 0x3d));
                 }
                 F<void*>(it, 0x3d) = nullptr;
                 break;
@@ -1010,9 +1006,9 @@ uint8_t* __fastcall VisitGrid_Init(uint8_t* g, int, int32_t n) {
     F<int32_t>(g, 0x1f418) = bits;
     uint32_t cells = (uint32_t)((size + 1) * (size + 1));
     F<int32_t>(g, 0x3e833) = size;
-    F<uint8_t*>(g, 0x1f414) = (uint8_t*)Malloc(cells);
+    F<uint8_t*>(g, 0x1f414) = (uint8_t*)crt::malloc(cells);
     F<int32_t>(g, 0x1f408) = 1;
-    uint32_t* st = (uint32_t*)Malloc(0x510);
+    uint32_t* st = (uint32_t*)crt::malloc(0x510);
     F<uint32_t*>(g, 0x1f40c) = st;
     for (int k = 0; k < 0x144; ++k) st[k] = 0;
     if (uint8_t* fl = F<uint8_t*>(g, 0x1f414)) {
@@ -1027,8 +1023,8 @@ RT3_REPLACE(0x565370, VisitGrid_Init);
 
 RT3_NOINLINE void __fastcall VisitGrid_Free(uint8_t* g) {
     if (!g[0x3e832]) return;
-    Free(F<void*>(g, 0x1f414));
-    Free(F<void*>(g, 0x1f40c));
+    crt::free(F<void*>(g, 0x1f414));
+    crt::free(F<void*>(g, 0x1f40c));
 }
 RT3_REPLACE(0x565440, VisitGrid_Free);
 
@@ -1521,7 +1517,7 @@ RT3_NOINLINE int32_t __stdcall Light_LoadPoints(uint8_t* o) {
     c |= (uint32_t)(int32_t)((double)hf[8] * k);
     F<uint32_t>(o, 8) = c;
     int32_t n = h[1];
-    float* p = (float*)Malloc(n * 12);
+    float* p = (float*)crt::malloc(n * 12);
     F<float*>(o, 0) = p;
     NameTable_Read(g_pack, 0, p, n * 12);
     for (int32_t i = 0; i < h[1]; ++i) {
@@ -1544,7 +1540,7 @@ RT3_REPLACE(0x566a80, Light_LoadPoints);
 int32_t __stdcall CollisionMesh_Load(uint8_t* m) {
     PtrList*& meshes = g_d97bb8;
     if (!meshes) {
-        PtrList* l = (PtrList*)ExeNew(0x18);
+        PtrList* l = (PtrList*)crt::operator_new(0x18);
         meshes = l ? PtrList_Init(l) : nullptr;
     }
     F<PtrListNode*>(m, 0x41) = PtrList_Append(meshes, 0, m);
@@ -1557,7 +1553,7 @@ int32_t __stdcall CollisionMesh_Load(uint8_t* m) {
     F<int32_t>(m, 0xc) = nf;
     F<int32_t>(m, 0x39) = -1;
     F<int32_t>(m, 0x3d) = -1;
-    float* verts = (float*)((void*(__cdecl*)(size_t))0x5a125d)(nv * 0xc);
+    float* verts = (float*)crt::malloc(nv * 0xc);
     F<float*>(m, 0) = verts;
     F<int32_t>(m, 0x35) = 0;
     F<int32_t>(m, 0x31) = -1;
@@ -1593,7 +1589,7 @@ int32_t __stdcall CollisionMesh_Load(uint8_t* m) {
     float diag = (float)((dx * dx + dy * dy) + dz * dz);
     F<void*>(m, 4) = nullptr;
     if (nf <= 0) return 0;
-    uint8_t* faces = (uint8_t*)((void*(__cdecl*)(size_t))0x5a125d)(nf * 0x4c);
+    uint8_t* faces = (uint8_t*)crt::malloc(nf * 0x4c);
     float* base = F<float*>(m, 0);
     F<uint8_t*>(m, 4) = faces;
     float area = 0.0f;
@@ -1679,11 +1675,11 @@ int32_t __fastcall CollisionBlock_Load(uint8_t*, int, uint32_t* out) {
     NameTable_PopPosition(g_pack);
     if (tag[0] == 'I') {
         out[4] = 0;
-        out[3] = (uint32_t)((void*(__cdecl*)(size_t))0x5a125d)(hdr[1] * 0x45);
+        out[3] = (uint32_t)crt::malloc(hdr[1] * 0x45);
         for (int32_t i = 0; i < hdr[1]; ++i) CollisionMesh_Load((uint8_t*)out[3] + i * 0x45);
     } else if (tag[0] == 'L') {
         out[3] = 0;
-        out[4] = (uint32_t)((void*(__cdecl*)(size_t))0x5a125d)(hdr[1] * 0x24);
+        out[4] = (uint32_t)crt::malloc(hdr[1] * 0x24);
         for (int32_t i = 0; i < hdr[1]; ++i) Light_LoadPoints((uint8_t*)out[4] + i * 0x24);
     }
     return 0;
@@ -1696,30 +1692,30 @@ RT3_NOINLINE int32_t __stdcall Model_FreeFrames(uint8_t* m) {
     if (!m) return 1;
     for (int32_t i = 0; i < F<int32_t>(m, 0x14); ++i) {
         if (uint8_t* simple = F<uint8_t*>(m, 0x10)) {
-            if (F<int32_t>(simple, i * 0x24 + 4) > 0) Free(F<void*>(simple, i * 0x24));
+            if (F<int32_t>(simple, i * 0x24 + 4) > 0) crt::free(F<void*>(simple, i * 0x24));
             continue;
         }
         uint8_t* fr = F<uint8_t*>(m, 0xc);
         if (!fr) continue;
         fr += i * 0x45;
-        if (F<int32_t>(fr, 0xc) > 0) Free(F<void*>(fr, 4));
+        if (F<int32_t>(fr, 0xc) > 0) crt::free(F<void*>(fr, 4));
         PtrList_RemoveNode(g_d97bb8, 0, F<PtrListNode*>(F<uint8_t*>(m, 0xc) + i * 0x45, 0x41));
         PtrList* l = g_d97bb8;
         if (!F<int32_t>(l, 0xc)) {
             PtrList_Destroy(l);
-            ExeDelete(l);
+            crt::operator_delete(l);
             g_d97bb8 = nullptr;
         }
         fr = F<uint8_t*>(m, 0xc) + i * 0x45;
         F<void*>(fr, 0x41) = nullptr;
-        Free(F<void*>(F<uint8_t*>(m, 0xc) + i * 0x45, 0));
-        if (void* t = F<void*>(F<uint8_t*>(m, 0xc) + i * 0x45, 0x35)) Free(t);
+        crt::free(F<void*>(F<uint8_t*>(m, 0xc) + i * 0x45, 0));
+        if (void* t = F<void*>(F<uint8_t*>(m, 0xc) + i * 0x45, 0x35)) crt::free(t);
     }
     if (void* fr = F<void*>(m, 0xc)) {
-        Free(fr);
+        crt::free(fr);
         return 0;
     }
-    if (void* s = F<void*>(m, 0x10)) Free(s);
+    if (void* s = F<void*>(m, 0x10)) crt::free(s);
     return 0;
 }
 RT3_REPLACE(0x5672e0, Model_FreeFrames);
@@ -1736,7 +1732,7 @@ void __fastcall CollisionFile_Load(uint8_t* c, int, int32_t id) {
     uint16_t count = *(uint16_t*)(hdr + 6);
     F<uint16_t>(c, 4) = count;
     g_d97bb0 = *(uint16_t*)(hdr + 4);
-    F<void*>(c, 0) = ((void*(__cdecl*)(size_t))0x5a125d)(count * 0x18);
+    F<void*>(c, 0) = crt::malloc(count * 0x18);
     for (int32_t i = 0; i < *(uint16_t*)(hdr + 6); ++i) CollisionBlock_Load(c, 0, (uint32_t*)(F<uint8_t*>(c, 0) + i * 0x18));
 }
 RT3_REPLACE(0x567400, CollisionFile_Load);
@@ -1744,7 +1740,7 @@ RT3_REPLACE(0x567400, CollisionFile_Load);
 // 0x5674c0. Frees every model of the set (+0, 0x18 bytes, count +4) and the array.
 RT3_NOINLINE void __fastcall ModelSet_Free(uint8_t* s) {
     for (int32_t i = 0; i < F<uint16_t>(s, 4); ++i) Model_FreeFrames(F<uint8_t*>(s, 0) + i * 0x18);
-    ((void(__cdecl*)(void*))0x5a1145)(F<void*>(s, 0));
+    crt::free(F<void*>(s, 0));
 }
 RT3_REPLACE(0x5674c0, ModelSet_Free);
 
@@ -1873,7 +1869,7 @@ RT3_REPLACE(0x567730, QuadGrid_Weld);
 // pinned white by the edge kind +0x30, alpha from the shade unless the corner is
 // fixed (+0x31.. == 2).
 RT3_NOINLINE void __fastcall Quad_ToVertices(uint8_t* out, uint8_t* q, float lift) {
-    uint32_t now = (*(uint32_t(__stdcall**)())0x5c8068)();
+    uint32_t now = imp::GetTickCount();
     uint32_t step = ((now + F<int32_t>(q, 0x3a)) / 88) & 0xff;
     int32_t cell = 0xff - (int32_t)step;
     const double k = *(const double*)0x5d08a0;
@@ -1968,13 +1964,13 @@ void __fastcall Lists_Destroy(uint8_t* o) {
     Lists_FreeItems(o);
     if (PtrList* l = F<PtrList*>(o, 0x20)) {
         PtrList_Destroy(l);
-        ExeDelete(l);
+        crt::operator_delete(l);
     }
     PtrList* l2 = F<PtrList*>(o, 0x1c);
     F<PtrList*>(o, 0x20) = nullptr;
     if (l2) {
         PtrList_Destroy(l2);
-        ExeDelete(l2);
+        crt::operator_delete(l2);
     }
     F<PtrList*>(o, 0x1c) = nullptr;
 }
@@ -2005,7 +2001,7 @@ RT3_NOINLINE void __fastcall Water_BuildQuads(uint8_t* g) {
                 ((uint8_t**)slots)[slot] = nullptr;
                 continue;
             }
-            uint8_t* q = (uint8_t*)CrtMalloc(0x3e);
+            uint8_t* q = (uint8_t*)crt::malloc(0x3e);
             float fa = (float)*ha;
             float nb = (float)-(double)*hb;
             QuadDelta d = { fa, nb, fa, nb, fa, nb, fa, nb };
@@ -2208,14 +2204,14 @@ RT3_NOINLINE void __fastcall Water_BuildQuads(uint8_t* g) {
                 ((uint8_t**)F<uint8_t*>(F<uint8_t*>(g, 0x24), 0x1669))[(F<int32_t>(g, 0x14) + 1) * y + x] = q;
                 continue;
             } else {
-                CrtFree(q);
+                crt::free(q);
             }
             ((uint8_t**)F<uint8_t*>(F<uint8_t*>(g, 0x24), 0x1669))[(F<int32_t>(g, 0x14) + 1) * y + x] = nullptr;
         }
     }
     int32_t n = F<int32_t>(F<uint8_t*>(g, 0x1c), 0xc);
     if (n > 1) {
-        float** quads = (float**)CrtMalloc(n * 4);
+        float** quads = (float**)crt::malloc(n * 4);
         PtrList_Rewind(F<PtrList*>(g, 0x1c));
         float** fill = quads;
         for (void* p = PtrList_Next(F<PtrList*>(g, 0x1c)); p; p = PtrList_Next(F<PtrList*>(g, 0x1c))) *fill++ = (float*)p;
@@ -2286,7 +2282,7 @@ RT3_NOINLINE void __fastcall Water_BuildQuads(uint8_t* g) {
         for (int32_t i = 0; i < n; ++i) {
             float* P = quads[i];
             if (!((uint8_t*)P)[0x30]) {
-                CrtFree(P);
+                crt::free(P);
                 continue;
             }
             double cx = (((double)P[6] + P[3]) + P[0] + P[9]) * quarter;
@@ -2302,7 +2298,7 @@ RT3_NOINLINE void __fastcall Water_BuildQuads(uint8_t* g) {
             PtrList_Append(F<PtrList*>(g, 0x1c), 0, P);
             PtrList_Next(F<PtrList*>(g, 0x1c));
         }
-        if (quads) CrtFree(quads);
+        if (quads) crt::free(quads);
     }
     QuadGrid_Weld(F<uint8_t*>(g, 0x24), 0, F<int32_t>(g, 0) - 2, F<int32_t>(g, 4) - 2, F<int32_t>(g, 0) + 0x12, F<int32_t>(g, 4) + 0x12);
 }

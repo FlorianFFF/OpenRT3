@@ -11,6 +11,7 @@
 #include "core/globals.h"
 #include "core/ptrlist.h"
 #include "core/crt.h"
+#include "core/imports.h"
 #include "game/collection.h"
 #include "core/containers.h"
 #include "hook/keepregs.h"
@@ -450,7 +451,7 @@ static inline uint8_t* Slot(uint8_t* r, int32_t i) { return r + 0x266b + i * 0x2
 // Saves the device viewport into *slot (6 dwords) the first time.
 static void SaveViewport(uint8_t* r, uint32_t slot) {
     if (F<void*>(r, slot)) return;
-    void* vp = Malloc(0x18);
+    void* vp = crt::malloc(0x18);
     F<void*>(r, slot) = vp;
     void* d = Dev(r);
     ((int32_t(__stdcall*)(void*, void*))Vt(d)[0xa4 / 4])(d, vp);
@@ -1009,7 +1010,7 @@ RT3_REPLACE(0x5454a0, Render_GetLightValue);
 // stage, +0x258f stages) onto the list +0x259f.
 void* __fastcall Render_PushStageState(uint8_t* r) {
     uint32_t n = (uint32_t)F<int32_t>(r, 0x258f) * 24;
-    uint8_t* p = (uint8_t*)Malloc(n);
+    uint8_t* p = (uint8_t*)crt::malloc(n);
     const uint8_t* src = F<uint8_t*>(r, 0x2597);
     n = (uint32_t)F<int32_t>(r, 0x258f) * 24;
     for (uint32_t k = 0; k < n; ++k) p[k] = src[k];
@@ -1673,7 +1674,7 @@ void __fastcall Render_ScreenSpaceWorld(uint8_t* r) {
     if (void* sb = F<void*>(r, 0x25e7)) {
         void* d = Dev(r);
         ((int32_t(__stdcall*)(void*, void*))Vt(d)[0xa0 / 4])(d, sb);
-        Free(F<void*>(r, 0x25e7));
+        crt::free(F<void*>(r, 0x25e7));
         F<void*>(r, 0x25e7) = nullptr;
     }
     uint32_t m[16];
@@ -1765,7 +1766,7 @@ RT3_REPLACE(0x547650, Renderer_SetupStages);
 // (+0x261b / +0x262b) are bound; otherwise stage 0 projects camera-space positions
 // through a fixed matrix whose y offset follows the texture height.
 RT3_NOINLINE void __fastcall Renderer_SetupWaterStages(uint8_t* r) {
-    ((uint32_t(__stdcall*)())g_5c8068)();
+    (imp::GetTickCount)();
     auto dev = [&]() { return F<uint8_t*>(r, 0x25df); };
     auto tss = [&](uint32_t stage, uint32_t type, uint32_t v) {
         uint8_t* d = dev();
@@ -2080,7 +2081,7 @@ RT3_REPLACE(0x548820, Render_ResetStageCache);
 // 0x5488a0. Saves the stage cache on the stack +0x259b and applies `states` when given.
 RT3_NOINLINE void __fastcall Render_PushStages(uint8_t* r, int, const uint32_t* states) {
     uint32_t n = (uint32_t)F<int32_t>(r, 0x258f) * 24;
-    uint8_t* p = (uint8_t*)Malloc(n);
+    uint8_t* p = (uint8_t*)crt::malloc(n);
     n = (uint32_t)F<int32_t>(r, 0x258f) * 24;
     const uint8_t* src = F<uint8_t*>(r, 0x2597);
     for (uint32_t k = 0; k < n; ++k) p[k] = src[k];
@@ -2096,11 +2097,11 @@ RT3_NOINLINE void __fastcall Render_PopStages(uint8_t* r, int, int32_t n) {
     if (n > cnt) n = cnt;
     uint32_t* p = nullptr;
     for (int32_t i = n; i; --i) {
-        if (p) Free(p);
+        if (p) crt::free(p);
         p = (uint32_t*)PtrList_PopFront(F<PtrList*>(r, 0x259b));
     }
     ApplyStages(r, p);
-    Free(p);
+    crt::free(p);
 }
 RT3_REPLACE(0x548940, Render_PopStages);
 
@@ -2134,8 +2135,8 @@ RT3_REPLACE(0x5489f0, Render_ValidateStates);
 RT3_NOINLINE void __fastcall Render_InitStages(uint8_t* r, int, int32_t n) {
     if (F<int32_t>(r, 0x258f)) return;
     F<int32_t>(r, 0x258f) = n;
-    F<void*>(r, 0x2593) = Malloc(n * 4);
-    F<void*>(r, 0x2597) = Malloc(n * 24);
+    F<void*>(r, 0x2593) = crt::malloc(n * 4);
+    F<void*>(r, 0x2597) = crt::malloc(n * 24);
     for (int32_t i = 0; i < F<int32_t>(r, 0x258f); ++i) {
         int32_t* st = (int32_t*)(F<uint8_t*>(r, 0x2597) + i * 24);
         st[0] = 1;
@@ -2157,7 +2158,7 @@ RT3_NOINLINE void __fastcall Render_InitStages(uint8_t* r, int, int32_t n) {
         }
     }
     auto newList = []() -> PtrList* {
-        void* p = ((void*(__cdecl*)(size_t))0x53b070)(0x18);
+        void* p = crt::operator_new(0x18);
         return p ? PtrList_Init((PtrList*)p) : nullptr;
     };
     if (!F<PtrList*>(r, 0x259f)) F<PtrList*>(r, 0x259f) = newList();
@@ -2172,10 +2173,10 @@ RT3_NOINLINE void __fastcall Render_FreeStages(uint8_t* r) {
     static const uint32_t lists[2] = { 0x259f, 0x259b };
     for (uint32_t off : lists) {
         PtrList_Rewind(F<PtrList*>(r, off));
-        for (void* p = PtrList_Next(F<PtrList*>(r, off)); p; p = PtrList_Next(F<PtrList*>(r, off))) Free(p);
+        for (void* p = PtrList_Next(F<PtrList*>(r, off)); p; p = PtrList_Next(F<PtrList*>(r, off))) crt::free(p);
         if (PtrList* l = F<PtrList*>(r, off)) {
             PtrList_Destroy(l);
-            ((void(__cdecl*)(void*))0x53b080)(l);
+            crt::operator_delete(l);
         }
         F<PtrList*>(r, off) = nullptr;
     }
@@ -2189,8 +2190,8 @@ RT3_NOINLINE void __fastcall Render_FreeStages(uint8_t* r) {
         F<int32_t*>(r, 0x2593)[i] = 0;
     }
     F<int32_t>(r, 0x258f) = 0;
-    Free(F<void*>(r, 0x2593));
-    Free(F<void*>(r, 0x2597));
+    crt::free(F<void*>(r, 0x2593));
+    crt::free(F<void*>(r, 0x2597));
 }
 RT3_REPLACE(0x548c50, Render_FreeStages);
 
@@ -2589,8 +2590,8 @@ RT3_NOINLINE int32_t __fastcall Render_Shutdown(uint8_t* r) {
         if (Release(p)) Fatal_Exit(GetString(0x9b));
     Render_ReleaseBuffers(r);
     Render_ReleaseTextures(r);
-    if (F<void*>(r, 0x25e3)) Free(F<void*>(r, 0x25e3));
-    if (F<void*>(r, 0x25e7)) Free(F<void*>(r, 0x25e7));
+    if (F<void*>(r, 0x25e3)) crt::free(F<void*>(r, 0x25e3));
+    if (F<void*>(r, 0x25e7)) crt::free(F<void*>(r, 0x25e7));
     if (void* dev = F<void*>(r, 0x25df)) {
         if (Release(dev)) {
             if (void* d3d = F<void*>(r, 0x25db)) Release(d3d);

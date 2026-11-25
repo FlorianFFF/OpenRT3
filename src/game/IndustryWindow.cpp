@@ -15,6 +15,7 @@
 #include "core/ptrlist.h"
 #include "core/containers.h"
 #include "core/crt.h"
+#include "core/imports.h"
 #include "game/calendar.h"
 
 #undef near
@@ -103,7 +104,6 @@ uint32_t __fastcall Sound_Get2c(uint8_t* s);
 int32_t __fastcall Music_Play(uint8_t* m, int, const char* file, void* digital, void* onEnd);
 int32_t __fastcall Rand(int32_t lo, int32_t hi);
 
-#define RT3_SPRINTF ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)
 
 int32_t __fastcall Company_EntryFlag(void* c, int, int32_t i);
 double __stdcall Distance2D(float x1, float y1, float x2, float y2);
@@ -384,7 +384,6 @@ static inline int32_t Ftol(double v) {
 
 static inline double Fl_205(uint32_t a) { return *(const float*)a; }
 
-static inline void* ExeNew(size_t n) { return ((void*(__cdecl*)(size_t))0x53b070)(n); }
 
 static inline float BitsF(uint32_t b) { return *(float*)&b; }
 
@@ -392,15 +391,12 @@ static inline uint32_t FBits(float f) { return *(uint32_t*)&f; }
 
 static inline double BitsD(uint64_t b) { return *(double*)&b; }
 
-static inline SprintfFn ExeSprintf() { return (SprintfFn)0x5a19c4; }
 
 // Map tool windows pause the 3D scene's busy depth while open; their destructors
 // pop it.
 static void Scene_PopEngineBusy() { Scene_PopBusy((uint8_t*)Engine_Renderer(hook::As<void*>(g_engine))); }
 
-static inline double PoseFabs(double x) { return ((double(__cdecl*)(double))0x5a152e)(x); }
 
-static inline double PoseAtan(double x) { return ((double(__cdecl*)(double))0x5a1270)(x); }
 
 // Front / rear bogie heading of Car_UpdatePose: near the end of the node the
 // heading is blended with the next node's (wrapping across +-pi).
@@ -477,12 +473,7 @@ namespace {
 inline float BoatF(uint32_t a) { return *(const float*)a; }
 inline double BoatD(uint32_t a) { return *(const double*)a; }
 inline uint32_t BoatBits(float f) { return *(uint32_t*)&f; }
-inline double BoatSin(double x) { return ((double(__cdecl*)(double))0x5a1494)(x); }
-inline double BoatCos(double x) { return ((double(__cdecl*)(double))0x5a13e4)(x); }
-inline double BoatAtan(double x) { return ((double(__cdecl*)(double))0x5a1270)(x); }
-inline double BoatExp(double x) { return ((double(__cdecl*)(double))0x5a2ee0)(x); }
-inline double BoatAbs(double x) { return ((double(__cdecl*)(double))0x5a152e)(x); }
-inline uint8_t BoatVk(char c) { return (uint8_t)hook::Global<int16_t(__stdcall*)(char)>(0x5c8240)(c); }
+inline uint8_t BoatVk(char c) { return (uint8_t)imp::VkKeyScanA(c); }
 inline bool BoatKey(char c) { return Engine_KeyState(g_engine, 0, BoatVk(c)) != 0; }
 inline void BoatKeyUp(char c) { Engine_KeyUp(g_engine, 0, BoatVk(c)); }
 
@@ -586,7 +577,7 @@ void CampaignClip462(char* buf, uint32_t table, int32_t n) {
 }
 // The next idle tip (0x621d80 by +0x81, pattern 0x5d04ec), cycling 0..3.
 void CampaignTip462(uint8_t* d, char* buf) {
-    ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)(buf, (const char*)0x5d04ec, *(const char* const*)(0x621d80 + F<int32_t>(d, 0x81) * 4));
+    crt::sprintf(buf, (const char*)0x5d04ec, *(const char* const*)(0x621d80 + F<int32_t>(d, 0x81) * 4));
     CampaignVoice462(d, buf);
     if (++F<int32_t>(d, 0x81) > 3) F<int32_t>(d, 0x81) = 0;
 }
@@ -646,11 +637,11 @@ RT3_NOINLINE void __fastcall IndustryFinance_Draw(uint8_t* ind, int, float x, fl
             String_Assign(&F<char*>(def, 0x43), (const char*)0x5d0258);
             FormatText(buf, GetString(0x371), (const char*)(st + 0x46b), 0, 0, 0, 0, 0, 0, 0);
             String_Assign(&F<char*>(def, 0x3f), buf);
-            uint8_t* s = (uint8_t*)ExeNew(0x111);
+            uint8_t* s = (uint8_t*)crt::operator_new(0x111);
             s = s ? Scrollbar_Construct(s, 0, def) : nullptr;
             Window_AddChild(g_industryWindow, 0, s, 0);
-            Free(F<void*>(def, 0x43));
-            Free(F<void*>(def, 0x3f));
+            crt::free(F<void*>(def, 0x43));
+            crt::free(F<void*>(def, 0x3f));
             int32_t img2 = hook::Global<int32_t>(0x621cac + c * 4) + sub * 6;
             cx = (float)(Slider_StepA((uint8_t*)(uintptr_t)Table_Entry(g_6cfd18, 0, img2)) + cx + D(0x5d0250));
             hook::Global<int32_t>(0x6cfccc + n * 4) = F<int32_t>(st, 0);
@@ -744,7 +735,7 @@ void __fastcall BuildingDetail_DrawCb(int32_t id, int, float x, float y, float w
     char* text = frame + 0x2c;
     char* num = frame + 0xc;
     auto type = [&]() { return ((uint8_t*(__thiscall*)(uint8_t*))(*(void***)b)[0x80 / 4])(b); };
-    ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)(text, LocalizeName((const char*)type() + 0x4f));
+    crt::sprintf(text, LocalizeName((const char*)type() + 0x4f));
     if (F<uint32_t>(b, 0x246)) strcat(text, GetString(0x377));
     Font_DrawTextBox(g_6cfcf8, 0, text, x, y, w, BitsF(0x3ccccccd), 0xffffffff, 0, 1, 0, 1.0f);
     Num_Format(num, 8, (double)F<int32_t>(b, 0x3d5), 10, 1, 0, 0);
@@ -958,15 +949,15 @@ void __fastcall Boat_Update(uint8_t* b, int, int32_t now) {
     if (countB) depthB = (float)((double)depthB / (float)countB);
     float parts = (float)(b[0x30b] + b[0x24a] + 2);
     roll = (float)((double)roll / parts);
-    float pitchT = (float)(BoatAtan(((double)depthB - depthA) / BoatF(0x5c8c40)) * BoatD(0x5c8c20));
-    float rollT = (float)(BoatAtan((double)roll / BoatF(0x5c8c40)) * BoatD(0x5c8c20));
+    float pitchT = (float)(crt::atan(((double)depthB - depthA) / BoatF(0x5c8c40)) * BoatD(0x5c8c20));
+    float rollT = (float)(crt::atan((double)roll / BoatF(0x5c8c40)) * BoatD(0x5c8c20));
     bool wet = countB || countA;
     if (wet) {
-        F<float>(b, 0x424) = (float)(BoatCos(F<float>(b, 0x418)) * BoatD(0x5c8918) + F<float>(b, 0x424) + rollT);
+        F<float>(b, 0x424) = (float)(crt::sin(F<float>(b, 0x418)) * BoatD(0x5c8918) + F<float>(b, 0x424) + rollT);
         F<float>(b, 0x424) = (float)((double)F<float>(b, 0x424) * BoatD(0x5c8628));
         F<float>(b, 0x428) = (float)((double)F<float>(b, 0x428) * BoatD(0x5c8750));
         double pt = pitchT;
-        float r = (float)(pt - BoatCos((double)F<float>(b, 0x420) + BoatF(0x5c8760)) * BoatD(0x5c8918) + F<float>(b, 0x42c));
+        float r = (float)(pt - crt::sin((double)F<float>(b, 0x420) + BoatF(0x5c8760)) * BoatD(0x5c8918) + F<float>(b, 0x42c));
         F<float>(b, 0x42c) = (float)((double)r * BoatD(0x5c8628));
     }
     F<float>(b, 0x418) = F<float>(b, 0x424) + F<float>(b, 0x418);
@@ -987,7 +978,7 @@ void __fastcall Boat_Update(uint8_t* b, int, int32_t now) {
         lift = (float)((double)lift / ((double)cube * BoatD(0x5c8988)));
         lift = (float)((double)cube * BoatD(0x5cf0d8) + lift);
     }
-    float headingCos = (float)BoatCos(F<float>(b, 0x418));
+    float headingCos = (float)crt::sin(F<float>(b, 0x418));
     float gearStep = 0.0f; // the original leaves this local unwritten unless W runs
     if (BoatKey('w')) {
         if (int32_t gear = F<int32_t>(b, 0x430)) {
@@ -998,7 +989,7 @@ void __fastcall Boat_Update(uint8_t* b, int, int32_t now) {
             float th = (float)(F<float>(b, 0x3e0) - (double)target * dt * BoatF(0x5c8554));
             F<float>(b, 0x3e0) = th;
             if (th < BoatF(0x5c87c0)) F<uint32_t>(b, 0x3e0) = 0x43960000;
-            float eff = (float)(BoatD(0x5cf0c0) - BoatAbs((double)BoatF(0x5ca190) - F<float>(b, 0x3e0)) * BoatD(0x5cf0c8));
+            float eff = (float)(BoatD(0x5cf0c0) - crt::fabs((double)BoatF(0x5ca190) - F<float>(b, 0x3e0)) * BoatD(0x5cf0c8));
             headingCos = (float)(headingCos - (double)eff * g);
         } else if (F<float>(b, 0x3e0) < BoatF(0x5c8c04)) {
             F<float>(b, 0x3e0) = (float)((double)dt * BoatF(0x5c8c04) + F<float>(b, 0x3e0));
@@ -1016,8 +1007,8 @@ void __fastcall Boat_Update(uint8_t* b, int, int32_t now) {
     }
     hook::As<uint32_t>(g_6cfc90) = F<uint32_t>(b, 0x3e4);
     float bk = (float)((double)boost + BoatF(0x5c85b4));
-    double mix = (BoatExp(((double)boost + BoatF(0x5c85b4)) / BoatF(0x5cb45c)) - BoatD(0x5c8770)) * headingCos + (double)bk * F<float>(b, 0x3e4);
-    F<float>(b, 0x3e4) = (float)(BoatExp((double)bk / BoatF(0x5cb45c)) * mix / ((double)boost + BoatF(0x5c85b4)));
+    double mix = (crt::exp(((double)boost + BoatF(0x5c85b4)) / BoatF(0x5cb45c)) - BoatD(0x5c8770)) * headingCos + (double)bk * F<float>(b, 0x3e4);
+    F<float>(b, 0x3e4) = (float)(crt::exp((double)bk / BoatF(0x5cb45c)) * mix / ((double)boost + BoatF(0x5c85b4)));
     if (BoatKey('y')) {
         BoatKeyUp('y');
         Train_ShiftGear(b, 0, 1);
@@ -1025,20 +1016,20 @@ void __fastcall Boat_Update(uint8_t* b, int, int32_t now) {
         BoatKeyUp('h');
         Train_ShiftGear(b, 0, -1);
     }
-    float wake = (float)(BoatAbs((double)F<float>(b, 0x3e4) - g_6cfc90) * ((double)F<float>(b, 0x3e0) / BoatF(0x5ca06c)));
+    float wake = (float)(crt::fabs((double)F<float>(b, 0x3e4) - g_6cfc90) * ((double)F<float>(b, 0x3e0) / BoatF(0x5ca06c)));
     float wf = (float)((double)wake * BoatD(0x5c8988) + BoatD(0x5c8d68));
     float we = (float)((double)wake + BoatF(0x5c8554));
-    int32_t rate = (int32_t)((BoatD(0x5c8578) - BoatAbs(F<float>(b, 0x3e4))) * F<float>(b, 0x3e0));
+    int32_t rate = (int32_t)((BoatD(0x5c8578) - crt::fabs(F<float>(b, 0x3e4))) * F<float>(b, 0x3e0));
     View_SetParams(F<uint8_t*>(b, 0x216), 0, rate, 0, 0x40000000, 0x3e99999a, BoatBits(we), BoatBits(wf));
     if (!wet) {
         F<uint32_t>(b, 0x428) = 0;
     } else {
         F<float>(b, 0x424) = (float)(F<float>(b, 0x424) - ((double)g_6cfc90 - F<float>(b, 0x3e4)) * dt * BoatF(0x5c9ac4));
-        double c41c = BoatCos(F<float>(b, 0x41c));
-        float mx = (float)(BoatSin(F<float>(b, 0x418)) * c41c * F<float>(b, 0x3e4));
-        float my = (float)(BoatCos(F<float>(b, 0x418)) * F<float>(b, 0x3e4));
-        double s41c = BoatSin(F<float>(b, 0x41c));
-        float mz = (float)(BoatSin(F<float>(b, 0x420)) * s41c * F<float>(b, 0x3e4));
+        double c41c = crt::sin(F<float>(b, 0x41c));
+        float mx = (float)(crt::cos(F<float>(b, 0x418)) * c41c * F<float>(b, 0x3e4));
+        float my = (float)(crt::sin(F<float>(b, 0x418)) * F<float>(b, 0x3e4));
+        double s41c = crt::cos(F<float>(b, 0x41c));
+        float mz = (float)(crt::cos(F<float>(b, 0x420)) * s41c * F<float>(b, 0x3e4));
         float ground = (float)(Terrain_HeightAt(F<uint8_t*>(b, 0x206), 0, F<float>(b, 0x400), F<float>(b, 0x408)) + BoatF(0x5c8568));
         if (F<float>(b, 0x404) < ground) {
             F<uint32_t>(b, 0x404) = BoatBits(ground);
@@ -1054,14 +1045,14 @@ void __fastcall Boat_Update(uint8_t* b, int, int32_t now) {
         F<float>(e, 0x78) = (float)((double)mz * BoatD(0x5c8678));
         F<uint32_t>(e, 0x7c) = 0x3a83126f, F<uint32_t>(e, 0x80) = 0x3ba3d70a, F<uint32_t>(e, 0x84) = 0x3a83126f;
     }
-    double c41c = BoatCos(F<float>(b, 0x41c));
-    float s1 = (float)(BoatSin(F<float>(b, 0x418)) * c41c * F<float>(b, 0x3e4));
-    float s2 = (float)(BoatCos(F<float>(b, 0x418)) * F<float>(b, 0x3e4));
-    double s41c = BoatSin(F<float>(b, 0x41c));
-    float s3 = (float)(BoatSin(F<float>(b, 0x420)) * s41c * F<float>(b, 0x3e4));
+    double c41c = crt::sin(F<float>(b, 0x41c));
+    float s1 = (float)(crt::cos(F<float>(b, 0x418)) * c41c * F<float>(b, 0x3e4));
+    float s2 = (float)(crt::sin(F<float>(b, 0x418)) * F<float>(b, 0x3e4));
+    double s41c = crt::cos(F<float>(b, 0x41c));
+    float s3 = (float)(crt::cos(F<float>(b, 0x420)) * s41c * F<float>(b, 0x3e4));
     Channel_SetRate(F<uint8_t*>(b, 0x3cc), 0, (int32_t)((double)F<float>(b, 0x3e0) / BoatF(0x5c8c04) * BoatF(0x5ca0a4) + BoatF(0x5ca1c0)));
-    Channel_SetVolume(F<uint8_t*>(b, 0x3d0), 0, BoatBits((float)(BoatAbs(F<float>(b, 0x3e4)) * BoatD(0x5c85d8))));
-    Channel_SetRate(F<uint8_t*>(b, 0x3d0), 0, (int32_t)(BoatAbs(F<float>(b, 0x3e4)) * BoatD(0x5cf0b0) + BoatD(0x5cf0a8)));
+    Channel_SetVolume(F<uint8_t*>(b, 0x3d0), 0, BoatBits((float)(crt::fabs(F<float>(b, 0x3e4)) * BoatD(0x5c85d8))));
+    Channel_SetRate(F<uint8_t*>(b, 0x3d0), 0, (int32_t)(crt::fabs(F<float>(b, 0x3e4)) * BoatD(0x5cf0b0) + BoatD(0x5cf0a8)));
     float ground = (float)(Terrain_HeightAt(F<uint8_t*>(b, 0x206), 0, F<float>(b, 0x400), F<float>(b, 0x408)) + BoatF(0x5c8568));
     if (F<float>(b, 0x404) < ground) {
         F<uint32_t>(b, 0x404) = BoatBits(ground);
@@ -1114,8 +1105,8 @@ void __fastcall Boat_Update(uint8_t* b, int, int32_t now) {
         SceneObj_SetTint(F<uint8_t*>(b, 0x22e), 0, 0xff, 0xff, 0xff, 1);
         if (F<float>(b, 0x3ec) > BoatD(0x5c9ba0)) {
             F<uint8_t*>(b, 0x21a)[0x1d8] = 0;
-            float sn = (float)(BoatSin((double)F<float>(b, 0x41c) + F<float>(b, 0x3f4)) * BoatD(0x5cf098));
-            float cs = (float)(BoatCos((double)F<float>(b, 0x41c) + F<float>(b, 0x3f4)) * BoatD(0x5cf098));
+            float sn = (float)(crt::cos((double)F<float>(b, 0x41c) + F<float>(b, 0x3f4)) * BoatD(0x5cf098));
+            float cs = (float)(crt::sin((double)F<float>(b, 0x41c) + F<float>(b, 0x3f4)) * BoatD(0x5cf098));
             uint8_t* e = F<uint8_t*>(b, 0x21a);
             F<uint32_t>(e, 0x74) = 0x3b83126f;
             F<float>(e, 0x70) = cs;
@@ -1137,11 +1128,11 @@ void __fastcall Boat_Update(uint8_t* b, int, int32_t now) {
             F<uint32_t>(b, 0x3ec) = 0x3f800000;
         }
     }
-    float swell = (float)BoatSin((double)F<float>(b, 0x3ec) * BoatF(0x5c8760) + BoatF(0x5c8764));
+    float swell = (float)crt::cos((double)F<float>(b, 0x3ec) * BoatF(0x5c8760) + BoatF(0x5c8764));
     double r424 = F<float>(b, 0x424);
-    double sinC = BoatSin(F<float>(b, 0x3f4));
+    double sinC = crt::cos(F<float>(b, 0x3f4));
     F<float>(b, 0x424) = (float)(r424 - sinC * ((double)swell * F<float>(b, 0x3ec)) * BoatD(0x5c85b8));
-    double cosC = BoatCos(F<float>(b, 0x3f4));
+    double cosC = crt::sin(F<float>(b, 0x3f4));
     F<float>(b, 0x42c) = (float)(cosC * ((double)swell * F<float>(b, 0x3ec)) * BoatD(0x5c85b8) + F<float>(b, 0x42c));
     float jy = (float)(F<float>(b, 0x22a) - (double)swell * BoatF(0x5c8898));
     SceneObj_SetPos(F<uint8_t*>(b, 0x21e), 0, F<uint32_t>(b, 0x222), F<uint32_t>(b, 0x226), BoatBits(jy));
@@ -1253,10 +1244,10 @@ int32_t __fastcall IndustryWindow_HandleEvent(uint8_t* w, int, uint32_t* ev) {
     case 0xbd2e:
         if (ind) {
             char buf[0x60];
-            ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)(buf, (const char*)0x5c9cd0, ind[0x391]);
+            crt::sprintf(buf, (const char*)0x5c9cd0, ind[0x391]);
             Dialog_RunMessage(GetString(0xf2d), 9, 0xbf800000, 0xbf800000, 0, nullptr, 0, 0.0f, (uint32_t)(uintptr_t)buf, 0x1e, 0, nullptr, nullptr, 0, 0,
                               nullptr, 0);
-            ind[0x391] = (uint8_t)((int(__cdecl*)(const char*))0x5a1ea5)(buf);
+            ind[0x391] = (uint8_t)crt::atoi(buf);
         }
         return 0;
     case 0xbd19: {
@@ -1614,13 +1605,13 @@ RT3_NOINLINE void __fastcall Campaign_Refresh(uint8_t* d) {
         int32_t n = -2;
         for (;;) {
             const char* camp = hook::Global<const char*>(0x621cf0 + g_newGame[0xc4] * 4);
-            if (n == -2) RT3_SPRINTF(name, (const char*)0x5ca9d8, camp);
-            else if (n == -1) RT3_SPRINTF(name, (const char*)0x5d0564, camp);
-            else RT3_SPRINTF(name, (const char*)0x5d0554, camp, 100 - n);
-            RT3_SPRINTF(path, (const char*)0x5d054c, (const char*)0x5ced78, name);
+            if (n == -2) crt::sprintf(name, (const char*)0x5ca9d8, camp);
+            else if (n == -1) crt::sprintf(name, (const char*)0x5d0564, camp);
+            else crt::sprintf(name, (const char*)0x5d0554, camp, 100 - n);
+            crt::sprintf(path, (const char*)0x5d054c, (const char*)0x5ced78, name);
             if (File_Exists(path)) break;
             if (++n >= 100) {
-                RT3_SPRINTF(name, (const char*)0x5d0540);
+                crt::sprintf(name, (const char*)0x5d0540);
                 break;
             }
         }
@@ -1638,7 +1629,7 @@ RT3_NOINLINE void __fastcall Campaign_Refresh(uint8_t* d) {
             d[0x7d] = 0;
         } else if (int32_t k = g_6cfd24) {
             if (g_newGame[k + 0xc5] > 1)
-                RT3_SPRINTF(path, (const char*)0x5d0500, k, hook::Global<const char*>(0x5f3d14 + k * 4));
+                crt::sprintf(path, (const char*)0x5d0500, k, hook::Global<const char*>(0x5f3d14 + k * 4));
             else
                 FormatText(path, (const char*)0x5d04ec, hook::Global<const char*>(0x621de4 + Rand(0, 3) * 4), nullptr, nullptr, nullptr, nullptr, nullptr,
                            nullptr, nullptr);
@@ -1687,7 +1678,7 @@ void __fastcall CampaignWindow_Destruct(uint8_t* w) {
     if (!w[0x7f])
         if (uint8_t* m = g_6cfd34) {
             Music_Close(m);
-            ((void(__cdecl*)(void*))0x53b080)(m);
+            crt::operator_delete(m);
             g_6cfd34 = nullptr;
         }
     Widget_SetVtbl(w);
@@ -1724,7 +1715,7 @@ uint8_t* __fastcall CampaignWindow_Construct(uint8_t* w) {
     g_6cfd34 = nullptr;
     if (uint8_t* snd = g_sound) {
         if (Sound_Is3D(snd)) {
-            uint8_t* m = (uint8_t*)((void*(__cdecl*)(size_t))0x53b070)(0x108);
+            uint8_t* m = (uint8_t*)crt::operator_new(0x108);
             if (m) {
                 F<uint32_t>(m, 0) = 0;
                 F<uint32_t>(m, 0x104) = 0x3f800000;
@@ -1810,7 +1801,7 @@ int32_t __fastcall CampaignScreen_HandleEvent(uint8_t* d, int, uint32_t* msg) {
         if (id >= 0xc393 && id <= 0xc396) {
             if (uint8_t* v = g_6cfd34) {
                 Music_Close(v);
-                ((void(__cdecl*)(void*))0x53b080)(v);
+                crt::operator_delete(v);
             }
             g_6cfd34 = nullptr;
             Game_PostInputEvent(0xcc, 0, 2, 0, 0);
@@ -1826,7 +1817,7 @@ int32_t __fastcall CampaignScreen_HandleEvent(uint8_t* d, int, uint32_t* msg) {
                 Window_SendEvent5(d, 0, 0x8c, 0xc351, msg[1] - 0xc347, 0, 0);
                 d[0x7f] = 1;
                 const uint8_t sc = g_newGame[0xc4];
-                ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)(buf, (const char*)0x5d058c, sc + 1, *(const char* const*)(0x5f3d18 + sc * 4));
+                crt::sprintf(buf, (const char*)0x5d058c, sc + 1, *(const char* const*)(0x5f3d18 + sc * 4));
                 CampaignVoice462(d, buf);
                 g_624308 = -1;
                 F<int32_t>(d, 0x89) = ClockMs();
@@ -2010,7 +2001,7 @@ RT3_REPLACE(0x4b9d90, OrderEdit_NextActiveSite);
 // 0x6cfe0c.
 RT3_NOINLINE void __fastcall Consist_SendCb(void*, int, int32_t on) {
     if (g_6d3ae4 || !g_6cfe0c) return;
-    uint8_t* b = ((uint8_t*(__cdecl*)(size_t))0x5a125d)(0x3f);
+    uint8_t* b = ((uint8_t*)crt::malloc(0x3f));
     F<int32_t>(b, 0) = Global6d40e4();
     F<int32_t>(b, 4) = SelectedTrainId();
     F<uint16_t>(b, 8) = on != 0;
@@ -2018,7 +2009,7 @@ RT3_NOINLINE void __fastcall Consist_SendCb(void*, int, int32_t on) {
     memcpy(b + 0xc, hook::As<const void*>(g_6cfe04), 0x33);
     uint8_t* s = g_session;
     Net_Send(s, 0, (const char*)(s + 0x8f48), 0x43, 0x3f, b, 5, 0);
-    ((void(__cdecl*)(void*))0x5a1145)(b);
+    crt::free(b);
     Cursor_Set(g_cursorManager, 0, 6, 0, 0);
 }
 RT3_REPLACE(0x4b9e10, Consist_SendCb);
@@ -2062,7 +2053,7 @@ void __fastcall TrainOrders_CargoTooltip(int32_t id, int, int32_t, int32_t) {
             int32_t demand = Ftol((double)quota / *(const double*)0x5c87f8);
             char sd[0x1a0], ss[0x190];
             Num_FormatSimple(sd, 9, (double)demand, 0xb);
-            ExeSprintf()(ss, (const char*)0x5d05ec, (double)stock);
+            crt::sprintf(ss, (const char*)0x5d05ec, (double)stock);
             const char* name = (const char*)st + 0x46b;
             if (rec[0x46]) FormatText(text, GetString(0xf52), LocalizeName((const char*)rec + 4), name, ss, 0, 0, 0, 0, 0);
             else FormatText(text, GetString(0xba5), LocalizeName((const char*)rec + 4), name, ss, sd, 0, 0, 0, 0);
@@ -2154,18 +2145,16 @@ RT3_NOINLINE void __fastcall Car_UpdatePose(uint8_t* car, int, float dist) {
     float mz = (float)(((double)z1 - z2) * t + z2);
     uint8_t kind = node[0x218];
     if (kind == 4 || kind == 2) {
-        auto cos_ = (double(__cdecl*)(double))0x5a13e4;
-        auto sin_ = (double(__cdecl*)(double))0x5a1494;
         float ang = (float)(D(0x5c97e8) - ((double)Vehicle_ScreenHeading(node, 0, F<int32_t>(car, 0x35a)) + D(0x5c97f0)));
         if (kind == 4) {
-            mx = (float)(cos_(ang) * D(0x5c9740) + mx);
+            mx = (float)(crt::sin(ang) * D(0x5c9740) + mx);
             double mzd = mz;
-            mz = (float)(mzd - sin_(ang) * D(0x5c9740));
+            mz = (float)(mzd - crt::cos(ang) * D(0x5c9740));
         } else {
-            double c = cos_(ang) * D(0x5c9740);
+            double c = crt::sin(ang) * D(0x5c9740);
             mx = (float)(c * ((D(0x5c97e0) - F<float>(car, 0x35e)) / D(0x5c97e0)) + mx);
             double mzd = mz;
-            double s = sin_(ang) * D(0x5c9740);
+            double s = crt::cos(ang) * D(0x5c9740);
             mz = (float)(mzd - s * ((D(0x5c97e0) - F<float>(car, 0x35e)) / D(0x5c97e0)));
         }
     }
@@ -2181,7 +2170,7 @@ RT3_NOINLINE void __fastcall Car_UpdatePose(uint8_t* car, int, float dist) {
     float h2 = Vehicle_ScreenHeading((uint8_t*)Collection_Get(nodes, 0, (uint32_t)r2), 0, dir2 == 0);
     h1 = Car_BogieHeading(r1, at1, dir1, h1, false);
     h2 = Car_BogieHeading(r2, at2, dir2, h2, true);
-    float delta = (float)PoseFabs(AngleDelta(nullptr, 0, h1, h2));
+    float delta = (float)crt::fabs(AngleDelta(nullptr, 0, h1, h2));
     float heading;
     if (!(delta <= D(0x5c97d0)) && delta < D(0x5c97c8)) heading = h1;
     else if ((double)h2 + D(0x5c96a8) < h1) heading = (float)(((double)h2 + D(0x5c96b8) + h1) / D(0x5c85d0));
@@ -2189,7 +2178,7 @@ RT3_NOINLINE void __fastcall Car_UpdatePose(uint8_t* car, int, float dist) {
     else heading = (float)(((double)h2 + h1) / Fl_205(0x5c878c));
     float y1 = (float)(Effect_Blend((uint8_t*)Collection_Get(nodes, 0, (uint32_t)r1), 0, (float)((double)at1 / D(0x5c97e0))) / Fl_205(0x5c8700));
     float y2 = (float)(Effect_Blend((uint8_t*)Collection_Get(nodes, 0, (uint32_t)r2), 0, (float)((double)at2 / D(0x5c97e0))) / Fl_205(0x5c8700));
-    float pitch = (float)PoseAtan(((double)y1 - y2) / sum);
+    float pitch = (float)crt::atan(((double)y1 - y2) / sum);
     float y = Car_PoseHeight(node, F<float>(car, 0x35e));
     Obj_MoveToCell(car, 0, mx, mz, y);
     Model_SetAngles(car, 0, FBits(pitch), FBits(heading), 0);
@@ -2219,7 +2208,7 @@ RT3_NOINLINE void __fastcall IndustryEditor_BuildCargoPanel(uint8_t* w) {
         if (Widget_FindChild(w, 0, id)) Window_DeleteChildren(w, 0, id, 0xfff0, 0);
     };
     auto scrollbar = [&](uint8_t* def) {
-        uint8_t* s = (uint8_t*)ExeNew(0x111);
+        uint8_t* s = (uint8_t*)crt::operator_new(0x111);
         s = s ? Scrollbar_Construct(s, 0, def) : nullptr;
         Window_AddChild(w, 0, s, 0);
     };
@@ -2233,7 +2222,7 @@ RT3_NOINLINE void __fastcall IndustryEditor_BuildCargoPanel(uint8_t* w) {
         F<uint16_t>(def, 5) = 0x7d06;
         def[0x29] = 0x21;
         F<uint16_t>(def, 0) = id;
-        uint8_t* t = (uint8_t*)ExeNew(0xda);
+        uint8_t* t = (uint8_t*)crt::operator_new(0xda);
         t = t ? TimerWidget_Construct(t, 0, def) : nullptr;
         Window_AddChild(w, 0, t, 0);
     };
@@ -2258,7 +2247,7 @@ RT3_NOINLINE void __fastcall IndustryEditor_BuildCargoPanel(uint8_t* w) {
             F<uint32_t>(def, 7) = x;
             String_Assign(&F<char*>(def, 0x43), (const char*)0x5d0658);
             scrollbar(def);
-            Free(F<void*>(def, 0x43));
+            crt::free(F<void*>(def, 0x43));
             clear(id);
             memset(def, 0, sizeof def);
             F<uint32_t>(def, 0xb) = 0x3e8740da;
@@ -2268,7 +2257,7 @@ RT3_NOINLINE void __fastcall IndustryEditor_BuildCargoPanel(uint8_t* w) {
             char buf[0x100];
             int32_t cargo = F<int32_t>(g_6cfe04, off + 1);
             if (Collection_IsValid(g_cargoTypes, 0, (uint32_t)cargo))
-                ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)(
+                crt::sprintf(
                     buf, (const char*)0x5d0650,
                     (const char*)Collection_Get(g_cargoTypes, 0, F<uint32_t>(g_6cfe04, off + 1)) + 4);
             else {
@@ -2282,8 +2271,8 @@ RT3_NOINLINE void __fastcall IndustryEditor_BuildCargoPanel(uint8_t* w) {
             F<uint32_t>(def, 0x2f) = 0x800;
             String_Assign(&F<char*>(def, 0x3f), GetString(0x1f4));
             scrollbar(def);
-            Free(F<void*>(def, 0x43));
-            Free(F<void*>(def, 0x3f));
+            crt::free(F<void*>(def, 0x43));
+            crt::free(F<void*>(def, 0x3f));
             clear(id + 0x28a);
             timer((uint16_t)(id + 0x28a), x);
             off += 4;
@@ -2304,7 +2293,7 @@ RT3_NOINLINE void __fastcall IndustryEditor_BuildCargoPanel(uint8_t* w) {
         if (flags) F<uint32_t>(def, 0x2f) = flags;
         String_Assign(&F<char*>(def, 0x43), (const char*)image);
         scrollbar(def);
-        Free(F<void*>(def, 0x43));
+        crt::free(F<void*>(def, 0x43));
     };
     uint8_t flags = g_6cfe04[0x28];
     if (flags & 0x30) button(0x7d6b, 0x3f3828f6, false, 0x5d0658, 9, 0);
@@ -2348,10 +2337,10 @@ RT3_NOINLINE void __fastcall IndustryEditor_BuildCargoPanel(uint8_t* w) {
     String_Assign(&F<char*>(def, 0x43), (const char*)0x5d0658);
     F<uint16_t>(def, 0) = 0x7d0e;
     F<uint16_t>(def, 5) = 0x7d06;
-    uint8_t* l = (uint8_t*)ExeNew(0x1b9);
+    uint8_t* l = (uint8_t*)crt::operator_new(0x1b9);
     l = l ? ListBox_Construct(l, 0, def) : nullptr;
     Window_AddChild(w, 0, l, 0);
-    Free(F<void*>(def, 0x43));
+    crt::free(F<void*>(def, 0x43));
     Window_SendEvent5(w, 0, 0x84, 0x7d0e, 0x4ba270, 0, 0);
     Window_SendEvent5(w, 0, 0x73, 0x7d0e, g_6cfe04[0] + 1, 0, 0);
     Window_SendEvent5(w, 0, 0x66, 0x7d0e, g_6cfe04[0x21], 0, 0);
@@ -2454,10 +2443,10 @@ RT3_NOINLINE void __fastcall IndustryEditor_Build(uint8_t* w) {
         String_Assign(&F<char*>(def, 0x77), text);
         def[0x33] = style;
         F<uint16_t>(def, 0) = (uint16_t)(0x7dc8 + cell);
-        uint8_t* b = (uint8_t*)ExeNew(0xf0);
+        uint8_t* b = (uint8_t*)crt::operator_new(0xf0);
         b = b ? EditBox_Construct(b, 0, def) : nullptr;
         Window_AddChild(w, 0, b, 0);
-        Free(F<void*>(def, 0x77));
+        crt::free(F<void*>(def, 0x77));
     };
     auto picture = [&](uint32_t x, uint32_t yy, uint32_t wd, uint32_t h, const char* fmtArg) {
         uint8_t def[0x89];
@@ -2471,10 +2460,10 @@ RT3_NOINLINE void __fastcall IndustryEditor_Build(uint8_t* w) {
         F<uint32_t>(def, 7) = x;
         FormatText(buf, (const char*)0x5d01bc, fmtArg, 0, 0, 0, 0, 0, 0, 0);
         String_Assign(&F<char*>(def, 0x43), NameTable_ContainsName(g_pack, 0, buf, 0, 0) ? buf : (const char*)0x5d0194);
-        uint8_t* s = (uint8_t*)ExeNew(0x111);
+        uint8_t* s = (uint8_t*)crt::operator_new(0x111);
         s = s ? Scrollbar_Construct(s, 0, def) : nullptr;
         Window_AddChild(w, 0, s, 0);
-        Free(F<void*>(def, 0x43));
+        crt::free(F<void*>(def, 0x43));
     };
     auto slider = [&](uint32_t x, uint32_t yy, uint32_t wd, uint32_t h) {
         uint8_t def[0x89];
@@ -2487,7 +2476,7 @@ RT3_NOINLINE void __fastcall IndustryEditor_Build(uint8_t* w) {
         F<uint32_t>(def, 0x2f) = 0x800;
         def[0x29] = 0x21;
         F<int32_t>(def, 0x61) = 2;
-        uint8_t* s = (uint8_t*)ExeNew(0x111);
+        uint8_t* s = (uint8_t*)crt::operator_new(0x111);
         s = s ? Scrollbar_Construct(s, 0, def) : nullptr;
         Window_AddChild(w, 0, s, 0);
         Window_SendEvent5(w, 0, 0x82, F<uint16_t>(def, 0), 0x4b9fd0, 0, 0);
@@ -2766,7 +2755,7 @@ RT3_NOINLINE void __fastcall IndustryEditor_Run(uint32_t a, uint8_t* rec, uint32
     if ((int8_t)rec[0x28] < 0) return;
     if (!Obj_BuildingStateActive(Collection_Get(g_stations, 0, F<uint16_t>(rec, 0x29)))) return;
     hook::As<uint32_t>(g_6cfe10) = 0;
-    uint8_t* w = (uint8_t*)((void*(__cdecl*)(size_t))0x53b070)(0x78);
+    uint8_t* w = (uint8_t*)crt::operator_new(0x78);
     g_6cfe00 = w ? IndustryEditor_Construct(w) : nullptr;
     PauseLock_Push(hook::As<int32_t*>(g_app));
     Ui_RunModal(hook::As<uint8_t**>(g_windowManager), 0, g_6cfe00, 1, 0, 0x14, 0);
@@ -2775,7 +2764,7 @@ RT3_NOINLINE void __fastcall IndustryEditor_Run(uint32_t a, uint8_t* rec, uint32
     if (uint8_t* p = g_6cfe00) {
         F<uint32_t>(p, 0) = 0x5d05e0;
         Widget_SetVtbl(p);
-        ((void(__cdecl*)(void*))0x53b080)(p);
+        crt::operator_delete(p);
     }
     g_6cfe00 = nullptr;
 }
@@ -2881,7 +2870,7 @@ int32_t __fastcall TerrainTools_HandleEvent(uint8_t* w, int, uint32_t* ev) {
                 static const uint32_t kScale[8] = { 0x3d4ccccd, 0x3dcccccd, 0x3e800000, 0x3f000000, 0xbd4ccccd, 0xbdcccccd, 0xbe800000, 0xbf000000 };
                 Map_RescaleHeights(g_map, 0, ((const float*)kScale)[sel % 8], band);
             }
-            for (int32_t k = 0; k < 0x18; ++k) ((void(__cdecl*)(void*))0x5a1145)(names[k]);
+            for (int32_t k = 0; k < 0x18; ++k) crt::free(names[k]);
             return 0;
         }
         return 1;
@@ -3032,7 +3021,7 @@ uint8_t* __fastcall ChangeTrees_Construct(uint8_t* w) {
     char buf[0x12c];
     int32_t i = 0;
     for (const uint8_t* rec = (const uint8_t*)0x5ef3ec; rec < (const uint8_t*)0x5f072c; rec += 0xb0, ++i) {
-        ExeSprintf()(buf, GetString(F<int32_t>((void*)rec, -4 + 0)));
+        crt::sprintf(buf, GetString(F<int32_t>((void*)rec, -4 + 0)));
         memcpy(buf + strlen(buf), (const void*)0x5c9ce8, 2);
         strcat(buf, GetString(F<int32_t>((void*)rec, 0)));
         Window_SendEvent5(w, 0, 0x6e, 0x139c + i, (uint32_t)(uintptr_t)buf, 0, 0);
@@ -3115,7 +3104,7 @@ int32_t __fastcall HeightBrush_HandleEvent(uint8_t* d, int, uint32_t* msg) {
     const float dy = y - F<float>(d, 0x94);
     const float d2 = dy * dy + dx * dx;
     if (!(d2 > D(0x5c86b8))) return 0;
-    const float dist = (float)((double(__cdecl*)(double))0x5a1634)(d2);
+    const float dist = (float)crt::sqrt(d2);
     const float r = ((const float*)0x621ecc)[F<int32_t>(d, 0x78)];
     const double rr = (double)r < D(0x5c85b8) ? D(0x5c85b8) : (double)r;
     float t = (float)(dist / rr);

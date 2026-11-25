@@ -25,6 +25,8 @@
 
 namespace rt3 {
 
+void __fastcall Train_ReplaceEngine(uint8_t* train, int, uint32_t typeId, int32_t freeUpgrade);
+
 template <typename T> static inline T& F(void* o, uint32_t off) { return *(T*)((uint8_t*)o + off); }
 int32_t __fastcall Obj_BuildingValue(void* o);
 double __fastcall Obj_BuildingCellX(void* o);
@@ -311,7 +313,6 @@ RT3_NOINLINE char* __fastcall Num_Format(char* buf, int32_t style, double v, int
 RT3_NOINLINE char* __fastcall Num_FormatSimple(char* buf, int32_t style, double v, int32_t width);
 RT3_NOINLINE char* __fastcall Num_FormatSimple2(char* buf, int32_t style, double v, int32_t width);
 
-static inline double ExeSqrt(double v) { return ((double(__cdecl*)(double))0x5a1634)(v); }
 
 static inline uint8_t* Map() { return g_map; }
 
@@ -319,7 +320,6 @@ static inline double D(uint32_t a) { return *(const double*)a; }
 
 static inline float Fl(uint32_t a) { return *(const float*)a; }
 
-static inline double Sqrt(double x) { return ((double(__cdecl*)(double))0x5a1634)(x); }
 
 static inline Collection* Engines() { return g_6ada84; }
 
@@ -349,9 +349,7 @@ static inline double Fl_202(uint32_t a) { return *(const float*)a; }
 
 static inline double Fl_203(uint32_t a) { return *(const float*)a; }
 
-static inline double ExeFabs(double v) { return ((double(__cdecl*)(double))0x5a152e)(v); }
 
-static inline double ExeFmod(double a, double b) { return ((double(__cdecl*)(double, double))0x5a1390)(a, b); }
 
 // Splits fractional hours into whole hours h and minutes / seconds (fractions x 60).
 static void SplitHours(float t, int32_t* h, float* m, float* s) {
@@ -404,11 +402,6 @@ struct RouteFrame {
     double& d(uint32_t o) { return *(double*)(b + o); }
     uint8_t*& p(uint32_t o) { return *(uint8_t**)(b + o); }
 };
-inline double RtSin(double x) { return ((double(__cdecl*)(double))0x5a1494)(x); }
-inline double RtCos(double x) { return ((double(__cdecl*)(double))0x5a13e4)(x); }
-inline double RtAbs(double x) { return ((double(__cdecl*)(double))0x5a152e)(x); }
-inline double RtMod(double x, double y) { return ((double(__cdecl*)(double, double))0x5a1390)(x, y); }
-inline int RtStricmp(const char* a, const char* b) { return ((int(__cdecl*)(const char*, const char*))0x5a57cf)(a, b); }
 inline float RtBits(uint32_t v) { return *(const float*)&v; }
 inline uint8_t* RtGet(uint32_t global, int32_t id) { return (uint8_t*)Collection_Get(hook::Global<Collection*>(global), 0, (uint32_t)id); }
 inline uint8_t* RtMap() { return g_map; }
@@ -771,7 +764,7 @@ RT3_NOINLINE void __fastcall Company_YearFinance(uint8_t* c) {
             }
         }
     }
-    uint8_t* backup = (uint8_t*)((void*(__cdecl*)(size_t))0x5a125d)(0x7684);
+    uint8_t* backup = (uint8_t*)crt::malloc(0x7684);
     memcpy(backup, c, 0x7684);
     for (int32_t n = 1; n <= F<int32_t>(backup, 0x5b); ++n) {
         float paid = 0.0f, owed = 0.0f;
@@ -802,7 +795,7 @@ RT3_NOINLINE void __fastcall Company_YearFinance(uint8_t* c) {
         }
         memcpy(c, backup, 0x7684);
     }
-    ((void(__cdecl*)(void*))0x5a1145)(backup);
+    crt::free(backup);
     int32_t refinance = F<int32_t>(world(), 0x4a8b) ? 0 : bestN;
     int32_t repaid = 0, issued = 0, bought = 0, bankrupt = 0, repaidCount = 0;
     if (refinance > 0) {
@@ -993,7 +986,7 @@ RT3_NOINLINE float __stdcall Map_SlopeAngle(float ax, float ay, float bx, float 
     float hb = (float)Terrain_HeightAtTile(Map(), 0, bx, by);
     float d = (float)(Distance2D(ax, ay, bx, by) * *(const float*)0x5c8700);
     if (d == *(const float*)0x5c8598) *(uint32_t*)&d = 0x3c23d70a;
-    return (float)((double(__cdecl*)(double))0x5a1270)(((double)ha - hb) / d);
+    return (float)crt::atan(((double)ha - hb) / d);
 }
 RT3_REPLACE(0x402c00, Map_SlopeAngle);
 
@@ -1117,15 +1110,15 @@ RT3_NOINLINE int32_t __fastcall AI_BuildRoute(Collection* net, int, int32_t city
                     const float my = Obj_CenterCellY(pc), mx = Obj_CenterCellX(pc);
                     fr.f(0x1c) = (float)AngleOf(mx, my, tx, ty);
                 }
-                fr.f(0x10) = (float)RtAbs(AngleDelta(nullptr, 0, fr.f(0x1c), fr.f(0x14)));
+                fr.f(0x10) = (float)crt::fabs(AngleDelta(nullptr, 0, fr.f(0x1c), fr.f(0x14)));
                 const float turn = fr.f(0x10);
                 if (!(turn < D(0x5c86b8)) && !(turn > D(0x5c8790))) continue;
                 fr.f(0x10) = turn > D(0x5c8790) ? (float)((double)fr.f(0x20) + fr.f(0x18)) : (float)((double)fr.f(0x18) - fr.f(0x20));
                 if (Fl_207(0x5c878c) > fr.f(0x10)) fr.i(0x10) = 0x40000000;
-                fr.d(0x40) = RtSin(fr.f(0x14)) * fr.f(0x10);
+                fr.d(0x40) = crt::cos(fr.f(0x14)) * fr.f(0x10);
                 fr.f(0x38) = (float)(Obj_CenterCellX(pc) + fr.d(0x40));
                 fr.d(0x40) = Obj_CenterCellY(pc);
-                fr.f(0x1c) = (float)(fr.d(0x40) - RtCos(fr.f(0x14)) * fr.f(0x10));
+                fr.f(0x1c) = (float)(fr.d(0x40) - crt::sin(fr.f(0x14)) * fr.f(0x10));
                 fr.i(0x28) = -1;
                 fr.i(0x0c) = lay(0.0f, 0.0f, fr.f(0x38), fr.f(0x1c), &fr.i(0x74 + o), &fr.i(0x28));
                 if (!fr.i(0x0c)) return 1;
@@ -1147,9 +1140,9 @@ RT3_NOINLINE int32_t __fastcall AI_BuildRoute(Collection* net, int, int32_t city
             fr.f(0x48) = (float)((double)fr.f(0x5c) - fr.f(0x10));
             fr.f(0xa4 + o) = fr.f(0x14);
             fr.f(0x18) = (float)((double)fr.f(0x60) - fr.f(0x14));
-            fr.d(0x40) = RtAbs(fr.f(0x48));
+            fr.d(0x40) = crt::fabs(fr.f(0x48));
             int32_t side, alongX;
-            if (RtAbs(fr.f(0x18)) < fr.d(0x40)) side = fr.f(0x48) > Fl_207(0x5c8598) ? 2 : 6, alongX = 1;
+            if (crt::fabs(fr.f(0x18)) < fr.d(0x40)) side = fr.f(0x48) > Fl_207(0x5c8598) ? 2 : 6, alongX = 1;
             else side = fr.f(0x18) > Fl_207(0x5c8598) ? 4 : 0, alongX = 0;
             Obj_PlatformOffset(city, 0, alongX, &fr.f(0x24), &fr.f(0x2c), &fr.i(0xb8 + o));
             fr.f(0x88 + o) = (float)((double)fr.f(0x24) + fr.f(0x10));
@@ -1209,7 +1202,7 @@ RT3_NOINLINE int32_t __fastcall AI_BuildRoute(Collection* net, int, int32_t city
                     if (Map_CellLow3(RtMap(), 0, cx, cy)) continue;
                     fr.f(0x38) = (float)Terrain_HeightAtTile(RtMap(), 0, fr.f(0x14), fr.f(0x34));
                     fr.f(0x54) = (float)((double)fr.f(0x18) * fr.f(0x1c) + fr.f(0x28));
-                    fr.f(0x0c) = (float)RtAbs((double)fr.f(0x38) - fr.f(0x54));
+                    fr.f(0x0c) = (float)crt::fabs((double)fr.f(0x38) - fr.f(0x54));
                     fr.i(0x38) = 0x14 - (w < 0 ? -w : w);
                     fr.d(0x68) = (double)fr.i(0x38);
                     fr.f(0x0c) = (float)(fr.f(0x0c) - fr.d(0x68));
@@ -1218,8 +1211,8 @@ RT3_NOINLINE int32_t __fastcall AI_BuildRoute(Collection* net, int, int32_t city
                     const float by = (float)((double)fr.f(0x60) * fr.f(0x5c) + fr.f(0x34));
                     const float bx = (float)((double)fr.f(0x60) * fr.f(0x48) + fr.f(0x14));
                     fr.f(0x14) = Map_SlopeAngle(fr.f(0x14), fr.f(0x34), bx, by);
-                    fr.f(0x14) = (float)RtAbs(fr.f(0x14));
-                    if (RtAbs(fr.f(0x14)) > D(0x5c8778)) continue;
+                    fr.f(0x14) = (float)crt::fabs(fr.f(0x14));
+                    if (crt::fabs(fr.f(0x14)) > D(0x5c8778)) continue;
                     fr.d(0x68) = (double)fr.f(0x14) + D(0x5c8770);
                     fr.d(0x40) = fr.d(0x68);
                     fr.f(0x0c) = (float)(fr.f(0x0c) * fr.d(0x40) * fr.d(0x40) * fr.d(0x68));
@@ -1230,14 +1223,14 @@ RT3_NOINLINE int32_t __fastcall AI_BuildRoute(Collection* net, int, int32_t city
                 fr.f(0x20) = Vehicle_ScreenHeading(end0, 0, 1);
                 fr.f(0x2c) = Vehicle_ScreenHeading(end1, 0, 1);
                 fr.f(0x0c) = (float)AngleOf(fr.f(0x50), fr.f(0x4c), fr.f(0x58), fr.f(0x64));
-                fr.f(0x20) = (float)RtMod((double)fr.f(0x20) + Fl_207(0x5c8768), tau);
-                fr.f(0x2c) = (float)RtMod((double)fr.f(0x2c) + Fl_207(0x5c8768), tau);
-                fr.f(0x0c) = (float)RtMod((double)fr.f(0x0c) + Fl_207(0x5c8768), tau);
+                fr.f(0x20) = (float)crt::fmod((double)fr.f(0x20) + Fl_207(0x5c8768), tau);
+                fr.f(0x2c) = (float)crt::fmod((double)fr.f(0x2c) + Fl_207(0x5c8768), tau);
+                fr.f(0x0c) = (float)crt::fmod((double)fr.f(0x0c) + Fl_207(0x5c8768), tau);
                 const float line = fr.f(0x0c);
                 fr.f(0x18) = line > fr.f(0x20) ? (float)((double)line - fr.f(0x20)) : (float)((double)fr.f(0x20) - line);
                 fr.f(0x14) = line > fr.f(0x2c) ? (float)((double)line - fr.f(0x2c)) : (float)((double)fr.f(0x2c) - line);
-                fr.f(0x18) = (float)RtMod(fr.f(0x18), pi);
-                fr.f(0x14) = (float)RtMod(fr.f(0x14), pi);
+                fr.f(0x18) = (float)crt::fmod(fr.f(0x18), pi);
+                fr.f(0x14) = (float)crt::fmod(fr.f(0x14), pi);
                 if (fr.f(0x18) > Fl_207(0x5c8764)) fr.f(0x18) = (float)(Fl_207(0x5c8760) - fr.f(0x18));
                 if (fr.f(0x14) > Fl_207(0x5c8764)) fr.f(0x14) = (float)(Fl_207(0x5c8760) - fr.f(0x14));
                 fr.f(0x28) = (float)((double)fr.f(0x14) + fr.f(0x18));
@@ -1248,17 +1241,17 @@ RT3_NOINLINE int32_t __fastcall AI_BuildRoute(Collection* net, int, int32_t city
                 // Each end's heading, flipped when it points away from the line.
                 fr.f(0x34) = fr.f(0x20);
                 fr.f(0x14) = fr.f(0x2c);
-                fr.f(0x28) = (float)RtAbs((double)fr.f(0x20) - fr.f(0x0c));
-                if (fr.f(0x28) > D(0x5c8748) && fr.f(0x28) < D(0x5c8740)) fr.f(0x34) = (float)RtMod((double)fr.f(0x20) + Fl_207(0x5c8760), tau);
-                fr.f(0x28) = (float)RtAbs((double)fr.f(0x2c) - fr.f(0x0c));
-                if (fr.f(0x28) > D(0x5c8748) && fr.f(0x28) < D(0x5c8740)) fr.f(0x14) = (float)RtMod((double)fr.f(0x2c) + Fl_207(0x5c8760), tau);
-                fr.f(0x50) = (float)(RtSin(fr.f(0x34)) * fr.f(0x24) * D(0x5c85c8) + fr.f(0x50));
+                fr.f(0x28) = (float)crt::fabs((double)fr.f(0x20) - fr.f(0x0c));
+                if (fr.f(0x28) > D(0x5c8748) && fr.f(0x28) < D(0x5c8740)) fr.f(0x34) = (float)crt::fmod((double)fr.f(0x20) + Fl_207(0x5c8760), tau);
+                fr.f(0x28) = (float)crt::fabs((double)fr.f(0x2c) - fr.f(0x0c));
+                if (fr.f(0x28) > D(0x5c8748) && fr.f(0x28) < D(0x5c8740)) fr.f(0x14) = (float)crt::fmod((double)fr.f(0x2c) + Fl_207(0x5c8760), tau);
+                fr.f(0x50) = (float)(crt::cos(fr.f(0x34)) * fr.f(0x24) * D(0x5c85c8) + fr.f(0x50));
                 fr.d(0x40) = fr.f(0x4c);
-                fr.f(0x4c) = (float)(fr.d(0x40) - RtCos(fr.f(0x34)) * fr.f(0x24) * D(0x5c85c8));
+                fr.f(0x4c) = (float)(fr.d(0x40) - crt::sin(fr.f(0x34)) * fr.f(0x24) * D(0x5c85c8));
                 fr.d(0x40) = D(0x5c8770) - fr.f(0x24);
-                fr.f(0x58) = (float)(RtSin(fr.f(0x14)) * fr.d(0x40) * D(0x5c85c8) + fr.f(0x58));
+                fr.f(0x58) = (float)(crt::cos(fr.f(0x14)) * fr.d(0x40) * D(0x5c85c8) + fr.f(0x58));
                 fr.d(0x68) = fr.f(0x64);
-                fr.f(0x64) = (float)(fr.d(0x68) - RtCos(fr.f(0x14)) * fr.d(0x40) * D(0x5c85c8));
+                fr.f(0x64) = (float)(fr.d(0x68) - crt::sin(fr.f(0x14)) * fr.d(0x40) * D(0x5c85c8));
             }
             fr.i(0x30) = -1;
             fr.f(0x1c) = (float)((double)fr.f(0x58) - fr.f(0x50));
@@ -1296,7 +1289,7 @@ RT3_NOINLINE int32_t __fastcall AI_BuildRoute(Collection* net, int, int32_t city
                 int32_t id = -1;
                 for (int32_t i = 0; i < Collection_Count(g_buildingTypes); ++i) {
                     Collection* types = g_buildingTypes;
-                    const int r = RtStricmp(name, (const char*)Collection_Get(types, 0, Collection_IdAt(types, 0, (uint32_t)i, 0)) + 4);
+                    const int r = crt::stricmp(name, (const char*)Collection_Get(types, 0, Collection_IdAt(types, 0, (uint32_t)i, 0)) + 4);
                     if (r == 0) id = (int32_t)Collection_IdAt(g_buildingTypes, 0, (uint32_t)i, r);
                 }
                 if (id == -1) return fr.i(0x0c) = 0, 0;
@@ -1350,8 +1343,8 @@ RT3_NOINLINE int32_t __fastcall AI_BuildRoute(Collection* net, int, int32_t city
             Collection* types = g_buildingTypes;
             const char* name = (const char*)Collection_Get(types, 0, Collection_IdAt(types, 0, (uint32_t)i, 0)) + 4;
             if ((uint8_t)ToUpper(*name) != 'S' && (uint8_t)ToUpper(*name) != 'M') continue;
-            if (!RtStricmp((const char*)0x5c871c, name)) fr.i(0x48) = (int32_t)Collection_IdAt(g_buildingTypes, 0, (uint32_t)i, 0);
-            if (!RtStricmp((const char*)0x5c8710, name)) fr.i(0x34) = (int32_t)Collection_IdAt(g_buildingTypes, 0, (uint32_t)i, 0);
+            if (!crt::stricmp((const char*)0x5c871c, name)) fr.i(0x48) = (int32_t)Collection_IdAt(g_buildingTypes, 0, (uint32_t)i, 0);
+            if (!crt::stricmp((const char*)0x5c8710, name)) fr.i(0x34) = (int32_t)Collection_IdAt(g_buildingTypes, 0, (uint32_t)i, 0);
         }
         if (!fr.i(0x48) || !fr.i(0x34)) return fr.i(0x0c) = 0, 0;
         // Each end moves on to a neighbour laid by this route.
@@ -1366,7 +1359,7 @@ RT3_NOINLINE int32_t __fastcall AI_BuildRoute(Collection* net, int, int32_t city
                 }
             }
         }
-        int32_t* path = (int32_t*)((void*(__cdecl*)(size_t))0x5a125d)(0xfb4);
+        int32_t* path = (int32_t*)crt::malloc(0xfb4);
         path[0] = fr.i(0x90);
         fr.i(0x30) = -1;
         int32_t n = 1;
@@ -1439,7 +1432,7 @@ RT3_NOINLINE int32_t __fastcall AI_BuildRoute(Collection* net, int, int32_t city
                 fr.i(0x5c) += fr.i(0x38);
             } while (--fr.i(0x1c) != 0);
         }
-        ((void(__cdecl*)(void*))0x5a1145)(path);
+        crt::free(path);
         return 0;
     }();
     if (ended == 1 || Fl_207(0x5c85b4) > fr.f(0x14)) fr.i(0x14) = 0x3f800000;
@@ -1667,7 +1660,7 @@ RT3_NOINLINE int32_t __fastcall AI_PlanFirstRoute(int32_t test, int32_t rival, i
         }
     }
     // Pair worths, upper triangle.
-    int32_t* const worth = (int32_t*)((void*(__cdecl*)(size_t))0x5a125d)((uint32_t)(count * count) * 4);
+    int32_t* const worth = (int32_t*)crt::malloc((uint32_t)(count * count) * 4);
     memset(worth, 0, (uint32_t)(count * count) * 4);
     for (int32_t a = 0; a < count; ++a) {
         if (fr.f(0x4f8 + 4 * a) <= Fl_207(0x5c8598)) continue;
@@ -1753,7 +1746,7 @@ RT3_NOINLINE int32_t __fastcall AI_PlanFirstRoute(int32_t test, int32_t rival, i
         }
         Log_Add(g_messageLog, 0, text, 0x10, company, larger);
     }();
-    if (worth) ((void(__cdecl*)(void*))0x5a1145)(worth);
+    if (worth) crt::free(worth);
     return result;
 }
 RT3_REPLACE(0x404ce0, AI_PlanFirstRoute);
@@ -1771,7 +1764,7 @@ RT3_NOINLINE float __fastcall Company_NearestSiteDistance(int32_t* c, int, int32
         if (d < best) best = d;
     }
     if (n > 0 && best < 1) best = 1;
-    return (float)ExeSqrt((double)best);
+    return (float)crt::sqrt((double)best);
 }
 RT3_REPLACE(0x405920, Company_NearestSiteDistance);
 
@@ -1790,7 +1783,7 @@ RT3_NOINLINE void __fastcall TrackNet_AiDoubleTrack(Collection* net, int, uint32
     uint8_t* co = (uint8_t*)Collection_Get(g_companies, 0, id);
     if (Company_Stat(co, 0, 0xd, 0x2329) < D(0x5c87c8)) return;
     if (IsMultiplayer()) return;
-    uint32_t* buf = (uint32_t*)Malloc(Collection_Count(net) * 4 + 0x3e8);
+    uint32_t* buf = (uint32_t*)crt::malloc(Collection_Count(net) * 4 + 0x3e8);
     int32_t n = 0;
     auto get = [&](uint32_t k) { return (uint8_t*)Collection_Get(net, 0, k); };
     auto take = [&](uint8_t* p) {
@@ -1879,7 +1872,7 @@ RT3_NOINLINE void __fastcall TrackNet_AiDoubleTrack(Collection* net, int, uint32
             Log_Add(g_messageLog, 0, text, 8, (int32_t)id, 0);
         }
     }
-    Free(buf);
+    crt::free(buf);
 }
 RT3_REPLACE(0x4059e0, TrackNet_AiDoubleTrack);
 
@@ -2233,11 +2226,10 @@ RT3_REPLACE(0x4073a0, Player_AiTurn);
 
 // 0x407780. Allocates 32 zeroed 0x1a-byte entries, pointers at +0x5bd.
 void __fastcall Obj_AllocEntries(void* o) {
-    auto malloc_ = (void*(__cdecl*)(size_t))0x5a125d;
-    void** a = (void**)malloc_(0x80);
+    void** a = (void**)crt::malloc(0x80);
     F<void**>(o, 0x5bd) = a;
     for (int i = 0; i < 32; ++i) {
-        uint8_t* e = (uint8_t*)malloc_(0x1a);
+        uint8_t* e = (uint8_t*)crt::malloc(0x1a);
         F<void**>(o, 0x5bd)[i] = e;
         for (int k = 0; k < 0x1a; ++k) e[k] = 0;
     }
@@ -2248,10 +2240,10 @@ RT3_REPLACE(0x407780, Obj_AllocEntries);
 RT3_NOINLINE void __fastcall Obj_FreeEntries5bd(void* o) {
     for (int32_t i = 0; i < 32; ++i) {
         uint8_t* e = F<uint8_t**>(o, 0x5bd)[i];
-        if (F<void*>(e, 6)) Free(F<void*>(e, 6));
-        Free(F<uint8_t**>(o, 0x5bd)[i]);
+        if (F<void*>(e, 6)) crt::free(F<void*>(e, 6));
+        crt::free(F<uint8_t**>(o, 0x5bd)[i]);
     }
-    Free(F<void*>(o, 0x5bd));
+    crt::free(F<void*>(o, 0x5bd));
     F<void*>(o, 0x5bd) = nullptr;
 }
 RT3_REPLACE(0x4077e0, Obj_FreeEntries5bd);
@@ -2289,10 +2281,10 @@ RT3_NOINLINE uint32_t __fastcall AI_PickEngineType(uint32_t company) {
             if (!(maxSpeed > F<float>(e, 0x20))) maxSpeed = F<float>(e, 0x20);
             if (!pass) continue;
             float s = F<float>(e, 0x20);
-            if (!Strnicmp((const char*)e + 0x34, (const char*)0x5c88d0, 4) && Game_EffectiveVersion() >= 0x68)
+            if (!crt::strnicmp((const char*)e + 0x34, (const char*)0x5c88d0, 4) && Game_EffectiveVersion() >= 0x68)
                 s = (float)(s * D(0x5c88c8));
             float rel = F<float>(e, 0x28) > Fl(0x5c85b4) ? F<float>(e, 0x28) : 1.0f;
-            float q = (float)Sqrt((double)rel + Fl(0x5c8568));
+            float q = (float)crt::sqrt((double)rel + Fl(0x5c8568));
             s = (float)((double)q * s);
             s = (float)((double)(float)(30 - F<int32_t>(e, 0xc)) * s);
             s = (float)((double)(float)(F<int32_t>(e, 0x18) + 10) * s);
@@ -2647,7 +2639,7 @@ RT3_NOINLINE void __fastcall AiCompany_ReplaceEngine(uint8_t* c, int, uint32_t t
     if (F<int32_t>(g_world, 0x4a97)) return;
     uint32_t engine = AI_PickEngineType(F<uint32_t>(c, 0));
     int32_t old = Train_FirstCarType126((uint8_t*)Collection_Get(g_trains, 0, train));
-    ((void(__fastcall*)(uint8_t*, int, uint32_t, int32_t))0x4aefb0)((uint8_t*)Collection_Get(g_trains, 0, train), 0, engine, 0);
+    Train_ReplaceEngine((uint8_t*)Collection_Get(g_trains, 0, train), 0, engine, 0);
     Collection* types = g_6ada84;
     void* oldT = Collection_Get(types, 0, (uint32_t)old);
     void* newT = Collection_Get(types, 0, engine);
@@ -2678,7 +2670,7 @@ RT3_NOINLINE void __fastcall Company_BuildStationLinks(int32_t* co) {
         uint8_t* s = st(i);
         entry(s)[0] = 1;
         entry(s)[1] = 0;
-        if (F<void*>(entry(s), 6)) Free(F<void*>(entry(s), 6));
+        if (F<void*>(entry(s), 6)) crt::free(F<void*>(entry(s), 6));
         F<void*>(entry(s), 6) = nullptr;
         if (!Obj_BuildingStateActive(s) || Obj_Flag3d4(Obj_Building(s)) != 1) continue;
         bool use = Obj_BuildingValue(s) == co[0];
@@ -2693,14 +2685,13 @@ RT3_NOINLINE void __fastcall Company_BuildStationLinks(int32_t* co) {
             ++marked;
         }
     }
-    auto malloc_ = (void*(__cdecl*)(size_t))0x5a125d;
     uint32_t iofs = 0;
     for (int32_t i = 0; i < n; ++i) {
         uint8_t* si = st(i);
         if (!entry(si)[1]) continue;
         F<int32_t>(entry(si), 2) = marked;
         size_t size = marked * 0xd + 1;
-        F<void*>(entry(si), 6) = malloc_(size);
+        F<void*>(entry(si), 6) = crt::malloc(size);
         memset(F<void*>(entry(si), 6), 0, size);
         uint32_t jofs = 0;
         for (int32_t j = 0; j < n; ++j) {
@@ -2854,7 +2845,7 @@ RT3_NOINLINE void __fastcall AI_ReviewTrains(uint8_t* co, int, int32_t built) {
                 Net_Send(s, 0, (const char*)s + 0x8f48, 0x75, 4, co, 5, 0);
             }
         } else {
-            ((void(__fastcall*)(uint8_t*))0x409830)(co);
+            AI_BuyTrain((int32_t*)(co));
         }
     };
     float missing = (float)((double)target - (float)trains);
@@ -2884,7 +2875,7 @@ RT3_REPLACE(0x409950, AI_ReviewTrains);
 // 0x409d00. Daylight factor for an hour of the day (mod 24): a piecewise-linear
 // curve steeper by 2.2 (1 in arctic maps, world +0x4aeb), mirrored after midday.
 RT3_NOINLINE float __stdcall Daylight_Factor(float hour) {
-    float h = (float)((double(__cdecl*)(double, double))0x5a1390)(hour, 24.0);
+    float h = (float)crt::fmod(hour, 24.0);
     float slope = F<int32_t>(g_world, 0x4aeb) ? 1.0f : 2.2f;
     if (h < Fl(0x5c8788)) {
         float v = (float)((double)slope * h);
@@ -2927,10 +2918,10 @@ RT3_NOINLINE void __fastcall World_SetTime(uint8_t* w, int, int32_t minutes) {
     while (h < Fl_203(0x5c8598)) h = (float)((double)h + Fl_203(0x5c89a0));
     float t = (float)((double)h + Fl_203(0x5c89a0));
     t = (float)((double)t + F<float>(w, 0xbfa));
-    t = (float)ExeFmod(t, 24.0);
+    t = (float)crt::fmod(t, 24.0);
     t = (float)((double)t + D(0x5c8998));
     if (!(w[5] & 1)) t = (float)((double)t + Fl_203(0x5c8788));
-    t = (float)ExeFmod(t, 24.0);
+    t = (float)crt::fmod(t, 24.0);
     int32_t hours;
     float mins, secs;
     hours = Ftol(t);
@@ -2959,7 +2950,7 @@ RT3_NOINLINE void __fastcall World_SetTime(uint8_t* w, int, int32_t minutes) {
         if (void* e2 = hook::As<void*>(g_engine)) Clock_Set11((uint8_t*)Engine_Renderer(e2), 0, hours, minsInt, Ftol(secs));
     }
     float& last = g_5ed080;
-    if (ExeFabs((double)last - clockH) >= D(0x5c8988)) {
+    if (crt::fabs((double)last - clockH) >= D(0x5c8988)) {
         last = clockH;
         if (uint8_t* cam = g_62be68) Camera_UpdateHaze(cam, 0, -999.0f);
     }

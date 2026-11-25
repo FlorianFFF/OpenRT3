@@ -15,6 +15,7 @@
 #include "core/containers.h"
 #include "game/calendar.h"
 #include "core/crt.h"
+#include "core/imports.h"
 
 #undef near
 #undef far
@@ -125,7 +126,6 @@ static inline double Ramp(double v) {
     return 0.0;
 }
 
-static inline SprintfFn ExeSprintf() { return (SprintfFn)0x5a19c4; }
 
 static inline void StrCat(char* dst, const char* src) { memcpy(dst + strlen(dst), src, strlen(src) + 1); }
 
@@ -142,20 +142,19 @@ static inline int32_t DaysOf(const GameDate& d) { // days since year 0, month 1,
 }
 
 // Through the exe's import slot, like the original (the harness fakes it).
-static inline DWORD Ticks() { return ((DWORD(WINAPI*)())*(void**)0x5c8068)(); }
+static inline DWORD Ticks() { return (((DWORD(WINAPI*)())imp::GetTickCount))(); }
 
 static bool LeadByte(char c) {
-    return g_6d3c8c == 3 && ((int(__cdecl*)(int))0x5a330d)((uint8_t)c) != 0;
+    return g_6d3c8c == 3 && crt::isleadbyte((uint8_t)c) != 0;
 }
 
-static inline int ExeIsLeadByte(unsigned c) { return ((int(__cdecl*)(unsigned))0x5a330d)(c); }
 
 // 0x51b600. In DBCS mode (0x6d3c8c == 3): the exe CRT's lead-byte test on the
 // high byte of a 16-bit char. 0 otherwise.
 int32_t __fastcall IsLeadByte(uint16_t c) {
     if (g_6d3c8c != 3) return 0;
     if (c > 0xff) c >>= 8;
-    return ExeIsLeadByte(c);
+    return crt::isleadbyte(c);
 }
 RT3_REPLACE(0x51b600, IsLeadByte);
 
@@ -163,7 +162,7 @@ RT3_REPLACE(0x51b600, IsLeadByte);
 int32_t __fastcall IsSingleByte(uint16_t c) {
     if (g_6d3c8c != 3) return false;
     if (c > 0xff) c >>= 8;
-    return ExeIsLeadByte(c) == 0;
+    return crt::isleadbyte(c) == 0;
 }
 RT3_REPLACE(0x51b630, IsSingleByte);
 
@@ -226,17 +225,16 @@ RT3_NOINLINE char* __fastcall Num_Format(char* buf, int32_t style, double v, int
         else if (style == 11 || style == 12) style = 9;
     }
     char tmp[0x60];
-    SprintfFn sprintf_ = ExeSprintf();
     switch (style) {
     case 1: {
         double a = fabs(v);
         if (a < 1000.0) {
-            sprintf_(buf, "%d", iv);
+            crt::sprintf(buf, "%d", iv);
         } else if (a < 1000000.0) {
-            sprintf_(buf, "%d,%03d", iv / 1000, Abs32(iv) % 1000);
+            crt::sprintf(buf, "%d,%03d", iv / 1000, Abs32(iv) % 1000);
         } else if (a < 1000000000.0) {
             int32_t m = Abs32(iv);
-            sprintf_(buf, "%d,%03d,%03d", iv / 1000000, m % 1000000 / 1000, m % 1000);
+            crt::sprintf(buf, "%d,%03d,%03d", iv / 1000000, m % 1000000 / 1000, m % 1000);
         } else if (a < 1000000000000.0) {
             Num_Format(buf, style, v * 0.001, 999, 0, 0, 0);
             StrCat(buf, ",000");
@@ -260,7 +258,7 @@ RT3_NOINLINE char* __fastcall Num_Format(char* buf, int32_t style, double v, int
         int32_t neg = v < 0.0;
         double scaled = fabs(v * (style == 2 ? 0.001 : 1e-06));
         Num_Format(tmp, 1, scaled, width - neg - 1, unused, style == 2, style == 13);
-        sprintf_(buf, "%s%s", v < 0.0 ? "-" : "", tmp);
+        crt::sprintf(buf, "%s%s", v < 0.0 ? "-" : "", tmp);
         break;
     }
     case 3:
@@ -269,23 +267,23 @@ RT3_NOINLINE char* __fastcall Num_Format(char* buf, int32_t style, double v, int
         int32_t cap = style == 3 ? 99 : 9;
         if (digits >= cap) digits = cap;
         Num_Format(tmp, 1, v, 10, 0, 0, 0);
-        sprintf_(buf, style == 3 ? "%s.%02d" : "%s.%01d", tmp, Abs32(digits));
+        crt::sprintf(buf, style == 3 ? "%s.%02d" : "%s.%01d", tmp, Abs32(digits));
         break;
     }
     case 5:
     case 6:
     case 7:
-        sprintf_(buf, "%s%s", Num_Format(tmp, style == 5 ? 1 : style == 6 ? 4 : 3, v * 1.00001 * 100.0, 10, 0, 0, 0), "%");
+        crt::sprintf(buf, "%s%s", Num_Format(tmp, style == 5 ? 1 : style == 6 ? 4 : 3, v * 1.00001 * 100.0, 10, 0, 0, 0), "%");
         break;
     case 8:
-        sprintf_(buf, "%.f", v);
+        crt::sprintf(buf, "%.f", v);
         break;
     case 9: {
         for (int k = 0; k < 3; ++k) {
             int32_t neg = v < 0.0;
             double scaled = k == 0 ? fabs(v) : fabs(v * (k == 1 ? 0.001 : 1e-06));
             Num_Format(tmp, 1, scaled, width - neg - 1, 1, 0, 0);
-            sprintf_(buf, "%s$%s", v < 0.0 ? "-" : "", tmp);
+            crt::sprintf(buf, "%s$%s", v < 0.0 ? "-" : "", tmp);
             if (k) StrCat(buf, GetString(k == 1 ? 0x281 : 0x282));
             if (k < 2 && (int32_t)strlen(buf) <= width) break;
         }
@@ -293,7 +291,7 @@ RT3_NOINLINE char* __fastcall Num_Format(char* buf, int32_t style, double v, int
     }
     case 10: {
         Num_Format(tmp, 3, fabs(v), 10, 1, 0, 0);
-        sprintf_(buf, "%s$%s", Ftol(v * 100.0) < 0 ? "-" : "", tmp);
+        crt::sprintf(buf, "%s$%s", Ftol(v * 100.0) < 0 ? "-" : "", tmp);
         break;
     }
     case 11:
@@ -301,7 +299,7 @@ RT3_NOINLINE char* __fastcall Num_Format(char* buf, int32_t style, double v, int
         float f = (float)(fabs(v) * (style == 11 ? 0.001 : 1e-06) + 0.5);
         int32_t neg = v < 0.0;
         Num_Format(tmp, 1, (double)f, width - neg - 1, unused, style == 11, style == 12);
-        sprintf_(buf, "%s$%s", !(f >= 1.0f) ? "" : v < 0.0 ? "-" : "", tmp);
+        crt::sprintf(buf, "%s$%s", !(f >= 1.0f) ? "" : v < 0.0 ? "-" : "", tmp);
         break;
     }
     }
@@ -333,15 +331,11 @@ RT3_REPLACE(0x51c000, Num_FormatSimple2);
 // QUIRK: the first pass counts no lines (it reports line 0, or -1 after a
 // CRLF), and the second pass starts counting from where the first left off.
 RT3_NOINLINE StringList* __fastcall Strings_LoadFile(const char* path) {
-    auto malloc_ = (void*(__cdecl*)(size_t))0x5a125d;
-    auto atol_ = (int32_t(__cdecl*)(const char*))0x5a1ea5;
-    auto sprintf_ = (int(__cdecl*)(char*, const char*, ...))0x5a19c4;
-    auto memmove_ = (void*(__cdecl*)(void*, const void*, size_t))0x5a20b0;
     int32_t f = StreamOpen(path, 5, 200000, 1);
-    StringList* l = (StringList*)malloc_(8);
+    StringList* l = (StringList*)crt::malloc(8);
     l->count = 0;
     l->items = nullptr;
-    l->items = (char**)malloc_(60000);
+    l->items = (char**)crt::malloc(60000);
     memset(l->items, 0, 60000);
     static char line[2000];
     static char num[0x40], msg[0x800];
@@ -384,7 +378,7 @@ RT3_NOINLINE StringList* __fastcall Strings_LoadFile(const char* path) {
             }
             int32_t e = digits(j);
             line[e] = 0;
-            int32_t id = atol_(&line[j]);
+            int32_t id = crt::atoi(&line[j]);
             if (id <= 0 || id >= 15000) {
                 report((const char*)0x5dcca4);
                 break;
@@ -436,7 +430,7 @@ RT3_NOINLINE StringList* __fastcall Strings_LoadFile(const char* path) {
             int32_t e = digits(j);
             char save = line[e];
             line[e] = 0;
-            int32_t id = atol_(&line[j]);
+            int32_t id = crt::atoi(&line[j]);
             line[e] = save;
             if (id <= 0 || id >= 15000) {
                 report((const char*)0x5dcca4);
@@ -468,7 +462,7 @@ RT3_NOINLINE StringList* __fastcall Strings_LoadFile(const char* path) {
                             char ch = line[p];
                             if (pass == 0 ? (ch == '{' || ch == '[') : (ch == '}' || ch == ']')) {
                                 Num_Format(num, 1, (double)lineNo, 10, 1, 0, 0);
-                                sprintf_(msg, (const char*)0x5dcc7c, (int)(signed char)ch, num, line);
+                                crt::sprintf(msg, (const char*)0x5dcc7c, (int)(signed char)ch, num, line);
                                 DebugLog(msg, -1234, -1234, -1234, -1234, -1234, -1234, -1234, -1234, -1234);
                                 line[p] = pass == 0 ? '(' : ')';
                             }
@@ -491,7 +485,7 @@ RT3_NOINLINE StringList* __fastcall Strings_LoadFile(const char* path) {
                 for (;;) {
                     if (s[0] == '\\' && s[1] == 'n') {
                         *s = '\n';
-                        memmove_(s + 1, s + 2, (size_t)(l->items[id] - s) + len - 1);
+                        crt::memmove(s + 1, s + 2, (size_t)(l->items[id] - s) + len - 1);
                     }
                     if (LeadByte(*s)) ++s;
                     char c2 = s[1];
@@ -518,9 +512,9 @@ RT3_NOINLINE StringList* __fastcall Strings_LoadFile(const char* path) {
     } while (more);
     StreamClose(f);
     size_t size = (size_t)maxId * 4 + 4;
-    char** items = (char**)malloc_(size);
+    char** items = (char**)crt::malloc(size);
     memcpy(items, l->items, size);
-    ((void(__cdecl*)(void*))0x5a1145)(l->items);
+    crt::free(l->items);
     l->items = items;
     l->count = maxId + 1;
     BuildNameIndex();
@@ -546,7 +540,7 @@ RT3_NOINLINE const char* __fastcall LocalizeName(const char* name) {
     int32_t first = *(const int32_t*)range, last = *(const int32_t*)(range + 4);
     for (int32_t i = first; i <= last; ++i) {
         if ((char)ToUpper(table[i].name[1]) != (char)ToUpper(name[1])) continue;
-        if (Stricmp(table[i].name, name) != 0) continue;
+        if (crt::stricmp(table[i].name, name) != 0) continue;
         if (GetString(table[i].stringId)[0] != '\0') return GetString(table[i].stringId);
     }
     // (The original also formats a "missing name" message into a local buffer
@@ -598,11 +592,11 @@ RT3_NOINLINE char* __fastcall Date_Format(char* buf, const uint8_t* d, int32_t m
     }
     case 4:
         if (lang) {
-            ExeSprintf()(buf, (const char*)0x5dcd04, d[5], d[6]);
+            crt::sprintf(buf, (const char*)0x5dcd04, d[5], d[6]);
         } else {
             int32_t h = d[5] % 12;
             if (!h) h = 12;
-            ExeSprintf()(buf, (const char*)0x5dccf0, h, d[6], d[5] >= 12 ? (const char*)0x5dcd00 : (const char*)0x5dccfc);
+            crt::sprintf(buf, (const char*)0x5dccf0, h, d[6], d[5] >= 12 ? (const char*)0x5dcd00 : (const char*)0x5dccfc);
         }
         break;
     case 5: {
@@ -665,7 +659,7 @@ RT3_NOINLINE void Language_Load() {
         g_6d3c8c = 3;
         g_6d4034 = 1;
     }
-    if (strlen(GetString(0xfc9))) g_6d3c88 = ((int32_t(__cdecl*)(const char*))0x5a1ea5)(GetString(0xfc9));
+    if (strlen(GetString(0xfc9))) g_6d3c88 = crt::atoi(GetString(0xfc9));
     auto setlocale_ = (char*(__cdecl*)(int, const char*))0x5a3c18;
     switch (g_6d3c88) {
     case 0x80: g_624328 = 0x3a4; setlocale_(0, (const char*)0x5dcd44); break;
@@ -752,22 +746,21 @@ RT3_REPLACE(0x51d660, ToUpper);
 RT3_NOINLINE void __fastcall DebugLog(const char* text, int32_t a, int32_t b, int32_t c, int32_t d, int32_t e,
                          int32_t f, int32_t g, int32_t h, int32_t i) {
     if (!g_6d3ca0) return;
-    auto sprintf_ = (int(__cdecl*)(char*, const char*, ...))0x5a19c4;
     int32_t v[9] = { a, b, c, d, e, f, g, h, i };
     char line[2000] = "\n";
     strcat(line, text);
     for (int k = 0; k < 9; ++k) {
         if (v[k] == -1234) continue;
         char num[200];
-        sprintf_(num, "% 12d", v[k]);
+        crt::sprintf(num, "% 12d", v[k]);
         strcat(line, num);
     }
     char path[499];
-    sprintf_(path, ".\\data\\log\\%s", (const char*)0x6d3ca8);
-    int fd = Open(path, 0x4009, 0x80); // _O_WRONLY | _O_APPEND | _O_TEXT
+    crt::sprintf(path, ".\\data\\log\\%s", (const char*)0x6d3ca8);
+    int fd = crt::open(path, 0x4009, 0x80); // _O_WRONLY | _O_APPEND | _O_TEXT
     if (fd != -1) {
-        Write(fd, line, (unsigned)strlen(line));
-        Close(fd);
+        crt::write(fd, line, (unsigned)strlen(line));
+        crt::close(fd);
     }
 }
 RT3_REPLACE(0x51d680, DebugLog);
@@ -775,7 +768,7 @@ RT3_REPLACE(0x51d680, DebugLog);
 // 0x51d800
 RT3_NOINLINE void __fastcall String_Free(char** s) {
     if (*s) {
-        Free(*s);
+        crt::free(*s);
         *s = nullptr;
     }
 }
@@ -784,12 +777,12 @@ RT3_REPLACE(0x51d800, String_Free);
 // 0x51d820. Replaces *s with a heap copy of src (or NULL).
 RT3_NOINLINE void __fastcall String_Assign(char** s, const char* src) {
     if (*s) {
-        Free(*s);
+        crt::free(*s);
         *s = nullptr;
     }
     if (src) {
         size_t n = strlen(src) + 1;
-        *s = (char*)Malloc(n);
+        *s = (char*)crt::malloc(n);
         memcpy(*s, src, n);
     }
 }
@@ -830,7 +823,7 @@ RT3_NOINLINE const char* __fastcall StrFind(const char* hay, const char* needle,
     if (hayLen == 0 || len > hayLen) return nullptr;
     int32_t tries = hayLen - len + 1;
     for (int32_t i = 0; i < tries; ++i) {
-        int r = caseSensitive ? strncmp(hay + i, needle, len) : Strnicmp(hay + i, needle, len);
+        int r = caseSensitive ? strncmp(hay + i, needle, len) : crt::strnicmp(hay + i, needle, len);
         if (r == 0) return hay + i;
     }
     return nullptr;
@@ -934,19 +927,19 @@ RT3_REPLACE(0x51dc00, DistanceInt);
 // 0x51dc60. Bubble sort of `count` records of `size` bytes by the string at
 // `keyOffset`, case-insensitive (exe stricmp).
 void __fastcall SortRecordsByName(uint8_t* records, int32_t count, uint32_t size, int32_t keyOffset) {
-    uint8_t* tmp = (uint8_t*)Malloc(size);
+    uint8_t* tmp = (uint8_t*)crt::malloc(size);
     for (int32_t pass = count - 1; pass > 0; --pass) {
         for (int32_t i = 0; i < pass; ++i) {
             uint8_t* a = records + i * size;
             uint8_t* b = a + size;
-            if (Stricmp((const char*)b + keyOffset, (const char*)a + keyOffset) < 0) {
+            if (crt::stricmp((const char*)b + keyOffset, (const char*)a + keyOffset) < 0) {
                 memcpy(tmp, a, size);
                 memcpy(a, b, size);
                 memcpy(b, tmp, size);
             }
         }
     }
-    Free(tmp);
+    crt::free(tmp);
 }
 RT3_REPLACE(0x51dc60, SortRecordsByName);
 

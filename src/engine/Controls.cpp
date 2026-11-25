@@ -12,6 +12,7 @@
 #include "core/globals.h"
 #include "game/collection.h"
 #include "core/crt.h"
+#include "core/imports.h"
 #include "core/ptrlist.h"
 #include "core/containers.h"
 #include "core/stream.h"
@@ -31,7 +32,6 @@ namespace rt3 {
 template <typename T> static inline T& F(void* o, uint32_t off) { return *(T*)((uint8_t*)o + off); }
 void __fastcall Cursor_Set(uint8_t* c, int, int32_t idx, int32_t force, int32_t now);
 void __fastcall Texture_Destroy(uint8_t* t);
-template <typename Fn> static inline Fn Import(uint32_t iat) { return (Fn)hook::Global<void*>(iat); }
 const char* __fastcall GetString(int32_t id);
 int32_t __fastcall TreeView_IsHidden(uint8_t* w, int, int32_t i);
 void __fastcall String_Assign(char** s, const char* src);
@@ -304,8 +304,8 @@ static inline uint8_t* Node(uint8_t* w, int32_t i) { return F<uint8_t*>(w, 0x176
 // Worker thread object: handle +4, id +8, running +0xc (entry 0x563dd0).
 static inline void JoinThread(uint8_t* t, uint32_t ms) {
     F<int32_t>(t, 0xc) = 0;
-    Import<uint32_t(__stdcall*)(void*, uint32_t)>(0x5c81c4)(F<void*>(t, 4), ms);
-    Import<int32_t(__stdcall*)(void*)>(0x5c81c8)(F<void*>(t, 4));
+    imp::WaitForSingleObject(F<void*>(t, 4), ms);
+    imp::CloseHandle(F<void*>(t, 4));
     F<void*>(t, 4) = nullptr;
 }
 
@@ -313,9 +313,7 @@ static inline double D(uint32_t a) { return *(const double*)a; }
 
 static inline double Fl(uint32_t a) { return *(const float*)a; }
 
-static inline void* ExeNew(size_t n) { return ((void*(__cdecl*)(size_t))0x53b070)(n); }
 
-static inline void ExeDelete(void* p) { ((void(__cdecl*)(void*))0x53b080)(p); }
 
 static inline int32_t Ftol(double v) {
     int32_t r;
@@ -330,12 +328,11 @@ static inline int32_t Ftol(double v) {
 
 static inline double BitsD(uint64_t b) { return *(double*)&b; }
 
-static inline void* ExeMalloc(size_t n) { return ((void*(__cdecl*)(size_t))0x5a125d)(n); }
 
 // Pack-loaded widgets (the constructors take an unused argument): a bare base, the
 // kind's init, then an `n`-byte record read from the pack's current position.
 static uint8_t* Widget_ReadRecord(uint8_t* w, int32_t n) {
-    uint8_t* rec = (uint8_t*)ExeMalloc(n);
+    uint8_t* rec = (uint8_t*)crt::malloc(n);
     NameTable_Read(g_pack, 0, rec, n);
     Widget_LoadBase(w, 0, rec);
     return rec;
@@ -345,12 +342,12 @@ static uint8_t* Widget_ReadRecord(uint8_t* w, int32_t n) {
 // delete when `flags` bit 0 is set.
 static uint8_t* Widget_Finish(uint8_t* w, int32_t flags) {
     Widget_Destruct(w);
-    if (flags & 1) ExeDelete(w);
+    if (flags & 1) crt::operator_delete(w);
     return w;
 }
 
 static void FreeField(uint8_t* w, uint32_t off) {
-    if (F<void*>(w, off)) Free(F<void*>(w, off));
+    if (F<void*>(w, off)) crt::free(F<void*>(w, off));
     F<void*>(w, off) = nullptr;
 }
 
@@ -377,7 +374,7 @@ static inline double Scene_TableDistance(int32_t i, int32_t j) {
 
 // A new scene object (0x206 bytes) for model / texture, or null.
 static uint8_t* Scene_NewObject(const char* model, const char* tex) {
-    uint8_t* o = (uint8_t*)((void*(__cdecl*)(size_t))0x53b070)(0x206);
+    uint8_t* o = (uint8_t*)crt::operator_new(0x206);
     return o ? SceneObj_Construct(o, 0, 0, model, tex) : nullptr;
 }
 
@@ -406,7 +403,7 @@ RT3_NOINLINE void __fastcall Scene_Shutdown(uint8_t* s) {
     auto delObj = [](uint8_t* o) {
         if (o) {
             SceneObj_Destructor(o);
-            ExeDelete(o);
+            crt::operator_delete(o);
         }
     };
     delObj(F<uint8_t*>(s, 0x95));
@@ -417,13 +414,13 @@ RT3_NOINLINE void __fastcall Scene_Shutdown(uint8_t* s) {
         delObj(F<uint8_t*>(s, 0xa5));
         if (uint8_t* flare = F<uint8_t*>(s, 0x3665)) {
             Nop565c10();
-            ExeDelete(flare);
+            crt::operator_delete(flare);
         }
     }
     delObj(F<uint8_t*>(s, 0x364d));
     if (uint8_t* g = F<uint8_t*>(s, 0x65)) {
         VisitGrid_Free(g);
-        ExeDelete(g);
+        crt::operator_delete(g);
     }
     ReleaseResourceD9399c();
     ReleaseResourceD93990();
@@ -436,12 +433,12 @@ RT3_NOINLINE void __fastcall Scene_Shutdown(uint8_t* s) {
     for (uint32_t off : { 0x7du, 0x81u, 0x85u, 0x89u, 0x8du, 0x79u }) {
         if (PtrList* l = F<PtrList*>(s, off)) {
             PtrList_Destroy(l);
-            ExeDelete(l);
+            crt::operator_delete(l);
         }
     }
     if (uint8_t* r = F<uint8_t*>(s, 0x2d)) {
         Render_SaveAndShutdown(r);
-        ExeDelete(r);
+        crt::operator_delete(r);
     }
 }
 RT3_REPLACE(0x55e060, Scene_Shutdown);
@@ -458,7 +455,7 @@ RT3_NOINLINE void __fastcall Scene_CreateRenderer(uint8_t* s) {
     F<int32_t>(s, 0x3abb7) = 0;
     uint8_t full = g_engine[0x114226];
     s[0x3749] = 1;
-    uint8_t* r = (uint8_t*)((void*(__cdecl*)(size_t))0x53b070)(0x3715);
+    uint8_t* r = (uint8_t*)crt::operator_new(0x3715);
     r = r ? Render_Construct(r, 0, F<int32_t>(s, 0x31), full) : nullptr;
     F<uint8_t*>(s, 0x2d) = r;
     View_RecordStagePresets(s);
@@ -522,7 +519,7 @@ RT3_NOINLINE uint8_t* __fastcall Scene_Construct(uint8_t* s) {
     memset(s + 0x22b9f, 0, 0x18);
     ((int32_t(__stdcall*)(uint32_t, void*))0x570fbd)(0, s + 0x5d);
     for (int32_t k = 0; k < 6; ++k) {
-        PtrList* l = (PtrList*)((void*(__cdecl*)(size_t))0x53b070)(0x18);
+        PtrList* l = (PtrList*)crt::operator_new(0x18);
         F<PtrList*>(s, 0x79 + k * 4) = l ? PtrList_Construct(l, 0, 1, 100) : nullptr;
     }
     Texture_SetD9399c((const char*)0x5ce4b4);
@@ -537,7 +534,7 @@ RT3_NOINLINE uint8_t* __fastcall Scene_Construct(uint8_t* s) {
     F<uint8_t*>(s, 0x99) = Scene_NewObject((const char*)0x5de088, (const char*)(fog ? 0x5de098 : 0x5de080));
     ((uint8_t*)(uintptr_t)Obj_Get1c(F<uint8_t*>(s, 0x99)))[5] = 0x20;
     F<uint8_t*>(s, 0x9d) = Scene_NewObject((const char*)0x5de06c, (const char*)0x5de07c);
-    uint8_t* o = (uint8_t*)((void*(__cdecl*)(size_t))0x53b070)(0xd9);
+    uint8_t* o = (uint8_t*)crt::operator_new(0xd9);
     F<uint8_t*>(s, 0x3665) = o ? Object_InitFromCollision(o, 0, (const char*)0x5de06c, 0x437f0000) : nullptr;
     F<uint8_t*>(s, 0xa1) = Scene_NewObject((const char*)0x5de054, (const char*)0x5de064);
     F<uint8_t*>(s, 0xa5) = Scene_NewObject((const char*)0x5de03c, (const char*)0x5de04c);
@@ -600,7 +597,7 @@ RT3_NOINLINE void __fastcall Video_CopyFrame(uint8_t* w) {
     int32_t res;
     if (const uint32_t* src = F<const uint32_t*>(w, 0xbe)) {
         uint32_t* bink = F<uint32_t*>(w, 0xf2);
-        res = (*(CopyToBuffer*)0x5c8384)(bink, (void*)src, bink[0] * 4, bink[1], 0, 0, flags | 0x70000000);
+        res = imp::BinkCopyToBuffer(bink, (void*)src, bink[0] * 4, bink[1], 0, 0, flags | 0x70000000);
         uint32_t* dst = g_d97984;
         bink = F<uint32_t*>(w, 0xf2);
         float sx = (float)((double)bink[0] / F<int32_t>(w, 0xde));
@@ -610,7 +607,7 @@ RT3_NOINLINE void __fastcall Video_CopyFrame(uint8_t* w) {
             for (int32_t x = 0; x < F<int32_t>(w, 0xde); ++x) *dst++ = src[Ftol((double)x * sx) + base];
         }
     } else {
-        res = (*(CopyToBuffer*)0x5c8384)(F<void*>(w, 0xf2), g_d97984, F<uint32_t>(w, 0xde) * 4, F<uint32_t>(w, 0xe2), 0, 0, flags);
+        res = imp::BinkCopyToBuffer(F<void*>(w, 0xf2), g_d97984, F<uint32_t>(w, 0xde) * 4, F<uint32_t>(w, 0xe2), 0, 0, flags);
     }
     if (!res) Texture_SetPixels(F<uint8_t*>(w, 0xe6), 0, g_d97984);
 }
@@ -623,7 +620,7 @@ RT3_NOINLINE uint8_t* __fastcall Widget_Canvas(uint8_t* g, int, int32_t w, int32
     if (!F<uint8_t*>(g, 0xe6)) {
         F<int32_t>(g, 0xde) = w;
         F<int32_t>(g, 0xe2) = h;
-        uint8_t* p = (uint8_t*)((void*(__cdecl*)(uint32_t))0x53b070)(0xec);
+        uint8_t* p = (uint8_t*)crt::operator_new(0xec);
         uint8_t* t = p ? Texture_InitMemory(p, 0, nullptr, w, h, 1) : nullptr;
         F<uint8_t*>(g, 0xe6) = t;
         uint32_t* px = Texture_Pixels32(t, 0, nullptr, nullptr, 0);
@@ -644,7 +641,7 @@ uint8_t* __fastcall Picture_Load(uint8_t* w, int, int32_t) {
     ++g_d9797c;
     uint8_t* rec = Widget_ReadRecord(w, 0x87);
     memcpy(w + 0xa2, rec + 0x5f, 0x14);
-    Free(rec);
+    crt::free(rec);
     return w;
 }
 RT3_REPLACE(0x55ecb0, Picture_Load);
@@ -654,7 +651,7 @@ RT3_NOINLINE void __fastcall Picture_FreeTexture(uint8_t* w) {
     uint8_t* t = F<uint8_t*>(w, 0xe6);
     if (!t) return;
     Texture_Destroy(t);
-    ((void(__cdecl*)(void*))0x53b080)(t);
+    crt::operator_delete(t);
     F<void*>(w, 0xe6) = nullptr;
     uint8_t v = Engine()[0x114227];
     hook::As<int32_t>(g_d97984) = 0;
@@ -676,7 +673,7 @@ RT3_NOINLINE void __fastcall Movie_Stop(uint8_t* w, int, int32_t release) {
     }
     if (F<uint32_t>(w, 0xf2)) {
         g_d9796c = 0;
-        Import<void(__stdcall*)(uint32_t)>(0x5c8380)(F<uint32_t>(w, 0xf2));
+        imp::BinkClose(F<uint32_t>(w, 0xf2));
         if (g_sound)
             Sound_Speakers(g_sound, 0, F<int32_t>(g_engine, 0x11470a), 0);
         if (hook::Global<uint8_t>(0x625834 + F<int32_t>(w, 0xea) * 16)) Cursor_Set(g_cursorManager, 0, 1, 0, 0);
@@ -684,7 +681,7 @@ RT3_NOINLINE void __fastcall Movie_Stop(uint8_t* w, int, int32_t release) {
     F<uint32_t>(w, 0xf2) = 0;
     if (!release) return;
     if (F<void*>(w, 0xfe)) FreeAndNull(&F<void*>(w, 0xfe));
-    if (F<void*>(w, 0xbe)) Free(F<void*>(w, 0xbe));
+    if (F<void*>(w, 0xbe)) crt::free(F<void*>(w, 0xbe));
     F<void*>(w, 0xbe) = nullptr;
     Picture_FreeTexture(w);
 }
@@ -707,7 +704,7 @@ RT3_NOINLINE void __fastcall Movie_Tick(uint8_t* w, int, int32_t force) {
     if (g_d97970) return;
     uint8_t* b = F<uint8_t*>(w, 0xf2);
     if (!b) return;
-    auto bgoto = [&](uint32_t frame, uint32_t flags) { Import<void(__stdcall*)(uint8_t*, uint32_t, uint32_t)>(0x5c836c)(b, frame, flags); };
+    auto bgoto = [&](uint32_t frame, uint32_t flags) { imp::BinkGoto(b, frame, flags); };
     bool decode = false;
     if (!F<uint32_t>(b, 0x2a0) && F<uint32_t>(b, 0x10) >= 1 && F<uint32_t>(b, 0x10) != F<uint32_t>(b, 8) && F<int32_t>(w, 0x102)) {
         int32_t elapsed = ClockMs() - F<int32_t>(w, 0x102);
@@ -734,7 +731,7 @@ RT3_NOINLINE void __fastcall Movie_Tick(uint8_t* w, int, int32_t force) {
             if (hook::Global<uint8_t>(0x625836 + kind * 16)) {
                 uint8_t key = hook::Global<uint8_t>(0x62583a + kind * 16);
                 if (key) {
-                    Import<uint32_t(__stdcall*)(uint8_t*, uint32_t, uint32_t)>(0x5c837c)(b, key, 2);
+                    imp::BinkGetKeyFrame(b, key, 2);
                     bgoto(hook::Global<uint8_t>(0x62583a + F<int32_t>(w, 0xea) * 16), 1);
                 } else
                     bgoto(1, 0);
@@ -751,15 +748,15 @@ RT3_NOINLINE void __fastcall Movie_Tick(uint8_t* w, int, int32_t force) {
         }
     }
     if (decode) {
-        Import<BinkFn1>(0x5c8370)(b);
-        Import<BinkFn1>(0x5c8374)(b);
-        if (!Import<BinkFn1>(0x5c8378)(F<uint8_t*>(w, 0xf2))) {
+        imp::BinkDoFrame(b);
+        imp::BinkNextFrame(b);
+        if (!imp::BinkWait(F<uint8_t*>(w, 0xf2))) {
             for (int32_t extra = 0;;) {
                 if (F<uint32_t>(b, 0x10) + 1 >= F<uint32_t>(b, 8)) break;
                 if (extra++ >= 3) break;
-                Import<BinkFn1>(0x5c8370)(b);
-                Import<BinkFn1>(0x5c8374)(b);
-                if (Import<BinkFn1>(0x5c8378)(F<uint8_t*>(w, 0xf2))) break;
+                imp::BinkDoFrame(b);
+                imp::BinkNextFrame(b);
+                if (imp::BinkWait(F<uint8_t*>(w, 0xf2))) break;
             }
         }
     }
@@ -780,17 +777,16 @@ RT3_NOINLINE void __fastcall Movie_Open(uint8_t* w, int, int32_t index) {
     typedef int32_t(__stdcall * SetSound)(void*, uint32_t);
     Movie_Stop(w, 0, 0);
     if (F<int32_t>(w, 0xaa) && g_sound)
-        (*(SetSound*)0x5c8360)(*(void**)0x5c835c, Sound_Get2c(g_sound));
+        imp::BinkSetSoundSystem(((void*)imp::BinkOpenMiles), Sound_Get2c(g_sound));
     else
         F<int32_t>(w, 0xaa) = 0;
     F<int32_t>(w, 0xea) = index;
     F<int32_t>(w, 0x102) = 0;
     g_d97980 = 0;
     char path[0x190];
-    auto open_ = (int(__cdecl*)(const char*, int, int))0x5a4c57;
     FormatText(path, (const char*)0x5de2fc, hook::Global<const char*>(0x625830 + F<int32_t>(w, 0xea) * 0x10), nullptr, nullptr, nullptr, nullptr, nullptr,
                nullptr, nullptr);
-    int fd = open_(path, 0, 0x100);
+    int fd = crt::open(path, 0, 0x100);
     if (fd == -1) {
         bool found = false;
         if (!F<int32_t>(g_engine, 0x114746)) {
@@ -799,7 +795,7 @@ RT3_NOINLINE void __fastcall Movie_Open(uint8_t* w, int, int32_t index) {
             drive[1] = 0;
             FormatText(path, (const char*)0x5de2e8, drive, hook::Global<const char*>(0x625830 + F<int32_t>(w, 0xea) * 0x10), nullptr, nullptr, nullptr,
                        nullptr, nullptr, nullptr);
-            fd = open_(path, 0, 0x100);
+            fd = crt::open(path, 0, 0x100);
             if (fd != -1) {
                 g_d97980 = 1;
                 F<int32_t>(g_engine, 0x114746) = 1;
@@ -813,13 +809,13 @@ RT3_NOINLINE void __fastcall Movie_Open(uint8_t* w, int, int32_t index) {
             return;
         }
     }
-    ((int(__cdecl*)(int))0x5a440d)(fd);
+    crt::close(fd);
     uint32_t flags = hook::Global<uint8_t>(0x625835 + F<int32_t>(w, 0xea) * 0x10) ? 0x2000 : 0;
-    (*(int32_t(__stdcall**)(uint32_t))0x5c8364)(0x400000);
-    F<uint32_t*>(w, 0xf2) = (*(uint32_t*(__stdcall**)(const char*, uint32_t))0x5c8368)(path, flags | 0x1000000);
+    imp::BinkSetIOSize(0x400000);
+    F<uint32_t*>(w, 0xf2) = imp::BinkOpen(path, flags | 0x1000000);
     if (!F<uint32_t*>(w, 0xf2)) {
         char msg[0x3ec];
-        ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)(msg, (*(const char*(__stdcall**)())0x5c8388)());
+        crt::sprintf(msg, imp::BinkGetError());
         Fatal_Exit(msg);
     }
     F<int32_t>(w, 0x106) = 0;
@@ -836,14 +832,14 @@ RT3_NOINLINE void __fastcall Movie_Open(uint8_t* w, int, int32_t index) {
     while ((int32_t)pw > F<int32_t>(e, 0x11423b)) pw >>= 1;
     while ((int32_t)ph > F<int32_t>(e, 0x11423f)) ph >>= 1;
     F<void*>(w, 0xbe) = nullptr;
-    if ((int32_t)pw < F<int32_t>(w, 0xb6) || (int32_t)ph < F<int32_t>(w, 0xba)) F<void*>(w, 0xbe) = ((void*(__cdecl*)(uint32_t))0x5a125d)(bink[1] * bink[0] * 4);
+    if ((int32_t)pw < F<int32_t>(w, 0xb6) || (int32_t)ph < F<int32_t>(w, 0xba)) F<void*>(w, 0xbe) = crt::malloc(bink[1] * bink[0] * 4);
     Widget_Canvas(w, 0, (int32_t)pw, (int32_t)ph);
     float vol = hook::Global<float>(0x62583c + F<int32_t>(w, 0xea) * 0x10) * F<float>(g_engine, 0x114702);
     typedef int32_t(__stdcall * SetVolume)(void*, uint32_t, int32_t);
     if (F<int32_t>(w, 0xaa) && !(vol < D(0x5c85b8)))
-        (*(SetVolume*)0x5c8358)(F<void*>(w, 0xf2), 0, Ftol((double)vol * Fl(0x5ddaec)));
+        imp::BinkSetVolume(F<void*>(w, 0xf2), 0, Ftol((double)vol * Fl(0x5ddaec)));
     else
-        (*(SetVolume*)0x5c8358)(F<void*>(w, 0xf2), 0, 0);
+        imp::BinkSetVolume(F<void*>(w, 0xf2), 0, 0);
     if (F<int32_t>(w, 0xa6)) {
         int32_t* b = F<int32_t*>(w, 0xf2);
         int32_t bh = b[1];
@@ -904,7 +900,7 @@ void __fastcall Movie_Draw(uint8_t* w) {
     auto playing = [&]() { return *(const uint8_t*)(0x625837 + F<int32_t>(w, 0xea) * 16) != 0; };
     using BinkFn = int32_t(__stdcall*)(void*);
     if (F<uint8_t*>(w, 0xf2) && playing()) {
-        while ((*(BinkFn*)0x5c8378)(F<uint8_t*>(w, 0xf2))) {
+        while (((int32_t(__stdcall*)(void*))imp::BinkWait)(F<uint8_t*>(w, 0xf2))) {
         }
         Movie_Tick(w, 0, 0);
         if (F<uint8_t*>(w, 0xf2)) Video_CopyFrame(w);
@@ -1007,7 +1003,7 @@ RT3_NOINLINE uint8_t* __fastcall Picture_Destroy(uint8_t* w, int, uint32_t flags
     Movie_Stop(w, 0, 1);
     --g_d9797c;
     Widget_Destruct(w);
-    if (flags & 1) ExeDelete(w);
+    if (flags & 1) crt::operator_delete(w);
     return w;
 }
 RT3_REPLACE(0x55f9b0, Picture_Destroy);
@@ -1093,7 +1089,7 @@ uint8_t* __fastcall TreeView_Load(uint8_t* w, int, int32_t) {
     uint8_t* rec = Widget_ReadRecord(w, 0x12f);
     TreeView_Init(w);
     memcpy(w + 0xa2, rec + 0x5f, 0xbc);
-    Free(rec);
+    crt::free(rec);
     return w;
 }
 RT3_REPLACE(0x55fcc0, TreeView_Load);
@@ -1174,13 +1170,13 @@ void __fastcall List_CreateScrollbar(uint8_t* l) {
         F<float>(def, 0x13) = (float)((double)F<float>(l, 0x17) + F<float>(l, 0xf) - F<float>(def, 0xb));
     }
     if (F<const char*>(l, 0x43)) String_Assign(&F<char*>(def, 0x3f), F<const char*>(l, 0x43));
-    uint8_t* bar = (uint8_t*)ExeNew(0x1b9);
+    uint8_t* bar = (uint8_t*)crt::operator_new(0x1b9);
     bar = bar ? ListBox_Construct(bar, 0, def) : nullptr;
     F<uint8_t*>(l, 0x19a) = bar;
     F<uint16_t>(l, 0x1b0) = F<uint16_t>(def, 0);
     Window_AddChild(F<uint8_t*>(l, 0x86), 0, bar, 0);
-    Free(F<void*>(def, 0x43));
-    if (F<const char*>(l, 0x43)) Free(F<void*>(def, 0x3f));
+    crt::free(F<void*>(def, 0x43));
+    if (F<const char*>(l, 0x43)) crt::free(F<void*>(def, 0x3f));
     if (!F<uint32_t>(l, 0xf6)) F<uint32_t>(l, 0xf6) = 0xffffff00;
     List_SyncScrollbar(l);
 }
@@ -1423,7 +1419,7 @@ RT3_NOINLINE void __fastcall ListView_RefreshVisible(uint8_t* tv) {
     int32_t n = F<int32_t>(tv, 0x1de);
     F<int32_t>(tv, 0x186) = n;
     F<int32_t>(tv, 0x18a) = n ? TreeView_NodeOfRow(tv, 0, F<int32_t>(tv, 0x1e2)) : -1;
-    if (F<void*>(tv, 0x18e)) Free(F<void*>(tv, 0x18e));
+    if (F<void*>(tv, 0x18e)) crt::free(F<void*>(tv, 0x18e));
     if (!F<int32_t>(tv, 0x1de)) {
         F<void*>(tv, 0x18e) = nullptr;
         return;
@@ -1440,7 +1436,7 @@ RT3_NOINLINE void __fastcall ListView_RefreshVisible(uint8_t* tv) {
         mov rowH, eax
     }
     float step = (float)(((double)rowH + *(const double*)0x5d0250) / screenH);
-    F<uint32_t*>(tv, 0x18e) = (uint32_t*)Malloc(F<int32_t>(tv, 0x1de) * 4);
+    F<uint32_t*>(tv, 0x18e) = (uint32_t*)crt::malloc(F<int32_t>(tv, 0x1de) * 4);
     for (int32_t i = 0; i < F<int32_t>(tv, 0x1de); ++i) {
         float x0 = (float)((double)F<float>(tv, 0xb) + F<float>(tv, 0xa6));
         double t = ((double)step + F<float>(tv, 0xb2)) * i;
@@ -1528,10 +1524,10 @@ RT3_NOINLINE void __fastcall Dropdown_Open(uint8_t* c) {
         else F<uint16_t>(d, 0x5f) = last ? F<uint16_t>(c, 0x13a) : F<uint16_t>(c, 0x136);
         F<uint16_t>(d, 0) = (uint16_t)HandleTable_Acquire(g_windowManager, 0, F<uint16_t>(c, 4));
         String_Assign(&F<char*>(d, 0x43), F<const char*>(c, 0x47));
-        uint8_t* f = (uint8_t*)ExeNew(0x111);
+        uint8_t* f = (uint8_t*)crt::operator_new(0x111);
         f = f ? Scrollbar_Construct(f, 0, d) : nullptr;
         Window_AddChild(F<uint8_t*>(c, 0x86), 0, f, 0);
-        Free(F<void*>(d, 0x43));
+        crt::free(F<void*>(d, 0x43));
         ty = (float)((double)(last ? capH : rowH) + ty);
     }
     uint8_t p[0x12f];
@@ -1554,7 +1550,7 @@ RT3_NOINLINE void __fastcall Dropdown_Open(uint8_t* c) {
     F<int32_t>(p, 0xa7) = 1;
     if (!F<int32_t>(c, 0x1ac)) F<uint32_t>(p, 0x2f) |= 0x8000;
     String_Assign(&F<char*>(p, 0x43), F<const char*>(c, 0x47));
-    uint8_t* lst = (uint8_t*)ExeNew(0x1ea);
+    uint8_t* lst = (uint8_t*)crt::operator_new(0x1ea);
     lst = lst ? TreeView_Construct(lst, 0, p) : nullptr;
     for (int32_t k = 0; k < F<int32_t>(c, 0x1d2); ++k) {
         uint8_t* item = F<uint8_t*>(c, 0x176) + k * 0x20;
@@ -1564,7 +1560,7 @@ RT3_NOINLINE void __fastcall Dropdown_Open(uint8_t* c) {
     F<int32_t>(lst, 0x19e) = 1;
     F<int32_t>(lst, 0x17a) = 1;
     Window_AddChild(F<uint8_t*>(c, 0x86), 0, lst, 0);
-    Free(F<void*>(p, 0x43));
+    crt::free(F<void*>(p, 0x43));
     F<int32_t>(lst, 0x17e) = ClockMs();
     if (F<int32_t>(c, 0x1d6) != -1) {
         Widget_Send(lst, 0, 0x66, F<uint16_t>(c, 0x1a6), F<uint32_t>(c, 0x1d6), 0, 0);
@@ -1598,10 +1594,10 @@ void __fastcall TreeView_Destruct(uint8_t* w) {
     for (int32_t i = 0; i < F<int32_t>(w, 0x186); ++i)
         if (auto cb = F<void(__fastcall*)(uint8_t*, int32_t, uint32_t)>(w, 0x1c6)) cb(w, F<int32_t>(w, 0x18a) + i, F<uint32_t*>(w, 0x18e)[i]);
     for (int32_t k = 0; k < F<int32_t>(w, 0x1d2); ++k) {
-        Free(F<void*>(F<uint8_t*>(w, 0x176) + k * 0x20, 4));
-        Free(F<void*>(F<uint8_t*>(w, 0x176) + k * 0x20, 0));
+        crt::free(F<void*>(F<uint8_t*>(w, 0x176) + k * 0x20, 4));
+        crt::free(F<void*>(F<uint8_t*>(w, 0x176) + k * 0x20, 0));
     }
-    if (void* rows = F<void*>(w, 0x176)) Free(rows);
+    if (void* rows = F<void*>(w, 0x176)) crt::free(rows);
     F<void*>(w, 0x176) = nullptr;
     String_Free(&F<char*>(w, 0x47));
     F<int32_t>(w, 0x1de) = 0;
@@ -1711,9 +1707,9 @@ RT3_NOINLINE void __fastcall TreeView_AddRow(uint8_t* tv, int, const uint32_t* r
     String_Assign((char**)&r[1], row[1] ? (const char*)row[1] : (const char*)0x5c87a8);
     r[7] = 0;
     if (r[4]) F<int32_t>(F<uint8_t*>(tv, 0x176) + r[5] * 0x20, 0x1c) = 1;
-    uint8_t* rows = (uint8_t*)((void*(__cdecl*)(size_t))0x5a125d)((F<int32_t>(tv, 0x1d2) + 1) * 0x20);
+    uint8_t* rows = (uint8_t*)crt::malloc((F<int32_t>(tv, 0x1d2) + 1) * 0x20);
     if (F<int32_t>(tv, 0x1d2)) memcpy(rows, F<uint8_t*>(tv, 0x176), F<int32_t>(tv, 0x1d2) * 0x20);
-    if (F<void*>(tv, 0x176)) Free(F<void*>(tv, 0x176));
+    if (F<void*>(tv, 0x176)) crt::free(F<void*>(tv, 0x176));
     memcpy(rows + F<int32_t>(tv, 0x1d2) * 0x20, r, sizeof r);
     int32_t atEnd = F<int32_t>(tv, 0x1e2) == F<int32_t>(tv, 0x1e6) ? 1 : 0;
     int32_t n = F<int32_t>(tv, 0x1d2) + 1;
@@ -1735,7 +1731,7 @@ RT3_REPLACE(0x561aa0, TreeView_AddRow);
 // 0x561c30. Deleting destructor of the tree view.
 uint8_t* __fastcall TreeView_DeletingDestructor(uint8_t* w, int, uint32_t flags) {
     TreeView_Destruct(w);
-    if (flags & 1) ExeDelete(w);
+    if (flags & 1) crt::operator_delete(w);
     return w;
 }
 RT3_REPLACE(0x561c30, TreeView_DeletingDestructor);
@@ -1759,12 +1755,12 @@ RT3_NOINLINE void __fastcall ListBox_RemoveItem(uint8_t* l, int, int32_t i) {
         --F<int32_t>(l, 0x1da);
     }
     int32_t n = --F<int32_t>(l, 0x1d2);
-    Free(F<void*>(F<uint8_t*>(l, 0x176) + i * 0x20, 4));
-    Free(F<void*>(F<uint8_t*>(l, 0x176) + i * 0x20, 0));
+    crt::free(F<void*>(F<uint8_t*>(l, 0x176) + i * 0x20, 4));
+    crt::free(F<void*>(F<uint8_t*>(l, 0x176) + i * 0x20, 0));
     if (F<int32_t>(l, 0x1d2)) {
         if (n - i > 0) memmove(F<uint8_t*>(l, 0x176) + i * 0x20, F<uint8_t*>(l, 0x176) + i * 0x20 + 0x20, (size_t)(n - i) * 0x20);
     } else {
-        Free(F<void*>(l, 0x176));
+        crt::free(F<void*>(l, 0x176));
         F<void*>(l, 0x176) = nullptr;
     }
     F<int32_t>(l, 0x1de) = F<int32_t>(l, 0x1da) < F<int32_t>(l, 0xa2) ? F<int32_t>(l, 0x1da) : F<int32_t>(l, 0xa2);
@@ -2264,7 +2260,7 @@ uint8_t* __fastcall TimerWidget_Load(uint8_t* w, int, int32_t) {
     TimerWidget_Init(w);
     uint8_t* rec = Widget_ReadRecord(w, 0x8b);
     memcpy(w + 0xa2, rec + 0x5f, 0x18);
-    Free(rec);
+    crt::free(rec);
     return w;
 }
 RT3_REPLACE(0x563120, TimerWidget_Load);
@@ -2341,7 +2337,7 @@ RT3_NOINLINE void __fastcall TextLink_Draw(uint8_t* win, uint8_t* font, const ch
     F<float>(def, 0xb) = (float)(by - F<float>(win, 9));
     F<float>(def, 0xf) = (float)bw;
     if (strlen(tip)) String_Assign(&F<char*>(def, 0x3f), tip);
-    uint8_t* hot = (uint8_t*)ExeNew(0xda);
+    uint8_t* hot = (uint8_t*)crt::operator_new(0xda);
     if (hot) hot = TimerWidget_Construct(hot, 0, def);
     Window_AddChild(win, 0, hot, 0);
     FreeAndNull(&F<void*>(def, 0x3f));
@@ -2516,7 +2512,7 @@ uint8_t* __fastcall Button_Load(uint8_t* w, int, int32_t) {
     NameTable_ReadBlock(g_pack, 0, 0xbc1, &F<void*>(w, 0xb2));
     if (!F<char*>(w, 0xb2)) String_Assign(&F<char*>(w, 0xb2), (const char*)0x5c87a8);
     memcpy(w + 0xb8, rec + 0x75, 0x24);
-    Free(rec);
+    crt::free(rec);
     return w;
 }
 RT3_REPLACE(0x563c00, Button_Load);
@@ -2557,7 +2553,7 @@ RT3_REPLACE(0x563df0, Thread_Stop);
 void __fastcall Thread_Start(uint8_t* t) {
     if (F<int32_t>(t, 0xc)) return;
     if (F<void*>(t, 4)) JoinThread(t, 0xffffffff);
-    F<void*>(t, 4) = Import<void*(__stdcall*)(void*, uint32_t, uint32_t, void*, uint32_t, void*)>(0x5c81c0)(
+    F<void*>(t, 4) = imp::CreateThread(
         nullptr, 0, 0x563dd0, t, 0, t + 8);
     F<int32_t>(t, 0xc) = 1;
 }

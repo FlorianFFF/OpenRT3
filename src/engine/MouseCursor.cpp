@@ -13,6 +13,7 @@
 #include "game/collection.h"
 #include "core/ptrlist.h"
 #include "core/crt.h"
+#include "core/imports.h"
 #include "hook/keepregs.h"
 #include "core/containers.h"
 #include "game/calendar.h"
@@ -24,7 +25,6 @@
 namespace rt3 {
 
 template <typename T> static inline T& F(void* o, uint32_t off) { return *(T*)((uint8_t*)o + off); }
-template <typename Fn> static inline Fn Import(uint32_t iat) { return (Fn)hook::Global<void*>(iat); }
 int32_t ClockMs();
 void Engine_Nop();
 void __fastcall Engine_ResetTextureQueue(void* e);
@@ -156,11 +156,8 @@ static inline double D(uint32_t a) { return *(const double*)a; }
 
 static inline double Fl(uint32_t a) { return *(const float*)a; }
 
-static inline void* ExeNew(size_t n) { return ((void*(__cdecl*)(size_t))0x53b070)(n); }
 
-static inline void ExeDelete(void* p) { ((void(__cdecl*)(void*))0x53b080)(p); }
 
-static inline void* ExeMalloc(size_t n) { return ((void*(__cdecl*)(size_t))0x5a125d)(n); }
 
 // Cursor manager (0xccbb20): +0 cursor font, +4 cursor, +8 shown, +0xc busy count,
 // +0x10 cursor to restore after busy, +0x14 system cursor mode, +0x18 game-drawn
@@ -181,7 +178,7 @@ static void Engine_ResetMouse() {
 // cursor is made visible again.
 static void Cursor_LeaveGameDrawn(uint8_t* c, int32_t systemMode, int32_t line) {
     if (Engine_IsFullscreen(hook::As<void*>(g_engine)))
-        Import<HWND(__stdcall*)(HWND)>(0x5c82ac)(Engine_Window(hook::As<void*>(g_engine)));
+        ((HWND(__stdcall*)(HWND))imp::SetCapture)(Engine_Window(hook::As<void*>(g_engine)));
     Engine_ResetMouse();
     int32_t idx = F<int32_t>(c, 4);
     Cursor_Set(c, 0, 0, 0, 0);
@@ -204,14 +201,13 @@ static inline int32_t Ftol(double v) {
     return r;
 }
 
-static inline double Atof(const char* s) { return ((double(__cdecl*)(const char*))0x5a2076)(s); }
 
 static inline uint32_t Bits(float f) { return *(uint32_t*)&f; }
 
 // (a + b - 1 + 1) / n, the inclusive pixel extent the image files use.
 static inline float ImbSpan(const char* a, const char* b, int32_t n) {
-    double first = Atof(a);
-    return (float)((Atof(b) + first - D(0x5c8770) + D(0x5c8770)) / n);
+    double first = crt::atof(a);
+    return (float)((crt::atof(b) + first - D(0x5c8770) + D(0x5c8770)) / n);
 }
 
 // Appends image piece rect (x0,y0)-(x1,y1) (origin a,b; scale c,d) of
@@ -223,7 +219,7 @@ static void Imb_AddPiece(uint8_t* d, uint8_t* mem, float x0, float y0, float x1,
     ++F<uint16_t>(d, 0x28);
 }
 
-static inline uint8_t* Imb_New() { return ((uint8_t*(__cdecl*)(size_t))0x53b070)(0x25); }
+static inline uint8_t* Imb_New() { return ((uint8_t*)crt::operator_new(0x25)); }
 
 // The two scaled forms: pixel origin (x, y) and size (w, h) in the image,
 // scaled by +0x10 / +0x14, the far edge capped at 1.
@@ -255,12 +251,12 @@ RT3_NOINLINE void __fastcall BitmapFont_Destroy(uint8_t* f) {
         uint8_t* g = F<uint8_t**>(f, 0x24)[i];
         if (!g) continue;
         Nop552130();
-        ExeDelete(g);
+        crt::operator_delete(g);
     }
-    if (F<void*>(f, 0x24)) Free(F<void*>(f, 0x24));
+    if (F<void*>(f, 0x24)) crt::free(F<void*>(f, 0x24));
     if (F<void*>(f, 0x2a)) Pack_Release(g_pack, 0, F<void*>(f, 0x2a));
     F<void*>(f, 0x2a) = nullptr;
-    if (F<void*>(f, 0x20)) Free(F<void*>(f, 0x20));
+    if (F<void*>(f, 0x20)) crt::free(F<void*>(f, 0x20));
     uint8_t* mgr = g_windowManager;
     if (mgr && F<Collection*>(mgr, 0xc69)) {
         Collection* fonts = F<Collection*>(mgr, 0xc69);
@@ -286,11 +282,11 @@ RT3_NOINLINE int32_t __fastcall Imb_Load(uint8_t* d, int, int32_t id) {
     F<int32_t>(d, 0) = 1;
     F<int32_t>(d, 4) = 1;
     F<uint16_t>(d, 0x28) = 0;
-    F<void*>(d, 0x24) = ((void*(__cdecl*)(size_t))0x5a125d)(4000);
+    F<void*>(d, 0x24) = crt::malloc(4000);
     F<void*>(d, 0x20) = nullptr;
     NameTable_Seek(g_pack, 0, id, 0);
     int32_t size = NameTable_EntrySize(g_pack, 0, id);
-    char* buf = ((char*(__cdecl*)(size_t))0x5a125d)((size_t)size + 1);
+    char* buf = ((char*)crt::malloc((size_t)size + 1));
     NameTable_Read(g_pack, 0, buf, size);
     buf[size] = 0;
     int32_t pos = 0, count, line = 0;
@@ -301,74 +297,74 @@ RT3_NOINLINE int32_t __fastcall Imb_Load(uint8_t* d, int, int32_t id) {
         bool known = true;
         switch ((char)ToUpper(t[0][0])) {
         case 'V':
-            if (Stricmp(t[0], (const char*)0x5dd7c4)) known = false;
-            else F<float>(d, 0x14) = (float)Atof(t[1]);
+            if (crt::stricmp(t[0], (const char*)0x5dd7c4)) known = false;
+            else F<float>(d, 0x14) = (float)crt::atof(t[1]);
             break;
         case 'H':
-            if (Stricmp(t[0], (const char*)0x5dd7ac)) known = false;
-            else F<float>(d, 0x10) = (float)Atof(t[1]);
+            if (crt::stricmp(t[0], (const char*)0x5dd7ac)) known = false;
+            else F<float>(d, 0x10) = (float)crt::atof(t[1]);
             break;
         case 'T':
-            if (!Stricmp(t[0], (const char*)0x5dd7a4)) String_Assign((char**)(d + 0x20), t[1]);
-            else if (!Stricmp(t[0], (const char*)0x5dd798)) F<int32_t>(d, 8) = Ftol(Atof(t[1]));
-            else if (!Stricmp(t[0], (const char*)0x5dd78c)) F<int32_t>(d, 0xc) = Ftol(Atof(t[1]));
-            else if (!Stricmp(t[0], (const char*)0x5dd774)) F<int32_t>(d, 0) = Ftol(Atof(t[1]));
-            else if (!Stricmp(t[0], (const char*)0x5dd75c)) F<int32_t>(d, 4) = Ftol(Atof(t[1]));
+            if (!crt::stricmp(t[0], (const char*)0x5dd7a4)) String_Assign((char**)(d + 0x20), t[1]);
+            else if (!crt::stricmp(t[0], (const char*)0x5dd798)) F<int32_t>(d, 8) = Ftol(crt::atof(t[1]));
+            else if (!crt::stricmp(t[0], (const char*)0x5dd78c)) F<int32_t>(d, 0xc) = Ftol(crt::atof(t[1]));
+            else if (!crt::stricmp(t[0], (const char*)0x5dd774)) F<int32_t>(d, 0) = Ftol(crt::atof(t[1]));
+            else if (!crt::stricmp(t[0], (const char*)0x5dd75c)) F<int32_t>(d, 4) = Ftol(crt::atof(t[1]));
             else known = false;
             break;
         case 'S':
-            if (Stricmp(t[0], (const char*)0x5dd750)) known = false;
-            else F<int32_t>(d, 0x18) = Ftol(Atof(t[1]));
+            if (crt::stricmp(t[0], (const char*)0x5dd750)) known = false;
+            else F<int32_t>(d, 0x18) = Ftol(crt::atof(t[1]));
             break;
         case 'M':
-            if (Stricmp(t[0], (const char*)0x5dd730) && Stricmp(t[0], (const char*)0x5dd714)) known = false;
+            if (crt::stricmp(t[0], (const char*)0x5dd730) && crt::stricmp(t[0], (const char*)0x5dd714)) known = false;
             else {
-                double v = Atof(t[1]);
+                double v = crt::atof(t[1]);
                 F<float>(d, 0x1c) = (float)(v > D(0x5c88a0) ? v : D(0x5c88a0));
             }
             break;
         case 'I':
-            if (!Stricmp(t[0], (const char*)0x5dd704)) {
-                int32_t w = Ftol(Atof(t[3]));
-                int32_t h = Ftol(Atof(t[4]));
-                double ox = Atof(t[1]);
-                Imb_AddScaled(d, ox, Atof(t[2]), w, h);
-            } else if (!Stricmp(t[0], (const char*)0x5dd6f8)) {
-                double right = Atof(t[3]);
-                int32_t w = Ftol(right - Atof(t[1]) + D(0x5c8770));
-                double bottom = Atof(t[4]);
-                int32_t h = Ftol(bottom - Atof(t[2]) + D(0x5c8770));
-                double ox = Atof(t[1]);
-                Imb_AddScaled(d, ox, Atof(t[2]), w, h);
-            } else if (!Stricmp(t[0], (const char*)0x5dd6e8)) {
+            if (!crt::stricmp(t[0], (const char*)0x5dd704)) {
+                int32_t w = Ftol(crt::atof(t[3]));
+                int32_t h = Ftol(crt::atof(t[4]));
+                double ox = crt::atof(t[1]);
+                Imb_AddScaled(d, ox, crt::atof(t[2]), w, h);
+            } else if (!crt::stricmp(t[0], (const char*)0x5dd6f8)) {
+                double right = crt::atof(t[3]);
+                int32_t w = Ftol(right - crt::atof(t[1]) + D(0x5c8770));
+                double bottom = crt::atof(t[4]);
+                int32_t h = Ftol(bottom - crt::atof(t[2]) + D(0x5c8770));
+                double ox = crt::atof(t[1]);
+                Imb_AddScaled(d, ox, crt::atof(t[2]), w, h);
+            } else if (!crt::stricmp(t[0], (const char*)0x5dd6e8)) {
                 uint8_t* mem = Imb_New();
                 if (!mem) {
                     Imb_AddPiece(d, nullptr, 0, 0, 0, 0, 0, 0, 0, 0);
                     break;
                 }
-                float rb = (float)(Atof(t[6]) / F<int32_t>(d, 0xc));
-                float ra = (float)(Atof(t[5]) / F<int32_t>(d, 8));
+                float rb = (float)(crt::atof(t[6]) / F<int32_t>(d, 0xc));
+                float ra = (float)(crt::atof(t[5]) / F<int32_t>(d, 8));
                 float y1 = ImbSpan(t[2], t[4], F<int32_t>(d, 0xc));
                 float x1 = ImbSpan(t[3], t[1], F<int32_t>(d, 8));
-                float y0 = (float)(Atof(t[2]) / F<int32_t>(d, 0xc));
-                float x0 = (float)(Atof(t[1]) / F<int32_t>(d, 8));
+                float y0 = (float)(crt::atof(t[2]) / F<int32_t>(d, 0xc));
+                float x0 = (float)(crt::atof(t[1]) / F<int32_t>(d, 8));
                 Imb_AddPiece(d, mem, x0, y0, x1, y1, Bits(ra), Bits(rb), F<uint32_t>(d, 0x10), F<uint32_t>(d, 0x14));
-            } else if (!Stricmp(t[0], (const char*)0x5dd6d4)) {
-                float fx = (float)(Atof(t[1]) / F<int32_t>(d, 8));
-                float fy = (float)(Atof(t[2]) / F<int32_t>(d, 0xc));
+            } else if (!crt::stricmp(t[0], (const char*)0x5dd6d4)) {
+                float fx = (float)(crt::atof(t[1]) / F<int32_t>(d, 8));
+                float fy = (float)(crt::atof(t[2]) / F<int32_t>(d, 0xc));
                 uint8_t* mem = Imb_New();
                 if (!mem) {
                     Imb_AddPiece(d, nullptr, 0, 0, 0, 0, 0, 0, 0, 0);
                     break;
                 }
-                float sd = (float)(Atof(t[6]) * F<float>(d, 0x14));
-                float sc = (float)(Atof(t[5]) * F<float>(d, 0x10));
+                float sd = (float)(crt::atof(t[6]) * F<float>(d, 0x14));
+                float sc = (float)(crt::atof(t[5]) * F<float>(d, 0x10));
                 float y1 = ImbSpan(t[2], t[4], F<int32_t>(d, 0xc));
                 float x1 = ImbSpan(t[3], t[1], F<int32_t>(d, 8));
                 Imb_AddPiece(d, mem, fx, fy, x1, y1, Bits(fx), Bits(fy), Bits(sc), Bits(sd));
-            } else if (!Stricmp(t[0], (const char*)0x5dd6cc)) {
-                float fx = (float)(Atof(t[1]) / F<int32_t>(d, 8));
-                float fy = (float)(Atof(t[2]) / F<int32_t>(d, 0xc));
+            } else if (!crt::stricmp(t[0], (const char*)0x5dd6cc)) {
+                float fx = (float)(crt::atof(t[1]) / F<int32_t>(d, 8));
+                float fy = (float)(crt::atof(t[2]) / F<int32_t>(d, 0xc));
                 uint8_t* mem = Imb_New();
                 if (!mem) {
                     Imb_AddPiece(d, nullptr, 0, 0, 0, 0, 0, 0, 0, 0);
@@ -377,11 +373,11 @@ RT3_NOINLINE int32_t __fastcall Imb_Load(uint8_t* d, int, int32_t id) {
                 float y1 = ImbSpan(t[2], t[4], F<int32_t>(d, 0xc));
                 float x1 = ImbSpan(t[3], t[1], F<int32_t>(d, 8));
                 Imb_AddPiece(d, mem, fx, fy, x1, y1, Bits(fx), Bits(fy), F<uint32_t>(d, 0x10), F<uint32_t>(d, 0x14));
-            } else if (!Stricmp(t[0], (const char*)0x5dd6c4)) {
-                float a = (float)Atof(t[1]);
-                float b = (float)Atof(t[2]);
-                float c = (float)Atof(t[3]);
-                double dd = Atof(t[4]);
+            } else if (!crt::stricmp(t[0], (const char*)0x5dd6c4)) {
+                float a = (float)crt::atof(t[1]);
+                float b = (float)crt::atof(t[2]);
+                float c = (float)crt::atof(t[3]);
+                double dd = crt::atof(t[4]);
                 double a2 = a, c2 = c, b2 = b;
                 if (c > a) c2 = c + (double)Fl(0x5c85b4);
                 else a2 = a + (double)Fl(0x5c85b4);
@@ -414,7 +410,7 @@ RT3_NOINLINE int32_t __fastcall Imb_Load(uint8_t* d, int, int32_t id) {
             DebugLog(msg, -1234, -1234, -1234, -1234, -1234, -1234, -1234, -1234, -1234);
         }
     }
-    ((void(__cdecl*)(void*))0x5a1145)(buf);
+    crt::free(buf);
     F<float>(d, 0x2e) = (float)((double)F<int32_t>(d, 8) / F<int32_t>(d, 0));
     F<float>(d, 0x32) = (float)((double)F<int32_t>(d, 0xc) / F<int32_t>(d, 4));
     uint8_t* self = d;
@@ -438,12 +434,12 @@ RT3_REPLACE(0x53ee70, Imb_Construct);
 // 0x53ee90. Loads cursor idx (colour or b/w set) from data\cursors, falling back to the arrow.
 RT3_NOINLINE void __fastcall Cursor_Load(int32_t colour, int32_t idx) {
     char path[0x12c];
-    ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)(path, colour ? (const char*)0x5dd7f0 : (const char*)0x5dd80c,
+    crt::sprintf(path, colour ? (const char*)0x5dd7f0 : (const char*)0x5dd80c,
                                                       F<uint32_t>((void*)0x625258, idx * 0x14));
-    void* h = Import<void*(__stdcall*)(const char*)>(0x5c829c)(path);
+    void* h = imp::LoadCursorFromFileA(path);
     void** slot = (void**)0xccba60 + (colour * 0x17 + idx);
     *slot = h;
-    if (!h) *slot = Import<void*(__stdcall*)(void*, uint32_t)>(0x5c82a0)(nullptr, 0x7f00);
+    if (!h) *slot = imp::LoadCursorA(nullptr, 0x7f00);
 }
 RT3_REPLACE(0x53ee90, Cursor_Load);
 
@@ -474,12 +470,12 @@ RT3_REPLACE(0x53ef70, Obj_Zero18And14);
 
 // 0x53ef90. Sets the text (+0x1c, heap copy) and value +0x20.
 RT3_NOINLINE void __fastcall Obj_SetText1c(uint8_t* o, int, const char* s, uint32_t v) {
-    if (F<void*>(o, 0x1c)) Free(F<void*>(o, 0x1c));
+    if (F<void*>(o, 0x1c)) crt::free(F<void*>(o, 0x1c));
     F<void*>(o, 0x1c) = nullptr;
     if (s) {
         size_t n = 0;
         while (s[n]) ++n;
-        char* p = (char*)Malloc(n + 1);
+        char* p = (char*)crt::malloc(n + 1);
         F<char*>(o, 0x1c) = p;
         for (size_t k = 0; (p[k] = s[k]) != 0; ++k) {}
     }
@@ -512,7 +508,7 @@ RT3_NOINLINE void __fastcall Cursor_Set(uint8_t* c, int, int32_t idx, int32_t fo
         int32_t colour = F<int32_t>(c, 0x14) == 0;
         void** slot = (void**)0xccba60 + colour * 0x17 + idx;
         if (!*slot) Cursor_Load(colour, idx);
-        Import<void*(__stdcall*)(void*)>(0x5c8298)(*slot);
+        imp::SetCursor(*slot);
     }
     uint8_t* obj = idx ? Pack_AcquireNamed(g_pack, 0, *(const char**)(0x625248 + idx * 20)) : nullptr;
     if (F<void*>(c, 0)) Pack_Release(g_pack, 0, F<void*>(c, 0));
@@ -526,7 +522,7 @@ RT3_REPLACE(0x53f000, Cursor_Set);
 RT3_NOINLINE void __fastcall Cursor_UseGameDrawn(uint8_t* c) {
     if (F<int32_t>(c, 0x18)) return;
     Engine_ResetMouse();
-    Import<BOOL(__stdcall*)()>(0x5c82a8)();
+    ((BOOL(__stdcall*)())imp::ReleaseCapture)();
     F<int32_t>(c, 0x18) = 1;
     F<int32_t>(c, 0x14) = 0;
     F<int32_t>(g_engine, 0x11473e) = 1;
@@ -608,7 +604,7 @@ RT3_REPLACE(0x53f330, Cursor_Construct);
 // 0x53f3d0. Shuts the cursor manager down: no cursor, buffer +0x1c freed.
 RT3_NOINLINE void __fastcall Cursor_Shutdown(uint8_t* c) {
     Cursor_Set(c, 0, 0, 0, 0);
-    if (F<void*>(c, 0x1c)) Free(F<void*>(c, 0x1c));
+    if (F<void*>(c, 0x1c)) crt::free(F<void*>(c, 0x1c));
     F<void*>(c, 0x1c) = nullptr;
 }
 RT3_REPLACE(0x53f3d0, Cursor_Shutdown);
@@ -830,11 +826,11 @@ RT3_NOINLINE void __fastcall Window_Load(uint8_t* win, int, float x, float y, co
     uint8_t* pack = g_pack;
     NameTable_Seek(pack, 0, NameTable_Hash(pack, 0, name), 0);
     NameTable_Skip4(g_pack, 0, 0x7d0);
-    uint8_t* hdr = (uint8_t*)ExeMalloc(0x31);
+    uint8_t* hdr = (uint8_t*)crt::malloc(0x31);
     NameTable_Read(g_pack, 0, hdr, 0x31);
     NameTable_Skip4(g_pack, 0, 0x7d1);
     memcpy(win + 4, hdr, 0x31);
-    Free(hdr);
+    crt::free(hdr);
     StrCopyN((char*)win + 0x35, name, 0x1e);
     F<float>(win, 5) = x;
     F<float>(win, 9) = y;
@@ -866,7 +862,7 @@ RT3_NOINLINE void __fastcall Window_Load(uint8_t* win, int, float x, float y, co
         case 0x1000: load = MapView_Load; size = 0x123; break;
         }
         if (load) {
-            uint8_t* m = (uint8_t*)ExeNew(size);
+            uint8_t* m = (uint8_t*)crt::operator_new(size);
             w = m ? load(m, 0, (int32_t)(uintptr_t)win) : nullptr;
         }
         F<char*>(w, 0x43) = name1;

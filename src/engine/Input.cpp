@@ -11,6 +11,7 @@
 #include "core/globals.h"
 #include "core/ptrlist.h"
 #include "core/crt.h"
+#include "core/imports.h"
 #include "hook/keepregs.h"
 #include "game/collection.h"
 #include "core/containers.h"
@@ -24,7 +25,6 @@ struct HWND__;
 
 namespace rt3 {
 
-template <typename Fn> static inline Fn Import(uint32_t iat) { return (Fn)hook::Global<void*>(iat); }
 template <typename T> static inline T& F(void* o, uint32_t off) { return *(T*)((uint8_t*)o + off); }
 ::HWND__* __fastcall Engine_Window(void* e);
 void __fastcall PumpMessages();
@@ -117,7 +117,7 @@ static inline int32_t Ftol(double v) {
 
 static inline uint8_t* Engine() { return g_engine; }
 
-static inline void KeyboardState(uint8_t* buf) { Import<int32_t(__stdcall*)(uint8_t*)>(0x5c8280)(buf); }
+static inline void KeyboardState(uint8_t* buf) { imp::GetKeyboardState(buf); }
 
 namespace {
 void InputQueue(uint8_t* in, const uint32_t* ev) {
@@ -209,17 +209,17 @@ int32_t __stdcall Game_WndProc(uint32_t hwnd, uint32_t msg, uint32_t wparam, uin
         }
         break;
     }
-    return (*(int32_t(__stdcall**)(uint32_t, uint32_t, uint32_t, uint32_t))0x5c8294)(hwnd, msg, wparam, lparam);
+    return imp::DefWindowProcA(hwnd, msg, wparam, lparam);
 }
 RT3_REPLACE(0x54e3a0, Game_WndProc);
 
 // 0x54e5d0. Dispatches all pending window messages.
 RT3_NOINLINE void __fastcall PumpMessages() {
     uint8_t msg[0x1c];
-    auto peek = Import<int32_t(__stdcall*)(void*, void*, uint32_t, uint32_t, uint32_t)>(0x5c8288);
+    auto peek = imp::PeekMessageA;
     if (!peek(msg, nullptr, 0, 0, 1)) return;
-    auto translate = Import<int32_t(__stdcall*)(void*)>(0x5c8290);
-    auto dispatch = Import<int32_t(__stdcall*)(void*)>(0x5c828c);
+    auto translate = imp::TranslateMessage;
+    auto dispatch = imp::DispatchMessageA;
     do {
         translate(msg);
         dispatch(msg);
@@ -231,7 +231,7 @@ RT3_REPLACE(0x54e5d0, PumpMessages);
 RT3_NOINLINE int32_t __fastcall Engine_IsForeground() {
     if (!Engine()) return 0;
     ::HWND__* w = Engine_Window(Engine());
-    return w == Import<::HWND__*(__stdcall*)()>(0x5c8284)() ? 1 : 0;
+    return w == ((::HWND__*(__stdcall*)())imp::GetForegroundWindow)() ? 1 : 0;
 }
 RT3_REPLACE(0x54e630, Engine_IsForeground);
 
@@ -241,7 +241,7 @@ RT3_NOINLINE void __fastcall Keyboard_SetScrollLock(int32_t on) {
     KeyboardState(keys);
     if ((int32_t)(keys[0x91] & 1) == on) return;
     g_d93840++;
-    auto keybd = Import<void(__stdcall*)(uint8_t, uint8_t, uint32_t, uint32_t)>(0x5c827c);
+    auto keybd = imp::keybd_event;
     keybd(0x91, 0x45, 1, 0);
     keybd(0x91, 0x45, 3, 0);
     PumpMessages();
@@ -266,13 +266,13 @@ uint8_t* __fastcall Input_Construct(uint8_t* in) {
     for (int k = 0; k < 0x40; ++k) F<int32_t>(in, k * 4) = 0;
     F<int32_t>(in, 0xa88) = 0;
     F<int32_t>(in, 0xa8c) = 0;
-    F<int32_t>(in, 0xaa4) = Import<int32_t(__stdcall*)(int32_t)>(0x5c8274)(0x17);
+    F<int32_t>(in, 0xaa4) = imp::GetSystemMetrics(0x17);
     F<uint32_t>(in, 0xa94) = 0x3f000000;
     F<uint32_t>(in, 0xa98) = 0x3f000000;
     F<int32_t>(in, 0xa9c) = 0;
     F<int32_t>(in, 0xa90) = 0;
     F<int32_t>(in, 0x100) = 0;
-    F<uint32_t>(in, 0xaa0) = Import<uint32_t(__stdcall*)()>(0x5c8278)();
+    F<uint32_t>(in, 0xaa0) = imp::GetDoubleClickTime();
     for (int k = 0; k < 9; ++k) F<int32_t>(in, 0x104 + k * 4) = 0;
     return in;
 }
@@ -489,7 +489,7 @@ RT3_NOINLINE int32_t __fastcall Input_OnMouseMessage(uint8_t* in, int, uint32_t,
     uint8_t* e = g_engine;
     if (e && Engine_IsFullscreen(e)) {
         int32_t pt[2];
-        Import<int32_t(__stdcall*)(int32_t*)>(0x5c8270)(pt);
+        imp::GetCursorPos(pt);
         x = pt[0];
         y = pt[1];
     }
@@ -523,7 +523,7 @@ RT3_NOINLINE int32_t __fastcall Input_OnMouseMessage(uint8_t* in, int, uint32_t,
     case 0x207: {
         ev[0] = msg == 0x201 ? 6 : msg == 0x204 ? 8 : 0xa;
         if (InputMayCapture(g_engine))
-            Import<void*(__stdcall*)(void*)>(0x5c82ac)((void*)Engine_Window(hook::As<void*>(g_engine)));
+            imp::SetCapture((void*)Engine_Window(hook::As<void*>(g_engine)));
         st |= msg == 0x201 ? 0x400 : msg == 0x204 ? 0x800 : 0x2000;
         break;
     }
@@ -532,7 +532,7 @@ RT3_NOINLINE int32_t __fastcall Input_OnMouseMessage(uint8_t* in, int, uint32_t,
     case 0x208:
         st &= ~(msg == 0x202 ? 0x400u : msg == 0x205 ? 0x800u : 0x2000u);
         ev[0] = msg == 0x202 ? 7 : msg == 0x205 ? 9 : 0xb;
-        if (InputMayCapture(g_engine)) Import<int32_t(__stdcall*)()>(0x5c82a8)();
+        if (InputMayCapture(g_engine)) imp::ReleaseCapture();
         break;
     case 0x20a: {
         int32_t ticks = (int16_t)(wparam >> 16) / 120;
@@ -567,8 +567,8 @@ RT3_NOINLINE int32_t __fastcall Input_OnKey(uint8_t* in, int, uint32_t, uint32_t
     uint16_t ch[2];
     ev[0] = down ? 3 : 4;
     ev[2] = vk;
-    if (Import<int32_t(__stdcall*)(uint8_t*)>(0x5c8280)(state) &&
-        Import<int32_t(__stdcall*)(uint32_t, uint32_t, const uint8_t*, uint16_t*, uint32_t)>(0x5c826c)(vk, (lparam >> 16) & 0xff, state, ch, 0) == 1)
+    if (imp::GetKeyboardState(state) &&
+        imp::ToAscii(vk, (lparam >> 16) & 0xff, state, ch, 0) == 1)
         ev[3] = ch[0] & 0xff;
     if ((int32_t)vk >= 0 && (int32_t)vk < 0x100) in[vk] = down ? 1 : 0;
     uint32_t scan = (lparam >> 16) & 0xff;
@@ -607,9 +607,9 @@ RT3_REPLACE(0x54f4d0, Input_NextEvent);
 RT3_NOINLINE int32_t __fastcall Cursor_InWindow() {
     if (Engine()[0x114226]) return 1;
     int32_t pt[2];
-    Import<int32_t(__stdcall*)(int32_t*)>(0x5c8270)(pt);
+    imp::GetCursorPos(pt);
     ::HWND__* w = Engine_Window(Engine());
-    Import<int32_t(__stdcall*)(::HWND__*, int32_t*)>(0x5c8268)(w, pt);
+    ((int32_t(__stdcall*)(::HWND__*, int32_t*))imp::ScreenToClient)(w, pt);
     const int32_t* mode = (const int32_t*)(F<uint8_t*>(Engine(), 0x34) + F<int32_t>(Engine(), 0x11421e) * 0x15);
     if (pt[0] < 0 || pt[0] >= mode[0]) return 0;
     if (pt[1] < 0 || pt[1] >= mode[1]) return 0;

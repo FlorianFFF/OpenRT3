@@ -292,7 +292,6 @@ static inline double D(uint32_t a) { return *(const double*)a; }
 
 static inline double Fl(uint32_t a) { return *(const float*)a; }
 
-static inline void* ExeNew(size_t n) { return ((void*(__cdecl*)(size_t))0x53b070)(n); }
 
 static inline int32_t Ftol(double v) {
     int32_t r;
@@ -479,12 +478,12 @@ void __fastcall Dialog_AddFilterToggle(uint8_t* d, int, int32_t idx, float x, fl
     String_Assign(&F<char*>(def, 0x43), (const char*)0x5d0ae0);
     F<int32_t>(def, 0x6b) = 5;
     F<int32_t>(def, 0x67) = 6;
-    uint8_t* b = (uint8_t*)ExeNew(0xe8);
+    uint8_t* b = (uint8_t*)crt::operator_new(0xe8);
     if (b) b = Button_Construct(b, 0, def);
     F<int32_t>(b, 0x82) = idx;
     Window_AddChild(F<uint8_t*>(d, 0x86), 0, b, 0);
     Window_SendEvent5(F<uint8_t*>(d, 0x86), 0, 0x7a, F<uint16_t>(def, 0), 0x510e30, 0, 0);
-    Free(F<void*>(def, 0x43));
+    crt::free(F<void*>(def, 0x43));
     Window_SendEvent5(F<uint8_t*>(d, 0x86), 0, 0x74, idx + 0x2774, ((const uint8_t*)0x6d1aa8)[idx] ? 1 : 0, 0, 0);
 }
 RT3_REPLACE(0x511050, Dialog_AddFilterToggle);
@@ -543,7 +542,7 @@ RT3_NOINLINE void __fastcall UpgradeDialog_SendTrains(uint8_t* d) {
     Cursor_Set(cursor, 0, 6, 0, 0);
     const int32_t count = g_6d3aec;
     const int32_t size = count * 0x33 + 0x14;
-    uint32_t* buf = (uint32_t*)Malloc((size_t)size);
+    uint32_t* buf = (uint32_t*)crt::malloc((size_t)size);
     buf[0] = (uint32_t)count;
     uint32_t engine = 0;
     if (g_6d3ac8) {
@@ -559,7 +558,7 @@ RT3_NOINLINE void __fastcall UpgradeDialog_SendTrains(uint8_t* d) {
     for (int32_t i = count; i > 0; --i) TrainOrders_Remove((uint8_t*)0x6d3ae8, 0, 0);
     uint8_t* gs = g_session;
     Net_Send(gs, 0, (const char*)gs + 0x8f48, 0x16, size, (const uint8_t*)buf, 5, 0);
-    Free(buf);
+    crt::free(buf);
 }
 RT3_REPLACE(0x511360, UpgradeDialog_SendTrains);
 
@@ -569,7 +568,7 @@ RT3_REPLACE(0x511360, UpgradeDialog_SendTrains);
 RT3_NOINLINE void __fastcall NetMsg_ReplaceEngines(uint8_t* m) {
     for (int32_t i = 0; i < F<uint16_t>(m, 8); ++i) {
         uint8_t* t = (uint8_t*)Collection_Get(g_trains, 0, F<uint16_t>(m, 0xa + i * 2));
-        if (t) ((void(__fastcall*)(uint8_t*, int, uint32_t, int32_t))0x4aefb0)(t, 0, F<uint32_t>(m, 4), 0);
+        if (t) Train_ReplaceEngine(t, 0, F<uint32_t>(m, 4), 0);
     }
     if (Obj_Get25(hook::As<void*>(g_world)) == F<int32_t>(m, 0)) Cursor_Set(g_cursorManager, 0, 1, 0, 0);
 }
@@ -622,7 +621,7 @@ RT3_NOINLINE void __fastcall TrainBuy_Init(uint8_t* w) {
             if (!take && F<int32_t>(type, 0x105) == bestVal) {
                 const char* a = LocalizeName((const char*)type + 0x45);
                 const char* b = LocalizeName((const char*)bestType + 0x45);
-                take = Stricmp(a, b) < 0;
+                take = crt::stricmp(a, b) < 0;
             }
             if (take) {
                 bestVal = F<int32_t>(type, 0x105);
@@ -942,7 +941,7 @@ int32_t __fastcall ConsistDialog_HandleEvent(uint8_t* d, int, uint32_t* msg) {
             }
             return close();
         }
-        uint8_t* req = ((uint8_t*(__cdecl*)(size_t))0x5a125d)(0x400a);
+        uint8_t* req = ((uint8_t*)crt::malloc(0x400a));
         F<int32_t>(req, 0) = Obj_Get25(g_world);
         F<uint32_t>(req, 4) = TrainList_Selected();
         int32_t n = 0;
@@ -956,7 +955,7 @@ int32_t __fastcall ConsistDialog_HandleEvent(uint8_t* d, int, uint32_t* msg) {
         F<uint16_t>(req, 8) = (uint16_t)n;
         Cursor_Set(g_cursorManager, 0, 6, 0, 0);
         Net_SendToHost(g_session, 0, 0x39, n * 2 + 0xa, req);
-        ((void(__cdecl*)(void*))0x5a1145)(req);
+        crt::free(req);
         return close();
     }
     int32_t electric = 0;
@@ -1045,8 +1044,8 @@ RT3_NOINLINE void __fastcall ConsistEditor_Run(uint8_t* owner, uint8_t* train, u
         g_6d3af0 = F<int32_t>(src, 8);
         *(uint8_t*)0x6d3af4 = src[0xc];
     }
-    if (!owner) ((void(__fastcall*)(uint8_t*, int, int32_t, int32_t))0x4ddbd0)(g_gameWindow, 0, 0, 0);
-    uint8_t* w = ((uint8_t*(__cdecl*)(size_t))0x53b070)(0x80);
+    if (!owner) View_SetToolMode(g_gameWindow, 0, (uint32_t)(0), 0);
+    uint8_t* w = ((uint8_t*)crt::operator_new(0x80));
     if (w) {
         Widget_SetVtblRet(w);
         F<uint32_t>(w, 0) = 0x5d193c;
@@ -1060,7 +1059,7 @@ RT3_NOINLINE void __fastcall ConsistEditor_Run(uint8_t* owner, uint8_t* train, u
     PauseLock_Pop(hook::As<int32_t*>(g_app));
     Windows_Remove(g_windowManager, 0, g_6d3ac8);
     if ((r == 0x2afb || g_6d3adc) && g_6d3ae8) {
-        ((void(__cdecl*)(void*))0x5a1145)(g_6d3ae8);
+        crt::free(g_6d3ae8);
         OrderList_Init(work);
     }
     uint8_t* win = g_6d3ac8;
@@ -1069,11 +1068,11 @@ RT3_NOINLINE void __fastcall ConsistEditor_Run(uint8_t* owner, uint8_t* train, u
         F<uint32_t>(win, 0) = 0x5d193c;
         Panel_ReleaseImages(win);
         Widget_SetVtbl(win);
-        ((void(__cdecl*)(void*))0x53b080)(win);
+        crt::operator_delete(win);
     }
     g_6d3ac8 = nullptr;
     if (g_6d1aa4)
-        ((void(__fastcall*)(uint8_t*, int, int32_t, int32_t))0x4ddbd0)(g_gameWindow, 0, 2, g_6d1aa4);
+        View_SetToolMode(g_gameWindow, 0, (uint32_t)(2), g_6d1aa4);
     if (int32_t c = hook::As<int32_t>(g_6d3ab8)) Cursor_Set(g_cursorManager, 0, c, 0, 0);
     g_6d3ae4 = 0;
 }
@@ -1128,7 +1127,7 @@ RT3_NOINLINE void __fastcall NetMsg_SellTrain(uint8_t* m) {
     trains->vtbl->release(trains, F<uint32_t>(m, 4));
     if (Obj_Get25(hook::As<void*>(g_world)) != F<int32_t>(m, 0)) return;
     Cursor_Set(g_cursorManager, 0, 1, 0, 0);
-    ((void(__fastcall*)(uint8_t*, int, int32_t, int32_t))0x4ddbd0)(g_gameWindow, 0, 2, 0);
+    View_SetToolMode(g_gameWindow, 0, (uint32_t)(2), 0);
     Game_PostInputEvent(0x3e8, 0, 0, 0, 0);
 }
 RT3_REPLACE(0x513050, NetMsg_SellTrain);
@@ -1606,7 +1605,7 @@ int32_t __fastcall TrainWindow_HandleEvent(uint8_t* w, int, uint32_t* msg) {
         const int32_t row = F<int32_t>(StopList496(w), 0x1d6);
         if (row >= 0 && Train496()) {
             if (IsMultiplayer()) {
-                uint8_t* mem = ((uint8_t*(__cdecl*)(size_t))0x53b070)(0x25);
+                uint8_t* mem = ((uint8_t*)crt::operator_new(0x25));
                 uint8_t* copy = mem ? (uint8_t*)Cursor33_Init(mem) : nullptr;
                 g_6d3b10 = copy;
                 OrderList_Init(copy);
@@ -1615,7 +1614,7 @@ int32_t __fastcall TrainWindow_HandleEvent(uint8_t* w, int, uint32_t* msg) {
                 IndustryEditor_Run((uint32_t)(uintptr_t)g_6d3b10, stop, (uint32_t)row);
                 for (int32_t i = F<int32_t>(g_6d3b10, 4) - 1; i >= 0; --i)
                     TrainOrders_Remove(g_6d3b10, 0, i);
-                ((void(__cdecl*)(void*))0x53b080)(g_6d3b10);
+                crt::operator_delete(g_6d3b10);
             } else {
                 uint8_t* stop = (uint8_t*)Array33_At(Train496(), 0, row);
                 IndustryEditor_Run((uint32_t)(uintptr_t)Identity(Train496()), stop, (uint32_t)row);
@@ -1737,12 +1736,12 @@ int32_t __fastcall TrainWindow_HandleEvent(uint8_t* w, int, uint32_t* msg) {
         F<uint16_t>(stop, 0x29) = (uint16_t)station;
         F<uint32_t>(stop, 0x2f) = 0x3e395810;
         if (IsMultiplayer() && !g_6d3ae4) {
-            uint32_t* req = ((uint32_t*(__cdecl*)(size_t))0x5a125d)(0x3b);
+            uint32_t* req = ((uint32_t*)crt::malloc(0x3b));
             req[0] = (uint32_t)Global6d40e4();
             req[1] = (uint32_t)SelectedTrainId();
             memcpy(req + 2, stop, 0x33);
             Net_SendToHost(g_session, 0, 0x41, 0x3b, (const uint8_t*)req);
-            ((void(__cdecl*)(void*))0x5a1145)(req);
+            crt::free(req);
             return 0;
         }
         int32_t idx = F<int32_t>(Identity(Train496()), 4);

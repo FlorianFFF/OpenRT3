@@ -22,6 +22,9 @@
 
 namespace rt3 {
 
+void __fastcall MapEditor_PaintPath(uint8_t* d, int, int32_t cnt, float* xs, float* ys, float rad, float strength, int32_t colorMode,
+                                    int32_t tex, uint32_t color, int32_t hard, int32_t erase);
+
 uint32_t __fastcall Obj_Get18(uint8_t* o);
 int32_t __fastcall Obj_Zero18And14(uint8_t* o);
 template <typename T> static inline T& F(void* o, uint32_t off) { return *(T*)((uint8_t*)o + off); }
@@ -303,9 +306,7 @@ static inline double D(uint32_t a) { return *(const double*)a; }
 
 static inline double Fl(uint32_t a) { return *(const float*)a; }
 
-static inline void* ExeNew(size_t n) { return ((void*(__cdecl*)(size_t))0x53b070)(n); }
 
-static inline void ExeDelete(void* p) { ((void(__cdecl*)(void*))0x53b080)(p); }
 
 static inline int32_t Ftol(double v) {
     int32_t r;
@@ -383,10 +384,10 @@ static char* __cdecl Shell_OpenCommandImpl(int32_t kind, const char* target) {
         FormatText(out, cmd, target, 0, 0, 0, 0, 0, 0, 0);
     } else {
         if (kind == 1) {
-            char* q = ((char*(__cdecl*)(const char*, const char*))0x5a1ff0)(cmd, (const char*)0x5d1644);
+            char* q = crt::strstr(cmd, (const char*)0x5d1644);
             if (q) *q = 0;
         }
-        ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)(out, (const char*)0x5ce184, cmd, target);
+        crt::sprintf(out, (const char*)0x5ce184, cmd, target);
     }
     HandleObj_Destruct(reg);
     return out;
@@ -500,13 +501,13 @@ RT3_NOINLINE void __fastcall MapEditor_Stroke(uint8_t* d, int, float x, float y,
     const int32_t fresh = F<int32_t>(d, 0xf0) == 0;
     int32_t total = F<int32_t>(d, 0xf0) + n;
     if (fresh) ++total;
-    float* xs = ((float*(__cdecl*)(size_t))0x5a125d)((size_t)(total * 4));
-    float* ys = ((float*(__cdecl*)(size_t))0x5a125d)((size_t)(total * 4));
+    float* xs = ((float*)crt::malloc((size_t)(total * 4)));
+    float* ys = ((float*)crt::malloc((size_t)(total * 4)));
     if (F<int32_t>(d, 0xf0)) {
         memcpy(xs, F<void*>(d, 0xf4), (size_t)(F<int32_t>(d, 0xf0) * 4));
         memcpy(ys, F<void*>(d, 0xf8), (size_t)(F<int32_t>(d, 0xf0) * 4));
-        ((void(__cdecl*)(void*))0x5a1145)(F<void*>(d, 0xf4));
-        ((void(__cdecl*)(void*))0x5a1145)(F<void*>(d, 0xf8));
+        crt::free(F<void*>(d, 0xf4));
+        crt::free(F<void*>(d, 0xf8));
     }
     F<float*>(d, 0xf4) = xs;
     F<float*>(d, 0xf8) = ys;
@@ -523,7 +524,7 @@ RT3_NOINLINE void __fastcall MapEditor_Stroke(uint8_t* d, int, float x, float y,
         // Cache the terrain types of the vertex grid.
         uint8_t* w = g_map;
         const size_t cells = (size_t)((F<int32_t>(w, 0x15d9) + 1) * (F<int32_t>(w, 0x15d5) + 1));
-        uint8_t* cache = ((uint8_t*(__cdecl*)(size_t))0x5a125d)(cells);
+        uint8_t* cache = ((uint8_t*)crt::malloc(cells));
         hook::As<uint8_t*>(g_6d132c) = cache;
         memset(cache, 0, cells);
         for (int32_t j = 0; j < F<int32_t>(g_map, 0x15d9) + 1; ++j)
@@ -536,9 +537,7 @@ RT3_NOINLINE void __fastcall MapEditor_Stroke(uint8_t* d, int, float x, float y,
     }
     if (F<int32_t>(d, 0x90) == 4 && (F<int32_t>(d, 0xb4) == 0 || F<int32_t>(d, 0xb4) == 2 || F<int32_t>(d, 0xb4) == 1))
         r = ((const float*)0x6227e4)[F<int32_t>(d, 0x98)];
-    ((void(__thiscall*)(uint8_t*, int32_t, float*, float*, float, float, int32_t, int32_t, uint32_t, int32_t, int32_t))0x4f8bb0)(
-        d, F<int32_t>(d, 0xf0), F<float*>(d, 0xf4), F<float*>(d, 0xf8), r, ((const float*)0x622790)[F<int32_t>(d, 0x9c)], F<int32_t>(d, 0x88),
-        F<int32_t>(d, 0xa0), F<uint32_t>(d, 0x80), F<int32_t>(d, 0x8c) == 0, erase);
+    MapEditor_PaintPath(d, 0, F<int32_t>(d, 0xf0), F<float*>(d, 0xf4), F<float*>(d, 0xf8), r, ((const float*)0x622790)[F<int32_t>(d, 0x9c)], F<int32_t>(d, 0x88), F<int32_t>(d, 0xa0), F<uint32_t>(d, 0x80), F<int32_t>(d, 0x8c) == 0, erase);
     g_622844 = x;
     g_622848 = y;
 }
@@ -1055,7 +1054,7 @@ RT3_NOINLINE void __fastcall SettingsWindow_Destruct(uint8_t* w) {
     F<uint32_t>(w, 0) = 0x5d14a4;
     if (Collection* c = g_6d1354) {
         Collection_Destruct(c);
-        ExeDelete(c);
+        crt::operator_delete(c);
     }
     g_6d1354 = nullptr;
     if (!Obj_Idlec60(g_windowManager)) Obj_Decc60(g_windowManager);
@@ -1217,10 +1216,10 @@ RT3_NOINLINE void __fastcall OptionsDialog_FillModels(uint8_t* w, int, int32_t) 
     Window_SendEvent5(w, 0, 0x8b, 0x757a, 0, 0, 0);
     if (Collection* old = g_6d1354) {
         Collection_Destruct(old);
-        ((void(__cdecl*)(void*))0x53b080)(old);
+        crt::operator_delete(old);
     }
     g_6d1354 = nullptr;
-    Collection* c = (Collection*)((void*(__cdecl*)(size_t))0x53b070)(0x88);
+    Collection* c = (Collection*)crt::operator_new(0x88);
     g_6d1354 = c ? Collection_Construct(c, 0, 1, 0x108, 10, 5, 0, 0, 0) : nullptr;
     while (uint8_t* m = Models_NextInOrder()) {
         uint8_t rec[0x108];
@@ -1247,12 +1246,11 @@ RT3_REPLACE(0x4fec60, OptionsDialog_FillModels);
 void __fastcall OptionsDialog_OnSlider(uint8_t* sl, int32_t v) {
     char text[0x1ec];
     typedef int(__cdecl * Sprintf)(char*, const char*, ...);
-    Sprintf sprintf_ = (Sprintf)0x5a19c4;
     auto percent = [&]() {
-        if (v > 0) sprintf_(text, (const char*)0x5d0b18, v * 10);
+        if (v > 0) crt::sprintf(text, (const char*)0x5d0b18, v * 10);
         else FormatText(text, GetString(8), 0, 0, 0, 0, 0, 0, 0, 0);
     };
-    auto speedText = [&]() { sprintf_(text, (const char*)0x5d0b18, Ftol((double)((const float*)0x5f34b0)[v] * Fl(0x5c8c28) + D(0x5c85b8))); };
+    auto speedText = [&]() { crt::sprintf(text, (const char*)0x5d0b18, Ftol((double)((const float*)0x5f34b0)[v] * Fl(0x5c8c28) + D(0x5c85b8))); };
     auto number = [&]() { Num_Format(text, 1, (double)v, 10, 1, 0, 0); };
     auto detail = [&](int32_t which, int32_t level, bool list755f) {
         Options_SetDetail(g_app, 0, which, level, 1);
@@ -1285,7 +1283,7 @@ void __fastcall OptionsDialog_OnSlider(uint8_t* sl, int32_t v) {
     case 0x7558: {
         float fv = (float)v;
         float off = (float)((double)fv / Fl(0x5c8784) + Fl(0x5c8d48));
-        sprintf_(text, (const char*)0x5d14d0, (double)off);
+        crt::sprintf(text, (const char*)0x5d14d0, (double)off);
         uint32_t bits;
         memcpy(&bits, &off, 4);
         if (!g_6d135d) Engine_SetCursorObject(hook::As<void*>(g_engine), 0, bits);
@@ -1677,7 +1675,7 @@ RT3_NOINLINE uint8_t* __fastcall SettingsWindow_Construct(uint8_t* w) {
             F<int32_t>(item, 0x14) = prev;
         }
         Window_SendEvent5(w, 0, 0x89, 0x7532, (uint32_t)(uintptr_t)item, 0, 0);
-        Free(F<void*>(item, 0));
+        crt::free(F<void*>(item, 0));
     }
     Window_SendEvent5(w, 0, 0x73, 0x7596, 5, 0, 0);
     static const uint32_t handlers[][2] = {
@@ -1717,12 +1715,12 @@ RT3_NOINLINE uint8_t* __fastcall SettingsWindow_Construct(uint8_t* w) {
             F<float>(b, 0xf) = (float)((double)F<float>(b, 0xf) + D(0x5d1528));
             F<float>(b, 0x7d) = (float)((double)F<float>(b, 0x7d) + D(0x5d1528));
         }
-        uint8_t* c = (uint8_t*)ExeNew(0xe8);
+        uint8_t* c = (uint8_t*)crt::operator_new(0xe8);
         c = c ? Button_Construct(c, 0, b) : nullptr;
         Window_AddChild(w, 0, c, 0);
-        Free(F<void*>(b, 0x43));
-        Free(F<void*>(b, 0x6f));
-        Free(F<void*>(b, 0x3f));
+        crt::free(F<void*>(b, 0x43));
+        crt::free(F<void*>(b, 0x6f));
+        crt::free(F<void*>(b, 0x3f));
     }
     Window_SendEvent5(w, 0, 0x74, 0x759d, F<uint32_t>(g_engine, 0x11474a), 0, 0);
     Window_SendEvent5(w, 0, 0xb2, 0x7554, 0x2c7, 0, 0);
@@ -1744,11 +1742,11 @@ RT3_NOINLINE uint8_t* __fastcall SettingsWindow_Construct(uint8_t* w) {
             String_Assign(&F<char*>(e, 0x3f), GetString(tip));
             e[0x33] = 2;
             F<uint16_t>(e, 5) = parent;
-            uint8_t* c = (uint8_t*)ExeNew(0xf0);
+            uint8_t* c = (uint8_t*)crt::operator_new(0xf0);
             c = c ? EditBox_Construct(c, 0, e) : nullptr;
             Window_AddChild(w, 0, c, 0);
-            Free(F<void*>(e, 0x77));
-            Free(F<void*>(e, 0x3f));
+            crt::free(F<void*>(e, 0x77));
+            crt::free(F<void*>(e, 0x3f));
         }
         uint8_t t[0x12f];
         memset(t, 0, sizeof t);
@@ -1771,11 +1769,11 @@ RT3_NOINLINE uint8_t* __fastcall SettingsWindow_Construct(uint8_t* w) {
         t[0x3e] = 1;
         String_Assign(&F<char*>(t, 0x3f), GetString(tip));
         String_Assign(&F<char*>(t, 0x43), (const char*)0x5d1514);
-        uint8_t* c = (uint8_t*)ExeNew(0x1ea);
+        uint8_t* c = (uint8_t*)crt::operator_new(0x1ea);
         c = c ? TreeView_Construct(c, 0, t) : nullptr;
         Window_AddChild(w, 0, c, 0);
-        Free(F<void*>(t, 0x43));
-        Free(F<void*>(t, 0x3f));
+        crt::free(F<void*>(t, 0x43));
+        crt::free(F<void*>(t, 0x3f));
         Window_SendEvent5(w, 0, 0x79, id, handler, 0, 0);
     };
     row(0x7540, 0x3e222222, 0xfe6, 0xfe7, 0x759e, 0x3e488889, 0x4fd4a0);
@@ -1800,7 +1798,7 @@ RT3_REPLACE(0x500640, SettingsWindow_Construct);
 RT3_NOINLINE void OptionsDialog_Open() {
     if (g_optionsWindow) return;
     g_6d1360 = 0;
-    uint8_t* o = (uint8_t*)((void*(__cdecl*)(size_t))0x53b070)(0x78);
+    uint8_t* o = (uint8_t*)crt::operator_new(0x78);
     g_optionsWindow = o ? SettingsWindow_Construct(o) : nullptr;
     Window_SendEvent5(g_optionsWindow, 0, 0x66, 0x7532, 2, 0, 0);
     OptionsDialog_ShowPage(g_optionsWindow, 0, 2);
@@ -1811,7 +1809,7 @@ RT3_NOINLINE void OptionsDialog_Open() {
     Windows_Remove(g_windowManager, 0, g_optionsWindow);
     if (uint8_t* w = g_optionsWindow) {
         SettingsWindow_Destruct(w);
-        ((void(__cdecl*)(void*))0x53b080)(w);
+        crt::operator_delete(w);
     }
     g_optionsWindow = nullptr;
 }

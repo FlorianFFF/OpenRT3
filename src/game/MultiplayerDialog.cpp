@@ -12,6 +12,7 @@
 #include "core/globals.h"
 #include "game/collection.h"
 #include "core/crt.h"
+#include "core/imports.h"
 #include "hook/keepregs.h"
 #include "core/stream.h"
 #include "core/ptrlist.h"
@@ -23,6 +24,10 @@
 #undef small
 
 namespace rt3 {
+
+void __fastcall App_SetViewMode(uint8_t* app, int, int32_t mode);
+
+uint8_t* __fastcall SaveList_Init(uint8_t* list, int, int32_t kind);
 
 template <typename T> static inline T& F(void* o, uint32_t off) { return *(T*)((uint8_t*)o + off); }
 int32_t Net_LockQueue();
@@ -307,7 +312,6 @@ RT3_NOINLINE uint8_t* __fastcall Button_Construct(uint8_t* w, int, const uint8_t
 // The network player list (head from Net_LockQueue): nodes {next, ?, name +8, flags +0x5c}.
 static inline uint8_t* PlayerHead() { return *(uint8_t**)Net_LockQueue(); }
 
-static inline void ExeDelete(void* p) { ((void(__cdecl*)(void*))0x53b080)(p); }
 
 static inline uint8_t* Options() { return g_app; }
 
@@ -319,8 +323,8 @@ static inline void Copy(char* d, const char* s) { while ((*d++ = *s++) != 0) {} 
 static inline void SetChildText(uint8_t* dlg, int32_t id, const char* s) {
     uint8_t* c = Widget_FindChild(dlg, 0, id);
     if (!F<void*>(c, 0xba)) return;
-    Free(F<void*>(c, 0xba));
-    char* p = (char*)Malloc(Len(s) + 2);
+    crt::free(F<void*>(c, 0xba));
+    char* p = (char*)crt::malloc(Len(s) + 2);
     F<char*>(c, 0xba) = p;
     Copy(p, s);
 }
@@ -329,7 +333,6 @@ static inline double D(uint32_t a) { return *(const double*)a; }
 
 static inline double Fl(uint32_t a) { return *(const float*)a; }
 
-static inline void* ExeNew(size_t n) { return ((void*(__cdecl*)(size_t))0x53b070)(n); }
 
 static inline int32_t Ftol(double v) {
     int32_t r;
@@ -348,7 +351,6 @@ static inline uint32_t FBits(float f) { return *(uint32_t*)&f; }
 
 static inline double BitsD(uint64_t b) { return *(double*)&b; }
 
-static inline SprintfFn ExeSprintf() { return (SprintfFn)0x5a19c4; }
 
 // 0x4ed890 (mode in EDI). Multiplayer: shows the wait cursor, opens a modal
 // count and starts the session worker thread 0x6d1294 (vtable 0x5d1250, the old
@@ -367,7 +369,7 @@ static void __cdecl Session_StartWorker_Impl(int32_t mode) {
         (*(void(__fastcall**)(uint8_t*, int, int32_t))F<void**>(t, 0))(t, 0, 1);
         g_6d1294 = nullptr;
     }
-    uint32_t* t = (uint32_t*)ExeNew(0x10);
+    uint32_t* t = (uint32_t*)crt::operator_new(0x10);
     if (t) {
         t[1] = 0;
         t[2] = 0;
@@ -398,13 +400,11 @@ static void Session_StartWorkerMode(int32_t mode) {
 }
 
 static void Event(uint8_t* window, uint32_t message, uint32_t id, uint32_t value) {
-    hook::Orig<void(__fastcall*)(uint8_t*, int, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t)>(0x540120)(
-        window, 0, message, id, value, 0, 0);
+    Window_SendEvent5(window, 0, message, id, value, 0, 0);
 }
 
 static void Event_dialog_selection(uint8_t* dialog, uint32_t message, uint32_t id, uint32_t data) {
-    hook::Orig<void(__fastcall*)(uint8_t*, int, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t)>(0x540120)(
-        dialog, 0, message, id, data, 0, 0);
+    Window_SendEvent5(dialog, 0, message, id, data, 0, 0);
 }
 
 // 0x4ea060 (draw callback; x, y, w, h). Company window p draws page +0x78:
@@ -475,9 +475,9 @@ RT3_NOINLINE uint8_t* __fastcall LoadScreen_Construct(uint8_t* w) {
     } while (pic == g_app[0x2c7]);
     g_app[0x2c7] = (uint8_t)pic;
     // Through the original address: the tests stub the options file write.
-    ((void(__fastcall*)(uint8_t*, int, int32_t))0x484910)(g_app, 0, 1);
+    Options_Save(g_app, 0, 1);
     char name[0x80];
-    ExeSprintf()(name, (const char*)0x5d1180, pic);
+    crt::sprintf(name, (const char*)0x5d1180, pic);
     for (int32_t i = 0; i < 3; ++i) Window_SendEvent5(w, 0, 0x75, 0x84d3 + i, (uint32_t)(uintptr_t)name, 0, 0);
     return w;
 }
@@ -499,7 +499,7 @@ void __fastcall TitleScreen_Destruct(uint8_t* w) {
     hook::As<int32_t>(g_6d10b0) = 0;
     if (uint8_t* m = g_6cfd34) {
         Music_Close(m);
-        ExeDelete(m);
+        crt::operator_delete(m);
     }
     hook::As<void*>(g_6cfd34) = nullptr;
     Widget_SetVtbl(w);
@@ -560,10 +560,10 @@ RT3_NOINLINE void __fastcall MapSizePanel_Build(uint8_t* w, int, float x, float 
         F<int32_t>(def, 0x34) = -1;
         String_Assign(&F<char*>(def, 0x77), text);
         def[0x33] = kind == 3 ? 3 : 1;
-        uint8_t* e = (uint8_t*)ExeNew(0xf0);
+        uint8_t* e = (uint8_t*)crt::operator_new(0xf0);
         e = e ? EditBox_Construct(e, 0, def) : nullptr;
         Window_AddChild(w, 0, e, 0);
-        Free(F<void*>(def, 0x77));
+        crt::free(F<void*>(def, 0x77));
     };
     auto list = [&](uint16_t id) {
         cy = (float)((double)cy + D(0x5c9b80));
@@ -593,10 +593,10 @@ RT3_NOINLINE void __fastcall MapSizePanel_Build(uint8_t* w, int, float x, float 
         F<uint32_t>(def, 0xc7) = 0x3e51eb85;
         F<uint32_t>(def, 0xcb) = 0x3c088889;
         String_Assign(&F<char*>(def, 0x43), (const char*)0x5ce8d8);
-        uint8_t* l = (uint8_t*)ExeNew(0x1b9);
+        uint8_t* l = (uint8_t*)crt::operator_new(0x1b9);
         l = l ? ListBox_Construct(l, 0, def) : nullptr;
         Window_AddChild(w, 0, l, 0);
-        Free(F<void*>(def, 0x43));
+        crt::free(F<void*>(def, 0x43));
         Window_SendEvent5(w, 0, 0x84, id, 0x4ea8c0, 0, 0);
     };
     editBox(0, x, (float)((double)cy + D(0x5c8678)), width, 0x3cf5c28f, 0, GetString(0xf4));
@@ -624,10 +624,10 @@ RT3_NOINLINE void __fastcall MapSizePanel_Build(uint8_t* w, int, float x, float 
         F<int32_t>(def, 0x34) = -1;
         String_Assign(&F<char*>(def, 0x77), (const char*)0x5c87a8);
         def[0x33] = 3;
-        uint8_t* e = (uint8_t*)ExeNew(0xf0);
+        uint8_t* e = (uint8_t*)crt::operator_new(0xf0);
         e = e ? EditBox_Construct(e, 0, def) : nullptr;
         Window_AddChild(w, 0, e, 0);
-        Free(F<void*>(def, 0x77));
+        crt::free(F<void*>(def, 0x77));
     }
     if (g_6d10c0) {
         int32_t a = g_6d10c4, b = g_6d10c8;
@@ -830,7 +830,7 @@ void __fastcall MergerWindow_DrawVotes(void*, int, float x, float y, float w, fl
         if (strlen(num) < 8) {
             char padded[0x1c];
             memcpy(padded, (const void*)0x5d11e0, sizeof padded);
-            ExeSprintf()(padded + 8 - strlen(num), num);
+            crt::sprintf(padded + 8 - strlen(num), num);
             strcpy(num, padded);
         }
         Font_DrawTextBox(g_6d111c, 0, num, xs, cy, ws, h, 0xffffffff, 3, 1, 1, 1.0f);
@@ -944,10 +944,10 @@ void __fastcall CompanyPicker_Build(uint8_t* win, int, float x, float y, float, 
         F<float>(d, 7) = xa;
         F<uint16_t>(d, 0x5f) = 1;
         String_Assign(&F<char*>(d, 0x43), (const char*)0x5d1210);
-        uint8_t* f = (uint8_t*)ExeNew(0x111);
+        uint8_t* f = (uint8_t*)crt::operator_new(0x111);
         f = f ? Scrollbar_Construct(f, 0, d) : nullptr;
         Window_AddChild(win, 0, f, 0);
-        Free(F<void*>(d, 0x43));
+        crt::free(F<void*>(d, 0x43));
     }
     {
         uint8_t t[0x12f];
@@ -975,12 +975,12 @@ void __fastcall CompanyPicker_Build(uint8_t* win, int, float x, float y, float, 
         F<int32_t>(t, 0xd7) = 5;
         F<int32_t>(t, 0x5f) = 6;
         String_Assign(&F<char*>(t, 0x43), (const char*)0x5d0a10);
-        uint8_t* tv = (uint8_t*)ExeNew(0x1ea);
+        uint8_t* tv = (uint8_t*)crt::operator_new(0x1ea);
         tv = tv ? TreeView_Construct(tv, 0, t) : nullptr;
         Window_AddChild(win, 0, tv, 0);
         Window_SendEvent5(win, 0, 0x79, 0xbfcd, 0x4eb340, 0, 0);
         Window_SendEvent5(win, 0, 0x7a, 0xbfcd, 0x4eb350, 0, 0);
-        Free(F<void*>(t, 0x43));
+        crt::free(F<void*>(t, 0x43));
     }
     hook::As<int32_t>(g_companyOverview) = -2;
     int32_t first = -1;
@@ -1023,10 +1023,10 @@ void __fastcall CompanyPicker_Build(uint8_t* win, int, float x, float y, float, 
         F<uint32_t>(s, 0xc7) = 0x3e51eb85;
         F<uint32_t>(s, 0xcb) = 0x3c088889;
         String_Assign(&F<char*>(s, 0x43), (const char*)0x5ce8d8);
-        uint8_t* lb = (uint8_t*)ExeNew(0x1b9);
+        uint8_t* lb = (uint8_t*)crt::operator_new(0x1b9);
         lb = lb ? ListBox_Construct(lb, 0, s) : nullptr;
         Window_AddChild(win, 0, lb, 0);
-        Free(F<void*>(s, 0x43));
+        crt::free(F<void*>(s, 0x43));
     }
     Window_SendEvent5(win, 0, 0x84, 0xbfce, 0x4eb250, 0, 0);
     if (first != -1) Window_SendEvent5(win, 0, 0x68, 0xbfcd, (uint32_t)first, 0, 0);
@@ -1201,19 +1201,19 @@ RT3_NOINLINE void __fastcall Setup_AddPortraitPicker(uint8_t* win, int, float x,
     memset(def, 0, sizeof def);
     F<float>(def, 7) = (float)((double)x + D(0x5c8590));
     char name[0x30];
-    ExeSprintf()(name, (const char*)0x5d0ab0, g_6226d0);
+    crt::sprintf(name, (const char*)0x5d0ab0, g_6226d0);
     F<float>(def, 0xb) = (float)((double)y + D(0x5c8918));
     F<uint32_t>(def, 0xf) = 0x3dcccccd;
     F<uint32_t>(def, 0x13) = 0x3e19999a;
     F<uint16_t>(def, 0x5f) = 0;
     F<uint16_t>(def, 0) = 0x3f1f;
     String_Assign(&F<char*>(def, 0x43), name);
-    uint8_t* pic = (uint8_t*)ExeNew(0x111);
+    uint8_t* pic = (uint8_t*)crt::operator_new(0x111);
     if (pic) pic = Scrollbar_Construct(pic, 0, def);
     F<uint32_t>(pic, 0x100) = 0x3f3ae148;
     F<uint32_t>(pic, 0x104) = 0x3f3851ec;
     Window_AddChild(win, 0, pic, 0);
-    Free(F<void*>(def, 0x43));
+    crt::free(F<void*>(def, 0x43));
     float bx = (float)((double)x + D(0x5c9c80));
     auto button = [&](uint16_t id, float by, uint16_t up, uint16_t down, int32_t tip) {
         uint8_t b[0xa5];
@@ -1229,11 +1229,11 @@ RT3_NOINLINE void __fastcall Setup_AddPortraitPicker(uint8_t* win, int, float x,
         b[0x8a] = 7;
         String_Assign(&F<char*>(b, 0x43), (const char*)0x5d08b8);
         String_Assign(&F<char*>(b, 0x3f), GetString(tip));
-        uint8_t* c = (uint8_t*)ExeNew(0xe9);
+        uint8_t* c = (uint8_t*)crt::operator_new(0xe9);
         if (c) c = Control_Construct(c, 0, b);
         Window_AddChild(win, 0, c, 0);
-        Free(F<void*>(b, 0x43));
-        Free(F<void*>(b, 0x3f));
+        crt::free(F<void*>(b, 0x43));
+        crt::free(F<void*>(b, 0x3f));
     };
     button(0x3f20, (float)((double)y + D(0x5c86e0)), 2, 3, 0xe62);
     button(0x3f21, (float)((double)y + D(0x5c8648)), 4, 5, 0xe65);
@@ -1257,7 +1257,7 @@ RT3_NOINLINE int32_t __fastcall Count40_StepCb(uint8_t* w, const uint32_t* ev) {
         return 1;
     }
     char text[0x40];
-    ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)(text, (const char*)0x5d0ab0, v);
+    crt::sprintf(text, (const char*)0x5d0ab0, v);
     Window_SendEvent5(w, 0, 0x70, 0x3f1f, (uint32_t)(uintptr_t)text, 0, 0);
     return 0;
 }
@@ -1272,10 +1272,10 @@ void __fastcall Dialog_AddTwoEntryFields(uint8_t* win, int, float x, float y, fl
         uint8_t d[0x91];
         memset(d, 0, sizeof d);
         fill(d);
-        uint8_t* e = (uint8_t*)ExeNew(0xf0);
+        uint8_t* e = (uint8_t*)crt::operator_new(0xf0);
         e = e ? EditBox_Construct(e, 0, d) : nullptr;
         Window_AddChild(win, 0, e, 0);
-        Free(F<void*>(d, 0x77));
+        crt::free(F<void*>(d, 0x77));
     };
     auto addFrame = [&](float fy) {
         uint8_t d[0x89];
@@ -1286,7 +1286,7 @@ void __fastcall Dialog_AddTwoEntryFields(uint8_t* win, int, float x, float y, fl
         F<uint32_t>(d, 0x13) = 0x3d23d70a;
         F<int32_t>(d, 0x61) = 3;
         F<int32_t>(d, 0x75) = 6;
-        uint8_t* f = (uint8_t*)ExeNew(0x111);
+        uint8_t* f = (uint8_t*)crt::operator_new(0x111);
         f = f ? Scrollbar_Construct(f, 0, d) : nullptr;
         Window_AddChild(win, 0, f, 0);
     };
@@ -1354,7 +1354,7 @@ RT3_REPLACE(0x4ed570, Dialog_ClearChildrenE61);
 RT3_NOINLINE void __fastcall NameDialog_ShowName(uint8_t* d, int, const char* name) {
     SetChildText(d, 0xe48, name);
     SetChildText(d, 0xe5d, name);
-    if (Stricmp((const char*)Options() + 0x1ef, name)) Copy((char*)Options() + 0x1ef, name);
+    if (crt::stricmp((const char*)Options() + 0x1ef, name)) Copy((char*)Options() + 0x1ef, name);
 }
 RT3_REPLACE(0x4ed590, NameDialog_ShowName);
 
@@ -1398,7 +1398,7 @@ RT3_REPLACE(0x4ed790, NewGameDialog_ShowDifficulty);
 // 0x4ed7e0 / 0x4ed870. Scalar deleting destructors of two worker thread classes.
 uint8_t* __fastcall WorkerA_Delete(uint8_t* t, int, uint32_t flags) {
     Thread_Destruct(t);
-    if (flags & 1) ((void(__cdecl*)(void*))0x53b080)(t);
+    if (flags & 1) crt::operator_delete(t);
     return t;
 }
 RT3_REPLACE(0x4ed7e0, WorkerA_Delete);
@@ -1417,7 +1417,7 @@ RT3_REPLACE(0x4ed800, Session_Init);
 
 uint8_t* __fastcall WorkerB_Delete(uint8_t* t, int, uint32_t flags) {
     Thread_Destruct(t);
-    if (flags & 1) ((void(__cdecl*)(void*))0x53b080)(t);
+    if (flags & 1) crt::operator_delete(t);
     return t;
 }
 RT3_REPLACE(0x4ed870, WorkerB_Delete);
@@ -1529,10 +1529,10 @@ RT3_REPLACE(0x4edbb0, NewGame_CapAiSlots);
 RT3_NOINLINE void __fastcall Session_Restart(uint8_t* w, int, int32_t host) {
     if (uint8_t* s = g_session) {
         Session_Shutdown(s);
-        ExeDelete(s);
+        crt::operator_delete(s);
         g_session = nullptr;
     }
-    uint8_t* s = (uint8_t*)ExeNew(0x9898);
+    uint8_t* s = (uint8_t*)crt::operator_new(0x9898);
     g_session = s ? Session_Init(s) : nullptr;
     if (uint8_t* c = Widget_FindChild(w, 0, 0xe47))
         if (char* text = F<char*>(c, 0xba)) *text = 0;
@@ -1576,11 +1576,11 @@ void __fastcall Lobby_AddPlayerButton(int32_t, int32_t slot, int32_t key, float 
     String_Assign(&F<char*>(d, 0x43), (const char*)0x5d1258);
     String_Assign(&F<char*>(d, 0x3f), GetString((flags & 1) ? 0xe66 : 0xe67));
     F<int32_t>(d, 0x89) = (flags & 1) ? 1 : 0;
-    uint8_t* b = (uint8_t*)ExeNew(0xe8);
+    uint8_t* b = (uint8_t*)crt::operator_new(0xe8);
     if (b) b = Button_Construct(b, 0, d);
     Window_AddChild(g_6d1268, 0, b, 0);
-    ((void(__cdecl*)(void*))0x5a1145)(F<void*>(d, 0x43));
-    ((void(__cdecl*)(void*))0x5a1145)(F<void*>(d, 0x3f));
+    crt::free(F<void*>(d, 0x43));
+    crt::free(F<void*>(d, 0x3f));
     uint8_t* panel = g_6d1268;
     int32_t page = F<int32_t>(panel, 0x78);
     Window_SendEvent5(panel, 0, page == 0xe15 || page == 0xe16 ? 0x86 : 0x6d, 0xe14, 3, 0, 0);
@@ -1670,7 +1670,7 @@ RT3_NOINLINE void __fastcall MpDialog_Join(uint8_t* w, int, const char* address)
         if (g_6ae3c8 <= 1) {
             if (g_6ae3cc) {
                 memset((void*)0x6d1228, 0, 0x40);
-                ((char*(__cdecl*)(char*, const char*, size_t))0x5a18a0)((char*)0x6d1228, (const char*)0x6ae3cc, 0x3f);
+                crt::strncpy((char*)0x6d1228, (const char*)0x6ae3cc, 0x3f);
             } else
                 g_6d1228 = 0;
         }
@@ -1693,11 +1693,11 @@ void __fastcall OptionsScreen_Destruct(uint8_t* w) {
     Options_Save(Options(), 0, 0);
     if (void* p = hook::As<void*>(g_6d126c)) {
         Obj_FreeBuffer8(p);
-        ExeDelete(p);
+        crt::operator_delete(p);
         hook::As<void*>(g_6d126c) = nullptr;
     }
     if (void* p = hook::As<void*>(g_lobbyBuffer)) {
-        ExeDelete(p);
+        crt::operator_delete(p);
         hook::As<void*>(g_lobbyBuffer) = nullptr;
     }
     if (void* p = hook::As<void*>(g_6d1294)) {
@@ -1795,7 +1795,7 @@ RT3_NOINLINE void __fastcall GameList_Fill(uint8_t* w) {
     if (Str_IsBlank(F<const char*>(status, 0xba))) {
         uint8_t* g = games + 4;
         for (int32_t k = 0; k < 0x80; ++k, g += 0x11c) {
-            if (!((int(__cdecl*)(const char*, const char*))0x5a57cf)((const char*)g, name)) sel = count;
+            if (!crt::stricmp((const char*)g, name)) sel = count;
             if (!F<int32_t>(g, 0x100)) break;
             Window_SendEvent5(w, 0, 0x88, list, (uint32_t)(uintptr_t)g, 0, 0);
             ++count;
@@ -1848,7 +1848,7 @@ RT3_REPLACE(0x4ee810, Lobby_AddChatText);
 RT3_NOINLINE void __fastcall MpScenarioPanel_Update(uint8_t* d, int, const char* path, const char* name, int32_t force) {
     uint8_t* g = g_newGame;
     if (path) {
-        if (!force && g[0x10] && !Stricmp((const char*)g + 0x11, path)) return;
+        if (!force && g[0x10] && !crt::stricmp((const char*)g + 0x11, path)) return;
         g_newGame[0x10] = 1;
         StrCopyN((char*)g_newGame + 0x11, path, 0x32);
         StrCopyN((char*)g_newGame + 0x44, name, 0x32);
@@ -1861,7 +1861,7 @@ RT3_NOINLINE void __fastcall MpScenarioPanel_Update(uint8_t* d, int, const char*
         for (uint32_t id : ids) Window_SendEvent5(d, 0, 0x6f, id, 0x5c87a8, 0, 0);
         return;
     }
-    const char* hit = ((const char*(__cdecl*)(const char*, const char*))0x5a1ff0)((const char*)g_newGame + 0x11, (const char*)0x5c9cf8);
+    const char* hit = ((const char*)crt::strstr((const char*)g_newGame + 0x11, (const char*)0x5c9cf8));
     F<int32_t>(g_app, 0x6c) = !hit;
     Block_Load((const char*)g_newGame + 0x11, g_lobbyBuffer, 0);
     uint8_t* info = g_lobbyBuffer;
@@ -1901,7 +1901,7 @@ void __fastcall MpScenarioList_Fill(uint8_t* d) {
     Window_SendEvent5(d, 0, 0x8b, 0xe30, 0, 0, 0);
     for (int32_t i = 0; i < F<int32_t>(g_6d126c, 0); ++i) {
         Window_SendEvent5(d, 0, 0x88, 0xe30, (uint32_t)(uintptr_t)(F<uint8_t*>(g_6d126c, 8) + i * 0x25a + 0x12d), 0, 0);
-        if (!Stricmp((const char*)F<uint8_t*>(g_6d126c, 8) + i * 0x25a + 0x12d, (const char*)g_newGame + 0x44))
+        if (!crt::stricmp((const char*)F<uint8_t*>(g_6d126c, 8) + i * 0x25a + 0x12d, (const char*)g_newGame + 0x44))
             Window_SendEvent5(d, 0, 0x66, 0xe30, (uint32_t)i, 0, 0);
     }
     uint8_t* g = g_newGame;
@@ -1928,23 +1928,23 @@ RT3_NOINLINE void __fastcall MpScenario_SelectSource(uint8_t* dialog, int, int32
     if (choice != 0xe15) {
         if (g_6d1291) {
             uint8_t* options = g_newGame;
-            hook::Orig<void(__fastcall*)(uint8_t*, int, const char*, const char*, int32_t)>(0x4ee950)(
+            MpScenarioPanel_Update(
                 dialog, 0, options[0x10] ? (const char*)options + 0x11 : nullptr,
                 options[0x10] ? (const char*)options + 0x44 : nullptr, options[0x10] ? 1 : 0);
         }
         return;
     }
     char text[32];
-    hook::Orig<char*(__fastcall*)(char*, int32_t, double, int32_t, int32_t, int32_t, int32_t)>(0x51b700)(
+    Num_Format(
         text, 8, (double)F_dialog_flow<uint16_t>(hook::As<void*>(g_newGame), 0x77), 10, 1, 0, 0);
     Event(dialog, 0x6f, 0xe2f, (uint32_t)(uintptr_t)text);
     F_dialog_flow<int32_t>(hook::As<void*>(g_app), 0x6c) = 1;
-    hook::Orig<void(__fastcall*)(void*, int, int32_t)>(0x482e50)(hook::As<void*>(g_app), 0, 0);
+    App_SetViewMode((uint8_t*)(hook::As<void*>(g_app)), 0, 0);
     uint8_t* list = g_6d126c;
     bool copy;
     if (!list) {
-        uint8_t* mem = hook::Orig<uint8_t*(__cdecl*)(uint32_t)>(0x53b070)(12);
-        list = mem ? hook::Orig<uint8_t*(__fastcall*)(uint8_t*, int, int32_t)>(0x4336a0)(mem, 0, 7) : nullptr;
+        uint8_t* mem = ((uint8_t*)crt::operator_new(12));
+        list = mem ? SaveList_Init(mem, 0, 7) : nullptr;
         // The native CMP dereferences the result before publishing it.
         int32_t count = *(volatile int32_t*)list;
         g_6d126c = list;
@@ -1952,13 +1952,11 @@ RT3_NOINLINE void __fastcall MpScenario_SelectSource(uint8_t* dialog, int, int32
     } else copy = F_dialog_flow<int32_t>(list, 0) > 0 && g_6d40dc;
     if (copy) {
         g_newGame[0x10] = 1;
-        hook::Orig<void(__fastcall*)(char*, const char*, uint32_t)>(0x51d8a0)(
-            (char*)hook::As<void*>(g_newGame) + 0x11, F_dialog_flow<const char*>(list, 8), 50);
+        StrCopyN((char*)hook::As<void*>(g_newGame) + 0x11, F_dialog_flow<const char*>(list, 8), (size_t)(50));
         list = g_6d126c;
-        hook::Orig<void(__fastcall*)(char*, const char*, uint32_t)>(0x51d8a0)(
-            (char*)hook::As<void*>(g_newGame) + 0x44, F_dialog_flow<const char*>(list, 8) + 0x12d, 50);
+        StrCopyN((char*)hook::As<void*>(g_newGame) + 0x44, F_dialog_flow<const char*>(list, 8) + 0x12d, (size_t)(50));
     }
-    if (!g_6d1291) hook::Orig<void(__fastcall*)(uint8_t*)>(0x4eed30)(dialog);
+    if (!g_6d1291) MpScenarioList_Fill(dialog);
 }
 RT3_REPLACE(0x4eee00, MpScenario_SelectSource);
 
@@ -1974,19 +1972,19 @@ RT3_NOINLINE void __fastcall MpDialog_SelectMode(uint8_t* dialog, int, int32_t c
         char* address = hook::Orig<char*(__fastcall*)(void*, int, char*)>(0x5216f0)(hook::As<void*>(g_6d40d0), 0, buffer);
         Event_dialog_selection(dialog, 0x6f, 0xe46, (uint32_t)(uintptr_t)address);
     } else if (choice == 0xe12) {
-        hook::Orig<void(__fastcall*)(uint8_t*)>(0x4ed730)(dialog);
-        hook::Orig<void(__fastcall*)(uint8_t*)>(0x4ed790)(dialog);
+        NewGameDialog_ShowSetting7b(dialog);
+        NewGameDialog_ShowDifficulty(dialog);
         Event_dialog_selection(dialog, 0x7a, 0xe35, 0x4ede80);
         Event_dialog_selection(dialog, 0x7e, 0xe35, 0x4edd00);
         Event_dialog_selection(dialog, 0x7f, 0xe35, 0x4ed570);
-        hook::Orig<void(__fastcall*)(uint8_t*, int, int32_t)>(0x4eee00)(dialog, 0, 0xe15);
+        MpScenario_SelectSource(dialog, 0, 0xe15);
         if (F_dialog_selection<int32_t>(hook::As<void*>(g_session), 0x985c)) state = 0x6d;
     } else if (choice == 0xe10) {
         if (!hook::Orig<uint8_t(__cdecl*)()>(0x51b6f0)()) Event_dialog_selection(dialog, 0x87, 0xe4c, 3);
     } else if (choice == 0xe13) state = 0x6d;
     Event_dialog_selection(dialog, state, 0xe55, 3);
-    hook::Orig<void(__fastcall*)(uint8_t*, int, int32_t)>(0x4eee00)(dialog, 0, -1);
-    uint32_t clock = hook::Orig<uint32_t(__cdecl*)()>(0x51d890)();
+    MpScenario_SelectSource(dialog, 0, -1);
+    uint32_t clock = ((uint32_t)ClockMs());
     F_dialog_selection<uint32_t>(dialog, 0x80) = clock;
 }
 RT3_REPLACE(0x4ef090, MpDialog_SelectMode);
@@ -2012,7 +2010,7 @@ RT3_NOINLINE int32_t MpSession_ReportEvent() {
     auto endSession = []() {
         if (uint8_t* s = g_session) {
             Session_Shutdown(s);
-            ((void(__cdecl*)(void*))0x53b080)(s);
+            crt::operator_delete(s);
             g_session = nullptr;
         }
     };
@@ -2024,7 +2022,7 @@ RT3_NOINLINE int32_t MpSession_ReportEvent() {
     auto randomName = [&]() {
         const uint32_t x = g_lcg * 0x19660d + 0x3c6ef35f;
         g_lcg = x;
-        ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)(name, (const char*)0x5ce1e4, (int32_t)(x & 0x7fff) % 1000);
+        crt::sprintf(name, (const char*)0x5ce1e4, (int32_t)(x & 0x7fff) % 1000);
     };
     auto gameSpyRetry = []() { return g_6cd920 && g_6ae3c8 < 3; };
     switch (g_6d1280) {
@@ -2143,7 +2141,7 @@ RT3_REPLACE(0x4ef200, MpSession_ReportEvent);
 // the scenario (type 2). Always ends with the arrow cursor, clearing the step
 // and dropping the modal count. Returns 0x7f.
 uint32_t __fastcall SessionWorker_Run(uint8_t* thr) {
-    auto sleep = [] { hook::Global<uint32_t(__stdcall*)(uint32_t, int32_t)>(0x5c8064)(0, 0); };
+    auto sleep = [] { imp::SleepEx(0, 0); };
     auto s = [] { return g_session; };
     auto name = [] { return (const char*)g_app + 0x1ef; };
     auto done = [](int32_t result) {
@@ -2158,7 +2156,7 @@ uint32_t __fastcall SessionWorker_Run(uint8_t* thr) {
     bool pump = false;
     switch (g_6d127c) {
     case 1:
-        hook::Global<int32_t(__stdcall*)(void*, int32_t)>(0x5c8084)(F<void*>(thr, 4), 2);
+        imp::SetThreadPriority(F<void*>(thr, 4), 2);
         if (Session_Open(s(), 0, 0, nullptr)) {
             MpDialog_SelectMode(g_6d1268, 0, 0xe11);
             g_6cd8dc = 1;
@@ -2182,7 +2180,7 @@ uint32_t __fastcall SessionWorker_Run(uint8_t* thr) {
         if (g_lobbyMode) done(6);
         break;
     case 2: {
-        hook::Global<int32_t(__stdcall*)(void*, int32_t)>(0x5c8084)(F<void*>(thr, 4), 2);
+        imp::SetThreadPriority(F<void*>(thr, 4), 2);
         NewGameConfig_ClearSlots();
         Lobby_HostGame(s(), 0, (const char*)0x6d1128, name(), (const char*)0x6d1228, 0);
         if (F<int32_t>(s(), 0x985c)) Peer_Think((int32_t)(uintptr_t)GetString(0xe60));
@@ -2280,8 +2278,6 @@ RT3_REPLACE(0x4ef960, SessionWorker_Run);
 // mode 0xe10, the 0xe73 page, 0xe2e hidden outside English, and the player
 // name (GameSpy's 0x6ae2c4, or options +0x1ef).
 uint8_t* __fastcall MpDialog_Construct(uint8_t* d) {
-    auto exeNew = (uint8_t*(__cdecl*)(size_t))0x53b070;
-    auto crtFree = (void(__cdecl*)(void*))0x5a1145;
     Widget_SetVtblRet(d);
     F<uint32_t>(d, 0) = 0x5d12ac;
     g_6d127c = 0;
@@ -2292,7 +2288,7 @@ uint8_t* __fastcall MpDialog_Construct(uint8_t* d) {
     g_6cd90c = 0;
     g_6cd8dc = 1;
     g_6d1268 = d;
-    uint8_t* buf = exeNew(0x403c2);
+    uint8_t* buf = ((uint8_t*)crt::operator_new(0x403c2));
     g_lobbyBuffer = buf;
     memset(buf, 0, 0x403c2);
     F<int32_t>(d, 0x80) = ClockMs();
@@ -2327,9 +2323,9 @@ uint8_t* __fastcall MpDialog_Construct(uint8_t* d) {
         F<uint16_t>(bar, 5) = 0xe17;
         bar[0x3e] = 1;
         String_Assign(&F<char*>(bar, 0x43), (const char*)0x5d1210);
-        uint8_t* w = exeNew(0x111);
+        uint8_t* w = ((uint8_t*)crt::operator_new(0x111));
         Window_AddChild(d, 0, w ? Scrollbar_Construct(w, 0, bar) : nullptr, 0);
-        crtFree(F<char*>(bar, 0x43));
+        crt::free(F<char*>(bar, 0x43));
         uint8_t button[0xa1];
         memset(button, 0, sizeof button);
         F<uint32_t>(button, 7) = 0x3ecccccd;
@@ -2348,10 +2344,10 @@ uint8_t* __fastcall MpDialog_Construct(uint8_t* d) {
         F<uint32_t>(button, 0x79) = 0;
         F<uint32_t>(button, 0x7d) = 0x3e8d70a4;
         F<uint32_t>(button, 0x81) = 0x3d12c5f9;
-        w = exeNew(0xe8);
+        w = ((uint8_t*)crt::operator_new(0xe8));
         Window_AddChild(d, 0, w ? Button_Construct(w, 0, button) : nullptr, 0);
-        crtFree(F<char*>(button, 0x43));
-        crtFree(F<char*>(button, 0x6f));
+        crt::free(F<char*>(button, 0x43));
+        crt::free(F<char*>(button, 0x6f));
         uint8_t list[0xa5];
         memset(list, 0, sizeof list);
         F<uint32_t>(list, 7) = 0x3e9570a4;
@@ -2376,23 +2372,23 @@ uint8_t* __fastcall MpDialog_Construct(uint8_t* d) {
         list[0x89] = 8;
         list[0x8a] = 9;
         String_Assign(&F<char*>(list, 0x3f), GetString(0x6ea));
-        w = exeNew(0xe9);
+        w = ((uint8_t*)crt::operator_new(0xe9));
         Window_AddChild(d, 0, w ? Control_Construct(w, 0, list) : nullptr, 0);
-        crtFree(F<char*>(list, 0x43));
-        crtFree(F<char*>(list, 0x3f));
-        crtFree(F<char*>(list, 0x8b));
+        crt::free(F<char*>(list, 0x43));
+        crt::free(F<char*>(list, 0x3f));
+        crt::free(F<char*>(list, 0x8b));
     }
     F<int32_t>(g_app, 0x6c) = 1;
     MpDialog_SelectMode(d, 0, 0xe10);
     Window_SendEvent5(d, 0, 0x87, 0xe73, 3, 0, 0);
     if (!(uint8_t)IsEnglish()) Window_SendEvent5(d, 0, 0x78, 0xe2e, 1, 0, 0);
     if (g_6cd920)
-        ((char*(__cdecl*)(char*, const char*, size_t))0x5a18a0)((char*)g_app + 0x1ef, (const char*)0x6ae2c4, 0x3f);
+        crt::strncpy((char*)g_app + 0x1ef, (const char*)0x6ae2c4, 0x3f);
     const char* name = (const char*)g_app + 0x1ef;
     if (!*name) {
         char computer[0x10];
         uint32_t size = 0x10;
-        if (!((int32_t(__stdcall*)(char*, uint32_t*))g_5c8080)(computer, &size)) return d;
+        if (!(imp::GetComputerNameA)(computer, &size)) return d;
         // QUIRK: this exe then takes the fixed name in its header (0x400b94),
         // not the computer name just read.
         name = (const char*)0x400b94;
@@ -2419,7 +2415,7 @@ int32_t __fastcall MpDialog_HandleEvent(uint8_t* d, int, uint32_t* msg) {
     auto cfg = []() { return g_newGame; };
     auto session = []() { return g_session; };
     auto text = [](uint8_t* w) { return F<char*>(w, 0xba); };
-    auto strcmp_ = [](const char* a, const char* b) { return ((int(__cdecl*)(const char*, const char*))0x5a57cf)(a, b); };
+    auto strcmp_ = [](const char* a, const char* b) { return crt::stricmp(a, b); };
     auto msgBox = [](const char* t, int32_t type) {
         Dialog_RunMessage(t, type, 0xbf800000, 0xbf800000, 0, nullptr, 0, 0.0f, 0, 0x1e, 0, nullptr, nullptr, 0, 0, nullptr, 0);
     };
@@ -2571,7 +2567,7 @@ int32_t __fastcall MpDialog_HandleEvent(uint8_t* d, int, uint32_t* msg) {
             Game_PostInputEvent(0xcc, 0, 2, 0, 0);
             if (uint8_t* s = session()) {
                 Session_Shutdown(s);
-                ((void(__cdecl*)(void*))0x53b080)(s);
+                crt::operator_delete(s);
                 g_session = nullptr;
             }
             return 0;
@@ -2930,7 +2926,7 @@ void __fastcall LocoDetail_Draw(uint8_t* p, int, float x, float y, float w, floa
             int32_t spd = step[g_6226dc] * col + base;
             float spdF = (float)spd;
             if (!col) {
-                if (row > 0) ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)(cell, (const char*)0x5d0b18, row * 2 - 2);
+                if (row > 0) crt::sprintf(cell, (const char*)0x5d0b18, row * 2 - 2);
                 else cell[0] = 0;
             } else if (!row)
                 Num_Format(cell, 1, (double)col, 10, 1, 0, 0);
@@ -2970,7 +2966,7 @@ void __fastcall LocoWindow_Build(uint8_t* w, int, float x, float y, float wd, fl
     F<int32_t>(def, 0x61) = 3;
     F<int32_t>(def, 0x75) = 9;
     F<uint32_t>(def, 0x2f) = 0xb0;
-    uint8_t* s = (uint8_t*)ExeNew(0x111);
+    uint8_t* s = (uint8_t*)crt::operator_new(0x111);
     s = s ? Scrollbar_Construct(s, 0, def) : nullptr;
     Window_AddChild(w, 0, s, 0);
     memset(def, 0, sizeof def);
@@ -2986,7 +2982,7 @@ void __fastcall LocoWindow_Build(uint8_t* w, int, float x, float y, float wd, fl
         for (int32_t i = 0; i < Collection_Count(F<Collection*>(g_pack, 0x429b8)); ++i) {
             Collection* regions = F<Collection*>(g_pack, 0x429b8);
             uint8_t* e = (uint8_t*)Collection_Get(regions, 0, Collection_IdAt(regions, 0, i, 0));
-            if (!Stricmp((const char*)Obj_City41(g_6d12a0) + 0x3ac, (const char*)e)) {
+            if (!crt::stricmp((const char*)Obj_City41(g_6d12a0) + 0x3ac, (const char*)e)) {
                 FormatText(name, (const char*)e + 0x80, 0, 0, 0, 0, 0, 0, 0, 0);
                 break;
             }
@@ -2999,10 +2995,10 @@ void __fastcall LocoWindow_Build(uint8_t* w, int, float x, float y, float wd, fl
     String_Assign(&F<char*>(def, 0x43), name);
     F<uint16_t>(def, 0x5f) = 0;
     F<uint32_t>(def, 0x2f) = 0xb0;
-    s = (uint8_t*)ExeNew(0x111);
+    s = (uint8_t*)crt::operator_new(0x111);
     s = s ? Scrollbar_Construct(s, 0, def) : nullptr;
     Window_AddChild(w, 0, s, 0);
-    Free(F<void*>(def, 0x43));
+    crt::free(F<void*>(def, 0x43));
     float by = (float)((double)y + D(0x5d1338));
     static const uint32_t bx[3] = { 0x5d1340, 0x5d1330, 0x5d132c };
     for (int32_t i = 0; i < 3; ++i) {
@@ -3025,11 +3021,11 @@ void __fastcall LocoWindow_Build(uint8_t* w, int, float x, float y, float wd, fl
         F<uint32_t>(b, 0x79) = 0xbc5a740e;
         F<uint32_t>(b, 0x7d) = 0x3d800000;
         F<uint32_t>(b, 0x81) = 0x3d5a740e;
-        uint8_t* bt = (uint8_t*)ExeNew(0xe8);
+        uint8_t* bt = (uint8_t*)crt::operator_new(0xe8);
         bt = bt ? Button_Construct(bt, 0, b) : nullptr;
         Window_AddChild(w, 0, bt, 0);
-        Free(F<void*>(b, 0x43));
-        Free(F<void*>(b, 0x6f));
+        crt::free(F<void*>(b, 0x43));
+        crt::free(F<void*>(b, 0x6f));
     }
     Window_SendEvent5(w, 0, 0x74, 0xb9f2 + g_6226dc, 1, 0, 0);
     uint16_t year = F<uint16_t>(g_world, 0xd);
@@ -3058,10 +3054,10 @@ void __fastcall LocoWindow_Build(uint8_t* w, int, float x, float y, float wd, fl
         F<uint32_t>(t, 0xf) = pw;
         F<uint32_t>(t, 0x13) = ph;
         String_Assign(&F<char*>(t, 0x3f), text);
-        uint8_t* tw = (uint8_t*)ExeNew(0xda);
+        uint8_t* tw = (uint8_t*)crt::operator_new(0xda);
         tw = tw ? TimerWidget_Construct(tw, 0, t) : nullptr;
         Window_AddChild(w, 0, tw, 0);
-        Free(F<void*>(t, 0x3f));
+        crt::free(F<void*>(t, 0x3f));
     };
     for (int32_t i = 0; i < 7; ++i) {
         float ly = (float)((double)rowY - D(0x5d0820));

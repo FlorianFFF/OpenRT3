@@ -16,6 +16,8 @@
 
 namespace rt3 {
 
+void __fastcall World_LoadGame(uint8_t* w, int, const char* name, int32_t show);
+
 template <typename T> static inline T& F(void* o, uint32_t off) { return *(T*)((uint8_t*)o + off); }
 uint32_t* __fastcall Terrain_ExtractTexture(uint8_t* t, int, float x0, float y0, float x1, float y1, int32_t* outW, int32_t* outH);
 int32_t __fastcall Terrain_KindIs1Or4(uint8_t* r, int, int32_t x, int32_t y);
@@ -273,11 +275,6 @@ struct RouteFrame {
     double& d(uint32_t o) { return *(double*)(b + o); }
     uint8_t*& p(uint32_t o) { return *(uint8_t**)(b + o); }
 };
-inline double RtSin(double x) { return ((double(__cdecl*)(double))0x5a1494)(x); }
-inline double RtCos(double x) { return ((double(__cdecl*)(double))0x5a13e4)(x); }
-inline double RtAbs(double x) { return ((double(__cdecl*)(double))0x5a152e)(x); }
-inline double RtMod(double x, double y) { return ((double(__cdecl*)(double, double))0x5a1390)(x, y); }
-inline int RtStricmp(const char* a, const char* b) { return ((int(__cdecl*)(const char*, const char*))0x5a57cf)(a, b); }
 inline float RtBits(uint32_t v) { return *(const float*)&v; }
 inline uint8_t* RtGet(uint32_t global, int32_t id) { return (uint8_t*)Collection_Get(hook::Global<Collection*>(global), 0, (uint32_t)id); }
 inline uint8_t* RtMap() { return g_map; }
@@ -375,7 +372,7 @@ RT3_NOINLINE void __fastcall World_SaveGame(uint8_t* w, int, const char* name, u
         const char* folder = Options_SaveFolder(g_app);
         FormatText(picture, (const char*)0x5c9d00, folder, name, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
         // The extension (last four characters) becomes "_A.tga".
-        ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)(picture + strlen(picture) - 4, (const char*)0x5ca320);
+        crt::sprintf(picture + strlen(picture) - 4, (const char*)0x5ca320);
     }
     Map_Save(g_map, 0, s, picture);
     log(0x5ca96c);
@@ -472,9 +469,9 @@ RT3_NOINLINE void __fastcall World_SaveGame(uint8_t* w, int, const char* name, u
             step();
         }
     } else {
-        void* f = ((void*(__cdecl*)(const char*, const char*))0x5a1887)(path, (const char*)0x5ca330);
+        void* f = crt::fopen(path, (const char*)0x5ca330);
         SaveHeaderBlock(f, block, 0);
-        ((int(__cdecl*)(void*))0x5a1740)(f);
+        crt::fclose(f);
     }
     NameTable_Rescan(g_pack);
     restoreUi();
@@ -542,10 +539,10 @@ RT3_NOINLINE int32_t __fastcall World_Load(uint8_t* w, int, const char* name, ui
     if (Options_Check1bf(g_app) || (flags & 8)) {
         StripExtension(file);
         memcpy(file + strlen(file), (const void*)0x5ca9a4, 5);
-        ((void(__fastcall*)(uint8_t*, int, char*))0x446d40)(g_world, 0, file);
+        World_LoadMap(g_world, 0, (const char*)(file));
         if (done) *done = 1;
     } else {
-        ((void(__fastcall*)(uint8_t*, int, char*, uint32_t))0x443a50)(g_world, 0, file, ~(flags >> 2) & 1);
+        World_LoadGame(g_world, 0, (const char*)(file), (int32_t)(~(flags >> 2) & 1));
     }
     --g_62be6c;
     {
@@ -636,8 +633,8 @@ RT3_NOINLINE void __fastcall World_Save(uint8_t* w, int, const char* name, uint3
         bool standard = false;
         for (uint32_t p = 0x621cf0; p < 0x621d30; p += 4) {
             char std_[0x408];
-            ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)(std_, (const char*)0x5ca9d8, *(const char**)p);
-            if (!((int(__cdecl*)(const char*, const char*))0x5a57cf)(file, std_)) standard = true;
+            crt::sprintf(std_, (const char*)0x5ca9d8, *(const char**)p);
+            if (!crt::stricmp(file, std_)) standard = true;
         }
         if (!standard) Dialog_RunMessage(GetString(0xfd9), 1, 0xbf800000, 0xbf800000, 0, nullptr, 0, 0.0f, 0, 0x1e, 0, nullptr, nullptr, 0, 0, nullptr, 0);
     }
@@ -887,7 +884,7 @@ RT3_NOINLINE void __fastcall World_LoadMap(uint8_t* w, int, const char* name) {
     read(&width, 4);
     read(&height, 4);
     {
-        uint8_t* m = ((uint8_t*(__cdecl*)(size_t))0x53b070)(0x2209);
+        uint8_t* m = ((uint8_t*)crt::operator_new(0x2209));
         g_map = m ? Map_Construct(m, 0, width + 1, height + 1, nullptr) : nullptr;
     }
     if (version >= 0x3ec) Terrain_LoadLayers(map(), 0, s);
@@ -969,7 +966,7 @@ RT3_NOINLINE void __fastcall World_LoadMap(uint8_t* w, int, const char* name) {
         read(&texW, 4);
         read(&texH, 4);
         Terrain_BuildTiles(map(), 0, texW, texH, nullptr);
-        uint32_t* const src = (uint32_t*)((void*(__cdecl*)(size_t))0x5a125d)((size_t)(texH * texW * 4));
+        uint32_t* const src = (uint32_t*)crt::malloc((size_t)(texH * texW * 4));
         read(src, (uint32_t)(texW * texH * 4));
         int32_t outW, outH;
         uint32_t* const dst = Terrain_ExtractTexture(map(), 0, 0.0f, 0.0f, 1.0f, 1.0f, &outW, &outH);
@@ -989,7 +986,7 @@ RT3_NOINLINE void __fastcall World_LoadMap(uint8_t* w, int, const char* name) {
         }
         Terrain_PasteTexture(map(), 0, 0, 0, outW - 1, outH - 1);
         Terrain_CommitTexture(map(), 0, 0);
-        ((void(__cdecl*)(void*))0x5a1145)(src);
+        crt::free(src);
     }
     Territories_AddTestSet(g_territories);
     if (version >= 0x3ee) {
@@ -1025,7 +1022,7 @@ RT3_NOINLINE void __fastcall World_LoadMap(uint8_t* w, int, const char* name) {
         memset(rec, 0, 0x22);
         read(rec, 0x1e);
         read(rec + 0x1e, 4);
-        if (RtStricmp((const char*)rec, (const char*)0x5c8f94) && RtStricmp((const char*)rec, (const char*)0x5c8e4c) &&
+        if (crt::stricmp((const char*)rec, (const char*)0x5c8f94) && crt::stricmp((const char*)rec, (const char*)0x5c8e4c) &&
             Table_GetByName(g_62b268, 0, (const char*)rec))
             Map_AddRecord(F<Collection*>(w, 0x66b2), rec);
     }
@@ -1086,8 +1083,8 @@ RT3_NOINLINE void __fastcall World_LoadMap(uint8_t* w, int, const char* name) {
             memset(rec, 0, 0x22);
             read(rec, 0x1e);
             read(rec + 0x1e, 4);
-            if (RtStricmp((const char*)rec, (const char*)0x5ca9e0) && RtStricmp((const char*)rec, (const char*)0x5c8f94) &&
-                RtStricmp((const char*)rec, (const char*)0x5c8e4c) && F<float>(rec, 0x1e) > Fl(0x5c8598) &&
+            if (crt::stricmp((const char*)rec, (const char*)0x5ca9e0) && crt::stricmp((const char*)rec, (const char*)0x5c8f94) &&
+                crt::stricmp((const char*)rec, (const char*)0x5c8e4c) && F<float>(rec, 0x1e) > Fl(0x5c8598) &&
                 Table_GetByName(g_62b268, 0, (const char*)rec))
                 Map_AddRecord(F<Collection*>(city, 0x37f), rec);
         }

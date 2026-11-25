@@ -103,29 +103,28 @@ RT3_NOINLINE void __fastcall Timer_SetBudget(uint8_t* t, int, uint32_t v);
 static inline void AddF(uint8_t* p, uint32_t off, float a) { F<float>(p, off) = (float)((double)a + F<float>(p, off)); }
 
 namespace {
-inline void* ExeNew(size_t n) { return ((void*(__cdecl*)(size_t))0x53b070)(n); }
 inline int32_t PackHas(const char* path) { return NameTable_ContainsName(g_pack, 0, path, 0, nullptr); }
 // A scene object of model `path` (texture `tex`), or none when out of memory.
 inline uint8_t* NewSceneObj(const char* path, const char* tex) {
-    uint8_t* m = (uint8_t*)ExeNew(0x206);
+    uint8_t* m = (uint8_t*)crt::operator_new(0x206);
     return m ? SceneObj_Construct(m, 0, 0, path, tex) : nullptr;
 }
 // A light of model `path` on `owner`, shown (flags 0x10).
 inline uint8_t* NewLight(const char* path, uint8_t* owner) {
-    uint8_t* m = (uint8_t*)ExeNew(0x35);
+    uint8_t* m = (uint8_t*)crt::operator_new(0x35);
     uint8_t* c = m ? Camera_Construct(m, 0, path, (uint32_t)(uintptr_t)owner) : nullptr;
     return c;
 }
 inline void ShowLight(uint8_t* c) { c[0x24] = (uint8_t)((c[0x24] & 0xf) | 0x10); }
 inline uint8_t* NewSound(const char* path, uint8_t* v, float vol) {
-    uint8_t* m = (uint8_t*)ExeNew(0x141);
+    uint8_t* m = (uint8_t*)crt::operator_new(0x141);
     return m ? Channel_Setup(m, 0, path, g_map, F<float>(v, 0x1e2), F<float>(v, 0x1e6), F<float>(v, 0x1ea), -1,
                              0, vol)
              : nullptr;
 }
 inline uint8_t* NewExhaust(const char* path, uint32_t color, int32_t perPoint, const float* rect, uint8_t* v, uint32_t flags,
                            uint32_t fade) {
-    uint8_t* m = (uint8_t*)ExeNew(0x1fd);
+    uint8_t* m = (uint8_t*)crt::operator_new(0x1fd);
     uint8_t* e = m ? Emitter_Construct(m, 0, path, color, perPoint, rect, v, flags) : nullptr;
     F<uint32_t>(e, 0x88) = 0;
     F<uint32_t>(e, 0x8c) = 0;
@@ -164,7 +163,7 @@ RT3_NOINLINE void Tank_SpawnDemo() {
     float p[3];
     Obj_GetXYZ4(F<uint8_t*>(g_engine, 0x28), 0, (uint32_t*)&p[2], (uint32_t*)&p[0], (uint32_t*)&p[1]);
     p[0] = (float)((double)p[0] + *(const float*)0x5c8c40);
-    uint8_t* m = (uint8_t*)ExeNew(0x434);
+    uint8_t* m = (uint8_t*)crt::operator_new(0x434);
     if (!m) {
         g_6cfc8c = nullptr;
         return;
@@ -182,7 +181,7 @@ RT3_NOINLINE void CursorMarker_Free() {
     F<uint32_t>(o, 0) = 0x5cf048;
     if (F<uint8_t*>(g_62be68, 0x60) == o) World_SetFollow(g_world, 0, 0, nullptr);
     SceneObj_Destructor(o);
-    ((void(__cdecl*)(void*))0x53b080)(o);
+    crt::operator_delete(o);
     hook::As<uint32_t>(g_6cfc8c) = 0;
 }
 RT3_REPLACE(0x4874f0, CursorMarker_Free);

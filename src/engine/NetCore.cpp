@@ -13,6 +13,7 @@
 #include "core/stream.h"
 #include "core/ptrlist.h"
 #include "core/crt.h"
+#include "core/imports.h"
 #include "game/collection.h"
 #include "hook/keepregs.h"
 #include "core/containers.h"
@@ -25,7 +26,6 @@
 namespace rt3 {
 
 template <typename T> static inline T& F(void* o, uint32_t off) { return *(T*)((uint8_t*)o + off); }
-template <typename Fn> static inline Fn Import(uint32_t iat) { return (Fn)hook::Global<void*>(iat); }
 void __fastcall Engine_ClampWindowSize(void* e, int, int32_t* w, int32_t* h);
 const char* __fastcall GetString(int32_t id);
 char* __stdcall Net_LocalAddress(char* out);
@@ -264,9 +264,7 @@ static inline double D(uint32_t a) { return *(const double*)a; }
 
 static inline double Fl(uint32_t a) { return *(const float*)a; }
 
-static inline void* ExeNew(size_t n) { return ((void*(__cdecl*)(size_t))0x53b070)(n); }
 
-static inline void ExeDelete(void* p) { ((void(__cdecl*)(void*))0x53b080)(p); }
 
 static inline int32_t Ftol(double v) {
     int32_t r;
@@ -308,12 +306,11 @@ static void Pool_Return(uint8_t* pool, uint32_t* node) {
         free[0] = (uint32_t)(uintptr_t)node;
         if (!free[1]) free[1] = (uint32_t)(uintptr_t)node;
     } else {
-        ExeDelete(node);
+        crt::operator_delete(node);
     }
 }
 
 namespace {
-void Callback_Delete(void* p) { ((void(__cdecl*)(void*))0x53b080)(p); }
 int32_t Tooltip_Clear() { return Ui_ShowTooltip(g_windowManager, 0, (const char*)0x5c87a8, 3, 0, -1); }
 // A network message's handler gets the packet (+8) when it has one (+0xc).
 template <typename P, typename Fn> int32_t NetMsg_Forward(uint8_t* m, Fn handler) {
@@ -324,15 +321,15 @@ template <typename P, typename Fn> int32_t NetMsg_Forward(uint8_t* m, Fn handler
 
 namespace {
 // Win32 / Winsock imports, called through their IAT slots.
-template <typename Fn> Fn Iat456(uint32_t slot) { return *(Fn*)slot; }
-void Lock456(uint32_t slot, uint32_t cs) { Iat456<void(__stdcall*)(void*)>(slot)((void*)cs); }
+// fn: imp::EnterCriticalSection / LeaveCriticalSection / Interlocked*.
+template <typename Fn> static void Lock456(Fn fn, uint32_t cs) { ((void(__stdcall*)(void*))fn)((void*)cs); }
 }
 
-static inline void Enter(uint32_t cs, uint32_t iat) { hook::Global<CsFn>(iat)((LPCRITICAL_SECTION)cs); }
+template <typename Fn> static inline void Enter(uint32_t cs, Fn fn) { ((CsFn)fn)((LPCRITICAL_SECTION)cs); }
 
 // The pool pop shared by the functions below.
 static void* Pool_Take(uint8_t* pool) {
-    if (!F<int32_t>(pool, 0xc)) return ExeNew(F<uint32_t>(pool, 0x10));
+    if (!F<int32_t>(pool, 0xc)) return crt::operator_new(F<uint32_t>(pool, 0x10));
     uint8_t* list = F<uint8_t*>(pool, 0);
     uint8_t* node = F<uint8_t*>(list, 0);
     if (!node) return nullptr;
@@ -351,7 +348,7 @@ static void Pool_Give(uint8_t* pool, uint8_t* node) {
         F<uint8_t*>(list, 0) = node;
         ++F<int32_t>(list, 8);
         if (!F<uint8_t*>(list, 4)) F<uint8_t*>(list, 4) = node;
-    } else ExeDelete(node);
+    } else crt::operator_delete(node);
 }
 
 // 0x520040. Creates the game window at (x, y) (+0x4d/+0x51, reset when off the
@@ -369,11 +366,11 @@ RT3_NOINLINE int32_t __fastcall Engine_CreateWindow(uint8_t* e, int, int32_t x, 
     res = (const int32_t*)(F<uint8_t*>(e, 0x34) + F<int32_t>(e, 0x11421e) * 0x15);
     int32_t w = res[0], h = res[1];
     if (!Engine_RegisterWindowClass(F<HINSTANCE>(e, 4))) Fatal_Exit(GetString(0x16));
-    auto create = Import<HWND(__stdcall*)(DWORD, const char*, const char*, DWORD, int, int, int, int, HWND, HMENU,
-                                          HINSTANCE, void*)>(0x5c82b8);
+    auto create = ((HWND(__stdcall*)(DWORD, const char*, const char*, DWORD, int, int, int, int, HWND, HMENU,
+                                          HINSTANCE, void*))imp::CreateWindowExA);
     if (!fullscreen) {
         RECT r = { 0, 0, w - 1, h - 1 };
-        Import<BOOL(__stdcall*)(RECT*, DWORD, BOOL)>(0x5c82b4)(&r, 0x4cb0000, FALSE);
+        ((BOOL(__stdcall*)(RECT*, DWORD, BOOL))imp::AdjustWindowRect)(&r, 0x4cb0000, FALSE);
         F<HWND>(e, 0) = create(0, (const char*)0x5dcee8, (const char*)0x624b68, 0x4cb0000, F<int32_t>(e, 0x4d),
                                F<int32_t>(e, 0x51), r.right - r.left + 1, r.bottom - r.top + 1, nullptr, nullptr,
                                F<HINSTANCE>(e, 4), nullptr);
@@ -382,12 +379,12 @@ RT3_NOINLINE int32_t __fastcall Engine_CreateWindow(uint8_t* e, int, int32_t x, 
         HWND wnd = create(0, (const char*)0x5dcee8, (const char*)0x624b68, 0x4000000, 0, 0, w, h, nullptr, nullptr,
                           F<HINSTANCE>(e, 4), nullptr);
         F<HWND>(e, 0) = wnd;
-        Import<LONG(__stdcall*)(HWND, int, LONG)>(0x5c82bc)(wnd, -16, 0x4000000);
+        ((LONG(__stdcall*)(HWND, int, LONG))imp::SetWindowLongA)(wnd, -16, 0x4000000);
     }
     e[0x55] = 0;
     if (uint16_t icon = g_6d4038) {
-        auto loadIcon = Import<HICON(__stdcall*)(HINSTANCE, const char*)>(0x5c82cc);
-        auto send = Import<LRESULT(__stdcall*)(HWND, UINT, WPARAM, LPARAM)>(0x5c82c0);
+        auto loadIcon = ((HICON(__stdcall*)(HINSTANCE, const char*))imp::LoadIconA);
+        auto send = ((LRESULT(__stdcall*)(HWND, UINT, WPARAM, LPARAM))imp::PostMessageA);
         send(F<HWND>(e, 0), 0x80, 1, (LPARAM)loadIcon(F<HINSTANCE>(e, 4), (const char*)(uintptr_t)icon));
         send(F<HWND>(e, 0), 0x80, 0,
              (LPARAM)loadIcon(F<HINSTANCE>(e, 4), (const char*)(uintptr_t)g_6d4038));
@@ -400,8 +397,8 @@ RT3_REPLACE(0x520040, Engine_CreateWindow);
 void __fastcall Window_FrameSize(void** o, int, int32_t* w, int32_t* h) {
     int32_t r[4] = { 0, 0, 0x12c, 0x12c };
     int32_t r2[4];
-    Import<int32_t(__stdcall*)(void*, int32_t*)>(0x5c82b0)(o[0], r2);
-    Import<int32_t(__stdcall*)(int32_t*, uint32_t, int32_t)>(0x5c82b4)(r, 0x4cb0000, 0);
+    imp::GetWindowRect(o[0], r2);
+    imp::AdjustWindowRect(r, 0x4cb0000, 0);
     *w = r2[0] - r[0];
     *h = r2[1] - r[1];
 }
@@ -412,7 +409,7 @@ void __fastcall Engine_PlaceWindow(uint8_t* e, int, int32_t x, int32_t y) {
     if (!F<void*>(e, 0xc)) return;
     const int32_t* mode = (const int32_t*)(F<uint8_t*>(e, 0x34) + F<int32_t>(e, 0x11421e) * 0x15);
     int32_t rc[4] = { 0, 0, mode[0] - 1, mode[1] - 1 };
-    Import<int32_t(__stdcall*)(int32_t*, uint32_t, int32_t)>(0x5c82b4)(rc, 0x4cb0000, 0);
+    imp::AdjustWindowRect(rc, 0x4cb0000, 0);
     int32_t wx = x + rc[0], wy = y + rc[1];
     F<int32_t>(e, 0x51) = wy;
     F<int32_t>(e, 0x4d) = wx;
@@ -436,15 +433,15 @@ RT3_NOINLINE void __fastcall Engine_SwitchDisplay(uint8_t* e, int, int32_t fulls
     e[0x114226] = (uint8_t)fullscreen;
     Engine_CreateWindow(e, 0, F<int32_t>(e, 0x4d), F<int32_t>(e, 0x51), mode, (uint8_t)fullscreen);
     if (void (*hook_)() = hook::Global<void (*)()>(0x6d400c)) hook_();
-    uint8_t* m = (uint8_t*)((void*(__cdecl*)(size_t))0x53b070)(0x21);
+    uint8_t* m = (uint8_t*)crt::operator_new(0x21);
     F<uint8_t*>(e, 0x20) = m ? Mouse_Construct(m, 0, F<void*>(e, 0), F<void*>(e, 4)) : nullptr;
     if (!F<uint8_t*>(e, 0x18)) {
-        uint8_t* s = (uint8_t*)((void*(__cdecl*)(size_t))0x53b070)(0x3abdb);
+        uint8_t* s = (uint8_t*)crt::operator_new(0x3abdb);
         F<uint8_t*>(e, 0x18) = s ? Scene_Construct(s) : nullptr;
     } else
         Scene_CreateRenderer(F<uint8_t*>(e, 0x18));
     Pack_RecreateFonts(g_pack);
-    (*(int32_t(__stdcall**)())0x5c82a8)();
+    imp::ReleaseCapture();
     if (fullscreen) {
         uint8_t* c = g_cursorManager;
         bool acquire;
@@ -452,7 +449,7 @@ RT3_NOINLINE void __fastcall Engine_SwitchDisplay(uint8_t* e, int, int32_t fulls
         else if (g_cursorManager) acquire = false;
         else acquire = F<int32_t>(e, 0x11473e) != 0;
         if (acquire) Mouse_Acquire(F<uint8_t*>(e, 0x20));
-        else (*(void*(__stdcall**)(void*))0x5c82ac)(F<void*>(g_engine, 0));
+        else imp::SetCapture(F<void*>(g_engine, 0));
     } else
         Mouse_Unacquire(F<uint8_t*>(e, 0x20));
     if (hook::As<uint8_t**>(g_windowManager)) Ui_SendEvent5(hook::As<uint8_t**>(g_windowManager), 0, 0xac, 0, 0, 0, 0);
@@ -468,14 +465,14 @@ RT3_NOINLINE void __fastcall Engine_ResetDisplay(uint8_t* e, int, int32_t fullsc
     Pack_ReleaseFontHandles(g_pack);
     if (uint8_t* m = F<uint8_t*>(e, 0x20)) {
         Mouse_Destroy(m);
-        ((void(__cdecl*)(void*))0x53b080)(m);
+        crt::operator_delete(m);
     }
     F<uint8_t*>(e, 0x20) = nullptr;
     Display_DestroyRenderer(F<uint8_t*>(e, 0x18));
     if (void (*hook_)() = hook::Global<void (*)()>(0x6d4010)) hook_();
     e[0x55] = 0;
-    (*(int32_t(__stdcall**)(void*))0x5c82c4)(F<void*>(e, 0));
-    (*(int32_t(__stdcall**)(const char*, void*))0x5c82c8)((const char*)0x5dcee8, F<void*>(e, 4));
+    imp::DestroyWindow(F<void*>(e, 0));
+    ((int32_t(__stdcall*)(const char*, void*))imp::UnregisterClassA)((const char*)0x5dcee8, F<void*>(e, 4));
     F<void*>(e, 0) = nullptr;
     if (mode == -1) mode = F<int32_t>(e, 0x11421e);
     Engine_SwitchDisplay(e, 0, fullscreen, mode);
@@ -547,7 +544,7 @@ RT3_NOINLINE void __fastcall Engine_DrawFrame(uint8_t* e) {
     }
     if (!e[0x55]) {
         e[0x55] = 1;
-        hook::Global<int32_t(__stdcall*)(void*, int32_t)>(0x5c82a4)(F<void*>(e, 0), g_6cec58);
+        imp::ShowWindow(F<void*>(e, 0), g_6cec58);
     }
     Engine_ClearRenderLists(e);
     F<int32_t>(e, 0x58) = 0;
@@ -612,16 +609,16 @@ RT3_REPLACE(0x5207a0, Textures_MemoryTotals);
 // saves through a null image (and a failed camera allocation crashes).
 RT3_NOINLINE uint8_t __fastcall Engine_PosterScreenshot(uint8_t* e) {
     if (!e[0x114226]) return 0;
-    uint8_t* mem = ((uint8_t*(__cdecl*)(size_t))0x53b070)(0x8a);
+    uint8_t* mem = ((uint8_t*)crt::operator_new(0x8a));
     uint8_t* cam = mem ? Camera_ConstructSetup(mem, 0, F<uint32_t>(g_engine, 0x1c), 0, 0, 0, 0x44800000) : nullptr;
     F<uint32_t>(cam, 0) = F<uint32_t>(F<uint8_t*>(e, 0x28), 0);
     Camera_SetBounds(F<uint8_t*>(e, 0x28), 0, 0, 0, 0x3f800000, 0x3f800000);
     uint8_t* mode = F<uint8_t*>(e, 0x34) + F<int32_t>(e, 0x11421e) * 0x15;
     int32_t w = F<int32_t>(mode, 0), h = F<int32_t>(mode, 4);
     uint32_t size = (uint32_t)(h * w) * 9 * 4;
-    uint8_t* pixels = (uint8_t*)Malloc(size);
+    uint8_t* pixels = (uint8_t*)crt::malloc(size);
     memset(pixels, 0, size);
-    uint8_t* tm = ((uint8_t*(__cdecl*)(size_t))0x53b070)(0xec);
+    uint8_t* tm = ((uint8_t*)crt::operator_new(0xec));
     uint8_t* img = tm ? Texture_InitMemory(tm, 0, pixels, w * 3, h * 3, 1) : nullptr;
     uint8_t* scene = F<uint8_t*>(g_engine, 0x18);
     Cursor_Set(g_cursorManager, 0, 0, 0, 0);
@@ -638,7 +635,7 @@ RT3_NOINLINE uint8_t __fastcall Engine_PosterScreenshot(uint8_t* e) {
             Engine_CaptureFrontBuffer(e, 0, pixels, w * col, h * row, w * 3);
         }
     uint16_t st[8];  // SYSTEMTIME
-    hook::Global<void(__stdcall*)(void*)>(0x5c8200)(st);
+    imp::GetLocalTime(st);
     char sec[0x20], min[0x20], hour[0x20], year[0x20], day[0x20], month[0x20], name[0x120], path[0x100];
     const char* s1 = Num_Format(sec, 1, (double)(int32_t)st[6], 10, 1, 0, 0);
     const char* s2 = Num_Format(min, 1, (double)(int32_t)st[5], 10, 1, 0, 0);
@@ -656,7 +653,7 @@ RT3_NOINLINE uint8_t __fastcall Engine_PosterScreenshot(uint8_t* e) {
     }
     if (img) {
         Texture_Destroy(img);
-        ((void(__cdecl*)(void*))0x53b080)(img);
+        crt::operator_delete(img);
     }
     Cursor_Set(g_cursorManager, 0, 1, 0, 0);
     g_windowManager[0xc68] = 0;
@@ -665,7 +662,7 @@ RT3_NOINLINE uint8_t __fastcall Engine_PosterScreenshot(uint8_t* e) {
     Scene_SetViewOffset(scene, 0, 0, 0);
     F<uint32_t>(F<uint8_t*>(e, 0x28), 0) = F<uint32_t>(cam, 0);
     Camera_Destruct((uint32_t*)cam);
-    ((void(__cdecl*)(void*))0x53b080)(cam);
+    crt::operator_delete(cam);
     if (F<int32_t>(e, 0x1c)) e[0x56] = 1;
     return 1;
 }
@@ -706,17 +703,17 @@ RT3_NOINLINE uint8_t __fastcall Engine_Screenshot(uint8_t* e, int, int32_t hideC
         } lr;
         ((int32_t(__stdcall*)(void*, void*, void*, uint32_t))(*(void***)surf)[9])(surf, &lr, nullptr, 0);
         uint32_t size = (uint32_t)(h * w) * 4;
-        uint8_t* pixels = (uint8_t*)Malloc(size);
+        uint8_t* pixels = (uint8_t*)crt::malloc(size);
         memcpy(pixels, lr.bits, size);
         ((int32_t(__stdcall*)(void*))(*(void***)surf)[10])(surf);
         ((uint32_t(__stdcall*)(void*))(*(void***)surf)[2])(surf);
         ((uint32_t(__stdcall*)(void*))(*(void***)tex)[2])(tex);
-        uint8_t* mem = ((uint8_t*(__cdecl*)(size_t))0x53b070)(0xec);
+        uint8_t* mem = ((uint8_t*)crt::operator_new(0xec));
         uint8_t* img = mem ? Texture_InitMemory(mem, 0, pixels, w, h, 1) : nullptr;
         uint16_t st[8];  // SYSTEMTIME
-        hook::Global<void(__stdcall*)(void*)>(0x5c8200)(st);
+        imp::GetLocalTime(st);
         char name[0x12c], path[0x1f0];
-        ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)(name, (const char*)0x5dcf34, st[1], st[3], st[0] % 100, st[4], st[5], st[6]);
+        crt::sprintf(name, (const char*)0x5dcf34, st[1], st[3], st[0] % 100, st[4], st[5], st[6]);
         if (F<int32_t>(e, 0x114722)) {
             FormatText(path, (const char*)0x5dcf08, name, 0, 0, 0, 0, 0, 0, 0);
             Texture_AppendJpeg(img, 0, path, 1, F<int32_t>(e, 0x114726));
@@ -726,7 +723,7 @@ RT3_NOINLINE uint8_t __fastcall Engine_Screenshot(uint8_t* e, int, int32_t hideC
         }
         if (img) {
             Texture_Destroy(img);
-            ((void(__cdecl*)(void*))0x53b080)(img);
+            crt::operator_delete(img);
         }
     }
     if (hideCursor) {
@@ -770,7 +767,7 @@ RT3_REPLACE(0x521030, Engine_SetDisplayOption);
 // volumes; the UI 0x6d401c, cursor 0xccbb20, the fonts 4 / 1 / 2 and the trig
 // tables.
 void __fastcall Engine_Init(uint8_t* e, int, void* inst, int32_t w, int32_t h) {
-    auto New = [](size_t n) { return (uint8_t*)((void*(__cdecl*)(size_t))0x53b070)(n); };
+    auto New = [](size_t n) { return (uint8_t*)crt::operator_new(n); };
     e[0x114205] = 0;
     F<uint32_t>(e, 0x114201) = 1;
     F<void*>(e, 4) = inst;
@@ -845,11 +842,11 @@ void __fastcall Engine_Destroy(uint8_t* e) {
     for (uint32_t off : lists)
         if (PtrList* l = F<PtrList*>(e, off)) {
             PtrList_Destroy(l);
-            ExeDelete(l);
+            crt::operator_delete(l);
         }
     if (uint8_t* t = F<uint8_t*>(e, 0x1c)) {
         Terrain_Destructor(t);
-        ExeDelete(t);
+        crt::operator_delete(t);
     }
     F<uint8_t*>(e, 0x1c) = nullptr;
     Engine_Shutdown(e, 0, 1);
@@ -860,45 +857,45 @@ void __fastcall Engine_Destroy(uint8_t* e) {
     }
     if (uint8_t* m = g_windowManager) {
         Windows_Shutdown(m);
-        ExeDelete(m);
+        crt::operator_delete(m);
     }
     g_windowManager = nullptr;
     if (uint8_t* p = F<uint8_t*>(e, 0x24)) {
         Nop564170();
-        ExeDelete(p);
+        crt::operator_delete(p);
     }
     F<uint8_t*>(e, 0x24) = nullptr;
     if (uint8_t* c = g_cursorManager) {
         Cursor_Shutdown(c);
-        ExeDelete(c);
+        crt::operator_delete(c);
     }
     g_cursorManager = nullptr;
     if (uint8_t* m = F<uint8_t*>(e, 0x20)) {
         Mouse_Destroy(m);
-        ExeDelete(m);
+        crt::operator_delete(m);
     }
     F<uint8_t*>(e, 0x20) = nullptr;
     if (uint8_t* p = g_pack) {
         Pack_Shutdown(p);
-        ExeDelete(p);
+        crt::operator_delete(p);
     }
     g_pack = nullptr;
     if (uint8_t* p = g_input) {
         Nop54e780();
-        ExeDelete(p);
+        crt::operator_delete(p);
     }
     g_input = nullptr;
     if (uint8_t* s = g_sound) {
         Sound_Destruct(s);
-        ExeDelete(s);
+        crt::operator_delete(s);
     }
     g_sound = nullptr;
     if (uint32_t* m = hook::As<uint32_t*>(g_models)) {
         ModelLibrary_Free(m);
-        ExeDelete(m);
+        crt::operator_delete(m);
     }
     hook::As<uint32_t*>(g_models) = nullptr;
-    ((void(__cdecl*)(void*))0x5a1145)(F<void*>(e, 0x34));
+    crt::free(F<void*>(e, 0x34));
     FreeLanguageStrings();
     StreamReleaseAll();
     hook::As<void*>(g_engine) = nullptr;
@@ -907,14 +904,14 @@ RT3_REPLACE(0x521390, Engine_Destroy);
 
 // 0x521580 / 0x468ae0 (vtables). Free the buffer +4 (the second when set).
 int32_t __fastcall Obj_FreeBuffer4(uint8_t* o) {
-    Callback_Delete(F<void*>(o, 4));
+    crt::operator_delete(F<void*>(o, 4));
     return 0;
 }
 RT3_REPLACE(0x521580, Obj_FreeBuffer4);
 
 // 0x521590. Deletes the four network critical sections.
 void Net_DeleteLocks() {
-    auto del = Import<void(__stdcall*)(void*)>(0x5c81f4);
+    auto del = imp::DeleteCriticalSection;
     del((void*)0x6d4090);
     del((void*)0x6d406c);
     del((void*)0x6d4048);
@@ -927,7 +924,7 @@ RT3_REPLACE(0x521590, Net_DeleteLocks);
 RT3_NOINLINE int32_t __stdcall DpAddress_AddString(void* addr, const char* text) {
     wchar_t buf[0x80];
     Str_ToWide(buf, text, -1);
-    int32_t len = ((int32_t(__cdecl*)(const wchar_t*))0x5a3e74)(buf);
+    int32_t len = ((int32_t)crt::wcslen(buf));
     int32_t hr = (*(int32_t(__stdcall**)(void*, const void*, const void*, int32_t, int32_t))(*(uint8_t**)addr + 0x48))(addr, (const void*)0x5dcf5c, buf,
                                                                                                               len * 2 + 2, 1);
     return hr >= 0 ? 1 : 0;
@@ -949,7 +946,7 @@ RT3_REPLACE(0x521670, Global6d4100);
 // 0x521680 / 0x5216a0. Locks / unlocks the network queue (critical section
 // 0x6d4090, depth 0x6d40a8); lock returns the queue 0x6d408c.
 RT3_NOINLINE int32_t Net_LockQueue() {
-    Import<void(__stdcall*)(void*)>(0x5c81fc)((void*)0x6d4090);
+    imp::EnterCriticalSection((void*)0x6d4090);
     g_6d40a8++;
     return hook::As<int32_t>(g_6d408c);
 }
@@ -957,7 +954,7 @@ RT3_REPLACE(0x521680, Net_LockQueue);
 
 RT3_NOINLINE void Net_UnlockQueue() {
     g_6d40a8--;
-    Import<void(__stdcall*)(void*)>(0x5c81f8)((void*)0x6d4090);
+    imp::LeaveCriticalSection((void*)0x6d4090);
 }
 RT3_REPLACE(0x5216a0, Net_UnlockQueue);
 
@@ -967,7 +964,7 @@ RT3_REPLACE(0x5216c0, Global6d40e4);
 // 0x5216d0. Unlock variant that pops one (unused) argument.
 RT3_NOINLINE void __stdcall Net_UnlockQueueArg(int32_t) {
     g_6d40a8--;
-    Import<void(__stdcall*)(void*)>(0x5c81f8)((void*)0x6d4090);
+    imp::LeaveCriticalSection((void*)0x6d4090);
 }
 RT3_REPLACE(0x5216d0, Net_UnlockQueueArg);
 
@@ -975,11 +972,11 @@ RT3_REPLACE(0x5216d0, Net_UnlockQueueArg);
 RT3_NOINLINE char* __stdcall Net_LocalAddress(char* out) {
     char host[0x104];
     out[0] = 0;
-    Import<int32_t(__stdcall*)(char*, int32_t)>(0x5c82f8)(host, 0x104);
-    uint8_t* h = Import<uint8_t*(__stdcall*)(const char*)>(0x5c82f4)(host);
+    imp::gethostname(host, 0x104);
+    uint8_t* h = imp::gethostbyname(host);
     if (!h) return out;
     uint32_t addr = **F<uint32_t**>(h, 0xc);
-    const char* ip = Import<const char*(__stdcall*)(uint32_t)>(0x5c8320)(addr);
+    const char* ip = imp::inet_ntoa(addr);
     if (!ip) return out;
     char* d = out;
     while ((*d++ = *ip++) != 0) {}
@@ -1007,7 +1004,7 @@ RT3_REPLACE(0x5217b0, Nop5217b0);
 // 0x5217c0 / 0x5217e0. Lock / unlock the second network list (critical
 // section 0x6d4048, depth 0x6d4060); lock returns the list 0x6d4044.
 RT3_NOINLINE int32_t Net_LockList2() {
-    Import<void(__stdcall*)(void*)>(0x5c81fc)((void*)0x6d4048);
+    imp::EnterCriticalSection((void*)0x6d4048);
     g_6d4060++;
     return hook::As<int32_t>(g_6d4044);
 }
@@ -1015,7 +1012,7 @@ RT3_REPLACE(0x5217c0, Net_LockList2);
 
 RT3_NOINLINE void Net_UnlockList2() {
     g_6d4060--;
-    Import<void(__stdcall*)(void*)>(0x5c81f8)((void*)0x6d4048);
+    imp::LeaveCriticalSection((void*)0x6d4048);
 }
 RT3_REPLACE(0x5217e0, Net_UnlockList2);
 
@@ -1023,29 +1020,28 @@ RT3_REPLACE(0x5217e0, Net_UnlockList2);
 RT3_NOINLINE void __fastcall Net_BroadcastGame(uint8_t* o, int, const char* name) {
     if (g_6d4100 >= 4) return;
     char msg[0x100], ip[0x100];
-    auto sprintf = (int(__cdecl*)(char*, const char*, ...))0x5a19c4;
     int32_t port = F<int32_t>(o, 0x216);
     if (o[0x21a]) {
         const char* addr = Net_LocalAddress(ip);
-        sprintf(msg, (const char*)0x5dcf88, name, GetString(0xdba), addr, port);
+        crt::sprintf(msg, (const char*)0x5dcf88, name, GetString(0xdba), addr, port);
     } else {
         const char* addr = Net_LocalAddress(ip);
-        sprintf(msg, (const char*)0x5dcf7c, name, addr, port);
+        crt::sprintf(msg, (const char*)0x5dcf7c, name, addr, port);
     }
-    int32_t s = Import<int32_t(__stdcall*)(int32_t, int32_t, int32_t)>(0x5c8310)(2, 2, 0);
+    int32_t s = imp::socket(2, 2, 0);
     if (s < 0) return;
     int32_t one = 1;
-    if (Import<int32_t(__stdcall*)(int32_t, int32_t, int32_t, const void*, int32_t)>(0x5c830c)(s, 0xffff, 0x20, &one, 4) == 0) {
+    if (imp::setsockopt(s, 0xffff, 0x20, &one, 4) == 0) {
         uint8_t addr[16] = {};
         F<uint16_t>(addr, 0) = 2;
-        F<uint32_t>(addr, 4) = Import<uint32_t(__stdcall*)(uint32_t)>(0x5c8308)(0xffffffff);
-        F<uint16_t>(addr, 2) = Import<uint16_t(__stdcall*)(uint16_t)>(0x5c8304)(0x4d2);
+        F<uint32_t>(addr, 4) = imp::htonl(0xffffffff);
+        F<uint16_t>(addr, 2) = imp::htons(0x4d2);
         size_t len = 0;
         while (msg[len]) ++len;
-        Import<int32_t(__stdcall*)(int32_t, const char*, int32_t, int32_t, const void*, int32_t)>(0x5c8300)(
+        imp::sendto(
             s, msg, (int32_t)len, 0, addr, 16);
     }
-    Import<int32_t(__stdcall*)(int32_t)>(0x5c82fc)(s);
+    imp::closesocket(s);
 }
 RT3_REPLACE(0x521800, Net_BroadcastGame);
 
@@ -1059,7 +1055,7 @@ void __fastcall Net_StopListener() {
     if (uint8_t* t = g_6d40d4) {
         g_6d40ec = 1;
         F<int32_t>(t, 0x10) = 1;
-        Import<int32_t(__stdcall*)(int32_t)>(0x5c82fc)(g_6d40e8);
+        imp::closesocket(g_6d40e8);
         g_6d40e8 = 0;
         Thread_Stop(g_6d40d4, 0, 0x1e);
         if (uint8_t* t2 = g_6d40d4) {
@@ -1067,7 +1063,7 @@ void __fastcall Net_StopListener() {
             g_6d40d4 = nullptr;
         }
     }
-    if (g_6d410c) Import<int32_t(__stdcall*)()>(0x5c8314)();
+    if (g_6d410c) imp::WSACleanup();
 }
 RT3_REPLACE(0x521920, Net_StopListener);
 
@@ -1098,7 +1094,7 @@ RT3_REPLACE(0x521aa0, Net_GetGuid);
 // 0x521ad0. Deleting destructor of the worker thread object.
 uint8_t* __fastcall Thread_DeletingDestructor(uint8_t* t, int, uint32_t flags) {
     Thread_Destruct(t);
-    if (flags & 1) ExeDelete(t);
+    if (flags & 1) crt::operator_delete(t);
     return t;
 }
 RT3_REPLACE(0x521ad0, Thread_DeletingDestructor);
@@ -1112,7 +1108,7 @@ RT3_NOINLINE uint8_t* __fastcall Net_FindById(int32_t id) {
 RT3_REPLACE(0x521af0, Net_FindById);
 
 RT3_NOINLINE uint8_t* __fastcall Net_FindByName(const char* name) {
-    uint32_t crc = ((uint32_t(__fastcall*)(const char*, int32_t))0x53d810)(name, 1);
+    uint32_t crc = Crc32String(name, 1);
     for (uint8_t* e = *g_6d408c; e; e = *(uint8_t**)e)
         if (F<uint32_t>(e, 0x48) == crc) return e;
     return nullptr;
@@ -1151,9 +1147,9 @@ RT3_NOINLINE uint8_t* __fastcall Net_Construct(uint8_t* o) {
     g_6d411c = 0;
     if (g_6d40e8) return o;
     g_6d40ec = 0;
-    int32_t r = Import<int32_t(__stdcall*)(uint32_t, void*)>(0x5c8318)(1, o);
+    int32_t r = imp::WSAStartup(1, o);
     g_6d410c = 1;
-    uint32_t* t = (uint32_t*)ExeNew(0x14);
+    uint32_t* t = (uint32_t*)crt::operator_new(0x14);
     if (t) {
         t[1] = 0;
         t[2] = 0;
@@ -1205,14 +1201,14 @@ RT3_REPLACE(0x521d40, Engine_FirstListEntry);
 // 0x521d60. The texture entry with id key (list 0x6d408c). When found it returns
 // with the lock 0x6d4090 still held (and its count +1), as the original does.
 RT3_NOINLINE uint8_t* __stdcall Textures_Find(int32_t key) {
-    Enter(0x6d4090, 0x5c81fc);
+    Enter(0x6d4090, imp::EnterCriticalSection);
     ++g_6d40a8;
     uint8_t** l = g_6d408c;
     if (l)
         for (uint8_t* n = *l; n; n = F<uint8_t*>(n, 0))
             if (F<int32_t>(n, 4) == key) return n;
     --g_6d40a8;
-    Enter(0x6d4090, 0x5c81f8);
+    Enter(0x6d4090, imp::LeaveCriticalSection);
     return nullptr;
 }
 RT3_REPLACE(0x521d60, Textures_Find);
@@ -1229,7 +1225,7 @@ int32_t __fastcall Net_SendTo(uint8_t* net, int, const uint8_t* data, uint16_t s
                               uint32_t flags, uint32_t timeout, uint32_t serial, int32_t) {
     uint8_t local[0x100c];
     uint8_t* pkt = local;
-    if ((flags & 8) && (uint32_t)size + 0xc > 0x1000) pkt = (uint8_t*)ExeNew((uint32_t)size + 0xc);
+    if ((flags & 8) && (uint32_t)size + 0xc > 0x1000) pkt = (uint8_t*)crt::operator_new((uint32_t)size + 0xc);
     memset(pkt, 0, 0xc);
     pkt[8] = channel;
     pkt[9] = type;
@@ -1243,7 +1239,7 @@ int32_t __fastcall Net_SendTo(uint8_t* net, int, const uint8_t* data, uint16_t s
     uint32_t dpnid = 0;
     bool send = true;
     if (to) {
-        Import<void(__stdcall*)(void*)>(0x5c81fc)((void*)0x6d4090);
+        imp::EnterCriticalSection((void*)0x6d4090);
         ++g_6d40a8;
         uint32_t crc = Crc32String(to, 1);
         send = false;
@@ -1255,7 +1251,7 @@ int32_t __fastcall Net_SendTo(uint8_t* net, int, const uint8_t* data, uint16_t s
             }
         }
         --g_6d40a8;
-        Import<void(__stdcall*)(void*)>(0x5c81f8)((void*)0x6d4090);
+        imp::LeaveCriticalSection((void*)0x6d4090);
     }
     if (send) {
         if (serial)
@@ -1268,7 +1264,7 @@ int32_t __fastcall Net_SendTo(uint8_t* net, int, const uint8_t* data, uint16_t s
         (*(int32_t(__stdcall**)(void*, uint32_t, void*, uint32_t, uint32_t, void*, uint32_t*, uint32_t))(*(uint8_t**)peer + 0x1c))(
             peer, dpnid, &desc, 1, timeout, nullptr, &handle, flags);
     }
-    if (pkt != local) ExeDelete(pkt);
+    if (pkt != local) crt::operator_delete(pkt);
     return dpnid != 0;
 }
 RT3_REPLACE(0x521dc0, Net_SendTo);
@@ -1279,7 +1275,7 @@ RT3_REPLACE(0x521dc0, Net_SendTo);
 RT3_NOINLINE int32_t __fastcall Textures_QueryDesc(uint8_t* e, int, int32_t key, int32_t lock) {
     int32_t ok = 0;
     if (lock == 1) {
-        Enter(0x6d4090, 0x5c81fc);
+        Enter(0x6d4090, imp::EnterCriticalSection);
         ++g_6d40a8;
     }
     for (uint8_t* n = *g_6d408c; n; n = F<uint8_t*>(n, 0))
@@ -1296,7 +1292,7 @@ RT3_NOINLINE int32_t __fastcall Textures_QueryDesc(uint8_t* e, int, int32_t key,
         }
     if (lock == 1) {
         --g_6d40a8;
-        Enter(0x6d4090, 0x5c81f8);
+        Enter(0x6d4090, imp::LeaveCriticalSection);
     }
     return ok;
 }
@@ -1307,7 +1303,7 @@ RT3_REPLACE(0x521f90, Textures_QueryDesc);
 // after unlocking. Null when absent.
 RT3_NOINLINE uint8_t* __stdcall Textures_Lookup(uint8_t* t, int32_t keep) {
     uint8_t* result = nullptr;
-    Enter(0x6d4090, 0x5c81fc);
+    Enter(0x6d4090, imp::EnterCriticalSection);
     ++g_6d40a8;
     for (uint8_t* n = *g_6d408c; n; n = F<uint8_t*>(n, 0))
         if (F<int32_t>(n, 4) == F<int32_t>(t, 0x18)) {
@@ -1317,7 +1313,7 @@ RT3_NOINLINE uint8_t* __stdcall Textures_Lookup(uint8_t* t, int32_t keep) {
             break;
         }
     --g_6d40a8;
-    Enter(0x6d4090, 0x5c81f8);
+    Enter(0x6d4090, imp::LeaveCriticalSection);
     return result;
 }
 RT3_REPLACE(0x522050, Textures_Lookup);
@@ -1327,11 +1323,11 @@ RT3_REPLACE(0x522050, Textures_Lookup);
 RT3_NOINLINE uint8_t* __fastcall CmdNode_New(int32_t clear, int32_t lock) {
     uint8_t* n;
     if (lock == 1) {
-        Enter(0x6d406c, 0x5c81fc);
+        Enter(0x6d406c, imp::EnterCriticalSection);
         ++g_6d4084;
         n = (uint8_t*)Pool_Take(g_6d4064);
         --g_6d4084;
-        Enter(0x6d406c, 0x5c81f8);
+        Enter(0x6d406c, imp::LeaveCriticalSection);
     } else n = (uint8_t*)Pool_Take(g_6d4064);
     if (n) {
         F<int32_t>(n, 0x20) = 0;
@@ -1344,7 +1340,7 @@ RT3_REPLACE(0x5220d0, CmdNode_New);
 // 0x5221a0. Empties a node queue { head, tail, count }, returning the nodes to the
 // command pool 0x6d4064 (lock 0x6d406c).
 void __fastcall CmdQueue_Clear(uint8_t* q) {
-    Enter(0x6d406c, 0x5c81fc);
+    Enter(0x6d406c, imp::EnterCriticalSection);
     ++g_6d4084;
     for (;;) {
         uint8_t* n = F<uint8_t*>(q, 0);
@@ -1355,7 +1351,7 @@ void __fastcall CmdQueue_Clear(uint8_t* q) {
         Pool_Give(g_6d4064, n);
     }
     --g_6d4084;
-    Enter(0x6d406c, 0x5c81f8);
+    Enter(0x6d406c, imp::LeaveCriticalSection);
 }
 RT3_REPLACE(0x5221a0, CmdQueue_Clear);
 
@@ -1363,7 +1359,7 @@ RT3_REPLACE(0x5221a0, CmdQueue_Clear);
 // queue at +4), stamped with the frame 0x6d40e4; the number queued.
 RT3_NOINLINE int32_t __fastcall CmdQueue_Broadcast(int32_t a, int32_t b, int32_t c) {
     int32_t count = 0;
-    Enter(0x6d406c, 0x5c81fc);
+    Enter(0x6d406c, imp::EnterCriticalSection);
     ++g_6d4084;
     for (uint8_t* ch = *g_6d40b0; ch; ch = F<uint8_t*>(ch, 0)) {
         uint8_t* n = (uint8_t*)Pool_Take(g_6d4064);
@@ -1387,7 +1383,7 @@ RT3_NOINLINE int32_t __fastcall CmdQueue_Broadcast(int32_t a, int32_t b, int32_t
         F<uint8_t*>(ch, 8) = n;
     }
     --g_6d4084;
-    Enter(0x6d406c, 0x5c81f8);
+    Enter(0x6d406c, imp::LeaveCriticalSection);
     return count;
 }
 RT3_REPLACE(0x522240, CmdQueue_Broadcast);
@@ -1410,7 +1406,7 @@ int32_t __stdcall Net_OpenChannel(uint8_t id) {
             --free[2];
         }
     } else {
-        node = (uint8_t*)ExeNew(F<uint32_t>(pool, 0x10));
+        node = (uint8_t*)crt::operator_new(F<uint32_t>(pool, 0x10));
     }
     F<uint32_t>(node, 4) = 0;
     F<uint32_t>(node, 8) = 0;
@@ -1428,14 +1424,14 @@ RT3_REPLACE(0x522340, Net_OpenChannel);
 // 0x5223d0. Empties the outgoing message list 0x6d4044 (under 0x6d4048; the
 // nodes are not freed) and clears 0x6d40ec.
 void __fastcall Net_ResetOutgoing() {
-    Import<void(__stdcall*)(void*)>(0x5c81fc)((void*)0x6d4048);
+    imp::EnterCriticalSection((void*)0x6d4048);
     ++g_6d4060;
     uint32_t* list = g_6d4044;
     list[0] = 0;
     list[1] = 0;
     list[2] = 0;
     --g_6d4060;
-    Import<void(__stdcall*)(void*)>(0x5c81f8)((void*)0x6d4048);
+    imp::LeaveCriticalSection((void*)0x6d4048);
     g_6d40ec = 0;
 }
 RT3_REPLACE(0x5223d0, Net_ResetOutgoing);
@@ -1445,7 +1441,7 @@ RT3_REPLACE(0x5223d0, Net_ResetOutgoing);
 // the pool 0x6d4040 and deleting the rest. The unused argument is real: the
 // original reuses its slot to tail-call LeaveCriticalSection (RET 4).
 RT3_NOINLINE void __stdcall Net_PurgeSentMessages(int32_t) {
-    Import<void(__stdcall*)(void*)>(0x5c81fc)((void*)0x6d4048);
+    imp::EnterCriticalSection((void*)0x6d4048);
     ++g_6d4060;
     for (;;) {
         uint32_t* list = g_6d4044;
@@ -1473,11 +1469,11 @@ RT3_NOINLINE void __stdcall Net_PurgeSentMessages(int32_t) {
             free[0] = (uint32_t)(uintptr_t)node;
             if (!free[1]) free[1] = (uint32_t)(uintptr_t)node;
         } else {
-            ExeDelete(node);
+            crt::operator_delete(node);
         }
     }
     --g_6d4060;
-    Import<void(__stdcall*)(void*)>(0x5c81f8)((void*)0x6d4048);
+    imp::LeaveCriticalSection((void*)0x6d4048);
 }
 RT3_REPLACE(0x522430, Net_PurgeSentMessages);
 
@@ -1521,7 +1517,7 @@ int32_t __stdcall Net_PlayerIdByName(const char* name) {
     int32_t id = 0;
     uint8_t** q = (uint8_t**)(uintptr_t)Net_LockQueue();
     for (uint8_t* n = q[0]; n; n = F<uint8_t*>(n, 0)) {
-        if (!Stricmp(name, (const char*)(n + 8))) {
+        if (!crt::stricmp(name, (const char*)(n + 8))) {
             id = F<int32_t>(n, 4);
             break;
         }
@@ -1539,7 +1535,7 @@ RT3_REPLACE(0x522600, Net_PlayerIdByName);
 // adds each new game to the list with its arrival time. Returns 1 when the
 // bind fails, 0 when stopped before it, else 0xff after closing the socket.
 int32_t __fastcall Lan_ListenThread(uint8_t* ctx) {
-    Iat456<int(__stdcall*)(uint32_t, int)>(0x5c8084)(F<uint32_t>(ctx, 4), -15);
+    ((int(__stdcall*)(uint32_t, int))imp::SetThreadPriority)(F<uint32_t>(ctx, 4), -15);
     struct {
         char delim[4];  // L+3.. (with the length after it)
         int32_t fromLen;
@@ -1549,38 +1545,38 @@ int32_t __fastcall Lan_ListenThread(uint8_t* ctx) {
     do {
         if (F<int32_t>(ctx, 0x10)) return 0;
         if (hook::As<void*>(g_6d4044) && g_6d4040) {
-            Lock456(0x5c81fc, 0x6d4048);
+            Lock456(imp::EnterCriticalSection, 0x6d4048);
             ++g_6d4060;
             if (uint32_t* q = g_6d4044) {
                 cleared = 1;
                 q[0] = 0, q[1] = 0, q[2] = 0;
             }
             --g_6d4060;
-            Lock456(0x5c81f8, 0x6d4048);
+            Lock456(imp::LeaveCriticalSection, 0x6d4048);
         }
-        Iat456<void(__stdcall*)(uint32_t)>(0x5c81f0)(0);
+        imp::Sleep(0);
     } while (!cleared);
-    g_6d40e8 = Iat456<int32_t(__stdcall*)(int, int, int)>(0x5c8310)(2, 2, 0);
+    g_6d40e8 = ((int32_t(__stdcall*)(int, int, int))imp::socket)(2, 2, 0);
     uint8_t addr[0x10];
     if (g_6d40e8 != -1) {
         *(uint16_t*)addr = 2;
-        *(uint32_t*)(addr + 4) = Iat456<uint32_t(__stdcall*)(uint32_t)>(0x5c8308)(0);
-        *(uint16_t*)(addr + 2) = Iat456<uint16_t(__stdcall*)(uint16_t)>(0x5c8304)(0x4d2);
-        if (Iat456<int(__stdcall*)(int32_t, const void*, int)>(0x5c82f0)(g_6d40e8, addr, d.fromLen)) {
-            Iat456<int(__stdcall*)()>(0x5c8324)();
+        *(uint32_t*)(addr + 4) = imp::htonl(0);
+        *(uint16_t*)(addr + 2) = imp::htons(0x4d2);
+        if (imp::bind(g_6d40e8, addr, d.fromLen)) {
+            imp::WSAGetLastError();
             return 1;
         }
     }
     if (!g_6d40ec) {
         char name[0x80], where[0x80], buf[0x200];
         int32_t port = 0;
-        auto recvfrom_ = Iat456<int(__stdcall*)(int32_t, char*, int, int, void*, int32_t*)>(0x5c831c);
+        auto recvfrom_ = imp::recvfrom;
         auto strtok_ = (char*(__cdecl*)(char*, const char*))0x5a3db9;
         do {
             if (F<int32_t>(ctx, 0x10)) break;
             const int n = recvfrom_(g_6d40e8, buf, 0x1ff, 0, addr, &d.fromLen);
             if (n == -1) {
-                Iat456<int(__stdcall*)()>(0x5c8324)();
+                imp::WSAGetLastError();
                 continue;
             }
             if (g_6d40ec || F<int32_t>(ctx, 0x10)) break;
@@ -1594,10 +1590,10 @@ int32_t __fastcall Lan_ListenThread(uint8_t* ctx) {
                 else if (field == 1)
                     strcpy(where, tok);
                 else if (field == 2)
-                    port = ((int(__cdecl*)(const char*))0x5a1e1d)(tok);
+                    port = ((int)crt::atol(tok));
             }
             if (!hook::As<void*>(g_6d4044) || !g_6d4040) continue;
-            Lock456(0x5c81fc, 0x6d4048);
+            Lock456(imp::EnterCriticalSection, 0x6d4048);
             ++g_6d4060;
             if (hook::As<void*>(g_6d4044) && g_6d4040 && !Sounds_Has((uint8_t*)name, 1)) {
                 if (uint8_t* g = (uint8_t*)FreeList_Take(hook::As<uint8_t*>(g_6d4040))) {
@@ -1610,10 +1606,10 @@ int32_t __fastcall Lan_ListenThread(uint8_t* ctx) {
                 }
             }
             --g_6d4060;
-            Lock456(0x5c81f8, 0x6d4048);
+            Lock456(imp::LeaveCriticalSection, 0x6d4048);
         } while (!g_6d40ec);
     }
-    Iat456<int(__stdcall*)(int32_t)>(0x5c82fc)(g_6d40e8);
+    ((int(__stdcall*)(int32_t))imp::closesocket)(g_6d40e8);
     g_6d40ec = 0;
     g_6d40e8 = 0;
     return 0xff;
@@ -1650,9 +1646,9 @@ int32_t __fastcall Net_FreePendingList(uint8_t* o) {
         list[0] = n[0];
         if ((uint32_t)(uintptr_t)n == list[1]) list[1] = n[0];
         --list[2];
-        ExeDelete(n);
+        crt::operator_delete(n);
     }
-    ExeDelete(list);
+    crt::operator_delete(list);
     F<uint32_t*>(o, 4) = nullptr;
     return 0;
 }
@@ -1669,7 +1665,7 @@ RT3_NOINLINE int32_t __fastcall Net_PlayerJoined(int32_t, uint8_t* msg) {
     uint32_t size = 0;
     int32_t result = -1;
     if ((*(GetInfo*)(*(uint8_t**)peer + 0x54))(peer, F<int32_t>(msg, 4), nullptr, &size, 0) != (int32_t)0x80158100) return result;
-    uint32_t* info = (uint32_t*)ExeNew(size);
+    uint32_t* info = (uint32_t*)crt::operator_new(size);
     memset(info, 0, 0x18);
     info[0] = 0x18;
     peer = g_6d40e0;
@@ -1677,7 +1673,7 @@ RT3_NOINLINE int32_t __fastcall Net_PlayerJoined(int32_t, uint8_t* msg) {
         char name[0x40];
         Str_FromWide(name, (const wchar_t*)(uintptr_t)info[2], -1);
         uint32_t hash = Crc32String(name, 1);
-        Enter(0x6d4090, 0x5c81fc);
+        Enter(0x6d4090, imp::EnterCriticalSection);
         ++g_6d40a8;
         if (hook::As<void*>(g_6d408c)) {
             if (uint8_t* p = (uint8_t*)FreeList_Take(g_6d4088)) {
@@ -1685,19 +1681,19 @@ RT3_NOINLINE int32_t __fastcall Net_PlayerJoined(int32_t, uint8_t* msg) {
                 strcpy((char*)p + 8, name);
                 F<int32_t>(p, 4) = F<int32_t>(msg, 4);
                 F<uint32_t>(p, 0x48) = hash;
-                uint32_t* m = (uint32_t*)ExeNew(0x14);
+                uint32_t* m = (uint32_t*)crt::operator_new(0x14);
                 if (m) memset(m, 0, 0x14);
                 F<uint32_t*>(p, 0x60) = m;
                 Hash_Init((HashMap*)m, 0, 0x65, 0x200);
-                m = (uint32_t*)ExeNew(0x14);
+                m = (uint32_t*)crt::operator_new(0x14);
                 if (m) memset(m, 0, 0x14);
                 F<uint32_t*>(p, 0x2580) = m;
                 Hash_Init((HashMap*)m, 0, 0x1f, 0x200);
-                m = (uint32_t*)ExeNew(0xc);
+                m = (uint32_t*)crt::operator_new(0xc);
                 if (m) memset(m, 0, 0xc);
                 F<uint32_t*>(p, 0x64) = m;
                 F<int32_t>(p, 0x68) = 0;
-                m = (uint32_t*)ExeNew(0x1c);
+                m = (uint32_t*)crt::operator_new(0x1c);
                 if (m) memset(m, 0, 0x10);
                 F<uint32_t*>(p, 0x6c) = m;
                 Heap_Init((MaxHeap*)m, 0, 0x400);
@@ -1713,15 +1709,15 @@ RT3_NOINLINE int32_t __fastcall Net_PlayerJoined(int32_t, uint8_t* msg) {
                     F<int32_t>(p, 0x268c) = g_6d4108;
                 }
                 if (info[5] & 4) F<int32_t>(p, 0x50) = 1;
-                Enter(0x6d4100, 0x5c8070);
+                Enter(0x6d4100, imp::InterlockedIncrement);
                 CmdQueue_Broadcast(5, 0, (int32_t)(uintptr_t)p);
                 result = 0;
             }
         }
         --g_6d40a8;
-        Enter(0x6d4090, 0x5c81f8);
+        Enter(0x6d4090, imp::LeaveCriticalSection);
     }
-    ExeDelete(info);
+    crt::operator_delete(info);
     return result;
 }
 RT3_REPLACE(0x522ab0, Net_PlayerJoined);
@@ -1731,17 +1727,17 @@ RT3_REPLACE(0x522ab0, Net_PlayerJoined);
 // 0x58..0x5b, with its name +8) at +0x78, the player count 0x6d4100 drops and a
 // command 6 for it is queued on every channel (count kept at +0x4c).
 RT3_NOINLINE int32_t __fastcall Net_PlayerLeft(int32_t, uint8_t* msg) {
-    Enter(0x6d4090, 0x5c81fc);
+    Enter(0x6d4090, imp::EnterCriticalSection);
     ++g_6d40a8;
     uint8_t* p = *g_6d408c;
     while (p && F<int32_t>(p, 4) != F<int32_t>(msg, 4)) p = F<uint8_t*>(p, 0);
     --g_6d40a8;
-    Enter(0x6d4090, 0x5c81f8);
+    Enter(0x6d4090, imp::LeaveCriticalSection);
     if (!p) return 0;
     int32_t why = F<int32_t>(msg, 0xc);
     if (why >= 1 && why <= 4)
         FormatText((char*)p + 0x78, GetString(0x57 + why), (const char*)p + 8, 0, 0, 0, 0, 0, 0, 0);
-    Enter(0x6d4100, 0x5c8074);
+    Enter(0x6d4100, imp::InterlockedDecrement);
     F<int32_t>(p, 0x4c) = CmdQueue_Broadcast(6, 0, (int32_t)(uintptr_t)p);
     return 0;
 }
@@ -1757,16 +1753,16 @@ void __stdcall Net_FreePlayerRecord(uint8_t* p) {
             list[0] = n[0];
             if ((uint32_t)(uintptr_t)n == list[1]) list[1] = n[0];
             --list[2];
-            ExeDelete(n);
+            crt::operator_delete(n);
         }
-        ExeDelete(list);
+        crt::operator_delete(list);
         F<uint32_t*>(p, 0x64) = nullptr;
     }
     if (HashMap* h = F<HashMap*>(p, 0x60)) {
         Hash_ForEach(h, 0, 0, (HashVisit)0x521580, nullptr);
         if (HashMap* h2 = F<HashMap*>(p, 0x60)) {
             Hash_DestroyThunk(h2);
-            ExeDelete(h2);
+            crt::operator_delete(h2);
             F<HashMap*>(p, 0x60) = nullptr;
         }
     }
@@ -1774,18 +1770,18 @@ void __stdcall Net_FreePlayerRecord(uint8_t* p) {
         if (F<int32_t>(p, 4) != g_6d40e4) Hash_ForEach(h, 0, 0, (HashVisit)0x522a40, nullptr);
         if (HashMap* h2 = F<HashMap*>(p, 0x2580)) {
             Hash_DestroyThunk(h2);
-            ExeDelete(h2);
+            crt::operator_delete(h2);
             F<HashMap*>(p, 0x2580) = nullptr;
         }
     }
     if (MaxHeap* heap = F<MaxHeap*>(p, 0x6c)) {
         for (uint32_t* m; (m = (uint32_t*)(uintptr_t)Heap_PopMax(heap)) != nullptr; heap = F<MaxHeap*>(p, 0x6c)) {
-            ExeDelete((void*)(uintptr_t)m[1]);
+            crt::operator_delete((void*)(uintptr_t)m[1]);
             Pool_Return(g_6d4064, m);
         }
         if (MaxHeap* h2 = F<MaxHeap*>(p, 0x6c)) {
             Heap_Destroy2(h2);
-            ExeDelete(h2);
+            crt::operator_delete(h2);
             F<MaxHeap*>(p, 0x6c) = nullptr;
         }
     }
@@ -1798,7 +1794,7 @@ RT3_REPLACE(0x522e30, Net_FreePlayerRecord);
 uint32_t* __stdcall Net_TakeChannelMessages(uint8_t id) {
     uint32_t* taken = nullptr;
     if (!hook::As<void*>(g_6d408c)) return nullptr;
-    Import<void(__stdcall*)(void*)>(0x5c81fc)((void*)0x6d406c);
+    imp::EnterCriticalSection((void*)0x6d406c);
     ++g_6d4084;
     for (uint8_t* n = *g_6d40b0; n; n = F<uint8_t*>(n, 0)) {
         if (n[0x1c] != id) continue;
@@ -1810,7 +1806,7 @@ uint32_t* __stdcall Net_TakeChannelMessages(uint8_t id) {
         break;
     }
     --g_6d4084;
-    Import<void(__stdcall*)(void*)>(0x5c81f8)((void*)0x6d406c);
+    imp::LeaveCriticalSection((void*)0x6d406c);
     return taken;
 }
 RT3_REPLACE(0x522f70, Net_TakeChannelMessages);
@@ -1824,8 +1820,8 @@ RT3_REPLACE(0x522f70, Net_TakeChannelMessages);
 // flag 1 says they live elsewhere.
 void __fastcall Net_FinishReceived(uint8_t* net, int, uint32_t* list) {
     if (!list) return;
-    auto enter = Import<void(__stdcall*)(void*)>(0x5c81fc);
-    auto leave = Import<void(__stdcall*)(void*)>(0x5c81f8);
+    auto enter = imp::EnterCriticalSection;
+    auto leave = imp::LeaveCriticalSection;
     for (uint8_t* m = (uint8_t*)(uintptr_t)list[0]; m; m = F<uint8_t*>(m, 0)) {
         if (F<int32_t>(m, 0x10) == 6) {
             enter((void*)0x6d406c);
@@ -1877,7 +1873,7 @@ RT3_REPLACE(0x523010, Net_FinishReceived);
 int32_t __fastcall Net_ShutdownShared(uint8_t* net) {
     if (!hook::As<void*>(g_6d408c)) return 0;
     g_6d40f4 = 1;
-    while (g_6d40f0 > 0) Import<void(__stdcall*)(uint32_t)>(0x5c81f0)(0);
+    while (g_6d40f0 > 0) imp::Sleep(0);
     if (F<uint32_t>(net, 0x18e)) {
         Set_d973b0(0);
         F<uint32_t>(net, 0x18e) = 0;
@@ -1885,14 +1881,14 @@ int32_t __fastcall Net_ShutdownShared(uint8_t* net) {
     for (uint8_t* n = *g_6d408c; n; n = F<uint8_t*>(n, 0)) Net_FreePlayerRecord(n);
     auto freeList = [](uint32_t at) {
         if (void* l = hook::Global<void*>(at)) {
-            ExeDelete(l);
+            crt::operator_delete(l);
             hook::Global<void*>(at) = nullptr;
         }
     };
     auto freePool = [](uint32_t at) {
         if (NodePool* p = hook::Global<NodePool*>(at)) {
             Pool_Free(p);
-            ExeDelete(p);
+            crt::operator_delete(p);
             hook::Global<NodePool*>(at) = nullptr;
         }
     };
@@ -1925,7 +1921,7 @@ RT3_REPLACE(0x523200, Net_ShutdownShared);
 // to its tagged engine queue (returning 0x15800e, pending).
 int32_t __fastcall Net_HandleMessage(int32_t ctx, uint32_t type, uint8_t* msg) {
     if (g_6d40f4) return 0;
-    Lock456(0x5c8070, 0x6d40f0);
+    Lock456(imp::InterlockedIncrement, 0x6d40f0);
     int32_t r = 0;
     switch (type) {
     case 0xffff0007:
@@ -1935,7 +1931,7 @@ int32_t __fastcall Net_HandleMessage(int32_t ctx, uint32_t type, uint8_t* msg) {
         r = Net_PlayerLeft(ctx, msg);
         break;
     case 0xffff000e:
-        Lock456(0x5c81fc, 0x6d4090);
+        Lock456(imp::EnterCriticalSection, 0x6d4090);
         ++g_6d40a8;
         if (F<const char*>(msg, 4) && Net_FindByName(F<const char*>(msg, 4))) {
             g_6d40d8 = 0;
@@ -1950,7 +1946,7 @@ int32_t __fastcall Net_HandleMessage(int32_t ctx, uint32_t type, uint8_t* msg) {
             r = 1;
         }
         --g_6d40a8;
-        Lock456(0x5c81f8, 0x6d4090);
+        Lock456(imp::LeaveCriticalSection, 0x6d4090);
         break;
     case 0xffff0005: {
         const uint32_t code = F<uint32_t>(msg, 0xc);
@@ -1969,13 +1965,13 @@ int32_t __fastcall Net_HandleMessage(int32_t ctx, uint32_t type, uint8_t* msg) {
         break;
     }
     case 0xffff000d: {
-        Lock456(0x5c81fc, 0x6d4090);
+        Lock456(imp::EnterCriticalSection, 0x6d4090);
         ++g_6d40a8;
         uint8_t* p = Net_FindById(F<int32_t>(msg, 4));
         F<int32_t>(p, 0x50) = 1;
         CmdQueue_Broadcast(4, 0, (int32_t)(uintptr_t)p);
         --g_6d40a8;
-        Lock456(0x5c81f8, 0x6d4090);
+        Lock456(imp::LeaveCriticalSection, 0x6d4090);
         if (F<int32_t>(msg, 4) == g_6d40e4) g_6d40dc = 1;
         break;
     }
@@ -1983,7 +1979,7 @@ int32_t __fastcall Net_HandleMessage(int32_t ctx, uint32_t type, uint8_t* msg) {
         g_6d4114 = 0xa;
         break;
     case 0xffff0011: {
-        Lock456(0x5c81fc, 0x6d406c);
+        Lock456(imp::EnterCriticalSection, 0x6d406c);
         ++g_6d4084;
         uint8_t* data = F<uint8_t*>(msg, 0xc);
         if (uint8_t* e = Engine_FindTagged((char)data[8])) {
@@ -1998,11 +1994,11 @@ int32_t __fastcall Net_HandleMessage(int32_t ctx, uint32_t type, uint8_t* msg) {
             }
         }
         --g_6d4084;
-        Lock456(0x5c81f8, 0x6d406c);
+        Lock456(imp::LeaveCriticalSection, 0x6d406c);
         break;
     }
     }
-    Lock456(0x5c8074, 0x6d40f0);
+    Lock456(imp::InterlockedDecrement, 0x6d40f0);
     return r;
 }
 RT3_REPLACE(0x523380, Net_HandleMessage);
@@ -2021,17 +2017,17 @@ RT3_NOINLINE int32_t __fastcall Net_InitShared(uint8_t* net) {
     memset((void*)0x6d40ac, 0, 9 * 4);
     g_6d40f0 = 0;
     g_6d40f4 = 0;
-    auto init = Import<void(__stdcall*)(void*)>(0x5c81ec);
+    auto init = imp::InitializeCriticalSection;
     init((void*)0x6d4090);
     init((void*)0x6d406c);
     init((void*)0x6d4048);
     init((void*)0x6d40b4);
     auto newPool = [](uint32_t poolAt, uint32_t listAt, int32_t size, int32_t count) {
-        uint32_t* p = (uint32_t*)ExeNew(0x1c);
+        uint32_t* p = (uint32_t*)crt::operator_new(0x1c);
         if (p) memset(p, 0, 0x1c);
         hook::Global<uint32_t*>(poolAt) = p;
         Pool_Init((NodePool*)p, 0, nullptr, size, count, 0);
-        uint32_t* l = (uint32_t*)ExeNew(0xc);
+        uint32_t* l = (uint32_t*)crt::operator_new(0xc);
         if (l) memset(l, 0, 0xc);
         hook::Global<uint32_t*>(listAt) = l;
     };
@@ -2063,7 +2059,7 @@ RT3_NOINLINE int32_t __fastcall Net_Host(uint8_t* o, int, const char* game, cons
         wchar_t wtitle[0x7e];
     } l;
     if (!password) strcpy(l.title, game);
-    else ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)(l.title, (const char*)0x5c9d08, game, GetString(0xdba));
+    else crt::sprintf(l.title, (const char*)0x5c9d08, game, GetString(0xdba));
     if (Net_SetPlayerName(o, 0, name) != 1) return 0;
     if (Sound_SetBufferMs(o, 0, F<void*>(F<uint8_t*>(o, 0x18e), 0xc), ms) != 1) return 0;
     void* dev = F<void*>(F<uint8_t*>(o, 0x18e), 0xc);

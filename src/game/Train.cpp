@@ -23,6 +23,25 @@
 
 namespace rt3 {
 
+uint32_t __fastcall Cars_Add(Collection* t, int, uint8_t* type, uint32_t owner, float x, float z, uint32_t a6);
+uint32_t __fastcall Table_FindCurrentFor(Collection* t, int, int32_t v);
+
+void __fastcall World_FollowEntity(uint8_t* w, int, int32_t on, int32_t kind, int32_t id);
+
+void __fastcall Obj_CenterCell(void* o, int, float* x, float* y);
+
+void __fastcall Car_LoadAt(uint8_t* car, int, uint8_t* at, uint8_t* to);
+
+int32_t __fastcall Station_PickCargo(uint8_t* st, int, int32_t tag, uint32_t destId, int32_t* lost, int32_t* fallback);
+
+void __fastcall Obj_SetHighlight(uint8_t* o, int, int32_t v);
+
+void* __fastcall Obj_Company21(void* o);
+
+char* __fastcall Num_FormatSimple2(char* buf, int32_t style, double v, int32_t width);
+
+uint32_t __fastcall CarType_ForCargo(uint8_t* o);
+
 template <typename T> static inline T& F(void* o, uint32_t off) { return *(T*)((uint8_t*)o + off); }
 
 // Global tables (Collection*) referenced by id from objects.
@@ -522,7 +541,7 @@ static inline double Fl_195(uint32_t a) { return *(const float*)a; }
 // threshold folded back (v1.03+) or reduced.
 static float Bend(float h, uint8_t* next) {
     float h2 = Vehicle_Heading(next, 0, 1);
-    float b = (float)((double(__cdecl*)(double))0x5a152e)(AngleDelta(nullptr, 0, h, h2));
+    float b = (float)crt::fabs(AngleDelta(nullptr, 0, h, h2));
     if (b > Fl_195(0x5c8764)) {
         if (Game_EffectiveVersion() >= 0x67) b = (float)(Fl_195(0x5c8760) - b);
         else b = (float)((double)b - Fl_195(0x5c8764));
@@ -668,7 +687,6 @@ static int32_t Train_OrderNode(uint8_t* t, bool* bad) {
 }
 
 namespace {
-inline void CrtFree485(void* p) { ((void(__cdecl*)(void*))0x5a1145)(p); }
 }
 
 // 0x4a78d0 body. Walks a train's track segments (table 0x6cfca8, links +0x206 /
@@ -694,32 +712,30 @@ static int32_t __cdecl Train_StepsToNodeImpl(uint8_t* o, int32_t target, int32_t
 }
 
 static uint8_t* Record(uint32_t slot, uint32_t id) {
-    return hook::Orig<uint8_t*(__fastcall*)(void*, int, uint32_t)>(0x518140)(
-        hook::Global<void*>(slot), 0, id);
+    return ((uint8_t*)Collection_Get((Collection*)(hook::Global<void*>(slot)), 0, id));
 }
 
-static uint8_t* Ref(uint8_t* car) { return hook::Orig<uint8_t*(__fastcall*)(uint8_t*)>(0x41adb0)(car); }
+static uint8_t* Ref(uint8_t* car) { return ((uint8_t*)Obj_Ref388((void*)(car))); }
 
-static uint8_t* Next(uint8_t* car) { return hook::Orig<uint8_t*(__fastcall*)(uint8_t*)>(0x41ad90)(car); }
+static uint8_t* Next(uint8_t* car) { return ((uint8_t*)Obj_City352((void*)(car))); }
 
 static uint8_t* Asset(uint32_t id) { return id ? Record(0x62ba88, id) : nullptr; }
 
-static float CellX(uint8_t* car) { return (float)hook::Orig<double(__fastcall*)(uint8_t*)>(0x455800)(car); }
+static float CellX(uint8_t* car) { return (float)Obj_CellX((void*)(car)); }
 
-static float CellY(uint8_t* car) { return (float)hook::Orig<double(__fastcall*)(uint8_t*)>(0x455810)(car); }
+static float CellY(uint8_t* car) { return (float)Obj_CellY((void*)(car)); }
 
 static float Price(uint8_t* type, uint32_t company, uint32_t player) {
-    return hook::Orig<float(__fastcall*)(uint8_t*, int, uint32_t, uint32_t)>(0x4619c0)(type, 0, company, player);
+    return Obj_EffectScale(type, 0, company, player);
 }
 
 static void Stat(uint8_t* train, int32_t stat, float amount) {
     uint8_t* company = Record(0x62be10, F<uint32_t>(train, 0x51));
-    hook::Orig<void(__fastcall*)(uint8_t*, int, int32_t, float)>(0x42a040)(company, 0, stat, amount);
+    Company_AddStat((void*)(company), 0, stat, amount);
 }
 
 static uint32_t AddCar(uint8_t* type, float x, float y) {
-    return hook::Orig<uint32_t(__fastcall*)(void*, int, uint8_t*, uint32_t, float, float, uint32_t)>(0x41d340)(
-        hook::As<void*>(g_62ba84), 0, type, 0, x, y, 0);
+    return Cars_Add((Collection*)(hook::As<void*>(g_62ba84)), 0, type, 0, x, y, 0);
 }
 
 static void DeleteCar(uint8_t* car) {
@@ -734,7 +750,7 @@ static void RefreshPose(uint8_t* car) {
 }
 
 static uint8_t* Get(uint32_t slot, uint32_t id) {
-    return hook::Orig<uint8_t*(__fastcall*)(void*, int, uint32_t)>(0x518140)(hook::Global<void*>(slot), 0, id);
+    return ((uint8_t*)Collection_Get((Collection*)(hook::Global<void*>(slot)), 0, id));
 }
 
 static void Append(uint8_t* t, uint32_t type) {
@@ -742,11 +758,11 @@ static void Append(uint8_t* t, uint32_t type) {
 }
 
 static uint32_t FindType(int32_t category) {
-    return hook::Orig<uint32_t(__fastcall*)(void*, int, int32_t)>(0x41e100)(hook::As<void*>(g_carTypes), 0, category);
+    return Table_FindCurrentFor((Collection*)(hook::As<void*>(g_carTypes)), 0, category);
 }
 
 static void Load(uint8_t* car, uint8_t* station, uint32_t* destination) {
-    hook::Orig<void(__fastcall*)(uint8_t*, int, uint8_t*, uint32_t*)>(0x41bb40)(car, 0, station, destination);
+    Car_LoadAt(car, 0, station, (uint8_t*)(destination));
 }
 
 static uint32_t Coordinate(uint8_t* car, uint32_t target) {
@@ -763,7 +779,7 @@ static uint32_t Coordinate(uint8_t* car, uint32_t target) {
 static inline float Fl_train_station(uint32_t a) { return *(float*)a; }
 
 static int32_t Valid(uint32_t id) {
-    return hook::Orig<int32_t(__fastcall*)(void*, int, uint32_t)>(0x517d40)(hook::As<void*>(g_stations), 0, id);
+    return Collection_IsValid((Collection*)(hook::As<void*>(g_stations)), 0, id);
 }
 
 static uint32_t Location(uint8_t* row) {
@@ -773,23 +789,22 @@ static uint32_t Location(uint8_t* row) {
 
 static void Next_train_station(uint8_t* t) {
     int32_t next = (int32_t)(F_train_station<uint32_t>(t, 8) + 1u) % F_train_station<int32_t>(t, 4);
-    hook::Orig<void(__fastcall*)(void*, int, int32_t, int32_t)>(0x4b2f00)(t, 0, next, 0);
+    TrainOrders_SetCurrent((uint8_t*)(t), 0, next, 0);
 }
 
 static uint8_t Kind(uint8_t* site) {
-    uint8_t* building = hook::Orig<uint8_t*(__fastcall*)(uint8_t*)>(0x47de00)(site);
+    uint8_t* building = ((uint8_t*)Obj_Building((void*)(site)));
     auto fn = (uint8_t*(__fastcall*)(uint8_t*))F_train_station<uint32_t>(F_train_station<void*>(building, 0), 0x80);
     return fn(building)[0x8c];
 }
 
 static void Format(char* out, const char* fmt, const char* a, const char* b = nullptr) {
-    hook::Orig<char*(__fastcall*)(char*, const char*, const char*, const char*, const char*, const char*, const char*, const char*, const char*, const char*)>(
-        0x518de0)(out, fmt, a, b, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
+    FormatText(out, fmt, a, b, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
 }
 
-static const char* Text(int32_t id) { return hook::Orig<const char*(__fastcall*)(int32_t)>(0x5193f0)(id); }
+static const char* Text(int32_t id) { return GetString(id); }
 
-static char* Name(uint8_t* t) { return hook::Orig<char*(__fastcall*)(uint8_t*, int, int32_t)>(0x4a9360)(t, 0, 0); }
+static char* Name(uint8_t* t) { return Train_DisplayName(t, 0, 0); }
 
 // 0x4a62c0. Whether blocks a and b are connected (same component), renumbering
 // first if needed.
@@ -1172,10 +1187,10 @@ RT3_REPLACE(0x4a7360, Train_IsStopped);
 // 0x4a7390. Replaces the 63-byte buffer +0x1c6 with a copy of src.
 RT3_NOINLINE void __fastcall Train_SetBuffer1c6(uint8_t* t, int, const uint8_t* src) {
     if (F<void*>(t, 0x1c6)) {
-        Free(F<void*>(t, 0x1c6));
+        crt::free(F<void*>(t, 0x1c6));
         F<void*>(t, 0x1c6) = nullptr;
     }
-    uint8_t* p = (uint8_t*)Malloc(0x3f);
+    uint8_t* p = (uint8_t*)crt::malloc(0x3f);
     F<uint8_t*>(t, 0x1c6) = p;
     for (int k = 0; k < 0x3f; ++k) p[k] = src[k];
 }
@@ -1453,7 +1468,7 @@ RT3_NOINLINE float __fastcall Cargo_DeliveryPayment(uint8_t* o, int32_t year, fl
     float r = (float)((double)x - F<float>(o, 0x24));
     if ((double)r < D(0x5c8608)) r = 0.0f;
     float scale = F<float>(o, 0x20);
-    double p = ((double(__cdecl*)(double, double))0x5a1b60)(0.98, (double)r / F<float>(o, 0x28));
+    double p = crt::pow(0.98, (double)r / F<float>(o, 0x28));
     float q = (float)(p * scale);
     q = (float)((double)Effects_Multiplier(World(), 0, 0x51, company, player, region) * q);
     q = (float)((double)Effects_Multiplier(World(), 0, F<int32_t>(o, 0x10) + 0x52, company, player, region) * q);
@@ -1571,7 +1586,7 @@ RT3_REPLACE(0x4a81b0, Station_UnlinkNodes);
 
 // 0x4a8220. Ghosts (translucent cars, unlinked from the track nodes) or restores a
 // train; nothing when unchanged unless `force`.
-void __fastcall Train_SetGhost(uint8_t* train, int, int32_t ghost, int32_t force) {
+RT3_NOINLINE void __fastcall Train_SetGhost(uint8_t* train, int, int32_t ghost, int32_t force) {
     uint8_t old = train[0xf4];
     if ((uint32_t)ghost == old && !force) return;
     train[0xf4] = (uint8_t)ghost;
@@ -1641,7 +1656,7 @@ RT3_REPLACE(0x4a8470, Train_CurrentOrderNode);
 int32_t __fastcall Train_LoadExtra(uint8_t* train, int, int32_t st) {
     int32_t n = StreamSkip4(st, 0x5dc1, 0, 0);
     if (F<int32_t>(train, 4)) {
-        void* a = ((void*(__cdecl*)(size_t))0x5a125d)((size_t)F<int32_t>(train, 4) * 0x33);
+        void* a = crt::malloc((size_t)F<int32_t>(train, 4) * 0x33);
         F<void*>(train, 0) = a;
         n += StreamRead(st, a, (uint32_t)(F<int32_t>(train, 4) * 0x33), 0, 1);
     }
@@ -2047,7 +2062,7 @@ void __fastcall Obj_ApplyPendingTemplate(uint8_t* o) {
     } else {
         CopyEntry((uint8_t*)Array33_At(o, 0, F<uint16_t>(t, 0xa)), src);
     }
-    Free(F<void*>(o, 0x1c6));
+    crt::free(F<void*>(o, 0x1c6));
     F<void*>(o, 0x1c6) = nullptr;
 }
 RT3_REPLACE(0x4a94b0, Obj_ApplyPendingTemplate);
@@ -2141,7 +2156,7 @@ RT3_NOINLINE void __fastcall Train_ApplyLivery(uint8_t* t) {
     for (int32_t i = 0; i < Collection_Count(F<Collection*>(g_pack, 0x429b8)); ++i) {
         Collection* skins = F<Collection*>(g_pack, 0x429b8);
         uint8_t* skin = (uint8_t*)Collection_Get(skins, 0, Collection_IdAt(skins, 0, (uint32_t)i, 0));
-        if (((int(__cdecl*)(const char*, const char*))0x5a57cf)((const char*)lead() + 0x3ac, (const char*)skin)) continue;
+        if (crt::stricmp((const char*)lead() + 0x3ac, (const char*)skin)) continue;
         Obj_SetTexture(lead(), 0, (const char*)skin + 0x60);
         if (!engine()[0x7a]) return;
         uint8_t* second = nullptr;
@@ -2360,8 +2375,8 @@ int32_t __fastcall Train_UpdateApproachFactor(uint8_t* o, int, uint8_t* obj) {
         float d1 = (float)((double)a[2] * a[2] + (double)a[0] * a[0]);
         float d2 = (float)((double)bz * bz + (double)bx * bx);
         float d3 = (float)((double)pos[2] * pos[2] + (double)pos[0] * pos[0]);
-        float span = (float)((double(__cdecl*)(double))0x5a152e)((double)d2 - d1);
-        float done = (float)((double(__cdecl*)(double))0x5a152e)((double)d3 - d1);
+        float span = (float)crt::fabs((double)d2 - d1);
+        float done = (float)crt::fabs((double)d3 - d1);
         if (span > Fl_205(0x5c8598)) {
             f = (float)((double)done / span);
             if (Fl_205(0x5c85b4) < f) f = 1.0f;
@@ -2994,15 +3009,15 @@ RT3_REPLACE(0x4ac460, Train_RunningCost);
 RT3_NOINLINE int32_t __fastcall Train_LoadConsist(uint8_t* train, int, uint8_t* station, uint32_t* destination) {
     uint32_t cargos[8];
     int32_t count = 0;
-    uint8_t* row = hook::Orig<uint8_t*(__fastcall*)(uint8_t*)>(0x4b2bd0)(train);
+    uint8_t* row = ((uint8_t*)Array33_Current((void*)(train)));
     uint8_t* car = F_train_loading<uint32_t>(train, 0x41) == 0xffffffff ? nullptr : Get(0x62ba84, F_train_loading<uint32_t>(train, 0x41));
     while (car) {
-        uint8_t* type = hook::Orig<uint8_t*(__fastcall*)(uint8_t*)>(0x41adb0)(car);
+        uint8_t* type = ((uint8_t*)Obj_Ref388((void*)(car)));
         if (F_train_loading<int32_t>(type, 0x41) == 1) {
             cargos[count++] = F_train_loading<uint32_t>(car, 0x38c);
             if (F_train_loading<float>(car, 0x398) < *(const float*)0x5c85b4) Load(car, station, destination);
         }
-        car = hook::Orig<uint8_t*(__fastcall*)(uint8_t*)>(0x41ad90)(car);
+        car = ((uint8_t*)Obj_City352((void*)(car)));
     }
     F_train_loading<uint16_t>(train, 0x1c0) = 0;
     train[0x1c2] = 0;
@@ -3018,8 +3033,7 @@ RT3_NOINLINE int32_t __fastcall Train_LoadConsist(uint8_t* train, int, uint8_t* 
                 uint8_t* cargo = Get(0x62ba8c, cargos[k]);
                 int32_t best = -1, score = -1;
                 for (int32_t i = 0; i < limit; ++i) {
-                    if (!used[i] && hook::Orig<int32_t(__fastcall*)(uint8_t*, int, int32_t)>(0x41e260)(
-                            cargo, 0, F_train_loading<int32_t>(row, 1 + i * 4))) {
+                    if (!used[i] && Cargo_MatchesClass((void*)(cargo), 0, F_train_loading<int32_t>(row, 1 + i * 4))) {
                         int32_t tag = F_train_loading<int32_t>(row, 1 + i * 4);
                         int32_t rank = tag == 900 ? 10 : tag == 901 || tag == 902 ? 20 : 30;
                         if (rank > score) { score = rank; best = i; }
@@ -3030,13 +3044,13 @@ RT3_NOINLINE int32_t __fastcall Train_LoadConsist(uint8_t* train, int, uint8_t* 
             for (int32_t i = 0; i < limit; ++i) {
                 if (used[i]) continue;
                 cls = F_train_loading<int32_t>(row, 1 + i * 4);
-                selected = hook::Orig<int32_t(__fastcall*)(uint8_t*, int, int32_t, uint32_t, int32_t*, int32_t*)>(0x47f910)(
+                selected = Station_PickCargo(
                     station, 0, cls, *destination, &lost, &fallback);
                 if (selected != -1) break;
             }
         } else {
             cls = F_train_loading<int32_t>(row, 0x24);
-            selected = hook::Orig<int32_t(__fastcall*)(uint8_t*, int, int32_t, uint32_t, int32_t*, int32_t*)>(0x47f910)(
+            selected = Station_PickCargo(
                 station, 0, cls, *destination, &lost, &fallback);
         }
         if (selected == -1) {
@@ -3086,7 +3100,7 @@ RT3_NOINLINE int32_t __fastcall Train_LoadConsist(uint8_t* train, int, uint8_t* 
             fmul cost
             fstp cost
         }
-        if (hook::Orig<int32_t(__cdecl*)()>(0x434050)()) {
+        if (IsMultiplayer()) {
             int32_t amount;
             __asm {
                 fld cost
@@ -3104,7 +3118,7 @@ RT3_NOINLINE int32_t __fastcall Train_LoadConsist(uint8_t* train, int, uint8_t* 
             fstp dword ptr [eax + 0xf0]
         }
         uint8_t* cargo = Get(0x62ba8c, (uint32_t)selected);
-        uint32_t typeId = hook::Orig<uint32_t(__fastcall*)(uint8_t*)>(0x41e500)(cargo);
+        uint32_t typeId = CarType_ForCargo(cargo);
         uint32_t carId = hook::Orig<uint32_t(__fastcall*)(uint8_t*, int, uint32_t, uint32_t)>(0x4a9b70)(
             train, 0, typeId, (uint32_t)selected);
         car = Get(0x62ba84, carId);
@@ -3120,7 +3134,7 @@ RT3_REPLACE(0x4ac6d0, Train_LoadConsist);
 // Reverse engineered by GPT6.1 SOL MEDIUM.
 // 0x4acaf0. Add the requested service cars and optionally fill to eight cars.
 RT3_NOINLINE void __fastcall Train_AutoAddCars(uint8_t* t) {
-    uint8_t* row = hook::Orig<uint8_t*(__fastcall*)(uint8_t*)>(0x4b2bd0)(t);
+    uint8_t* row = ((uint8_t*)Array33_Current((void*)(t)));
     if ((row[0x28] & 0x10) && !t[0x198]) {
         uint32_t type = FindType(4);
         if (type) Append(t, type);
@@ -3132,7 +3146,7 @@ RT3_NOINLINE void __fastcall Train_AutoAddCars(uint8_t* t) {
     if (F_train_initialization<int32_t>(hook::As<void*>(g_world), 0x4af3)) {
         uint32_t type = FindType(5);
         if (type) {
-            while (hook::Orig<int32_t(__fastcall*)(uint8_t*)>(0x4a7760)(t) < 8) Append(t, type);
+            while (Train_CountCarsOther(t) < 8) Append(t, type);
         }
     }
 }
@@ -3154,9 +3168,9 @@ RT3_NOINLINE uint32_t __fastcall Train_PromptName(uint8_t* t) {
     if ((t[0x1ce] & 1) && !t[0x1a1]) strcat(prompt, GetString(0xf2c));
     Dialog_RunMessage(prompt, 9, 0xbf800000, 0xbf800000, 0, nullptr, 0, 0.0f, (uint32_t)(uintptr_t)name, 0x1e, 0, nullptr, nullptr, 0, 0, nullptr, 0);
     TrimSpaces(name, 0);
-    if (!Stricmp(orig, name)) return 0;
+    if (!crt::stricmp(orig, name)) return 0;
     if (Str_IsNumber(name)) {
-        Train_SetRank(t, 0, ((int(__cdecl*)(const char*))0x5a1ea5)(name));
+        Train_SetRank(t, 0, crt::atoi(name));
         return 1;
     }
     if (!strlen(name)) {
@@ -3188,7 +3202,7 @@ void __fastcall Train_Teardown(uint8_t* t) {
         Train_LeaveBlock(t);
     }
     if (void* path = F<void*>(t, 0x1c6)) {
-        CrtFree485(path);
+        crt::free(path);
         F<void*>(t, 0x1c6) = nullptr;
     }
     const uint32_t player = F<uint32_t>(Collection_Get(g_companies, 0, F<uint32_t>(t, 0x51)), 0x3b);
@@ -3206,7 +3220,7 @@ void __fastcall Train_Teardown(uint8_t* t) {
     Station_UnlinkNodes(t);
     while (F<int32_t>(t, 0x41) != -1) Train_DetachCar(t, 0, F<uint32_t>(t, 0x41));
     if (void* cars = F<void*>(t, 0)) {
-        CrtFree485(cars);
+        crt::free(cars);
         F<void*>(t, 0) = nullptr;
     }
     if (g_6ada90) Table_ReleaseKey8(g_6ada90, 0, F<int32_t>(t, 0x25));
@@ -3510,9 +3524,9 @@ RT3_NOINLINE int32_t __fastcall Train_ProcessStop(uint8_t* t, int, int32_t force
     auto current = hook::Orig<uint8_t*(__fastcall*)(uint8_t*)>(0x4b2bd0);
     uint8_t* row = current(t);
     float fare = 0.0f;
-    if (hook::Orig<int32_t(__cdecl*)()>(0x434050)()) {
-        if (hook::Orig<int32_t(__stdcall*)(float)>(0x46d2b0)(1.02f))
-            hook::Orig<void(__fastcall*)(uint8_t*)>(0x4a9840)(t);
+    if (IsMultiplayer()) {
+        if (Net_AllHaveVersion(1.02f))
+            Train_ReanchorConsist(t);
         else if (F_train_station<int32_t>(t, 0x41) != -1 && Get(0x62ba84, F_train_station<uint32_t>(t, 0x41))) {
             uint8_t* car = F_train_station<int32_t>(t, 0x41) == -1 ? nullptr : Get(0x62ba84, F_train_station<uint32_t>(t, 0x41));
             uint32_t position = F_train_station<uint32_t>(car, 0x35e), node = F_train_station<uint32_t>(car, 0x356);
@@ -3527,7 +3541,7 @@ RT3_NOINLINE int32_t __fastcall Train_ProcessStop(uint8_t* t, int, int32_t force
             if (Location(F_train_station<uint8_t*>(t, 0) + i * 0x33) != first) different = true;
         if (!different) {
             while (F_train_station<int32_t>(t, 4) > 1)
-                hook::Orig<void(__fastcall*)(uint8_t*, int, int32_t)>(0x4b3000)(t, 0, 1);
+                TrainOrders_Remove(t, 0, 1);
             row = current(t);
         }
     }
@@ -3539,7 +3553,7 @@ RT3_NOINLINE int32_t __fastcall Train_ProcessStop(uint8_t* t, int, int32_t force
     uint8_t* site = nullptr;
     if (Valid(F_train_station<uint16_t>(row, 0x29))) {
         site = Get(0x6cec20, F_train_station<uint16_t>(row, 0x29));
-        hook::Orig<void(__fastcall*)(uint8_t*, int, int32_t)>(0x47f290)(site, 0, 1);
+        Obj_SetHighlight(site, 0, 1);
     }
     uint32_t other = F_train_station<uint32_t>(t, 0xac);
     if (other != F_train_station<uint16_t>(row, 0x29) && other != 0xffffffff && Valid(other)) {
@@ -3553,13 +3567,13 @@ RT3_NOINLINE int32_t __fastcall Train_ProcessStop(uint8_t* t, int, int32_t force
         if (F_train_station<float>(t, 0xe0) <= Fl_train_station(0x5d0098) ||
             (hook::Orig<void*(__fastcall*)(uint8_t*)>(0x4a9020)(t) && F_train_station<float>(t, 0xe4) <= Fl_train_station(0x5d0098))) {
             if (same) {
-                hook::Orig<void(__fastcall*)(uint8_t*)>(0x4aadd0)(t);
+                Train_LeaveSite(t);
                 F_train_station<uint32_t>(t, 0xa4) = id;
-                hook::Orig<void(__fastcall*)(uint8_t*)>(0x4aae40)(t);
+                Train_EnterSite(t);
             }
             uint32_t head = F_train_station<uint32_t>(t, 0x41);
             uint8_t* car = head == 0xffffffff ? nullptr : Get(0x62ba84, head);
-            hook::Orig<void(__fastcall*)(uint8_t*, int, uint8_t*, uint8_t*, uint32_t)>(0x4acf90)(t, 0, car, site, same);
+            Train_SetState3(t, 0, car, site, same);
             return 0;
         }
         held = F_train_station<int32_t>(t, 0x94);
@@ -3570,7 +3584,7 @@ RT3_NOINLINE int32_t __fastcall Train_ProcessStop(uint8_t* t, int, int32_t force
         if (F_train_station<float>(t, 0xdc) <= Fl_train_station(0x5d0098)) {
             uint32_t head = F_train_station<uint32_t>(t, 0x41);
             uint8_t* car = head == 0xffffffff ? nullptr : Get(0x62ba84, head);
-            hook::Orig<void(__fastcall*)(uint8_t*, int, uint8_t*, uint8_t*, uint32_t)>(0x4ad020)(t, 0, car, site, same);
+            Train_SetState5(t, 0, (void*)(car), site, same);
             return 0;
         }
         F_train_station<uint32_t>(t, 0xac) = F_train_station<uint32_t>(t, 0xa8) = F_train_station<uint32_t>(t, 0x94) = 0xffffffff;
@@ -3590,9 +3604,9 @@ RT3_NOINLINE int32_t __fastcall Train_ProcessStop(uint8_t* t, int, int32_t force
                 }
                 float profit = *(float*)&old;
                 if ((profit < Fl_train_station(0x5c8c28) && delta > Fl_train_station(0x5c8554)) || (profit >= Fl_train_station(0x5c8c28) && delta > Fl_train_station(0x5c85f8))) {
-                    hook::Orig<void(__fastcall*)(uint8_t*)>(0x4a90d0)(t);
+                    Train_DefaultName(t);
                     company = Get(0x62be10, F_train_station<uint32_t>(t, 0x51));
-                    if (company == hook::Orig<void*(__fastcall*)(void*)>(0x434870)(hook::As<void*>(g_world))) {
+                    if (company == Obj_Company21(hook::As<void*>(g_world))) {
                         int32_t amount;
                         __asm {
                             mov eax, t
@@ -3601,8 +3615,7 @@ RT3_NOINLINE int32_t __fastcall Train_ProcessStop(uint8_t* t, int, int32_t force
                             call eax
                             mov amount, eax
                         }
-                        hook::Orig<void(__fastcall*)(void*, int, const char*, int32_t, int32_t, uint32_t, int32_t, int32_t, int32_t)>(0x4337c0)(
-                            hook::As<void*>(g_world), 0, (const char*)0x5c87a8, 3, 1, F_train_station<uint32_t>(t, 0x25), amount, -1, -1);
+                        World_AddNamedEntry(hook::As<void*>(g_world), 0, (const char*)0x5c87a8, 3, 1, (int32_t)(F_train_station<uint32_t>(t, 0x25)), amount, -1, -1);
                     }
                     company = Get(0x62be10, F_train_station<uint32_t>(t, 0x51));
                     F_train_station<uint32_t>(company, 0x347) = F_train_station<uint32_t>(t, 0x199);
@@ -3610,18 +3623,18 @@ RT3_NOINLINE int32_t __fastcall Train_ProcessStop(uint8_t* t, int, int32_t force
             }
         }
         F_train_station<uint32_t>(t, 0x199) = F_train_station<uint32_t>(t, 0x19d) = 0;
-        if (hook::Orig<int32_t(__fastcall*)(uint8_t*)>(0x47fd50)(site)) {
+        if (Obj_BuildingStateActive((void*)(site))) {
             F_train_station<uint32_t>(t, 0xcc) = 0;
-            hook::Orig<void(__fastcall*)(uint8_t*)>(0x4a7810)(t);
-            fare = hook::Orig<float(__fastcall*)(uint8_t*, int, uint32_t)>(0x4adf30)(t, 0, F_train_station<uint32_t>(site, 0));
+            Train_ResetCarAnimations(t);
+            fare = Train_ArriveStation(t, 0, F_train_station<uint32_t>(site, 0));
         } else if (id == F_train_station<uint16_t>(row, 0x29)) Next_train_station(t);
         if (g_newGame[0x82] || F_train_station<int32_t>(hook::As<void*>(g_world), 0x4aef)) fare = 0.0f;
         uint32_t owner = F_train_station<uint32_t>(t, 0x51);
-        uint32_t player = hook::Orig<uint32_t(__fastcall*)(void*)>(0x4337a0)(hook::As<void*>(g_world));
-        if (owner == player && t[0x189] && hook::Orig<int32_t(__fastcall*)(uint8_t*)>(0x47fd50)(site)) {
+        uint32_t player = ((uint32_t)Obj_Get21(hook::As<void*>(g_world)));
+        if (owner == player && t[0x189] && Obj_BuildingStateActive((void*)(site))) {
             char message[200], line[200], money[200], arrival[200];
             message[0] = 0;
-            if (hook::Orig<int32_t(__fastcall*)(const char*)>(0x51e6e0)(Name(t))) strcat(message, Text(0xf2a));
+            if (Str_IsNumber(Name(t))) strcat(message, Text(0xf2a));
             const char* stationName = (const char*)site + 0x46b;
             const char* trainName = Name(t);
             const char* fmt = Text(0x117);
@@ -3649,7 +3662,7 @@ RT3_NOINLINE int32_t __fastcall Train_ProcessStop(uint8_t* t, int, int32_t force
                     fmul fare
                     fstp net
                 }
-                hook::Orig<char*(__fastcall*)(char*, int32_t, double, int32_t)>(0x51c000)(money, 11, net, 11);
+                Num_FormatSimple2(money, 11, net, 11);
                 Format(line, (const char*)0x5d0090, money);
                 float tax;
                 __asm {
@@ -3665,19 +3678,18 @@ RT3_NOINLINE int32_t __fastcall Train_ProcessStop(uint8_t* t, int, int32_t force
                         fld dword ptr bits
                         fstp value
                     }
-                    hook::Orig<char*(__fastcall*)(char*, int32_t, double, int32_t)>(0x51c000)(money, 11, value, 11);
+                    Num_FormatSimple2(money, 11, value, 11);
                     Format(line, Text(0xf84), money);
                     strcat(message, line);
                 }
             }
-            hook::Orig<void(__fastcall*)(void*, int, const char*, int32_t, uint32_t, int32_t)>(0x4554e0)(
-                hook::As<void*>(g_messageLog), 0, message, 0, F_train_station<uint32_t>(t, 0x25), 0);
+            Log_Add((Collection*)(hook::As<void*>(g_messageLog)), 0, message, 0, (int32_t)(F_train_station<uint32_t>(t, 0x25)), 0);
         }
         t[0x189] = 1;
         F_train_station<uint32_t>(t, 0x8c) = 0xbf800000;
         F_train_station<uint32_t>(t, 0x1ba) = F_train_station<uint32_t>(t, 0x94);
         F_train_station<uint32_t>(t, 0x94) = 0xffffffff;
-        hook::Orig<void(__fastcall*)(uint8_t*)>(0x4a7810)(t);
+        Train_ResetCarAnimations(t);
         return 1;
     }
     F_train_station<uint32_t>(t, 0x8c) = 0xbf800000;
@@ -3815,7 +3827,7 @@ RT3_NOINLINE void __fastcall Train_ReplaceEngine(uint8_t* train, int, uint32_t t
     }
     uint8_t* old = Record(0x62ba84, F<uint32_t>(train, 0x41));
     uint32_t node = F<uint32_t>(old, 0x356);
-    hook::Orig<void(__fastcall*)(uint8_t*)>(0x4aae90)(train);
+    Train_PassSignal(train);
     uint8_t* following = F<int32_t>(old, 0x352) == -1 ? nullptr : Record(0x62ba84, F<uint32_t>(old, 0x352));
     if (!F<uint8_t>(hook::As<void*>(g_newGame), 0x82) && !freeUpgrade) {
         uint32_t player = F<uint32_t>(Record(0x62be10, F<uint32_t>(train, 0x51)), 0x3b);
@@ -3825,11 +3837,11 @@ RT3_NOINLINE void __fastcall Train_ReplaceEngine(uint8_t* train, int, uint32_t t
         Stat(train, 0xd, -cost);
         player = F<uint32_t>(Record(0x62be10, F<uint32_t>(train, 0x51)), 0x3b);
         uint32_t company = F<uint32_t>(train, 0x51);
-        definition = hook::Orig<uint8_t*(__fastcall*)(uint8_t*)>(0x4a8840)(train);
+        definition = ((uint8_t*)Obj_CityRef((void*)(train)));
         float refund = -Price(definition, company, player);
         Stat(train, 0x10, refund);
         uint8_t* co = Record(0x62be10, F<uint32_t>(train, 0x51));
-        hook::Orig<void(__fastcall*)(uint8_t*, int, int32_t, float, int32_t)>(0x42a080)(co, 0, 0xc, refund, 0);
+        Company_PostStat((void*)(co), 0, 0xc, refund, 0);
     }
     float x = CellX(old), y = CellY(old);
     uint8_t* definition = Record(0x6ada84, typeId);
@@ -3900,16 +3912,15 @@ RT3_NOINLINE void __fastcall Train_ReplaceEngine(uint8_t* train, int, uint32_t t
     if (selected) {
         uint8_t* car = F<int32_t>(train, 0x41) == -1 ? nullptr : Record(0x62ba84, F<uint32_t>(train, 0x41));
         uint32_t carId = F<uint32_t>(car, 0x34a);
-        hook::Orig<void(__fastcall*)(void*, int, int32_t, int32_t, uint32_t)>(0x437a90)(
-            hook::As<void*>(g_world), 0, 1, 1, carId);
+        World_FollowEntity((uint8_t*)(hook::As<void*>(g_world)), 0, 1, 1, (int32_t)(carId));
     }
     if (F<int32_t>(train, 0xe8) != 1 && F<int32_t>(train, 0xe8) != 2 && oldElectric != newElectric)
-        hook::Orig<void(__fastcall*)(uint8_t*)>(0x4ad260)(train);
+        Train_Route(train);
     hook::Orig<void(__fastcall*)(uint8_t*, int, uint32_t, uint32_t)>(0x4a8be0)(train, 0, 0, F<uint32_t>(train, 0xcc));
     void* owner = hook::As<void*>(g_62be68);
     void** vtable = F<void**>(owner, 0);
     ((void(__fastcall*)(void*))vtable[0])(owner);
-    hook::Orig<void(__fastcall*)(uint8_t*, int, uint32_t, int32_t)>(0x4a8220)(train, 0, train[0xf4], 1);
+    Train_SetGhost(train, 0, (int32_t)(train[0xf4]), 1);
 }
 RT3_REPLACE(0x4aefb0, Train_ReplaceEngine);
 
@@ -4037,7 +4048,7 @@ RT3_NOINLINE void __fastcall Train_TickWear(uint8_t* t) {
         float tilt;
         Model_GetAngles(F<int32_t>(t, 0x41) == -1 ? nullptr : (uint8_t*)Collection_Get(g_62ba84, 0, F<uint32_t>(t, 0x41)), 0,
                         (uint32_t*)&tilt, nullptr, nullptr);
-        tilt = (float)((double(__cdecl*)(double))0x5a152e)(tilt);
+        tilt = (float)crt::fabs(tilt);
         uint32_t region = TrainRegion(t);
         uint32_t player = F<uint32_t>((uint8_t*)Collection_Get(g_companies, 0, F<uint32_t>(t, 0x51)), 0x3b);
         float mult = Effects_Multiplier(g_world, 0, 0x63, F<uint32_t>(t, 0x51), player, region);
@@ -4140,7 +4151,7 @@ RT3_REPLACE(0x4afeb0, Train_Advance);
 RT3_NOINLINE void __fastcall Train_PlaceInitialEngine(uint8_t* t, int, uint32_t typeId, uint8_t* node) {
     if (F_train_initialization<uint32_t>(t, 0x41) != 0xffffffff) return;
     uint32_t x = (uint32_t)(uintptr_t)t, z = (uint32_t)(uintptr_t)node;
-    hook::Orig<void(__fastcall*)(uint8_t*, int, uint32_t*, uint32_t*)>(0x48a170)(node, 0, &x, &z);
+    Obj_CenterCell((void*)(node), 0, (float*)(&x), (float*)(&z));
     uint8_t* model = Get(0x6ada84, typeId);
     uint32_t end = F_train_initialization<uint32_t>(node, 0x206) == 0xffffffff;
     uint32_t assetId = F_train_initialization<uint32_t>(model, 0x72);
@@ -4154,7 +4165,7 @@ RT3_NOINLINE void __fastcall Train_PlaceInitialEngine(uint8_t* t, int, uint32_t 
     hook::Orig<void(__fastcall*)(uint8_t*, int, uint32_t, uint32_t)>(0x41c700)(
         car, 0, F_train_initialization<uint32_t>(node, 0x202), 0x3e395810);
     if (hook::As<void*>(g_world) &&
-        hook::Orig<int32_t(__cdecl*)()>(0x434050)() &&
+        IsMultiplayer() &&
         hook::Orig<int32_t(__stdcall*)(uint32_t)>(0x46d2b0)(0x3f828f5c)) {
         hook::Orig<void(__fastcall*)(uint8_t*, int, uint32_t)>(0x41b080)(car, 0, 0);
     } else {
@@ -4174,7 +4185,7 @@ RT3_NOINLINE void __fastcall Train_PlaceInitialEngine(uint8_t* t, int, uint32_t 
     if (!F_train_initialization<uint8_t>(hook::As<void*>(g_newGame), 0x82)) {
         uint8_t* pricedModel = Get(0x6ada84, typeId);
         uint8_t* company = Get(0x62be10, F_train_initialization<uint32_t>(t, 0x51));
-        float price = hook::Orig<float(__fastcall*)(uint8_t*, int, uint32_t, uint32_t)>(0x4619c0)(
+        float price = Obj_EffectScale(
             pricedModel, 0, F_train_initialization<uint32_t>(t, 0x51), F_train_initialization<uint32_t>(company, 0x3b));
         uint32_t bits = *(uint32_t*)&price;
         company = Get(0x62be10, F_train_initialization<uint32_t>(t, 0x51));
@@ -4187,7 +4198,7 @@ RT3_NOINLINE void __fastcall Train_PlaceInitialEngine(uint8_t* t, int, uint32_t 
         company = Get(0x62be10, F_train_initialization<uint32_t>(t, 0x51));
         hook::Orig<void(__fastcall*)(uint8_t*, int, int32_t, uint32_t)>(0x42a040)(company, 0, 0xd, bits);
     }
-    hook::Orig<void(__fastcall*)(uint8_t*)>(0x4afeb0)(t);
+    Train_Advance(t);
 }
 RT3_REPLACE(0x4b0140, Train_PlaceInitialEngine);
 

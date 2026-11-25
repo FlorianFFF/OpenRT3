@@ -13,6 +13,7 @@
 #include "game/collection.h"
 #include "core/ptrlist.h"
 #include "core/crt.h"
+#include "core/imports.h"
 #include "core/stream.h"
 #include "core/containers.h"
 #include "hook/keepregs.h"
@@ -23,6 +24,8 @@
 #undef small
 
 namespace rt3 {
+
+uint8_t* __fastcall Imb_Construct(uint8_t* d, int, int32_t id);
 
 template <typename T> static inline T& F(void* o, uint32_t off) { return *(T*)((uint8_t*)o + off); }
 int32_t ClockMs();
@@ -38,7 +41,6 @@ char* __fastcall FormatText(char* dst, const char* fmt, const char* a1, const ch
                             const char* a4, const char* a5, const char* a6, const char* a7, const char* a8);
 
 int32_t __fastcall File_Size(const char* path);
-template <typename Fn> static inline Fn Import(uint32_t iat) { return (Fn)hook::Global<void*>(iat); }
 uint8_t* __fastcall Widget_FindChild(uint8_t* w, int, int32_t id);
 void __fastcall NameTable_CloseCurrent(uint8_t* t);
 void __fastcall NameTable_Add(uint8_t* t, int, const char* dir, const char* name, int32_t size, int32_t counted);
@@ -83,6 +85,7 @@ void __fastcall Collection_Destruct(Collection* c);
 int32_t __fastcall StrIsBlank(const unsigned char* s);
 void __fastcall ModelSet_FreeThunk(uint8_t* s);
 void __fastcall Texture_Destroy(uint8_t* t);
+void __fastcall BitmapFont_Destroy(uint8_t* f);
 void __fastcall Pack_FreeSlot(uint8_t* pack, int, int32_t idx);
 uint8_t* __fastcall Pack_Acquire(uint8_t* pack, int, int32_t kind, int32_t key);
 uint8_t* __fastcall Pack_AcquireNamed(uint8_t* pack, int, const char* name);
@@ -290,13 +293,11 @@ static inline int32_t CellOf(float v) {
 // Colour +0x5f (ARGB); low nibble of +0x59 = "tinted" (rgb != 7f7f7f).
 static inline void SetTinted(uint8_t* o, uint8_t on) { o[0x59] = (uint8_t)((o[0x59] & 0xf0) | on); }
 
-static inline void ExeDelete(void* p) { ((void(__cdecl*)(void*))0x53b080)(p); }
 
 static inline size_t Len(const char* s) { size_t n = 0; while (s[n]) ++n; return n; }
 
 static inline void Copy(char* d, const char* s) { while ((*d++ = *s++) != 0) {} }
 
-static inline void* ExeNew(size_t n) { return ((void*(__cdecl*)(size_t))0x53b070)(n); }
 
 // The texture name from the main pack's cache (all mips, flag 0x7f).
 static uint8_t* Texture_Acquire(const char* name) { return TextureCache_Get(g_pack, 0, name, 0, 0, 0x7f); }
@@ -311,10 +312,10 @@ static void Texture_Replace(uint32_t slot, const char* name) {
 }
 
 static inline int32_t Lseek(int32_t fd, int32_t pos, int32_t origin) {
-    return ((int32_t(__cdecl*)(int32_t, int32_t, int32_t))0x5ac18d)(fd, pos, origin);
+    return ((int32_t)crt::lseek(fd, pos, origin));
 }
 
-static inline FILE* Fdopen(int32_t fd, const char* mode) { return ((FILE*(__cdecl*)(int32_t, const char*))0x5c7905)(fd, mode); }
+static inline FILE* Fdopen(int32_t fd, const char* mode) { return ((FILE*)crt::fdopen(fd, mode)); }
 
 // Byte position of entry (pack, bucket, index) in its pack: the pack's data start
 // (+0x1f404 x +0x417ec) + the entry's offset (+8) + 8.
@@ -325,12 +326,12 @@ static int32_t EntryPos(uint8_t* t, int32_t pack, int32_t bucket, int32_t index)
 }
 
 static Collection* NewTable(int32_t stride) {
-    Collection* c = (Collection*)((void*(__cdecl*)(size_t))0x53b070)(0x88);
+    Collection* c = (Collection*)crt::operator_new(0x88);
     return c ? Collection_Construct(c, 0, 1, stride, 10, 5, 0, 0, 0) : nullptr;
 }
 
 // Reads the next whitespace-delimited token of `f` into `dst`.
-static void Token(FILE* f, char* dst) { ((int(__cdecl*)(FILE*, const char*, ...))0x5a17e1)(f, (const char*)0x5c89e4, dst); }
+static void Token(FILE* f, char* dst) { crt::fscanf(f, (const char*)0x5c89e4, dst); }
 
 static void AddImb(char* s) { memcpy(s + strlen(s), (const void*)0x5dd630, 5); }
 
@@ -362,10 +363,8 @@ static inline void X87Copy(void* dst, const void* src) {
     }
 }
 
-static inline SprintfFn ExeSprintf() { return (SprintfFn)0x5a19c4; }
 
 namespace {
-void Callback_Free(void* p) { ((void(__cdecl*)(void*))0x53b080)(p); }
 uint32_t Message_Dialog(const char* text, uint32_t px) {
     return Dialog_RunMessage(text, 1, px, 0xbf800000, 0, nullptr, 0, 0.0f, 0, 0x1e, 0, nullptr, nullptr, 0, 0, nullptr, 0);
 }
@@ -376,7 +375,7 @@ uint32_t Message_Dialog(const char* text, uint32_t px) {
 // Inlined everywhere in the original: storage-backed pools hand out nodes from
 // their free list (NULL when exhausted); pools without storage use malloc.
 static void* PoolAlloc(NodePool* p) {
-    if (p->capacity == 0) return Malloc(p->elemSize);
+    if (p->capacity == 0) return crt::malloc(p->elemSize);
     SList* f = p->freeList;
     void** n = f->head;
     if (!n) return nullptr;
@@ -388,7 +387,7 @@ static void* PoolAlloc(NodePool* p) {
 
 static void PoolRelease(NodePool* p, void* node) {
     if (p->capacity == 0 || (uint8_t*)node < p->begin || (uint8_t*)node >= p->end) {
-        Free(node);
+        crt::free(node);
         return;
     }
     SList* f = p->freeList;
@@ -399,7 +398,7 @@ static void PoolRelease(NodePool* p, void* node) {
 }
 
 static NodePool* NewPool() {
-    NodePool* p = (NodePool*)Malloc(sizeof(NodePool));
+    NodePool* p = (NodePool*)crt::malloc(sizeof(NodePool));
     if (p) memset(p, 0, sizeof *p);
     return p;
 }
@@ -513,7 +512,7 @@ RT3_REPLACE(0x538060, Terrain_ImportHeightmap);
 uint8_t* __fastcall HandleTable_Construct(uint8_t* t) {
     for (int k = 0; k < 0xfa; ++k) F<int32_t>(t, 0x20 + k * 4) = 0;
     t[0xc68] = 0;
-    Collection* c = (Collection*)((void*(__cdecl*)(size_t))0x53b070)(0x88);
+    Collection* c = (Collection*)crt::operator_new(0x88);
     F<Collection*>(t, 0xc69) = c ? Collection_Construct(c, 0, 1, 4, 10, 5, 0, 0, 0) : nullptr;
     static const uint16_t zero[] = { 0xc6d, 0xc71, 0xc75, 0x0, 0x4, 0x8, 0x10, 0xc, 0x14, 0x18, 0x1c, 0xc79, 0xc58, 0xc60, 0xc64 };
     for (uint16_t off : zero) F<int32_t>(t, off) = 0;
@@ -680,7 +679,7 @@ RT3_NOINLINE void __fastcall Windows_Shutdown(uint8_t* m) {
         if (uint8_t* p = F<uint8_t*>(w, 0x54)) F<uint8_t*>(p, 0x58) = F<uint8_t*>(w, 0x58);
         w = next;
     }
-    for (int32_t i = 0; i < F<int32_t>(m, 0xc58); ++i) Free(F<void*>(m, 0xbd8 + i * 0x10));
+    for (int32_t i = 0; i < F<int32_t>(m, 0xc58); ++i) crt::free(F<void*>(m, 0xbd8 + i * 0x10));
     F<int32_t>(m, 0xc58) = 0;
     FreeAndNull(&F<void*>(m, 0x10));
     if (F<void*>(m, 0xc)) Pack_Release(g_pack, 0, F<void*>(m, 0xc));
@@ -690,7 +689,7 @@ RT3_NOINLINE void __fastcall Windows_Shutdown(uint8_t* m) {
     F<void*>(m, 0x18) = nullptr;
     if (Collection* fonts = F<Collection*>(m, 0xc69)) {
         Collection_Destruct(fonts);
-        ExeDelete(fonts);
+        crt::operator_delete(fonts);
     }
     F<Collection*>(m, 0xc69) = nullptr;
 }
@@ -738,10 +737,10 @@ RT3_NOINLINE int32_t __fastcall Ui_ShowTooltip(uint8_t* ui, int, const char* tex
             F<int32_t>(ui, 0xbe4) = ClockMs() + 2000;
             return 0;
         }
-        if (F<int32_t>(ui, 0xc58)) ((void(__cdecl*)(void*))0x5a1145)(F<char*>(ui, 0xbd8));
+        if (F<int32_t>(ui, 0xc58)) crt::free(F<char*>(ui, 0xbd8));
     }
     F<int32_t>(ui, 0xc58) = 1;
-    F<char*>(ui, 0xbd8) = (char*)((void*(__cdecl*)(size_t))0x5a125d)(strlen(text) + 1);
+    F<char*>(ui, 0xbd8) = (char*)crt::malloc(strlen(text) + 1);
     strcpy(F<char*>(ui, 0xbd8), text);
     F<int32_t>(ui, 0xbe0) = data;
     F<int32_t>(ui, 0xbdc) = prio;
@@ -890,7 +889,7 @@ RT3_NOINLINE void __fastcall Effect_Destroy(uint8_t* e, int, int32_t really) {
         }
     }
     if (F<void*>(e, 0x1e3)) {
-        Free(F<void*>(e, 0x1e3));
+        crt::free(F<void*>(e, 0x1e3));
         F<void*>(e, 0x1e3) = nullptr;
     }
     ((void(__thiscall*)(void*))(*(void***)e)[0])(e);
@@ -1011,7 +1010,7 @@ RT3_REPLACE(0x539580, Group_MoveAllTo);
 // (+0x18 / +0x24 / +0x30 / +0x3c) less one.
 RT3_NOINLINE void __fastcall Group_Add(uint8_t* g, int, uint8_t* o, float lift) {
     if (!F<PtrList*>(g, 8)) {
-        PtrList* l = (PtrList*)((void*(__cdecl*)(size_t))0x53b070)(0x18);
+        PtrList* l = (PtrList*)crt::operator_new(0x18);
         F<PtrList*>(g, 8) = l ? PtrList_Init(l) : nullptr;
     }
     PtrList_Append(F<PtrList*>(g, 8), 0, o);
@@ -1134,11 +1133,11 @@ void __fastcall Track_BuildGeometry(uint8_t* e) {
     uint8_t kind = e[0x44];
     if (!kind) {
         if (F<void*>(e, 0x1e3)) {
-            ((void(__cdecl*)(void*))0x5a1145)(F<void*>(e, 0x1e3));
+            crt::free(F<void*>(e, 0x1e3));
             F<void*>(e, 0x1e3) = nullptr;
         }
     } else {
-        if (!F<void*>(e, 0x1e3)) F<void*>(e, 0x1e3) = ((void*(__cdecl*)(size_t))0x5a125d)(0xc0);
+        if (!F<void*>(e, 0x1e3)) F<void*>(e, 0x1e3) = crt::malloc(0xc0);
         uint32_t* q = F<uint32_t*>(e, 0x1e3);
         static const uint32_t uv[8][2] = { { 0x3e0f5c29, 0 }, { 0x3e800000, 0 }, { 0x3e0f5c29, 0x3f000000 }, { 0x3e800000, 0x3f000000 },
                                            { 0x3e0f5c29, 0 }, { 0x3e800000, 0 }, { 0x3e0f5c29, 0x3f000000 }, { 0x3e800000, 0x3f000000 } };
@@ -1326,7 +1325,7 @@ RT3_REPLACE(0x53a5b0, Group_MoveAllToHeight);
 // old one is deleted).
 RT3_NOINLINE void __fastcall Group_SetObject(uint8_t* g, int, uint8_t* o) {
     if (!F<PtrList*>(g, 8)) {
-        PtrList* l = (PtrList*)((void*(__cdecl*)(size_t))0x53b070)(0x18);
+        PtrList* l = (PtrList*)crt::operator_new(0x18);
         F<PtrList*>(g, 8) = l ? PtrList_Init(l) : nullptr;
         Group_Add(g, 0, o, 0.0f);
         return;
@@ -1341,7 +1340,7 @@ RT3_NOINLINE void __fastcall Group_SetObject(uint8_t* g, int, uint8_t* o) {
     SceneObj_GetPos(old, 0, &a, &b, &c);
     if (old) {
         SceneObj_Destructor(old);
-        ((void(__cdecl*)(void*))0x53b080)(old);
+        crt::operator_delete(old);
     }
     // The position goes on as raw bits (the original pushes the dwords).
     ((void(__fastcall*)(uint8_t*, int, uint32_t, uint32_t, uint32_t))&Obj_MoveTo)(o, 0, a, b, c);
@@ -1355,12 +1354,12 @@ void __fastcall Obj_DestroyList8(uint8_t* o) {
     PtrList_Rewind(F<PtrList*>(o, 8));
     for (uint8_t* p = (uint8_t*)PtrList_Next(F<PtrList*>(o, 8)); p; p = (uint8_t*)PtrList_Next(F<PtrList*>(o, 8))) {
         SceneObj_Destructor(p);
-        Callback_Free(p);
+        crt::operator_delete(p);
     }
     PtrList_Clear(F<PtrList*>(o, 8));
     if (PtrList* l = F<PtrList*>(o, 8)) {
         PtrList_Destroy(l);
-        Callback_Free(l);
+        crt::operator_delete(l);
     }
     F<PtrList*>(o, 8) = nullptr;
 }
@@ -1554,7 +1553,7 @@ RT3_REPLACE(0x53ae10, Track_Setup);
 // debugger and the debug log (numbered by 0xccba4c), then "Memory Leaked = N"
 // (total 0xccba3c).
 void Mem_ReportLeaks() {
-    auto out = (void(__stdcall*)(const char*))g_5c8078;
+    auto out = imp::OutputDebugStringA;
     const int32_t none = -1234;
     for (int32_t i = g_ccba34 - 1; i >= 0; --i) {
         void* p = hook::As<void**>(g_ccba30)[i];
@@ -1562,7 +1561,7 @@ void Mem_ReportLeaks() {
         uint8_t* r = hook::As<uint8_t*>(g_ccba2c) + i * 0x30;
         int32_t n = ++g_ccba4c;
         char line[0x200];
-        ExeSprintf()(line, (const char*)0x5dd408, n, (const char*)(r + 4), (int32_t)F<uint16_t>(r, 0x19), F<int32_t>(r, 0), p,
+        crt::sprintf(line, (const char*)0x5dd408, n, (const char*)(r + 4), (int32_t)F<uint16_t>(r, 0x19), F<int32_t>(r, 0), p,
                      (const char*)(r + 0x1b));
         DebugLog(line, none, none, none, none, none, none, none, none, none);
         out(line);
@@ -1578,7 +1577,7 @@ RT3_REPLACE(0x53ae70, Mem_ReportLeaks);
 
 RT3_NOINLINE void __fastcall FreeAndNull(void** p) {
     if (*p) {
-        Free(*p);
+        crt::free(*p);
         *p = nullptr;
     }
 }
@@ -1586,7 +1585,7 @@ RT3_REPLACE(0x53afd0, FreeAndNull);
 
 RT3_NOINLINE void __fastcall FreeAndNull2(void** p) {
     if (!*p) return;
-    Free(*p);
+    crt::free(*p);
     *p = nullptr;
 }
 RT3_REPLACE(0x53aff0, FreeAndNull2);
@@ -1598,9 +1597,9 @@ RT3_REPLACE(0x53b010, Set_ccba28);
 // record and pointer tables and clears its counters.
 void Mem_Shutdown() {
     Mem_ReportLeaks();
-    if (void* r = g_ccba2c) Free(r);
+    if (void* r = g_ccba2c) crt::free(r);
     g_ccba2c = nullptr;
-    if (void* p = g_ccba30) Free(p);
+    if (void* p = g_ccba30) crt::free(p);
     g_ccba30 = nullptr;
     g_ccba34 = 0;
     g_ccba28 = 0;
@@ -1615,25 +1614,25 @@ RT3_REPLACE(0x53b020, Mem_Shutdown);
 RT3_NOINLINE void __fastcall Anims_LoadPack(uint8_t* o, int, const char* path, int32_t) {
     int32_t& cur = F<int32_t>(o, 0x427b8);
     if (cur >= 0x3e7) return;
-    int32_t fd = Open(path, 0x8000, 0);
+    int32_t fd = crt::open(path, 0x8000, 0);
     if (fd == -1) Fatal_Exit(GetString(0x60));
     F<int32_t>(o, 0x204ac + cur * 4) = fd;
     int32_t ver = 0, n;
-    Read(F<int32_t>(o, 0x204ac + cur * 4), &ver, 4);
+    crt::read(F<int32_t>(o, 0x204ac + cur * 4), &ver, 4);
     if (ver < 0x3e9) Fatal_Exit(GetString(0x61));
-    Read(F<int32_t>(o, 0x204ac + cur * 4), &n, 4);
-    uint8_t* buf = (uint8_t*)Malloc(n * 0xd);
+    crt::read(F<int32_t>(o, 0x204ac + cur * 4), &n, 4);
+    uint8_t* buf = (uint8_t*)crt::malloc(n * 0xd);
     if (ver < 0x3eb) {
         F<int32_t>(o, 0x1f404 + cur * 4) = 0xd;
-        Read(F<int32_t>(o, 0x204ac + cur * 4), buf, n * 0xd);
+        crt::read(F<int32_t>(o, 0x204ac + cur * 4), buf, n * 0xd);
     } else {
         F<int32_t>(o, 0x1f404 + cur * 4) = 0x4a;
         for (int32_t i = 0; i < n; ++i) {
             char name[0x3d];
-            Read(F<int32_t>(o, 0x204ac + cur * 4), buf + i * 0xd, 0xd);
-            Read(F<int32_t>(o, 0x204ac + cur * 4), name, 0x3d);
-            const char* dot = ((const char*(__cdecl*)(const char*, int))0x5a2a00)(name, '.');
-            if (dot && !Stricmp(dot, (const char*)0x5dd56c)) {
+            crt::read(F<int32_t>(o, 0x204ac + cur * 4), buf + i * 0xd, 0xd);
+            crt::read(F<int32_t>(o, 0x204ac + cur * 4), name, 0x3d);
+            const char* dot = ((const char*)crt::strchr(name, '.'));
+            if (dot && !crt::stricmp(dot, (const char*)0x5dd56c)) {
                 void* reg = hook::As<void*>(g_ccba50);
                 (*(void(__thiscall**)(void*, const char*, int32_t, int32_t, int32_t))(*(uint8_t**)reg + 4))(reg, name, 0, 0, 0);
             }
@@ -1645,14 +1644,14 @@ RT3_NOINLINE void __fastcall Anims_LoadPack(uint8_t* o, int, const char* path, i
     for (int32_t i = 0; i < n; ++i) ++F<int32_t>(o, 0x223ec + (cur * 32 + (buf[i * 0xd] & 0x1f)) * 4);
     for (int32_t k = 0; k < 32; ++k) {
         int32_t c = F<int32_t>(o, 0x223ec + (cur * 32 + k) * 4);
-        F<void*>(o, (cur * 32 + k) * 4) = Malloc((c < 1 ? 1 : c) * 0xd);
+        F<void*>(o, (cur * 32 + k) * 4) = crt::malloc((c < 1 ? 1 : c) * 0xd);
     }
     for (int32_t i = 0; i < n; ++i) {
         int32_t k = *(uint32_t*)(buf + i * 0xd) & 0x1f;
         memcpy(F<uint8_t*>(o, (cur * 32 + k) * 4) + fill[k] * 0xd, buf + i * 0xd, 0xd);
         ++fill[k];
     }
-    Free(buf);
+    crt::free(buf);
     ++cur;
 }
 RT3_REPLACE(0x53b090, Anims_LoadPack);
@@ -1757,8 +1756,8 @@ RT3_REPLACE(0x53b630, NameTable_Nth);
 RT3_NOINLINE void __fastcall NameTable_CloseCurrent(uint8_t* t) {
     uint8_t* e = NameTable_Nth(t, 0, -F<int32_t>(t, 0x427bc));
     if (F<int32_t>(e, 4) == -1) return;
-    if (!F<void*>(e, 8)) Close(F<int32_t>(e, 4));
-    else ((int(__cdecl*)(void*))0x5a1740)(F<void*>(e, 8));
+    if (!F<void*>(e, 8)) crt::close(F<int32_t>(e, 4));
+    else crt::fclose(F<void*>(e, 8));
     F<int32_t>(e, 4) = -1;
     F<void*>(e, 8) = nullptr;
 }
@@ -1773,12 +1772,12 @@ RT3_NOINLINE int32_t __fastcall NameTable_OpenPack(uint8_t* t) {
     const char* name = F<const char*>(e, 0x10);
     char* d = path;
     while ((*d++ = *name++) != 0) {}
-    int32_t fd = ((int(__cdecl*)(const char*, int))0x5a4c57)(path, 0x8000);
+    int32_t fd = crt::open(path, 0x8000);
     F<int32_t>(e, 4) = fd;
     F<int32_t>(e, 8) = 0;
     if (fd == -1) {
         char cwd[0x100], msg[0x100];
-        Import<uint32_t(__stdcall*)(uint32_t, char*)>(0x5c807c)(0x100, cwd);
+        imp::GetCurrentDirectoryA(0x100, cwd);
         FormatText(msg, GetString(0x63), path, cwd, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
         Fatal_Exit(msg);
     }
@@ -1792,7 +1791,7 @@ RT3_REPLACE(0x53b6f0, NameTable_OpenPack);
 RT3_NOINLINE int32_t __fastcall NameTable_Read(uint8_t* t, int, void* dst, int32_t n) {
     int32_t k = F<int32_t>(t, 0x427bc);
     int32_t fd = k < 0 ? F<int32_t>(NameTable_Nth(t, 0, -k), 4) : F<int32_t>(t, 0x204ac + k * 4);
-    int32_t r = ((int(__cdecl*)(int, void*, unsigned))0x5a48c5)(fd, dst, n);
+    int32_t r = crt::read(fd, dst, n);
     F<int32_t>(t, 0x428ec) += n;
     F<int32_t>(t, 0x428f0) += 1;
     if (r != n) Fatal_Exit(GetString(0x64));
@@ -1810,12 +1809,12 @@ RT3_REPLACE(0x53b830, NameTable_Skip4);
 // 0x53b850. Grows the 13-byte record array +0x1f400 by 100 (capacity +0x427b4).
 RT3_NOINLINE void __fastcall NameTable_Grow(uint8_t* t) {
     uint32_t cap = F<uint32_t>(t, 0x427b4);
-    uint8_t* p = (uint8_t*)Malloc((cap + 100) * 13);
+    uint8_t* p = (uint8_t*)crt::malloc((cap + 100) * 13);
     for (uint32_t k = 0; k < 100 * 13; ++k) p[cap * 13 + k] = 0;
     if (uint8_t* old = F<uint8_t*>(t, 0x1f400)) {
         uint32_t n = F<uint32_t>(t, 0x427b4) * 13;
         for (uint32_t k = 0; k < n; ++k) p[k] = old[k];
-        Free(F<void*>(t, 0x1f400));
+        crt::free(F<void*>(t, 0x1f400));
     }
     F<uint8_t*>(t, 0x1f400) = p;
     F<uint32_t>(t, 0x427b4) += 100;
@@ -1849,8 +1848,8 @@ RT3_NOINLINE void __fastcall NameTable_Clear(uint8_t* t) {
         while (*head) {
             uint8_t* e = *head;
             *head = F<uint8_t*>(e, 0x14);
-            ExeDelete(F<void*>(e, 0x10));
-            ExeDelete(e);
+            crt::operator_delete(F<void*>(e, 0x10));
+            crt::operator_delete(e);
         }
     }
     F<int32_t>(t, 0x20424) = 0;
@@ -1867,19 +1866,19 @@ RT3_REPLACE(0x53b970, NameTable_Clear);
 // the value across items too), frees every pack's 32 bucket arrays and closes its
 // file, frees the item table and reports "Pack System Leak Count : N".
 RT3_NOINLINE void __fastcall Pack_Shutdown(uint8_t* t) {
-    auto out = (void(__stdcall*)(const char*))g_5c8078;
+    auto out = imp::OutputDebugStringA;
     const int32_t none = -1234;
     NameTable_Clear(t);
     for (uint32_t off = 0x429b0; off <= 0x429b8; off += 4) {
         if (Collection* c = F<Collection*>(t, off)) {
             Collection_Destruct(c);
-            ExeDelete(c);
+            crt::operator_delete(c);
         }
         F<void*>(t, off) = nullptr;
     }
     if (Collection* c = g_ccba50) {
         Collection_Destruct(c);
-        ExeDelete(c);
+        crt::operator_delete(c);
     }
     hook::As<void*>(g_ccba50) = nullptr;
     int32_t leaks = 0, pack = 0, bucket = 0, index = 0;
@@ -1905,13 +1904,13 @@ RT3_NOINLINE void __fastcall Pack_Shutdown(uint8_t* t) {
         int32_t& fd = F<int32_t>(t, 0x204ac + p * 4);
         void*& f = F<void*>(t, 0x2144c + p * 4);
         if (fd != -1) {
-            if (!f) ((int(__cdecl*)(int))0x5a440d)(fd);
-            else ((int(__cdecl*)(void*))0x5a1740)(f);
+            if (!f) crt::close(fd);
+            else crt::fclose(f);
             fd = -1;
             f = nullptr;
         }
     }
-    Free(F<void*>(t, 0x1f400));
+    crt::free(F<void*>(t, 0x1f400));
     char num[0x20], line[0x200];
     F<int32_t>(t, 0x427b8) = 0;
     Num_Format(num, 8, (double)leaks, 10, 1, 0, 0);
@@ -1957,7 +1956,7 @@ FILE* __fastcall NameTable_OpenFile(uint8_t* t, int, int32_t id, uint8_t text) {
     if (!F<FILE*>(t, 0x2144c + p * 4))
         F<FILE*>(t, 0x2144c + F<int32_t>(t, 0x427bc) * 4) =
             Fdopen(F<int32_t>(t, 0x204ac + p * 4), (const char*)(text ? 0x5c89e8 : 0x5c9678));
-    if (*((int*(__cdecl*)())0x5a3f5b)() && !text) return nullptr;
+    if (*crt::errno_() && !text) return nullptr;
     return F<FILE*>(t, 0x2144c + F<int32_t>(t, 0x427bc) * 4);
 }
 RT3_REPLACE(0x53be10, NameTable_OpenFile);
@@ -1976,11 +1975,11 @@ void __fastcall Pack_FreeSlot(uint8_t* pack, int, int32_t idx) {
         case 2:
         case 3:
         case 4: Texture_Destroy(obj); break;
-        case 6: ((void(__fastcall*)(uint8_t*))0x53ee60)(obj); break;
+        case 6: BitmapFont_Destroy(obj); break;
         case 7: Texture_ReleaseHandles(obj); break;
         default: del = false; break;
         }
-        if (del) ExeDelete(obj);
+        if (del) crt::operator_delete(obj);
     }
     e = F<uint8_t*>(pack, 0x1f400) + idx * 0xd;
     F<uint32_t>(e, 0) = 0;
@@ -2032,9 +2031,9 @@ uint8_t* __fastcall Pack_Acquire(uint8_t* pack, int, int32_t kind, int32_t key) 
     F<uint8_t>(F<uint8_t*>(pack, 0x1f400) + i * 0xd, 8) = (uint8_t)kind;
     uint8_t* obj;
     switch (kind) {
-    case 1: obj = (uint8_t*)ExeNew(0xa); if (obj) obj = CollisionFile_Construct(obj, 0, key); break;
-    case 6: obj = (uint8_t*)ExeNew(0x3a); if (obj) obj = ((uint8_t*(__fastcall*)(uint8_t*, int, int32_t))0x53ee70)(obj, 0, key); break;
-    case 7: obj = (uint8_t*)ExeNew(0x84); if (obj) obj = Font_Construct(obj, 0, key); break;
+    case 1: obj = (uint8_t*)crt::operator_new(0xa); if (obj) obj = CollisionFile_Construct(obj, 0, key); break;
+    case 6: obj = (uint8_t*)crt::operator_new(0x3a); if (obj) obj = Imb_Construct(obj, 0, key); break;
+    case 7: obj = (uint8_t*)crt::operator_new(0x84); if (obj) obj = Font_Construct(obj, 0, key); break;
     default: return nullptr;
     }
     F<uint8_t*>(F<uint8_t*>(pack, 0x1f400) + i * 0xd, 9) = obj;
@@ -2051,22 +2050,20 @@ RT3_REPLACE(0x53c070, Pack_Acquire);
 // one) gets a new texture (small flag +5) with every image loaded.
 RT3_NOINLINE uint8_t* __fastcall TextureCache_Get(uint8_t* t, int, const char* name, int32_t start, int32_t count, uint8_t smallTex) {
     typedef int(__cdecl * SprintfFn)(char*, const char*, ...);
-    SprintfFn sprintf_ = (SprintfFn)0x5a19c4;
     char paths[8][0x100];
     char msg[0x12c];
     int32_t a = 0, b = 0, c = 0, w = 0, h = 0, n = 0, kind = 0;
     int32_t first = 0;
-    const char* dot = ((const char*(__cdecl*)(const char*, int))0x5a2a00)(name, '.');
+    const char* dot = ((const char*)crt::strchr(name, '.'));
     if (dot) {
         strcpy(paths[0], name);
         n = 1;
         typedef int(__cdecl * StricmpFn)(const char*, const char*);
-        StricmpFn stricmp_ = (StricmpFn)0x5a57cf;
-        if (!stricmp_(dot, (const char*)0x5dd27c)) kind = 3;
-        else if (!stricmp_(dot, (const char*)0x5dd608)) kind = 2;
-        else if (!stricmp_(dot, (const char*)0x5dd274)) kind = 4;
+        if (!crt::stricmp(dot, (const char*)0x5dd27c)) kind = 3;
+        else if (!crt::stricmp(dot, (const char*)0x5dd608)) kind = 2;
+        else if (!crt::stricmp(dot, (const char*)0x5dd274)) kind = 4;
         else Fatal_Exit(GetString(0x5c));
-        if (!NameTable_Locate(t, 0, NameTable_Hash(t, 0, name), &c, &b, &a, 0)) sprintf_(msg, GetString(0x5d), name);
+        if (!NameTable_Locate(t, 0, NameTable_Hash(t, 0, name), &c, &b, &a, 0)) crt::sprintf(msg, GetString(0x5d), name);
     } else {
         if (count <= 0 || count > 8) count = 8;
         first = start < 0 ? 0 : start > 7 ? 7 : start;
@@ -2087,7 +2084,7 @@ RT3_NOINLINE uint8_t* __fastcall TextureCache_Get(uint8_t* t, int, const char* n
             bool missing = false;
             for (int32_t i = first; i < end; ++i) {
                 char* p = paths[i];
-                sprintf_(p, (const char*)fmts[f], name, i + 0x41);
+                crt::sprintf(p, (const char*)fmts[f], name, i + 0x41);
                 int32_t id = NameTable_Hash(t, 0, p);
                 int32_t ok = (i == first && f == 0) ? NameTable_Locate(t, 0, id, &b, &a, &w, 0)
                                                     : NameTable_Locate(t, 0, id, &w, &a, &b, 0);
@@ -2126,7 +2123,7 @@ RT3_NOINLINE uint8_t* __fastcall TextureCache_Get(uint8_t* t, int, const char* n
     F<int32_t>(F<uint8_t*>(t, 0x1f400), off) = 1;
     F<int32_t>(F<uint8_t*>(t, 0x1f400), off + 4) = key;
     F<uint8_t>(F<uint8_t*>(t, 0x1f400), off + 8) = (uint8_t)kind;
-    uint8_t* tex = (uint8_t*)ExeNew(0xec);
+    uint8_t* tex = (uint8_t*)crt::operator_new(0xec);
     if (tex) tex = Texture_ConstructDefault(tex);
     tex[5] = smallTex;
     F<uint8_t*>(F<uint8_t*>(t, 0x1f400), off + 9) = tex;
@@ -2155,12 +2152,12 @@ RT3_NOINLINE void __fastcall NameTable_Add(uint8_t* t, int, const char* dir, con
     char path[0x1f4];
     FormatText(path, (const char*)0x5c8730, dir, name, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
     if (size == -1) size = File_Size(path);
-    uint8_t* e = (uint8_t*)((void*(__cdecl*)(size_t))0x53b070)(0x18);
+    uint8_t* e = (uint8_t*)crt::operator_new(0x18);
     for (int k = 0; k < 6; ++k) F<int32_t>(e, k * 4) = 0;
     F<int32_t>(e, 0) = NameTable_Hash(t, 0, name);
     size_t n = 0;
     while (path[n]) ++n;
-    char* copy = (char*)((void*(__cdecl*)(size_t))0x53b070)(n + 1);
+    char* copy = (char*)crt::operator_new(n + 1);
     F<char*>(e, 0x10) = copy;
     F<int32_t>(e, 0xc) = size;
     F<int32_t>(e, 4) = -1;
@@ -2177,8 +2174,8 @@ RT3_REPLACE(0x53c710, NameTable_Add);
 // pattern 0x5dd610; the first two find results, "." and "..", are skipped),
 // then rebuilds the per-bucket start indices (+0x2042c).
 RT3_NOINLINE void __fastcall NameTable_ScanDirs(uint8_t* t) {
-    auto findFirst = Import<void*(__stdcall*)(const char*, void*)>(0x5c8190);
-    auto findNext = Import<int32_t(__stdcall*)(void*, void*)>(0x5c8194);
+    auto findFirst = ((void*(__stdcall*)(const char*, void*))imp::FindFirstFileA);
+    auto findNext = imp::FindNextFileA;
     for (const char* const* dir = (const char* const*)0x624e14; dir < (const char* const*)0x624e48; ++dir) {
         char pattern[0x11c];
         uint8_t fd[0x140];
@@ -2186,7 +2183,7 @@ RT3_NOINLINE void __fastcall NameTable_ScanDirs(uint8_t* t) {
         void* h = findFirst(pattern, fd);
         findNext(h, fd);
         while (findNext(h, fd)) NameTable_Add(t, 0, *dir, (const char*)fd + 0x2c, F<int32_t>(fd, 0x20), 0);
-        if (h != (void*)-1) Import<int32_t(__stdcall*)(void*)>(0x5c819c)(h);
+        if (h != (void*)-1) imp::FindClose(h);
     }
     int32_t n = 0;
     for (int b = 0; b < 0x20; ++b) {
@@ -2229,10 +2226,10 @@ RT3_REPLACE(0x53c9c0, NameTable_EntrySize);
 
 // 0x53ca20. Pushes {file position, current entry, previous} onto the stack +0x20428.
 RT3_NOINLINE void __fastcall NameTable_PushPos(uint8_t* t) {
-    uint32_t* rec = (uint32_t*)Malloc(0xc);
+    uint32_t* rec = (uint32_t*)crt::malloc(0xc);
     int32_t cur = F<int32_t>(t, 0x427bc);
     int32_t fd = cur < 0 ? F<int32_t>(NameTable_Nth(t, 0, -cur), 4) : F<int32_t>(t, 0x204ac + cur * 4);
-    rec[0] = (uint32_t)Tell(fd);
+    rec[0] = (uint32_t)crt::tell(fd);
     rec[1] = F<uint32_t>(t, 0x427bc);
     rec[2] = F<uint32_t>(t, 0x20428);
     F<uint32_t*>(t, 0x20428) = rec;
@@ -2250,10 +2247,10 @@ RT3_NOINLINE void __fastcall NameTable_PopPosition(uint8_t* t) {
     F<int32_t>(t, 0x427bc) = pack;
     int32_t fd = pack < 0 ? NameTable_OpenPack(t) : F<int32_t>(t, 0x204ac + pack * 4);
     ++F<int32_t>(t, 0x428f4);
-    ((int32_t(__cdecl*)(int32_t, int32_t, int32_t))0x5ac18d)(fd, F<int32_t>(F<uint8_t*>(t, 0x20428), 0), 0);
+    ((int32_t)crt::lseek(fd, F<int32_t>(F<uint8_t*>(t, 0x20428), 0), 0));
     uint8_t* top = F<uint8_t*>(t, 0x20428);
     F<uint8_t*>(t, 0x20428) = F<uint8_t*>(top, 8);
-    Free(top);
+    crt::free(top);
 }
 RT3_REPLACE(0x53ca90, NameTable_PopPosition);
 
@@ -2264,7 +2261,7 @@ int32_t __fastcall NameTable_ReadBlock(uint8_t* t, int, int32_t, void** out) {
     NameTable_Read(t, 0, &skip, 4);
     NameTable_Read(t, 0, &size, 4);
     if (!size) return 0;
-    void* p = Malloc(size);
+    void* p = crt::malloc(size);
     *out = p;
     return NameTable_Read(t, 0, p, size);
 }
@@ -2309,15 +2306,15 @@ uint8_t* __fastcall NameTable_Construct(uint8_t* t) {
             best[0] = 0;
             bool found = false;
             WIN32_FIND_DATAA fd;
-            HANDLE h = ((HANDLE(__stdcall*)(const char*, WIN32_FIND_DATAA*))g_5c8190)(pattern, &fd);
+            HANDLE h = (((HANDLE(__stdcall*)(const char*, WIN32_FIND_DATAA*))imp::FindFirstFileA))(pattern, &fd);
             if (h == INVALID_HANDLE_VALUE) break;
             do {
-                if (Stricmp(fd.cFileName, best) > 0 && Stricmp(fd.cFileName, limit) < 0) {
+                if (crt::stricmp(fd.cFileName, best) > 0 && crt::stricmp(fd.cFileName, limit) < 0) {
                     strcpy(best, fd.cFileName);
                     found = true;
                 }
-            } while (((BOOL(__stdcall*)(HANDLE, WIN32_FIND_DATAA*))g_5c8194)(h, &fd));
-            ((BOOL(__stdcall*)(HANDLE))g_5c819c)(h);
+            } while ((((BOOL(__stdcall*)(HANDLE, WIN32_FIND_DATAA*))imp::FindNextFileA))(h, &fd));
+            (((BOOL(__stdcall*)(HANDLE))imp::FindClose))(h);
             if (!found) break;
             char path[0x320];
             FormatText(path, (const char*)0x5c8730, folder, best, 0, 0, 0, 0, 0, 0);
@@ -2333,13 +2330,13 @@ uint8_t* __fastcall NameTable_Construct(uint8_t* t) {
         FILE* f = NameTable_OpenFile(t, 0, NameTable_Hash(t, 0, name), 1);
         char kind[0x400];
         Token(f, kind);
-        if (!Stricmp(kind, (const char*)0x5dd638)) {
+        if (!crt::stricmp(kind, (const char*)0x5dd638)) {
             char rec[0x400] = {};
             Token(f, rec);
             AddImb(rec);
             Collection* c = F<Collection*>(t, 0x429b0);
             c->vtbl->allocate(c, rec, 0, 0, 0);
-        } else if (!Stricmp(kind, (const char*)0x5dd624)) {
+        } else if (!crt::stricmp(kind, (const char*)0x5dd624)) {
             char rec[0x600] = {};
             Token(f, rec);
             Token(f, rec + 0x20);
@@ -2351,7 +2348,7 @@ uint8_t* __fastcall NameTable_Construct(uint8_t* t) {
             Token(f, rec + 0xa0);
             Collection* c = F<Collection*>(t, 0x429b8);
             c->vtbl->allocate(c, rec, 0, 0, 0);
-        } else if (!Stricmp(kind, (const char*)0x5dd618)) {
+        } else if (!crt::stricmp(kind, (const char*)0x5dd618)) {
             char rec[0x600] = {};
             Token(f, rec);
             Token(f, rec + 0x20);
@@ -2497,16 +2494,16 @@ RT3_REPLACE(0x53d440, List_Contains);
 
 void __fastcall Heap_Destroy(MaxHeap* h) {
     if (h->array) {
-        Free(h->array);
+        crt::free(h->array);
         h->array = nullptr;
     }
     if (NodePool* p = h->pool) {
         Pool_Free(p);
-        Free(p);
+        crt::free(p);
         h->pool = nullptr;
     }
     if (h->storage) {
-        Free(h->storage);
+        crt::free(h->storage);
         h->storage = nullptr;
     }
     h->count = 0;
@@ -2545,16 +2542,16 @@ RT3_REPLACE(0x53d540, Heap_PopMax);
 
 RT3_NOINLINE void __fastcall List_Destroy(MaxList* l) {
     if (l->items) {
-        Free(l->items);
+        crt::free(l->items);
         l->items = nullptr;
     }
     if (NodePool* p = l->pool) {
         Pool_Free(p);
-        Free(p);
+        crt::free(p);
         l->pool = nullptr;
     }
     if (l->storage) {
-        Free(l->storage);
+        crt::free(l->storage);
         l->storage = nullptr;
     }
 }
@@ -2563,12 +2560,12 @@ RT3_REPLACE(0x53d5d0, List_Destroy);
 void __fastcall List_Init(MaxList* l, int, int32_t capacity) {
     if (l->pool) List_Destroy(l);
     if (capacity > 0) {
-        l->storage = Malloc(capacity * sizeof(ListNode));
+        l->storage = crt::malloc(capacity * sizeof(ListNode));
         memset(l->storage, 0, capacity * sizeof(ListNode));
     }
     l->pool = NewPool();
     Pool_Init(l->pool, 0, l->storage, sizeof(ListNode), capacity, 0);
-    SList* s = (SList*)Malloc(sizeof(SList));
+    SList* s = (SList*)crt::malloc(sizeof(SList));
     if (s) memset(s, 0, sizeof *s);
     l->items = s;
 }
@@ -2581,12 +2578,12 @@ RT3_REPLACE(0x53d6f0, Heap_Destroy2);
 
 RT3_NOINLINE void __fastcall Heap_Init(MaxHeap* h, int, int32_t capacity) {
     if (h->pool) Heap_Destroy(h);
-    h->storage = Malloc(capacity * sizeof(HeapNode));
+    h->storage = crt::malloc(capacity * sizeof(HeapNode));
     memset(h->storage, 0, capacity * sizeof(HeapNode));
     h->pool = NewPool();
     Pool_Init(h->pool, 0, h->storage, sizeof(HeapNode), capacity, 0);
     uint32_t bytes = capacity * 4 + 4;
-    h->array = (HeapNode**)Malloc(bytes);
+    h->array = (HeapNode**)crt::malloc(bytes);
     memset(h->array, 0, bytes);
     h->sentinel.value = 0;
     h->sentinel.key = 0x7fffffff;
@@ -2630,16 +2627,16 @@ RT3_NOINLINE void __fastcall Hash_Destroy(HashMap* m) {
         }
         if (NodePool* p = m->pool) {
             Pool_Free(p);
-            Free(p);
+            crt::free(p);
         }
         m->pool = nullptr;
     }
     if (m->storage) {
-        Free(m->storage);
+        crt::free(m->storage);
         m->storage = nullptr;
     }
     if (m->buckets) {
-        Free(m->buckets);
+        crt::free(m->buckets);
         m->buckets = nullptr;
     }
     m->poolSize = 0;
@@ -2732,12 +2729,12 @@ RT3_REPLACE(0x53dbe0, Hash_DestroyThunk);
 RT3_NOINLINE int32_t __fastcall Hash_Init(HashMap* m, int, uint32_t buckets, int32_t poolSize) {
     Hash_Destroy(m);
     if (poolSize) {
-        m->storage = Malloc(poolSize * sizeof(HashNode));
+        m->storage = crt::malloc(poolSize * sizeof(HashNode));
         memset(m->storage, 0, poolSize * sizeof(HashNode));
     }
     m->pool = NewPool();
     Pool_Init(m->pool, 0, m->storage, sizeof(HashNode), poolSize, 0);
-    m->buckets = (HashNode**)Malloc(buckets * 4);
+    m->buckets = (HashNode**)crt::malloc(buckets * 4);
     memset(m->buckets, 0, buckets * 4);
     m->poolSize = poolSize;
     m->bucketCount = buckets;
@@ -2747,11 +2744,11 @@ RT3_REPLACE(0x53dbf0, Hash_Init);
 
 RT3_NOINLINE void __fastcall Pool_Free(NodePool* p) {
     if (p->freeList) {
-        Free(p->freeList);
+        crt::free(p->freeList);
         p->freeList = nullptr;
     }
     if (p->ownsStorage == 1 && p->begin) {
-        Free(p->begin);
+        crt::free(p->begin);
         p->begin = nullptr;
     }
 }
@@ -2760,11 +2757,11 @@ RT3_REPLACE(0x53dcb0, Pool_Free);
 RT3_NOINLINE void __fastcall Pool_Init(NodePool* p, int, void* storage, int32_t elemSize, int32_t count, int32_t flag) {
     p->flag = flag;
     if (p->freeList) {
-        Free(p->freeList);
+        crt::free(p->freeList);
         p->freeList = nullptr;
     }
     if (p->ownsStorage == 1 && p->begin) {
-        Free(p->begin);
+        crt::free(p->begin);
         p->begin = nullptr;
     }
     p->ownsStorage = 0;
@@ -2775,12 +2772,12 @@ RT3_NOINLINE void __fastcall Pool_Init(NodePool* p, int, void* storage, int32_t 
             return;
         }
         p->ownsStorage = 1;
-        storage = Malloc(elemSize * count);
+        storage = crt::malloc(elemSize * count);
     }
     if (count != 0) {
         p->begin = (uint8_t*)storage;
         p->end = (uint8_t*)storage + elemSize * count;
-        SList* f = (SList*)Malloc(sizeof(SList));
+        SList* f = (SList*)crt::malloc(sizeof(SList));
         memset(f, 0, sizeof *f);
         p->freeList = f;
         // Free list in address order: push from the last element down.
@@ -2810,7 +2807,7 @@ RT3_NOINLINE uint32_t __fastcall Table_Entry(uint8_t* t, int, int32_t idx) {
     char buf[0x190];
     const char* name = F<const char*>(t, 0x20);
     if (!name) name = (const char*)0x5c87a8;
-    ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)(buf, (const char*)0x5dd658, idx, n, name);
+    crt::sprintf(buf, (const char*)0x5dd658, idx, n, name);
     return F<uint32_t*>(t, 0x24)[0];
 }
 RT3_REPLACE(0x53de00, Table_Entry);
@@ -2826,7 +2823,6 @@ RT3_REPLACE(0x53de00, Table_Entry);
 // descriptor's index list (+0x24, +0x28 entries) is copied to a new block.
 RT3_NOINLINE void __fastcall TextureDesc_Load(uint8_t* d) {
     typedef int(__cdecl * SprintfFn)(char*, const char*, ...);
-    SprintfFn sprintf_ = (SprintfFn)0x5a19c4;
     uint8_t* dev = g_engine;
     const int32_t* mode = (const int32_t*)(F<uint8_t*>(dev, 0x34) + F<int32_t>(dev, 0x11421e) * 0x15);
     float scaleF;
@@ -2881,28 +2877,28 @@ RT3_NOINLINE void __fastcall TextureDesc_Load(uint8_t* d) {
     case 4: level = 3; break;
     case 5: level = 4; break;
     }
-    char** list = (char**)Malloc(0x24);
+    char** list = (char**)crt::malloc(0x24);
     char names[9][0x100];
     for (int32_t i = 0; i < 9; ++i) {
-        sprintf_(names[i], (const char*)0x5c87a8);
+        crt::sprintf(names[i], (const char*)0x5c87a8);
         list[i] = nullptr;
     }
     list[0] = names[0];
     uint8_t* pack = g_pack;
     const char* base = F<const char*>(d, 0x20);
     int32_t first = level;
-    sprintf_(names[0], (const char*)0x5dd6a8, base, level + 0x41, ext);
+    crt::sprintf(names[0], (const char*)0x5dd6a8, base, level + 0x41, ext);
     if (!NameTable_ContainsName(g_pack, 0, names[0], 0, nullptr)) {
         for (int32_t i = 1; i <= 5; ++i) {
             first = i + level;
-            sprintf_(names[0], (const char*)0x5dd6a8, base, level + 0x41 + i, ext);
+            crt::sprintf(names[0], (const char*)0x5dd6a8, base, level + 0x41 + i, ext);
             if (NameTable_ContainsName(g_pack, 0, names[0], 0, nullptr)) break;
         }
     }
     if (!NameTable_ContainsName(g_pack, 0, names[0], 0, nullptr)) {
         for (int32_t i = 1 - level;; ++i) {
             first = i;
-            sprintf_(names[0], (const char*)0x5dd6a8, base, i + 0x41, ext);
+            crt::sprintf(names[0], (const char*)0x5dd6a8, base, i + 0x41, ext);
             if (NameTable_ContainsName(g_pack, 0, names[0], 0, nullptr)) break;
             if (i + 1 + level > 5) break;
         }
@@ -2912,7 +2908,7 @@ RT3_NOINLINE void __fastcall TextureDesc_Load(uint8_t* d) {
     if (F<int32_t>(d, 0x18)) {
         char tmp[0x12c];
         for (int32_t c = first + 1 + 0x41, k = 1; first + 1 < 8 && c < 0x49; ++c, ++k) {
-            sprintf_(tmp, (const char*)0x5dd6a8, base, c, ext);
+            crt::sprintf(tmp, (const char*)0x5dd6a8, base, c, ext);
             if (NameTable_ContainsName(g_pack, 0, tmp, 0, nullptr)) {
                 strcpy(names[k], tmp);
                 list[k] = names[k];
@@ -2921,11 +2917,11 @@ RT3_NOINLINE void __fastcall TextureDesc_Load(uint8_t* d) {
         if (F<int32_t>(d, 0x18)) count = 8 - first;
     }
     F<uint8_t*>(d, 0x2a) = TextureCache_Get(g_pack, 0, base, first, count, 0);
-    Free(list);
+    crt::free(list);
     uint32_t n = (uint32_t)F<uint16_t>(d, 0x28) * 4;
-    uint8_t* copy = (uint8_t*)Malloc(n);
+    uint8_t* copy = (uint8_t*)crt::malloc(n);
     memcpy(copy, F<void*>(d, 0x24), n);
-    Free(F<void*>(d, 0x24));
+    crt::free(F<void*>(d, 0x24));
     F<uint8_t*>(d, 0x24) = copy;
 }
 RT3_REPLACE(0x53de60, TextureDesc_Load);

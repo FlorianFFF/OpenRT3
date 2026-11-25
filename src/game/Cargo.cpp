@@ -12,6 +12,7 @@
 #include "game/collection.h"
 #include "core/stream.h"
 #include "core/crt.h"
+#include "core/imports.h"
 #include "hook/keepregs.h"
 #include "game/calendar.h"
 #include "core/ptrlist.h"
@@ -22,6 +23,14 @@
 #undef small
 
 namespace rt3 {
+
+Collection* __fastcall Collection_SetVtbl(Collection* c);
+
+void __fastcall Collection_Init(Collection* c, int, int32_t inlineRecords, int32_t stride,
+                                int32_t initialCapacity, int32_t growBy,
+                                int32_t list1, int32_t list2, int32_t list3);
+
+void __fastcall CarTypes_LoadAll(Collection* t);
 
 template <typename T> static inline T& F(void* o, uint32_t off) { return *(T*)((uint8_t*)o + off); }
 uint8_t* __fastcall Obj_Region(void* o);
@@ -140,7 +149,6 @@ RT3_NOINLINE void __fastcall Overview_Close(uint8_t* t);
 RT3_NOINLINE void __fastcall SceneObj_ShowPreview(uint8_t* o);
 RT3_NOINLINE void __fastcall EditorDialog_Run(int32_t tab, int32_t city);
 
-static inline int ExeStricmp(const char* a, const char* b) { return ((int(__cdecl*)(const char*, const char*))0x5a57cf)(a, b); }
 
 // Fog end at the object's cell (Obj_CellX / Obj_CellY truncated).
 static int32_t ObjFogEnd(void* o) {
@@ -190,7 +198,6 @@ static void Street(int32_t x, int32_t y) {
 static inline double Fl_202(uint32_t a) { return *(const float*)a; }
 
 namespace {
-void Callback_Delete(void* p) { ((void(__cdecl*)(void*))0x53b080)(p); }
 int32_t Tooltip_Clear() { return Ui_ShowTooltip(g_windowManager, 0, (const char*)0x5c87a8, 3, 0, -1); }
 // A network message's handler gets the packet (+8) when it has one (+0xc).
 template <typename P, typename Fn> int32_t NetMsg_Forward(uint8_t* m, Fn handler) {
@@ -235,11 +242,10 @@ RT3_REPLACE(0x41e100, Table_FindCurrentFor);
 // Reverse engineered by GPT6.1 SOL MEDIUM.
 // 0x41e170. Build a 0x266-byte inline-record car-type table and load its files.
 RT3_NOINLINE uint8_t* __fastcall CarTypes_ConstructRuntime(uint8_t* table) {
-    hook::Orig<void(__fastcall*)(uint8_t*)>(0x517ce0)(table);
+    Collection_SetVtbl((Collection*)(table));
     F_runtime_wrappers<uint32_t>(table, 0) = 0x5c9824;
-    hook::Orig<void(__fastcall*)(uint8_t*, int, int32_t, int32_t, int32_t, int32_t, int32_t, int32_t, int32_t)>(0x518570)(
-        table, 0, 1, 0x266, 10, 5, 1, 0, 0);
-    hook::Orig<void(__fastcall*)(uint8_t*)>(0x41d7c0)(table);
+    Collection_Init((Collection*)(table), 0, 1, 0x266, 10, 5, 1, 0, 0);
+    CarTypes_LoadAll((Collection*)(table));
     return table;
 }
 RT3_REPLACE(0x41e170, CarTypes_ConstructRuntime);
@@ -355,7 +361,7 @@ uint32_t __fastcall CarType_ForCargo(uint8_t* o) {
             if (CarType_Available(e, 0, 0, 0) && !strcmp((const char*)e + 0x111, name))
                 return Collection_IdAt(types, 0, i, 0);
         }
-        if (Stricmp(name, (const char*)0x5c9974)) return first;
+        if (crt::stricmp(name, (const char*)0x5c9974)) return first;
         memcpy(name, (const void*)0x5c9968, 10);
     }
 }
@@ -463,7 +469,7 @@ RT3_REPLACE(0x41e970, CargoTypes_Recount);
 uint32_t __fastcall Table_FindByName(Collection* t, int, const char* name) {
     for (int32_t i = 0; i < Collection_Count(t); ++i) {
         uint8_t* r = (uint8_t*)Collection_Get(t, 0, Collection_IdAt(t, 0, i, 0));
-        if (((int(__cdecl*)(const char*, const char*))0x5a57cf)(name, (const char*)r + 4) == 0)
+        if (crt::stricmp(name, (const char*)r + 4) == 0)
             return Collection_IdAt(t, 0, i, 0);
     }
     return 0;
@@ -503,10 +509,10 @@ RT3_NOINLINE void __fastcall CargoTypes_MarkAvailable(Collection* c) {
             if (!linked) continue;
         }
         const char* name = (const char*)ind + 4;
-        if (!Stricmp((const char*)0x5c9378, name)) barracks = 1;
-        if (!Stricmp((const char*)0x5c8de0, name)) {
+        if (!crt::stricmp((const char*)0x5c9378, name)) barracks = 1;
+        if (!crt::stricmp((const char*)0x5c8de0, name)) {
             for (int32_t j = 0; j < Collection_Count(c); ++j)
-                if (!Stricmp((const char*)Collection_Get(c, 0, Collection_IdAt(c, 0, j, 0)) + 4, (const char*)0x5c99c0))
+                if (!crt::stricmp((const char*)Collection_Get(c, 0, Collection_IdAt(c, 0, j, 0)) + 4, (const char*)0x5c99c0))
                     flags[Collection_IdAt(c, 0, j, 0)] = 1;
             continue;
         }
@@ -524,7 +530,7 @@ RT3_NOINLINE void __fastcall CargoTypes_MarkAvailable(Collection* c) {
         if (F<int32_t>(World(), 0x4afb)) {
             bool keep = false;
             for (uint32_t s : six)
-                if (!Stricmp((const char*)e + 4, (const char*)s)) {
+                if (!crt::stricmp((const char*)e + 4, (const char*)s)) {
                     keep = true;
                     break;
                 }
@@ -553,22 +559,22 @@ void __fastcall CargoTypes_Load(Collection* c) {
     FormatText(pattern, (const char*)0x5c9a08, (const char*)0x5c9a10, 0, 0, 0, 0, 0, 0, 0);
     int32_t n = 0;
     WIN32_FIND_DATAA fd;
-    HANDLE h = ((HANDLE(__stdcall*)(const char*, WIN32_FIND_DATAA*))g_5c8190)(pattern, &fd);
+    HANDLE h = (((HANDLE(__stdcall*)(const char*, WIN32_FIND_DATAA*))imp::FindFirstFileA))(pattern, &fd);
     if (h != INVALID_HANDLE_VALUE) {
         BOOL more = 1;
         while (more) {
             if (n < 0x1f3) {
                 StrCopyN(names[n], fd.cFileName, 0xc8);
-                more = ((BOOL(__stdcall*)(HANDLE, WIN32_FIND_DATAA*))g_5c8194)(h, &fd);
+                more = (((BOOL(__stdcall*)(HANDLE, WIN32_FIND_DATAA*))imp::FindNextFileA))(h, &fd);
                 ++n;
             }
         }
-        ((BOOL(__stdcall*)(HANDLE))g_5c819c)(h);
+        (((BOOL(__stdcall*)(HANDLE))imp::FindClose))(h);
     }
     if (n <= 0) goto specials;
     for (int32_t i = 1; i <= n; ++i)
         for (int32_t j = i; j < n; ++j)
-            if (Stricmp(names[i - 1], names[j]) >= 0) {
+            if (crt::stricmp(names[i - 1], names[j]) >= 0) {
                 char tmp[0xc9];
                 strcpy(tmp, names[j]);
                 strcpy(names[j], names[i - 1]);
@@ -577,9 +583,9 @@ void __fastcall CargoTypes_Load(Collection* c) {
     for (int32_t k = 0; k < n; ++k) {
         char path[0x200];
         FormatText(path, (const char*)0x5c8730, (const char*)0x5c9a10, names[k], 0, 0, 0, 0, 0, 0);
-        FILE* f = ((FILE*(__cdecl*)(const char*, const char*))0x5a1887)(path, (const char*)0x5c9678);
+        FILE* f = ((FILE*)crt::fopen(path, (const char*)0x5c9678));
         if (!f) continue;
-        auto rd = [&](void* p, size_t sz) { ((size_t(__cdecl*)(void*, size_t, size_t, FILE*))0x5a1b05)(p, 1, sz, f); };
+        auto rd = [&](void* p, size_t sz) { crt::fread(p, 1, sz, f); };
         uint8_t rec[0xd0] = {};
         rd(rec, 4);
         rd(rec + 4, 0x14);
@@ -593,7 +599,7 @@ void __fastcall CargoTypes_Load(Collection* c) {
         if (F<int32_t>(rec, 0) <= 0x3e9) rec[0x20] = 0;
         for (int32_t i = (int32_t)strlen((const char*)rec + 0x25) - 1; i >= 0; --i)
             rec[0x25 + i] = (uint8_t)ToUpper((char)rec[0x25 + i]);
-        ((int(__cdecl*)(FILE*))0x5a1740)(f);
+        crt::fclose(f);
         double x = Game_EffectiveVersion() >= 0x67 ? (double)F<float>(rec, 0x1c) * D(0x5c85a8) / D(0x5c9a00)
                                                    : (double)F<float>(rec, 0x1c) / Fl_202(0x5c99fc);
         F<float>(rec, 0x42) = (float)(D(0x5c8770) - x);
@@ -603,17 +609,17 @@ void __fastcall CargoTypes_Load(Collection* c) {
         F<uint32_t>(r, 0x3e) = id;
         F<float>(r, 0x52) = (float)((double)F<float>(r, 0x1c) / Fl_202(0x5c99f8) * D(0x5c8570) / D(0x5c99e8) + D(0x5c8770));
         const char* nm = (const char*)rec + 4;
-        if (!Stricmp(nm, (const char*)0x5c99f0)) {
+        if (!crt::stricmp(nm, (const char*)0x5c99f0)) {
             F<uint16_t>(c, 0x8a) = (uint16_t)id;
             r[0x48] = 1;
             r[0x46] = 1;
         }
-        if (!Stricmp(nm, (const char*)0x5c99d8)) {
+        if (!crt::stricmp(nm, (const char*)0x5c99d8)) {
             F<uint16_t>(c, 0x88) = (uint16_t)id;
             r[0x47] = 1;
             r[0x46] = 1;
         }
-        if (!Stricmp(nm, (const char*)0x5c99d0)) {
+        if (!crt::stricmp(nm, (const char*)0x5c99d0)) {
             F<uint16_t>(c, 0x8c) = (uint16_t)id;
             r[0x49] = 1;
             r[0x46] = 1;
@@ -656,15 +662,15 @@ specials:
     for (int32_t k = 0; k < 0x35; ++k) F<int32_t>(c, 0x9a + k * 4) = -1;
     for (int32_t i = 0; i < Collection_Count(c); ++i) {
         auto name = [&]() { return (const char*)Collection_Get(c, 0, Collection_IdAt(c, 0, i, 0)) + 4; };
-        if (!Stricmp(name(), (const char*)0x5c99f0)) {
+        if (!crt::stricmp(name(), (const char*)0x5c99f0)) {
             F<uint32_t>(c, 0x92) = Collection_IdAt(c, 0, i, 0);
             F<int32_t>(c, 0x9a + Collection_IdAt(c, 0, i, 0) * 4) = 1;
         }
-        if (!Stricmp(name(), (const char*)0x5c99d8)) {
+        if (!crt::stricmp(name(), (const char*)0x5c99d8)) {
             F<uint32_t>(c, 0x8e) = Collection_IdAt(c, 0, i, 0);
             F<int32_t>(c, 0x9a + Collection_IdAt(c, 0, i, 0) * 4) = 0;
         }
-        if (!Stricmp(name(), (const char*)0x5c99d0)) {
+        if (!crt::stricmp(name(), (const char*)0x5c99d0)) {
             F<uint32_t>(c, 0x96) = Collection_IdAt(c, 0, i, 0);
             F<int32_t>(c, 0x9a + Collection_IdAt(c, 0, i, 0) * 4) = 2;
         }
@@ -722,7 +728,7 @@ int32_t __fastcall City_Load(uint8_t* c, int, int32_t s) {
         F<uint32_t>(c, 0x317) = 0;
     }
     int32_t n = WorldModel_Load(c, 0, s);
-    Collection* t = (Collection*)((void*(__cdecl*)(size_t))0x53b070)(0x88);
+    Collection* t = (Collection*)crt::operator_new(0x88);
     t = t ? Collection_Construct(t, 0, 1, 0x22, 2, 2, 0, 0, 0) : nullptr;
     F<Collection*>(c, 0x37f) = t;
     n += Collection_Load(t, 0, s, 0);
@@ -875,7 +881,7 @@ RT3_REPLACE(0x41f9b0, Obj_CountTypesAvailable);
 RT3_NOINLINE double __fastcall Obj_NamedValue(void* o, int, const char* name) {
     for (int32_t i = 0; i < Collection_Count(F<Collection*>(o, 0x37f)); ++i) {
         Collection* t = F<Collection*>(o, 0x37f);
-        if (ExeStricmp(name, (const char*)Collection_Get(t, 0, Collection_IdAt(t, 0, i, 0))) == 0) {
+        if (crt::stricmp(name, (const char*)Collection_Get(t, 0, Collection_IdAt(t, 0, i, 0))) == 0) {
             t = F<Collection*>(o, 0x37f);
             return F<float>(Collection_Get(t, 0, Collection_IdAt(t, 0, i, 0)), 0x1e);
         }

@@ -396,7 +396,6 @@ RT3_NOINLINE void __fastcall Glyph_Queue(uint8_t* g, int, float x, float y, uint
 
 static inline uint8_t* Renderer() { return (uint8_t*)Engine_Renderer(hook::As<void*>(g_engine)); }
 
-static inline double ExeFabs(double v) { return ((double(__cdecl*)(double))0x5a152e)(v); }
 
 static inline uint8_t* Engine() { return g_engine; }
 
@@ -426,12 +425,11 @@ static inline float FromBits(uint32_t u) { return *(float*)&u; }
 // /O2 drops the whole mode 0 branch after the early return above.
 static __declspec(noinline) float Camera_PitchForZoomMode(uint8_t* c, float zoom, int32_t mode) {
     float pitch = F<float>(c, 0x14);
-    auto powf_ = (double(__cdecl*)(double, double))0x5a1b60;
     static const uint64_t kExpo = 0x3fd6666666666666ull, kDenom = 0x40d090a000000000ull; // 0.35, 16962.5
     if (mode == 0) {
         pitch = (float)((double)zoom - D(0x5ca0d0));
-        pitch = (float)powf_(pitch, *(const double*)&kExpo);
-        float top = (float)powf_(*(const double*)&kDenom, *(const double*)&kExpo);
+        pitch = (float)crt::pow(pitch, *(const double*)&kExpo);
+        float top = (float)crt::pow(*(const double*)&kDenom, *(const double*)&kExpo);
         pitch = (float)((double)pitch / top * D(0x5ca0c0) + D(0x5c86b8));
         if ((double)pitch > D(0x5ca028)) pitch = FromBits(0x3fbc4303);
         if ((double)pitch < D(0x5c86b8)) pitch = FromBits(0x3dcccccd);
@@ -448,7 +446,7 @@ static __declspec(noinline) float Camera_PitchForZoomMode(uint8_t* c, float zoom
             pitch = FromBits(0x3fbc4303);
     }
     ((void(__thiscall*)(void*))(*(void***)c)[0xc / 4])(c);
-    ((double(__cdecl*)(double))0x5a13e4)(pitch);
+    crt::sin(pitch);
     return pitch;
 }
 
@@ -463,7 +461,6 @@ static inline int32_t CamFtol(double v) {
     return r;
 }
 
-static inline double CamFabs(double x) { return ((double(__cdecl*)(double))0x5a152e)(x); }
 
 static inline double CamBitsD(uint64_t b) { return *(double*)&b; }
 
@@ -485,11 +482,8 @@ static void ApplyZoom(uint8_t* c) {
 
 static inline uint32_t U(float f) { return *(uint32_t*)&f; }
 
-static inline double Sqrt(double x) { return ((double(__cdecl*)(double))0x5a1634)(x); }
 
-static inline double Cos(double x) { return ((double(__cdecl*)(double))0x5a13e4)(x); }
 
-static inline double Fabs(double x) { return ((double(__cdecl*)(double))0x5a152e)(x); }
 
 static inline double Fl_203(uint32_t a) { return *(const float*)a; }
 
@@ -504,7 +498,6 @@ static inline int32_t Ftol(double v) {
     return r;
 }
 
-static inline double ExeSqrt(double v) { return ((double(__cdecl*)(double))0x5a1634)(v); }
 
 static inline double Fl_205(uint32_t a) { return *(const float*)a; }
 
@@ -512,11 +505,9 @@ static inline float BitsF(uint32_t b) { return *(float*)&b; }
 
 static inline double BitsD(uint64_t b) { return *(double*)&b; }
 
-static inline SprintfFn ExeSprintf() { return (SprintfFn)0x5a19c4; }
 
 static inline double Fl_207(uint32_t a) { return *(const float*)a; }
 
-static inline double Atof(const char* s) { return ((double(__cdecl*)(const char*))0x5a2076)(s); }
 
 namespace {
 // The first open modal (in this order) is told to close; false when none is.
@@ -752,7 +743,7 @@ RT3_NOINLINE void __fastcall World_Startup(uint8_t* w, int, int32_t setup, int32
         Window_SendEvent5(win, 0, 0x6f, 0x84d2, (uint32_t)(uintptr_t)GetString(id), 0, 0);
     };
     auto pack = [] { return g_pack; };
-    auto alloc = [](size_t n) { return ((uint8_t*(__cdecl*)(size_t))0x53b070)(n); };
+    auto alloc = [](size_t n) { return ((uint8_t*)crt::operator_new(n)); };
     F<int32_t>(w, 0) = 0;
     F<int32_t>(w, 0x4c80) = 0;
     World_Reset(w, 0, setup);
@@ -790,7 +781,7 @@ RT3_NOINLINE void __fastcall World_Startup(uint8_t* w, int, int32_t setup, int32
             }
             if (i != n) {
                 ++i;
-                ((void*(__cdecl*)(void*, const void*, size_t))0x5a20b0)(name, name + i, (size_t)(n - i + 1));
+                crt::memmove(name, name + i, (size_t)(n - i + 1));
             }
         }
         const int32_t len = (int32_t)strlen(name);
@@ -802,13 +793,13 @@ RT3_NOINLINE void __fastcall World_Startup(uint8_t* w, int, int32_t setup, int32
         };
         memcpy(text, "1.0", 4);
         ask(0x138);
-        scale = (float)Atof(text);
+        scale = (float)crt::atof(text);
         memcpy(text, "1.0", 4);
         ask(0x139);
-        curve = (float)Atof(text);
+        curve = (float)crt::atof(text);
         memcpy(text, "1", 2);
         ask(0x13a);
-        smooth = ((int(__cdecl*)(const char*))0x5a1ea5)(text);
+        smooth = crt::atoi(text);
         Cursor_PushBusy(g_cursorManager);
     }
     Loading_Pump(ed(), 0, 1, 0);
@@ -912,7 +903,7 @@ RT3_NOINLINE void __fastcall World_Startup(uint8_t* w, int, int32_t setup, int32
                 Map_UnloadWorld(old);
                 if (uint8_t* again = g_map) {
                     Map_RuntimeDestructor(again);
-                    ((void(__cdecl*)(void*))0x53b080)(again);
+                    crt::operator_delete(again);
                 }
             }
             uint8_t* m = alloc(0x2209);
@@ -1026,7 +1017,7 @@ RT3_NOINLINE int32_t __fastcall World_Frame(uint8_t* w) {
                 for (;;) {
                     if (!g_6d40dc && (uint32_t)(g_5f2b38 + F<int32_t>(w, 0x15)) > host) {
                         char note[0x100];
-                        ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)(note, (const char*)0x5c9fdc, F<int32_t>(w, 0x15), host,
+                        crt::sprintf(note, (const char*)0x5c9fdc, F<int32_t>(w, 0x15), host,
                                                                            g_5f2b38);
                         g_6cd8fc = ClockMs();
                         F<int32_t>(w, 0x4c80) = 0;
@@ -1207,12 +1198,12 @@ RT3_REPLACE(0x439bd0, Obj_Float18);
 // 0x439be0. Accumulates how far the camera moved since the last snapshot
 // (+0x352..: positions +0x4.. and +0x1c..) into +0x34e, capped at 1.
 RT3_NOINLINE void __fastcall View_AccumulateMotion(uint8_t* o) {
-    double t = ExeFabs((double)F<float>(o, 0x366) - F<float>(o, 0x24));
-    t = ExeFabs((double)F<float>(o, 0x35e) - F<float>(o, 0x1c)) + t;
-    t = ExeFabs((double)F<float>(o, 0x352) - F<float>(o, 0x4)) + t;
-    float a = (float)((ExeFabs((double)F<float>(o, 0x35a) - F<float>(o, 0xc)) + t) / *(const double*)0x5c8c48);
-    t = ExeFabs((double)F<float>(o, 0x362) - F<float>(o, 0x20));
-    float b = (float)(ExeFabs((double)F<float>(o, 0x356) - F<float>(o, 0x8)) + t);
+    double t = crt::fabs((double)F<float>(o, 0x366) - F<float>(o, 0x24));
+    t = crt::fabs((double)F<float>(o, 0x35e) - F<float>(o, 0x1c)) + t;
+    t = crt::fabs((double)F<float>(o, 0x352) - F<float>(o, 0x4)) + t;
+    float a = (float)((crt::fabs((double)F<float>(o, 0x35a) - F<float>(o, 0xc)) + t) / *(const double*)0x5c8c48);
+    t = crt::fabs((double)F<float>(o, 0x362) - F<float>(o, 0x20));
+    float b = (float)(crt::fabs((double)F<float>(o, 0x356) - F<float>(o, 0x8)) + t);
     const float zero = *(const float*)0x5c8598;
     if (b == zero && a == zero) return;
     float v = (float)((double)a / *(const double*)0x5c8798);
@@ -1322,19 +1313,19 @@ RT3_REPLACE(0x43a1a0, Camera_MoveEyeTo);
 // the sound stops. Quirk: the remembered volume +0x3b6 is reset to -1 every frame.
 RT3_NOINLINE void __fastcall Camera_UpdateShake(uint8_t* c) {
     if (!F<int32_t>(c, 0x38e)) return;
-    float a = (float)((Sqrt(F<float>(c, 0x392)) + F<float>(c, 0x392)) / D(0x5c85d0));
+    float a = (float)((crt::sqrt(F<float>(c, 0x392)) + F<float>(c, 0x392)) / D(0x5c85d0));
     float lim1 = (float)((double)a * Fl(0x5ca074));
     float lim2 = (float)((double)a * Fl(0x5ca070));
     float tf = (float)ClockMs();
     float e = (float)((double)tf - F<float>(c, 0x396));
     if (!(e > lim2) && !(e < Fl(0x5c8598))) {
         float q = (float)((double)e * Fl(0x5c8760));
-        float cr = (float)Cos((double)q / lim2);
+        float cr = (float)crt::sin((double)q / lim2);
         float amp = (float)((double)cr * a);
         double vv = amp < D(0x5c85b8) ? 0.01 : (double)amp;
         amp = (float)vv;
-        float vol = (float)((Sqrt(amp) + amp) / D(0x5c85d0));
-        if (Fabs((double)vol - F<float>(c, 0x3b6)) > D(0x5c9b98)) {
+        float vol = (float)((crt::sqrt(amp) + amp) / D(0x5c85d0));
+        if (crt::fabs((double)vol - F<float>(c, 0x3b6)) > D(0x5c9b98)) {
             F<float>(c, 0x3b6) = vol;
             Sound_SetSampleVolume(SoundSys(), 0, F<uint32_t>(c, 0x3b2), vol);
         }
@@ -1350,11 +1341,11 @@ RT3_NOINLINE void __fastcall Camera_UpdateShake(uint8_t* c) {
         else f = d < Fl(0x5c85b0) ? 0x3f800000 : 0x3f99999a;
         float fac = *(float*)&f;
         float s = 0.0f;
-        if (e < lim1) s = (float)(Cos((double)q / lim1) * ((double)fac * F<float>(c, 0x392)));
+        if (e < lim1) s = (float)(crt::sin((double)q / lim1) * ((double)fac * F<float>(c, 0x392)));
         float e2 = (float)((double)e * Fl(0x5c8768));
-        F<float>(c, 0x3a6) = (float)(Cos((double)e2 / Fl(0x5c8c28)) * s * D(0x5ca060));
-        F<float>(c, 0x3aa) = (float)(Cos((double)e2 / Fl(0x5ca05c)) * s * D(0x5c9ab8));
-        F<float>(c, 0x3ae) = (float)(Cos((double)e2 / Fl(0x5ca058)) * s * D(0x5ca050));
+        F<float>(c, 0x3a6) = (float)(crt::sin((double)e2 / Fl(0x5c8c28)) * s * D(0x5ca060));
+        F<float>(c, 0x3aa) = (float)(crt::sin((double)e2 / Fl(0x5ca05c)) * s * D(0x5c9ab8));
+        F<float>(c, 0x3ae) = (float)(crt::sin((double)e2 / Fl(0x5ca058)) * s * D(0x5ca050));
     } else {
         F<int32_t>(c, 0x38e) = 0;
         F<int32_t>(c, 0x3a6) = 0;
@@ -1441,13 +1432,13 @@ RT3_NOINLINE void __fastcall Camera_UpdateHaze(uint8_t* cam, int, float h) {
     dusk = (float)(((double)dusk - D(0x5c88e8)) / D(0x5c8880));
     if (Fl_203(0x5c8598) > dusk) dusk = 0.0f;
     float hc = Fl_203(0x5c85b4) > h ? 1.0f : h;
-    float sq = (float)ExeSqrt(hc);
-    float q = (float)(((double)sq - Fl_203(0x5c8550)) / ExeSqrt(6500.0));
+    float sq = (float)crt::sqrt(hc);
+    float q = (float)(((double)sq - Fl_203(0x5c8550)) / crt::sqrt(6500.0));
     if (q < D(0x5c85b8)) q = 0.0f;
     else if (q > Fl_203(0x5c85b4)) q = 1.0f;
     float v = (float)((double)q * dusk);
     float& cache = g_5ee4d8;
-    if (!(ExeFabs((double)cache - v) > D(0x5c85b8))) return;
+    if (!(crt::fabs((double)cache - v) > D(0x5c85b8))) return;
     cache = v;
     float w = (float)((double)v * D(0x5ca0d8) + D(0x5c8770));
     Scene_SetPair0((uint8_t*)Engine_Renderer(hook::As<void*>(g_engine)), 0, w, 1.0f);
@@ -1477,7 +1468,7 @@ int32_t __fastcall Camera_LoadWithBookmarks(uint8_t* c, int, Stream s) {
     const uint64_t wrapBits = 0x401921fb60000000ull;
     double wrap;
     memcpy(&wrap, &wrapBits, 8);
-    F<float>(c, 0x10) = (float)((double(__cdecl*)(double, double))0x5a1390)((double)F<float>(c, 0x10) + Fl_207(0x5ca0e8), wrap);
+    F<float>(c, 0x10) = (float)crt::fmod((double)F<float>(c, 0x10) + Fl_207(0x5ca0e8), wrap);
     return r;
 }
 RT3_REPLACE(0x43ac30, Camera_LoadWithBookmarks);
@@ -1740,12 +1731,12 @@ RT3_REPLACE(0x43b350, Camera_UpdateViewSettings);
 // 12 small moves it only halves; forced to 1 once after +0x36a.
 void __fastcall Camera_UpdateDetail(uint8_t* c) {
     float alt = (float)(F<float>(c, 0x20) - Terrain_HeightAt(F<uint8_t*>(c, 0x6e), 0, F<float>(c, 0x1c), F<float>(c, 0x24)));
-    double sum = Fabs((double)F<float>(c, 0x24) - F<float>(c, 0x382));
-    sum = Fabs((double)F<float>(c, 0x20) - F<float>(c, 0x37e)) + sum;
-    sum = Fabs((double)F<float>(c, 0x1c) - F<float>(c, 0x37a)) + sum;
-    sum = Fabs((double)F<float>(c, 0xc) - F<float>(c, 0x376)) + sum;
-    sum = Fabs((double)F<float>(c, 8) - F<float>(c, 0x372)) + sum;
-    sum = Fabs((double)F<float>(c, 4) - F<float>(c, 0x36e)) + sum;
+    double sum = crt::fabs((double)F<float>(c, 0x24) - F<float>(c, 0x382));
+    sum = crt::fabs((double)F<float>(c, 0x20) - F<float>(c, 0x37e)) + sum;
+    sum = crt::fabs((double)F<float>(c, 0x1c) - F<float>(c, 0x37a)) + sum;
+    sum = crt::fabs((double)F<float>(c, 0xc) - F<float>(c, 0x376)) + sum;
+    sum = crt::fabs((double)F<float>(c, 8) - F<float>(c, 0x372)) + sum;
+    sum = crt::fabs((double)F<float>(c, 4) - F<float>(c, 0x36e)) + sum;
     int32_t moved;
     __asm {
         fld sum
@@ -1851,12 +1842,12 @@ RT3_NOINLINE void __fastcall Camera_Update(uint8_t* c) {
     float dz = (float)((double)F<float>(c, 0x40) - F<float>(c, 0xc));
     if (dz == Fl(0x5c8598)) dz = FromBits(0x3a83126f);
     float yaw = F<float>(c, 0x10);
-    float target = (float)((double(__cdecl*)(double))0x5a1270)((double)dx / dz);
+    float target = (float)crt::atan((double)dx / dz);
     if ((dx > Fl(0x5c8598) && dz < Fl(0x5c8598)) || (dx < Fl(0x5c8598) && dz < Fl(0x5c8598))) target = (float)((double)target + Fl(0x5c8760));
     while (target > Fl(0x5c8760)) target = (float)((double)target - Fl(0x5c8768));
     while (yaw > Fl(0x5c8760)) yaw = (float)((double)yaw - Fl(0x5c8768));
     while (yaw < Fl(0x5ca1f0)) yaw = (float)((double)yaw + Fl(0x5c8768));
-    float turn = (float)CamFabs((double)target - yaw);
+    float turn = (float)crt::fabs((double)target - yaw);
     if (turn > Fl(0x5c8760)) turn = (float)(Fl(0x5c8768) - (double)turn);
     if (turn > D(0x5ca1e8)) yawSpeed = FromBits(0x4400cccd);
     else if (turn > D(0x5ca1e0)) yawSpeed = FromBits(0x4425999a);
@@ -1877,15 +1868,15 @@ RT3_NOINLINE void __fastcall Camera_Update(uint8_t* c) {
         else zoomSpeed = (float)((double)zoomSpeed * D(0x5ca1b8));
     }
     float posDiv = Fl(0x5c85b4) > yawSpeed ? 1.0f : yawSpeed;
-    double moveD = CamFabs((double)F<float>(c, 0x3c) - F<float>(c, 8));
-    moveD = CamFabs((double)F<float>(c, 0x40) - F<float>(c, 0xc)) + moveD;
-    float steps = (float)((CamFabs((double)F<float>(c, 0x38) - F<float>(c, 4)) + moveD) / posDiv);
-    float pitchRate = (float)(CamFabs((double)F<float>(c, 0x14) - D(0x5ca1b0)) * D(0x5c8c18) + D(0x5ca1a8));
+    double moveD = crt::fabs((double)F<float>(c, 0x3c) - F<float>(c, 8));
+    moveD = crt::fabs((double)F<float>(c, 0x40) - F<float>(c, 0xc)) + moveD;
+    float steps = (float)((crt::fabs((double)F<float>(c, 0x38) - F<float>(c, 4)) + moveD) / posDiv);
+    float pitchRate = (float)(crt::fabs((double)F<float>(c, 0x14) - D(0x5ca1b0)) * D(0x5c8c18) + D(0x5ca1a8));
     if (pitchRate > D(0x5c8618)) pitchRate = FromBits(0x3eb33333);
     double rateD = rate < D(0x5c8678) ? CamBitsD(0x3f50624dd2f1a9fcull) : (double)rate;
-    steps = (float)(CamFabs((double)F<float>(c, 0x44) - F<float>(c, 0x10)) / rateD + steps);
-    steps = (float)(CamFabs((double)F<float>(c, 0x48) - F<float>(c, 0x14)) / pitchRate + steps);
-    steps = (float)(CamFabs((double)F<float>(c, 0x4c) - F<float>(c, 0x18)) / zoomSpeed + steps);
+    steps = (float)(crt::fabs((double)F<float>(c, 0x44) - F<float>(c, 0x10)) / rateD + steps);
+    steps = (float)(crt::fabs((double)F<float>(c, 0x48) - F<float>(c, 0x14)) / pitchRate + steps);
+    steps = (float)(crt::fabs((double)F<float>(c, 0x4c) - F<float>(c, 0x18)) / zoomSpeed + steps);
     int32_t mode = F<int32_t>(g_app, 0x10c);
     if (!hook::Global<uint8_t>(0x5ee4d0 + mode) && F<float>(c, 0x14) > D(0x5c8628) && F<float>(c, 0x18) < Fl(0x5c86a0)) {
         float q = (float)((double)F<float>(c, 0x18) / (((double)F<float>(c, 0x14) - D(0x5c8628)) * D(0x5c85c8) + D(0x5c8770)));
@@ -1896,8 +1887,8 @@ RT3_NOINLINE void __fastcall Camera_Update(uint8_t* c) {
     if (alt < Fl(0x5c9ac0)) limit = 30.0f;
     else if (alt < Fl(0x5ca06c)) limit = 80.0f;
     else limit = alt < Fl(0x5ca1a4) ? 160.0f : 350.0f;
-    if ((double)limit < CamFabs((double)F<float>(c, 0x38a) - alt)) Camera_UpdateViewSettings(c);
-    float z = (float)(((double(__cdecl*)(double, double))0x5a1b60)(alt, CamBitsD(0x3fd99999a0000000ull)) / D(0x5c87e0));
+    if ((double)limit < crt::fabs((double)F<float>(c, 0x38a) - alt)) Camera_UpdateViewSettings(c);
+    float z = (float)(crt::pow(alt, CamBitsD(0x3fd99999a0000000ull)) / D(0x5c87e0));
     z = (float)(z < D(0x5c8d68) ? (double)z : 5.0);
     z = (float)(z > D(0x5c8770) ? (double)z : 1.0);
     uint8_t* opts = g_app;
@@ -1917,13 +1908,13 @@ RT3_NOINLINE void __fastcall Camera_Update(uint8_t* c) {
         if (jx >= 0 && jx < F<int32_t>(map, 0x2155) && jy >= 0 && jy < F<int32_t>(map, 0x2159) && !Terrain_KindIs1Or4(map, 0, jx, jy)) return;
     }
     // The original also computes these distances and drops them.
-    CamFabs((double)F<float>(c, 0x82) - F<float>(c, 0xc));
-    CamFabs((double)F<float>(c, 0x7e) - F<float>(c, 8));
-    CamFabs((double)F<float>(c, 0x7a) - F<float>(c, 4));
-    CamFabs((double)F<float>(c, 0x14) - D(0x5ca1b0));
-    CamFabs((double)F<float>(c, 0x72) - F<float>(c, 0x10));
-    CamFabs((double)F<float>(c, 0x76) - F<float>(c, 0x14));
-    CamFabs((double)F<float>(c, 0x86) - F<float>(c, 0x18));
+    crt::fabs((double)F<float>(c, 0x82) - F<float>(c, 0xc));
+    crt::fabs((double)F<float>(c, 0x7e) - F<float>(c, 8));
+    crt::fabs((double)F<float>(c, 0x7a) - F<float>(c, 4));
+    crt::fabs((double)F<float>(c, 0x14) - D(0x5ca1b0));
+    crt::fabs((double)F<float>(c, 0x72) - F<float>(c, 0x10));
+    crt::fabs((double)F<float>(c, 0x76) - F<float>(c, 0x14));
+    crt::fabs((double)F<float>(c, 0x86) - F<float>(c, 0x18));
     if (F<float>(c, 0x7a) > D(0x5c9ba0)) c[0x65] = 1;
 }
 RT3_REPLACE(0x43bde0, Camera_Update);
@@ -1943,7 +1934,7 @@ RT3_REPLACE(0x43c5e0, Camera_RefreshView);
 // [0.1, 1.47]) and zoom (-1 keeps it; at least 37.5, at most vtbl +0xc); does
 // nothing when all three are unchanged.
 RT3_NOINLINE void __fastcall Camera_SetAngles(uint8_t* c, int, uint32_t yaw, float pitch, uint32_t zoom) {
-    pitch = (float)((double(__cdecl*)(double, double))0x5a1390)(pitch, CamBitsD(0x400921fafc8b007aull));
+    pitch = (float)crt::fmod(pitch, CamBitsD(0x400921fafc8b007aull));
     if (pitch < Fl(0x5ca200)) pitch = FromBits(0xbfc90fdb);
     else if (pitch >= D(0x5ca1f8)) pitch = FromBits(0x3fc8f5c3);
     if (pitch < D(0x5c86b8)) pitch = FromBits(0x3dcccccd);
@@ -1990,16 +1981,14 @@ RT3_REPLACE(0x43c810, Camera_Turn);
 // angle +0x106, yaw offset +0x10a) when orbiting is on (+0xea) and the step is
 // large enough (or NaN).
 RT3_NOINLINE void __fastcall Camera_Orbit(uint8_t* c, int, float d) {
-    if (CamFabs(d) <= D(0x5c88a0) || !F<int32_t>(c, 0xea)) return;
-    auto sin_ = (double(__cdecl*)(double))0x5a1494;
-    auto cos_ = (double(__cdecl*)(double))0x5a13e4;
+    if (crt::fabs(d) <= D(0x5c88a0) || !F<int32_t>(c, 0xea)) return;
     float a = (float)((double)d + F<float>(c, 0x106));
     F<float>(c, 0x106) = a;
-    double s = sin_(a);
-    float z = (float)(sin_(0.0) * s * F<float>(c, 0xfa) + F<float>(c, 0xf6));
-    float y = (float)(cos_(0.0) * F<float>(c, 0xfa) + F<float>(c, 0xf2));
-    double k = cos_(F<float>(c, 0x106));
-    float x = (float)(sin_(0.0) * k * F<float>(c, 0xfa) + F<float>(c, 0xee));
+    double s = crt::cos(a);
+    float z = (float)(crt::cos(0.0) * s * F<float>(c, 0xfa) + F<float>(c, 0xf6));
+    float y = (float)(crt::sin(0.0) * F<float>(c, 0xfa) + F<float>(c, 0xf2));
+    double k = crt::sin(F<float>(c, 0x106));
+    float x = (float)(crt::cos(0.0) * k * F<float>(c, 0xfa) + F<float>(c, 0xee));
     Camera_SetTarget(c, 0, x, y, z);
     F<float>(c, 0x10) = (float)((double)F<float>(c, 0x10a) + F<float>(c, 0x106));
     Camera_UpdateEye(c);
@@ -2049,7 +2038,7 @@ RT3_NOINLINE int32_t __fastcall Camera_RecallBookmark(uint8_t* c, int, int32_t s
     F<uint32_t>(c, 0x20) = F<uint32_t>(b, 0x136);
     F<uint32_t>(c, 0x24) = F<uint32_t>(b, 0x13a);
     const uint64_t twoPi = 0x401921fb60000000ull;
-    F<float>(c, 0x10) = (float)((double(__cdecl*)(double, double))0x5a1390)(F<float>(c, 0x10) + Fl_207(0x5ca0e8), *(const double*)&twoPi);
+    F<float>(c, 0x10) = (float)crt::fmod(F<float>(c, 0x10) + Fl_207(0x5ca0e8), *(const double*)&twoPi);
     if (int32_t kind = F<int32_t>(b, 0x112)) World_FollowEntity(g_world, 0, 1, kind, F<int32_t>(b, 0x116));
     Camera_MouseUpdate(c, 0, 1);
     Camera_Update(c);
@@ -2062,7 +2051,7 @@ RT3_REPLACE(0x43ca20, Camera_RecallBookmark);
 RT3_NOINLINE void __fastcall Camera_SnapTurn(uint8_t* c, int, int32_t dir) {
     float q = (float)((double)F<float>(c, 0x10) / D(0x5c8c08) * D(0x5c87b8));
     q = (float)((double)q + Fl(0x5ca210));
-    float frac = (float)((double(__cdecl*)(double, double))0x5a1390)(q, 1.0);
+    float frac = (float)crt::fmod(q, 1.0);
     if (dir > 0 && frac > D(0x5c86b8)) q = (float)(CamFtol(q) + 1);
     if (dir < 0 && frac > D(0x5c8888)) q = (float)(CamFtol(q) + 1);
     float fd = (float)dir;
@@ -2080,11 +2069,10 @@ RT3_REPLACE(0x43cb00, Camera_SnapTurn);
 // position on the ladder (fractions past 0.9 / below 0.1 snap), plus `dir`;
 // the bottom is 37.5, the top 1e6.
 RT3_NOINLINE void __fastcall Camera_ZoomStep(uint8_t* c, int, int32_t dir) {
-    auto sqrt_ = (double(__cdecl*)(double))0x5a1634;
     float* roots = (float*)0x62be4c;
-    for (int32_t i = 0; i < 7; ++i) roots[i] = (float)sqrt_((double)hook::Global<int32_t>(0x5ee4dc + i * 4));
+    for (int32_t i = 0; i < 7; ++i) roots[i] = (float)crt::sqrt((double)hook::Global<int32_t>(0x5ee4dc + i * 4));
     float s = Fl(0x5c85b4) > F<float>(c, 0x18) ? 1.0f : F<float>(c, 0x18);
-    float q = (float)sqrt_(s);
+    float q = (float)crt::sqrt(s);
     float pos = 6.0f;
     for (int32_t i = 0; i < 7; ++i)
         if (q < roots[i]) {
@@ -2095,7 +2083,7 @@ RT3_NOINLINE void __fastcall Camera_ZoomStep(uint8_t* c, int, int32_t dir) {
             }
             break;
         }
-    float frac = (float)((double(__cdecl*)(double, double))0x5a1390)(pos, 1.0);
+    float frac = (float)crt::fmod(pos, 1.0);
     if (frac > D(0x5ca218)) pos = (float)(CamFtol(pos) + 1);
     if (frac < D(0x5c9cb0)) pos = (float)CamFtol(pos);
     float d = (float)dir;
@@ -2144,7 +2132,7 @@ RT3_NOINLINE void __fastcall Camera_SmoothHeight(uint8_t* c) {
     if (F<int32_t>(c, 0x60)) return;
     if (!((const uint8_t*)0x5ee4d0)[F<int32_t>(g_app, 0x10c)]) return;
     Camera_TargetGround(c);
-    float reach = (float)(((double(__cdecl*)(double))0x5a13e4)(F<float>(c, 0x14)) * F<float>(c, 0x18));
+    float reach = (float)(crt::sin(F<float>(c, 0x14)) * F<float>(c, 0x18));
     Camera_FollowGround(c);
     float y = F<float>(c, 8);
     if (F<float>(c, 0x18) < Fl(0x5c86a0)) {
@@ -2203,21 +2191,18 @@ RT3_REPLACE(0x43d0c0, Camera_MoveToCell);
 // 0x43d130. Pans the camera by (dx, dz) screen units, scaled with the square
 // root of the zoom and turned by the yaw.
 RT3_NOINLINE void __fastcall Camera_Pan(uint8_t* c, int, float dx, float dz) {
-    auto sqrt_ = (double(__cdecl*)(double))0x5a1634;
-    auto sin_ = (double(__cdecl*)(double))0x5a1494;
-    auto cos_ = (double(__cdecl*)(double))0x5a13e4;
     float s = Fl(0x5c85b4) > F<float>(c, 0x18) ? 1.0f : F<float>(c, 0x18);
-    double r = sqrt_((double)s + D(0x5c9680));
-    float f = (float)(r / sqrt_(62.0));
+    double r = crt::sqrt((double)s + D(0x5c9680));
+    float f = (float)(r / crt::sqrt(62.0));
     f = (float)((double)f * Fl(0x5c8900));
     dx = (float)((double)f * dx);
     dz = (float)((double)f * dz);
     float a = (float)((double)dz * Fl(0x5c8904));
-    float t1 = (float)(cos_(F<float>(c, 0x10)) * a);
-    float t2 = (float)(sin_(F<float>(c, 0x10)) * a);
+    float t1 = (float)(crt::sin(F<float>(c, 0x10)) * a);
+    float t2 = (float)(crt::cos(F<float>(c, 0x10)) * a);
     float b = (float)((double)dx * Fl(0x5c8904));
-    float mx = (float)((double)t1 - sin_(F<float>(c, 0x10)) * b);
-    float mz = (float)(cos_(F<float>(c, 0x10)) * b + t2);
+    float mx = (float)((double)t1 - crt::cos(F<float>(c, 0x10)) * b);
+    float mz = (float)(crt::sin(F<float>(c, 0x10)) * b + t2);
     uint32_t z = Bits((float)((double)mz + F<float>(c, 0xc)));
     Camera_MoveTo(c, 0, Bits((float)((double)mx + F<float>(c, 4))), F<uint32_t>(c, 8), z);
     Camera_Update(c);
@@ -2346,10 +2331,10 @@ RT3_NOINLINE void __fastcall Camera_UpdateFocus(uint8_t* c) {
                                           F<float>(c, 0x20), F<float>(c, 0x24));
     float dx = (float)((double)F<float>(c, 0xee) - F<float>(c, 0x1c));
     if (dx == Fl(0x5c8598)) dx = 0.1f;
-    float a = (float)(D(0x5c8740) - ((double(__cdecl*)(double))0x5a1270)(((double)F<float>(c, 0xf6) - F<float>(c, 0x24)) / dx));
+    float a = (float)(D(0x5c8740) - crt::atan(((double)F<float>(c, 0xf6) - F<float>(c, 0x24)) / dx));
     F<float>(c, 0x106) = a;
     if (F<float>(c, 0xee) < F<float>(c, 0x1c)) F<float>(c, 0x106) = (float)((double)a - Fl(0x5c8760));
-    float m = (float)((double(__cdecl*)(double, double))0x5a1390)(F<float>(c, 0x106), 6.2831854820251465);
+    float m = (float)crt::fmod(F<float>(c, 0x106), 6.2831854820251465);
     F<float>(c, 0x106) = m;
     F<float>(c, 0x10a) = (float)((double)F<float>(c, 0x10) - m);
 }
@@ -2568,7 +2553,7 @@ RT3_NOINLINE void __fastcall Camera_ApplyMomentum(uint8_t* c, int, float dt, int
         float k = F<float>(c, 0x18);
         if (k < D(0x5ca0d0)) k = FromBits(0x42160000);
         k = (float)((double)k - (F<int32_t>(c, 0x60) ? D(0x5c8d58) : D(0x5ca268)));
-        k = (float)(((double(__cdecl*)(double))0x5a1634)((double)k / Fl(0x5c9ac4)) * D(0x5c88e8) + D(0x5c85b8));
+        k = (float)(crt::sqrt((double)k / Fl(0x5c9ac4)) * D(0x5c88e8) + D(0x5c85b8));
         if (F<float>(c, 0x18) < Fl(0x5ca06c)) k = (float)((double)k * D(0x5c88c8));
         else if (F<float>(c, 0x18) < Fl(0x5ca1a4))
             k = (float)((((double)F<float>(c, 0x18) - Fl(0x5ca06c)) / D(0x5c87f8) * D(0x5c8680) + D(0x5c88c8)) * k);
@@ -2625,9 +2610,9 @@ RT3_REPLACE(0x43e2c0, Camera_ApplyMomentum);
 RT3_NOINLINE void __fastcall Camera_MouseInputMomentum(uint8_t* c, int, float dx, float dy, float wheel) {
     int32_t freeDrag = Tool_RemoveModifier();
     int32_t grab = Tool_AddModifier(c);
-    if (!freeDrag && !grab && CamFabs(wheel) <= D(0x5c8678)) return;
+    if (!freeDrag && !grab && crt::fabs(wheel) <= D(0x5c8678)) return;
     float ground = (float)Terrain_HeightAt(F<uint8_t*>(c, 0x6e), 0, F<float>(c, 4), F<float>(c, 0xc));
-    float k = (float)(CamFabs((double)F<float>(c, 0x20) - ground) / D(0x5c87f8) + D(0x5c9ba0));
+    float k = (float)(crt::fabs((double)F<float>(c, 0x20) - ground) / D(0x5c87f8) + D(0x5c9ba0));
     if (freeDrag) {
         if (Options_Get10c() == 4) {
             F<float>(c, 0x8a) = (float)((double)dx / Fl(0x5c86a0) + F<float>(c, 0x8a));
@@ -2638,17 +2623,15 @@ RT3_NOINLINE void __fastcall Camera_MouseInputMomentum(uint8_t* c, int, float dx
         }
     } else if (grab) {
         if (Options_Get10c() == 4) {
-            auto sin_ = (double(__cdecl*)(double))0x5a1494;
-            auto cos_ = (double(__cdecl*)(double))0x5a13e4;
             float a = (float)((double)k * dy);
             double t = F<float>(c, 0x96);
-            F<float>(c, 0x96) = (float)(t - cos_(F<float>(c, 0x10)) * a);
+            F<float>(c, 0x96) = (float)(t - crt::sin(F<float>(c, 0x10)) * a);
             t = F<float>(c, 0x9a);
-            F<float>(c, 0x9a) = (float)(t - sin_(F<float>(c, 0x10)) * a);
+            F<float>(c, 0x9a) = (float)(t - crt::cos(F<float>(c, 0x10)) * a);
             float b = (float)((double)k * dx);
-            F<float>(c, 0x96) = (float)(sin_(F<float>(c, 0x10)) * b + F<float>(c, 0x96));
+            F<float>(c, 0x96) = (float)(crt::cos(F<float>(c, 0x10)) * b + F<float>(c, 0x96));
             t = F<float>(c, 0x9a);
-            F<float>(c, 0x9a) = (float)(t - cos_(F<float>(c, 0x10)) * b);
+            F<float>(c, 0x9a) = (float)(t - crt::sin(F<float>(c, 0x10)) * b);
         } else
             Camera_DragToMouse(c);
     }
@@ -2675,24 +2658,24 @@ RT3_NOINLINE void __fastcall Camera_Drag(uint8_t* c, int, float dx, float dy, in
         F<int32_t>(c, 0x30e) = 0;
         F<int32_t>(c, 0x33e) = 0;
         F<int32_t>(c, 0x342) = 0;
-        if (Fabs(dy) * k < Fabs(dx)) F<int32_t>(c, 0x33e) = 1;
-        else if (Fabs(dx) * k < Fabs(dy)) F<int32_t>(c, 0x342) = 1;
+        if (crt::fabs(dy) * k < crt::fabs(dx)) F<int32_t>(c, 0x33e) = 1;
+        else if (crt::fabs(dx) * k < crt::fabs(dy)) F<int32_t>(c, 0x342) = 1;
         else {
-            if (Fabs(dx) > D(0x5c85f0)) F<int32_t>(c, 0x33e) = 1;
-            if (Fabs(dy) > D(0x5c85f0)) F<int32_t>(c, 0x342) = 1;
+            if (crt::fabs(dx) > D(0x5c85f0)) F<int32_t>(c, 0x33e) = 1;
+            if (crt::fabs(dy) > D(0x5c85f0)) F<int32_t>(c, 0x342) = 1;
         }
     }
     float sx = (float)((double)dx + F<float>(c, 0x30a));
     F<float>(c, 0x30a) = sx;
     F<float>(c, 0x30e) = (float)((double)dy + F<float>(c, 0x30e));
     if (!F<int32_t>(c, 0x33e)) {
-        double t = Fabs(sx) * k;
-        if (Fabs(F<float>(c, 0x30e)) < t) F<int32_t>(c, 0x33e) = 1;
+        double t = crt::fabs(sx) * k;
+        if (crt::fabs(F<float>(c, 0x30e)) < t) F<int32_t>(c, 0x33e) = 1;
         F<float>(c, 0x30a) = dx;
     }
     if (!F<int32_t>(c, 0x342)) {
-        double t = Fabs(F<float>(c, 0x30e)) * k;
-        if (Fabs(F<float>(c, 0x30a)) < t) F<int32_t>(c, 0x342) = 1;
+        double t = crt::fabs(F<float>(c, 0x30e)) * k;
+        if (crt::fabs(F<float>(c, 0x30a)) < t) F<int32_t>(c, 0x342) = 1;
         F<float>(c, 0x30e) = dy;
     }
     if (F<int32_t>(c, 0x33e)) F<float>(c, 0x8a) = (float)((double)dx / Fl(0x5ca19c) + F<float>(c, 0x8a));
@@ -2778,7 +2761,7 @@ RT3_NOINLINE void __fastcall Camera_DragPick(uint8_t* c, int, uint32_t x0, uint3
     if (F<int32_t>(c, 0x312) && frac >= D(0x5ca288) && !nested && Map_TileToScreen(F<float>(c, 0x31e), F<float>(c, 0x322), top, &sx, &sy)) {
         float e1 = (float)((double)sx - x1);
         float e2 = (float)((double)sy - y1);
-        if (!(CamFabs(e1) > D(0x5c8758)) && !(CamFabs(e2) > D(0x5c8758))) {
+        if (!(crt::fabs(e1) > D(0x5c8758)) && !(crt::fabs(e2) > D(0x5c8758))) {
             float lim = FromBits(0x3ac49ba6);
             double d = (float)Distance2D(x1, y1, F<float>(c, 0x32e), F<float>(c, 0x332)) * D(0x5c8628);
             if (D(0x5ca280) > d) lim = (float)d;
@@ -2807,17 +2790,15 @@ RT3_REPLACE(0x43ea40, Camera_DragPick);
 // when it is more than 0.5 away) or drifts by the position rates; refreshes the
 // view when anything moved or +0x9e asks for it; then lets the rates decay.
 RT3_NOINLINE void __fastcall Camera_Step(uint8_t* c, int, float dt, int32_t move) {
-    auto sin_ = (double(__cdecl*)(double))0x5a1494;
-    auto cos_ = (double(__cdecl*)(double))0x5a13e4;
     double t = F<float>(c, 0x2c);
-    double s14 = sin_(F<float>(c, 0x14));
-    F<float>(c, 0x2c) = (float)(t - sin_(F<float>(c, 0x10)) * s14 * F<float>(c, 0x8a) * D(0x5c8628));
+    double s14 = crt::cos(F<float>(c, 0x14));
+    F<float>(c, 0x2c) = (float)(t - crt::cos(F<float>(c, 0x10)) * s14 * F<float>(c, 0x8a) * D(0x5c8628));
     t = F<float>(c, 0x34);
-    double k = cos_(-(double)F<float>(c, 0x10));
-    F<float>(c, 0x34) = (float)(t - sin_(F<float>(c, 0x14)) * k * F<float>(c, 0x8a) * D(0x5c8628));
-    k = cos_(F<float>(c, 0x10));
-    k = sin_(F<float>(c, 0x14)) * k;
-    F<float>(c, 0x30) = (float)(D(0x5c8770) - sin_(F<float>(c, 0x10)) * k * F<float>(c, 0x8a));
+    double k = crt::sin(-(double)F<float>(c, 0x10));
+    F<float>(c, 0x34) = (float)(t - crt::cos(F<float>(c, 0x14)) * k * F<float>(c, 0x8a) * D(0x5c8628));
+    k = crt::sin(F<float>(c, 0x10));
+    k = crt::cos(F<float>(c, 0x14)) * k;
+    F<float>(c, 0x30) = (float)(D(0x5c8770) - crt::cos(F<float>(c, 0x10)) * k * F<float>(c, 0x8a));
     F<float>(c, 0x2c) = (float)((double)F<float>(c, 0x2c) * D(0x5c8680));
     F<float>(c, 0x34) = (float)((double)F<float>(c, 0x34) * D(0x5c8680));
     double turn = (double)dt * F<float>(c, 0x8a);
@@ -2829,7 +2810,7 @@ RT3_NOINLINE void __fastcall Camera_Step(uint8_t* c, int, float dt, int32_t move
     float l = F<float>(c, 0x18);
     if (l < D(0x5ca0d0)) l = FromBits(0x42160000);
     l = (float)((double)l - (F<int32_t>(c, 0x60) ? D(0x5c8d58) : D(0x5ca268)));
-    l = (float)(((double(__cdecl*)(double))0x5a1634)((double)l / Fl(0x5c9ac4)) * D(0x5c88e8) + D(0x5c85b8));
+    l = (float)(crt::sqrt((double)l / Fl(0x5c9ac4)) * D(0x5c88e8) + D(0x5c85b8));
     if (l > D(0x5c8820)) l = (float)((((double)l - D(0x5c8820)) * D(0x5c8680) + D(0x5c8770)) * l);
     float m = (float)((double)F<float>(c, 0x92) * l * dt * D(0x5c85a8));
     float z = (float)((double)m + F<float>(c, 0x18));
@@ -2843,8 +2824,8 @@ RT3_NOINLINE void __fastcall Camera_Step(uint8_t* c, int, float dt, int32_t move
             float fx, fy, fz;
             ((void(__fastcall*)(uint8_t*, int, float*, float*, float*))(*(void***)follow)[2])(follow, 0, &fx, &fy, &fz);
             fy = (float)((double)fy + Fl(0x5c873c));
-            if (CamFabs((double)fx - F<float>(c, 4)) > D(0x5c85b8) || CamFabs((double)fy - F<float>(c, 8)) > D(0x5c85b8) ||
-                CamFabs((double)fz - F<float>(c, 0xc)) > D(0x5c85b8))
+            if (crt::fabs((double)fx - F<float>(c, 4)) > D(0x5c85b8) || crt::fabs((double)fy - F<float>(c, 8)) > D(0x5c85b8) ||
+                crt::fabs((double)fz - F<float>(c, 0xc)) > D(0x5c85b8))
                 Camera_MoveTo(c, 0, Bits(fx), Bits(fy), Bits(fz));
             uint32_t a, b, d;
             SceneObj_GetAngles(F<uint8_t*>(c, 0x60), 0, &d, &b, &a);
@@ -2889,7 +2870,7 @@ RT3_NOINLINE void __fastcall Camera_MouseInput(uint8_t* c, int, float dx, float 
     int32_t freeDrag = Tool_RemoveModifier();
     int32_t grab = Tool_AddModifier(c);
     if (!freeDrag) {
-        if (!grab && CamFabs(wheel) <= D(0x5c8678)) return;
+        if (!grab && crt::fabs(wheel) <= D(0x5c8678)) return;
         F<int32_t>(c, 0xea) = 0;
         F<int32_t>(c, 0x8a) = 0;
         F<int32_t>(c, 0x306) = 0;
@@ -3068,8 +3049,8 @@ RT3_NOINLINE void __fastcall StationCargo_DrawCompare(void*, int, float, float, 
                                 nextRow = true;
                                 break;
                             }
-                            if (cargo) ExeSprintf()(text, LocalizeName((const char*)cargo + 4));
-                            else ExeSprintf()(text, (const char*)0x5ca2bc);
+                            if (cargo) crt::sprintf(text, LocalizeName((const char*)cargo + 4));
+                            else crt::sprintf(text, (const char*)0x5ca2bc);
                         } else if (row == -2) {
                             const char* a1;
                             uint32_t fmt;
@@ -3123,7 +3104,7 @@ RT3_NOINLINE void __fastcall StationCargo_DrawCompare(void*, int, float, float, 
                         }
                         case 3: {
                             float v = carried && sec == 1 ? backAmount[idx] : amount[idx];
-                            ExeSprintf()(text, (const char*)0x5ca2ac, (double)v);
+                            crt::sprintf(text, (const char*)0x5ca2ac, (double)v);
                             break;
                         }
                         }

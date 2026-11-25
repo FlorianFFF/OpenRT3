@@ -11,6 +11,7 @@
 #include "core/globals.h"
 #include "game/collection.h"
 #include "core/crt.h"
+#include "core/imports.h"
 #include "core/stream.h"
 #include "core/ptrlist.h"
 #include "core/containers.h"
@@ -22,9 +23,10 @@
 
 namespace rt3 {
 
+void __fastcall String_Assign(char** s, const char* src);
+
 void __fastcall Train_Init(uint8_t* t, int, int32_t id, int32_t owner);
 
-template <typename Fn> static inline Fn Import(uint32_t iat) { return (Fn)hook::Global<void*>(iat); }
 const char* __fastcall StrFind(const char* hay, const char* needle, int32_t caseSensitive);
 template <typename T> static inline T& F(void* o, uint32_t off) { return *(T*)((uint8_t*)o + off); }
 int32_t __fastcall Engine_ResetState_Impl(uint8_t* e);
@@ -148,11 +150,8 @@ RT3_NOINLINE void __fastcall Engine_Shutdown(uint8_t* e, int, uint8_t full);
 RT3_NOINLINE void __fastcall Pack_ReleaseFontHandles(uint8_t* pack);
 RT3_NOINLINE void __fastcall Scene_Shutdown(uint8_t* s);
 
-static inline int32_t ExeOpen(const char* p, int32_t mode) { return ((int32_t(__cdecl*)(const char*, int32_t, ...))0x5a4c57)(p, mode); }
 
-static inline int32_t ExeClose(int32_t fd) { return ((int32_t(__cdecl*)(int32_t))0x5a440d)(fd); }
 
-static inline char* ExeStrncpy(char* d, const char* s, size_t n) { return ((char*(__cdecl*)(char*, const char*, size_t))0x5a18a0)(d, s, n); }
 
 // COM vtable call helpers (D3D8 interfaces, stdcall with `this` first).
 static inline void** Vt(void* p) { return *(void***)p; }
@@ -180,10 +179,9 @@ static inline double Rise(double v) {
     return Fl(0x5c85b4);
 }
 
-static inline void ExeDelete(void* p) { ((void(__cdecl*)(void*))0x53b080)(p); }
 
 // Through the exe's import slot, like the original (lets tests fake the clock).
-static inline DWORD Ticks() { return ((DWORD(WINAPI*)())*(void**)0x5c8068)(); }
+static inline DWORD Ticks() { return (((DWORD(WINAPI*)())imp::GetTickCount))(); }
 
 static inline uint8_t* NewItem(void* e) {
     int32_t n = F_engine<int32_t>(e, 0x58);
@@ -243,9 +241,9 @@ RT3_NOINLINE int32_t __fastcall File_Exists(const char* path) {
     char buf[0x190];
     char* d = buf;
     while ((*d++ = *path++) != 0) {}
-    int32_t fd = ExeOpen(buf, 0x8000);
+    int32_t fd = crt::open(buf, 0x8000);
     if (fd == -1) return 0;
-    ExeClose(fd);
+    crt::close(fd);
     return 1;
 }
 RT3_REPLACE(0x51e430, File_Exists);
@@ -254,43 +252,43 @@ int32_t __fastcall File_Size(const char* path) {
     char buf[0x190];
     char* d = buf;
     while ((*d++ = *path++) != 0) {}
-    int32_t fd = ExeOpen(buf, 0x8000);
+    int32_t fd = crt::open(buf, 0x8000);
     if (fd == -1) return 0;
-    int32_t size = ((int32_t(__cdecl*)(int32_t, int32_t, int32_t))0x5ac18d)(fd, 0, 2);
-    ExeClose(fd);
+    int32_t size = ((int32_t)crt::lseek(fd, 0, 2));
+    crt::close(fd);
     return size;
 }
 RT3_REPLACE(0x51e480, File_Size);
 
 // 0x51e4e0. Copies text to the clipboard (CF_TEXT); 1 on success.
 int32_t __fastcall Clipboard_SetText(const char* text) {
-    if (!Import<int32_t(__stdcall*)(void*)>(0x5c825c)(nullptr)) return 0;
-    if (!Import<int32_t(__stdcall*)()>(0x5c8258)()) return 0;
+    if (!imp::OpenClipboard(nullptr)) return 0;
+    if (!imp::EmptyClipboard()) return 0;
     size_t len = 0;
     while (text[len]) ++len;
-    void* h = Import<void*(__stdcall*)(uint32_t, size_t)>(0x5c8208)(2, len + 1);
-    void* p = Import<void*(__stdcall*)(void*)>(0x5c820c)(h);
-    Import<char*(__stdcall*)(void*, const char*)>(0x5c8210)(p, text);
-    Import<int32_t(__stdcall*)(void*)>(0x5c8214)(h);
-    void* ok = Import<void*(__stdcall*)(uint32_t, void*)>(0x5c8224)(1, h);
-    Import<int32_t(__stdcall*)()>(0x5c82d8)();
+    void* h = imp::GlobalAlloc(2, len + 1);
+    void* p = imp::GlobalLock(h);
+    imp::lstrcpyA(p, text);
+    imp::GlobalUnlock(h);
+    void* ok = imp::SetClipboardData(1, h);
+    imp::CloseClipboard();
     return ok ? 1 : 0;
 }
 RT3_REPLACE(0x51e4e0, Clipboard_SetText);
 
 // 0x51e560. Reads clipboard text into buf (size bytes); 1 on success.
 int32_t __fastcall Clipboard_GetText(char* buf, int32_t size) {
-    if (!Import<int32_t(__stdcall*)(void*)>(0x5c825c)(nullptr)) return 0;
-    void* h = Import<void*(__stdcall*)(uint32_t)>(0x5c8260)(1);
-    void* p = h ? Import<void*(__stdcall*)(void*)>(0x5c820c)(h) : nullptr;
+    if (!imp::OpenClipboard(nullptr)) return 0;
+    void* h = imp::GetClipboardData(1);
+    void* p = h ? imp::GlobalLock(h) : nullptr;
     if (!p) {
-        Import<int32_t(__stdcall*)()>(0x5c82d8)();
+        imp::CloseClipboard();
         return 0;
     }
-    Import<char*(__stdcall*)(char*, const void*, int32_t)>(0x5c8204)(buf, p, size - 1);
+    imp::lstrcpynA(buf, p, size - 1);
     buf[size - 1] = 0;
-    Import<int32_t(__stdcall*)(void*)>(0x5c8214)(h);
-    Import<int32_t(__stdcall*)()>(0x5c82d8)();
+    imp::GlobalUnlock(h);
+    imp::CloseClipboard();
     return 1;
 }
 RT3_REPLACE(0x51e560, Clipboard_GetText);
@@ -299,7 +297,7 @@ RT3_REPLACE(0x51e560, Clipboard_GetText);
 // in str (buffer of `size` bytes) by `repl`.
 void __fastcall Str_Replace(char* str, int32_t size, const char* find, const char* repl, int32_t all) {
     for (;;) {
-        char* tmp = (char*)Malloc(size + 0x1f4);
+        char* tmp = (char*)crt::malloc(size + 0x1f4);
         char* p = (char*)StrFind(str, find, 0);
         int32_t found = 0;
         if (p) {
@@ -315,11 +313,11 @@ void __fastcall Str_Replace(char* str, int32_t size, const char* find, const cha
             d = tmp;
             while (*d) ++d;
             for (s = p + flen; (*d++ = *s++) != 0;) {}
-            ExeStrncpy(str, tmp, size - 1);
+            crt::strncpy(str, tmp, size - 1);
             str[size - 1] = 0;
             found = 1;
         }
-        Free(tmp);
+        crt::free(tmp);
         if (!found || !all) return;
     }
 }
@@ -339,7 +337,7 @@ RT3_REPLACE(0x51e6e0, Str_IsNumber);
 
 // 0x51e720. Sets the debug log file name (0x6d3ca8, 100 chars) and resets its state.
 RT3_NOINLINE void __fastcall DebugLog_SetFile(const char* name) {
-    ExeStrncpy((char*)0x6d3ca8, name, 100);
+    crt::strncpy((char*)0x6d3ca8, name, 100);
     g_6d3d0c = 0;
     g_6d3d10 = 0;
 }
@@ -353,17 +351,17 @@ RT3_NOINLINE void DebugLog_WriteHeader() {
     for (int k = 0; k < 0x14; ++k) line[k] = ((const char*)0x5dce90)[k];
     g_6d3d10 = 1;
     if (!g_6d3ca8) {
-        ExeStrncpy((char*)0x6d3ca8, (const char*)0x5dcddc, 100);
+        crt::strncpy((char*)0x6d3ca8, (const char*)0x5dcddc, 100);
         g_6d3d0c = 0;
     }
     char path[0x1f0];
-    ((int(__cdecl*)(char*, const char*, ...))0x5a19c4)(path, (const char*)0x5dce44, (const char*)0x6d3ca8);
-    int32_t fd = ((int32_t(__cdecl*)(const char*, int32_t, ...))0x5a4c57)(path, 0x4301, 0x80);
+    crt::sprintf(path, (const char*)0x5dce44, (const char*)0x6d3ca8);
+    int32_t fd = crt::open(path, 0x4301, 0x80);
     if (fd == -1) return;
     size_t len = 0;
     while (line[len]) ++len;
-    ((int32_t(__cdecl*)(int32_t, const void*, uint32_t))0x5a464d)(fd, line, (uint32_t)len + 1);
-    ((int32_t(__cdecl*)(int32_t))0x5a440d)(fd);
+    crt::write(fd, line, (uint32_t)len + 1);
+    crt::close(fd);
 }
 RT3_REPLACE(0x51e740, DebugLog_WriteHeader);
 
@@ -387,7 +385,7 @@ RT3_NOINLINE void __fastcall Cursor_Show(int32_t show, int, int32_t) {
         px = py = 100;
     }
     int32_t on = g_624b20 > 0 ? 1 : 0;
-    auto showCursor = Import<int32_t(__stdcall*)(int32_t)>(0x5c82d4);
+    auto showCursor = imp::ShowCursor;
     int32_t r = showCursor(on);
     int32_t k = 0;
     if (on) {
@@ -404,7 +402,7 @@ RT3_NOINLINE void __fastcall Cursor_Show(int32_t show, int, int32_t) {
         Mouse_Acquire((uint8_t*)Engine_Input(hook::As<void*>(g_engine)));
     else
         Mouse_Unacquire((uint8_t*)Engine_Input(hook::As<void*>(g_engine)));
-    if (Engine_IsFullscreen(hook::As<void*>(g_engine))) Import<int32_t(__stdcall*)(int32_t, int32_t)>(0x5c8264)(px, py);
+    if (Engine_IsFullscreen(hook::As<void*>(g_engine))) imp::SetCursorPos(px, py);
 }
 RT3_REPLACE(0x51e810, Cursor_Show);
 
@@ -422,12 +420,12 @@ RT3_NOINLINE void __fastcall Fatal_Exit(const char* msg) {
         char* d = buf;
         while ((*d++ = *msg++) != 0) {}
         DebugLog(buf, k, k, k, k, k, k, k, k, k);
-        Import<int32_t(__stdcall*)(void*, const char*, const char*, uint32_t)>(0x5c8220)(nullptr, buf, GetString(0x44), 0x10);
+        ((int32_t(__stdcall*)(void*, const char*, const char*, uint32_t))imp::MessageBoxA)(nullptr, buf, GetString(0x44), 0x10);
     } else {
         DebugLog(GetString(0x45), k, k, k, k, k, k, k, k, k);
     }
     Keyboard_RestoreScrollLock();
-    ((void(__cdecl*)(int))0x5a2e9c)(0);
+    crt::exit(0);
 }
 RT3_REPLACE(0x51e980, Fatal_Exit);
 
@@ -854,7 +852,7 @@ int32_t __fastcall Tracks_AddPiece(Collection* c, int, float x0, float z0, float
 // (16), flagged when the HAL device accepts it windowed. No Direct3D, no modes, no
 // landscape 16/32-bit mode or a leaked interface are fatal (strings 0x17..0x1b).
 void __fastcall Engine_EnumDisplayModes(uint8_t* e) {
-    void* d3d = ((void*(__stdcall*)(uint32_t))g_5c8398)(0xdc);
+    void* d3d = (imp::Direct3DCreate8)(0xdc);
     if (!d3d) Fatal_Exit(GetString(0x17));
     void** vt = *(void***)d3d;
     F<int32_t>(e, 0x30) = ((int32_t(__stdcall*)(void*, uint32_t))vt[0x18 / 4])(d3d, 0);
@@ -895,7 +893,7 @@ void __fastcall Engine_EnumDisplayModes(uint8_t* e) {
     }
     int32_t n = usable > F<int32_t>(e, 0x30) ? usable : F<int32_t>(e, 0x30);
     size_t bytes = (size_t)(n + 5) * 0x15;
-    uint8_t* list = (uint8_t*)((void*(__cdecl*)(size_t))0x5a125d)(bytes);
+    uint8_t* list = (uint8_t*)crt::malloc(bytes);
     F<uint8_t*>(e, 0x34) = list;
     memset(list, 0, bytes);
     int32_t kept = 0;
@@ -1086,7 +1084,7 @@ void __fastcall Engine_QueueText(void* e, int, uint32_t p1, float x, float y, ui
     *(uint32_t*)(it + 0x29) = 0x3f800000; // 1.0f
     SetLayer(e, it);
     *(char**)(it + 0x3d) = nullptr;
-    ((void(__fastcall*)(char**, const char*))0x51d820)((char**)(it + 0x3d), (const char*)p1); // String_Assign
+    String_Assign((char**)(it + 0x3d), (const char*)p1); // String_Assign
     EnqueueUntextured(e, it);
 }
 RT3_REPLACE(0x51fc20, Engine_QueueText);
@@ -1157,13 +1155,13 @@ RT3_NOINLINE void __fastcall Engine_Shutdown(uint8_t* e, int, uint8_t full) {
     Pack_ReleaseFontHandles(g_pack);
     if (uint8_t* m = F<uint8_t*>(e, 0x20)) {
         Mouse_Destroy(m);
-        ExeDelete(m);
+        crt::operator_delete(m);
     }
     F<uint8_t*>(e, 0x20) = nullptr;
     if (full) {
         if (uint8_t* s = F<uint8_t*>(e, 0x18)) {
             Scene_Shutdown(s);
-            ExeDelete(s);
+            crt::operator_delete(s);
         }
         F<uint8_t*>(e, 0x18) = nullptr;
     } else {
@@ -1171,8 +1169,8 @@ RT3_NOINLINE void __fastcall Engine_Shutdown(uint8_t* e, int, uint8_t full) {
     }
     if (void (*hookFn)() = hook::Global<void (*)()>(0x6d4010)) hookFn();
     e[0x55] = 0;
-    ((BOOL(__stdcall*)(HWND))g_5c82c4)(F<HWND>(e, 0));
-    ((BOOL(__stdcall*)(const char*, HINSTANCE))g_5c82c8)((const char*)0x5dcee8, F<HINSTANCE>(e, 4));
+    (((BOOL(__stdcall*)(HWND))imp::DestroyWindow))(F<HWND>(e, 0));
+    (((BOOL(__stdcall*)(const char*, HINSTANCE))imp::UnregisterClassA))((const char*)0x5dcee8, F<HINSTANCE>(e, 4));
     F<HWND>(e, 0) = nullptr;
 }
 RT3_REPLACE(0x51ffb0, Engine_Shutdown);
