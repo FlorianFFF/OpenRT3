@@ -421,7 +421,7 @@ RT3_NOINLINE int32_t __fastcall Imb_Load(uint8_t* d, int, int32_t id) {
 }
 RT3_REPLACE(0x53e370, Imb_Load);
 
-  // -> 0x530820
+// thunk: jmp 0x53e2e0
 RT3_REPLACE(0x53ee60, BitmapFont_Destroy);
 
 // 0x53ee70. Constructs IMB d by loading entry `id`.

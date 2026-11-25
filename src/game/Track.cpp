@@ -523,7 +523,7 @@ RT3_NOINLINE float __fastcall Obj_MidAboveGround(uint8_t* o) {
 }
 RT3_REPLACE(0x48a020, Obj_MidAboveGround);
 
-      // -> 0x556620
+// thunk: jmp 0x53a3a0
 RT3_REPLACE(0x48a060, Obj_SetRgb);
 
 // 0x48a070 / 0x48a130. Track piece end links (+0x206, +0x20a).

@@ -1562,7 +1562,7 @@ RT3_NOINLINE void __fastcall InfoWindow_ClearHighlights(uint8_t* w) {
 }
 RT3_REPLACE(0x5079c0, InfoWindow_ClearHighlights);
 
-     // -> 0x53e2e0
+// thunk: jmp 0x5079c0
 RT3_REPLACE(0x507a50, InfoWindow_ClearHighlights);
 
 // 0x507a60. Sets the drag state (+0x94); ending it restores the arrow cursor (2).

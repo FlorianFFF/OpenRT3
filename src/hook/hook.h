@@ -40,6 +40,10 @@ void Unredirect(void* impl);
 // A replacement switched off is probed once instead: 1 if its original ran.
 void DumpCoverage(const char* path);
 
+// RT3RE_TRACE=<hex addr>,...: logs every call of those exe functions through
+// `log` ("T <addr> ret <return address> ecx <ecx>"), for debugging a difference.
+void TraceFromEnv(void (*log)(const char*, ...));
+
 // Probes every registered exe function (difftests with RT3RE_COVERAGE set:
 // which originals actually ran during the tests).
 void ProbeAll();

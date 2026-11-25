@@ -399,7 +399,7 @@ RT3_NOINLINE void __fastcall ModelLibrary_Free(uint32_t* o) {
 }
 RT3_REPLACE(0x556620, ModelLibrary_Free);
 
-  // -> 0x4d8ea0
+// thunk: jmp 0x556620
 RT3_REPLACE(0x556760, ModelLibrary_Free);
 
 // 0x556770. Sets up a model library for `count` emitters (default 50,000): the

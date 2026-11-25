@@ -2,6 +2,7 @@
 #include <windows.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 
 namespace hook {
 
@@ -126,12 +127,16 @@ void Unredirect(void* impl) {
 
 // Can the rewrite of a switched-off entry start with a JMP to the original?
 // Not when another, switched-on entry shares the rewrite, nor when the rewrite
-// might be shorter than the 5-byte JMP: a return or jump (or padding) in its
-// first five bytes leaves it alone (direct calls then still reach it).
+// might be shorter than the 5-byte JMP: a return or other jump (or padding)
+// in its first five bytes leaves it alone (direct calls then still reach it).
 static bool SafeToRedirect(Entry* off, const char* iniPath) {
     for (Entry* e = g_head; e; e = e->next)
         if (e != off && e->impl == off->impl && GetPrivateProfileIntA("replace", e->name, 1, iniPath)) return false;
     const uint8_t* p = reinterpret_cast<const uint8_t*>(off->impl);
+    // A JMP rel32 first: an incremental-link thunk (what &fn gives, and what
+    // every call goes through) or a rewrite that is one tail jump. Either way
+    // exactly these 5 bytes are replaced.
+    if (p[0] == 0xE9) return true;
     for (int i = 0; i < 5; ++i)
         if (p[i] == 0xC3 || p[i] == 0xC2 || p[i] == 0xEB || p[i] == 0xE9 || p[i] == 0xFF || p[i] == 0xCC) return false;
     return true;
@@ -159,6 +164,74 @@ int InstallAll(const char* iniPath) {
     }
     if (g_numProbes) AddVectoredExceptionHandler(1, ProbeHit);
     return n;
+}
+
+// Tracing (RT3RE_TRACE=<hex addr>,...): logs "T <addr> <ret> <ecx>" on every call
+// of those exe functions. A breakpoint on the first byte; when hit, the byte goes
+// back, one instruction runs single-stepped and the breakpoint is set again.
+struct Trace { uint32_t addr; uint8_t byte; };
+static Trace g_traces[64];
+static int g_numTraces;
+static Trace* g_stepping;
+void (*g_traceLog)(const char*, ...);
+
+static void PutByte(uint32_t at, uint8_t b) {
+    DWORD old;
+    VirtualProtect(reinterpret_cast<void*>(at), 1, PAGE_EXECUTE_READWRITE, &old);
+    *reinterpret_cast<uint8_t*>(at) = b;
+    VirtualProtect(reinterpret_cast<void*>(at), 1, old, &old);
+    FlushInstructionCache(GetCurrentProcess(), reinterpret_cast<void*>(at), 1);
+}
+
+static LONG CALLBACK TraceHit(EXCEPTION_POINTERS* ep) {
+    DWORD code = ep->ExceptionRecord->ExceptionCode;
+    if (code == EXCEPTION_SINGLE_STEP && g_stepping) {
+        PutByte(g_stepping->addr, 0xCC);
+        g_stepping = nullptr;
+        return EXCEPTION_CONTINUE_EXECUTION;
+    }
+    if (code != EXCEPTION_BREAKPOINT) return EXCEPTION_CONTINUE_SEARCH;
+    uint32_t at = (uint32_t)(uintptr_t)ep->ExceptionRecord->ExceptionAddress;
+    for (int i = 0; i < g_numTraces; ++i) {
+        if (g_traces[i].addr != at) continue;
+        if (g_traceLog) {
+            // The first stack arguments, then exe code addresses further up the stack (callers).
+            const DWORD* sp = reinterpret_cast<const DWORD*>(ep->ContextRecord->Esp);
+            char line[400];
+            const CONTEXT* c = ep->ContextRecord;
+            int n = wsprintfA(line, "T %06x ret %08lx ecx %08lx edx %08lx args %08lx %08lx %08lx %08lx regs %08lx %08lx %08lx %08lx up", at,
+                              sp[0], c->Ecx, c->Edx, sp[1], sp[2], sp[3], sp[4], c->Eax, c->Ebx, c->Esi, c->Edi);
+            for (int k = 1, found = 0; k < 400 && found < 10; ++k)
+                if (sp[k] >= 0x401000 && sp[k] < 0x5c8000) {
+                    n += wsprintfA(line + n, " %06lx", sp[k]);
+                    ++found;
+                }
+            g_traceLog("%s", line);
+        }
+        PutByte(at, g_traces[i].byte);
+        g_stepping = &g_traces[i];
+        ep->ContextRecord->Eip = at;
+        ep->ContextRecord->EFlags |= 0x100;  // trap flag: one instruction
+        return EXCEPTION_CONTINUE_EXECUTION;
+    }
+    return EXCEPTION_CONTINUE_SEARCH;
+}
+
+void TraceFromEnv(void (*log)(const char*, ...)) {
+    char spec[512];
+    if (!GetEnvironmentVariableA("RT3RE_TRACE", spec, sizeof spec)) return;
+    g_traceLog = log;
+    for (char* p = spec; *p && g_numTraces < 64;) {
+        uint32_t a = strtoul(p, &p, 16);
+        if (a) {
+            g_traces[g_numTraces].addr = a;
+            g_traces[g_numTraces].byte = *reinterpret_cast<uint8_t*>(a);
+            PutByte(a, 0xCC);
+            ++g_numTraces;
+        }
+        if (*p == ',') ++p; else break;
+    }
+    if (g_numTraces) AddVectoredExceptionHandler(1, TraceHit);
 }
 
 void ProbeAll() {

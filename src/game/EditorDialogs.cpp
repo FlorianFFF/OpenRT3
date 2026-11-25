@@ -2364,7 +2364,7 @@ RT3_NOINLINE void __fastcall LocoStats_DrawTable(void*, int, float x, float y, f
             if (used[j]) continue;
             uint8_t* r = (uint8_t*)Collection_Get(locos, 0, Collection_IdAt(locos, 0, j, 0));
             if (!F<int32_t>(r, 0x242)) continue;
-            if (pick != -1 && strcmp((const char*)(r + 0x356), best) >= 0) continue;
+            if (pick != -1 && crt::stricmp((const char*)(r + 0x356), best) >= 0) continue;  // case-insensitive, as the original
             pick = j;
             strcpy(best, (const char*)(r + 0x356));
         }

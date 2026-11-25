@@ -89,6 +89,11 @@ and `build.bat test` does the same for the difftests when `RT3RE_COVERAGE` is se
 `tools/coverage.py` merges those into `docs/coverage.md`: which rewritten functions have been
 run side by side with the original, and which have only been checked by reading.
 
+`tools/callcheck.py` compares, per function, what the original's machine code calls with what
+the rewrite calls (a `strcmp` where the original calls `stricmp` shows up there), and
+`RT3RE_TRACE=<addr>,...` logs every call of those exe functions with their arguments, for
+tracking down a difference.
+
 Tests and simcheck run in `%TEMP%\rt3_stock`, a mirror of the game folder without mods
 (`tools/stockgame.py`), so they always compare against the unmodified game.
 

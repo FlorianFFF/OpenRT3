@@ -2278,6 +2278,7 @@ RT3_NOINLINE uint32_t __stdcall ConditionDialog_Run(uint8_t* r) {
 }
 RT3_REPLACE(0x4d9e40, ConditionDialog_Run);
 
+// thunk: jmp 0x4d8ea0
 RT3_REPLACE(0x4d9ec0, RulesDialog_StoreRule);
 
 // 0x4d9ed0. Deletes trigger row +0x94 of rule +0x84 (chain at rule +0, next

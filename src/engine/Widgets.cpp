@@ -713,7 +713,7 @@ RT3_NOINLINE int32_t __fastcall Widget_HandleEvent(uint8_t* w, int, uint8_t* e) 
         const char* cur = F<const char*>(w, 0x47);
         const char* nw = F<const char*>(e, 8);
         if (!cur && !nw) break;
-        if (cur && nw && !strcmp(cur, nw)) break;
+        if (cur && nw && !crt::stricmp(cur, nw)) break;  // case-insensitive, as the original
         setImage(true);
         return 1;
     }

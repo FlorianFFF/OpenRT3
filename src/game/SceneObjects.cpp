@@ -1413,7 +1413,7 @@ RT3_NOINLINE void __fastcall Obj_MoveToCell(uint8_t* o, int, float cx, float cz,
 }
 RT3_REPLACE(0x4556f0, Obj_MoveToCell);
 
-             // -> 0x53a3a0
+// thunk: jmp 0x52ea90
 RT3_REPLACE(0x455720, SceneObj_SetScale36);
 
 // 0x455730 / 0x455790 / 0x455750. Second / first angle; set the second angle.
@@ -1463,7 +1463,7 @@ RT3_REPLACE(0x455800, Obj_CellX);
 RT3_NOINLINE double __fastcall Obj_CellY(void* o) { return (double)F<float>(o, 0x1ea) / kCellUnits; }
 RT3_REPLACE(0x455810, Obj_CellY);
 
-    // -> 0x52ea90
+// thunk: jmp 0x530820
 RT3_REPLACE(0x455860, SceneObj_DebugTooltip);
 
 // 0x4559d0. Saves the names (chunk 0x55f1), the object's own data (vtbl +0x4c,

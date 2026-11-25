@@ -38,6 +38,7 @@ static void Startup(HMODULE self) {
     rt3::LogOpen("rt3re.log");
     int n = hook::InstallAll(ini);
     rt3::Log("rt3re: %d functions replaced", n);
+    hook::TraceFromEnv(&rt3::Log);
     developer_menu::Install(ini);
     harness::Install();
 }
