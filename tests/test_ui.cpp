@@ -76397,3 +76397,74 @@ DIFFTEST(game_SmallCallbacksb507) {
     for (int i = 0; i < NI; ++i) *(uint32_t*)kb507Int[i] = savedI[i];
 
 }
+
+namespace rt3 {
+void __fastcall Vehicle_AnimateLinks(uint8_t* v, int, float step);
+float __fastcall SceneObj_Angle1(uint8_t* o);
+float __fastcall SceneObj_Angle2(uint8_t* o);
+bool __fastcall Obj_MoveBy(uint8_t* o, int, float dx, float dy, float dz);
+}
+
+namespace {
+uint8_t g_animVeh[0x400], g_animParts[4][0x10];
+const char* AnimWho(uint8_t* o) {
+    if (o == g_animVeh) return "veh";
+    for (int k = 0; k < 4; ++k)
+        if (o == g_animParts[k]) return "part";
+    return "?";
+}
+void __fastcall FakeAnimSetAng(uint8_t* o, int, uint32_t a, uint32_t b, uint32_t c) {
+    Logf("setang %s %d %x %x %x", AnimWho(o), o == g_animVeh ? -1 : (int)((o - g_animParts[0]) / 0x10), a, b, c);
+}
+float __fastcall FakeAnimAngle1(uint8_t* o) { Logf("angle1 %s", AnimWho(o)); return 0.3125f; }
+float __fastcall FakeAnimAngle2(uint8_t* o) { Logf("angle2 %s", AnimWho(o)); return -1.75f; }
+bool __fastcall FakeAnimMoveBy(uint8_t* o, int, float dx, float dy, float dz) {
+    Logf("moveby %s %x %x %x", AnimWho(o), *(uint32_t*)&dx, *(uint32_t*)&dy, *(uint32_t*)&dz);
+    return true;
+}
+} // namespace
+
+// 0x456210: the swinging links, body rock and the damped accumulator +0x37e
+// (which takes the bob: the original keeps roll and bob in one stack slot).
+DIFFTEST(game_VehicleAnimateLinks) {
+    UiTrace t;
+    t.Add(0x52e8b0, (void*)&rt3::SceneObj_SetAngles, (void*)&FakeAnimSetAng);
+    t.Add(0x455790, (void*)&rt3::SceneObj_Angle1, (void*)&FakeAnimAngle1);
+    t.Add(0x455730, (void*)&rt3::SceneObj_Angle2, (void*)&FakeAnimAngle2);
+    t.Add(0x52fdc0, (void*)&rt3::Obj_MoveBy, (void*)&FakeAnimMoveBy);
+    const float steps[] = { 0.0f, 0.016f, 0.5f, 0.999f, 1.0f, 3.5f, -0.25f, NAN };
+    const float accs[] = { 0.0f, 0.01f, -0.4f, 2.5f, -7.0f, NAN };
+    uint32_t seed = 12345;
+    auto rnd = [&](float lo, float hi) {
+        seed = seed * 1103515245 + 12345;
+        return lo + (hi - lo) * (float)((seed >> 8) & 0xffff) / 65535.0f;
+    };
+    int it = 0;
+    for (float step : steps) {
+        for (float acc : accs) {
+            for (int mask = 0; mask < 16; mask += 5) {
+                uint8_t init[0x400];
+                memset(init, 0, sizeof init);
+                for (int k = 0; k < 4; ++k)  // parts +0x32e, +0x332 (pair 1), +0x33e, +0x342 (pair 2)
+                    *(uint8_t**)(init + (k < 2 ? 0x32e : 0x33e) + (k & 1) * 4) = (mask >> k) & 1 ? g_animParts[k] : nullptr;
+                for (int off = 0x332; off < 0x34e; off += 4)
+                    if (off != 0x33e && off != 0x342) *(float*)(init + off) = rnd(-7.0f, 7.0f);
+                *(float*)(init + 0x34e) = rnd(-1.0f, 2.0f);
+                *(float*)(init + 0x37e) = acc;
+                uint8_t after[2][0x400];
+                std::string logs[2];
+                for (int s = 0; s < 2; ++s) {
+                    memcpy(g_animVeh, init, sizeof init);
+                    logs[s] = t.Run([&] {
+                        if (s) rt3::Vehicle_AnimateLinks(g_animVeh, 0, step);
+                        else ((void(__fastcall*)(uint8_t*, int, float))0x456210)(g_animVeh, 0, step);
+                    });
+                    memcpy(after[s], g_animVeh, sizeof after[s]);
+                }
+                CompareLogs(logs[0], logs[1], "vehicle animate links", it);
+                EXPECT_EQ(memcmp(after[0], after[1], sizeof after[0]), 0, "vehicle animate links state, case %d", it);
+                ++it;
+            }
+        }
+    }
+}

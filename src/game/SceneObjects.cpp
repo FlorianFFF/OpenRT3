@@ -1748,7 +1748,7 @@ RT3_REPLACE(0x4561a0, TrainObj_Clicked);
 // 0x456210. Swings the two pairs of linked parts (+0x32e / +0x33e, phases +0x332..
 // / +0x342..) along with the drive phase (+0x336 / +0x346, advanced by step x
 // (max(cos, 0) x k + +0x34e)), then rocks the body: pitch from the drive phase, a
-// vertical bob, and a damped roll accumulated in +0x37e.
+// vertical bob, and the bob accumulated, damped, in +0x37e.
 RT3_NOINLINE void __fastcall Vehicle_AnimateLinks(uint8_t* v, int, float step) {
     for (int32_t i = 0; i < 2; ++i) {
         float w = (float)(D(0x5c8770) / ((double)(float)(i * 3) + D(0x5c8770)));
@@ -1781,7 +1781,9 @@ RT3_NOINLINE void __fastcall Vehicle_AnimateLinks(uint8_t* v, int, float step) {
     SceneObj_SetAngles(v, 0, Bits(roll), Bits(yaw), 0);
     float bob = (float)(crt::sin((double)F<float>(v, 0x336) - D(0x5c88f0)) * D(0x5c9ee0));
     Obj_MoveBy(v, 0, 0.0f, bob, 0.0f);
-    float acc = (float)((double)roll + F<float>(v, 0x37e));
+    // The bob, not the roll: the original keeps both in one stack slot, and
+    // the bob (stored last) is what it adds here.
+    float acc = (float)((double)bob + F<float>(v, 0x37e));
     F<float>(v, 0x37e) = acc;
     if (!(step < *(const float*)0x5c85b4)) step = 1.0f;
     float damp = 0.1f;
