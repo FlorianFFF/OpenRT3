@@ -95,7 +95,9 @@ the rewrite calls (a `strcmp` where the original calls `stricmp` shows up there)
 tracking down a difference.
 
 Tests and simcheck run in `%TEMP%\rt3_stock`, a mirror of the game folder without mods
-(`tools/stockgame.py`), so they always compare against the unmodified game.
+(`tools/stockgame.py`), so they always compare against the unmodified game. The game's data
+is shared read-only; what the game writes (settings, logs, saves) stays in the mirror, and
+every run starts from the game folder's settings.
 
 A function only counts as done when it has a passing difftest, or, where the function only makes
 sense inside a running game (rendering, UI, networking), after a recorded in-game check.

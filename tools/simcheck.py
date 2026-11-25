@@ -62,6 +62,7 @@ def run(tag, enabled, save, days, timeout=None):
     # of being loaded into the game's exe; the original runs are unchanged.
     image = "OpenRT3.exe" if enabled and "--standalone" in sys.argv else find_exe(GAME).name
     exe = "OpenRT3.exe" if image == "OpenRT3.exe" else "rt3re.exe"
+    stockgame.reset_settings()  # the same settings for every run
     p = subprocess.Popen([str(GAME / exe), "-s4"], cwd=GAME, env=env)  # safe mode, windowed, no sound
     try:
         p.wait(timeout=timeout)

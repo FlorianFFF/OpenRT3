@@ -2,14 +2,21 @@
 
 The game folder may hold mods that patch the game as it loads (for example a
 dinput8.dll proxy). The rewrite follows the unmodded game, so the difftests
-and simcheck run here instead, where the game gets the system's DirectInput. Subfolders are junctions (Saved Games included: saves still land
-in the real folder) and top-level files are hard links (copies if linking
-fails), so building the mirror is instant and needs no disk space.
+and simcheck run here instead, where the game gets the system's DirectInput.
+
+Nothing a run writes may reach the real game folder. Read-only content is
+shared: subfolders of Data are junctions and top-level files hard links
+(copies if linking fails), so the mirror costs no disk space. What the game
+writes is private to the mirror: Data/Configuration and Data/Log (settings
+saved on exit, logs) and Saved Games (autosaves, simcheck's saves) are
+copies, refreshed from the game folder only where the game folder changed;
+the settings are reset to the game folder's before every run (reset_settings).
+Files a run creates at the top level (logs, traces) are never linked.
 
 Never delete the mirror with shutil.rmtree: it would follow the junctions into
 the real game folder.
 
-    python tools/stockgame.py     (prints the mirror's path)
+    python tools/stockgame.py     (builds the mirror, resets its settings, prints its path)
 """
 import os
 import shutil
@@ -20,7 +27,10 @@ from pathlib import Path
 GAME = Path(__file__).resolve().parents[2] / "Railroad Tycoon 3 Full Game"
 MIRROR = Path(tempfile.gettempdir()) / "rt3_stock"
 # Mods, and the files a run writes (created fresh in the mirror).
-SKIP = {"dinput8.dll", "dinput8.dll.bak", "rt3re.ini", "rt3re.log", "difftest.log"}
+SKIP = {"dinput8.dll", "dinput8.dll.bak", "rt3re.ini", "rt3re.log", "difftest.log", "stall.txt",
+        "difftest.coverage"}
+# Folders the game writes to: private copies in the mirror.
+PRIVATE = {"Saved Games", "Data/Configuration", "Data/Log"}
 
 
 def skipped(name):
@@ -28,29 +38,98 @@ def skipped(name):
     return n in SKIP or n.endswith(".idb") or n.startswith("simcheck_")
 
 
-def build():
-    MIRROR.mkdir(exist_ok=True)
-    for p in GAME.iterdir():
+def is_junction(p):
+    try:
+        return bool(os.readlink(p))
+    except OSError:
+        return False
+
+
+def unjunction(m):
+    """A junction in the mirror becomes an empty real folder. os.rmdir removes
+    the junction itself, never what it points to."""
+    if is_junction(m):
+        os.rmdir(m)
+    m.mkdir(exist_ok=True)
+
+
+def junction(m, p):
+    if not m.exists():
+        subprocess.run(["cmd", "/c", "mklink", "/J", str(m), str(p)], check=True, capture_output=True)
+
+
+def copy_newer(src, dst):
+    """Copies the files of src into dst where dst lacks them or src's copy
+    changed since (a run's own changes in dst stay otherwise)."""
+    dst.mkdir(exist_ok=True)
+    for p in src.iterdir():
+        m = dst / p.name
+        if p.is_dir():
+            copy_newer(p, m)
+            continue
         if skipped(p.name):
             continue
-        m = MIRROR / p.name
-        if p.is_dir():
-            if not m.exists():
-                subprocess.run(["cmd", "/c", "mklink", "/J", str(m), str(p)], check=True, capture_output=True)
+        if m.exists() and not os.path.samefile(m, p) and m.stat().st_mtime >= p.stat().st_mtime:
             continue
         if m.exists():
-            if os.path.samefile(m, p):
-                continue
-            m.unlink()
-        try:
-            os.link(p, m)
-        except OSError:
-            shutil.copy2(p, m)
+            m.unlink()  # (a hard link from an older mirror: unlinking drops only the link)
+        shutil.copy2(p, m)
+
+
+def link_file(p, m):
+    if m.exists():
+        if os.path.samefile(m, p):
+            return
+        m.unlink()
+    try:
+        os.link(p, m)
+    except OSError:
+        shutil.copy2(p, m)
+
+
+def mirror_dir(src, dst, rel=""):
+    for p in src.iterdir():
+        r = (rel + "/" + p.name).lstrip("/")
+        m = dst / p.name
+        if p.is_dir():
+            if r in PRIVATE:
+                unjunction(m)
+                copy_newer(p, m)
+            elif any(x.startswith(r + "/") for x in PRIVATE):
+                unjunction(m)  # holds a private folder: a real folder, linked inside
+                mirror_dir(p, m, r)
+            else:
+                junction(m, p)
+            continue
+        if skipped(p.name):
+            if m.exists() and not is_junction(m) and os.path.samefile(m, p):
+                m.unlink()  # an older mirror linked it: drop the link, keep the game's file
+            continue
+        link_file(p, m)
+
+
+def reset_settings():
+    """Every run starts from the game folder's settings: the game saves its
+    settings on exit, and a run's changes must not carry into the next one."""
+    for rel in ("Data/Configuration",):
+        src, dst = GAME / rel, MIRROR / rel
+        for p in src.iterdir():
+            if p.is_file():
+                m = dst / p.name
+                if m.exists():
+                    m.unlink()
+                shutil.copy2(p, m)
+
+
+def build():
+    MIRROR.mkdir(exist_ok=True)
+    mirror_dir(GAME, MIRROR)
     for m in MIRROR.iterdir():  # a mod that got into the mirror some other way
-        if m.name.lower() in SKIP - {"rt3re.ini", "rt3re.log", "difftest.log"} and m.is_file():
+        if m.name.lower() in {"dinput8.dll", "dinput8.dll.bak"} and m.is_file():
             m.unlink()
     return MIRROR
 
 
 if __name__ == "__main__":
     print(build())
+    reset_settings()  # (build.bat test: the tests start from the game's settings too)

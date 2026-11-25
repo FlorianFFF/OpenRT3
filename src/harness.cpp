@@ -122,6 +122,8 @@ static int __fastcall FrameHook(void* ctx) {
             if (((CRITICAL_SECTION*)cs)->DebugInfo == nullptr && ((CRITICAL_SECTION*)cs)->LockCount == 0)
                 InitializeCriticalSection((CRITICAL_SECTION*)cs);
         g_lcg = 0x2468ace0;
+        // And the C runtime's rand() (effects, particles), whatever startup seeded it with.
+        ((void(__cdecl*)(unsigned))0x5a299e)(0x1357);
         rt3::Log("harness: frame %ld, starting %s", g_frame, g_load);
         ((void(__fastcall*)(void*, int, int32_t, int32_t))0x482ec0)(ctx, 0, 1, 0);
         rt3::Log("harness: screen %d, game=%p", *(int32_t*)((uint8_t*)ctx + 8), Game());
@@ -260,6 +262,33 @@ static DWORD WINAPI Watchdog(void*) {
     }
 }
 
+// Fresh heap blocks start zeroed: which freed block malloc reuses depends on
+// allocations by the Direct3D driver's threads, so leftover heap contents
+// differ between runs, and code that reads a field before writing it (the
+// original does, here and there) would make two runs of the same game differ.
+// The same for the original and the rewrite, and only under the harness.
+static uint8_t* g_mallocBody;  // malloc's first instruction (push [abs], 6 bytes), then a jmp back
+static void* __cdecl ZeroMalloc(size_t n) {
+    void* p = ((void*(__cdecl*)(size_t))(void*)g_mallocBody)(n);
+    if (p) memset(p, 0, n);
+    return p;
+}
+static void ZeroFreshHeap() {
+    uint8_t* m = (uint8_t*)0x5a125d;
+    if (m[0] != 0xFF || m[1] != 0x35) return;  // not the expected first instruction
+    g_mallocBody = (uint8_t*)VirtualAlloc(nullptr, 16, MEM_COMMIT, PAGE_EXECUTE_READWRITE);
+    memcpy(g_mallocBody, m, 6);
+    g_mallocBody[6] = 0xE9;
+    *(int32_t*)(g_mallocBody + 7) = (int32_t)((uintptr_t)(m + 6) - (uintptr_t)(g_mallocBody + 11));
+    DWORD o;
+    VirtualProtect(m, 6, PAGE_EXECUTE_READWRITE, &o);
+    m[0] = 0xE9;
+    *(int32_t*)(m + 1) = (int32_t)((uintptr_t)&ZeroMalloc - (uintptr_t)(m + 5));
+    m[5] = 0x90;
+    VirtualProtect(m, 6, o, &o);
+    FlushInstructionCache(GetCurrentProcess(), m, 6);
+}
+
 void Install() {
     static char spec[8192];
     if (!GetEnvironmentVariableA("RT3RE_HARNESS", spec, sizeof spec)) return;
@@ -271,6 +300,7 @@ void Install() {
     }
     CreateThread(nullptr, 0, Watchdog, nullptr, 0, nullptr);
     drawtrace::Install();  // per-frame CRC of the draw calls (src/drawtrace.cpp)
+    ZeroFreshHeap();
     // Always use the (verified) rewritten StreamWrite and Collection_Save so
     // saves can be traced (Collection_Save marks its heap-pointer writes).
     auto force = [](uint32_t at, void* fn) {
