@@ -44,6 +44,7 @@ def parse_actions(text):
         type <text>             characters, one a frame
         settext <id> <text>     sets widget id's text (as the game sets an edit box)
         waitplayers <n>         waits until the network session has n players
+        explore <period> <count>  clicks a harness-chosen visible button every period frames
         dump                    log every window and widget (harness "W" lines)
     """
     out = []
@@ -68,6 +69,8 @@ def parse_actions(text):
             out.append(f"{f}:k:{t[2]}")
         elif cmd == "type":
             out += [f"{f + i}:c:{ord(ch):x}" for i, ch in enumerate(t[2])]
+        elif cmd == "explore":
+            out.append(f"{f}:x:{t[2]}:{t[3]}")
         elif cmd == "waitplayers":
             out.append(f"{f}:w:{t[2]}")
         elif cmd == "settext":

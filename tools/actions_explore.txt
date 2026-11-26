@@ -1,0 +1,2 @@
+# Explores the UI: a harness-chosen visible button every 15 frames.
+50 explore 15 150

@@ -244,6 +244,12 @@ static void PostEnter() {
 //   ld / lu / rd / ru:<x>:<y>  left / right button down / up there
 //   k:<vk>                a key pressed and released (virtual key, hex)
 //   c:<ch>                a typed character (WM_CHAR, hex)
+//   x:<period>:<count>    explores the UI: every period frames, count times, clicks
+//                         a visible button picked by the harness's own generator
+//                         (fixed seed, so both runs pick alike while they agree;
+//                         every 8th time Escape instead). Exit, the file menu and
+//                         the train buyer (modal screens that Enter cannot close)
+//                         are skipped.
 //   w:<n>                 waits until the network session lists n players (0x6d408c);
 //                         the actions after it move by however long that took
 //   t:<id>:<text>         sets the text of widget id (event 0x6f to every window,
@@ -252,7 +258,7 @@ static void PostEnter() {
 //                         fractions of the screen, visible): where to click
 // Mouse and keys go in as window messages, as from the real devices, and the
 // faked cursor position (GetCursorPos) follows the scripted mouse.
-enum ActionKind { kCall, kMove, kLeftDown, kLeftUp, kRightDown, kRightUp, kKey, kDump, kChar, kSetText, kWaitPlayers };
+enum ActionKind { kCall, kMove, kLeftDown, kLeftUp, kRightDown, kRightUp, kKey, kDump, kChar, kSetText, kWaitPlayers, kExplore };
 struct Action { int frame; ActionKind kind; uint32_t addr; float x, y; char text[64]; };
 static Action g_actions[1024];
 static int g_numActions, g_nextAction;
@@ -297,8 +303,54 @@ static void DumpWidgets() {
     }
 }
 
+// The exploring clicks (kExplore): the next one's frame, how many are left.
+static LONG g_exploreNext, g_explorePeriod, g_exploreLeft;
+static uint32_t g_exploreSeed = 0x2468ace1;
+
+static void Explore(HWND w) {
+    uint32_t& r = g_exploreSeed;
+    r = r * 1103515245u + 12345u;
+    if ((r >> 16) % 8 == 7) {  // Escape: out of windows and dialogs
+        PostMessageA(w, WM_KEYDOWN, VK_ESCAPE, 0x00010001);
+        PostMessageA(w, WM_KEYUP, VK_ESCAPE, 0xc0010001);
+        rt3::Log("harness: frame %ld, explore escape", g_frame);
+        return;
+    }
+    static const uint16_t kSkip[] = { 3106, 2015, 2013 };  // Exit, file menu, train buyer
+    float cx[256], cy[256];
+    uint16_t ids[256];
+    int n = 0;
+    auto visible = [](uint8_t* c) { return ((int32_t(__fastcall*)(uint8_t*))0x558670)(c); };
+    if (uint8_t* m = g_windowManager)
+        for (uint8_t* win = *(uint8_t**)(m + 4); win; win = *(uint8_t**)(win + 0x54))
+            for (uint8_t* c = *(uint8_t**)(win + 0x74); c && n < 256; c = *(uint8_t**)(c + 0x8a)) {
+                uint16_t id = *(uint16_t*)(c + 4);
+                if (*(uint16_t*)(c + 6) != 1 || !visible(c)) continue;
+                bool skip = false;
+                for (uint16_t s : kSkip) skip |= id == s;
+                if (skip) continue;
+                cx[n] = *(float*)(win + 5) + *(float*)(c + 0xb) + *(float*)(c + 0x13) / 2;
+                cy[n] = *(float*)(win + 9) + *(float*)(c + 0xf) + *(float*)(c + 0x17) / 2;
+                ids[n++] = id;
+            }
+    if (!n) return;
+    int i = (int)((r >> 8) % (uint32_t)n);
+    g_mouseX = cx[i];
+    g_mouseY = cy[i];
+    LPARAM pt = MousePoint(w);
+    rt3::Log("harness: frame %ld, explore button %u at %.3f %.3f", g_frame, ids[i], cx[i], cy[i]);
+    PostMessageA(w, WM_MOUSEMOVE, 0, pt);
+    PostMessageA(w, WM_LBUTTONDOWN, MK_LBUTTON, pt);
+    PostMessageA(w, WM_LBUTTONUP, 0, pt);
+}
+
 static void RunActions() {
     const LONG now = (g_mp ? g_ticks : g_frame - g_actionBase) - g_actionShift;  // (the lobby runs in modal loops)
+    if (g_exploreLeft > 0 && now >= g_exploreNext) {
+        if (HWND w = GameWindow()) Explore(w);
+        --g_exploreLeft;
+        g_exploreNext = now + g_explorePeriod;
+    }
     while (g_nextAction < g_numActions && now >= g_actions[g_nextAction].frame) {
         const Action& a = g_actions[g_nextAction];
         if (a.kind == kWaitPlayers) {
@@ -313,6 +365,12 @@ static void RunActions() {
         }
         ++g_nextAction;
         HWND w = GameWindow();
+        if (a.kind == kExplore) {
+            g_explorePeriod = (LONG)a.x;
+            g_exploreLeft = (LONG)a.y;
+            g_exploreNext = now;
+            continue;
+        }
         if (a.kind == kDump) {
             DumpWidgets();
             continue;
@@ -364,7 +422,8 @@ static void ParseActions(char* list) {
         a.frame = strtol(p, &p, 10);
         if (*p++ != ':') break;
         static const struct { const char* name; ActionKind kind; } kinds[] = {
-            { "m:", kMove }, { "ld:", kLeftDown }, { "lu:", kLeftUp }, { "rd:", kRightDown }, { "ru:", kRightUp } };
+            { "m:", kMove }, { "ld:", kLeftDown }, { "lu:", kLeftUp }, { "rd:", kRightDown }, { "ru:", kRightUp },
+            { "x:", kExplore } };
         bool done = false;
         if (!strncmp(p, "dump", 4)) {
             p += 4;
