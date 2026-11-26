@@ -1,5 +1,6 @@
 #include "hook.h"
 #include <windows.h>
+#include <intrin.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -201,11 +202,22 @@ static LONG CALLBACK TraceHit(EXCEPTION_POINTERS* ep) {
             const CONTEXT* c = ep->ContextRecord;
             int n = wsprintfA(line, "T %06x ret %08lx ecx %08lx edx %08lx args %08lx %08lx %08lx %08lx regs %08lx %08lx %08lx %08lx up", at,
                               sp[0], c->Ecx, c->Edx, sp[1], sp[2], sp[3], sp[4], c->Eax, c->Ebx, c->Esi, c->Edi);
-            for (int k = 1, found = 0; k < 400 && found < 10; ++k)
+            // Within this thread's stack (its base is fs:[4]; thread stacks can be small).
+            const DWORD* top = reinterpret_cast<const DWORD*>(__readfsdword(4));
+            for (int k = 1, found = 0; k < 400 && found < 10 && sp + k < top; ++k)
                 if (sp[k] >= 0x401000 && sp[k] < 0x5c8000) {
                     n += wsprintfA(line + n, " %06lx", sp[k]);
                     ++found;
                 }
+            // ECX as text, when it points at printable characters (a message, a name).
+            const char* str = reinterpret_cast<const char*>(c->Ecx);
+            if (c->Ecx > 0x10000 && !IsBadReadPtr(str, 4) && str[0] >= 0x20 && str[0] < 0x7f) {
+                char txt[64];
+                int k = 0;
+                for (; k < 60 && !IsBadReadPtr(str + k, 1) && str[k] >= 0x20 && str[k] < 0x7f; ++k) txt[k] = str[k];
+                txt[k] = 0;
+                n += wsprintfA(line + n, " \"%s\"", txt);
+            }
             g_traceLog("%s", line);
         }
         PutByte(at, g_traces[i].byte);

@@ -7,93 +7,92 @@ function ran during the difftests (`build.bat test` with
 RT3RE_COVERAGE set), inside a test that compared it, or a caller,
 with the rewrite. Neither = only checked by reading.
 
-Runs: the five test saves (2000-3000 frames each) and `mature.gmc` with `tools/actions.txt`.
+Runs: `mature_2000`, `ai_owned_lol_3000`, `scenario2_3000`, `messingbeforeai_3000`, `After_00_3000`, `mature_actions`, `mature_tour`, `mp_host`, `mp_client`
 
 | | Functions | Code bytes |
 |---|---|---|
-| Ran in simcheck | 2336 / 4262 (54.8%) | 751321 / 1372945 (54.7%) |
-| Ran or difftest | 3602 / 4262 (84.5%) | 1293462 / 1372945 (94.2%) |
+| Ran in simcheck | 2601 / 4262 (61.0%) | 813971 / 1372945 (59.3%) |
+| Ran or difftest | 3676 / 4262 (86.3%) | 1304693 / 1372945 (95.0%) |
 
 ## Per source file
 
 | File | Ran | Ran or difftest | Unchecked bytes |
 |---|---|---|---|
-| game/Track.cpp | 55/140 | 97/140 | 6905 |
-| game/Network.cpp | 17/252 | 195/252 | 6505 |
-| game/Map.cpp | 57/119 | 85/119 | 5519 |
-| game/Company.cpp | 55/109 | 80/109 | 3673 |
-| engine/NetCore.cpp | 14/83 | 56/83 | 3668 |
+| game/Track.cpp | 61/140 | 100/140 | 6736 |
+| game/Map.cpp | 58/119 | 86/119 | 5365 |
+| game/Company.cpp | 58/109 | 82/109 | 3468 |
 | engine/Terrain.cpp | 122/145 | 128/145 | 2890 |
-| engine/Sound3D.cpp | 42/73 | 57/73 | 2726 |
-| game/AI.cpp | 16/44 | 34/44 | 2357 |
-| game/Buildings.cpp | 91/132 | 104/132 | 2346 |
+| engine/Sound3D.cpp | 51/73 | 57/73 | 2726 |
+| game/AI.cpp | 17/44 | 34/44 | 2357 |
 | game/SceneObjects.cpp | 124/143 | 131/143 | 2262 |
-| game/Camera.cpp | 54/81 | 67/81 | 2171 |
 | game/TrackNet.cpp | 28/90 | 73/90 | 2053 |
-| game/MultiplayerDialog.cpp | 5/69 | 54/69 | 2034 |
+| game/Network.cpp | 106/252 | 221/252 | 1973 |
 | game/Records.cpp | 21/54 | 29/54 | 1714 |
-| game/Train.cpp | 97/128 | 113/128 | 1705 |
 | engine/Render.cpp | 121/138 | 124/138 | 1658 |
+| game/Buildings.cpp | 95/132 | 108/132 | 1539 |
 | game/CompanyWindow.cpp | 13/42 | 37/42 | 1532 |
-| game/Trains.cpp | 18/44 | 31/44 | 1303 |
+| game/Camera.cpp | 60/81 | 71/81 | 1515 |
+| engine/NetCore.cpp | 54/83 | 70/83 | 1417 |
 | game/StationTypes.cpp | 11/28 | 14/28 | 1194 |
-| game/StationWindow.cpp | 27/55 | 51/55 | 1177 |
+| game/Train.cpp | 98/128 | 114/128 | 1183 |
+| game/StationWindow.cpp | 30/55 | 51/55 | 1177 |
 | engine/Utilities.cpp | 46/60 | 50/60 | 1135 |
+| game/MultiplayerDialog.cpp | 37/69 | 61/69 | 1075 |
 | game/MapEditor.cpp | 0/16 | 13/16 | 1049 |
 | engine/Misc.cpp | 48/62 | 52/62 | 1037 |
 | game/IndustryWindow.cpp | 3/56 | 49/56 | 1011 |
-| game/Events.cpp | 3/10 | 7/10 | 999 |
+| game/Events.cpp | 4/10 | 7/10 | 999 |
 | game/Newspaper.cpp | 6/37 | 33/37 | 999 |
-| game/Cities.cpp | 31/51 | 41/51 | 971 |
-| engine/SceneNode.cpp | 69/90 | 73/90 | 971 |
+| game/Cities.cpp | 32/51 | 41/51 | 971 |
+| engine/SceneNode.cpp | 70/90 | 74/90 | 964 |
+| game/Trains.cpp | 20/44 | 33/44 | 950 |
 | game/EditorDialogs.cpp | 0/52 | 47/52 | 932 |
 | game/Players.cpp | 27/43 | 36/43 | 905 |
 | game/Sites.cpp | 50/65 | 59/65 | 901 |
 | game/ScenarioText.cpp | 6/18 | 14/18 | 894 |
 | game/Stations.cpp | 48/82 | 71/82 | 886 |
 | game/TrackTool.cpp | 9/42 | 34/42 | 871 |
-| engine/Texture.cpp | 56/66 | 58/66 | 821 |
-| engine/Widgets.cpp | 49/67 | 59/67 | 780 |
-| game/TrainWindow.cpp | 23/50 | 45/50 | 715 |
-| engine/EngineContainers.cpp | 93/123 | 116/123 | 693 |
-| game/App.cpp | 34/57 | 52/57 | 681 |
-| game/Minimap.cpp | 14/27 | 22/27 | 605 |
+| engine/Texture.cpp | 57/66 | 58/66 | 821 |
+| game/TrainWindow.cpp | 27/50 | 45/50 | 715 |
+| engine/EngineContainers.cpp | 99/123 | 116/123 | 693 |
+| game/App.cpp | 35/57 | 52/57 | 681 |
 | game/Cargo.cpp | 37/46 | 42/46 | 595 |
-| game/Cars.cpp | 41/56 | 47/56 | 569 |
-| engine/Music.cpp | 44/59 | 56/59 | 562 |
-| game/CompanyList.cpp | 11/37 | 34/37 | 546 |
-| engine/Sound.cpp | 37/56 | 43/56 | 541 |
-| game/World.cpp | 64/96 | 83/96 | 519 |
-| engine/Controls.cpp | 42/76 | 67/76 | 453 |
-| game/Hotkeys.cpp | 40/56 | 51/56 | 383 |
+| game/Cars.cpp | 42/56 | 47/56 | 569 |
+| engine/Music.cpp | 54/59 | 57/59 | 555 |
+| game/CompanyList.cpp | 12/37 | 34/37 | 546 |
+| game/Minimap.cpp | 15/27 | 23/27 | 533 |
+| engine/Widgets.cpp | 56/67 | 60/67 | 520 |
+| game/World.cpp | 71/96 | 84/96 | 485 |
+| engine/Sound.cpp | 38/56 | 44/56 | 466 |
+| game/Hotkeys.cpp | 41/56 | 51/56 | 383 |
 | game/Tutorial.cpp | 1/28 | 22/28 | 357 |
+| engine/Controls.cpp | 46/76 | 69/76 | 318 |
 | game/DevMenu.cpp | 13/18 | 15/18 | 297 |
 | game/Effects.cpp | 24/51 | 43/51 | 291 |
 | game/Vehicles.cpp | 19/22 | 19/22 | 203 |
-| engine/Input.cpp | 26/36 | 30/36 | 199 |
+| engine/Input.cpp | 29/36 | 31/36 | 176 |
 | game/GameWindows.cpp | 29/59 | 56/59 | 161 |
-| engine/SysInfo.cpp | 12/30 | 27/30 | 132 |
+| engine/SysInfo.cpp | 13/30 | 27/30 | 132 |
 | engine/Emitter.cpp | 34/37 | 35/37 | 124 |
 | engine/MouseCursor.cpp | 28/37 | 34/37 | 90 |
-| engine/CollectionCore.cpp | 27/34 | 32/34 | 87 |
+| engine/CollectionCore.cpp | 28/34 | 32/34 | 87 |
 | game/RulesDialog.cpp | 6/79 | 72/79 | 72 |
 | game/OptionsDialog.cpp | 12/51 | 50/51 | 32 |
 | game/StockWindow.cpp | 6/13 | 12/13 | 12 |
-| engine/Scene.cpp | 49/52 | 51/52 | 10 |
-| game/Commands.cpp | 38/64 | 64/64 | 0 |
+| game/Commands.cpp | 43/64 | 64/64 | 0 |
 | game/SaveGame.cpp | 3/5 | 5/5 | 0 |
 | game/Reports.cpp | 12/22 | 22/22 | 0 |
 | game/SetupScreen.cpp | 5/8 | 8/8 | 0 |
-| engine/TextDate.cpp | 35/42 | 42/42 | 0 |
+| engine/TextDate.cpp | 37/42 | 42/42 | 0 |
+| engine/Scene.cpp | 51/52 | 52/52 | 0 |
 | engine/Fx.cpp | 5/5 | 5/5 | 0 |
-| engine/Font.cpp | 33/44 | 44/44 | 0 |
+| engine/Font.cpp | 39/44 | 44/44 | 0 |
 
 ## Largest unchecked functions
 
 | Address | Function | File | Bytes |
 |---|---|---|---|
 | 48cc20 | Track_FindOverlap | game/Track.cpp | 2332 |
-| 473280 | MpSession_Reset | game/Network.cpp | 2002 |
 | 408f70 | Company_StationRate | game/AI.cpp | 908 |
 | 454320 | Terrain_PaintPoints | game/SceneObjects.cpp | 784 |
 | 454010 | Terrain_AdjustLevel | game/SceneObjects.cpp | 768 |
@@ -109,26 +108,21 @@ Runs: the five test saves (2000-3000 frames each) and `mature.gmc` with `tools/a
 | 44a0e0 | Map_MarkBlocks3 | game/Map.cpp | 574 |
 | 44a320 | Map_MarkBlocks0 | game/Map.cpp | 573 |
 | 44a560 | Map_MarkTiles | game/Map.cpp | 565 |
-| 5236a0 | Net_InitShared | engine/NetCore.cpp | 564 |
 | 4895c0 | Obj_Rename | game/ScenarioText.cpp | 563 |
 | 492610 | Track_FindClearance | game/Track.cpp | 557 |
-| 40fcc0 | Building_ProfitScore | game/Buildings.cpp | 545 |
 | 430b50 | Events_AddTimed | game/Events.cpp | 537 |
 | 510e30 | TrainList_DrawRow | game/TrainWindow.cpp | 529 |
 | 4010f0 | City_ServiceValue | game/AI.cpp | 523 |
 | 43e830 | Camera_Drag | game/Camera.cpp | 522 |
-| 4a9630 | Obj_YearlyRatio | game/Train.cpp | 522 |
 | 4918e0 | Route_GradeFactor | game/Track.cpp | 516 |
 | 50fa00 | List_AddArrowButtons | game/TrackTool.cpp | 498 |
 | 4f89b0 | Map_FloodFill | game/MapEditor.cpp | 494 |
-| 523010 | Net_FinishReceived | engine/NetCore.cpp | 485 |
 | 41e6e0 | Cargo_IndustryTotals | game/Cargo.cpp | 483 |
 | 56a330 | Sound3D_PrepareSample | engine/Sound3D.cpp | 482 |
 | 479b50 | Minimap_PickNearest | game/Minimap.cpp | 478 |
 | 532d90 | Terrain_ApplyHeightCurve | engine/Terrain.cpp | 463 |
 | 504590 | StationDetail_DrawRows | game/StationWindow.cpp | 461 |
 | 564390 | SoundCache_Load | engine/Utilities.cpp | 454 |
-| 521dc0 | Net_SendTo | engine/NetCore.cpp | 453 |
 | 4c2110 | FinanceList_AddRowButton | game/CompanyWindow.cpp | 450 |
 | 4315d0 | Effects_Apply | game/Events.cpp | 446 |
 | 4c4c70 | CompanyDetail_AddArrowButtons | game/CompanyWindow.cpp | 443 |
@@ -148,7 +142,13 @@ Runs: the five test saves (2000-3000 frames each) and `mature.gmc` with `tools/a
 | 477c10 | Minimap_WorldToPixel | game/Players.cpp | 356 |
 | 487a60 | Region_StationsLinked | game/StationTypes.cpp | 353 |
 | 41b9e0 | Car_SetCargoValue | game/Cars.cpp | 352 |
-| 43d320 | Camera_PickGround | game/Camera.cpp | 348 |
 | 417910 | Obj_AttachmentPoint | game/Sites.cpp | 343 |
 | 4bcdd0 | ChangeTrees_Construct | game/IndustryWindow.cpp | 343 |
 | 4f2c20 | Building_AddScrollbars | game/Newspaper.cpp | 341 |
+| 4c73c0 | CompanyList_AddMapControls | game/CompanyList.cpp | 338 |
+| 532b30 | Render_ReleaseTextureSlots | engine/Terrain.cpp | 332 |
+| 548c50 | Render_FreeStages | engine/Render.cpp | 328 |
+| 53be10 | NameTable_OpenFile | engine/EngineContainers.cpp | 325 |
+| 424430 | NthFreeCompanySlot | game/Company.cpp | 324 |
+| 48e3f0 | Tile_UpdateBlocked | game/Track.cpp | 321 |
+| 47fdb0 | Station_RecordNearby | game/Stations.cpp | 320 |

@@ -84,6 +84,13 @@ It also compares what is drawn: everything handed to Direct3D, one CRC per frame
 `--off=Name,...` keeps functions original, also where rewritten code calls them
 (`tools/bisect_replacements.py` uses that to find a differing function).
 
+**Multiplayer**: `python tools/mpcheck.py tools/mp_host.txt tools/mp_client.txt 2000 --client=rewrite`
+runs a host and a client on this machine (LAN, 127.0.0.1); their scripts drive the menus with
+mouse clicks and the harness's widget dump (`dump`: every window and widget, with captions).
+The game's weekly state check (switched off in the shipped game) compares the client with the
+host; with the original on one side and the rewrite on the other, any difference shows as a
+mismatch. `--host=rewrite` swaps the sides.
+
 **Coverage**: simcheck records which original functions ran (a one-shot breakpoint on each),
 and `build.bat test` does the same for the difftests when `RT3RE_COVERAGE` is set.
 `tools/coverage.py` merges those into `docs/coverage.md`: which rewritten functions have been

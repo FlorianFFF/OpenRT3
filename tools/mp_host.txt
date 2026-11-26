@@ -1,0 +1,14 @@
+50 move 0.4988 0.4925
+60 click 0.4988 0.4925   Multi Player
+290 move 0.4988 0.3975
+300 click 0.4988 0.3975  LAN
+590 move 0.4938 0.8025
+600 click 0.4938 0.8025  Host
+890 move 0.5041 0.4500
+900 click 0.5041 0.4500  OK (host name dialog)
+1000 waitplayers 2
+1300 dump
+1590 move 0.3806 0.8900
+1600 click 0.3806 0.8900 Start
+2000 dump
+3000 dump

@@ -35,7 +35,12 @@ static void Startup(HMODULE self) {
     GetModuleFileNameA(self, ini, MAX_PATH);
     char* slash = strrchr(ini, '\\');
     strcpy(slash ? slash + 1 : ini, "rt3re.ini");
-    rt3::LogOpen("rt3re.log");
+    // Several instances in one folder (the multiplayer check): their own
+    // replacement list and log.
+    GetEnvironmentVariableA("RT3RE_INI", ini, MAX_PATH);
+    char log[MAX_PATH] = "rt3re.log";
+    GetEnvironmentVariableA("RT3RE_LOG", log, MAX_PATH);
+    rt3::LogOpen(log);
     int n = hook::InstallAll(ini);
     rt3::Log("rt3re: %d functions replaced", n);
     hook::TraceFromEnv(&rt3::Log);

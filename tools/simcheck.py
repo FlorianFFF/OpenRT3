@@ -32,9 +32,56 @@ ACTIONS = next((a[5:] for a in sys.argv if a.startswith("--do=")), "")
 # setup (640x480 windowed, low detail); 9 the 1024x768 windowed defaults, with
 # the detail levels the machine gets, so more of the rendering runs.
 MODE = next((a[7:] for a in sys.argv if a.startswith("--mode=")), "4")
-if ACTIONS.startswith("@"):  # a file of "<frame> <addr> [comment]" lines
-    ACTIONS = ",".join(":".join(l.split()[:2]) for l in Path(ACTIONS[1:]).read_text().splitlines()
-                       if l.strip() and not l.startswith("#"))
+
+
+def parse_actions(text):
+    """An action file: one action per line, "<frame> <action> [args] [comment]":
+        <hex addr>              a key-table command (src/harness.cpp)
+        move / ldown / lup / rdown / rup <x> <y>   the mouse (fractions of the window)
+        click / rclick <x> <y>  button down, and up two frames later
+        drag <x0> <y0> <x1> <y1> <frames>   left drag in steps of a frame
+        key <vk>                a key (virtual key code, hex)
+        type <text>             characters, one a frame
+        settext <id> <text>     sets widget id's text (as the game sets an edit box)
+        waitplayers <n>         waits until the network session has n players
+        dump                    log every window and widget (harness "W" lines)
+    """
+    out = []
+    short = {"move": "m", "ldown": "ld", "lup": "lu", "rdown": "rd", "rup": "ru"}
+    for line in text.splitlines():
+        t = line.split()
+        if not t or t[0].startswith("#"):
+            continue
+        f, cmd = int(t[0]), t[1]
+        if cmd in short:
+            out.append(f"{f}:{short[cmd]}:{t[2]}:{t[3]}")
+        elif cmd in ("click", "rclick"):
+            b = "l" if cmd == "click" else "r"
+            out += [f"{f}:{b}d:{t[2]}:{t[3]}", f"{f + 2}:{b}u:{t[2]}:{t[3]}"]
+        elif cmd == "drag":
+            x0, y0, x1, y1, n = float(t[2]), float(t[3]), float(t[4]), float(t[5]), int(t[6])
+            out.append(f"{f}:ld:{x0}:{y0}")
+            for i in range(1, n + 1):
+                out.append(f"{f + i}:m:{x0 + (x1 - x0) * i / n:.4f}:{y0 + (y1 - y0) * i / n:.4f}")
+            out.append(f"{f + n + 1}:lu:{x1}:{y1}")
+        elif cmd == "key":
+            out.append(f"{f}:k:{t[2]}")
+        elif cmd == "type":
+            out += [f"{f + i}:c:{ord(ch):x}" for i, ch in enumerate(t[2])]
+        elif cmd == "waitplayers":
+            out.append(f"{f}:w:{t[2]}")
+        elif cmd == "settext":
+            out.append(f"{f}:t:{t[2]}:{t[3]}")
+        elif cmd == "dump":
+            out.append(f"{f}:dump")
+        else:
+            out.append(f"{f}:{cmd}")
+    out.sort(key=lambda a: int(a.split(":")[0]))  # (stable: same-frame actions keep their order)
+    return ",".join(out)
+
+
+if ACTIONS.startswith("@"):
+    ACTIONS = parse_actions(Path(ACTIONS[1:]).read_text())
 
 
 def names():
@@ -57,8 +104,9 @@ def run(tag, enabled, save, days, timeout=None):
     if target.exists():
         target.unlink()
     spec = f"load={save};frames={days};out={out}"
-    if ACTIONS:  # scripted commands (src/harness.cpp, "do=")
-        spec += ";do=" + ACTIONS
+    if ACTIONS:  # scripted actions (src/harness.cpp, "do="), passed in a file
+        (GAME / "simcheck_actions.txt").write_text(ACTIONS)
+        spec += ";do=@simcheck_actions.txt"
     env = dict(os.environ, RT3RE_HARNESS=spec)
     if "--nocoverage" not in sys.argv:  # coverage: counting stubs / one-shot probes (src/hook/hook.cpp)
         env["RT3RE_COVERAGE"] = "1"
