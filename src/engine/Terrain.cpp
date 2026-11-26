@@ -847,7 +847,9 @@ void __fastcall Terrain_ApplyHeightCurve(uint8_t* t, int, float k) {
     }
     double s = kc / tab[100];
     for (int n = 1; n <= 100; ++n) tab[n] = (float)(s * tab[n]);
-    for (int32_t y = 0; y < rows; ++y) {
+    // (The row count is read again after each row, as in the original: the
+    // heights written may include it.)
+    for (int32_t y = 0; y < (y ? F<int32_t>(t, 0x15d5) : rows); ++y) {
         if (F<int32_t>(t, 0x15d9) <= 0) continue;
         double invMx = Fl(0x5c85b4) / mx;
         for (int32_t x = 0; x < F<int32_t>(t, 0x15d9); ++x) {

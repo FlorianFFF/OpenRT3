@@ -27,7 +27,7 @@ static LONG CALLBACK LogException(EXCEPTION_POINTERS* ep) {
     return EXCEPTION_CONTINUE_SEARCH;
 }
 
-namespace harness { void Install(); }
+namespace harness { void Install(); void Shutdown(); }
 
 static void Startup(HMODULE self) {
     AddVectoredExceptionHandler(1, LogException);
@@ -52,6 +52,8 @@ BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID) {
     if (reason == DLL_PROCESS_ATTACH) {
         DisableThreadLibraryCalls(inst);
         Startup(inst);
+    } else if (reason == DLL_PROCESS_DETACH) {
+        harness::Shutdown();
     }
     return TRUE;
 }

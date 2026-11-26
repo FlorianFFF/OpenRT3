@@ -1943,11 +1943,11 @@ RT3_REPLACE(0x4184e0, Map_ApplyTexturePatch);
 // 0x4185a0. Sets bit 0 of the map's mask grid (+0x2135) to `bit` over a rect
 // {x0, x1, y0, y1}, skipping cells whose value is 999999.0f (0x497423f0).
 RT3_NOINLINE void __fastcall Map_MaskRect(void*, int, const int32_t* r, const uint32_t* values, uint8_t bit) {
-    uint8_t* map = g_map;
     int32_t i = 0;
     for (int32_t y = r[2]; y <= r[3]; ++y) {
         for (int32_t x = r[0]; x <= r[1]; ++x, ++i) {
             if (values[i] == 0x497423f0) continue;
+            uint8_t* map = *(uint8_t* volatile*)&g_map;  // read for every cell, as in the original
             uint8_t* cell = F<uint8_t*>(map, 0x2135) + (F<int32_t>(map, 0x2155) + 1) * y + x;
             *cell ^= (*cell ^ bit) & 1;
         }

@@ -96,6 +96,21 @@ static uint32_t BufferSize(void* b) {
     return desc[4];
 }
 
+// A DISCARD lock (D3DLOCK_DISCARD 0x2000) hands out driver memory whose old
+// contents depend on the GPU's progress, as can the NOOVERWRITE (0x1000)
+// appends after it; the game leaves some fields unwritten (rain drops' texture
+// coordinates, for one), which would then differ between runs. The locked
+// range is cleared (only that: the driver may hand out a copy of just the
+// range), unless the lock is read-only (0x10). Plain locks keep what the game
+// wrote before (partial updates).
+static void ClearDiscarded(void* b, uint32_t off, uint32_t size, uint8_t* p, uint32_t flags) {
+    if (!p || !(flags & 0x3000) || (flags & 0x10)) return;
+    uint32_t total = BufferSize(b);
+    if (off >= total) return;
+    if (!size || size > total - off) size = total - off;
+    memset(p, 0, size);
+}
+
 static void OnLock(void* b, uint32_t off, uint32_t size, uint8_t* p) {
     Slot* s = Get(b);
     if (!s || !p) return;
@@ -138,13 +153,19 @@ static int32_t __stdcall VbLock(void* b, uint32_t off, uint32_t size, uint8_t** 
         rt3::Log("%s", line);
     }
     int32_t r = g_vbLock(b, off, size, pp, flags);
-    if (r >= 0 && pp) OnLock(b, off, size, *pp);
+    if (r >= 0 && pp) {
+        ClearDiscarded(b, off, size, *pp, flags);
+        OnLock(b, off, size, *pp);
+    }
     return r;
 }
 static int32_t __stdcall VbUnlock(void* b) { OnUnlock(b); return g_vbUnlock(b); }
 static int32_t __stdcall IbLock(void* b, uint32_t off, uint32_t size, uint8_t** pp, uint32_t flags) {
     int32_t r = g_ibLock(b, off, size, pp, flags);
-    if (r >= 0 && pp) OnLock(b, off, size, *pp);
+    if (r >= 0 && pp) {
+        ClearDiscarded(b, off, size, *pp, flags);
+        OnLock(b, off, size, *pp);
+    }
     return r;
 }
 static int32_t __stdcall IbUnlock(void* b) { OnUnlock(b); return g_ibUnlock(b); }

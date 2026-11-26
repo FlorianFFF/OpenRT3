@@ -1,0 +1,7 @@
+# A scenario started from its file (simcheck '..\maps\<name>.gmp'): the game
+# starts paused, so set a speed, then leave the AI companies to build.
+# Speed buttons 2060..2065 (speed 0..5) sit in the control panel.
+5 dump
+10 move 0.3178 0.9221
+20 click 0.3178 0.9221   speed 3 (2063)
+200 dump

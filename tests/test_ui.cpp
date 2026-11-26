@@ -36997,7 +36997,7 @@ void __fastcall Obj_GetXYZ1c(uint8_t* o, int, uint32_t* x, uint32_t* y, uint32_t
 PtrList* __fastcall Terrain_GlobalList(uint8_t* r);
 void __fastcall SceneObj_DrawMarker(uint8_t* o);
 PtrList* __fastcall Terrain_Cell1671(uint8_t* r, int, int32_t x, int32_t y);
-uint8_t __fastcall Scene_CursorRay(uint8_t* s, int, const float* eye, float* out);
+uint8_t __fastcall Scene_CursorRay(uint8_t* s, int, float* out, const float* eye);
 void __fastcall Render_BindVb2643(uint8_t* r);
 void __fastcall Render_WorldIdentity(uint8_t* r);
 }
@@ -37037,10 +37037,9 @@ PtrList* __fastcall FakeB273Cell(uint8_t* r, int, int32_t x, int32_t y) {
     Logf("cell %d %d", x, y);
     return (PtrList*)&g_b273L[5 + (x + y + g_b273It) % 4];
 }
-uint8_t __fastcall FakeB273Ray(uint8_t* s, int, const float* eye, float* out) {
-    Logf("ray %.9g %.9g %.9g", out[0], out[1], out[2]);
-    float* d = (float*)eye;
-    d[0] = 3.0f, d[1] = -4.0f, d[2] = 12.0f + g_b273It % 4;
+uint8_t __fastcall FakeB273Ray(uint8_t* s, int, float* out, const float* eye) {
+    Logf("ray %.9g %.9g %.9g", eye[0], eye[1], eye[2]);
+    out[0] = 3.0f, out[1] = -4.0f, out[2] = 12.0f + g_b273It % 4;
     return (uint8_t)(g_b273It % 3 ? 1 : 0);
 }
 void __fastcall FakeB273Bind(uint8_t* r) { Logf("bind"); }
@@ -76467,4 +76466,104 @@ DIFFTEST(game_VehicleAnimateLinks) {
             }
         }
     }
+}
+
+namespace rt3 {
+void __fastcall Renderer_SetFog(uint8_t* r, int, float density, float cr, float cg, float cb);
+void __fastcall Render_FogOn(uint8_t* r);
+}
+
+namespace {
+uint8_t g_fogR[0x2700], g_fogCaps[0x40];
+void* g_fogDevVt[0x100];
+void* g_fogDev[1] = { g_fogDevVt };
+int32_t __stdcall FakeFogState(void*, uint32_t state, uint32_t value) {
+    Logf("state %u %08x", state, value);
+    return 0;
+}
+void __fastcall FakeFogOn(uint8_t*) { Logf("fog on"); }
+} // namespace
+
+// 0x54a280: fog off when the density (not a colour factor) is <= 0; colour,
+// table or vertex fog, linear range or exponential density by the caps.
+DIFFTEST(engine_RendererSetFog) {
+    UiTrace t;
+    t.Add(0x5467a0, (void*)&rt3::Render_FogOn, (void*)&FakeFogOn);
+    for (void*& p : g_fogDevVt) p = (void*)&FakeFogState;
+    const float dens[] = { 0.0f, -1.0f, 0.001f, 0.5f, 1.0f, 2.0f, 1e-30f, NAN };
+    const float cols[] = { 0.0f, -0.5f, 0.75f, 1.0f, 3.0f };
+    int it = 0;
+    for (float d : dens)
+        for (float c : cols)
+            for (int caps = 0; caps < 16; ++caps)
+                for (int on = 0; on < 2; ++on) {
+                    std::string logs[2];
+                    uint8_t after[2][0x44];
+                    for (int s = 0; s < 2; ++s) {
+                        memset(g_fogR, 0, sizeof g_fogR);
+                        memset(g_fogCaps, 0, sizeof g_fogCaps);
+                        g_fogCaps[0x2e] = caps & 1;
+                        g_fogCaps[0x1f] = (caps >> 1) & 1;
+                        g_fogCaps[0x20] = (caps >> 2) & 1;
+                        *(uint8_t**)(g_fogR + 0x83c) = g_fogCaps;
+                        *(void**)(g_fogR + 0x25df) = g_fogDev;
+                        g_fogR[0x2510] = 0xc8;
+                        g_fogR[0x2511] = caps & 8 ? 0xff : 0x40;
+                        g_fogR[0x2512] = 0x7f;
+                        *(float*)(g_fogR + 0x2513) = caps & 8 ? 0.0004f : 3.0f;
+                        g_fogR[0x2549] = (uint8_t)on;
+                        logs[s] = t.Run([&] {
+                            if (s) rt3::Renderer_SetFog(g_fogR, 0, d, c, c * 0.5f, 1.0f);
+                            else ((void(__fastcall*)(uint8_t*, int, float, float, float, float))0x54a280)(g_fogR, 0, d, c, c * 0.5f, 1.0f);
+                        });
+                        memcpy(after[s], g_fogR + 0x2510, 0x40);  // colour, range, the on flag +0x2549
+                        memcpy(after[s] + 0x40, g_fogR + 0x25b3, 4);
+                    }
+                    CompareLogs(logs[0], logs[1], "renderer set fog", it);
+                    EXPECT_EQ(memcmp(after[0], after[1], sizeof after[0]), 0, "renderer set fog state, case %d", it);
+                    ++it;
+                }
+}
+
+namespace rt3 {
+int32_t __stdcall Map_FogEnd(int32_t x, int32_t y);
+}
+
+// 0x44afa0: the fog end at a cell. Far camera term, the terrain rise within
+// 14 cells, and above zoom 0x5ca190 a zoom term added to that whole sum.
+DIFFTEST(game_MapFogEnd) {
+    static uint8_t cam[0x40], map[0x2200], app[0x400];
+    static float grid[64 * 64];
+    uint8_t* const savedCam = *(uint8_t**)0x62be68;
+    uint8_t* const savedMap = *(uint8_t**)0x62c120;
+    uint8_t* const savedApp = *(uint8_t**)0x6cec74;
+    *(uint8_t**)0x62be68 = cam;
+    *(uint8_t**)0x62c120 = map;
+    *(uint8_t**)0x6cec74 = app;  // option +0x2bb (0x41fff0): 0 off, 2 on, 1 on when zoomed in
+    const float zoomAt = *(const float*)0x5ca190, cell = *(const float*)0x5c8700;
+    uint32_t seed = 0x44afa0;
+    auto rnd = [&](uint32_t n) { seed = seed * 1103515245u + 12345u; return (seed >> 8) % n; };
+    int it = 0;
+    for (int rep = 0; rep < 3000; ++rep) {
+        const int w = 8 + (int)rnd(57), h = 8 + (int)rnd(57);
+        memset(map, 0, sizeof map);
+        *(int32_t*)(map + 0x15d9) = w - 1;  // the grid's row is +0x15d9 + 1 wide
+        *(float**)(map + 0x1605) = grid;
+        *(int32_t*)(map + 0x2155) = w - 1;
+        *(int32_t*)(map + 0x2159) = h - 1;
+        for (int k = 0; k < w * h; ++k) grid[k] = (float)rnd(4000) / 7.0f - 100.0f;
+        *(float*)(cam + 0x1c) = (float)rnd(300) * cell / 1.5f;
+        *(float*)(cam + 0x24) = (float)rnd(300) * cell / 1.5f;
+        const float zooms[] = { 0.0f, zoomAt, zoomAt * 1.5f + 3.0f, zoomAt * 4.0f + 10.0f, zoomAt - 1.0f };
+        *(float*)(cam + 0x20) = zooms[rnd(5)];
+        *(int32_t*)(app + 0x2bb) = (int32_t)rnd(3);
+        const int32_t x = (int32_t)rnd((uint32_t)w - 1), y = (int32_t)rnd((uint32_t)h - 1);
+        const int32_t a = ((int32_t(__stdcall*)(int32_t, int32_t))0x44afa0)(x, y);
+        const int32_t b = rt3::Map_FogEnd(x, y);
+        EXPECT_EQ(a, b, "map fog end case %d (x %d y %d zoom %g)", it, x, y, *(float*)(cam + 0x20));
+        ++it;
+    }
+    *(uint8_t**)0x62be68 = savedCam;
+    *(uint8_t**)0x62c120 = savedMap;
+    *(uint8_t**)0x6cec74 = savedApp;
 }

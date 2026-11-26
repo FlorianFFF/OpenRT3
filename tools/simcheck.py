@@ -7,6 +7,15 @@ compares the saves (via the per-write CRC trace) between runs:
 A == B proves the setup is deterministic; A == C proves the rewrite matches.
 
     python tools/simcheck.py [save] [frames] [--do=<frame>:<addr>,...] [--coverage=<file>] [--mode=<n>]
+                             [--quit] [--menu]
+
+[save] can also be a scenario file ('..\\maps\\Britain.gmp': a new game of it).
+--menu loads nothing: the --do script drives the menus from the first frame
+(e.g. into the map editor), and the frames count from when a world exists;
+[save] then only names the output (its extension).
+--quit closes the game after saving instead of ending the process, so the
+game's shutdown runs (and counts for --coverage); each run reports whether
+it shut down cleanly.
 """
 import os
 import re
@@ -44,6 +53,7 @@ def parse_actions(text):
         type <text>             characters, one a frame
         settext <id> <text>     sets widget id's text (as the game sets an edit box)
         waitplayers <n>         waits until the network session has n players
+        clickid <id>            clicks the visible widget with that id (waits until there is one)
         explore <period> <count>  clicks a harness-chosen visible button every period frames
         dump                    log every window and widget (harness "W" lines)
     """
@@ -73,6 +83,8 @@ def parse_actions(text):
             out.append(f"{f}:x:{t[2]}:{t[3]}")
         elif cmd == "waitplayers":
             out.append(f"{f}:w:{t[2]}")
+        elif cmd == "clickid":
+            out.append(f"{f}:i:{t[2]}")
         elif cmd == "settext":
             out.append(f"{f}:t:{t[2]}:{t[3]}")
         elif cmd == "dump":
@@ -104,12 +116,17 @@ def run(tag, enabled, save, days, timeout=None):
     ext = Path(save).suffix
     out = f"simcheck_{tag}{ext}"
     target = SAVES / out
-    if target.exists():
-        target.unlink()
+    for t in (target, GAME / "maps" / out):  # (the map editor saves into maps, private in the mirror)
+        if t.exists():
+            t.unlink()
     spec = f"load={save};frames={days};out={out}"
+    if "--menu" in sys.argv:  # no save: the actions drive the menus (map editor, a new game)
+        spec = f"menu=1;frames={days};out={out}"
     if ACTIONS:  # scripted actions (src/harness.cpp, "do="), passed in a file
         (GAME / "simcheck_actions.txt").write_text(ACTIONS)
         spec += ";do=@simcheck_actions.txt"
+    if "--quit" in sys.argv:  # then close the game normally: its shutdown runs too
+        spec += ";quit=1"
     env = dict(os.environ, RT3RE_HARNESS=spec)
     if "--nocoverage" not in sys.argv:  # coverage: counting stubs / one-shot probes (src/hook/hook.cpp)
         env["RT3RE_COVERAGE"] = "1"
@@ -137,7 +154,11 @@ def run(tag, enabled, save, days, timeout=None):
     (GAME / f"simcheck_{tag}.log").write_text(log)
     if "exception" in log:
         print(f"{tag}: exception in log:\n" + "\n".join(l for l in log.splitlines() if "exception" in l))
+    if "--quit" in sys.argv:
+        print(f"{tag}: {'shut down cleanly' if 'harness: game closed' in log else 'DID NOT SHUT DOWN CLEANLY'}")
     trace = GAME / f"{out}.trace"
+    if not target.exists():
+        target = GAME / "maps" / out
     if not target.exists() or not trace.exists():
         return None
     return [l.split()[1:] for l in trace.read_text().splitlines() if l]  # (size, crc) per write
@@ -168,7 +189,7 @@ def main():
     def cached(tag):
         t = GAME / f"simcheck_{tag}{Path(save).suffix}.trace"
         stamp = GAME / f"simcheck_{tag}.key"
-        key = f"{save} {frames} {ACTIONS} {'--nocoverage' in sys.argv} {MODE}"
+        key = f"{save} {frames} {ACTIONS} {'--nocoverage' in sys.argv} {MODE} {'--quit' in sys.argv} {'--menu' in sys.argv}"
         if "--fresh" not in sys.argv and t.exists() and stamp.exists() and stamp.read_text() == key:
             return [l.split()[1:] for l in t.read_text().splitlines() if l]
         r = run(tag, False, save, frames)

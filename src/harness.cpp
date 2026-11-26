@@ -34,7 +34,17 @@ static int g_state, g_loadFrame;
 // frame (they drive the lobby), and the run starts when the game world exists.
 // The generators are left alone: the host hands out the seeds.
 static int g_mp, g_actionBase;
+// "menu=1": no save either; the script drives the menus from the first frame
+// (main menu, map editor, a new game), timed like multiplayer, and the run
+// starts once a world exists.
+static int g_menu;
+static bool Driven() { return g_mp || g_menu; }  // actions from the first frame, on g_ticks
 static int g_mpPort;  // "mpport=<n>": the client's own (device) port, see SetPort
+// "quit=1": after saving, the game is closed as by the window's close box
+// (input event 0xcd, its quit question answered by the modal Enter), so its
+// whole shutdown runs; coverage is written again when the DLL unloads.
+static int g_quit;
+static char g_coverage[MAX_PATH];
 static volatile LONG g_ticks;  // main-loop frames and modal-loop passes (multiplayer action timing)
 static volatile LONG g_fakeMs = 1000000;
 static volatile LONG g_modalPasses; // modal loop passes since the last main-loop frame
@@ -126,6 +136,14 @@ static void LogSyncChecks() {
 static int __fastcall FrameHook(void* ctx) {
     // Fake clocks from the first frame (startup busy-waits on the real clock).
     if (g_frame == 0) UseFakeClocks();
+    if (g_frame == 0 && g_menu) {
+        // Startup seeded the generators from the real clock: fixed, as for a
+        // loaded save (a new map, a new game). Not in multiplayer, where the
+        // host hands out the seeds.
+        g_seed = 0x13572468;
+        g_lcg = 0x2468ace0;
+        ((void(__cdecl*)(unsigned))0x5a299e)(0x1357);
+    }
     InterlockedExchangeAdd(&g_fakeMs, 33); // ~30 fps of game time per frame
     int r = ((int(__fastcall*)(void*))0x483f70)(ctx);
     g_mainTid = GetCurrentThreadId();
@@ -133,9 +151,9 @@ static int __fastcall FrameHook(void* ctx) {
     InterlockedIncrement(&g_ticks);
     { // per-frame fingerprint, to find where two runs part
         uint8_t* g = (uint8_t*)Game();
-        rt3::Log("F %ld lcg %08x simrand %08x world %08x cam %08x modal %ld", g_frame,
+        rt3::Log("F %ld lcg %08x simrand %08x world %08x cam %08x modal %ld ms %ld", g_frame,
                  g_lcg, g_seed,
-                 g ? rt3::Crc32(g + 4, 0x4c00) : 0, g ? rt3::Crc32(g + 0x4c9c, 0x14) : 0, g_modalPasses);
+                 g ? rt3::Crc32(g + 4, 0x4c00) : 0, g ? rt3::Crc32(g + 0x4c9c, 0x14) : 0, g_modalPasses, g_fakeMs);
     }
     // Frames with a modal loop also hold that loop's draws, as many as the
     // wall clock allowed: marked so simcheck can leave them out.
@@ -147,13 +165,13 @@ static int __fastcall FrameHook(void* ctx) {
         *(volatile int32_t*)0x6cd8ec = 1;
         LogSyncChecks();
     }
-    if (g_mp && g_state == 0) {
+    if (Driven() && g_state == 0) {
         RunActions();
         uint8_t* g = (uint8_t*)Game();
         if (g && *(int32_t*)g) {  // a world that runs (World_Frame's own test)
             g_state = 1;
             g_loadFrame = g_frame;
-            rt3::Log("harness: frame %ld, multiplayer game running", g_frame);
+            rt3::Log("harness: frame %ld, %s running", g_frame, g_mp ? "multiplayer game" : "world");
         }
     } else if (g_state == 0 && g_frame == 100) {
         // As if a saved game were started from the menu: new-game config mode 3
@@ -192,10 +210,12 @@ static int __fastcall FrameHook(void* ctx) {
         fclose(rt3::g_writeTrace);
         rt3::g_writeTrace = nullptr;
         rt3::Log("harness: saved, exiting");
-        char cov[MAX_PATH];
-        sprintf(cov, "%s.coverage", g_out);
-        hook::DumpCoverage(cov);
-        ExitProcess(0);
+        sprintf(g_coverage, "%s.coverage", g_out);
+        hook::DumpCoverage(g_coverage);
+        if (!g_quit) ExitProcess(0);
+        g_state = 2;
+        rt3::Log("harness: closing the game");
+        if (uint8_t* engine = g_engine) PostMessageA(*(HWND*)engine, WM_CLOSE, 0, 0);
     }
     return r;
 }
@@ -220,7 +240,7 @@ static int32_t __fastcall SetPort(uint8_t* e, int, void* addr, int32_t port) {
 static int __fastcall IdleFrame(void* ctx) {
     InterlockedExchangeAdd(&g_fakeMs, 33);
     InterlockedIncrement(&g_ticks);
-    if (g_mp) RunActions();
+    if (Driven()) RunActions();
     return ((int(__fastcall*)(void*))0x483f70)(ctx);
 }
 
@@ -254,11 +274,13 @@ static void PostEnter() {
 //                         the actions after it move by however long that took
 //   t:<id>:<text>         sets the text of widget id (event 0x6f to every window,
 //                         as the game sets an edit box's text)
+//   i:<id>                clicks the centre of the visible widget with that id; waits
+//                         (like w:) until there is one, at most 3000 frames
 //   dump                  logs every window and widget (id, type, rectangle as
 //                         fractions of the screen, visible): where to click
 // Mouse and keys go in as window messages, as from the real devices, and the
 // faked cursor position (GetCursorPos) follows the scripted mouse.
-enum ActionKind { kCall, kMove, kLeftDown, kLeftUp, kRightDown, kRightUp, kKey, kDump, kChar, kSetText, kWaitPlayers, kExplore };
+enum ActionKind { kCall, kMove, kLeftDown, kLeftUp, kRightDown, kRightUp, kKey, kDump, kChar, kSetText, kWaitPlayers, kExplore, kClickId };
 struct Action { int frame; ActionKind kind; uint32_t addr; float x, y; char text[64]; };
 static Action g_actions[1024];
 static int g_numActions, g_nextAction;
@@ -344,8 +366,22 @@ static void Explore(HWND w) {
     PostMessageA(w, WM_LBUTTONUP, 0, pt);
 }
 
+// The centre of the visible widget `id` (fractions of the screen), if any.
+static bool FindWidget(uint16_t id, float* x, float* y) {
+    auto visible = [](uint8_t* c) { return ((int32_t(__fastcall*)(uint8_t*))0x558670)(c); };
+    if (uint8_t* m = g_windowManager)
+        for (uint8_t* win = *(uint8_t**)(m + 4); win; win = *(uint8_t**)(win + 0x54))
+            for (uint8_t* c = *(uint8_t**)(win + 0x74); c; c = *(uint8_t**)(c + 0x8a))
+                if (*(uint16_t*)(c + 4) == id && visible(c)) {
+                    *x = *(float*)(win + 5) + *(float*)(c + 0xb) + *(float*)(c + 0x13) / 2;
+                    *y = *(float*)(win + 9) + *(float*)(c + 0xf) + *(float*)(c + 0x17) / 2;
+                    return true;
+                }
+    return false;
+}
+
 static void RunActions() {
-    const LONG now = (g_mp ? g_ticks : g_frame - g_actionBase) - g_actionShift;  // (the lobby runs in modal loops)
+    const LONG now = (Driven() ? g_ticks : g_frame - g_actionBase) - g_actionShift;  // (the lobby runs in modal loops)
     if (g_exploreLeft > 0 && now >= g_exploreNext) {
         if (HWND w = GameWindow()) Explore(w);
         --g_exploreLeft;
@@ -353,6 +389,25 @@ static void RunActions() {
     }
     while (g_nextAction < g_numActions && now >= g_actions[g_nextAction].frame) {
         const Action& a = g_actions[g_nextAction];
+        if (a.kind == kClickId) {
+            float x, y;
+            HWND cw = GameWindow();
+            if (!cw || !FindWidget((uint16_t)a.addr, &x, &y)) {
+                if (now - a.frame < 3000) return;  // again next time
+                rt3::Log("harness: frame %ld, widget %u not found", g_frame, a.addr);
+            } else {
+                g_mouseX = x;
+                g_mouseY = y;
+                LPARAM pt = MousePoint(cw);
+                rt3::Log("harness: frame %ld, click widget %u at %.3f %.3f", g_frame, a.addr, x, y);
+                PostMessageA(cw, WM_MOUSEMOVE, 0, pt);
+                PostMessageA(cw, WM_LBUTTONDOWN, MK_LBUTTON, pt);
+                PostMessageA(cw, WM_LBUTTONUP, 0, pt);
+            }
+            g_actionShift += now - a.frame;
+            ++g_nextAction;
+            return;
+        }
         if (a.kind == kWaitPlayers) {
             int n = 0;
             if (void** l = *(void***)0x6d408c)
@@ -444,7 +499,14 @@ static void ParseActions(char* list) {
             }
         }
         if (!done) {
-            if (!strncmp(p, "w:", 2)) {
+            if (!strncmp(p, "i:", 2)) {
+                p += 2;
+                a.kind = kClickId;
+                a.addr = strtoul(p, &p, 10);
+                g_actions[g_numActions++] = a;
+                if (*p == ',') ++p;
+                continue;
+            } else if (!strncmp(p, "w:", 2)) {
                 p += 2;
                 a.kind = kWaitPlayers;
                 a.addr = strtoul(p, &p, 10);
@@ -480,12 +542,12 @@ static void ParseActions(char* list) {
 
 static void* __fastcall ModalGetEvent(void* input, int, void* out) {
     LONG n = InterlockedIncrement(&g_modalPasses);
-    if (g_mp) {
+    if (Driven()) {
         InterlockedIncrement(&g_ticks);
         RunActions();
     }
     InterlockedExchangeAdd(&g_fakeMs, 33); // dialogs wait on the clock before taking input
-    if ((g_state == 1 || (g_mp && Game())) && (n == 3 || n == 30 || n == 100 || n == 300 || n == 1000 || n == 3000)) {
+    if ((g_state >= 1 || (Driven() && Game())) && (n == 3 || n == 30 || n == 100 || n == 300 || n == 1000 || n == 3000)) {
         rt3::Log("harness: modal pass %ld at frame %ld, posting Enter", n, g_frame);
         PostEnter();
     }
@@ -520,8 +582,8 @@ static DWORD WINAPI Watchdog(void*) {
     LONG seen = -1;
     for (;;) {
         Sleep(20000);
-        LONG f = g_mp ? g_ticks : g_frame;
-        if ((g_state == 1 || g_mp) && f == seen) {
+        LONG f = Driven() ? g_ticks : g_frame;
+        if ((g_state == 1 || Driven()) && f == seen) {
             uint8_t* engine = g_engine;
             HWND w = engine ? *(HWND*)engine : nullptr;
             rt3::Log("harness: STALLED at frame %ld (non-deterministic Enter)", f);
@@ -574,7 +636,7 @@ static DWORD WINAPI Watchdog(void*) {
                     }
                 }
             }
-            if (w && !g_mp) {  // (multiplayer: only reported; the lobby is scripted)
+            if (w && !Driven()) {  // (multiplayer: only reported; the lobby is scripted)
                 PostMessageA(w, WM_KEYDOWN, VK_RETURN, 0x001c0001);
                 PostMessageA(w, WM_KEYUP, VK_RETURN, 0xc01c0001);
             }
@@ -618,7 +680,9 @@ void Install() {
         else if (!strncmp(tok, "out=", 4)) strcpy(g_out, tok + 4);
         else if (!strncmp(tok, "frames=", 7)) g_frames = atoi(tok + 7);
         else if (!strncmp(tok, "mp=", 3)) g_mp = atoi(tok + 3);
+        else if (!strncmp(tok, "menu=", 5)) g_menu = atoi(tok + 5);
         else if (!strncmp(tok, "mpport=", 7)) g_mpPort = atoi(tok + 7);
+        else if (!strncmp(tok, "quit=", 5)) g_quit = atoi(tok + 5);
         else if (!strncmp(tok, "do=@", 4)) {  // from a file (long scripts)
             if (FILE* f = fopen(tok + 4, "rb")) {
                 static char buf[1 << 20];
@@ -658,8 +722,11 @@ void Install() {
         force(0x521620, (void*)&SetPort);
         if (void* r = hook::Find(0x521620)) force((uint32_t)(uintptr_t)r, (void*)&SetPort);
     }
-    // The idle callback's call of the frame step (CALL rel32 at 0x4840d6).
-    {
+    // The idle callback's call of the frame step (CALL rel32 at 0x4840d6): only
+    // when the script drives the menus (a lobby button's press loop waits on
+    // the clock). Loading a save, the clock advances with main-loop frames only,
+    // as the scripted checks were made with.
+    if (Driven()) {
         uint8_t* c = (uint8_t*)0x4840d6;
         DWORD o;
         VirtualProtect(c, 5, PAGE_EXECUTE_READWRITE, &o);
@@ -674,8 +741,17 @@ void Install() {
     VirtualProtect(call, 5, old, &old);
     // Per-frame CRC of the draw calls (src/drawtrace.cpp); not in multiplayer,
     // where the sync checks and the saves compare, and menus lock whole buffers.
-    if (!g_mp) drawtrace::Install();
+    if (!Driven()) drawtrace::Install();
     rt3::Log("harness: load=%s frames=%d out=%s", g_load, g_frames, g_out);
+}
+
+// DLL_PROCESS_DETACH: after a "quit=1" shutdown, the coverage again (with
+// what the shutdown ran).
+void Shutdown() {
+    if (g_state == 2 && g_coverage[0]) {
+        rt3::Log("harness: game closed");
+        hook::DumpCoverage(g_coverage);
+    }
 }
 
 } // namespace harness

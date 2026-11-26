@@ -1670,8 +1670,9 @@ double __fastcall Map_NearestLandHeight(uint8_t* m, int, int32_t x, int32_t y, i
 RT3_REPLACE(0x44ae40, Map_NearestLandHeight);
 
 // 0x44afa0. Fog end distance at cell (x, y): 0x8c plus a far-camera term (cell
-// distance to the view target 50..200 -> 0x5c8880 scale), or a zoom term above
-// 0x5ca190 (+0x20), +50 with option 0x2bb.
+// distance to the view target 50..200 -> 0x5c8880 scale) plus the rise of the
+// terrain around the cell, with a zoom term added above 0x5ca190 (+0x20), +50
+// with option 0x2bb.
 int32_t __stdcall Map_FogEnd(int32_t x, int32_t y) {
     uint8_t* cam = g_62be68;
     float tz = F<float>(cam, 0x24), tx = F<float>(cam, 0x1c);
@@ -1715,11 +1716,13 @@ int32_t __stdcall Map_FogEnd(int32_t x, int32_t y) {
     int32_t r = fog + (top - base);
     float zoom = F<float>(g_62be68, 0x20);
     if (zoom > Fl(0x5ca190)) {
+        // The zoom term adds to the whole sum: the original keeps r in fog's
+        // stack slot (0x44b107) and reloads that slot here.
         __asm {
             fld zoom
             fsub dword ptr ds:[0x5ca190]
             fmul qword ptr ds:[0x5c86b0]
-            fiadd fog
+            fiadd r
             mov eax, 0x5a10d0
             call eax
             mov r, eax

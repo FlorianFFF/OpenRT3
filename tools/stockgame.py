@@ -10,6 +10,8 @@ shared: subfolders of Data are junctions and top-level files hard links
 writes is private to the mirror: Data/Configuration and Data/Log (settings
 saved on exit, logs) and Saved Games (autosaves, simcheck's saves) are
 copies, refreshed from the game folder only where the game folder changed;
+maps (where the map editor saves) is a real folder of hard links, so files a
+run adds there stay in the mirror;
 the settings are reset to the game folder's before every run (reset_settings).
 Files a run creates at the top level (logs, traces) are never linked.
 
@@ -28,9 +30,13 @@ GAME = Path(__file__).resolve().parents[2] / "Railroad Tycoon 3 Full Game"
 MIRROR = Path(tempfile.gettempdir()) / "rt3_stock"
 # Mods, and the files a run writes (created fresh in the mirror).
 SKIP = {"dinput8.dll", "dinput8.dll.bak", "rt3re.ini", "rt3re.log", "difftest.log", "stall.txt",
-        "difftest.coverage"}
+        "difftest.coverage", "difftest_leaves.log", "difftest_leaves.coverage", "leaves_current.txt"}
 # Folders the game writes to: private copies in the mirror.
 PRIVATE = {"Saved Games", "Data/Configuration", "Data/Log"}
+# Folders the game reads but can also add to (the map editor saves its maps in
+# maps): real folders in the mirror whose files are hard links, so a file a run
+# creates there stays in the mirror (and the 500 MB of maps cost no space).
+LINKED = {"maps"}
 
 
 def skipped(name):
@@ -95,6 +101,13 @@ def mirror_dir(src, dst, rel=""):
             if r in PRIVATE:
                 unjunction(m)
                 copy_newer(p, m)
+            elif r in LINKED:
+                unjunction(m)
+                for f in p.iterdir():
+                    if f.is_dir():
+                        junction(m / f.name, f)
+                    elif not skipped(f.name):
+                        link_file(f, m / f.name)
             elif any(x.startswith(r + "/") for x in PRIVATE):
                 unjunction(m)  # holds a private folder: a real folder, linked inside
                 mirror_dir(p, m, r)

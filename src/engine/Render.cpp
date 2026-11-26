@@ -108,7 +108,7 @@ int32_t __fastcall Render_Project(uint8_t* r, int, float x, float y, float z, fl
 void __fastcall Render_TransformWorld(uint8_t* r, int, float* v);
 int32_t __fastcall Render_ProjectPoint(uint8_t* r, int, float x, float y, float z, float* sx, float* sy);
 void __fastcall Render_Unproject(uint8_t* r, int, float sx, float sy, float* ox, float* oy, float* oz);
-void __fastcall Render_UnprojectDir(uint8_t* r, int, float sx, float sy, const float* eye, float* out);
+void __fastcall Render_UnprojectDir(uint8_t* r, int, float sx, float sy, float* out, const float* eye);
 void __fastcall Render_AddressBorder(uint8_t* r);
 void __fastcall Render_AddressClamp(uint8_t* r, int, uint8_t stage);
 void __fastcall Render_AddressMirror(uint8_t* r);
@@ -764,8 +764,9 @@ void __fastcall Render_Unproject(uint8_t* r, int, float sx, float sy, float* ox,
 }
 RT3_REPLACE(0x544a80, Render_Unproject);
 
-// 0x544b80. Ray direction from the camera point `eye` through screen (sx, sy).
-void __fastcall Render_UnprojectDir(uint8_t* r, int, float sx, float sy, const float* eye, float* out) {
+// 0x544b80. Ray direction from the camera point `eye` through screen (sx, sy)
+// into `out` (the third argument; the eye is the fourth).
+void __fastcall Render_UnprojectDir(uint8_t* r, int, float sx, float sy, float* out, const float* eye) {
     const uint32_t b = 0x342f;
     const double k = *(const float*)0x5dd990;
     double u = ((double)sx - F<float>(r, 0x2527)) * F<float>(r, 0x2523);
@@ -2610,7 +2611,7 @@ RT3_NOINLINE int32_t __fastcall Render_Shutdown(uint8_t* r) {
 RT3_REPLACE(0x54a190, Render_Shutdown);
 
 // 0x54a280. Sets the fog (density `density`, colour +0x2510 scaled by r/g/b) when
-// the device supports it (caps +0x83c +0x2e): off when r <= 0; table or vertex fog
+// the device supports it (caps +0x83c +0x2e): off when density <= 0; table or vertex fog
 // (caps +0x1f), linear from start to end (caps +0x20, from +0x2513) or exponential.
 RT3_NOINLINE void __fastcall Renderer_SetFog(uint8_t* r, int, float density, float cr, float cg, float cb) {
     F<float>(r, 0x25b3) = density;
@@ -2619,7 +2620,7 @@ RT3_NOINLINE void __fastcall Renderer_SetFog(uint8_t* r, int, float density, flo
         r[0x2549] = 1;
         RenderState(r, 0x1c, 1);
     }
-    if (cr <= *(const float*)0x5c8598) {
+    if (density <= *(const float*)0x5c8598) {
         if (r[0x2549]) {
             r[0x2549] = 0;
             RenderState(r, 0x1c, 0);

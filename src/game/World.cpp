@@ -1002,7 +1002,7 @@ RT3_REPLACE(0x433730, Nop433730);
 // 0x433740. +0x29 rounded down to 1/100 (after adding 0.001).
 double __fastcall Obj_Rounded29(void* o) {
     const double eps = *(const double*)0x5c8678, hundred = *(const double*)0x5c85d8;
-    int32_t c = (int32_t)(((double)F<float>(o, 0x29) + eps) * hundred);
+    int32_t c = Ftol(((double)F<float>(o, 0x29) + eps) * hundred);  // (the exe's _ftol: beyond 32 bits, the low word)
     float r = (float)((double)c / hundred);
     return r;
 }

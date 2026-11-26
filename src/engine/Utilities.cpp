@@ -680,17 +680,32 @@ int32_t __fastcall SoundCache_Init(uint8_t* s, int, int32_t capacity) {
 }
 RT3_REPLACE(0x564570, SoundCache_Init);
 
+// A float's bits loaded and stored by the x87 (a signalling NaN comes out quiet).
+static uint32_t ThroughX87(uint32_t bits) {
+    float f;
+    __asm {
+        fld dword ptr bits
+        fstp f
+    }
+    return *(uint32_t*)&f;
+}
+
 // 0x564660. Expands a screen sprite (+1/+5 left/top, +9/+0xd right/bottom, depth
 // +0x19, colour +0x1d faded by +0x29 / 2, texture rect +0x45..+0x51) into two
 // triangles (6 vertices of x, y, z, colour, u, v); the off-diagonal texture corners
 // are swapped for mirrored rects so the image stays upright.
 RT3_NOINLINE void __stdcall Sprite_ToTriangles(const uint8_t* s, float* out, int32_t* count) {
-    float a = F<float>((void*)s, 1), b = F<float>((void*)s, 5);
+    // The coordinates as bits: the original copies most of them as integers
+    // and only some through the x87 (below), and a float copy could change a
+    // NaN's bits.
+    const uint32_t a = F<uint32_t>((void*)s, 1), b = F<uint32_t>((void*)s, 5);
     uint32_t c = F<uint32_t>((void*)s, 9), d = F<uint32_t>((void*)s, 0xd), z = F<uint32_t>((void*)s, 0x19);
-    float u0 = F<float>((void*)s, 0x45), v0 = F<float>((void*)s, 0x49), u1 = F<float>((void*)s, 0x4d), v1 = F<float>((void*)s, 0x51);
+    const uint32_t u0 = F<uint32_t>((void*)s, 0x45), v0 = F<uint32_t>((void*)s, 0x49), u1 = F<uint32_t>((void*)s, 0x4d),
+                   v1 = F<uint32_t>((void*)s, 0x51);
     uint32_t col = F<uint32_t>((void*)s, 0x1d);
-    float c1u, c1v, c2u, c2v;
-    bool same = (u0 < u1 && v0 < v1) || (u0 > u1 && v0 > v1);
+    auto fl = [](const uint32_t& bits) { return *(const float*)&bits; };
+    uint32_t c1u, c1v, c2u, c2v;
+    bool same = (fl(u0) < fl(u1) && fl(v0) < fl(v1)) || (fl(u0) > fl(u1) && fl(v0) > fl(v1));
     if (same) {
         c1u = u1;
         c1v = v0;
@@ -712,21 +727,24 @@ RT3_NOINLINE void __stdcall Sprite_ToTriangles(const uint8_t* s, float* out, int
     uint32_t nb = (uint32_t)Ftol(k * bf);
     uint32_t color = ((((nr << 8) | ng) << 8) | nb) | (col & 0xff000000);
     uint32_t* v = (uint32_t*)out;
-    auto put = [&](int32_t i, uint32_t x, uint32_t y, float u, float w) {
+    auto put = [&](int32_t i, uint32_t x, uint32_t y, uint32_t u, uint32_t w) {
         v[i * 6] = x;
         v[i * 6 + 1] = y;
         v[i * 6 + 2] = z;
         v[i * 6 + 3] = color;
-        F<float>(v, i * 0x18 + 0x10) = u;
-        F<float>(v, i * 0x18 + 0x14) = w;
+        v[i * 6 + 4] = u;
+        v[i * 6 + 5] = w;
     };
-    uint32_t ab = *(uint32_t*)&a, bb = *(uint32_t*)&b;
-    put(0, c, bb, c1u, c1v);
-    put(1, ab, bb, u0, v0);
-    put(2, ab, d, c2u, c2v);
-    put(3, c, bb, c1u, c1v);
-    put(4, ab, d, c2u, c2v);
+    put(0, c, b, c1u, c1v);
+    put(1, a, b, u0, v0);
+    put(2, a, d, c2u, c2v);
+    put(3, c, b, c1u, c1v);
+    put(4, a, d, c2u, c2v);
     put(5, c, d, u1, v1);
+    // The original moves these through the x87 (FLD / FST dword), which quiets
+    // a signalling NaN; the other fields it copies as integers.
+    static const uint8_t kX87[] = { 0, 1, 4, 5, 6, 7, 12, 19, 22, 23, 24 };
+    for (uint8_t k : kX87) v[k] = ThroughX87(v[k]);
     *count = 6;
 }
 RT3_REPLACE(0x564660, Sprite_ToTriangles);
@@ -737,15 +755,23 @@ RT3_REPLACE(0x564660, Sprite_ToTriangles);
 RT3_NOINLINE void __stdcall Tri_ToVertices(const uint8_t* s, float* out, int32_t* count) {
     uint8_t* p = (uint8_t*)s;
     uint32_t* v = (uint32_t*)out;
-    uint32_t z = F<uint32_t>(p, 0x19);
+    // Everything is read before the first write, as in the original (the
+    // output may overlap the triangle).
+    uint32_t z = F<uint32_t>(p, 0x19), in[18];
     for (int32_t i = 0; i < 3; ++i) {
-        v[i * 6] = F<uint32_t>(p, 1 + i * 8);
-        v[i * 6 + 1] = F<uint32_t>(p, 5 + i * 8);
-        v[i * 6 + 2] = z;
-        v[i * 6 + 3] = Shade(F<uint32_t>(p, 0x1d + i * 4), F<float>(p, 0x29 + i * 4));
-        v[i * 6 + 4] = F<uint32_t>(p, 0x45 + i * 8);
-        v[i * 6 + 5] = F<uint32_t>(p, 0x49 + i * 8);
+        in[i * 6] = F<uint32_t>(p, 1 + i * 8);
+        in[i * 6 + 1] = F<uint32_t>(p, 5 + i * 8);
+        in[i * 6 + 2] = z;
+        in[i * 6 + 3] = Shade(F<uint32_t>(p, 0x1d + i * 4), F<float>(p, 0x29 + i * 4));
+        in[i * 6 + 4] = F<uint32_t>(p, 0x45 + i * 8);
+        in[i * 6 + 5] = F<uint32_t>(p, 0x49 + i * 8);
     }
+    for (int k = 0; k < 18; ++k) v[k] = in[k];
+    // The original moves these three through the x87 (FLD / FSTP dword), which
+    // quiets a signalling NaN; the rest it copies as integers.
+    v[0] = ThroughX87(v[0]);
+    v[16] = ThroughX87(v[16]);
+    v[17] = ThroughX87(v[17]);
     *count = 3;
 }
 RT3_REPLACE(0x5648c0, Tri_ToVertices);
@@ -1035,11 +1061,16 @@ RT3_NOINLINE void __fastcall VisitGrid_Visit(uint8_t* g, int, int16_t x, int16_t
     uint32_t stamp = F<uint32_t>(g, 0x1f408);
     if (*cell == stamp) return;
     *cell = stamp;
-    *F<int16_t*>(g, 0x3e820) = x;
-    F<int16_t*>(g, 0x3e820) += 1;
-    *F<int16_t*>(g, 0x3e820) = y;
-    F<int16_t*>(g, 0x3e820) += 1;
-    F<int32_t>(g, 0x1f41c)++;
+    // The original's order of loads and stores: the list pointer is read
+    // again after every store (a store may land on it).
+    int16_t* volatile& out = *(int16_t* volatile*)(g + 0x3e820);
+    *out = x;
+    out = out + 1;
+    *out = y;
+    int16_t* next = out + 1;
+    const int32_t n = *(volatile int32_t*)(g + 0x1f41c) + 1;
+    out = next;
+    *(volatile int32_t*)(g + 0x1f41c) = n;
 }
 RT3_REPLACE(0x565470, VisitGrid_Visit);
 

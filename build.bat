@@ -39,5 +39,11 @@ if not defined STOCK exit /b 1
 pushd "%STOCK%"
 "%CD%\rt3re.exe" --test %2
 set RC=%ERRORLEVEL%
+rem The leaf functions' test runs in a process of its own (see tests\difftest.cpp).
+if "%2"=="" (
+    "%CD%\rt3re.exe" --test --filter=leaves_all --log=difftest_leaves.log
+    if errorlevel 1 set /a RC=RC+1
+    findstr /c:"leaf functions tested" /c:"passed," difftest_leaves.log
+)
 popd
 exit /b %RC%

@@ -829,8 +829,9 @@ RT3_REPLACE(0x4f81e0, Editor_BlendTexel);
 // on the border): each channel is averaged with the right, then left, lower and
 // upper neighbours in turn.
 RT3_NOINLINE void __fastcall Image_SoftenPixel(uint8_t* img, int, int32_t x, int32_t y) {
+    if (x <= 0) return;  // (before the image is read, as in the original)
     int32_t w = F<int32_t>(img, 0xfc);
-    if (x <= 0 || x >= w - 1 || y <= 0 || y >= F<int32_t>(img, 0x100) - 1) return;
+    if (x >= w - 1 || y <= 0 || y >= F<int32_t>(img, 0x100) - 1) return;
     uint8_t* pix = F<uint8_t*>(img, 0x114);
     uint8_t* p = pix + (w * y + x) * 4;
     uint8_t c[4];

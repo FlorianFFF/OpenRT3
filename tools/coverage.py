@@ -5,7 +5,7 @@ Merges the coverage files that tools/simcheck.py writes with --coverage=<file>
 adds the functions whose original ran during the difftests. Writes
 docs/simcheck_coverage.txt (addr name runs) and docs/coverage.md.
 
-    python tools/coverage.py [--difftest=<difftest.coverage>] <coverage file> [...]
+    python tools/coverage.py [--difftest=<difftest.coverage>[,<difftest_leaves.coverage>]] <coverage file> [...]
 """
 import sys
 from pathlib import Path
@@ -17,7 +17,9 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def main():
     files = [Path(a) for a in sys.argv[1:] if not a.startswith("--")]
-    dt = next((Path(a[11:]) for a in sys.argv if a.startswith("--difftest=")), None)
+    # --difftest=a[,b]: difftest.coverage and difftest_leaves.coverage (the leaf
+    # test runs in its own process)
+    dts = [Path(f) for a in sys.argv if a.startswith("--difftest=") for f in a[11:].split(",") if f]
     if not files:
         print(__doc__)
         return 1
@@ -39,10 +41,11 @@ def main():
             if a in runs and int(n) > 0:
                 runs[a] += 1
     tested = set()
-    for line in dt.read_text().splitlines() if dt else []:
-        a, _, n = line.split()
-        if int(n) > 0:
-            tested.add(int(a, 16))
+    for dt in dts:
+        for line in dt.read_text().splitlines():
+            a, _, n = line.split()
+            if int(n) > 0:
+                tested.add(int(a, 16))
 
     (ROOT / "docs" / "simcheck_coverage.txt").write_text(
         "".join(f"{a:08x} {name[a]} {runs[a]}\n" for a in sorted(runs)))

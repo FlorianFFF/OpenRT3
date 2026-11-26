@@ -4,7 +4,11 @@
 // Built into rt3re_test.dll. Its DllMain replaces the game's WinMain (0x484440)
 // with RunTests, so the exe's own CRT is fully started but no game code has
 // run. Results go to difftest.log; the exit code is the failure count.
-// Start with:  rt3re.exe --test [filter]   (from the game folder)
+// Start with:  rt3re.exe --test [--filter=a,b] [--log=<file>]   (from the game folder)
+// Without a filter, the leaves_* tests are left out: they call originals on
+// random data that can write through the game's globals into heap objects, so
+// build.bat runs them in a process of their own (--filter=leaves_all
+// --log=difftest_leaves.log).
 #include <windows.h>
 #include <stdio.h>
 #include <string.h>
@@ -57,7 +61,12 @@ static bool Wanted(const char* name, const char* want) {
 }
 
 static int __stdcall RunTests(HINSTANCE, HINSTANCE, char* cmdLine, int) {
-    g_out = fopen("difftest.log", "w");
+    char logName[MAX_PATH] = "difftest.log";
+    if (const char* l = strstr(cmdLine, "--log=")) {
+        sscanf(l + 6, "%259s", logName);
+        for (size_t n = strlen(logName); n && logName[n - 1] == '"'; --n) logName[n - 1] = 0;
+    }
+    g_out = fopen(logName, "w");
     SetUnhandledExceptionFilter(OnCrash);
     _set_invalid_parameter_handler(OnInvalidParameter);
     const char* filter = strstr(cmdLine, "--filter=");
@@ -70,6 +79,7 @@ static int __stdcall RunTests(HINSTANCE, HINSTANCE, char* cmdLine, int) {
     for (TestCase* t = g_tests; t; t = t->next) {
         if (want[0] && !Wanted(t->name, want)) continue;
         if (!want[0] && strncmp(t->name, "dump_", 5) == 0) continue; // extraction runs only on request
+        if (!want[0] && strncmp(t->name, "leaves_", 7) == 0) continue; // their own process (above)
         int before = g_fail;
         g_current = t->name;
         t->fn();
@@ -79,7 +89,13 @@ static int __stdcall RunTests(HINSTANCE, HINSTANCE, char* cmdLine, int) {
     }
     fprintf(g_out, "\n%d passed, %d failed\n", g_pass, g_fail);
     fclose(g_out);
-    if (coverage) hook::DumpCoverage("difftest.coverage");
+    if (coverage) {  // next to the log: difftest.coverage, difftest_leaves.coverage
+        char cov[MAX_PATH];
+        strcpy(cov, logName);
+        if (char* dot = strrchr(cov, '.')) *dot = 0;
+        strcat(cov, ".coverage");
+        hook::DumpCoverage(cov);
+    }
     ExitProcess(g_fail);
 }
 

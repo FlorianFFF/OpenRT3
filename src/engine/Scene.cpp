@@ -93,7 +93,7 @@ char* __fastcall FormatText(char* dst, const char* fmt, const char* a1, const ch
 
 char* __fastcall Num_Format(char* buf, int32_t style, double v, int32_t width, int32_t unused, int32_t inK, int32_t inM);
 int32_t ClockMs();
-void __fastcall Render_UnprojectDir(uint8_t* r, int, float sx, float sy, const float* eye, float* out);
+void __fastcall Render_UnprojectDir(uint8_t* r, int, float sx, float sy, float* out, const float* eye);
 uint8_t __fastcall Obj_GetPair10(uint8_t* o, int, uint32_t* a, uint32_t* b);
 void __fastcall Particles_Draw(uint8_t* p, int, int32_t i, float x, float y, float dx, float dy);
 double One();
@@ -227,7 +227,7 @@ uint32_t __fastcall Render_Get1534(uint8_t* r);
 PtrList* __fastcall Terrain_GlobalList(uint8_t* r);
 void __fastcall SceneObj_DrawMarker(uint8_t* o);
 PtrList* __fastcall Terrain_Cell1671(uint8_t* r, int, int32_t x, int32_t y);
-uint8_t __fastcall Scene_CursorRay(uint8_t* s, int, const float* eye, float* out);
+uint8_t __fastcall Scene_CursorRay(uint8_t* s, int, float* out, const float* eye);
 void __fastcall Render_BindVb2643(uint8_t* r);
 
 struct Mat16 {
@@ -315,7 +315,7 @@ RT3_NOINLINE void __fastcall Scene_GetVectors(uint8_t* s, int, uint32_t* a, uint
 void __fastcall Scene_ComputeFootprint(uint8_t* s);
 RT3_NOINLINE void __fastcall CloudShadows_Render(uint8_t* v);
 void __fastcall Scene_UpdateLensFlare(uint8_t* s);
-uint8_t __fastcall Scene_CursorRay(uint8_t* s, int, const float* eye, float* out);
+uint8_t __fastcall Scene_CursorRay(uint8_t* s, int, float* out, const float* eye);
 double __fastcall Scene_FogFactor(uint8_t* s, int, uint8_t* r);
 double __stdcall Render_Scaled1540(uint8_t* r);
 void __fastcall Scene_EmitScenery(uint8_t* sc, int, uint8_t* src, uint8_t* cam, uint8_t* cell, uint8_t** out, uint32_t colour);
@@ -631,14 +631,14 @@ RT3_NOINLINE void __fastcall Scene_UpdateLensFlare(uint8_t* s) {
 RT3_REPLACE(0x524530, Scene_UpdateLensFlare);
 
 // 0x524650. Direction under the scene's cursor (+0x3720 / +0x3724, 0..1 over the
-// view) from `eye` into `out`, when the cursor is in the view (+0x3745). False
+// view) from `eye` into `out` (out first, as in the original), when the cursor is in the view (+0x3745). False
 // while the scene is frozen (+0x3692).
-RT3_NOINLINE uint8_t __fastcall Scene_CursorRay(uint8_t* s, int, const float* eye, float* out) {
+RT3_NOINLINE uint8_t __fastcall Scene_CursorRay(uint8_t* s, int, float* out, const float* eye) {
     if (s[0x3692]) return 0;
     if (s[0x3745]) {
         float sy = (float)(D(0x5c8770) - ((double)F<float>(s, 0x3724) + F<float>(s, 0x3724)));
         float sx = (float)((double)F<float>(s, 0x3720) + F<float>(s, 0x3720) - D(0x5c8770));
-        Render_UnprojectDir(F<uint8_t*>(s, 0x2d), 0, sx, sy, eye, out);
+        Render_UnprojectDir(F<uint8_t*>(s, 0x2d), 0, sx, sy, out, eye);
     }
     return 1;
 }
@@ -2170,7 +2170,7 @@ RT3_NOINLINE void __fastcall Scene_QueueWorld(uint8_t* r, int, uint8_t* cam, uin
                 origin[0] = c[0];
                 origin[1] = c[1];
                 origin[2] = c[2];
-                pick = Scene_CursorRay(r, 0, dir, origin);
+                pick = Scene_CursorRay(r, 0, dir, origin);  // into dir, from origin
                 double inv = D(0x5c8770) / sqrt(((double)dir[2] * dir[2] + (double)dir[1] * dir[1]) + (double)dir[0] * dir[0]);
                 dir[0] = (float)(dir[0] * inv);
                 dir[1] = (float)(dir[1] * inv);
