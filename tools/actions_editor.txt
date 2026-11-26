@@ -1,9 +1,12 @@
 # The map editor (simcheck --menu): main menu -> Extras (3009) -> Editor
 # (3103) -> New Map (3530) -> From Scratch (3540), whose size prompt takes the
-# default with Enter. Then editor tools 9001..9005 (buttons on the left) are
-# picked and dragged across the middle of the map, with a widget dump of each
-# panel. (Tool 9007's drag can open a modal panel that Enter does not close,
-# and only sometimes: left out until that is handled.)
+# default with Enter. Then editor tools 9001 (terrain height), 9002 / 9003
+# (trees) and 9005 (bulldoze) are picked and dragged across the middle of the
+# map, with a widget dump of each panel. Left out: 9004 (paint regions), whose
+# region building mixes are built by Obj_SetNamedAmount 0x4206b0, which saves
+# stack leftovers in the names' padding (kept original, but the leftovers come
+# from earlier calls, so they differ anyway); 9007, whose drag can open a modal
+# panel that Enter does not close, and only sometimes.
 # simcheck counts frames from when the editor's world exists (about tick 130).
 20 dump
 30 clickid 3009   Extras
@@ -25,10 +28,6 @@
 480 dump
 500 drag 0.50 0.35 0.62 0.45 20
 540 drag 0.62 0.45 0.55 0.30 20
-580 clickid 9004
-600 dump
-620 drag 0.50 0.35 0.62 0.45 20
-660 drag 0.62 0.45 0.55 0.30 20
 700 clickid 9005
 720 dump
 740 drag 0.50 0.35 0.62 0.45 20

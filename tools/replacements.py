@@ -33,4 +33,8 @@ ORIGINAL_ONLY = frozenset({
     # Network handler: copies four never-written stack bytes into each
     # appended 9-byte table entry (Table9_Append).
     0x46c8c0,
+    # Obj_SetNamedAmount: builds the new {name, amount} entry in a stack
+    # buffer it never clears, so the saved name padding is stack residue
+    # (the map editor's city building mixes showed it).
+    0x4206b0,
 })

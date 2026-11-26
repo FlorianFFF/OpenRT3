@@ -8,16 +8,15 @@ OpenRT3 is a C++ reimplementation of Railroad Tycoon 3's `RT3.exe`, version 1.06
 
 ## Status
 
-- **Every game function is rewritten** (4,376 of the 4,390 functions in the game's own code,
-  98.9% of its machine code). The other 14 still run the original code on purpose: they read
+- **Every game function is rewritten** (4,375 of the 4,390 functions in the game's own code,
+  98.9% of its machine code). The other 15 still run the original code on purpose: they read
   values their callers never wrote (leftover stack contents), and a rewrite compiled with a
   different compiler leaves different leftovers. Each is listed with its reason in
   `tools/replacements.py`.
 - **The rewrite plays exactly like the original.** 832 differential tests pass, plus a generic
-  test of all 887 leaf functions; runs of saved games, of a scenario started from its file and
-  of a two-player LAN game produce the same game state, write for write, and the same drawing as
-  the original game (see *Verifying a rewrite*). A scripted map editor session still differs in
-  three territory records; that is being tracked down.
+  test of all 887 leaf functions; runs of saved games, of a scenario started from its file, of a
+  scripted map editor session and of a two-player LAN game produce the same game state, write for
+  write, and the same drawing as the original game (see *Verifying a rewrite*).
 - **The source is grouped like the original.** The compiler kept each source file's functions
   together, so the code is split by address range into 69 files, one per original object file
   (`src/game/Train.cpp`, `src/engine/Render.cpp`, …). Only `Misc.cpp` and `MouseCursor.cpp` are

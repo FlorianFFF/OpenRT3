@@ -668,8 +668,12 @@ int g_traceMaskPointer;
 RT3_NOINLINE void __fastcall StreamWrite(Stream s, const void* data, uint32_t size, int32_t) {
     if (g_writeTrace) {
         uint32_t skip = (g_traceMaskPointer && size >= 4) ? 4 : 0;
-        fprintf(g_writeTrace, "%08x %u %08x\n", (unsigned)(uintptr_t)_ReturnAddress(), size,
+        fprintf(g_writeTrace, "%08x %u %08x", (unsigned)(uintptr_t)_ReturnAddress(), size,
                 Crc32((const uint8_t*)data + skip, size - skip));
+        if (size <= 64)  // small records also in full (to see what differs), a masked pointer as ".."
+            for (uint32_t i = 0; i < size; ++i)
+                fprintf(g_writeTrace, i < skip ? (i ? ".." : " ..") : (i ? "%02x" : " %02x"), ((const uint8_t*)data)[i]);
+        fprintf(g_writeTrace, "\n");
     }
     StreamRecord& r = g_streams[s];
     if (r.mode == kStreamWriteMemory || r.mode == kStreamWriteBuffered) {

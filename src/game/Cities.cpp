@@ -471,7 +471,17 @@ RT3_REPLACE(0x420670, BuildingObj_Teardown);
 // 0x4206b0. Sets the amount (+0x1e) of the named entry in +0x37f: removes
 // it when amount <= 0, adds a new {name, amount} entry when missing and
 // amount > 0; then refreshes (0x420410).
+//
+// Kept original (tools/replacements.py ORIGINAL_ONLY): the new entry is built
+// in a stack buffer that is never cleared, and only the name is copied in, so
+// the saved record's name padding holds whatever was there, usually the
+// previous name of a loop such as City_ResetBuildingMix ("Oil Well\0amp").
+// Rewritten callers go through the exe; the decode below is not installed.
 RT3_NOINLINE uint32_t __fastcall Obj_SetNamedAmount(void* o, int, const char* name, float amount) {
+    return hook::Orig<uint32_t(__fastcall*)(void*, int, const char*, float)>(0x4206b0)(o, 0, name, amount);
+}
+
+RT3_NOINLINE uint32_t __fastcall Obj_SetNamedAmountDecode(void* o, int, const char* name, float amount) {
     Collection* c = F<Collection*>(o, 0x37f);
     int32_t i = 0;
     for (; i < Collection_Count(F<Collection*>(o, 0x37f)); ++i) {
@@ -500,7 +510,7 @@ RT3_NOINLINE uint32_t __fastcall Obj_SetNamedAmount(void* o, int, const char* na
     }
     return Obj_Refresh420410(o);
 }
-RT3_REPLACE(0x4206b0, Obj_SetNamedAmount);
+// (0x4206b0 not installed: ORIGINAL_ONLY, see above.)
 
 // 0x4207d0 (vtable). Tooltip of city c into dst (n bytes): its name
 // (QUIRK: used as the format) and population (+0x276, pattern 0x5c9acc),
