@@ -786,7 +786,8 @@ RT3_NOINLINE void __fastcall Engine_QueueSprite(void* e, int, uint32_t p1, uint3
 RT3_REPLACE(0x51f460, Engine_QueueSprite);
 
 void __fastcall Engine_SetCursorObject(void* e, int, uint32_t v) {
-    if (F_engine<int32_t>(e, 0xc) != 0) ((void(__fastcall*)(void*, uint32_t))0x547f20)(F_engine<void*>(e, 0xc), v);
+    // (0x547f20 is thiscall with the value on the stack, RET 4)
+    if (F_engine<int32_t>(e, 0xc) != 0) ((void(__fastcall*)(void*, int, uint32_t))0x547f20)(F_engine<void*>(e, 0xc), 0, v);
     F_engine<uint32_t>(e, 0x1146b9) = v;
 }
 RT3_REPLACE(0x51f510, Engine_SetCursorObject);
@@ -976,13 +977,13 @@ RT3_REPLACE(0x51f9b0, Engine_SetFreeTexMemOverride);
 
 RT3_NOINLINE void __fastcall Engine_SetTotalTexMemOverride(void* e, int, int32_t v) {
     F_engine<int32_t>(e, 0x1146c6) = v;
-    if (hook::As<int32_t>(g_windowManager)) ((void(*)())0x538ec0)();
+    if (uint8_t* wm = g_windowManager) ((void(__fastcall*)(uint8_t*))0x538ec0)(wm);  // (a method of the window manager)
 }
 RT3_REPLACE(0x51f9c0, Engine_SetTotalTexMemOverride);
 
 RT3_NOINLINE void __fastcall Engine_SetTexMemOverride3(void* e, int, int32_t v) {
     F_engine<int32_t>(e, 0x1146ce) = v;
-    if (hook::As<int32_t>(g_windowManager)) ((void(*)())0x538ec0)();
+    if (uint8_t* wm = g_windowManager) ((void(__fastcall*)(uint8_t*))0x538ec0)(wm);  // (a method of the window manager)
 }
 RT3_REPLACE(0x51f9e0, Engine_SetTexMemOverride3);
 

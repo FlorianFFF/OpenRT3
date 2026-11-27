@@ -1,0 +1,61 @@
+# Windows the other scripts do not open, and their draw callbacks (simcheck
+# mature.gmc 600 --do=@tools/actions_windows.txt). The panel buttons: 2035
+# company detail (tabs at x 0.436: y 0.729 overview, 0.775 bonds, 0.819
+# stock, 0.858 territories), 2017 companies, 2018 stations, 2019 trains,
+# 2014 stock market, 2016 overview modes; a double click on a list row opens
+# its details. Draw callbacks that need a state the save lacks (a depot-kind
+# station, the station list mode) are called directly with real objects
+# ("call", see tools/actions_calls.txt): they only queue text and pictures,
+# which the next frame draws (and simcheck compares).
+#
+# Company detail: bonds (their rows and repay buttons), stock, territories.
+20 clickid 2035
+30 move 0.436 0.775
+32 click 0.436 0.775
+60 move 0.436 0.819
+62 click 0.436 0.819
+90 move 0.436 0.858
+92 click 0.436 0.858
+120 move 0.436 0.775
+122 click 0.436 0.775
+130 call 4c1ec0 f v n0 n0 f0.48 f0.72 n0 f0.04 n0   # BondList_DrawRow (selected company)
+130 call 4c1ec0 f v n0 n2 f0.48 f0.76 n0 f0.04 n1
+140 key 1b
+# Companies, then a double click on the second row (that company's detail).
+150 clickid 2017
+170 move 0.5 0.79
+172 click 0.5 0.79
+176 click 0.5 0.79
+200 key 1b
+# Stations: a double click opens the first one's panel; then its draw callbacks.
+210 clickid 2018
+230 move 0.5 0.735
+232 click 0.5 0.735
+236 click 0.5 0.735
+250 call 504590 s v f0.43 f0.72 f0.55 n0                         # StationDetail_DrawRows
+251 call 504ec0 f v o6cec20.0 n0 f0.43 f0.72 f0.55 n1050253722  # StationDetail_DrawSummary (h 0.2)
+251 call 504ec0 f v o6cec20.3 n0 f0.43 f0.72 f0.55 n1050253722
+260 key 1b
+# Trains: the list's rows (their car pictures), then a double click.
+270 clickid 2019
+290 call 510e30 f v n0 i6cfcbc.0 f0.43 f0.72 f0.5 f0.05 n0     # TrainList_DrawRow
+290 call 510e30 f v n0 i6cfcbc.5 f0.43 f0.77 f0.5 f0.05 n1
+300 move 0.5 0.735
+302 click 0.5 0.735
+306 click 0.5 0.735
+330 key 1b
+# A building: view it, click it (its info panel), and its panel lines.
+340 objlook 62b26c 5
+342 zoom -2
+350 objclick 62b26c 5
+370 shot
+380 call 4b3ca0 f v o62b26c.5 n2 f0.43 f0.75 f0.5 f0.2 n0        # BuildingPanel_DrawLine
+380 call 4b3ca0 f v o62b26c.7 n5 f0.43 f0.75 f0.5 f0.2 n1
+380 call 4b3ca0 f v o62b26c.9 n9 f0.43 f0.75 f0.5 f0.2 n0
+381 call 4b3f80 s v f0.43 f0.75 f0.5 f0.2 n0                      # View_DrawSelectionLabel
+390 key 1b
+# Stock market and overview modes.
+400 clickid 2014
+430 key 1b
+440 clickid 2016
+470 key 1b

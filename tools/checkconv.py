@@ -109,8 +109,37 @@ def main():
                 print(f"MISMATCH {addr:08x} {name}: original pops {want}, rewrite ({conv}, {len(params)} params) pops {got}"
                       f"  [{path.relative_to(ROOT)}]")
     bad += bare_ecx_calls(texts)
+    bad += cast_calls(texts, purge)
     print(f"{bad} mismatches")
     return 1 if bad else 0
+
+
+CAST_CALL = re.compile(r"\(\(\s*[\w:\*\s<>]+?\(\s*(__fastcall|__stdcall|__cdecl|__thiscall)?\s*\*\s*\)\s*\(([^()]*)\)\s*\)\s*(0x[0-9a-fA-F]{6})\s*\)")
+
+
+def cast_calls(texts, purge):
+    """Calls of an exe address through a cast, ((ret(conv*)(params))0xADDR)(...):
+    the cast's convention and parameters must pop what the original pops (a
+    value meant for the stack passed in EDX corrupts the stack on return)."""
+    bad = 0
+    for path, t in texts.items():
+        for m in CAST_CALL.finditer(t):
+            addr = int(m.group(3), 16)
+            want = purge.get(addr)
+            if want is None or want == 2147483647:
+                continue
+            conv = m.group(1) or "__cdecl"
+            params = [p for p in m.group(2).split(",")] if m.group(2).strip() else []
+            if conv == "__thiscall":
+                got = sum(s for p in params[1:] for s in [size_of(p)] if s is not None)
+            else:
+                got = implied_purge(conv, params)
+            if got != want:
+                bad += 1
+                line = t.count("\n", 0, m.start()) + 1
+                print(f"CAST CALL {addr:08x}: original pops {want}, the cast ({conv}, {len(params)} params) pops {got}"
+                      f"  [{path.relative_to(ROOT)}:{line}]")
+    return bad
 
 
 def bare_ecx_calls(texts):

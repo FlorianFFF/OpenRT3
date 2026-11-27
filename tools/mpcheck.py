@@ -6,7 +6,7 @@ Both run in the test mirror (tools/stockgame.py) under the harness
 mouse and keys) and, once the game runs, saves after N frames and exits.
 
     python tools/mpcheck.py <host.txt> <client.txt> [frames] [--host=orig|rewrite] [--client=orig|rewrite]
-                            [--client-delay=<seconds>] [--timeout=<seconds>] [--off=Name,...] [--offfile=<file>]
+                            [--client-delay=<seconds>] [--timeout=<seconds>] [--off=Name,...] [--offfile=<file>] [--quit]
 
 tools/mp_host.txt / mp_client.txt only start a game; tools/mp_host_play.txt /
 mp_client_play.txt also play it (companies, stations, track, a train).
@@ -48,6 +48,8 @@ def launch(role, side, script, frames, timeout):
     spec = f"mp=1;frames={frames};out={out};do=@{acts.name}"
     if role == "client":
         spec += ";mpport=9001"  # (both on port 9000 cannot be on one machine; src/harness.cpp SetPort)
+    if "--quit" in sys.argv:  # after saving, close the game normally: the network shutdown runs too
+        spec += ";quit=1"
     env = dict(os.environ, RT3RE_HARNESS=spec,
                RT3RE_INI=str(ini), RT3RE_LOG=f"mp_{role}.log", RT3RE_COVERAGE="1")
     # --lobby=gamespy: the command-line way (-h / -c 127.0.0.1); else the
@@ -95,6 +97,19 @@ def main():
     log = GAME / "mp_client.log"
     checks = [l for l in log.read_text(errors="replace").splitlines() if l.startswith("S ")] if log.exists() else []
     bad = [l for l in checks if not l.endswith("mismatch")]
+    # Scripted calls ("call" lines in both scripts, src/harness.cpp CallFunction)
+    # that must return the same on both PCs: with the original on one side and
+    # the rewrite on the other, this compares the two.
+    calls = {r: [l for l in (GAME / f"mp_{r}.log").read_text(errors="replace").splitlines() if l.startswith("R ")]
+             if (GAME / f"mp_{r}.log").exists() else [] for r in ("host", "client")}
+    if calls["host"] or calls["client"]:
+        same = calls["host"] == calls["client"]
+        print(f"scripted calls: {len(calls['host'])} / {len(calls['client'])}, {'the same on both' if same else 'DIFFERENT'}")
+        if not same:
+            for a, b in zip(calls["host"], calls["client"]):
+                if a != b:
+                    print(f"  host {a} / client {b}")
+            return 1
     print(f"sync checks: {len(checks)}, with a mismatch: {len(bad)}")
     for l in bad[:5]:
         print("  " + l)

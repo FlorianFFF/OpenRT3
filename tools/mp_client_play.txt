@@ -14,3 +14,7 @@
 1100 clickid 2035  company: found one (Enter answers both questions)
 1200 shot
 2500 shot
+# Calls whose results must be the same on both PCs (compared by mpcheck)
+2600 call 46a440 f i g6cd8d8 n0 sGuest   # Net_HasPlayer
+2601 call 46a440 f i g6cd8d8 n0 sNobody
+2602 call 468cb0 f i g6cd8d8 n0 x12345678 n0 # Obj_Map9050Query (no such key)

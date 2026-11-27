@@ -57,8 +57,13 @@ def parse_actions(text):
         cellclick <x> <y>       left click on map cell (x, y)
         celldrag <x0> <y0> <x1> <y1> <frames>   left drag from cell to cell
         look <x> <y>            centres the view on map cell (x, y) (the game's own camera call)
+        objlook <coll> <i>      centres the view on the i-th object of the collection global <coll> (hex)
+        objclick <coll> <i>     left click on that object's cell
         zoom <steps>            zooms the view that many steps (negative: in)
-        autoenter 0|1           whether the harness answers dialogs with Enter (default 1)
+        call <addr> <cc> <ret> <args...> [# comment]   calls a game function with real
+                                objects as arguments and logs its result ("R" lines,
+                                compared between the runs; src/harness.cpp CallFunction)
+        autoenter 0|1         whether the harness answers dialogs with Enter (default 1)
         cities                  log every city's id, cell and name (harness "C" lines)
         tracks                  log every track piece's id, cell and owner (harness "T" lines)
         wheel <ticks>         mouse wheel at the mouse position (signed, notches of 120)
@@ -97,8 +102,15 @@ def parse_actions(text):
             out.append(f"{f}:x:{t[2]}:{t[3]}")
         elif cmd == "waitplayers":
             out.append(f"{f}:w:{t[2]}")
+        elif cmd == "call":  # call <hex addr> <cc> <ret> <args...> [# comment]
+            spec = line.split("#")[0].split()[2:]
+            out.append(f"{f}:fn:" + "/".join(spec))
         elif cmd == "autoenter":
             out.append(f"{f}:ae:{int(t[2])}")
+        elif cmd == "objlook":  # objlook <coll hex> <i>: centre the view on that object
+            out.append(f"{f}:ol:{t[2]}.{t[3]}")
+        elif cmd == "objclick":  # objclick <coll hex> <i>: left click on that object's cell
+            out += [f"{f}:ocm:{t[2]}.{t[3]}", f"{f + 1}:ocd:{t[2]}.{t[3]}", f"{f + 3}:ocu:{t[2]}.{t[3]}"]
         elif cmd == "cell":
             out.append(f"{f}:cm:{t[2]}:{t[3]}")
         elif cmd == "cellclick":
@@ -213,6 +225,13 @@ def draws(log):
     return out
 
 
+def calls(log):
+    """The results of a run's scripted calls ("R" lines, src/harness.cpp CallFunction)."""
+    if not log.exists():
+        return []
+    return [l for l in log.read_text(errors="replace").splitlines() if l.startswith("R ")]
+
+
 def main():
     stockgame.build()
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
@@ -261,6 +280,20 @@ def main():
             print(f"DRAWING DIFFERS in {len(bad)} frames; first: frame {bad[0]} (kinds {kinds}, see src/drawtrace.cpp)")
             return 1
         print("MATCH: rewrite draws the same frames as the original")
+    # Scripted calls ("call" actions): their results, in order. A result that
+    # differs between the two original runs (a heap pointer) is noise.
+    ra, rb, rc = (calls(GAME / f"simcheck_{t}.log") for t in ("orig1", "orig2", "rewrite"))
+    if ra or rc:
+        if len(ra) != len(rc):
+            print(f"CALLS DIFFER: {len(ra)} results in the original run, {len(rc)} in the rewrite run")
+            return 1
+        bad = [i for i in range(len(ra)) if ra[i] != rc[i] and (i >= len(rb) or ra[i] == rb[i])]
+        print(f"{len(ra)} scripted calls, {sum(1 for i in range(min(len(ra), len(rb))) if ra[i] != rb[i])} vary between original runs")
+        if bad:
+            for i in bad[:5]:
+                print(f"  CALL DIFFERS: original {ra[i]} / rewrite {rc[i]}")
+            return 1
+        print("MATCH: every scripted call returns the same")
     # Measured in the original run (src/hook/hook.cpp probes each function's
     # first byte): in the rewrite run, rewritten code calls rewrites directly,
     # past the counters at the exe addresses.

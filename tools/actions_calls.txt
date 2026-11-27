@@ -1,0 +1,122 @@
+# Calls of game functions the play-throughs do not reach, with real objects of
+# the loaded save as arguments (simcheck mature.gmc 300 --do=@tools/actions_calls.txt):
+# the original run calls the original, the rewrite run the rewrite; simcheck
+# compares their results ("R" lines) and the saved game (their side effects).
+# "call <hex addr> <cc> <ret> <args>" - see tools/simcheck.py and
+# src/harness.cpp CallFunction. Collections (globals): 0x62b26c buildings,
+# 0x62be10 companies, 0x62bae0 cities, 0x6cfcbc trains, 0x6cec20 stations,
+# 0x6ceb9c players, 0x6cfca8 track pieces, 0x62ba8c cargo types, 0x62b268
+# industry types, 0x62be18 events; 0x6cec78 the world, 0x62c120 the map,
+# 0x62be68 the main camera.
+#
+# Buildings
+50 call 40d350 f i o62b26c.0          # Obj_StateB9
+50 call 40d350 f i o62b26c.7
+51 call 40e030 f i o62b26c.0          # Obj_NotActiveSite
+51 call 40e030 f i o62b26c.5
+52 call 40fb70 f i o62b26c.2 n0 b0    # Obj_TypeQuery
+52 call 40fb70 f i o62b26c.8 n0 b1
+53 call 40fba0 f f o62b26c.1 n0 n2    # Building_CargoOutput
+53 call 40fba0 f f o62b26c.9 n0 n5
+54 call 4b35b0 f f o62b26c.3          # Building_Total2c0
+54 call 4b35d0 f f o62b26c.3          # Building_Total2e8
+54 call 4b35f0 f f o62b26c.3          # Building_Total310
+54 call 4b3610 f f o62b26c.3          # Building_Total338
+54 call 4b3630 f f o62b26c.3          # Building_Total360
+54 call 4b3650 f f o62b26c.3          # Building_TotalRemaining
+55 call 412880 f i o62b26c.4          # Obj_FindRecord62b2fc
+56 call 413940 f i g62b26c n0 n0      # Table_SumCapacity
+56 call 413940 f i g62b26c n0 n2
+57 call 4139a0 f i g62b26c            # Table_CountActive
+57 call 413b40 f i g62b26c            # Table_CountKind4Idle
+58 call 40d380 f v o62b26c.6          # Building_ChargeUpkeep (books the upkeep)
+59 call 4129d0 f i o62b268.0 n0 n3    # Industry_HandlesCargo
+59 call 4129d0 f i o62b268.4 n0 n7
+# Companies
+60 call 4245e0 f i o62be10.0 n0 n0 n0 # Company_NthHolder
+60 call 4245e0 f i o62be10.1 n0 n1 n0
+60 call 4245e0 f i o62be10.1 n0 n0 n1
+61 call 4267f0 f v o62be10.0          # Company_CacheBuildings
+61 call 426740 f i o62be10.0 n0 n1    # Company_NthBuilding
+61 call 426740 f i o62be10.0 n0 n3
+62 call 426890 f i o62be10.2          # Company_LiveIndex
+62 call 427380 f i o62be10.2          # Company_HasAssets
+63 call 429910 f i o62be10.1 n0 n0    # Company_SpareShares
+63 call 429910 f i o62be10.1 n0 n1
+64 call 4299f0 f i g62be10 n0 i62be10.2 # Table_LiveRankOf
+65 call 422850 f i g62bae0 n0 i62be10.0 # Cities_CountConnected
+65 call 422850 f i g62bae0 n0 i62be10.3
+66 call 426aa0 f v o62be10.0 n0 i62b26c.2 f1500.5 # Company_InvestInBuilding
+# Cities and cargo
+70 call 42bf20 f f o6cfc9c.3 n0 n1    # City_CargoOutput (a region: building chain +0xd6)
+70 call 42bf20 f f o6cfc9c.8 n0 n4
+71 call 41e6e0 f v o62ba8c.2 n0 b0 b1 b2 b3 # Cargo_IndustryTotals
+71 call 41e6e0 f v o62ba8c.5 n0 b0 b1 b2 b3
+# Trains
+75 call 4a7760 f i o6cfcbc.0          # Train_CountCarsOther
+75 call 4a7760 f i o6cfcbc.4
+76 call 4ab730 f v o6cfcbc.3 n0 n1    # Train_SetRank
+# Players, events, track
+80 call 477920 f i g6ceb9c n0 i6ceb9c.0 # Table_ActiveIndexOf
+80 call 476ab0 f i o6ceb9c.0          # Obj_NamedEntry40
+80 call 476b30 f i o6ceb9c.0          # Obj_NamedEntry20
+81 call 4331e0 f i g62be18            # Table_CountClear82b
+82 call 493770 f i g6cfca8            # Table_CountFlag201_40
+83 call 48b100 f i o6cfca8.10 n0 i62be10.0 # Track_Cost
+83 call 48b110 f i o6cfca8.11 n0 i62be10.1 # Track_Cost2
+84 call 48f290 f i o6cfca8.20         # Tile_IsBlocked
+84 call 48e3f0 f v o6cfca8.21         # Tile_UpdateBlocked
+# World, map, camera
+90 call 40a150 f v g6cec78            # World_RefreshTime
+91 call 449cb0 f f g62c120 n0 f120.5 f80.25 # Map_DistanceToOtherKind
+91 call 449cb0 f f g62c120 n0 f10 f10
+92 call 44e7d0 f v g62c120 n0 f100 f100   # Map_MarkDirtyAround
+93 call 43ad20 f v g62be68            # Camera_ApplyZoom
+93 call 43a180 f v g62be68            # Obj_StampClock346
+# Territories (0x6cfc9c), stations (0x6cec20), routes (0x6cfcb4), building
+# types (0x62b2fc), news (0x6cea4c), message log (0x6acd34), engine types (0x6ada84)
+100 call 488110 f i g6cfc9c n0 i62be10.0  # Territories_CountLinked
+100 call 488110 f i g6cfc9c n0 i62be10.2
+101 call 487a60 f i o6cfc9c.1 n0 i62be10.0 # Region_StationsLinked
+101 call 487a60 f i o6cfc9c.6 n0 i62be10.1
+102 call 4879f0 f f o6cfc9c.2 n0 i62be10.0 # Obj_RoundedCost
+102 call 4879f0 f f o6cfc9c.9 n0 i62be10.3
+103 call 4818b0 f i g6cec20 n0 n0       # Table_CountActiveSites
+103 call 4818b0 f i g6cec20 n0 n1
+104 call 473ee0 f i g6cea4c n0 n3       # Table_FindField14Prev
+104 call 473f30 f i g6cea4c n0 n3       # Table_FindField14Next
+104 call 455440 f i g6acd34 n0 n2       # Table_FindField4Prev
+105 call 461cd0 f i g6ada84             # EngineTypes_PickForYear
+106 call 47f250 f i o6cec20.0 n0 i6cfca8.5 # Obj_NodeNear8
+106 call 47f250 f i o6cec20.3 n0 i6cfca8.40
+107 call 47f1f0 f i o6cec20.2           # Obj_BuildingMapQuery
+108 call 411d50 f i o62b268.3           # Obj_AllUnusedSomeUndefined (an industry type)
+109 call 417a70 f v g62b2fc n0 i62b2fc.4 n0 b0 b1 f0.5 # Type_RotatedOffset
+109 call 417a70 f v g62b2fc n0 i62b2fc.9 n1 b0 b1 f2.25
+110 call 4a6320 f i g6cfcb4 n0 n0       # Routes_Component
+110 call 4a6320 f i g6cfcb4 n0 n3
+111 call 4a51a0 f v g6cfcb4 n0 i6cfcb4.0 # Routes_Recount
+112 call 457da0 f v o62b26c.4 n0 b0     # Obj_DownVector
+113 call 47fdb0 f v o6cec20.1 n0 o62b26c.5 # Station_RecordNearby
+113 call 481480 f v g6cec20 n0 o62b26c.6 # Collection_RecordNearby
+114 call 491cf0 f v g6cfca8 n0 i6cfca8.30 n1 # Vehicles_PushState
+114 call 489e90 f v o6cfca8.31 n0 n2 n1 # Vehicle_PushState
+115 call 48e7a0 f v o6cfca8.50 n0 f40 n0 # Track_SetFlatAndLift
+116 call 45b370 f v o62b26c.7 n0 n0     # Obj_FreeEffects
+117 call 4a7390 f v o6cfcbc.1 n0 sBufferText # Train_SetBuffer1c6
+118 call 420e00 f v o62bae0.1 n0 o62bae0.2 # Obj_CopyNamedAmounts
+119 call 432ea0 f i g62be18 n0 sTest_Event n77 # Table_AddNamedRecord
+120 call 4895c0 f v n6 i62bae0.4 n1 sRenamed_City # Obj_Rename (a city)
+120 call 4895c0 f v n9 i6cec20.2 n1 sRenamed_Station
+121 call 482880 s v n1 n15              # Game_SetFixedTime
+121 call 482880 s v n0 n0
+122 call 43a1a0 f v g62be68 n0 f210 f190 # Camera_MoveEyeTo
+# Map editing on the loaded map (0x62c120)
+130 call 448c20 f v g62c120 n0 n200 n200 # Terrain_MarkFlooded
+130 call 448cb0 f v g62c120 n0 n201 n200 # Terrain_MarkDrained
+131 call 448d40 f i g62c120 n0 n202 n204 # Terrain_PaintVertex
+131 call 448d90 f v g62c120 n0 n203 n204 # Grid_MarkCell
+132 call 44a0e0 f v g62c120 n0 f150 f150 f3 n1 # Map_MarkBlocks3
+132 call 44a320 f v g62c120 n0 f160 f150 f2 n2 # Map_MarkBlocks0
+132 call 44a560 f v g62c120 n0 f170 f150 f4 n1 # Map_MarkTiles
+133 call 44de30 f v g62c120 n0 n180 n180 n1 # Map_FloodCell

@@ -85,3 +85,7 @@
 2600 shot
 2610 dump
 3500 shot
+# Calls whose results must be the same on both PCs (compared by mpcheck)
+3600 call 46a440 f i g6cd8d8 n0 sGuest   # Net_HasPlayer
+3601 call 46a440 f i g6cd8d8 n0 sNobody
+3602 call 468cb0 f i g6cd8d8 n0 x12345678 n0 # Obj_Map9050Query (no such key)

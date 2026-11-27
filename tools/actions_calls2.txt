@@ -1,0 +1,79 @@
+# More calls of functions the play-throughs do not reach (see
+# tools/actions_calls.txt), with sound on: simcheck mature.gmc 300
+# --do=@tools/actions_calls2.txt --sound. Globals: 0x6d402c the sound system,
+# 0xccb9f8 its 2D part, 0x6d4024 the engine (+0x18 the display, its +0x2d the renderer), 0x62c120
+# the map (also the terrain), 0x6cfca8 track pieces, 0x6cfcb4 routes,
+# 0x62be18 events, 0x6cfc9c territories, 0x62b26c buildings.
+#
+# Sound
+50 call 531710 f v g6d402c n0 f100 f20 f100        # Sound_ListenerPos
+50 call 531730 f v g6d402c n0 f0 f0 f1 f0 f1 f0    # Sound_ListenerDir
+51 call 531790 f v g6d402c n0 n0 f0.5              # Sound_SetSampleVolume (no such sample)
+51 call 56acd0 f v gccb9f8 n0 n0 f0.5              # Sound2D_SetSampleVolume
+51 call 56ac50 f v gccb9f8 n0 n0                   # Sound2D_Stop
+52 call 40b760 s v n0                              # AmbientSound_Ensure
+52 call 40b760 s v n1
+53 call 531520 f v g6d402c n0 n0                   # Sound_StopMusic
+53 call 517420 c v                                 # Music_Resume
+54 call 531520 f v g6d402c n0 n0
+# Renderer (between frames)
+60 call 546540 f i p6d4024.18.2d                      # Render_ZFuncAlways
+60 call 546560 f i p6d4024.18.2d                      # Render_ZFuncLessEqual
+61 call 544dd0 f i p6d4024.18.2d n0 n0 n0             # Render_SetTexCoordIndex
+62 call 545ac0 f i p6d4024.18.2d                      # Render_LockVb264b
+62 call 545af0 f i p6d4024.18.2d                      # Render_UnlockVb264b
+63 call 54bbf0 f v p6d4024.18.2d                      # Render_BindPair2647
+64 call 5207a0 s v b0 b1 b2                        # Textures_MemoryTotals
+65 call 5201e0 f v g6d4024 n0 b0 b1                # Window_FrameSize
+66 call 532aa0 f i g62c120                         # Render_AnimFrameB
+# Terrain and the map
+70 call 534270 f v g62c120 n0 n120 n130 n2         # Terrain_DecCellCount
+71 call 454010 f v g62c120 n0 f140 f140 f3 f1      # Terrain_AdjustLevel (raise)
+71 call 454010 f v g62c120 n0 f150 f145 f2 f-1     # Terrain_AdjustLevel (lower)
+72 call 532f60 f v g62c120 n0 n1                   # Terrain_SmoothPeaks
+# Track pieces, routes, the track tool's cameras
+80 call 492610 s i o6cfca8.70 n0 b0                # Track_FindClearance
+80 call 492610 s i o6cfca8.90 n1 b1
+81 call 493300 f v g6cfca8                         # Camera_BeginA4
+81 call 493360 f v g6cfca8                         # Camera_BeginAc
+81 call 4933c0 f v g6cfca8                         # Camera_UpdateZoomFlags
+82 call 4a4ff0 f i g6cfcb4 n0 i6cfca8.80           # Routes_SplitAt
+83 call 48bd70 f v o6cfca8.60                      # Track_ClearProps
+# Records, names, files
+90 call 42e050 f v o62be18.1 n0 o62be18.2          # Record_CopyFrom (event records)
+91 call 487d40 f i g6cfc9c n0 sNew_Territory       # StationTypes_Add
+92 call 42a8e0 f v b0 smaps\Foo_Bar1.gmp           # BaseNameNoSuffix
+92 call 42a8e0 f v b1 sa\b\Plain1.gmp
+93 call 46c2c0 f i sData\Configuration\game.cfg    # FileOpens
+93 call 46c2c0 f i sno such file
+94 call 46d7f0 f i sBritain                        # Scenario_SelectByName
+94 call 46d7f0 f i sNo Such Scenario
+95 call 46d240 c v                                 # CloseFile6ce994
+96 call 50c130 c v                                 # CompanyList_Reset
+97 call 4edce0 f v sPlayer Name                    # NameDialog_SetNameIfOpen (none open)
+98 call 516540 c i                                 # Tutorial_Blink352
+98 call 516590 c i                                 # Tutorial_Blink37a
+99 call 45b110 f v o62b26c.11 n0 f101.5 f99.5 n0   # Thunk45b110 (Obj_PlaceAtCell)
+100 call 4581d0 f v o62b26c.2                      # Obj_TakeCamera
+# Cars (0x62ba84), map cells (0x62c120 +0x2129, 0x1d7-byte records)
+110 call 41c010 f i o62ba84.2 n0 i6cfca8.7          # Obj_NodeNear356
+110 call 41c010 f i o62ba84.9 n0 i6cfca8.120
+111 call 41b980 f v o62ba84.3 n0 f0                 # Obj_SetAmount39c (<= 0: a random amount)
+111 call 41b980 f v o62ba84.4 n0 f2500
+112 call 41b9e0 f v o62ba84.5 n0 p62c120.2129       # Car_SetCargoValue
+113 call 42c8d0 f i p62c120.2129                    # Chain_AnyActive
+114 call 52d400 f v g62be68                         # Camera_UpdateEye
+# Engine settings, re-applied with their current values (p: read through
+# the engine pointer 0x6d4024); the first also re-applies the gamma (0x547f20)
+120 call 51f510 f v g6d4024 n0 p6d4024.1146b9     # Engine_SetCursorObject
+120 call 51f9c0 f v g6d4024 n0 p6d4024.1146c6     # Engine_SetTotalTexMemOverride
+120 call 51f9e0 f v g6d4024 n0 p6d4024.1146ce     # Engine_SetTexMemOverride3
+121 call 504a90 f v b0                            # Tool_Leave (a tool record of zeros)
+122 call 543e80 f i p6d4024.18.2d                 # Render_ClearAll
+123 call 45a000 f v n0 n0 o62ba84.3               # Obj_SwapBlockFlags (cars)
+123 call 45a000 f v n0 n0 o62ba84.11
+124 call 558530 f i g6d0818 n0 n0 n0 n0 n0 n0     # Widget_Send (the game window, a frame event)
+125 call 563ed0 f v p6d4024.18                    # Channels_PlayAll
+126 call 53d130 f v g6d4020 n0 sData\Configuration\engine.cfg # NameTable_AddPath
+127 call 5411c0 f i sData\Configuration\engine.cfg  # Tga_IsPlain
+127 call 5411c0 f i sno such.tga

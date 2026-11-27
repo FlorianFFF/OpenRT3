@@ -2927,6 +2927,9 @@ RT3_REPLACE(0x4924a0, Grid_NearestObject);
 // +0x206/+0x20a) until a piece's terrain rises above the track height minus it. A
 // bridge end (kind 3) or a blocked piece within 20 steps ends the search early.
 // Returns 0 if a junction (+0x20e) is met or no height above the minimum fits.
+// QUIRK: the limit lives in the `from` argument's stack slot, which starts at
+// the end height and loses the clearance height again at every piece, so the
+// n-th piece is tested against end height - n x height (as a float).
 int32_t __stdcall Track_FindClearance(uint8_t* p, int32_t from, float* height) {
     uint32_t a[3], b[3], c[3], d[3];
     float result = -1.0f;
@@ -2940,6 +2943,7 @@ int32_t __stdcall Track_FindClearance(uint8_t* p, int32_t from, float* height) {
     for (int32_t k = 0; k < 4; ++k) {
         *height = (float)(((double)k * D(0x5c8758) + D(0x5c8770)) * D(0x5c8d68));
         int32_t cur = next, prev = F<int32_t>(p, 0x202), steps = 0;
+        float lim = h0;  // (the original's `from` slot, see QUIRK)
         while (cur != -1) {
             uint8_t* q = (uint8_t*)Collection_Get(g_tracks, 0, cur);
             ++steps;
@@ -2948,7 +2952,7 @@ int32_t __stdcall Track_FindClearance(uint8_t* p, int32_t from, float* height) {
             if (F<int32_t>(q, 0x226) == 3) hit = true;
             else {
                 if (F<int32_t>(q, 0x20e) != -1) return 0;
-                float lim = (float)((double)h0 - *height);
+                lim = (float)((double)lim - *height);
                 Effect_GetVectors(q, 0, a, b, c, d);
                 float x, z;
                 bool rear = F<int32_t>(q, 0x206) == prev;

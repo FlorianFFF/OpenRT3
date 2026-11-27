@@ -164,7 +164,7 @@ static void MuteProcessAudio() {
     rt3::Log("harness: audio session %s", muted ? "muted" : "NOT muted (no audio device?)");
 }
 
-// Effects volume 0.6: the engine's setting (+0x1146fa, which the game applies
+// Effects and music volume 0.6: the engine's settings (+0x1146fa / +0x1146fe, which the game applies
 // itself) and the sound system's (0x531560, kind 2 = effects).
 static void SoundUp() {
     uint8_t* e = g_engine;
@@ -172,7 +172,10 @@ static void SoundUp() {
     if (!e || !s) return;
     *(float*)(e + 0x1146fa) = 0.6f;
     ((void(__fastcall*)(uint8_t*, int, float, int32_t))0x531560)(s, 0, 0.6f, 2);
-    rt3::Log("harness: frame %ld, effects volume 0.6", g_frame);
+    // And the music (+0x1146fe, applied x 0x5c9c80 as the game does, kind 0).
+    *(float*)(e + 0x1146fe) = 0.6f;
+    ((void(__fastcall*)(uint8_t*, int, float, int32_t))0x531560)(s, 0, (float)(0.6 * *(const double*)0x5c9c80), 0);
+    rt3::Log("harness: frame %ld, effects and music volume 0.6", g_frame);
 }
 
 static int __fastcall FrameHook(void* ctx) {
@@ -338,10 +341,25 @@ static void PostEnter() {
 //                         ("T <id> <x> <y> <owner>") with its map cell
 // Mouse and keys go in as window messages, as from the real devices, and the
 // faked cursor position (GetCursorPos) follows the scripted mouse.
-enum ActionKind { kCall, kMove, kLeftDown, kLeftUp, kRightDown, kRightUp, kKey, kDump, kChar, kSetText, kWaitPlayers, kExplore, kClickId, kShot, kWheel, kKeyDown, kKeyUp, kZoom, kLook, kCities, kCell, kTracks, kAutoEnter, kWaitGame };
-struct Action { int frame; ActionKind kind; uint32_t addr; float x, y; char text[64]; };
+enum ActionKind { kCall, kMove, kLeftDown, kLeftUp, kRightDown, kRightUp, kKey, kDump, kChar, kSetText, kWaitPlayers, kExplore, kClickId, kShot, kWheel, kKeyDown, kKeyUp, kZoom, kLook, kCities, kCell, kTracks, kAutoEnter, kWaitGame, kCallFn };
+struct Action { int frame; ActionKind kind; uint32_t addr; float x, y; char text[160]; uint32_t objColl; int32_t objIndex; };  // (objColl: x, y are that object's cell)
 static Action g_actions[1024];
 static int g_numActions, g_nextAction;
+
+// The map cell of the action's object (the objIndex-th of the collection whose
+// pointer is the global objColl; 0x455800 / 0x455810, its position in cells).
+static void* CollectionObject(uint32_t global, int32_t index, bool wantId, uint32_t* id);
+static bool ObjectCell(const Action& a, float* x, float* y) {
+    uint32_t id = 0;
+    void* o = CollectionObject(a.objColl, a.objIndex, false, &id);
+    if (!o) {
+        rt3::Log("harness: frame %ld, no object %x.%d", g_frame, a.objColl, a.objIndex);
+        return false;
+    }
+    *x = (float)((double(__fastcall*)(void*))0x455800)(o);
+    *y = (float)((double(__fastcall*)(void*))0x455810)(o);
+    return true;
+}
 
 
 static HWND GameWindow() {
@@ -445,6 +463,149 @@ static bool ScreenOfCell(float tx, float ty, float* ox, float* oy) {
     }
     return false;
 }
+
+// "fn:<spec>": calls a game function by its exe address, the same in every run
+// (the original run gets the original, the rewrite run the rewrite through the
+// replacement JMP), and logs what it returned: "R <addr> <eax> <st0 bits>
+// <crc of the scratch buffers>". simcheck compares these lines between the
+// runs (and the save catches what the call changed). Spec, '/'-separated:
+//   <hex addr>/<cc>/<ret>/<arg>/...
+//   cc   f: the first two args in ECX / EDX, the rest on the stack (thiscall
+//           methods are f with a dummy EDX); s / c: all on the stack
+//   ret  i: EAX, b: AL, f: ST0 (float or double), v: nothing
+//   arg  n<dec> / x<hex> integer, f<float>, d<double> (two words),
+//        o<coll>.<i> the i-th object and i<coll>.<i> its id of the collection
+//        whose pointer is the global <coll> (hex), g<hex> the dword global,
+//        p<hex>.<off>[.<off>..] the dword at +off (hex) of the object global
+//        <hex> points to (each further .<off> follows that pointer again),
+//        a<hex> the address itself, b<n> scratch buffer n (0..3, 1 KB, zeroed
+//        before the call: out parameters), s<text> a string
+// A fault in the call is caught and logged as "R <addr> fault".
+static uint8_t g_scratch[4][1024];
+static char g_callStrings[8][64];
+
+static void* CollectionObject(uint32_t global, int32_t index, bool wantId, uint32_t* id) {
+    rt3::Collection* c = *(rt3::Collection**)global;
+    if (!c) return nullptr;
+    const int32_t n = ((int32_t(__fastcall*)(rt3::Collection*))0x517cf0)(c);
+    if (n <= 0) return nullptr;
+    index = index % n;
+    const uint32_t i = ((uint32_t(__fastcall*)(rt3::Collection*, int, uint32_t, int))0x518380)(c, 0, (uint32_t)index, 0);
+    if (wantId) *id = i;
+    return ((void*(__fastcall*)(rt3::Collection*, int, uint32_t))0x518140)(c, 0, i);
+}
+
+// Pushes stack[0..n) (stack[0] nearest), sets ECX / EDX and calls fn; ESP is
+// put back afterwards whatever the callee popped (stdcall or cdecl).
+static int CallRaw(uint32_t fn, uint32_t ecxv, uint32_t edxv, const uint32_t* stack, int n, uint32_t* eaxOut,
+                   uint64_t* st0Out, int fret) {
+    uint32_t r = 0, saved = 0;
+    uint64_t f = 0;
+    __try {
+        __asm {
+            mov saved, esp
+            mov ecx, n
+            mov esi, stack
+        push_loop:
+            test ecx, ecx
+            jz pushed
+            dec ecx
+            push dword ptr [esi + ecx * 4]
+            jmp push_loop
+        pushed:
+            mov ecx, ecxv
+            mov edx, edxv
+            call fn
+            mov esp, saved
+            mov r, eax
+            cmp fret, 0
+            je no_float
+            fstp qword ptr f
+        no_float:
+        }
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return 0;
+    }
+    *eaxOut = r;
+    *st0Out = f;
+    return 1;
+}
+
+static void CallFunction(const char* spec) {
+    char buf[160];
+    strncpy(buf, spec, sizeof buf - 1);
+    buf[sizeof buf - 1] = 0;
+    char* tok[16];
+    int nt = 0;
+    for (char* s = strtok(buf, "/"); s && nt < 16; s = strtok(nullptr, "/")) tok[nt++] = s;
+    if (nt < 3) return;
+    const uint32_t fn = strtoul(tok[0], nullptr, 16);
+    const bool fast = tok[1][0] == 'f';
+    const char ret = tok[2][0];
+    uint32_t words[16];
+    int nw = 0, strings = 0;
+    memset(g_scratch, 0, sizeof g_scratch);
+    for (int i = 3; i < nt && nw < 14; ++i) {
+        const char* t = tok[i];
+        uint32_t v = 0;
+        switch (t[0]) {
+        case 'n': v = (uint32_t)strtol(t + 1, nullptr, 10); break;
+        case 'x': v = strtoul(t + 1, nullptr, 16); break;
+        case 'f': { float x = (float)atof(t + 1); memcpy(&v, &x, 4); break; }
+        case 'd': {
+            double x = atof(t + 1);
+            uint32_t w[2];
+            memcpy(w, &x, 8);
+            words[nw++] = w[0];
+            v = w[1];
+            break;
+        }
+        case 'o': case 'i': {
+            char* dot = nullptr;
+            const uint32_t g = strtoul(t + 1, &dot, 16);
+            uint32_t id = 0;
+            void* o = CollectionObject(g, dot && *dot == '.' ? atoi(dot + 1) : 0, true, &id);
+            v = t[0] == 'o' ? (uint32_t)(uintptr_t)o : id;
+            break;
+        }
+        case 'g': v = *(uint32_t*)strtoul(t + 1, nullptr, 16); break;
+        case 'p': {  // p<global>.<off>[.<off>...]: follows pointers: *(*(global) + off) ...
+            char* q = nullptr;
+            v = *(uint32_t*)strtoul(t + 1, &q, 16);
+            while (v && q && *q == '.') v = *(uint32_t*)(v + strtoul(q + 1, &q, 16));
+            break;
+        }
+        case 'a': v = strtoul(t + 1, nullptr, 16); break;
+        case 'b': v = (uint32_t)(uintptr_t)g_scratch[atoi(t + 1) & 3]; break;
+        case 's':
+            if (strings < 8) {
+                strncpy(g_callStrings[strings], t + 1, 63);
+                v = (uint32_t)(uintptr_t)g_callStrings[strings++];
+            }
+            break;
+        }
+        words[nw++] = v;
+    }
+    uint32_t ecxv = 0, edxv = 0;
+    const uint32_t* stack = words;
+    int ns = nw;
+    if (fast) {
+        if (ns > 0) { ecxv = stack[0]; ++stack; --ns; }
+        if (ns > 0) { edxv = stack[0]; ++stack; --ns; }
+    }
+    uint32_t eax = 0;
+    uint64_t st0 = 0;
+    if (!CallRaw(fn, ecxv, edxv, stack, ns, &eax, &st0, ret == 'f')) {
+        rt3::Log("R %06x fault", fn);
+        return;
+    }
+    if (ret == 'b') eax &= 0xff;
+    if (ret == 'v' || ret == 'f') eax = 0;  // (a float result leaves EAX as it was)
+    rt3::Log("R %06x %08x %016llx %08x", fn, eax, ret == 'f' ? st0 : 0ull, rt3::Crc32(&g_scratch[0][0], sizeof g_scratch));
+}
+
+struct Action;
+static bool ObjectCell(const Action& a, float* x, float* y);
 
 static void DumpWidgets() {
     uint8_t* m = g_windowManager;
@@ -587,6 +748,10 @@ static void RunActions() {
             Screenshot(w);
             continue;
         }
+        if (a.kind == kCallFn) {
+            CallFunction(a.text);
+            continue;
+        }
         if (a.kind == kAutoEnter) {
             g_autoEnter = (int)a.addr;
             rt3::Log("harness: frame %ld, Enter in dialogs %s", g_frame, g_autoEnter ? "on" : "off");
@@ -598,12 +763,14 @@ static void RunActions() {
         if (a.kind == kZoom || a.kind == kLook) {
             uint8_t* cam = g_62be68;
             if (!cam || !Game()) continue;
+            float lx = a.x, ly = a.y;
+            if (a.objColl && !ObjectCell(a, &lx, &ly)) continue;
             if (a.kind == kZoom) {  // 0x43cc30: steps along the zoom ladder (negative: in)
                 rt3::Log("harness: frame %ld, zoom %d", g_frame, (int32_t)a.addr);
                 ((void(__fastcall*)(uint8_t*, int, int32_t))0x43cc30)(cam, 0, (int32_t)a.addr);
             } else {  // 0x43d0c0: centres the view on map cell (x, y)
-                rt3::Log("harness: frame %ld, look at %.1f %.1f", g_frame, a.x, a.y);
-                ((void(__fastcall*)(uint8_t*, int, float, float))0x43d0c0)(cam, 0, a.x, a.y);
+                rt3::Log("harness: frame %ld, look at %.1f %.1f", g_frame, lx, ly);
+                ((void(__fastcall*)(uint8_t*, int, float, float))0x43d0c0)(cam, 0, lx, ly);
             }
             continue;
         }
@@ -680,7 +847,9 @@ static void RunActions() {
         ActionKind kind = a.kind;
         float mx = a.x, my = a.y;
         if (kind == kCell) {  // a mouse action (move / left down / left up) over map cell (x, y)
-            if (!Game() || !ScreenOfCell(a.x, a.y, &mx, &my)) {
+            float cx = a.x, cy = a.y;
+            if (a.objColl && !ObjectCell(a, &cx, &cy)) continue;
+            if (!Game() || !ScreenOfCell(cx, cy, &mx, &my)) {
                 rt3::Log("harness: frame %ld, cell %.1f %.1f not in view", g_frame, a.x, a.y);
                 continue;
             }
@@ -723,6 +892,13 @@ static void ParseActions(char* list) {
             p += 6;
             a.kind = kCities;
             done = true;
+        } else if (!strncmp(p, "fn:", 3)) {  // a call (CallFunction), its spec up to the next ','
+            p += 3;
+            a.kind = kCallFn;
+            int n = 0;
+            while (*p && *p != ',' && n < (int)sizeof a.text - 1) a.text[n++] = *p++;
+            a.text[n] = 0;
+            done = true;
         } else if (!strncmp(p, "waitgame", 8)) {
             p += 8;
             a.kind = kWaitGame;
@@ -742,6 +918,19 @@ static void ParseActions(char* list) {
             a.x = (float)strtod(p, &p);
             if (*p == ':') ++p;
             a.y = (float)strtod(p, &p);
+            done = true;
+        } else if (!strncmp(p, "ol:", 3) || !strncmp(p, "ocm:", 4) || !strncmp(p, "ocd:", 4) || !strncmp(p, "ocu:", 4)) {
+            // the same by object: <coll>.<i>, the i-th object of the collection global <coll>
+            if (p[1] == 'l') {
+                a.kind = kLook;
+                p += 3;
+            } else {
+                a.kind = kCell;
+                a.addr = p[2] == 'm' ? kMove : p[2] == 'd' ? kLeftDown : kLeftUp;
+                p += 4;
+            }
+            a.objColl = strtoul(p, &p, 16);
+            if (*p == '.') a.objIndex = strtol(p + 1, &p, 10);
             done = true;
         } else if (!strncmp(p, "cm:", 3) || !strncmp(p, "cd:", 3) || !strncmp(p, "cu:", 3)) {
             a.addr = p[1] == 'm' ? kMove : p[1] == 'd' ? kLeftDown : kLeftUp;  // what to do at the cell
