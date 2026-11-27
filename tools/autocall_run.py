@@ -78,13 +78,30 @@ def main():
             lines.remove(l)
         if not lines:
             continue
-        cov = ROOT / "out" / "coverage_runs" / f"auto_{Path(save).stem}_{ch.stem}.txt"
-        out = simcheck(save, frames, timeout, lines, ch.stem, [f"--coverage={cov}"])
-        verdict = [l for l in out.splitlines() if "MATCH" in l or "DIFFER" in l or "FAILED" in l]
-        print(f"{ch.stem}: {len(lines)} calls: " + " | ".join(verdict), flush=True)
-        if any("DIFFER" in l or "FAILED" in l for l in verdict):
-            with findings.open("a") as f:
-                f.write(f"== {ch.stem} ({save}):\n" + "\n".join(lines) + "\n--\n" + out + "\n")
+        # A run without a save: split until the calls that end a run are found.
+        # When the original runs failed too (calls whose generated arguments make
+        # even the original nondeterministic) they are skipped, else they are a
+        # finding.
+        parts = [(lines, ch.stem)]
+        while parts:
+            part, tag = parts.pop(0)
+            cov = ROOT / "out" / "coverage_runs" / f"auto_{Path(save).stem}_{tag}.txt"
+            out = simcheck(save, frames, timeout, part, tag, [f"--coverage={cov}"])
+            verdict = [l for l in out.splitlines() if "MATCH" in l or "DIFFER" in l or "FAILED" in l]
+            print(f"{tag}: {len(part)} calls: " + " | ".join(verdict), flush=True)
+            if any("FAILED" in l for l in verdict):
+                if len(part) > 1:
+                    half = len(part) // 2
+                    parts += [(part[:half], tag + "a"), (part[half:], tag + "b")]
+                    continue
+                orig_too = "orig1: exception" in out or "orig2: exception" in out
+                with (skip if orig_too else findings).open("a") as f:
+                    f.write(f"{part[0].split()[2]} {part[0].split('#')[-1].strip()}: "
+                            + ("unstable in the original with the generated arguments\n" if orig_too else f"fails only in the rewrite\n{out}\n"))
+                continue
+            if any("DIFFER" in l for l in verdict):
+                with findings.open("a") as f:
+                    f.write(f"== {tag} ({save}):\n" + "\n".join(part) + "\n--\n" + out + "\n")
     return 0
 
 

@@ -100,7 +100,11 @@ def main():
     # Scripted calls ("call" lines in both scripts, src/harness.cpp CallFunction)
     # that must return the same on both PCs: with the original on one side and
     # the rewrite on the other, this compares the two.
-    calls = {r: [l for l in (GAME / f"mp_{r}.log").read_text(errors="replace").splitlines() if l.startswith("R ")]
+    # Net_Send (0x469d30) calls are the scripts' messages to the other PC (chat,
+    # requests): each side sends its own, and their effect shows in the sync
+    # checks, so they are not compared.
+    calls = {r: [l for l in (GAME / f"mp_{r}.log").read_text(errors="replace").splitlines()
+                 if l.startswith("R ") and not l.startswith("R 469d30")]
              if (GAME / f"mp_{r}.log").exists() else [] for r in ("host", "client")}
     if calls["host"] or calls["client"]:
         same = calls["host"] == calls["client"]

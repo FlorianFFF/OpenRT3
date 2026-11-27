@@ -553,14 +553,15 @@ static bool ScreenOfCell(float tx, float ty, float* ox, float* oy) {
 //        p<hex>.<off>[.<off>..] the dword at +off (hex) of the object global
 //        <hex> points to (each further .<off> follows that pointer again),
 //        h<name> the data pack's id of a file name (NameTable_Hash),
-//        r the previous call's result, a<hex> the address itself, b<n> scratch buffer n (0..3, 1 KB, zeroed
+//        r the previous call's result, a<hex> the address itself, b<n> scratch buffer n (0..7, 1 KB, zeroed
 //        before the call: out parameters), y<hex> scratch buffer 2 (then 3)
-//        holding those bytes (a record to pass in), w<tok>,<tok>,... the same
+//        holding those bytes (a record to pass in), w<tok>+<tok>+... the same
 //        holding 32-bit words given as single-word tokens (a message with real
-//        ids: wi62be10.0,f1.5), s<text> a string;
+//        ids: wi62be10.0+f1.5; ',' separates actions; inside a w list also
+//        m<coll>.<i>@<hex off>, the byte at that offset of the i-th object), s<text> a string;
 //        D<hex> is no argument: the stack is filled with that byte first (DirtyStack)
 // A fault in the call is caught and logged as "R <addr> fault".
-static uint8_t g_scratch[4][1024];
+static uint8_t g_scratch[8][1024];
 static uint32_t g_lastCall;  // the previous call's EAX (argument r, hex index r)
 static char g_callStrings[8][64];
 
@@ -642,6 +643,15 @@ static uint32_t CallWord(const char* t) {
         return t[0] == 'o' ? (uint32_t)(uintptr_t)o : id;
     }
     case 'g': return *(uint32_t*)strtoul(t + 1, nullptr, 16);
+    case 'm': {  // m<coll>.<i>@<hex off>: the byte at that offset of the i-th object (a current colour)
+        char* q = nullptr;
+        const uint32_t g = strtoul(t + 1, &q, 16);
+        const int32_t i = q && *q == '.' ? strtol(q + 1, &q, 10) : 0;
+        const uint32_t off = q && *q == '@' ? strtoul(q + 1, nullptr, 16) : 0;
+        uint32_t id = 0;
+        const uint8_t* o = (const uint8_t*)CollectionObject(g, i, true, &id);
+        return o ? o[off] : 0;
+    }
     case 'p': {
         char* q = nullptr;
         uint32_t v = *(uint32_t*)strtoul(t + 1, &q, 16);
@@ -711,13 +721,13 @@ static void CallFunction(const char* spec) {
             v = pack ? (uint32_t)((int32_t(__fastcall*)(uint8_t*, int, const char*))0x53b5c0)(pack, 0, t + 1) : 0;
             break;
         }
-        case 'b': v = (uint32_t)(uintptr_t)g_scratch[atoi(t + 1) & 3]; break;
-        case 'w': {  // w<tok>,<tok>,...: the next of scratch buffers 2, 3 holding those 32-bit words (a message, a record)
+        case 'b': v = (uint32_t)(uintptr_t)g_scratch[atoi(t + 1) & 7]; break;
+        case 'w': {  // w<tok>+<tok>+...: the next of scratch buffers 2, 3 holding those 32-bit words (a message, a record)
             uint32_t* buf = (uint32_t*)g_scratch[2 + (filled++ & 1)];
             char sub[64];
             int k = 0;
             for (const char* q = t + 1; *q && k < 256;) {
-                const char* e = strchr(q, ',');
+                const char* e = strchr(q, '+');
                 const size_t n = e ? (size_t)(e - q) : strlen(q);
                 memcpy(sub, q, n < sizeof sub ? n : sizeof sub - 1);
                 sub[n < sizeof sub ? n : sizeof sub - 1] = 0;

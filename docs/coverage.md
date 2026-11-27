@@ -8,12 +8,12 @@ function ran during the difftests (`build.bat test` with
 RT3RE_COVERAGE set), inside a test that compared it, or a caller,
 with the rewrite. Neither = only checked by reading.
 
-Runs: `After_00_3000`, `ai_owned_lol_3000`, `britain_3000`, `editor`, `explore1`, `mature_2000`, `mature_actions`, `mature_calls`, `mature_calls2`, `mature_dialogs`, `mature_quit`, `mature_sound`, `mature_tour`, `mature_windows`, `messingbeforeai_3000`, `mp_client`, `mp_client_explore`, `mp_client_play`, `mp_client_quit`, `mp_host`, `mp_host_explore`, `mp_host_play`, `mp_host_quit`, `scenario2_3000`, `track1`, `try_mouse`
+Runs: `After_00_3000`, `ai_owned_lol_3000`, `auto_mature_chunk_000`, `auto_mature_chunk_001`, `auto_mature_chunk_002`, `auto_mature_chunk_003`, `auto_mature_chunk_004`, `auto_mature_chunk_005`, `auto_mature_chunk_006`, `auto_mature_chunk_008`, `britain_3000`, `editor`, `explore1`, `mature_2000`, `mature_actions`, `mature_calls`, `mature_calls2`, `mature_dialogs`, `mature_quit`, `mature_sound`, `mature_tour`, `mature_windows`, `messingbeforeai_3000`, `mp_client`, `mp_client_chat`, `mp_client_explore`, `mp_client_msgs`, `mp_client_play`, `mp_client_quit`, `mp_host`, `mp_host_chat`, `mp_host_explore`, `mp_host_msgs`, `mp_host_play`, `mp_host_quit`, `scenario2_3000`, `track1`, `try_mouse`
 
 | | Functions | Code bytes |
 |---|---|---|
-| Ran in simcheck | 3389 / 4261 (79.5%) | 1099750 / 1372671 (80.1%) |
-| Ran or difftest | 4261 / 4261 (100.0%) | 1372671 / 1372671 (100.0%) |
+| Ran in simcheck | 3748 / 4276 (87.7%) | 1209701 / 1388259 (87.1%) |
+| Ran or difftest | 4276 / 4276 (100.0%) | 1388259 / 1388259 (100.0%) |
 
 ## Per source file
 
@@ -21,71 +21,71 @@ Runs: `After_00_3000`, `ai_owned_lol_3000`, `britain_3000`, `editor`, `explore1`
 |---|---|---|---|
 | game/AI.cpp | 33/44 | 44/44 | 0 |
 | game/Vehicles.cpp | 22/22 | 22/22 | 0 |
-| game/Buildings.cpp | 121/132 | 132/132 | 0 |
+| game/Buildings.cpp | 124/132 | 132/132 | 0 |
 | game/Sites.cpp | 58/65 | 65/65 | 0 |
-| game/Cars.cpp | 48/56 | 56/56 | 0 |
-| game/Cargo.cpp | 42/46 | 46/46 | 0 |
-| game/Cities.cpp | 45/50 | 50/50 | 0 |
-| game/Company.cpp | 85/109 | 109/109 | 0 |
-| game/Records.cpp | 31/54 | 54/54 | 0 |
-| game/Events.cpp | 7/10 | 10/10 | 0 |
-| game/World.cpp | 84/96 | 96/96 | 0 |
-| game/Camera.cpp | 66/81 | 81/81 | 0 |
-| game/Commands.cpp | 38/64 | 64/64 | 0 |
-| game/SaveGame.cpp | 3/5 | 5/5 | 0 |
-| game/Map.cpp | 91/119 | 119/119 | 0 |
-| game/SceneObjects.cpp | 134/143 | 143/143 | 0 |
-| game/Hotkeys.cpp | 48/56 | 56/56 | 0 |
-| game/DevMenu.cpp | 15/18 | 18/18 | 0 |
-| game/Network.cpp | 147/252 | 252/252 | 0 |
-| game/Effects.cpp | 29/51 | 51/51 | 0 |
-| game/Players.cpp | 36/43 | 43/43 | 0 |
-| game/Minimap.cpp | 23/27 | 27/27 | 0 |
-| game/Stations.cpp | 76/82 | 82/82 | 0 |
-| game/App.cpp | 35/57 | 57/57 | 0 |
-| game/StationTypes.cpp | 22/28 | 28/28 | 0 |
-| game/ScenarioText.cpp | 12/18 | 18/18 | 0 |
-| game/Track.cpp | 114/140 | 140/140 | 0 |
-| game/TrackNet.cpp | 78/90 | 90/90 | 0 |
-| game/Train.cpp | 117/128 | 128/128 | 0 |
-| game/Trains.cpp | 38/44 | 44/44 | 0 |
-| game/IndustryWindow.cpp | 22/56 | 56/56 | 0 |
-| game/CompanyWindow.cpp | 22/42 | 42/42 | 0 |
-| game/CompanyList.cpp | 21/37 | 37/37 | 0 |
+| game/Cars.cpp | 51/58 | 58/58 | 0 |
+| game/IndustryWindow.cpp | 37/58 | 58/58 | 0 |
+| game/SaveGame.cpp | 4/6 | 6/6 | 0 |
+| game/Cargo.cpp | 43/46 | 46/46 | 0 |
+| game/Cities.cpp | 46/51 | 51/51 | 0 |
+| game/Company.cpp | 87/109 | 109/109 | 0 |
+| game/Records.cpp | 38/54 | 54/54 | 0 |
+| game/Events.cpp | 8/10 | 10/10 | 0 |
+| game/World.cpp | 91/96 | 96/96 | 0 |
+| game/Camera.cpp | 79/81 | 81/81 | 0 |
+| game/Commands.cpp | 53/64 | 64/64 | 0 |
+| game/Map.cpp | 109/120 | 120/120 | 0 |
+| game/SceneObjects.cpp | 135/143 | 143/143 | 0 |
+| game/App.cpp | 50/58 | 58/58 | 0 |
+| game/Hotkeys.cpp | 50/56 | 56/56 | 0 |
+| game/DevMenu.cpp | 16/18 | 18/18 | 0 |
+| game/Network.cpp | 171/252 | 252/252 | 0 |
+| game/Effects.cpp | 35/51 | 51/51 | 0 |
+| game/Players.cpp | 38/43 | 43/43 | 0 |
+| game/Minimap.cpp | 24/27 | 27/27 | 0 |
+| game/Stations.cpp | 84/84 | 84/84 | 0 |
+| game/StationTypes.cpp | 24/28 | 28/28 | 0 |
+| game/ScenarioText.cpp | 17/18 | 18/18 | 0 |
+| game/Track.cpp | 135/140 | 140/140 | 0 |
+| game/TrackNet.cpp | 83/91 | 91/91 | 0 |
+| engine/Misc.cpp | 63/64 | 64/64 | 0 |
+| game/Train.cpp | 128/130 | 130/130 | 0 |
+| game/Trains.cpp | 42/44 | 44/44 | 0 |
+| game/CompanyWindow.cpp | 32/42 | 42/42 | 0 |
+| game/CompanyList.cpp | 28/37 | 37/37 | 0 |
 | game/EditorDialogs.cpp | 50/52 | 52/52 | 0 |
-| game/RulesDialog.cpp | 38/79 | 79/79 | 0 |
-| game/GameWindows.cpp | 36/59 | 59/59 | 0 |
+| game/RulesDialog.cpp | 40/79 | 79/79 | 0 |
+| game/GameWindows.cpp | 49/59 | 59/59 | 0 |
 | game/Reports.cpp | 13/22 | 22/22 | 0 |
-| game/MultiplayerDialog.cpp | 43/69 | 69/69 | 0 |
-| game/Newspaper.cpp | 19/37 | 37/37 | 0 |
-| game/MapEditor.cpp | 10/16 | 16/16 | 0 |
-| game/OptionsDialog.cpp | 16/51 | 51/51 | 0 |
+| game/MultiplayerDialog.cpp | 46/69 | 69/69 | 0 |
+| game/Newspaper.cpp | 27/37 | 37/37 | 0 |
+| game/MapEditor.cpp | 11/16 | 16/16 | 0 |
+| game/OptionsDialog.cpp | 25/51 | 51/51 | 0 |
 | game/SetupScreen.cpp | 5/8 | 8/8 | 0 |
-| game/StationWindow.cpp | 44/55 | 55/55 | 0 |
-| game/StockWindow.cpp | 7/13 | 13/13 | 0 |
-| game/TrackTool.cpp | 30/42 | 42/42 | 0 |
-| game/TrainWindow.cpp | 37/50 | 50/50 | 0 |
-| game/Tutorial.cpp | 5/28 | 28/28 | 0 |
+| game/StationWindow.cpp | 47/55 | 55/55 | 0 |
+| game/StockWindow.cpp | 11/13 | 13/13 | 0 |
+| game/TrackTool.cpp | 39/42 | 42/42 | 0 |
+| game/TrainWindow.cpp | 44/50 | 50/50 | 0 |
+| game/Tutorial.cpp | 21/28 | 28/28 | 0 |
 | engine/CollectionCore.cpp | 32/34 | 34/34 | 0 |
-| engine/TextDate.cpp | 39/42 | 42/42 | 0 |
-| engine/Misc.cpp | 54/62 | 62/62 | 0 |
-| engine/NetCore.cpp | 66/83 | 83/83 | 0 |
+| engine/TextDate.cpp | 42/42 | 42/42 | 0 |
+| engine/NetCore.cpp | 69/83 | 83/83 | 0 |
 | engine/Scene.cpp | 51/52 | 52/52 | 0 |
-| engine/SceneNode.cpp | 77/90 | 90/90 | 0 |
-| engine/Sound.cpp | 49/56 | 56/56 | 0 |
-| engine/Terrain.cpp | 139/145 | 145/145 | 0 |
-| engine/EngineContainers.cpp | 117/123 | 123/123 | 0 |
-| engine/MouseCursor.cpp | 28/37 | 37/37 | 0 |
-| engine/Texture.cpp | 62/66 | 66/66 | 0 |
+| engine/SceneNode.cpp | 86/90 | 90/90 | 0 |
+| engine/Sound.cpp | 50/56 | 56/56 | 0 |
+| engine/Terrain.cpp | 142/145 | 145/145 | 0 |
+| engine/EngineContainers.cpp | 118/123 | 123/123 | 0 |
+| engine/MouseCursor.cpp | 33/37 | 37/37 | 0 |
+| engine/Texture.cpp | 63/66 | 66/66 | 0 |
 | engine/Render.cpp | 133/138 | 138/138 | 0 |
 | engine/Fx.cpp | 5/5 | 5/5 | 0 |
-| engine/Input.cpp | 32/36 | 36/36 | 0 |
-| engine/Font.cpp | 41/44 | 44/44 | 0 |
+| engine/Input.cpp | 36/36 | 36/36 | 0 |
+| engine/Font.cpp | 42/44 | 44/44 | 0 |
 | engine/Emitter.cpp | 36/37 | 37/37 | 0 |
-| engine/Music.cpp | 58/59 | 59/59 | 0 |
-| engine/Widgets.cpp | 58/67 | 67/67 | 0 |
-| engine/SysInfo.cpp | 15/30 | 30/30 | 0 |
-| engine/Controls.cpp | 57/76 | 76/76 | 0 |
+| engine/Music.cpp | 59/59 | 59/59 | 0 |
+| engine/Widgets.cpp | 62/67 | 67/67 | 0 |
+| engine/SysInfo.cpp | 30/30 | 30/30 | 0 |
+| engine/Controls.cpp | 69/76 | 76/76 | 0 |
 | engine/Utilities.cpp | 56/60 | 60/60 | 0 |
 | engine/Sound3D.cpp | 68/73 | 73/73 | 0 |
 

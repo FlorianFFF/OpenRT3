@@ -18,3 +18,13 @@
 2600 call 46a440 f i g6cd8d8 n0 sGuest   # Net_HasPlayer
 2601 call 46a440 f i g6cd8d8 n0 sNobody
 2602 call 468cb0 f i g6cd8d8 n0 x12345678 n0 # Obj_Map9050Query (no such key)
+# Chat from the client
+2610 call 469d30 f v g6cd8d8 n0 n0 n1 n7 shi_all n1 n0
+2612 call 469d30 f v g6cd8d8 n0 n0 n1 n7 s\snore n1 n0
+# Requests the host relays to every PC (Net_RelayStamped), as the game's own tools send them.
+# They change nothing (same name, same colours, an empty cell): relayed messages apply
+# when they arrive, so a real change could fall on either side of a weekly check.
+2620 call 469d30 f v g6cd8d8 n0 n0 x77 n16 wn0+i62be10.1+f520+f245 n1 n0   # bulldoze an empty cell (NetMsg_Bulldoze; sender 0: as the own request the original resets the bulldozer tool, null here)
+2622 call 469d30 f v g6cd8d8 n0 n0 x5b n4 wi62be10.1 n1 n0   # electrify (NetMsg_Electrify)
+2624 call 469d30 f v g6cd8d8 n0 n0 x5d n16 wg6d40e4+n1+x73657547+x74 n1 n0   # rename the player to its own name 'Guest' (NetMsg_RenamePlayer)
+2626 call 469d30 f v g6cd8d8 n0 n0 x5f n12 wg6d40e4+n1+m6ceb9c.1@15c n1 n0   # its own colour again (NetMsg_PlayerColour)

@@ -94,3 +94,9 @@
 3600 call 46a440 f i g6cd8d8 n0 sGuest   # Net_HasPlayer
 3601 call 46a440 f i g6cd8d8 n0 sNobody
 3602 call 468cb0 f i g6cd8d8 n0 x12345678 n0 # Obj_Map9050Query (no such key)
+# Chat (message 1, NetMsg_Chat on every peer; the backslash commands of Chat_HandleCommand)
+3610 call 469d30 f v g6cd8d8 n0 n0 n1 n6 shello n1 n0
+3612 call 469d30 f v g6cd8d8 n0 n0 n1 n10 s\me_waves n1 n0
+3614 call 469d30 f v g6cd8d8 n0 n0 n1 n13 s\trackisfree n1 n0
+3616 call 469d30 f v g6cd8d8 n0 n0 n1 n12 s\whois_Guest n1 n0
+3618 call 469d30 f v g6cd8d8 n0 n0 n1 n7 s\clear n1 n0

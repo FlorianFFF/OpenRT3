@@ -158,6 +158,10 @@ def build(fn, d):
         if a is None:
             return None, f"parameter {i} '{typ} {pname}'"
         tokens.append(a)
+    # Every pointer parameter gets a buffer of its own (shared out-buffers would
+    # make the result depend on the order of the stores).
+    order = iter(["b4", "b5", "b6", "b7", "b1", "b2", "b3"] * 4)
+    tokens = [next(order) if t in ("b1", "b2") else t for t in tokens]
     if params and object_param(*params[0]) and not first_obj:
         return None, f"no object for '{params[0][0]} {params[0][1]}' (prefix {prefix_of(fn)})"
     r = "v" if ret.strip() == "void" else "f" if ret.strip() in ("float", "double") else "i"
