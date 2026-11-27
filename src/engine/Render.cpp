@@ -479,8 +479,7 @@ static inline int32_t Ftol(double v) {
     int32_t r;
     __asm {
         fld v
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov r, eax
     }
     return r;
@@ -740,8 +739,7 @@ int32_t __fastcall Render_ProjectPoint(uint8_t* r, int, float x, float y, float 
     int32_t r32;
     __asm {
         fld code
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov r32, eax
     }
     return r32;

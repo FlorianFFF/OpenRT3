@@ -23,6 +23,9 @@
 
 namespace rt3 {
 
+// Rewritten functions called directly.
+void __fastcall Ambient_StopSlots();
+
 void __fastcall Terrain_Destructor(uint8_t* r);
 
 void PreviewModels_Free();
@@ -582,8 +585,7 @@ static inline int32_t Ftol(double v) {
     int32_t r;
     __asm {
         fld v
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov r, eax
     }
     return r;
@@ -1230,7 +1232,7 @@ RT3_NOINLINE void __fastcall Map_UnloadWorld(uint8_t* map) {
     Pump();
     Method(0x4483d0, map);
     Pump();
-    hook::Orig<void(*)()>(0x40b7d0)();
+    Ambient_StopSlots();
     Pump();
     F<uint32_t>(map, 0x2125) = 0;
 }
@@ -1680,13 +1682,11 @@ int32_t __stdcall Map_FogEnd(int32_t x, int32_t y) {
     __asm {
         fld tz
         fdiv dword ptr ds:[0x5c8700]
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov cellZ, eax
         fld tx
         fdiv dword ptr ds:[0x5c8700]
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov cellX, eax
     }
     int32_t dist = (uint16_t)DistanceInt(x, y, cellX, cellZ);
@@ -1696,8 +1696,7 @@ int32_t __stdcall Map_FogEnd(int32_t x, int32_t y) {
         __asm {
             fild d
             fmul qword ptr ds:[0x5c8880]
-            mov eax, 0x5a10d0
-            call eax
+            call Rt3_Ftol
             mov fog, eax
         }
     }
@@ -1723,8 +1722,7 @@ int32_t __stdcall Map_FogEnd(int32_t x, int32_t y) {
             fsub dword ptr ds:[0x5ca190]
             fmul qword ptr ds:[0x5c86b0]
             fiadd r
-            mov eax, 0x5a10d0
-            call eax
+            call Rt3_Ftol
             mov r, eax
         }
     }
@@ -2366,7 +2364,7 @@ RT3_REPLACE(0x44cfb0, Map_Load);
 // in it grown by one cell (0x62bae0 / 0x6ada80) and re-lays the track.
 RT3_NOINLINE void __fastcall Map_CellsChangedImpl(uint8_t* m, int, int32_t x0, int32_t y0, int32_t x1, int32_t y1) {
     if (F<int32_t>(m, 0x2205)) return;
-    if (!((int32_t(__fastcall*)(uint8_t*, int, int32_t*, int32_t*, int32_t*, int32_t*))0x449e90)(m, 0, &x0, &y0, &x1, &y1)) return;
+    if (!((int32_t(__fastcall*)(uint8_t*, int, int32_t*, int32_t*, int32_t*, int32_t*))&Map_ClampRectInclusive)(m, 0, &x0, &y0, &x1, &y1)) return;
     Terrain_RefreshRect(m, 0, x0, y0, x1, y1);
     Terrain_RefreshPointGrids(m, 0, x0, y0, x1, y1);
     Terrain_RefreshQuads(m, 0, x0, y0, x1, y1);
@@ -2675,11 +2673,10 @@ RT3_REPLACE(0x44e2e0, Map_RescaleHeights);
 // (+0x22e); all links cleared, built on the engine's terrain, its map cell marked
 // (0x80) unless the table is loading (+0xed), dropped onto the terrain; becoming a
 // built piece (kind 2) counts it in the table and clears the trains' route caches;
-// then kind +0x216 is set and the piece recoloured. NOT INSTALLED: the original
-// passes uninitialized corner heights to Track_Setup, whose mesh fields
-// (+0x12f..+0x1e3) keep values derived from them after the drop, so its result
-// depends on stack residue. The exe's code stays; this decode uses zero heights
-// and is verified outside those fields.
+// then kind +0x216 is set and the piece recoloured. The original passes
+// uninitialised corner heights to Track_Setup (zero here); the drop onto the
+// terrain recomputes everything derived from them: with the stack filled with
+// 00, 55, aa or c8 the original builds the same piece.
 void __fastcall Track_Init(uint8_t* t, int, int32_t id, int32_t group, float x0, float z0, float x1, float z1, float x2, float z2,
                            float x3, float z3, int32_t kind, int32_t owner, int32_t style) {
     float v[4][3] = {};
@@ -2725,6 +2722,7 @@ void __fastcall Track_Init(uint8_t* t, int, int32_t id, int32_t group, float x0,
     t[0x216] = newKind;
     Track_UpdateColor(t);
 }
+RT3_REPLACE(0x48f2b0, Track_Init);
 
 // 0x44e500. Tidies the water in a map rectangle (clamped; nothing when empty), in
 // two passes over every water cell (kinds 2/4/5): a cell with one water neighbour
@@ -2786,23 +2784,19 @@ void __fastcall Map_MarkDirtyAround(uint8_t* m, int, float x, float y) {
     __asm {
         fld x
         fsub qword ptr ds:[0x5c8dc0]
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov x0, eax
         fld x
         fadd qword ptr ds:[0x5c8c30]
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov x1, eax
         fld y
         fsub qword ptr ds:[0x5c8dc0]
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov y0, eax
         fld y
         fadd qword ptr ds:[0x5c8c30]
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov y1, eax
     }
     if (x0 < 0) x0 = 0;

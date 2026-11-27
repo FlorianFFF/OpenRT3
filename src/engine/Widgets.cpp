@@ -269,8 +269,7 @@ static inline int32_t Ftol(double v) {
     int32_t r;
     __asm {
         fld v
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov r, eax
     }
     return r;
@@ -280,7 +279,7 @@ static inline uint32_t Bits(float f) { return *(uint32_t*)&f; }
 
 // Ui_PlaySound for widget w: its pan as float bits.
 static void Widget_PlaySound(uint8_t* w, int32_t id) {
-    float pan = (float)((double(__fastcall*)(uint8_t*))0x5584d0)(w);
+    float pan = (float)((double(__fastcall*)(uint8_t*))&Widget_Pan)(w);
     uint32_t bits;
     memcpy(&bits, &pan, 4);
     Ui_PlaySound(id, 0, bits);

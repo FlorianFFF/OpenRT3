@@ -173,8 +173,7 @@ static inline int32_t Ftol(double v) {
     int32_t r;
     __asm {
         fld v
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov r, eax
     }
     return r;
@@ -371,8 +370,7 @@ void __fastcall Company_UpdateCreditRate(uint8_t* o) {
     int32_t step;
     __asm {
         fld s
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov step, eax
     }
     F<double>(o, 0x154) = (double)step + F<double>(o, 0x154);

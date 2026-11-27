@@ -175,8 +175,7 @@ static inline int32_t Ftol(double v) {
     int32_t r;
     __asm {
         fld v
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov r, eax
     }
     return r;
@@ -245,8 +244,7 @@ inline int32_t HitFtol(double v) {
     int32_t r;
     __asm {
         fld v
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov r, eax
     }
     return r;
@@ -1315,8 +1313,7 @@ int32_t __fastcall PackSrc_Read(uint8_t* buf, int32_t n) {
             fidiv dword ptr [eax]
             mov eax, 0x5c8c28
             fmul dword ptr [eax]
-            mov eax, 0x5a10d0
-            call eax
+            call Rt3_Ftol
             mov pct, eax
         }
         ((void(__fastcall*)(int32_t))progress)(pct);

@@ -319,8 +319,7 @@ static inline int32_t Ftol(double v) {
     int32_t r;
     __asm {
         fld v
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov r, eax
     }
     return r;
@@ -380,7 +379,7 @@ static uint8_t* Scene_NewObject(const char* model, const char* tex) {
 
 // Ui_PlaySound for widget w: its pan as float bits.
 static void Widget_PlaySound(uint8_t* w, int32_t id) {
-    float pan = (float)((double(__fastcall*)(uint8_t*))0x5584d0)(w);
+    float pan = (float)((double(__fastcall*)(uint8_t*))&Widget_Pan)(w);
     uint32_t bits;
     memcpy(&bits, &pan, 4);
     Ui_PlaySound(id, 0, bits);
@@ -1113,8 +1112,7 @@ RT3_NOINLINE double __fastcall List_RowHeight(uint8_t* w) {
     __asm {
         fld rh
         fimul h
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov px, eax
     }
     return ((double)px + *(const double*)0x5d0250) / h;
@@ -1214,8 +1212,7 @@ RT3_NOINLINE void __fastcall List_RowPos(uint8_t* w, int, int32_t row, float* x,
     __asm {
         fild h
         fmul rh
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov px, eax
     }
     p = F<uint8_t*>(w, 0x86);
@@ -1431,8 +1428,7 @@ RT3_NOINLINE void __fastcall ListView_RefreshVisible(uint8_t* tv) {
     __asm {
         fld rowF
         fimul screenH
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov rowH, eax
     }
     float step = (float)(((double)rowH + *(const double*)0x5d0250) / screenH);

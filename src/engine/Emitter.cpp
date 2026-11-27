@@ -156,8 +156,7 @@ static inline int32_t CellOf(float v) {
     __asm {
         fld v
         fmul dword ptr ds:[0x5dcfe8]
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov r, eax
     }
     return r;
@@ -171,8 +170,7 @@ static inline int32_t Cell16(float v) {
     int32_t r;
     __asm {
         fld d
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov r, eax
     }
     return r >> 4;
@@ -182,8 +180,7 @@ static inline int32_t Ftol(double v) {
     int32_t r;
     __asm {
         fld v
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov r, eax
     }
     return r;
@@ -543,8 +540,7 @@ void __fastcall Timer_SetFrameTime(uint8_t* t, int, float dt) {
     __asm {
         fild budget
         fdiv dt
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov n, eax
     }
     if (n > 0) F<float>(t, 0xb4) = dt;

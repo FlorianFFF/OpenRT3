@@ -222,8 +222,7 @@ static int32_t CargoQuota(uint8_t* o, int32_t i) {
     __asm {
         fld m
         fmul n
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov r, eax
     }
     return r;
@@ -264,8 +263,7 @@ static inline int32_t Ftol(double v) {
     int32_t r;
     __asm {
         fld v
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov r, eax
     }
     return r;
@@ -369,8 +367,7 @@ RT3_NOINLINE void __fastcall City_SpreadCargo(uint8_t* c) {
         double v = ((double)weight * (double)price * D_153(0x5c99e8) + D_153(0x5c8db8)) * D_153(0x5c9c58);
         __asm {
             fld v
-            mov eax, 0x5a10d0
-            call eax
+            call Rt3_Ftol
             mov f, eax
         }
         for (int32_t k = 0; k < n; ++k) {
@@ -605,8 +602,7 @@ RT3_NOINLINE void __fastcall City_UpdateCargoBases(uint8_t* o) {
                 fld scale
                 fmul surplus
                 fadd q
-                mov eax, 0x5a10d0
-                call eax
+                call Rt3_Ftol
                 mov v, eax
             }
             v >>= 4;

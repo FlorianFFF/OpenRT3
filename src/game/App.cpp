@@ -103,10 +103,7 @@ void __fastcall Track_AddWear(uint8_t* t);
 void __fastcall Track_SetBlocked(uint8_t* o, int, uint8_t v);
 void __fastcall CargoTypes_MarkAvailable(Collection* c);
 
-// Kept original (not hooked): with this rewrite the simcheck run diverges late
-// (vehicle smoke emitters launch fewer particles, shifting the shared LCG 0x624324),
-// although the code matches the original instruction for instruction; the cause
-// looks like stack residue read by original render code. See dumpready's skip list.
+// 0x412c10 is installed as Types_RefreshAvailable (src/game/Buildings.cpp).
 // RT3_REPLACE(0x412c10, IndustryTypes_MarkAvailable);
 
 double __fastcall Vec3_Length(const float* v);
@@ -114,11 +111,7 @@ double __fastcall Vec3_Length(const float* v);
 void __fastcall Vec3_CrossInPlace(float* a, int, const float* b);
 float* __fastcall Vec3_Normalize(float* v);
 
-// Kept original (not hooked): with this rewrite the simcheck run diverges late
-// (vehicle smoke emitters launch fewer particles, shifting the shared LCG 0x624324),
-// although the code matches the original instruction for instruction; the cause
-// looks like stack residue read by original render code. See dumpready's skip list.
-// RT3_REPLACE(0x458140, Camera_WorldCross);
+// 0x458140 Camera_WorldCross is installed below, after its definition.
 
 int32_t __fastcall Models_ValueByName(const char* name);
 
@@ -429,8 +422,7 @@ static inline int32_t VersionInt(float v) {
         fld v
         fadd qword ptr ds:[0x5c88a0]
         fmul qword ptr ds:[0x5c85d8]
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov r, eax
     }
     return r;
@@ -835,10 +827,9 @@ void __fastcall Car_MoveToSegment(uint8_t* car, int, int32_t seg, int32_t dir) {
     F<int32_t>(car, 0x35e) = dir;
 }
 
-// Kept original (not hooked): with this rewrite the simcheck run diverges late
-// (vehicle smoke emitters launch fewer particles, shifting the shared LCG 0x624324),
-// although the code matches the original instruction for instruction; the cause
-// looks like stack residue read by original render code. See dumpready's skip list.
+// The same function is installed as Car_SetPiece (src/game/SaveGame.cpp); this
+// second decode stays unregistered. (Its earlier divergence came from the
+// unwritten point Car_Advance 0x41ce80 stores, see there.)
 // RT3_REPLACE(0x41c700, Car_MoveToSegment);
 
 // 0x412c10. Marks which industry types are available: processing types (+0x32
@@ -869,6 +860,7 @@ float* __fastcall Camera_WorldCross(uint8_t* cam, int, float* out, float vx, flo
     memcpy(out, &vx, 12);
     return out;
 }
+RT3_REPLACE(0x458140, Camera_WorldCross);
 
 // 0x482c90. Selects display mode m (option +0x10c; also kept as the last
 // windowed +0x1bb or full-screen +0x1b7 choice by the mode's kind, table 0x5ee4d0),
@@ -923,8 +915,7 @@ RT3_NOINLINE int32_t __fastcall Game_EffectiveVersion() {
     int32_t r;
     __asm {
         fld v
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov r, eax
     }
     return r;

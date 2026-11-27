@@ -155,16 +155,12 @@ static int32_t ObjFogEnd(void* o) {
     int32_t cellX, cellY;
     __asm {
         mov ecx, o
-        mov eax, 0x455810
-        call eax
-        mov eax, 0x5a10d0
-        call eax
+        call Obj_CellY
+        call Rt3_Ftol
         mov cellY, eax
         mov ecx, o
-        mov eax, 0x455800
-        call eax
-        mov eax, 0x5a10d0
-        call eax
+        call Obj_CellX
+        call Rt3_Ftol
         mov cellX, eax
     }
     return Map_FogEnd(cellX, cellY);
@@ -180,8 +176,7 @@ static inline int32_t Ftol(double v) {
     int32_t r;
     __asm {
         fld v
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov r, eax
     }
     return r;

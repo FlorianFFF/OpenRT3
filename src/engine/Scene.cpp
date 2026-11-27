@@ -379,8 +379,7 @@ static inline int32_t FtolD(double v) {
     int32_t r;
     __asm {
         fld v
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov r, eax
     }
     return r;
@@ -397,8 +396,7 @@ static inline int32_t Ftol(double v) {
     int32_t r;
     __asm {
         fld v
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov r, eax
     }
     return r;
@@ -1156,8 +1154,7 @@ RT3_NOINLINE int32_t __fastcall Scene_FogDensity(uint8_t* s) {
         fsub qword ptr ds:[0x5c8758]
         fmul qword ptr ds:[0x5dcff8]
         fsubr qword ptr ds:[0x5dcff8]
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov v, eax
     }
     v -= Fx_Intensity(s) >> 2;
@@ -1169,8 +1166,7 @@ RT3_NOINLINE int32_t __fastcall Scene_FogDensity(uint8_t* s) {
             fsub h
             fmul qword ptr ds:[0x5d0c70]
             fimul base
-            mov eax, 0x5a10d0
-            call eax
+            call Rt3_Ftol
             mov v, eax
         }
     }
@@ -1688,8 +1684,7 @@ RT3_NOINLINE uint8_t __fastcall Scene_ViewNeedsRebuild(uint8_t* s, int, uint8_t*
             double v = *(const double*)0x5dd160 / (double)F<int32_t>(s, 0x3694);
             __asm {
                 fld v
-                mov eax, 0x5a10d0
-                call eax
+                call Rt3_Ftol
                 mov limit, eax
             }
         }
@@ -1738,12 +1733,10 @@ RT3_NOINLINE void __fastcall Scene_VisitTerrain(uint8_t* s, int, uint8_t* visito
     double vx = (double)cam[0] * k, vz = (double)cam[2] * k;
     __asm {
         fld vx
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov camX, eax
         fld vz
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov camZ, eax
     }
     float** grid = (float**)Terrain_HeightsSlot(visitor);

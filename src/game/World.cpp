@@ -24,6 +24,10 @@
 
 namespace rt3 {
 
+// Rewritten functions called directly.
+int32_t Obj_KindE8Special();
+void Companies_CreateDefault();
+
 void __fastcall Types_RefreshAvailable(Collection* c);
 
 void __fastcall Net_SendToHost(uint8_t* s, int, uint32_t type, int32_t size, const uint8_t* data);
@@ -440,8 +444,7 @@ static inline int32_t Ftol(double v) {
     int32_t r;
     __asm {
         fld v
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov r, eax
     }
     return r;
@@ -2177,7 +2180,7 @@ RT3_NOINLINE void __fastcall Train_OpenConsistEditor(void* self, int, uint32_t t
     }
     ConsistEditor_Run(nullptr, nullptr, orders, (uint32_t)engine, d8, b1a1, b1ce, (uint32_t)(uintptr_t)name, key);
     if (Collection_IsValid(g_trains, 0, id) &&
-        ((int32_t(__fastcall*)(void*))0x4a7220)(Collection_Get(g_trains, 0, id)))
+        ((int32_t(__fastcall*)(void*))&Obj_KindE8Special)(Collection_Get(g_trains, 0, id)))
         train[0x1ce] |= 2;
 }
 RT3_REPLACE(0x436820, Train_OpenConsistEditor);
@@ -2530,8 +2533,7 @@ RT3_REPLACE(0x437740, World_MarkKind2Types);
 // bytes) with the slot's cash; then the local player (+0x25) is the first
 // one and +0x21 its company. Outside the editor with auto companies (+0x82)
 // or a scenario that wants them (0x6cec74 +0x14c) the companies are created
-// (0x47d440, kept original; it reads stack residue, which this frame changes
-// as any rewritten callee already does). Does nothing in multiplayer.
+// (Companies_CreateDefault 0x47d440). Does nothing in multiplayer.
 RT3_NOINLINE void __fastcall World_CreatePlayers(uint8_t* w) {
     Loading_Pump(g_app, 0, 1, 0);
     if (g_session) return;
@@ -2571,7 +2573,7 @@ RT3_NOINLINE void __fastcall World_CreatePlayers(uint8_t* w) {
     if (!g_session &&
         (g_newGame[0x82] ||
          (F<int32_t>(g_app, 0x14c) && !F<int32_t>(g_app, 0x68))))
-        hook::Orig<void (*)()>(0x47d440)();
+        Companies_CreateDefault();
 }
 RT3_REPLACE(0x4377a0, World_CreatePlayers);
 

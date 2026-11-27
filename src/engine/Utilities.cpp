@@ -76,8 +76,6 @@ void __fastcall NameTable_PopPosition(uint8_t* t);
 void __fastcall CollisionFile_Load(uint8_t* c, int, int32_t id);
 const char* __fastcall GetString(int32_t id);
 
-// RT3_REPLACE(0x493ec0, Tracks_AddPiece); -- see above
-
 void __fastcall Fatal_Exit(const char* msg);
 
 void ReleaseResourceD97ab0();
@@ -215,8 +213,7 @@ static inline int32_t Ftol(double v) {
     int32_t r;
     __asm {
         fld v
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov r, eax
     }
     return r;
@@ -333,8 +330,7 @@ void WaterCorners(float a, float nb, float cornerX, float cornerZ, QuadDelta* o,
         fsin
         fmulp st(1), st
         fmul qword ptr ds:[0x5de410]
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov ph, eax
     }
     o->d0x = d0x;
@@ -459,8 +455,7 @@ inline int32_t QuadFtol(double v) {
     int32_t r;
     __asm {
         fld v
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov r, eax
     }
     return r;

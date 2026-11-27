@@ -337,8 +337,7 @@ RT3_NOINLINE float __fastcall Obj_RoundedCost(uint8_t* o, int, uint32_t company)
     __asm {
         fld m
         fmul base
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov v, eax
     }
     return (float)((v + 500) / 1000 * 1000);
@@ -386,7 +385,7 @@ RT3_NOINLINE int32_t __fastcall Stations_Load(Collection* t, int, Stream s, int3
     n += Collection_Load(t, 0, s, recordSize);
     n += StreamSkip4(s, 0x61aa, 0, 0);
     for (int32_t i = 0; i < Collection_Count(t); ++i)
-        n += ((int32_t(__thiscall*)(void*, Stream))0x487670)(Collection_Get(t, 0, Collection_IdAt(t, 0, i, 0)), s);
+        n += ((int32_t(__thiscall*)(void*, Stream))&Return0_487670)(Collection_Get(t, 0, Collection_IdAt(t, 0, i, 0)), s);
     return StreamSkip4(s, 0x61ab, 0, 0) + n;
 }
 RT3_REPLACE(0x487c20, Stations_Load);
@@ -396,7 +395,7 @@ RT3_NOINLINE void __fastcall Stations_Save(Collection* t, int, Stream s, int32_t
     Collection_Save(t, 0, s, recordSize);
     StreamWriteU32(s, 0x61aa);
     for (int32_t i = 0; i < Collection_Count(t); ++i)
-        ((void(__thiscall*)(void*, Stream))0x487680)(Collection_Get(t, 0, Collection_IdAt(t, 0, i, 0)), s);
+        ((void(__thiscall*)(void*, Stream))&Nop487680)(Collection_Get(t, 0, Collection_IdAt(t, 0, i, 0)), s);
     StreamWriteU32(s, 0x61ab);
 }
 RT3_REPLACE(0x487cc0, Stations_Save);

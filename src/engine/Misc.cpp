@@ -23,6 +23,10 @@
 
 namespace rt3 {
 
+// Rewritten functions called directly.
+void __fastcall Render_SetGamma(uint8_t* r, int, float gamma);
+void __fastcall Ui_ReloadImages(uint8_t* ui);
+
 void __fastcall String_Assign(char** s, const char* src);
 
 void __fastcall Train_Init(uint8_t* t, int, int32_t id, int32_t owner);
@@ -64,8 +68,8 @@ int32_t __fastcall Company_Get7680(void* c);
 void __fastcall Company_Add7680(void* c, int, int32_t d);
 uint8_t* __fastcall TrackLight_Construct(uint8_t* o);
 void __fastcall Effect489e80_Release(uint8_t* e);
-
-// RT3_REPLACE(0x493ec0, Tracks_AddPiece); -- see above
+void __fastcall Track_Init(uint8_t* t, int, int32_t id, int32_t group, float x0, float z0, float x1, float z1, float x2, float z2,
+                           float x3, float z3, int32_t kind, int32_t owner, int32_t style);
 
 void __fastcall Fatal_Exit(const char* msg);
 
@@ -162,8 +166,7 @@ static inline int32_t Ftol(double v) {
     int32_t r;
     __asm {
         fld v
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov r, eax
     }
     return r;
@@ -785,7 +788,7 @@ RT3_REPLACE(0x51f460, Engine_QueueSprite);
 
 void __fastcall Engine_SetCursorObject(void* e, int, uint32_t v) {
     // (0x547f20 is thiscall with the value on the stack, RET 4)
-    if (F_engine<int32_t>(e, 0xc) != 0) ((void(__fastcall*)(void*, int, uint32_t))0x547f20)(F_engine<void*>(e, 0xc), 0, v);
+    if (F_engine<int32_t>(e, 0xc) != 0) ((void(__fastcall*)(void*, int, uint32_t))&Render_SetGamma)(F_engine<void*>(e, 0xc), 0, v);
     F_engine<uint32_t>(e, 0x1146b9) = v;
 }
 RT3_REPLACE(0x51f510, Engine_SetCursorObject);
@@ -816,10 +819,13 @@ RT3_REPLACE(0x4b23d0, Trains_Create);
 // gets the next group stamp (c +0x90 += 2), is initialised by Track_Init (the exe's
 // code), registered in the node grid when placed or live, and the first group
 // becomes the table's (+0x88). Returns its id, or -1.
-// NOT INSTALLED: the record is copied from a local of which only the track-light
-// part is initialised, so leftover bytes come from stack residue (and Track_Init
-// itself reads uninitialized heights). The exe's code stays; the local starts
-// zeroed here.
+// The original copies the record from a local of which only the track-light part
+// is initialised; the local starts zeroed here. Filling the stack differently
+// before the original shows what that leaves in the record: +0x234..+0x237
+// (never read), +0x24c bit 3 (a visited mark, cleared before every use) and
+// +0x201 bit 1 (the branch side, only read with a branch +0x20e, which
+// Track_Connect sets together with it). None of it is read, but it is saved, so
+// the harness clears those bits before saving (src/harness.cpp kUnreadPadding).
 int32_t __fastcall Tracks_AddPiece(Collection* c, int, float x0, float z0, float x1, float z1, float x2, float z2, float x3, float z3,
                                    int32_t kind, int32_t owner, int32_t style) {
     uint8_t* m = g_map;
@@ -838,13 +844,13 @@ int32_t __fastcall Tracks_AddPiece(Collection* c, int, float x0, float z0, float
     if (co) Company_Add7680(Collection_Get(g_companies, 0, co), 0, (uint8_t)style != 4 ? -1 : -2);
     uint8_t* t = (uint8_t*)Collection_Get(c, 0, id);
     F<int32_t>(c, 0x90) += 2;
-    ((void(__fastcall*)(uint8_t*, int, int32_t, int32_t, float, float, float, float, float, float, float, float, int32_t, int32_t,
-                        int32_t))0x48f2b0)(t, 0, (int32_t)id, F<int32_t>(c, 0x90), x0, z0, x1, z1, x2, z2, x3, z3, kind, owner, style);
+    Track_Init(t, 0, (int32_t)id, F<int32_t>(c, 0x90), x0, z0, x1, z1, x2, z2, x3, z3, kind, owner, style);
     if (t[0x216] || F<int32_t>(c, 0xe9)) Grid_AddObject((uint8_t*)c, 0, t);
     if (F<int32_t>(c, 0x88) == -1) F<int32_t>(c, 0x88) = F<int32_t>(t, 0x240);
     Effect489e80_Release(local);
     return (int32_t)id;
 }
+RT3_REPLACE(0x493ec0, Tracks_AddPiece);
 
 // 0x51f540. Builds the engine's display mode list (+0x34, count +0x30; 0x15-byte
 // entries {w, h, bpp, refresh, format, supported}) from Direct3D 8: records the
@@ -979,13 +985,13 @@ RT3_REPLACE(0x51f9b0, Engine_SetFreeTexMemOverride);
 
 RT3_NOINLINE void __fastcall Engine_SetTotalTexMemOverride(void* e, int, int32_t v) {
     F_engine<int32_t>(e, 0x1146c6) = v;
-    if (uint8_t* wm = g_windowManager) ((void(__fastcall*)(uint8_t*))0x538ec0)(wm);  // (a method of the window manager)
+    if (uint8_t* wm = g_windowManager) Ui_ReloadImages(wm);  // (a method of the window manager)
 }
 RT3_REPLACE(0x51f9c0, Engine_SetTotalTexMemOverride);
 
 RT3_NOINLINE void __fastcall Engine_SetTexMemOverride3(void* e, int, int32_t v) {
     F_engine<int32_t>(e, 0x1146ce) = v;
-    if (uint8_t* wm = g_windowManager) ((void(__fastcall*)(uint8_t*))0x538ec0)(wm);  // (a method of the window manager)
+    if (uint8_t* wm = g_windowManager) Ui_ReloadImages(wm);  // (a method of the window manager)
 }
 RT3_REPLACE(0x51f9e0, Engine_SetTexMemOverride3);
 

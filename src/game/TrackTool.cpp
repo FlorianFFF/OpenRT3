@@ -286,8 +286,7 @@ static inline int32_t Ftol(double v) {
     int32_t r;
     __asm {
         fld v
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov r, eax
     }
     return r;
@@ -970,7 +969,7 @@ RT3_NOINLINE void __fastcall TrackTool_Update(uint8_t* t, int, int32_t active, f
             if (!Collection_IsValid(tracks, 0, F<uint32_t>(net, 0x125))) {
                 const float ax = F<float>(net, 0x11d), ay = F<float>(net, 0x121);
                 const int32_t style = ExtendStyle(net, g_622b0c);
-                F<int32_t>(net, 0x125) = hook::Orig<int32_t(__fastcall*)(Collection*, int, float, float, float, int32_t, int32_t, int32_t, int32_t)>(0x493cf0)(
+                F<int32_t>(net, 0x125) = Tracks_AddPieceRotated(
                     tracks, 0, ax, ay, 0.0f, 0, Obj_Get21(g_world), style, 0);
             }
         }

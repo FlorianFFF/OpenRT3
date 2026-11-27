@@ -257,8 +257,7 @@ static inline int32_t Ftol(double v) {
     int32_t r;
     __asm {
         fld v
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov r, eax
     }
     return r;
@@ -802,8 +801,7 @@ RT3_NOINLINE void __fastcall Ambient_Start(void*) {
             fimul max
             fmul qword ptr ds:[0x5c8628]
             fdiv qword ptr ds:[0x5c87f8]
-            mov eax, 0x5a10d0
-            call eax
+            call Rt3_Ftol
             mov v, eax
         }
         *(int32_t*)a = v;

@@ -2126,7 +2126,7 @@ RT3_NOINLINE void __fastcall HighScores_Show(int32_t value, int32_t extra, int32
     if (value >= 0) {
         g_6d1090 = -1;
         char name[300], scenario[300];
-        auto company = hook::Orig<uint8_t*(__fastcall*)(uint8_t*)>(0x4348c0);
+        auto company = (uint8_t*(__fastcall*)(uint8_t*))&Obj_Ref25;
         uint8_t* world = g_world;
         if (!world || !company(world))
             strcpy(name, GetString(0xbd0));

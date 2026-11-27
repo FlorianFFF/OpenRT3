@@ -203,8 +203,7 @@ static inline int32_t Ftol(double v) {
     int32_t r;
     __asm {
         fld v
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov r, eax
     }
     return r;
@@ -368,7 +367,7 @@ RT3_NOINLINE uint32_t __fastcall Train_Create(uint32_t engine, uint8_t* orders, 
     memcpy(Identity(t), orders, 0x25);
     Train_Route(t);
     Route_LinkStations(t);
-    for (int32_t k = 0; k < 5; ++k) ((void(__fastcall*)(uint8_t*, int, int32_t, int32_t))0x4b10d0)(t, 0, 0, 1);
+    for (int32_t k = 0; k < 5; ++k) Train_Step(t, 0, 0, 1);
     g_6cfcb8 = 0;
     return id;
 }

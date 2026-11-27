@@ -228,8 +228,7 @@ static inline int32_t Ftol(float f) {
     int32_t r;
     __asm {
         fld f
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov r, eax
     }
     return r;
@@ -243,8 +242,7 @@ static inline int32_t Ftol_174(double v) {
     int32_t r;
     __asm {
         fld v
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov r, eax
     }
     return r;
@@ -254,8 +252,7 @@ static inline int32_t Ftol_205(double v) {
     int32_t r;
     __asm {
         fld v
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov r, eax
     }
     return r;
@@ -265,8 +262,7 @@ static inline int32_t Ftol_207(double v) {
     int32_t r;
     __asm {
         fld v
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov r, eax
     }
     return r;
@@ -1107,8 +1103,7 @@ int32_t __fastcall Station_LoadShare(uint8_t* o, int, uint8_t* from, uint8_t* to
     int32_t n;
     __asm {
         fld fk
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov n, eax
     }
     if (n < 1) n = 1;

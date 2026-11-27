@@ -25,6 +25,10 @@
 
 namespace rt3 {
 
+extern int32_t g_unwrittenReads[8];  // src/game/Train.cpp, before Train_Run
+void __fastcall Car_SetPiece(uint8_t* car, int, int32_t piece, int32_t pos);
+void __fastcall Car_UpdatePose(uint8_t* car, int, float dist);
+
 void __fastcall View_SetToolMode(uint8_t* view, int, uint32_t mode, int32_t requested);
 
 void __fastcall Train_ShareRevenue(uint8_t* t, int, float revenue, int32_t kind, float units, int32_t cargo);
@@ -268,8 +272,7 @@ static inline int32_t Ftol(double v) {
     int32_t r;
     __asm {
         fld v
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov r, eax
     }
     return r;
@@ -811,6 +814,180 @@ void __fastcall Car_ShowStatusTooltip(uint8_t* c) {
     Ui_ShowTooltip(g_windowManager, 0, text, 3, 0, -1);
 }
 RT3_REPLACE(0x41c6b0, Car_ShowStatusTooltip);
+
+int32_t __fastcall Node_Advance(uint8_t* n, int, float pos, float dist, float* x, float* z, float* outPos, int32_t* dir, int32_t* count,
+                                float* accum, int32_t car, int32_t, int32_t front);
+
+// 0x41c790 (RET 4). Car c follows the car ahead of it (+0x34e; none: returns
+// c's piece +0x356): it is placed half the two cars' lengths (type +0x10d,
+// over 0x5c878c) behind it along the track (Node_Advance from the leading car's
+// piece and position +0x35e, against its direction +0x35a, which c takes
+// reversed), moves onto the piece reached (0x41c700) and keeps the point
+// reached (+0x362 / +0x366); *pos (if given) gets its position on the piece.
+// Returns that piece (-1: none). With the leading car off the track the
+// original leaves position and point unwritten (stack leftovers of its
+// caller); they start at 0 here.
+RT3_NOINLINE int32_t __fastcall Car_FollowLeader(uint8_t* c, int, float* pos) {
+    if (F<int32_t>(c, 0x34e) == -1) return F<int32_t>(c, 0x356);
+    uint8_t* lead = (uint8_t*)Collection_Get(g_62ba84, 0, F<uint32_t>(c, 0x34e));
+    const uint32_t leadPos = F<uint32_t>(lead, 0x35e);  // moved as a dword, as in the original
+    const float leadLen = F<float>(Collection_Get(g_carTypes, 0, F<uint32_t>(lead, 0x388)), 0x10d);
+    const float ownLen = F<float>(Collection_Get(g_carTypes, 0, F<uint32_t>(c, 0x388)), 0x10d);
+    int32_t dir = F<int32_t>(lead, 0x35a) == 0;
+    const float dist = (float)(((double)ownLen + leadLen) / Fl(0x5c878c));
+    uint32_t x = 0, z = 0, at = 0;
+    int32_t piece = -1;
+    if (F<int32_t>(lead, 0x356) != -1) {
+        uint8_t* n = (uint8_t*)Collection_Get(g_tracks, 0, F<uint32_t>(lead, 0x356));
+        piece = ((int32_t(__fastcall*)(uint8_t*, int, uint32_t, float, uint32_t*, uint32_t*, uint32_t*, int32_t*, int32_t*, float*, int32_t,
+                                       int32_t, int32_t))&Node_Advance)(n, 0, leadPos, dist, &x, &z, &at, &dir, nullptr, nullptr,
+                                                                        F<int32_t>(c, 0x34a), -1, 0);
+        F<int32_t>(c, 0x35a) = dir == 0;
+    } else {
+        ++g_unwrittenReads[2];
+    }
+    Car_SetPiece(c, 0, piece, (int32_t)at);
+    F<uint32_t>(c, 0x366) = z;
+    F<uint32_t>(c, 0x362) = x;
+    if (pos) *(uint32_t*)pos = at;
+    return piece;
+}
+RT3_REPLACE(0x41c790, Car_FollowLeader);
+
+double __fastcall Obj_CellX(void* o);
+double __fastcall Obj_CellY(void* o);
+void* __fastcall Obj_City41(void* o);
+void* __fastcall Obj_Train390(void* o);
+void __fastcall Train_Route(uint8_t* t);
+int32_t __fastcall Route_NextStep(Collection* routes, int, int32_t from, int32_t to, uint32_t* cost, int32_t needFlag, uint32_t* company,
+                                  uint32_t* foreign, int32_t anyTrack);
+int32_t IsMultiplayer();
+int32_t __stdcall Net_AllHaveVersion(float v);
+void __fastcall Map_MarkDirtyAround(uint8_t* m, int, float x, float y);
+
+// 0x41ce80 (RET 0x10). Moves car c `dist` along the track; returns 1 when it
+// stays on the track, else 0.
+// - A car whose virtual +0x14 holds (being coupled): placed (lengths of both
+//   cars over 0x5c878c) behind the car ahead (+0x34e), seen from the front
+//   (Node_Advance front 1); 0 when that car holds too or there is no room, else
+//   virtual +0xc runs.
+// - The head car (+0x34e -1) on a piece: first half its length forward (to
+//   the point it steers by), then `dist` from there (counting into *count,
+//   the distance into +0x3a8; `p5` passed on), then half its length back from
+//   the piece reached, facing as it entered (the link back to the first piece,
+//   or the route's next step towards it).
+// - A following car: Car_FollowLeader; at a track end it leaves the track
+//   (0x41c700 with -1) and the chain is detached (0); its distance is its
+//   train's (+0x3a8).
+// - Nowhere to go: a following car still follows its leader, the head car
+//   re-routes its train (Train_Route); 0 unless a piece was found.
+// On a piece: the point reached goes to +0x362 / +0x366, the position on the
+// piece (rounded to 1 / 0x5c88c0 in multiplayer games where every player has
+// version 1.02) and the piece to 0x41c700, the pose to 0x41b080 (with the
+// distance); a following tanker-type car (type +0x41 == 5) marks the map dirty
+// around it when +0x4af3 of the world is set; *moved gets the distance.
+// The original stores the point after Car_FollowLeader too, where it leaves
+// it unwritten (stack leftovers over what Car_FollowLeader stored); here it
+// starts at 0. No code reads +0x362 / +0x366 of a car.
+RT3_NOINLINE int32_t __fastcall Car_Advance(uint8_t* c, int, uint32_t dist, int32_t* moved, int32_t* count, int32_t p5) {
+    typedef int32_t(__fastcall * AdvanceFn)(uint8_t*, int, uint32_t, uint32_t, uint32_t*, uint32_t*, uint32_t*, int32_t*, int32_t*, int32_t*,
+                                            int32_t, int32_t, int32_t);
+    const AdvanceFn advance = (AdvanceFn)&Node_Advance;
+    auto setPiece = (void(__fastcall*)(uint8_t*, int, int32_t, uint32_t))0x41c700;
+    auto place = (void(__fastcall*)(uint8_t*, int, int32_t))0x41b080;
+    uint32_t pos = F<uint32_t>(c, 0x35e);
+    int32_t piece = -1;
+    int32_t accum = 0;
+    uint32_t x = 0, z = 0;
+    const float len = F<float>(Collection_Get(g_carTypes, 0, F<uint32_t>(c, 0x388)), 0x10d);
+    if (((int32_t(__fastcall*)(uint8_t*))(*(void***)c)[0x14 / 4])(c)) {
+        uint8_t* lead = (uint8_t*)Collection_Get(g_62ba84, 0, F<uint32_t>(c, 0x34e));
+        if (((int32_t(__fastcall*)(uint8_t*))(*(void***)lead)[0x14 / 4])(lead)) return 0;
+        uint8_t* n = (uint8_t*)Collection_Get(g_tracks, 0, F<uint32_t>(lead, 0x356));
+        const uint32_t leadPos = F<uint32_t>(lead, 0x35e);
+        const float leadLen = F<float>(Collection_Get(g_carTypes, 0, F<uint32_t>(lead, 0x388)), 0x10d);
+        int32_t dir = F<int32_t>(lead, 0x35a) == 0;
+        const float d = (float)(((double)leadLen + len) / Fl(0x5c878c));
+        piece = advance(n, 0, leadPos, *(const uint32_t*)&d, &x, &z, &pos, &dir, nullptr, nullptr, -1, -1, 1);
+        if (piece == -1) return 0;
+        ((void(__fastcall*)(uint8_t*))(*(void***)c)[0xc / 4])(c);
+    } else {
+        if (F<int32_t>(c, 0x356) != -1) {
+            uint8_t* n = (uint8_t*)Collection_Get(g_tracks, 0, F<uint32_t>(c, 0x356));
+            if (F<int32_t>(c, 0x34e) == -1) {
+                const float half = (float)((double)len / Fl(0x5c878c));
+                uint32_t mid = 0, end = 0;
+                const int32_t first = advance(n, 0, F<uint32_t>(c, 0x35e), *(const uint32_t*)&half, &x, &z, &mid, &F<int32_t>(c, 0x35a), nullptr,
+                                              nullptr, F<int32_t>(c, 0x34a), -1, 1);
+                if (first != -1) {
+                    uint8_t* n1 = (uint8_t*)Collection_Get(g_tracks, 0, (uint32_t)first);
+                    const int32_t at = advance(n1, 0, mid, dist, &x, &z, &end, &F<int32_t>(c, 0x35a), count, &accum, F<int32_t>(c, 0x34a), p5, 1);
+                    F<int32_t>(c, 0x3a8) = accum;
+                    if (at != -1) {
+                        uint8_t* n2 = (uint8_t*)Collection_Get(g_tracks, 0, (uint32_t)at);
+                        auto sideOf = [&](int32_t id, int32_t* out) {
+                            if (F<int32_t>(n2, 0x206) == id) *out = 0;
+                            else if (F<int32_t>(n2, 0x20a) == id) *out = 1;
+                            else if (F<int32_t>(n2, 0x20e) == id) *out = (uint8_t)~n2[0x201] >> 1 & 1;
+                            else return false;
+                            return true;
+                        };
+                        int32_t back = 0;
+                        bool found = false;
+                        if (at != first) {
+                            found = sideOf(first, &back);
+                            if (!found) {
+                                // The cost goes to the slot of the caller's count pointer, as in the original.
+                                uint32_t cost;
+                                const int32_t step = Route_NextStep(g_routes, 0, at, first, &cost, 0, nullptr, nullptr, 0);
+                                found = sideOf(step, &back);
+                            }
+                        }
+                        if (!found) back = F<int32_t>(c, 0x35a) == 0;
+                        piece = advance(n2, 0, end, *(const uint32_t*)&half, &x, &z, &pos, &back, nullptr, nullptr, F<int32_t>(c, 0x34a), -1, 0);
+                        F<int32_t>(c, 0x35a) = back == 0;
+                    }
+                }
+            } else {
+                piece = Car_FollowLeader(c, 0, (float*)&pos);
+                if (piece == -1) {
+                    setPiece(c, 0, -1, pos);
+                    Obj_DetachChain(c);
+                    return 0;
+                }
+                accum = F<int32_t>(Obj_City41(Obj_Train390(c)), 0x3a8);
+            }
+        }
+        if (piece == -1) {
+            if (F<int32_t>(c, 0x34e) != -1) {
+                piece = Car_FollowLeader(c, 0, nullptr);
+            } else {
+                const int32_t t = F<int32_t>(c, 0x390);
+                Train_Route(t != -1 ? (uint8_t*)Collection_Get(g_trains, 0, (uint32_t)t) : nullptr);
+            }
+            if (piece == -1) return 0;
+        }
+    }
+    F<uint32_t>(c, 0x362) = x;
+    F<uint32_t>(c, 0x366) = z;
+    if (hook::As<void*>(g_world) && IsMultiplayer() && Net_AllHaveVersion(1.02f)) {
+        const float k = Fl(0x5c88c0);
+        const float r = (float)Ftol((double)*(const float*)&pos * k);
+        const float p = (float)((double)r / k);
+        pos = *(const uint32_t*)&p;
+    }
+    setPiece(c, 0, piece, pos);
+    place(c, 0, accum);
+    if (F<int32_t>(c, 0x34e) != -1 && F<int32_t>(hook::As<uint8_t*>(g_world), 0x4af3) &&
+        F<int32_t>(Collection_Get(g_carTypes, 0, F<uint32_t>(c, 0x388)), 0x41) == 5) {
+        const float cy = (float)Obj_CellY(c);
+        const float cx = (float)Obj_CellX(c);
+        Map_MarkDirtyAround(g_map, 0, cx, cy);
+    }
+    if (moved) *moved = accum;
+    return 1;
+}
+RT3_REPLACE(0x41ce80, Car_Advance);
 
 // 0x41c8c0. Detaches every city in the chain from +0x352 (virtual slot 4 and
 // node unlink), clears this train's link in its node (+0x4d), then this's

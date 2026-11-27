@@ -19,6 +19,9 @@
 
 namespace rt3 {
 
+// Rewritten functions called directly.
+const char* __fastcall LocalizeName(const char* name);
+
 template <typename T> static inline T& F(void* o, uint32_t off) { return *(T*)((uint8_t*)o + off); }
 
   // industries/stations/houses
@@ -373,16 +376,12 @@ static int32_t ObjFogEnd(void* o) {
     int32_t cellX, cellY;
     __asm {
         mov ecx, o
-        mov eax, 0x455810
-        call eax
-        mov eax, 0x5a10d0
-        call eax
+        call Obj_CellY
+        call Rt3_Ftol
         mov cellY, eax
         mov ecx, o
-        mov eax, 0x455800
-        call eax
-        mov eax, 0x5a10d0
-        call eax
+        call Obj_CellX
+        call Rt3_Ftol
         mov cellX, eax
     }
     return Map_FogEnd(cellX, cellY);
@@ -398,8 +397,7 @@ static inline float SnapInt(float v) {
     int32_t r;
     __asm {
         fld v
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov r, eax
     }
     return (float)r;
@@ -416,8 +414,7 @@ static inline int32_t Ftol(double v) {
     int32_t r;
     __asm {
         fld v
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov r, eax
     }
     return r;
@@ -1480,7 +1477,7 @@ RT3_NOINLINE uint32_t __fastcall Obj_RefName72(void* o) {
     if (!id) return 0;
     uint8_t* r = (uint8_t*)Collection_Get(g_carTypes, 0, id);
     if (!r) return 0;
-    return ((uint32_t(__fastcall*)(void*, int))0x51c920)(r + 0x45, 0);
+    return ((uint32_t(__fastcall*)(void*, int))&LocalizeName)(r + 0x45, 0);
 }
 RT3_REPLACE(0x461ca0, Obj_RefName72);
 

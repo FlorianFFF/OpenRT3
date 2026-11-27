@@ -18,6 +18,9 @@ game's shutdown runs (and counts for --coverage); each run reports whether
 it shut down cleanly.
 --sound turns the effects on (the settings the tests start from have them
 at 0) with the game's audio muted, so the sound code runs and is compared.
+--probe runs only the original once and reports whether it got through the
+actions to the save (PROBE OK / PROBE FAILED); --timeout=<seconds> limits each
+run (default 240).
 """
 import os
 import re
@@ -255,6 +258,11 @@ def main():
         r = run(tag, False, save, frames)
         stamp.write_text(key)
         return r
+    if "--probe" in sys.argv:  # only whether the original gets through the actions (tools/autocall_run.py)
+        ok = run("orig1", False, save, frames)
+        (GAME / "simcheck_orig1.key").unlink(missing_ok=True)
+        print("PROBE OK" if ok else "PROBE FAILED")
+        return 0 if ok else 1
     a = cached("orig1")
     b = cached("orig2")
     c = run("rewrite", True, save, frames)

@@ -298,8 +298,7 @@ static inline int32_t Ftol(double v) {
     int32_t r;
     __asm {
         fld v
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov r, eax
     }
     return r;
@@ -2069,8 +2068,7 @@ int32_t __fastcall CompanyWindow_HandleEvent(uint8_t* w, int, int32_t* ev) {
             __asm {
                 fld pa
                 fmul qword ptr ds:[0x5c8918]
-                mov eax, 0x5a10d0
-                call eax
+                call Rt3_Ftol
                 mov fee, eax
             }
             const char* s1 = Num_FormatSimple(num2, 9, (double)IAbs(fee), 0xb);
@@ -2283,8 +2281,7 @@ int32_t __fastcall CompanyWindow_HandleEvent(uint8_t* w, int, int32_t* ev) {
                             int32_t c;
                             __asm {
                                 fld cost
-                                mov eax, 0x5a10d0
-                                call eax
+                                call Rt3_Ftol
                                 mov c, eax
                             }
                             msg[3] = c;

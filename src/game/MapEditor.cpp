@@ -159,8 +159,7 @@ static inline uint8_t Blend(uint32_t s, uint32_t d, float alpha, double inv) {
         fild dstI
         fmul st(0), st(2)
         faddp st(1), st(0)
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         fstp st(0)
         mov r, eax
     }
@@ -173,8 +172,7 @@ static inline int32_t Ftol(double v) {
     int32_t r;
     __asm {
         fld v
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov r, eax
     }
     return r;
@@ -1452,7 +1450,7 @@ RT3_NOINLINE void __fastcall MapEditor_PaintPath(uint8_t* d, int, int32_t cnt, f
             const int32_t ry1 = Ftol((double)top + Fl_207(0x5c878c)), rx1 = Ftol((double)right + Fl_207(0x5c878c));
             const int32_t ry0 = Ftol((double)bottom - Fl_207(0x5c878c)), rx0 = Ftol((double)left - Fl_207(0x5c878c));
             // Map_CellsChanged (keeps ECX/EDX; through its entry).
-            ((void(__thiscall*)(uint8_t*, int32_t, int32_t, int32_t, int32_t))0x44d410)(world(), rx0, ry0, rx1, ry1);
+            ((void(__thiscall*)(uint8_t*, int32_t, int32_t, int32_t, int32_t))&Map_CellsChanged)(world(), rx0, ry0, rx1, ry1);
         }
     }
     crt::free(us);

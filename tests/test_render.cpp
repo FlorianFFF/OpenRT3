@@ -6034,9 +6034,29 @@ void __fastcall Station_Init(uint8_t* st, int, int32_t id, uint32_t building, fl
 uint32_t __fastcall Stations_Add(Collection* c, int, uint32_t building, float x, float y);
 float __fastcall Vehicle_ScreenHeading(uint8_t* o, int, int32_t forward);
 void __fastcall Type_RotatedCell(Collection* t, int, uint32_t id, float* outX, float* outY, float angle);
+int32_t __fastcall Tracks_AddPieceRotated(Collection* c, int, float cx, float cy, float angle, int32_t kind, int32_t owner, int32_t style,
+                                          int32_t force);
 }
 
 namespace {
+// A jump over a rewrite's entry for the scope: the rewrites call each other by
+// name, so a fake of an exe function must cover the rewrite too.
+struct ScopedJmp {
+    uint8_t* at;
+    uint8_t saved[5];
+    ScopedJmp(void* fn, void* to) : at((uint8_t*)fn) {
+        DWORD prot;
+        VirtualProtect(at, 5, PAGE_EXECUTE_READWRITE, &prot);
+        memcpy(saved, at, 5);
+        at[0] = 0xe9;
+        *(int32_t*)(at + 1) = (int32_t)((uint8_t*)to - (at + 5));
+        FlushInstructionCache(GetCurrentProcess(), at, 5);
+    }
+    ~ScopedJmp() {
+        memcpy(at, saved, 5);
+        FlushInstructionCache(GetCurrentProcess(), at, 5);
+    }
+};
 // Stand-in for the exe's Tracks_AddPieceRotated (0x493cf0) during the Station_Init
 // test: logs its arguments and returns a scripted id.
 uint32_t g_addLog[16];
@@ -6073,6 +6093,7 @@ DIFFTEST(game_StationInit) {
     memcpy(siteSaved, site, 5);
     site[0] = 0xe9;
     *(int32_t*)(site + 1) = (int32_t)((uint8_t*)&FakeAddPieceRotated - (site + 5));
+    ScopedJmp siteNew((void*)&rt3::Tracks_AddPieceRotated, (void*)&FakeAddPieceRotated);
     FlushInstructionCache(GetCurrentProcess(), site, 5);
 
     const int W = 8, CELLS = 32, N = 12;
@@ -6329,6 +6350,7 @@ DIFFTEST(game_StationMove) {
     memcpy(siteSaved, site, 5);
     site[0] = 0xe9;
     *(int32_t*)(site + 1) = (int32_t)((uint8_t*)&FakeAddPieceRotated - (site + 5));
+    ScopedJmp siteNew((void*)&rt3::Tracks_AddPieceRotated, (void*)&FakeAddPieceRotated);
     FlushInstructionCache(GetCurrentProcess(), site, 5);
 
     const int W = 8, CELLS = 32, N = 12;

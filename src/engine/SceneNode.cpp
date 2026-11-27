@@ -273,8 +273,7 @@ static inline int32_t Cell16(float v) {
     int32_t r;
     __asm {
         fld d
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov r, eax
     }
     return r >> 4;
@@ -287,8 +286,7 @@ static inline int32_t Ftol(double v) {
     int32_t r;
     __asm {
         fld v
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov r, eax
     }
     return r;

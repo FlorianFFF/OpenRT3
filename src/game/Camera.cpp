@@ -24,6 +24,9 @@
 
 namespace rt3 {
 
+// Rewritten functions called directly.
+void Companies_CreateDefault();
+
 template <typename T> static inline T& F(void* o, uint32_t off) { return *(T*)((uint8_t*)o + off); }
 int32_t ClockMs();
 void* __fastcall Engine_Renderer(void* e);
@@ -454,8 +457,7 @@ static inline int32_t CamFtol(double v) {
     int32_t r;
     __asm {
         fld v
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov r, eax
     }
     return r;
@@ -491,8 +493,7 @@ static inline int32_t Ftol(double v) {
     int32_t r;
     __asm {
         fld v
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov r, eax
     }
     return r;
@@ -531,8 +532,8 @@ bool World_NudgeOpenDialog() {
 // 50..200 % (SimRand within a spread of 22, or 9.9 with w+0x66de, 0.6x in
 // multiplayer, smaller for big cities and larger below 0x5c8780, at least
 // 3); with run-ahead years (+0x178) the world runs ahead (0x437b20). Then
-// the players are set up, single player creates the companies (0x47d440,
-// kept original) and with auto companies (0x6cec7c +0x82) clears 49 ints at
+// the players are set up, single player creates the companies
+// (Companies_CreateDefault 0x47d440) and with auto companies (0x6cec7c +0x82) clears 49 ints at
 // world +0x4a7f and opens every territory to the player's company. Every
 // company is reset (0x4241c0), the loading screen shows 0x142 and the whole
 // map is refreshed.
@@ -564,13 +565,11 @@ RT3_NOINLINE void __fastcall World_PrepareNewGame(uint8_t* w) {
                 int32_t hi, lo;
                 __asm {
                     fld spread
-                    mov eax, 0x5a10d0
-                    call eax
+                    call Rt3_Ftol
                     mov hi, eax
                     fld spread
                     fchs
-                    mov eax, 0x5a10d0
-                    call eax
+                    call Rt3_Ftol
                     mov lo, eax
                 }
                 float pct = (float)SimRand(lo, hi);
@@ -592,7 +591,7 @@ RT3_NOINLINE void __fastcall World_PrepareNewGame(uint8_t* w) {
     if (!g_session) {
         if (g_newGame[0x82] ||
             (F<int32_t>(g_app, 0x14c) && !F<int32_t>(g_app, 0x68)))
-            hook::Orig<void (*)()>(0x47d440)();
+            Companies_CreateDefault();
         if (g_newGame[0x82])
             for (int32_t off = 0; off < 0xc4; off += 4) F<int32_t>(g_world, 0x4a7f + off) = 0;
         if (g_newGame[0x82] && F<int32_t>(g_world, 0x21) > 0 &&
@@ -1489,8 +1488,7 @@ RT3_NOINLINE int32_t __fastcall Camera_FogAlpha(uint8_t* c, int, int32_t x, int3
             fsub qword ptr ds:[0x5ca118]
             fmul qword ptr ds:[0x5ca110]
             fdiv qword ptr ds:[0x5c8668]
-            mov eax, 0x5a10d0
-            call eax
+            call Rt3_Ftol
             mov base, eax
         }
     } else {
@@ -1501,8 +1499,7 @@ RT3_NOINLINE int32_t __fastcall Camera_FogAlpha(uint8_t* c, int, int32_t x, int3
                 fsubr qword ptr ds:[0x5ca100]
                 fmul qword ptr ds:[0x5ca0f8]
                 fdiv qword ptr ds:[0x5c8668]
-                mov eax, 0x5a10d0
-                call eax
+                call Rt3_Ftol
                 mov base, eax
             }
         }
@@ -1514,13 +1511,11 @@ RT3_NOINLINE int32_t __fastcall Camera_FogAlpha(uint8_t* c, int, int32_t x, int3
     __asm {
         fld tz
         fdiv dword ptr ds:[0x5c8700]
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov cellZ, eax
         fld tx
         fdiv dword ptr ds:[0x5c8700]
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov cellX, eax
     }
     float d = (float)(uint16_t)DistanceInt(x, y, cellX, cellZ);
@@ -1535,8 +1530,7 @@ RT3_NOINLINE int32_t __fastcall Camera_FogAlpha(uint8_t* c, int, int32_t x, int3
             fsub q
             fmul dword ptr ds:[0x5ca0ec]
             fdiv dword ptr ds:[0x5c873c]
-            mov eax, 0x5a10d0
-            call eax
+            call Rt3_Ftol
             mov a, eax
         }
     } else {
@@ -1740,8 +1734,7 @@ void __fastcall Camera_UpdateDetail(uint8_t* c) {
     int32_t moved;
     __asm {
         fld sum
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov moved, eax
     }
     int32_t level;

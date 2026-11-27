@@ -79,8 +79,7 @@ static inline int32_t Ftol(double v) {
     int32_t r;
     __asm {
         fld v
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov r, eax
     }
     return r;
@@ -278,8 +277,7 @@ void __fastcall Fx_UpdateIntensity(uint8_t* o) {
         fsub dword ptr ds:[0x5c88e0]
         fmul dword ptr ds:[0x5cb4a8]
         fsubp st(1), st
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov v, eax
     }
     F<int32_t>(o, 0x19) = v;

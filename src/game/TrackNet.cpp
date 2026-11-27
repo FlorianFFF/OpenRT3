@@ -92,8 +92,6 @@ static void RoutePlain_Link(Collection* routes, uint8_t* nd, int32_t id, bool ch
 int32_t __fastcall Route_FindPlain(Collection* routes, int, int32_t cur, int32_t target, uint32_t* cost, int32_t prev,
                                    int32_t needFlag, uint32_t* company, uint32_t* foreign, int32_t anyTrack);
 
-// RT3_REPLACE(0x48f7f0, Track_ReshapeCells); -- see above
-
 int32_t __fastcall Node_HasFreeLink(void* n, int, int32_t any);
 
 void __fastcall Node_ResetKind(void* n);
@@ -310,6 +308,10 @@ RT3_NOINLINE void __fastcall Tracks_ApplyPendingKinds(Collection* c);
 RT3_NOINLINE void __fastcall Tracks_ApplyUpgrades(Collection* c, int, uint32_t company, int32_t amount);
 RT3_NOINLINE float __fastcall Tracks_TotalCost(Collection* c, int, uint32_t company);
 void __fastcall Track_ReshapeCells(uint8_t* t, int, float x0, float z0, float x1, float z1, float x2, float z2, float x3, float z3, int32_t drop, int32_t neighbours);
+int32_t __fastcall Tracks_AddPiece(Collection* c, int, float x0, float z0, float x1, float z1, float x2, float z2, float x3, float z3,
+                                   int32_t kind, int32_t owner, int32_t style);
+int32_t __fastcall Tracks_AddPieceRotated(Collection* c, int, float cx, float cy, float angle, int32_t kind, int32_t owner, int32_t style,
+                                          int32_t force);
 void __fastcall Tracks_RestoreEdit(Collection* c, int, uint8_t* t);
 void __fastcall Tracks_ReplayEdit(Collection* c);
 RT3_NOINLINE void __fastcall TrackNet_ShowStatus(uint8_t* t, int, uint32_t piece);
@@ -413,8 +415,7 @@ static inline int32_t Ftol(double v) {
     int32_t r;
     __asm {
         fld v
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov r, eax
     }
     return r;
@@ -1176,7 +1177,7 @@ RT3_NOINLINE int32_t __fastcall TrackNet_AddPieceTurned(Collection* net, int, fl
         uint8_t* co = (uint8_t*)Collection_Get(g_companies, 0, (uint32_t)owner);
         if (F<int32_t>(co, 0x766c) + F<int32_t>(co, 0x7668) + F<int32_t>(co, 0x7664) > 0 || F<int32_t>(hook::As<uint8_t*>(g_tracks), 0x98)) return -1;
     }
-    int32_t id = ((int32_t(__fastcall*)(Collection*, int, float, float, float, int32_t, int32_t, int32_t, int32_t))0x493cf0)(net, 0, cx, cy, angle, kind, owner,
+    int32_t id = Tracks_AddPieceRotated(net, 0, cx, cy, angle, kind, owner,
                                                                                                                        style, 0);
     if (F<int32_t>(g_world, 0x4c74) && Collection_IsValid(g_tracks, 0, (uint32_t)id))
         Track_Electrify((uint8_t*)Collection_Get(g_tracks, 0, (uint32_t)id), 0, 0, 0, 1);
@@ -2264,8 +2265,7 @@ RT3_NOINLINE void __fastcall TrackNet_SmoothJoin(Collection* net, int, int32_t f
                 d.f[0] = (float)((double)dx + v90.f[0]);
                 d.f[2] = (float)((double)dz + v90.f[2]);
                 const double sc = Fl_207(0x5c8700);
-                int32_t id = ((int32_t(__fastcall*)(Collection*, int, float, float, float, float, float, float, float, float, int32_t, int32_t,
-                                                     int32_t))0x493ec0)(net, 0, (float)(v90.f[0] / sc), (float)(v90.f[2] / sc), (float)(vd0.f[0] / sc),
+                int32_t id = Tracks_AddPiece(net, 0, (float)(v90.f[0] / sc), (float)(v90.f[2] / sc), (float)(vd0.f[0] / sc),
                                                                         (float)(vd0.f[2] / sc), (float)(c.f[0] / sc), (float)(c.f[2] / sc),
                                                                         (float)(d.f[0] / sc), (float)(d.f[2] / sc), mode, a4, a5);
                 Track_ConnectAndResolve(n, 0, id);
@@ -2404,10 +2404,10 @@ RT3_REPLACE(0x49af50, Tracks_TotalCost);
 // 0x48f7f0. Re-shapes track piece t to four corners given in cells (x, z pairs,
 // times 92). Without `drop` the heights are the current ones; with it the original
 // passes uninitialized stack as heights and then drops the piece onto the terrain.
-// `neighbours` then matches the neighbouring pieces. NOT INSTALLED: Track_Reshape
-// sets the light mode (+0x5a) from those stale heights before the drop, so with
-// `drop` the original's result depends on stack residue. The exe's own code stays
-// in place; this is the decode (zero heights instead), verified without `drop`.
+// `neighbours` then matches the neighbouring pieces. With `drop` the original's
+// light mode (+0x5a, set by Track_Reshape from the stale heights before the drop)
+// depends on the stack (zero heights here), but its only caller, 0x49d380 (both
+// calls), passes drop 0, where the heights are the piece's own.
 void __fastcall Track_ReshapeCells(uint8_t* t, int, float x0, float z0, float x1, float z1, float x2, float z2, float x3,
                                    float z3, int32_t drop, int32_t neighbours) {
     float v[4][3] = {};
@@ -2422,6 +2422,7 @@ void __fastcall Track_ReshapeCells(uint8_t* t, int, float x0, float z0, float x1
     if (drop) Track_DropAndSettle(t, 0, 0x40400000, 1);
     if (neighbours) Track_MatchNeighbourHeights(t);
 }
+RT3_REPLACE(0x48f7f0, Track_ReshapeCells);
 
 // 0x49afe0. Restores a track edit (this = the piece collection with its undo
 // record): while the remembered piece (+0x129) still exists and `t` has no free
@@ -3121,7 +3122,7 @@ RT3_REPLACE(0x49d320, TrackNet_DropPreview);
 // otherwise a preview. A company without pieces left (+0x7680) gets
 // nothing. The walk (0x49bd40) first follows existing track; the rest is
 // planned (0x49cc40 / 0x498320) into a path of points, and along each leg
-// pieces of about 0x5c97e0 are added (0x493ec0, kept original) whose
+// pieces of about 0x5c97e0 are added (Tracks_AddPiece 0x493ec0) whose
 // corners follow the heading, bent by at most the turn the leg allows,
 // checked against water / rough cells (0x448af0 / 0x449980), the slope
 // (0x4951f0) and the company's territories, shaped (0x4a3810), linked and
@@ -3507,7 +3508,7 @@ piece:
                                        (uint32_t*)(n + 0x1bd), 1, 0, 0);
                 Track_Reshape_Impl(BlTrack(tracks, esi), 0, fr.p(0x124), fr.p(0x13c), fr.p(0x118), fr.p(0x130), 1, 0, 0);
             }
-            auto reshape = hook::Orig<void(__fastcall*)(uint8_t*, int, float, float, float, float, float, float, float, float, int32_t, int32_t)>(0x48f7f0);
+            auto reshape = &Track_ReshapeCells;
             if (fr.i(0xd8))
                 reshape(BlTrack(tracks, esi), 0, fr.f(0xfc), fr.f(0x5c), fr.f(0x110), fr.f(0x20), fr.f(0x48), fr.f(0x50), fr.f(0x18), fr.f(0x60), 0, 1);
             else
@@ -3545,7 +3546,7 @@ piece:
         Terrain_IsSpecial(map(), 0, Ftol(x1), Ftol(y1)))
         goto abandon;
     ebx = company;
-    esi = hook::Orig<int32_t(__fastcall*)(Collection*, int, float, float, float, float, float, float, float, float, int32_t, int32_t, int32_t)>(0x493ec0)(
+    esi = Tracks_AddPiece(
         net, 0, fr.f(0x48), fr.f(0x50), fr.f(0x18), fr.f(0x60), fr.f(0xb4), fr.f(0xb8), fr.f(0x8c), fr.f(0x90), mode, ebx, fr.i(0xf4));
     if (esi == -1) goto abandon;
     fr.i(0xdc) += Track_BuildCost(BlTrack(net, esi), 0, (uint32_t)ebx, 0);
@@ -3875,7 +3876,7 @@ RT3_REPLACE(0x4a00b0, TrackNet_EndBuild);
 // 0x4a01a0 (thiscall, RET 0x28). Track network net lays a line for `company`
 // from (x0, y0), or the centre of piece *from, to (x1, y1), or piece *to's
 // centre. Nothing on special terrain (0x449980) at either end. Without a
-// start piece a turned piece is placed first (0x493cf0, kept original,
+// start piece a turned piece is placed first (Tracks_AddPieceRotated 0x493cf0,
 // facing away from the target) and in build mode (`mode` 1 / 2) gets a
 // route of its own. The builder is reset (0x495480) and TrackNet_BuildLine
 // runs (kind 4 with `doubleKind`, else 1; radius +-1 by `positive`); when
@@ -3894,7 +3895,7 @@ RT3_NOINLINE int32_t __fastcall TrackNet_LayLine(Collection* net, int, float x0,
     float facing = (float)(Fl_207(0x5c8768) - AngleOf(x1, y1, x0, y0));
     const bool fresh = a == -1;
     if (fresh) {
-        a = hook::Orig<int32_t(__fastcall*)(Collection*, int, float, float, float, int32_t, int32_t, int32_t, int32_t)>(0x493cf0)(net, 0, x0, y0, facing, 0,
+        a = Tracks_AddPieceRotated(net, 0, x0, y0, facing, 0,
                                                                                                                                  company, 1, 0);
         if (a == -1) goto cleanup;
     }
@@ -4919,7 +4920,7 @@ RT3_NOINLINE void __fastcall TrackList_ResetBuildState(uint8_t* tracks) {
             uint32_t id = Collection_IdAt((Collection*)(tracks), 0, (uint32_t)(i), (int)(0));
             uint8_t* node = (uint8_t*)Collection_Get((Collection*)(tracks), 0, id);
             if (F<uint32_t>(node, 0x240) > F<uint32_t>(tracks, 0x102) && node[0x216] == 1) {
-                hook::Orig<void(__fastcall*)(void*, int, uint32_t)>(0x48b830)(node, 0, 2);
+                ((void(__fastcall*)(void*, int, uint32_t))&Track_SetKind)(node, 0, 2);
                 dirty = true;
             }
             Method(0x489f40, node);
@@ -5048,7 +5049,7 @@ RT3_NOINLINE void __fastcall Routes_Save(Collection* t, int, Stream s, int32_t r
     StreamWriteU32(s, 0x396d);
     Collection_Save(t, 0, s, recordSize);
     for (int32_t i = 0; i < Collection_Count(t); ++i)
-        ((void(__thiscall*)(void*, Stream))0x494ef0)(Collection_Get(t, 0, Collection_IdAt(t, 0, i, 0)), s);
+        ((void(__thiscall*)(void*, Stream))&Nop494ef0)(Collection_Get(t, 0, Collection_IdAt(t, 0, i, 0)), s);
     StreamWriteU32(s, 0x396e);
 }
 RT3_REPLACE(0x4a4240, Routes_Save);

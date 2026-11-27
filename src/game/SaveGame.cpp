@@ -225,12 +225,13 @@ static inline int32_t Ftol(double v) {
     int32_t r;
     __asm {
         fld v
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov r, eax
     }
     return r;
 }
+
+void Block3c2_Save();  // 0x441ec0, naked (src/game/Commands.cpp)
 
 namespace {
 // 0x441ec0 takes the file in ESI, the block in EBX and the stream in EDI.
@@ -242,8 +243,7 @@ void SaveHeaderBlock(void* file, uint8_t* block, Stream s) {
         mov esi, file
         mov ebx, block
         mov edi, s
-        mov eax, 0x441ec0
-        call eax
+        call Block3c2_Save
         pop edi
         pop esi
         pop ebx
@@ -494,6 +494,7 @@ void __fastcall Car_SetPiece(uint8_t* car, int, int32_t piece, int32_t pos) {
     }
     F<int32_t>(car, 0x35e) = pos;
 }
+RT3_REPLACE(0x41c700, Car_SetPiece);
 
 // 0x445ac0 (RET 0xc). Loads a game: `name` (formatted), else with flag 1
 // the Quicksave (extension by mode: .gmp editor, .gmx auto companies, .gmc

@@ -345,8 +345,7 @@ static inline int32_t Ftol(double v) {
     int32_t r;
     __asm {
         fld v
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov r, eax
     }
     return r;
@@ -1338,8 +1337,7 @@ void __fastcall Train_AutoName(uint8_t* t, int, uint32_t a, uint32_t b) {
             mov ecx, big
             call cellX
             fsubr tmp
-            mov eax, 0x5a10d0
-            call eax
+            call Rt3_Ftol
             mov stepX, eax
             mov ecx, lesser
             call cellY
@@ -1347,8 +1345,7 @@ void __fastcall Train_AutoName(uint8_t* t, int, uint32_t a, uint32_t b) {
             mov ecx, big
             call cellY
             fsubr tmp
-            mov eax, 0x5a10d0
-            call eax
+            call Rt3_Ftol
             mov stepY, eax
             mov ecx, big
             call cellX
@@ -1359,8 +1356,7 @@ void __fastcall Train_AutoName(uint8_t* t, int, uint32_t a, uint32_t b) {
             fild stepX
             fstp tmp
             fadd tmp
-            mov eax, 0x5a10d0
-            call eax
+            call Rt3_Ftol
             mov ex, eax
             mov ecx, big
             call cellY
@@ -1371,8 +1367,7 @@ void __fastcall Train_AutoName(uint8_t* t, int, uint32_t a, uint32_t b) {
             fild stepY
             fstp tmp
             fadd tmp
-            mov eax, 0x5a10d0
-            call eax
+            call Rt3_Ftol
             mov ey, eax
         }
         int32_t ax = ex < 0 ? -ex : ex, ay = ey < 0 ? -ey : ey;
@@ -2183,7 +2178,7 @@ RT3_NOINLINE void __fastcall Companies_Save(Collection* t, int, Stream s, int32_
     Collection_Save(t, 0, s, recordSize);
     StreamWriteU32(s, 0x61aa);
     for (int32_t i = 0; i < Collection_Count(t); ++i)
-        ((int32_t(__thiscall*)(void*, Stream))0x424000)(Collection_Get(t, 0, Collection_IdAt(t, 0, i, 0)), s);
+        ((int32_t(__thiscall*)(void*, Stream))&Return0_424000)(Collection_Get(t, 0, Collection_IdAt(t, 0, i, 0)), s);
     StreamWriteU32(s, 0x61ab);
 }
 RT3_REPLACE(0x429b90, Companies_Save);

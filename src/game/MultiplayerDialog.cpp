@@ -338,8 +338,7 @@ static inline int32_t Ftol(double v) {
     int32_t r;
     __asm {
         fld v
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov r, eax
     }
     return r;
@@ -393,8 +392,7 @@ static void Session_StartWorkerMode(int32_t mode) {
     __asm {
         push edi
         mov edi, mode
-        mov eax, 0x4ed890
-        call eax
+        call Session_StartWorker
         pop edi
     }
 }
@@ -1634,8 +1632,7 @@ RT3_NOINLINE void __fastcall MpDialog_Connect(uint8_t* w) {
     __asm {
         push edi
         mov edi, 2
-        mov eax, 0x4ed890
-        call eax
+        call Session_StartWorker
         pop edi
     }
 }
@@ -1969,7 +1966,7 @@ RT3_NOINLINE void __fastcall MpDialog_SelectMode(uint8_t* dialog, int, int32_t c
     uint32_t state = 0x86;
     if (choice == 0xe11) {
         char buffer[128];
-        char* address = hook::Orig<char*(__fastcall*)(void*, int, char*)>(0x5216f0)(hook::As<void*>(g_6d40d0), 0, buffer);
+        char* address = ((char*(__fastcall*)(void*, int, char*))&Net_LocalAddress)(hook::As<void*>(g_6d40d0), 0, buffer);
         Event_dialog_selection(dialog, 0x6f, 0xe46, (uint32_t)(uintptr_t)address);
     } else if (choice == 0xe12) {
         NewGameDialog_ShowSetting7b(dialog);
@@ -1980,7 +1977,7 @@ RT3_NOINLINE void __fastcall MpDialog_SelectMode(uint8_t* dialog, int, int32_t c
         MpScenario_SelectSource(dialog, 0, 0xe15);
         if (F_dialog_selection<int32_t>(hook::As<void*>(g_session), 0x985c)) state = 0x6d;
     } else if (choice == 0xe10) {
-        if (!hook::Orig<uint8_t(__cdecl*)()>(0x51b6f0)()) Event_dialog_selection(dialog, 0x87, 0xe4c, 3);
+        if (!((uint8_t(__cdecl*)())&IsEnglish)()) Event_dialog_selection(dialog, 0x87, 0xe4c, 3);
     } else if (choice == 0xe13) state = 0x6d;
     Event_dialog_selection(dialog, state, 0xe55, 3);
     MpScenario_SelectSource(dialog, 0, -1);

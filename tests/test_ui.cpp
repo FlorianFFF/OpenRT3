@@ -20,6 +20,17 @@
 #include <string>
 
 namespace rt3 {
+// Rewrites the fakes below also patch (they are called by name now).
+void __fastcall City_Grow(uint8_t* c, int, float dt, int32_t fast);
+void Block3c2_Save();
+void __stdcall Map_CellsChanged(int32_t, int32_t, int32_t, int32_t);
+float* __fastcall Camera_WorldCross(uint8_t* cam, int, float* out, float vx, float vy, float vz, float wx, float wy, float wz, float* len);
+void Companies_CreateDefault();
+void __fastcall Track_ReshapeCells(uint8_t* t, int, float x0, float z0, float x1, float z1, float x2, float z2, float x3, float z3, int32_t drop, int32_t neighbours);
+int32_t __fastcall Tracks_AddPieceRotated(Collection* c, int, float cx, float cy, float angle, int32_t kind, int32_t owner, int32_t style, int32_t force);
+int32_t __fastcall Tracks_AddPiece(Collection* c, int, float x0, float z0, float x1, float z1, float x2, float z2, float x3, float z3, int32_t kind, int32_t owner, int32_t style);
+void __fastcall Train_Run(uint8_t* t, int, float slice);
+void Widget_Pan();
 // Rewrites the game code now calls directly: a fake must replace these too, not only the exe address.
 void __fastcall World_Advance(uint8_t* w, int, int32_t minutes, int32_t nested);
 void __fastcall World_Startup(uint8_t* w, int, int32_t setup, int32_t withMap);
@@ -33854,7 +33865,7 @@ DIFFTEST(ui_DropdownListSelect) {
     UiTrace t;
     t.Add(0x560300, (void*)&rt3::TreeView_NodeOfRow, (void*)&FakeB245Node);
     t.Add(0x5602c0, (void*)&rt3::TreeView_RowOfNode, (void*)&FakeB245Row);
-    t.Add(0x5584d0, nullptr, (void*)&FakeB245Pan);
+    t.Add(0x5584d0, (void*)&rt3::Widget_Pan, (void*)&FakeB245Pan);
     t.Add(0x45ea20, (void*)&rt3::Ui_PlaySound, (void*)&FakeB245Sound);
     t.Add(0x560e50, (void*)&rt3::ListView_RefreshVisible, (void*)&FakeB245Refresh);
     for (int it = 0; it < 192; ++it) {
@@ -34543,7 +34554,7 @@ DIFFTEST(ui_OptionsDetailAndLists) {
     t.Add(0x4625b0, (void*)&rt3::Menu_UpdateChecks, (void*)&FakeB244Menu);
     t.Add(0x54e9c0, (void*)&rt3::Input_PushEvent, (void*)&FakeB253Push);
     t.Add(0x561840, (void*)&rt3::ListBox_Select, (void*)&FakeB253Scroll);
-    t.Add(0x5584d0, nullptr, (void*)&FakeB245Pan);
+    t.Add(0x5584d0, (void*)&rt3::Widget_Pan, (void*)&FakeB245Pan);
     t.Add(0x45ea20, (void*)&rt3::Ui_PlaySound, (void*)&FakeB245Sound);
     t.Add(0x538a60, (void*)&rt3::Obj_Idlec60, (void*)&FakeB253Idle);
     t.Add(0x538a30, (void*)&rt3::Obj_Incc60, (void*)&FakeB244Inc);
@@ -34651,7 +34662,7 @@ DIFFTEST(ui_ListBoxOps) {
     t.Add(0x55ffb0, (void*)&rt3::List_RowHeight, (void*)&FakeB254Row);
     t.Add(0x51d890, (void*)&rt3::ClockMs, (void*)&FakeB254Clock);
     t.Add(0x54e9c0, (void*)&rt3::Input_PushEvent, (void*)&FakeB253Push);
-    t.Add(0x5584d0, nullptr, (void*)&FakeB245Pan);
+    t.Add(0x5584d0, (void*)&rt3::Widget_Pan, (void*)&FakeB245Pan);
     t.Add(0x45ea20, (void*)&rt3::Ui_PlaySound, (void*)&FakeB245Sound);
     const uint32_t gl[] = { 0x6d4024, 0x6d4018 };
     const int n = sizeof gl / sizeof gl[0];
@@ -38563,7 +38574,7 @@ DIFFTEST(game_TrackNetSmallOps) {
     t.Add(0x517d40, (void*)&rt3::Collection_IsValid, (void*)&FakeB279Valid);
     t.Add(0x517cf0, (void*)&rt3::Collection_Count, (void*)&FakeB279Count);
     t.Add(0x518380, (void*)&rt3::Collection_IdAt, (void*)&FakeB279IdAt);
-    t.Add(0x493cf0, nullptr, (void*)&FakeB279Add);
+    t.Add(0x493cf0, (void*)&rt3::Tracks_AddPieceRotated, (void*)&FakeB279Add);
     t.Add(0x49ad90, (void*)&rt3::Tracks_ApplyPendingKinds, (void*)&FakeB279Pending);
     t.Add(0x495540, (void*)&rt3::Obj_FreeList1c9, (void*)&FakeB279Free);
     t.Add(0x51f070, (void*)&rt3::Engine_Renderer, (void*)&FakeB279Renderer);
@@ -39650,7 +39661,7 @@ DIFFTEST(game_TrackNetSmoothJoin) {
     t.Add(0x4950f0, (void*)&rt3::Route_ReplaceEnd, (void*)&FakeB287Replace);
     t.Add(0x489f80, (void*)&rt3::Node_Set212, (void*)&FakeB287Set212);
     t.Add(0x4a4ce0, (void*)&rt3::Routes_Merge, (void*)&FakeB287Merge);
-    t.Add(0x493ec0, nullptr, (void*)&FakeB287AddPiece);
+    t.Add(0x493ec0, (void*)&rt3::Tracks_AddPiece, (void*)&FakeB287AddPiece);
     const uint32_t gl[] = { 0x6cfcb4 };
     const int n = sizeof gl / sizeof gl[0];
     uint32_t saved[n];
@@ -44748,7 +44759,7 @@ int32_t __fastcall FakeB327Send(uint8_t* w, int, uint32_t type, uint32_t id, uin
 
 DIFFTEST(game_ToggleHandleEvent) {
     UiTrace t;
-    t.Add(0x5584d0, nullptr, (void*)&FakeB327Pan);
+    t.Add(0x5584d0, (void*)&rt3::Widget_Pan, (void*)&FakeB327Pan);
     t.Add(0, (void*)&rt3::Widget_Pan_Impl, (void*)&FakeB327Pan);
     t.Add(0x45ea20, (void*)&rt3::Ui_PlaySound, (void*)&FakeB327Sound);
     t.Add(0x516be0, (void*)&rt3::Tutorial_Advance, (void*)&FakeB327Advance);
@@ -49142,7 +49153,7 @@ DIFFTEST(game_CitiesUpdateAll) {
     t.Add(0x517cf0, (void*)&rt3::Collection_Count, (void*)&FakeB367Count);
     t.Add(0x518380, (void*)&rt3::Collection_IdAt, (void*)&FakeB345IdAt);
     t.Add(0x518140, (void*)&rt3::Collection_Get, (void*)&FakeB367Get);
-    t.Add(0x4235c0, nullptr, (void*)&FakeB367City);
+    t.Add(0x4235c0, (void*)&rt3::City_Grow, (void*)&FakeB367City);
     t.Add(0x4834e0, (void*)&rt3::Loading_Pump, (void*)&FakeB367Pump);
     const uint32_t gl[] = { 0x6cec78, 0xccb9e8 };
     uint32_t saved[2] = { *(uint32_t*)gl[0], *(uint32_t*)gl[1] };
@@ -51317,7 +51328,7 @@ DIFFTEST(game_VehicleDriveUpdate) {
     t.Add(0x457e10, (void*)&rt3::Obj_OffsetVector, (void*)&FakeB386Offset);
     t.Add(0x457eb0, (void*)&rt3::Obj_ScaledPoint, (void*)&FakeB386Point);
     t.Add(0x457f40, (void*)&rt3::Vec3_AngleTerm, (void*)&FakeB386Angle);
-    t.Add(0x458140, nullptr, (void*)&FakeB386Cross);
+    t.Add(0x458140, (void*)&rt3::Camera_WorldCross, (void*)&FakeB386Cross);
     t.Add(0x5548e0, (void*)&rt3::View_SetParams, (void*)&FakeB386View);
     t.Add(0x5a29ab, nullptr, (void*)&FakeB386Rand);
     IatSlot box(0x5c8220, (void*)&FakeB386Box);
@@ -53367,7 +53378,7 @@ DIFFTEST(game_WorldCreatePlayers) {
     t.Add(0x518380, (void*)&rt3::Collection_IdAt, (void*)&FakeB400IdAt);
     t.Add(0x476140, (void*)&rt3::Player_Init, (void*)&FakeB400Init);
     t.Add(0x5193f0, (void*)&rt3::GetString, (void*)&FakeB374Str);
-    t.Add(0x47d440, nullptr, (void*)&FakeB400Companies);
+    t.Add(0x47d440, (void*)&rt3::Companies_CreateDefault, (void*)&FakeB400Companies);
     const uint32_t gl[] = { 0x6cec74, 0x6cd8d8, 0x6cec7c, 0x6ceb9c };
     const int n = sizeof gl / sizeof gl[0];
     uint32_t saved[n];
@@ -53497,7 +53508,7 @@ DIFFTEST(game_WorldPrepareNewGame) {
     t.Add(0x421c20, (void*)&rt3::Cities_UpdateAll, (void*)&FakeB401Cities);
     t.Add(0x437b20, (void*)&rt3::World_RunAhead, (void*)&FakeB401Ahead);
     t.Add(0x437220, (void*)&rt3::World_SetupPlayers, (void*)&FakeB401Players);
-    t.Add(0x47d440, nullptr, (void*)&FakeB401Companies);
+    t.Add(0x47d440, (void*)&rt3::Companies_CreateDefault, (void*)&FakeB401Companies);
     t.Add(0x424030, (void*)&rt3::Company_SetEntryFlag, (void*)&FakeB401SetFlag);
     t.Add(0x429a50, (void*)&rt3::Table_CountField3f, (void*)&FakeB401CountC);
     t.Add(0x429a90, (void*)&rt3::Table_NthField3f, (void*)&FakeB401NthC);
@@ -53915,7 +53926,7 @@ DIFFTEST(game_TrackNetBuildLine) {
     t.Add(0x4a4ce0, (void*)&rt3::Routes_Merge, (void*)&FakeB403Merge);
     t.Add(0x448af0, (void*)&rt3::Map_CellFlag, (void*)&FakeB403Flag);
     t.Add(0x449980, (void*)&rt3::Terrain_IsSpecial, (void*)&FakeB403Special);
-    t.Add(0x493ec0, nullptr, (void*)&FakeB403AddPiece);
+    t.Add(0x493ec0, (void*)&rt3::Tracks_AddPiece, (void*)&FakeB403AddPiece);
     t.Add(0x48abf0, (void*)&rt3::Track_BuildCost, (void*)&FakeB403Cost);
     t.Add(0x424010, (void*)&rt3::Company_EntryFlag, (void*)&FakeB403Entry);
     t.Add(0x48aa70, (void*)&rt3::Obj_CenterRegionType, (void*)&FakeB403Region);
@@ -53926,7 +53937,7 @@ DIFFTEST(game_TrackNetBuildLine) {
     t.Add(0x48bdb0, (void*)&rt3::Track_MarkCells, (void*)&FakeB403Mark);
     t.Add(0x4337a0, (void*)&rt3::Obj_Get21, (void*)&FakeB403Get21);
     t.Add(0x45ea20, (void*)&rt3::Ui_PlaySound, (void*)&FakeB403Sound);
-    t.Add(0x48f7f0, nullptr, (void*)&FakeB403Cells);
+    t.Add(0x48f7f0, (void*)&rt3::Track_ReshapeCells, (void*)&FakeB403Cells);
     t.Add(0x49bbb0, (void*)&rt3::TrackNet_RemovePiece, (void*)&FakeB403Remove);
     t.Add(0x4a3d00, (void*)&rt3::Obj_PushIdNode, (void*)&FakeB403Push);
     t.Add(0x4a3ec0, (void*)&rt3::TrackNet_Undo, (void*)&FakeB403Undo);
@@ -54072,7 +54083,7 @@ DIFFTEST(game_TrackNetLayLine) {
     t.Add(0x48a170, (void*)&rt3::Obj_CenterCell, (void*)&FakeB404Center);
     t.Add(0x5394b0, (void*)&rt3::Effect_GetVectors, (void*)&FakeB404Vectors);
     t.Add(0x449980, (void*)&rt3::Terrain_IsSpecial, (void*)&FakeB404Special);
-    t.Add(0x493cf0, nullptr, (void*)&FakeB404Rotated);
+    t.Add(0x493cf0, (void*)&rt3::Tracks_AddPieceRotated, (void*)&FakeB404Rotated);
     t.Add(0x4a42b0, (void*)&rt3::Routes_Add, (void*)&FakeB404RouteAdd);
     t.Add(0x489f80, (void*)&rt3::Node_Set212, (void*)&FakeB404Set212);
     t.Add(0x494f00, (void*)&rt3::Route_AddNode, (void*)&FakeB404AddNode);
@@ -54313,7 +54324,7 @@ DIFFTEST(game_TrackToolUpdate) {
     t.Add(0x48a0e0, (void*)&rt3::Node_HasFreeLink, (void*)&FakeB406Free);
     t.Add(0x48a090, (void*)&rt3::Node_HasLink, (void*)&FakeB406Link);
     t.Add(0x53a3a0, (void*)&rt3::Obj_SetRgb, (void*)&FakeB406Rgb);
-    t.Add(0x493cf0, nullptr, (void*)&FakeB406Rotated);
+    t.Add(0x493cf0, (void*)&rt3::Tracks_AddPieceRotated, (void*)&FakeB406Rotated);
     t.Add(0x4a04c0, (void*)&rt3::TrackNet_ExtendTo, (void*)&FakeB406Extend);
     t.Add(0x4955e0, (void*)&rt3::Obj_DecayCounters, (void*)&FakeB406Decay);
     t.Add(0x53ef90, (void*)&rt3::Obj_SetText1c, (void*)&FakeB406Text);
@@ -54441,7 +54452,7 @@ DIFFTEST(game_TrackMsgApply) {
     t.Add(0x49ace0, (void*)&rt3::TrackNet_FindOrAddNode, (void*)&FakeB407Find);
     t.Add(0x495580, (void*)&rt3::Obj_CopyCorners, (void*)&FakeB407Copy);
     t.Add(0x48b660, (void*)&rt3::Track_UpdateColor, (void*)&FakeB407Color);
-    t.Add(0x493cf0, nullptr, (void*)&FakeB407Rotated);
+    t.Add(0x493cf0, (void*)&rt3::Tracks_AddPieceRotated, (void*)&FakeB407Rotated);
     t.Add(0x4918e0, (void*)&rt3::Route_GradeFactor, (void*)&FakeB407Grade);
     t.Add(0x4a04c0, (void*)&rt3::TrackNet_ExtendTo, (void*)&FakeB407Extend);
     t.Add(0x4955e0, (void*)&rt3::Obj_DecayCounters, (void*)&FakeB407Decay);
@@ -55243,7 +55254,7 @@ DIFFTEST(game_WorldSaveGame) {
     t.Add(0x538c70, (void*)&rt3::Ui_ShowTooltip, (void*)&FakeB413Tip);
     t.Add(0x436a70, (void*)&rt3::World_MarkBuildingTypes, (void*)&FakeB413Mark);
     t.Add(0x442ba0, (void*)&rt3::Map_WritePreview, (void*)&FakeB413Preview);
-    t.Add(0x441ec0, nullptr, (void*)&FakeB413Header);
+    t.Add(0x441ec0, (void*)&rt3::Block3c2_Save, (void*)&FakeB413Header);
     t.Add(0x441f70, nullptr, (void*)&FakeB413Image);
     t.Add(0x442900, nullptr, (void*)&FakeB413Pack);
     t.Add(0x442660, (void*)&rt3::Save_LogProgress, (void*)&FakeB413Log);
@@ -58685,7 +58696,7 @@ DIFFTEST(game_WorldLoadMap) {
     B433ADD(0x534e10, Terrain_KindIs1Or3to5, FakeB433Kind);
     B433ADD(0x4497a0, Map_SetFineBit, FakeB433Fine);
     B433ADD(0x44dca0, Map_SetCellHeight, FakeB433Height);
-    t.Add(0x44d410, nullptr, (void*)&FakeB433CellsWrap);
+    t.Add(0x44d410, (void*)&rt3::Map_CellsChanged, (void*)&FakeB433CellsWrap);
     t.Add(0, (void*)&rt3::Map_CellsChangedImpl, (void*)&FakeB433CellsImpl);
     B433ADD(0x44cf70, Map_Construct, FakeB433MapCtor);
     B433ADD(0x535100, Terrain_BuildTiles, FakeB433Tiles);
@@ -74937,7 +74948,7 @@ DIFFTEST(game_SmallCallbacksb501) {
     t.Add(0x4adde0, (void*)static_cast<void(__fastcall *)(uint8_t*)>(&rt3::Train_Arrive), (void*)&FakeB501Arrive);
     t.Add(0x4aed60, (void*)static_cast<float(__fastcall *)(uint8_t*, int, float)>(&rt3::Train_StepAtStation), (void*)&FakeB501AtStation);
     t.Add(0x4afeb0, (void*)static_cast<void(__fastcall *)(uint8_t*)>(&rt3::Train_Advance), (void*)&GenFakeb501_22);
-    t.Add(0x4b0310, nullptr, (void*)&GenFakeb501_23);
+    t.Add(0x4b0310, (void*)&rt3::Train_Run, (void*)&GenFakeb501_23);
     t.Add(0x4b2bd0, (void*)&rt3::Array33_Current, (void*)&GenFakeb501_24);
     t.Add(0x4b2f00, (void*)static_cast<void(__fastcall *)(uint8_t*, int, int32_t, int32_t)>(&rt3::TrainOrders_SetCurrent), (void*)&GenFakeb501_25);
     t.Add(0x517d40, (void*)&rt3::Collection_IsValid, (void*)&GenFakeb501_26);

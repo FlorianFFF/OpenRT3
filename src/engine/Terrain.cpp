@@ -296,8 +296,7 @@ static inline int32_t CellOf(float v) {
     __asm {
         fld v
         fmul dword ptr ds:[0x5dcfe8]
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov r, eax
     }
     return r;
@@ -313,8 +312,7 @@ inline int32_t FlowFtol(double v) {
     int32_t r;
     __asm {
         fld v
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov r, eax
     }
     return r;
@@ -713,8 +711,7 @@ uint32_t __fastcall Render_AnimFrameA(uint8_t* r) {
         fild n
         mov eax, 0x5a139a
         call eax
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov idx, eax
     }
     F<int32_t>(r, 0x1570) = idx;
@@ -860,8 +857,7 @@ void __fastcall Terrain_ApplyHeightCurve(uint8_t* t, int, float k) {
                 mov eax, h
                 fmul dword ptr [eax]
                 fmul dword ptr ds:[0x5c8c28]
-                mov eax, 0x5a10d0
-                call eax
+                call Rt3_Ftol
                 mov idx, eax
             }
             if (idx < 0) idx = 0;
@@ -1409,13 +1405,11 @@ RT3_NOINLINE float* __fastcall Terrain_NormalAt(uint8_t* t, int, float* out, flo
     __asm {
         fld x
         fmul dword ptr ds:[0x5dcfe8]
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov ix, eax
         fld z
         fmul dword ptr ds:[0x5dcfe8]
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov iz, eax
     }
     if (ix < 0) {
@@ -2218,8 +2212,7 @@ RT3_NOINLINE void __fastcall Terrain_ShadeVertex(uint8_t* t, int, int32_t x, int
     int32_t r;
     __asm {
         fld v
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov r, eax
     }
     F<uint16_t*>(t, 0x1619)[idx] = (uint16_t)r;
@@ -2381,15 +2374,13 @@ PtrListNode* __fastcall Terrain_AddQuad(uint8_t* t, int, float x0, float y0, flo
         fadd x2
         fadd x1
         fadd x0
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov sx, eax
         fld z3
         fadd z2
         fadd z1
         fadd z0
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov sz, eax
     }
     int32_t bx = ((sx >> 2) / 92) >> 4;

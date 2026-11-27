@@ -11,10 +11,59 @@
 // Defining those helpers here makes every cast in the rewrite call the exe's
 // _ftol, as the original did. They all take the value in ST0 (and pop it).
 //
-// Only in rt3re.dll / rt3re_test.dll, which always run with the game's image
-// loaded at 0x400000.
+// Rt3_Ftol is that _ftol, instruction for instruction (MSVC 7.0's: FISTP with
+// the current rounding, round to nearest, then the result corrected towards
+// zero by the sign of what the rounding left), so no conversion depends on the
+// exe's code any more.
+#include "hook/hook.h"
 
-static const void* const kExeFtol = (const void*)0x5a10d0;
+extern "C" __declspec(naked) void Rt3_Ftol() {
+    __asm {
+        push ebp
+        mov ebp, esp
+        sub esp, 0x20
+        and esp, 0xfffffff0
+        fld st(0)
+        fst dword ptr [esp + 0x18]
+        fistp qword ptr [esp + 0x10]
+        fild qword ptr [esp + 0x10]
+        mov edx, dword ptr [esp + 0x18]
+        mov eax, dword ptr [esp + 0x10]
+        test eax, eax
+        jz low_zero
+    fraction:
+        fsubp st(1), st(0)
+        test edx, edx
+        jns positive
+        fstp dword ptr [esp]
+        mov ecx, dword ptr [esp]
+        xor ecx, 0x80000000
+        add ecx, 0x7fffffff
+        adc eax, 0
+        mov edx, dword ptr [esp + 0x14]
+        adc edx, 0
+        jmp done
+    positive:
+        fstp dword ptr [esp]
+        mov ecx, dword ptr [esp]
+        add ecx, 0x7fffffff
+        sbb eax, 0
+        mov edx, dword ptr [esp + 0x14]
+        sbb edx, 0
+        jmp done
+    low_zero:
+        mov edx, dword ptr [esp + 0x14]
+        test edx, 0x7fffffff
+        jnz fraction
+        fstp dword ptr [esp + 0x18]
+        fstp dword ptr [esp + 0x18]
+    done:
+        leave
+        ret
+    }
+}
+
+static const void* const kExeFtol = (const void*)&Rt3_Ftol;
 
 // Our runtime's helpers keep the registers that are not their result (its
 // _ftol2_sse converts with SSE2 and touches nothing else), and compiled code

@@ -229,7 +229,7 @@ RT3_NOINLINE void __fastcall Loading_Pump(uint8_t* l, int, int32_t step, int32_t
 
 static inline double D(uint32_t va) { return *(const double*)va; }
 
-static inline uint32_t Obj_Refresh420410(void* o) { return ((uint32_t(__thiscall*)(void*))0x420410)(o); }
+static inline uint32_t Obj_Refresh420410(void* o) { return ((uint32_t(__thiscall*)(void*))&Obj_UpdatePortFlags)(o); }
 
 static inline void Obj_Entry41fac0(void* o, int32_t i, char* name, void* out) {
     Obj_Entry37f(o, 0, i, name, (int32_t*)(out));
@@ -275,8 +275,7 @@ static inline int32_t Ftol(double v) {
     int32_t r;
     __asm {
         fld v
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov r, eax
     }
     return r;
@@ -884,7 +883,7 @@ RT3_NOINLINE void __fastcall Cities_UpdateAll(Collection* t, int, int32_t a, int
     int32_t base = g_skipCount;
     for (int32_t i = 0, step = 0x1e; i < Collection_Count(t); ++i, step += 0x1e) {
         uint8_t* c = (uint8_t*)Collection_Get(t, 0, Collection_IdAt(t, 0, (uint32_t)i, 0));
-        ((void(__fastcall*)(uint8_t*, int, int32_t, int32_t))0x4235c0)(c, 0, a, b);
+        ((void(__fastcall*)(uint8_t*, int, int32_t, int32_t))&City_Grow)(c, 0, a, b);
         int32_t d = Collection_Count(t) < 1 ? 1 : Collection_Count(t);
         g_skipCount = step / d + base;
         Loading_Pump(g_app, 0, 0, 0);

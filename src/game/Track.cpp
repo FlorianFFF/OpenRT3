@@ -23,6 +23,9 @@
 
 namespace rt3 {
 
+// Rewritten functions called directly.
+void __fastcall Track_Init(uint8_t* t, int, int32_t id, int32_t group, float x0, float z0, float x1, float z1, float x2, float z2, float x3, float z3, int32_t kind, int32_t owner, int32_t style);
+
 template <typename T> static inline T& F(void* o, uint32_t off) { return *(T*)((uint8_t*)o + off); }
 
    // 0x5c8700
@@ -411,8 +414,7 @@ static inline int32_t Ftol(double v) {
     int32_t r;
     __asm {
         fld v
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov r, eax
     }
     return r;
@@ -2315,8 +2317,7 @@ void __fastcall Track_InitRotated(uint8_t* t, int, int32_t id, int32_t group, fl
     float x1 = (float)((s1 - c2) + cx), z1 = (float)((s2 + c1) + cy);
     float x2 = (float)((s2 - c2) + cx), z2 = (float)((c2 + s2) + cy);
     float x3 = (float)((s2 - c1) + cx), z3 = (float)((c2 + s1) + cy);
-    ((void(__fastcall*)(uint8_t*, int, int32_t, int32_t, float, float, float, float, float, float, float, float, int32_t, int32_t,
-                        int32_t))0x48f2b0)(t, 0, id, group, x0, z0, x1, z1, x2, z2, x3, z3, kind, owner, style);
+    Track_Init(t, 0, id, group, x0, z0, x1, z1, x2, z2, x3, z3, kind, owner, style);
 }
 RT3_REPLACE(0x490ac0, Track_InitRotated);
 
@@ -2887,13 +2888,11 @@ RT3_NOINLINE int32_t __fastcall Grid_NearestObject(Collection* c, int, float x, 
     __asm {
         fld y
         fdiv dword ptr ds:[0x5c8568]
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov blockY, eax
         fld x
         fdiv dword ptr ds:[0x5c8568]
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov blockX, eax
     }
     uint8_t* e = (uint8_t*)Obj_CellEntry(c, 0, (uint16_t)blockX, (uint16_t)blockY);

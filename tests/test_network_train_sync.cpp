@@ -8,6 +8,8 @@
 namespace rt3 {
 void Net_ApplyTrainPosition();
 void* __fastcall Obj_City41(void* o);
+void __fastcall Car_SetPiece(uint8_t* car, int, int32_t piece, int32_t pos);
+int32_t __fastcall Car_Advance(uint8_t* c, int, uint32_t dist, int32_t* moved, int32_t* count, int32_t p5);
 }
 
 namespace {
@@ -102,7 +104,9 @@ DIFFTEST(game_NetApplyTrainPosition) {
     EntryPatch firstOrig(0x4a77b0, (void*)&FakeFirstCar);
     EntryPatch firstNew((uintptr_t)&rt3::Obj_City41, (void*)&FakeFirstCar);
     EntryPatch move(0x41c700, (void*)&FakeMove);
+    EntryPatch moveNew((uintptr_t)&rt3::Car_SetPiece, (void*)&FakeMove);
     EntryPatch advance(0x41ce80, (void*)&FakeAdvance);
+    EntryPatch advanceNew((uintptr_t)&rt3::Car_Advance, (void*)&FakeAdvance);
     uint32_t saved = hook::Global<uint32_t>(0x6cfcbc);
     hook::Global<uint32_t>(0x6cfcbc) = 0x6cfcbc;
     for (uint32_t it = 0; it < 2048; ++it) {

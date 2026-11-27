@@ -69,12 +69,10 @@ static void Shrink(uint8_t* img, uint32_t plane, int32_t fx, int32_t fy) {
     double qx = (double)w / fx, qy = (double)h / fy;
     __asm {
         fld qx
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov sx, eax
         fld qy
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov sy, eax
     }
     int32_t nw = w / sx, nh = h / sy;
@@ -1190,12 +1188,10 @@ RT3_NOINLINE void __fastcall Texture_MakeBumpMaps(uint8_t* o) {
                 int32_t u, v;
                 __asm {
                     fld qu
-                    mov eax, 0x5a10d0
-                    call eax
+                    call Rt3_Ftol
                     mov u, eax
                     fld qv
-                    mov eax, 0x5a10d0
-                    call eax
+                    call Rt3_Ftol
                     mov v, eax
                 }
                 *d++ = (uint16_t)(((uint32_t)(uint8_t)u << 8) | (uint32_t)v);

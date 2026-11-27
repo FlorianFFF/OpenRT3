@@ -24,6 +24,11 @@
 
 namespace rt3 {
 
+// Rewritten functions called directly.
+int32_t Obj_KindE8Special();
+
+extern int32_t g_unwrittenReads[8];  // src/game/Train.cpp, before Train_Run
+
 template <typename T> static inline T& F(void* o, uint32_t off) { return *(T*)((uint8_t*)o + off); }
 void* __fastcall Array33_At(void* a, int, int32_t i);
 int32_t __fastcall Obj_BuildingStateActive(void* o);
@@ -375,8 +380,7 @@ static inline int32_t Ftol(double v) {
     int32_t r;
     __asm {
         fld v
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov r, eax
     }
     return r;
@@ -462,8 +466,7 @@ static int32_t TerrainTools_Round(float v) {
     __asm {
         fld v
         fadd qword ptr ds:[0x5c8628]
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov n, eax
     }
     return n;
@@ -914,11 +917,9 @@ RT3_REPLACE(0x4b71b0, IndustryWindow_Refresh);
 // swing the crane (+0x3f4, +0x3f8; sounds +0x3d8 / +0x3dc), space spouts the
 // fountain (+0x3ec, horn +0x3d4). The engine sounds and wake follow the speed
 // +0x3e4; the boat moves by its heading and stays above the ground + 4.
-// NOT INSTALLED: the wake's vertical rate (effect +0x74) is taken from the
-// local that holds the gear-table value, which only the W path writes, so
-// otherwise the original stores stack residue there. This decode stands in
-// 0 for that residue; the exe's own code stays in place. Verified apart from
-// that field.
+// The wake's vertical rate (effect +0x74) is taken from the local that holds
+// the gear-table value, which only the W path writes, so otherwise the
+// original stores a stack leftover there; here it is 0 (counted, see Train_Run).
 void __fastcall Boat_Update(uint8_t* b, int, int32_t now) {
     int32_t elapsed = now - F<int32_t>(b, 0x3e8);
     float fe = (float)elapsed;
@@ -980,11 +981,13 @@ void __fastcall Boat_Update(uint8_t* b, int, int32_t now) {
     }
     float headingCos = (float)crt::sin(F<float>(b, 0x418));
     float gearStep = 0.0f; // the original leaves this local unwritten unless W runs
+    bool gearSet = false;
     if (BoatKey('w')) {
         if (int32_t gear = F<int32_t>(b, 0x430)) {
             float g = ((const float*)0x621a08)[gear < 0 ? -gear : gear];
             if (gear < 0) g = -g;
             gearStep = g;
+            gearSet = true;
             float target = (float)(F<float>(b, 0x3e0) - (double)g * F<float>(b, 0x3e4) * BoatF(0x5cf0d0));
             float th = (float)(F<float>(b, 0x3e0) - (double)target * dt * BoatF(0x5c8554));
             F<float>(b, 0x3e0) = th;
@@ -1041,6 +1044,7 @@ void __fastcall Boat_Update(uint8_t* b, int, int32_t now) {
         F<float>(b, 0x404) = my + F<float>(b, 0x404);
         F<float>(b, 0x408) = F<float>(b, 0x408) - mz;
         F<float>(e, 0x70) = (float)((double)mx * BoatD(0x5c8678));
+        if (!gearSet) ++g_unwrittenReads[4];
         F<float>(e, 0x74) = (float)((double)gearStep * BoatD(0x5cf0b8)); // QUIRK: not my
         F<float>(e, 0x78) = (float)((double)mz * BoatD(0x5c8678));
         F<uint32_t>(e, 0x7c) = 0x3a83126f, F<uint32_t>(e, 0x80) = 0x3ba3d70a, F<uint32_t>(e, 0x84) = 0x3a83126f;
@@ -1139,6 +1143,7 @@ void __fastcall Boat_Update(uint8_t* b, int, int32_t now) {
     SceneObj_SetAngles(b, 0, F<uint32_t>(b, 0x418), F<uint32_t>(b, 0x41c), F<uint32_t>(b, 0x420));
     Obj_MoveTo(b, 0, F<float>(b, 0x400), F<float>(b, 0x404), F<float>(b, 0x408));
 }
+RT3_REPLACE(0x486240, Boat_Update);
 
  // namespace
 
@@ -2136,9 +2141,12 @@ RT3_NOINLINE void __fastcall Car_UpdatePose(uint8_t* car, int, float dist) {
     uint8_t* node = (uint8_t*)Collection_Get(nodes, 0, F<uint32_t>(car, 0x356));
     if (!node) return;
     int32_t dir1 = F<int32_t>(car, 0x35a), dir2 = dir1 == 0;
-    float x1, z1, x2, z2, at1, at2;
+    // A bogie that runs off a track end gets no point from Node_Advance; the
+    // original then uses its stack leftovers, here 0 (counted, see Train_Run).
+    float x1 = 0.0f, z1 = 0.0f, x2 = 0.0f, z2 = 0.0f, at1 = 0.0f, at2 = 0.0f;
     int32_t r1 = Node_Advance(node, 0, F<float>(car, 0x35e), lenF, &x1, &z1, &at1, &dir1, nullptr, nullptr, -1, -1, 1);
     int32_t r2 = Node_Advance(node, 0, F<float>(car, 0x35e), lenR, &x2, &z2, &at2, &dir2, nullptr, nullptr, -1, -1, 0);
+    if (r1 == -1 || r2 == -1) ++g_unwrittenReads[3];
     float sum = (float)((double)lenR + lenF);
     float t = (float)((double)lenR / sum);
     float mx = (float)(((double)x1 - x2) * t + x2);
@@ -2190,11 +2198,11 @@ RT3_NOINLINE void __fastcall Car_UpdatePose(uint8_t* car, int, float dist) {
     Vehicle_RollWheels(car, 0, dist);
 }
 
-// NOT INSTALLED (stack residue): when a bogie runs off a track end, Node_Advance
-// returns -1 without writing its x / z outputs, and the original then places
-// the car at whatever its stack slots still held. The decode above is exact
-// otherwise (difftest game_CarUpdatePose); 0x41b080 stays original (skip list).
-// RT3_REPLACE(0x41b080, Car_UpdatePose); -- see above
+// When a bogie runs off a track end, Node_Advance returns -1 without writing
+// its x / z outputs, and the original places the car using whatever its stack
+// slots still held (its frame is realigned to 8 bytes, so not even the slots
+// are fixed); here they start at 0. Exact otherwise (difftest game_CarUpdatePose).
+RT3_REPLACE(0x41b080, Car_UpdatePose);
 
 // 0x4ba3d0. The building type editor's cargo panel for the edited type
 // (0x6cfe04: +0 cargo count, +1 cargo ids, +0x21 selection, +0x28 flags):
@@ -3300,13 +3308,13 @@ RT3_NOINLINE void __fastcall TrainList_DrawEntry(uint8_t* t, uint8_t highlight, 
     if (F<float>(t, 0xe4) == RowF(0x5c8598)) RowStatus(gx2, y2, 1);
     if (F<float>(t, 0xdc) == RowF(0x5c8598)) RowStatus(gx2, y2, 2);
     if (Train_StateBOr12(t)) RowStatus(gx2, y2, 3);
-    else if (((int32_t(__fastcall*)(void*))0x4a7220)(t)) RowStatus(gx2, y2, 4);
+    else if (((int32_t(__fastcall*)(void*))&Obj_KindE8Special)(t)) RowStatus(gx2, y2, 4);
     else if (F<int32_t>(t, 0xe8) == 0x13) RowStatus(gx2, y2, 5);
     else if (F<int32_t>(t, 0xe8) == 0xe) RowStatus(gx2, y2, 6);
     char dest[0x134], label[0x1f8], tmp[0x190], stop[0x130];
     Train_DestinationText(t, 0, dest, 0x12b);
     if (!t[0x1a1] && !(t[0x1ce] & 1)) {
-        if (((int32_t(__fastcall*)(void*))0x4a7220)(t) && (t[0x1ce] & 2)) {
+        if (((int32_t(__fastcall*)(void*))&Obj_KindE8Special)(t) && (t[0x1ce] & 2)) {
             FormatText(label, (const char*)0x5d06f0, dest, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
         } else {
             char num[0x20];

@@ -25,6 +25,8 @@
 
 namespace rt3 {
 
+float* __fastcall Camera_WorldCross(uint8_t* cam, int, float* out, float vx, float vy, float vz, float wx, float wy, float wz, float* len);
+
 template <typename T> static inline T& F(void* o, uint32_t off) { return *(T*)((uint8_t*)o + off); }
 static const float kCellUnits = 92.0f;
 double __fastcall Obj_CellX(void* o);
@@ -585,8 +587,7 @@ static inline float SnapInt(float v) {
     int32_t r;
     __asm {
         fld v
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov r, eax
     }
     return (float)r;
@@ -620,8 +621,7 @@ void CarHelperPoint(char* path, const char* name, uint32_t fmt, uint32_t* id, fl
     float f = F<float>(*(uint8_t**)(fr + 0x45), 8);
     __asm {
         fld f
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov n, eax
     }
     *len = (float)(n < 0 ? -n : n);
@@ -668,8 +668,7 @@ static float TreeTypes_Coord(float base, float off) {
         fmul dword ptr ds:[0x5c8700]
         fmul dword ptr ds:[0x5c8c28]
         fadd qword ptr ds:[0x5c8628]
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov n, eax
     }
     return (float)((double)n / *(const double*)0x5c85d8);
@@ -764,11 +763,11 @@ typedef void(__fastcall* AxisBitsFn)(uint8_t*, int, uint32_t, uint32_t, uint32_t
 inline uint32_t Bits4588(float f) { return *(uint32_t*)&f; }
 inline float Fl4588(uint32_t a) { return *(const float*)a; }
 inline double D4588(uint32_t a) { return *(const double*)a; }
-// 0x458140 stays the original (it leaves stack residue its callers read).
+// 0x458140 Camera_WorldCross (src/game/App.cpp, declared at the top), its vectors passed as bits.
 inline float* WorldCross(uint8_t* v, float* out, const float* a, const float* b, float* len) {
     const uint32_t* ab = (const uint32_t*)a;
     const uint32_t* bb = (const uint32_t*)b;
-    return ((CrossBitsFn)0x458140)(v, 0, out, ab[0], ab[1], ab[2], bb[0], bb[1], bb[2], len);
+    return ((CrossBitsFn)&Camera_WorldCross)(v, 0, out, ab[0], ab[1], ab[2], bb[0], bb[1], bb[2], len);
 }
 inline void RotateBits(uint8_t* v, uint32_t axis, float angle) {
     const uint32_t* a = (const uint32_t*)(v + axis);
@@ -1048,8 +1047,7 @@ RT3_NOINLINE void __fastcall Terrain_AdjustLevel(uint8_t* m, int, float x, float
                 int32_t v;
                 __asm {
                     fld q
-                    mov eax, 0x5a10d0
-                    call eax
+                    call Rt3_Ftol
                     mov v, eax
                 }
                 if (v <= 0) continue;
@@ -2098,8 +2096,7 @@ RT3_NOINLINE void __fastcall Map_RandomEdgeEntry(uint8_t* o, int, float* outX, f
         double q = (double)half * D(0x5c8628) + (double)r;
         __asm {
             fld q
-            mov eax, 0x5a10d0
-            call eax
+            call Rt3_Ftol
             mov x0, eax
         }
         x1 = Rand(-10, 10) + x0;
@@ -2530,8 +2527,7 @@ RT3_NOINLINE bool __fastcall Vehicle_DriveUpdate(uint8_t* v, int, float dt) {
             fld throttle
             fmul dword ptr ds:[0x5c89a0]
             fadd dword ptr ds:[0x5ca1c0]
-            mov eax, 0x5a10d0
-            call eax
+            call Rt3_Ftol
             mov rate, eax
         }
         Channel_SetRate(F<uint8_t*>(v, 0x2fe), 0, rate);

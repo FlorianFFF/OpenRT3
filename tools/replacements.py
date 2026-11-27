@@ -11,20 +11,7 @@ REPLACEMENT_RE = re.compile(
 # These implementations remain callable at their exe addresses. They are valid
 # dependencies for new rewrites, but must never count as installed replacements.
 ORIGINAL_ONLY = frozenset({
-    # Car_SetPiece: the rewrite matches the asm and its difftest, but simcheck
-    # diverges (160 writes) with it on; suspected stack residue read by the
-    # unrewritten 0x41ce80 that every caller runs next. Revisit with 0x41ce80.
-    0x41c700,
-    0x41b080, 0x41ce80,
-    # With the leading car (+0x34e) off the track the outputs of 0x48edf0 are
-    # never written but still stored (+0x362 / +0x366) and passed on.
-    0x41c790,
-    0x458140, 0x48f2b0, 0x48f7f0, 0x493cf0, 0x493ec0,
-    # Callers consume unwritten stack locals; see docs/devin_handoff.md.
-    0x4a9b70, 0x4b0310,
-    # Passes an unwritten stack local (the first company's logo) to
-    # Company_Init 0x428420; -1 there draws a random logo.
-    0x47d440,
-    # Stores an unwritten local (the gear step) as the wake's vertical rate.
-    0x486240,
+    # Empty: every game function is installed. The ones whose original reads a
+    # local it never wrote (a stack leftover) start that local at 0 and count
+    # the path (g_unwrittenReads, src/game/Train.cpp).
 })

@@ -85,11 +85,7 @@ void __fastcall Company_Add7680(void* c, int, int32_t d);
 uint8_t* __fastcall TrackLight_Construct(uint8_t* o);
 void __fastcall Effect489e80_Release(uint8_t* e);
 
-// RT3_REPLACE(0x493ec0, Tracks_AddPiece); -- see above
-
 void __fastcall Fatal_Exit(const char* msg);
-
-// RT3_REPLACE(0x493cf0, Tracks_AddPieceRotated); -- see above
 
 uint32_t __fastcall SysInfo_HasFeature0();
 
@@ -339,8 +335,7 @@ static inline int32_t Ftol(double v) {
     int32_t r;
     __asm {
         fld v
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov r, eax
     }
     return r;
@@ -825,6 +820,71 @@ RT3_NOINLINE void __fastcall Msg_FoundCompany(int32_t* m) {
     Events_Fire(g_events, 0, 7, nullptr, 0);
 }
 RT3_REPLACE(0x47d320, Msg_FoundCompany);
+
+int32_t __fastcall Table_CountField3f(Collection* t);
+void* __fastcall Table_NthField3f(Collection* t, int, int32_t n);
+int32_t __fastcall Table_CountField4(Collection* t);
+void* __fastcall Table_NthField4(Collection* t, int, int32_t n);
+void __fastcall Company_SetChairman(int32_t* c, int, int32_t player);
+void __fastcall Company_Init(uint8_t* c, int, int32_t id, int32_t player, int32_t logo, const char* name, const char* logoName, int32_t cash);
+int32_t __fastcall Obj_Get21(void* o);
+int32_t __fastcall Obj_Get25(void* o);
+void* __fastcall Obj_Ref25(void* o);
+void __fastcall Obj_AddDouble154(void* o, int, int32_t amount);
+
+// 0x47d440. Creates the three computer-run companies of a game with auto
+// companies. When companies exist already: nothing if the world's company
+// (+0x21) is still valid, else the first one with a chairman (Table_NthField3f)
+// gets the local player (+0x25) as chairman. Then three companies are added:
+// logo i + 1, name string 0x23f + i, cash 5,000,000 for the first (90,000,000
+// for scenario +0x16c outside the editor), 2,000,000 and 3,000,000 for the
+// others. The local player is chairman of the first and buys its shares with
+// his cash (shares = cash / share price +0x57, rounded to thousands, 0..+0x47
+// shares, into his +0x15d table) and it becomes the world's company; the second
+// player (when there are two or more) does the same for the second company and
+// is its chairman. Finally the event trigger 7 runs.
+RT3_NOINLINE void Companies_CreateDefault() {
+    Collection* const companies = g_companies;
+    if (Table_CountField3f(companies) > 0) {
+        if (Obj_Get21(g_world) > 0 && Collection_IsValid(g_companies, 0, (uint32_t)Obj_Get21(g_world))) return;
+        const int32_t player = *(int32_t*)Obj_Ref25(g_world);
+        Company_SetChairman((int32_t*)Table_NthField3f(g_companies, 0, 0), 0, player);
+    }
+    for (int32_t i = 0; i < 3; ++i) {
+        Collection* const cs = g_companies;
+        const uint32_t id = ((uint32_t(__fastcall*)(Collection*, int, void*, int32_t, int32_t, int32_t))(*(void***)cs)[1])(cs, 0, nullptr, 0, 0, 0);
+        uint8_t* c = (uint8_t*)Collection_Get(g_companies, 0, id);
+        int32_t cash, player;
+        if (i == 0) {
+            cash = F<int32_t>(g_app, 0x16c) && !F<int32_t>(g_app, 0x68) ? 90000000 : 5000000;
+            player = Obj_Get25(g_world);
+        } else {
+            cash = i != 1 ? 3000000 : 2000000;
+            player = 0;
+        }
+        Company_Init(c, 0, (int32_t)id, player, i + 1, GetString(0x23f + i), nullptr, cash);
+        // Shares the player buys: his cash over the share price, to thousands, 0..+0x47.
+        auto buy = [&](uint8_t* p) {
+            const int32_t price = Ftol((double)F<float>(c, 0x57));
+            const int32_t n = Ftol(F<double>(p, 0x154) / (double)price);
+            int32_t shares = (n + 500) / 1000 * 1000;
+            if (shares < 0) shares = 0;
+            if (shares > F<int32_t>(c, 0x47)) shares = F<int32_t>(c, 0x47);
+            F<int32_t>(p, 0x15d + id * 4) = shares;
+            Obj_AddDouble154(p, 0, -(price * shares));
+        };
+        if (i == 0) {
+            buy((uint8_t*)Obj_Ref25(g_world));
+            Obj_Set21(g_world, 0, (int32_t)id);
+        } else if (i == 1 && Table_CountField4(g_players) >= 2) {
+            uint8_t* p = (uint8_t*)Table_NthField4(g_players, 0, 1);
+            buy(p);
+            Company_SetChairman((int32_t*)c, 0, *(int32_t*)p);
+        }
+    }
+    Events_Fire(g_events, 0, 7, nullptr, 0);
+}
+RT3_REPLACE(0x47d440, Companies_CreateDefault);
 
 void __fastcall Obj_Set3c(void* o, int, uint16_t v) { F<uint16_t>(o, 0x3c) = v; }
 RT3_REPLACE(0x47d6f0, Obj_Set3c);
@@ -1762,7 +1822,7 @@ void __fastcall Station_Init(uint8_t* st, int, int32_t id, uint32_t building, fl
         int32_t force = Obj_Flag3d4(b) != 1 ? 1 : 0;
         float pieceAngle = SceneObj_Angle2(b2);
         float cy = (float)((double)oy + y), cx = (float)((double)x - ox);
-        node = ((int32_t(__fastcall*)(Collection*, int, float, float, float, int32_t, int32_t, int32_t, int32_t))0x493cf0)(
+        node = Tracks_AddPieceRotated(
             g_tracks, 0, cx, cy, pieceAngle, kind, owner, 1, force);
     }
     F<int32_t>(st, 8) = node;
@@ -1892,7 +1952,7 @@ RT3_NOINLINE void __fastcall Station_Move(uint8_t* st, int, float x, float y, in
         int32_t pieceKind = Obj_Flag3d4(Station_BuildingOf(st)) == 1 ? 2 : 0;
         int32_t owner = Obj_BuildingValue(st);
         float cy = (float)((double)oy + y), cx = (float)((double)x - ox);
-        node = ((int32_t(__fastcall*)(Collection*, int, float, float, float, int32_t, int32_t, int32_t, int32_t))0x493cf0)(
+        node = Tracks_AddPieceRotated(
             g_tracks, 0, cx, cy, -angle, pieceKind, owner, 1, 1);
         if (!Collection_IsValid(g_tracks, 0, (uint32_t)node)) return;
         F<int32_t>(Collection_Get(g_tracks, 0, F<uint32_t>(st, 8)), 0x222) = -1;
@@ -1907,7 +1967,7 @@ RT3_NOINLINE void __fastcall Station_Move(uint8_t* st, int, float x, float y, in
         int32_t force = Obj_Flag3d4(Station_BuildingOf(st)) != 1 ? 1 : 0;
         int32_t owner = Obj_BuildingValue(st);
         float pieceAngle = SceneObj_Angle2(Station_BuildingOf(st));
-        F<int32_t>(st, 8) = ((int32_t(__fastcall*)(Collection*, int, float, float, float, int32_t, int32_t, int32_t, int32_t))0x493cf0)(
+        F<int32_t>(st, 8) = Tracks_AddPieceRotated(
             g_tracks, 0, cx, cy, pieceAngle, pieceKind, owner, 1, force);
         if (F<int32_t>(st, 8) == -1) return;
         Node_Set222(Collection_Get(g_tracks, 0, F<uint32_t>(st, 8)), 0, F<int32_t>(st, 0));
@@ -2208,8 +2268,9 @@ RT3_REPLACE(0x4819b0, Table_MoveRef);
 // table c: the square (half-size 0.181) must lie inside the map; unless `force`, a
 // valid owner must have pieces left. Charges the owner, stamps the group, registers
 // the piece and sets the table's first group as in Tracks_AddPiece. Returns its id
-// or -1. NOT INSTALLED, for the same reason as Tracks_AddPiece (record copied from
-// a mostly uninitialized local).
+// or -1. The original copies the record from a mostly uninitialised local, which
+// leaves the same unread bits as in Tracks_AddPiece (see there); the local starts
+// zeroed here.
 RT3_NOINLINE int32_t __fastcall Tracks_AddPieceRotated(Collection* c, int, float cx, float cy, float angle, int32_t kind, int32_t owner,
                                           int32_t style, int32_t force) {
     uint8_t* m = g_map;
@@ -2234,6 +2295,7 @@ RT3_NOINLINE int32_t __fastcall Tracks_AddPieceRotated(Collection* c, int, float
     Effect489e80_Release(local);
     return (int32_t)id;
 }
+RT3_REPLACE(0x493cf0, Tracks_AddPieceRotated);
 
 // 0x4819f0. The system report (static buffer 0x6cec88), built in three passes
 // that each format into the buffer with the previous text as %1 (strings 0x2f1..

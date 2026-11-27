@@ -182,8 +182,7 @@ static inline int32_t CellOf(float v) {
     __asm {
         fld v
         fmul dword ptr ds:[0x5dcfe8]
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov r, eax
     }
     return r;
@@ -240,8 +239,7 @@ static void StorePoint(uint8_t* g, uint8_t* t, uint8_t* blk, uint8_t* cell, int3
         int32_t r;
         __asm {
             fld v
-            mov eax, 0x5a10d0
-            call eax
+            call Rt3_Ftol
             mov r, eax
         }
         cell[2 + k] = (uint8_t)r;
@@ -273,8 +271,7 @@ static inline int32_t Ftol(double v) {
     int32_t r;
     __asm {
         fld v
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov r, eax
     }
     return r;

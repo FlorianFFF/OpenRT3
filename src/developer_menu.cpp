@@ -5,6 +5,8 @@
 #include <stdint.h>
 #include <string.h>
 
+namespace rt3 { void __fastcall Menu_UpdateChecks(HMENU* m, int, char relight); }  // 0x4625b0 (src/game/DevMenu.cpp)
+
 namespace developer_menu {
 namespace {
 
@@ -61,7 +63,7 @@ void CALLBACK MaintainMenu(HWND window, UINT, UINT_PTR, DWORD) {
     owner->active = 1;
     // Both original and rewritten dispatchers already handle WM_COMMAND.
     // Refresh the original resource's checks from the game's current options.
-    hook::Orig<void(__fastcall*)(HMENU*, int, char)>(0x4625b0)(&owner->menu, 0, 0);
+    rt3::Menu_UpdateChecks(&owner->menu, 0, 0);
     rt3::Log("developer menu: MNUDFLT attached to %p", window);
 }
 

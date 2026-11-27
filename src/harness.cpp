@@ -21,7 +21,8 @@
 #include "core/log.h"
 
 namespace rt3 { struct Collection; void __fastcall Collection_Save(Collection*, int, int32_t, int32_t);
-uint32_t __fastcall Crc32(const uint8_t* data, uint32_t len); extern FILE* g_writeTrace; void __fastcall StreamWrite(int32_t, const void*, uint32_t, int32_t); }
+uint32_t __fastcall Crc32(const uint8_t* data, uint32_t len); extern FILE* g_writeTrace; void __fastcall StreamWrite(int32_t, const void*, uint32_t, int32_t);
+extern int32_t g_unwrittenReads[8]; }
 
 namespace drawtrace { void Install(); void FrameEnd(long frame); }
 
@@ -208,13 +209,23 @@ static void NormalizeNamedAmounts() {
     rt3::Log("harness: building mix name padding cleared (%d bytes)", cleared);
 }
 
-// Record bytes no code writes or reads (padding the original fills from the
-// stack when it builds the record in an uncleared local, the rewrite with
+// Record bits no code reads before writing them (the original fills them from
+// the stack when it builds the record in an uncleared local, the rewrite with
 // zeros), cleared before the save in every run alike: {collection global,
-// first byte, last byte}. Found by comparing the records the original and
-// the rewrite build (tools note: "hex" dumps).
-static const struct { uint32_t coll; uint32_t first, last; } kUnreadPadding[] = {
-    { 0x6cfcbc, 0x1d5, 0x1d7 },  // trains: after the byte +0x1d4 (Trains_Create 0x4b23d0, Train_Init)
+// first byte, last byte, bits of each byte, and if not 0 the offset of a dword
+// that must be -1 for the bits to be unread}. Found by comparing the records
+// the original builds with the stack filled differently ("D<hex>" in a call,
+// "hex" dumps) and checking every reader.
+static const struct { uint32_t coll; uint32_t first, last; uint8_t bits; uint32_t whileNone; } kUnreadPadding[] = {
+    { 0x6cfcbc, 0x1d5, 0x1d7, 0xff, 0 },  // trains: after the byte +0x1d4 (Trains_Create 0x4b23d0, Train_Init)
+    // Track pieces (Tracks_AddPiece 0x493ec0 / Tracks_AddPieceRotated 0x493cf0
+    // copy an uncleared local into the record):
+    { 0x6cfca8, 0x234, 0x237, 0xff, 0 },     // no instruction reads +0x234
+    { 0x6cfca8, 0x24c, 0x24c, 0x08, 0 },     // a visited mark, cleared before every use
+    { 0x6cfca8, 0x201, 0x201, 0x02, 0x20e }, // the branch side, read and written only with a branch (+0x20e)
+    // Cars: the point Car_Advance 0x41ce80 / Car_FollowLeader 0x41c790 keep is
+    // never read (the original stores a stack leftover there for following cars).
+    { 0x62ba84, 0x362, 0x369, 0xff, 0 },
 };
 
 static void NormalizePadding() {
@@ -226,10 +237,12 @@ static void NormalizePadding() {
         if (!c) continue;
         int32_t cleared = 0;
         for (int32_t i = 0; i < count(c); ++i)
-            if (uint8_t* r = (uint8_t*)get(c, 0, idAt(c, 0, (uint32_t)i, 0)))
+            if (uint8_t* r = (uint8_t*)get(c, 0, idAt(c, 0, (uint32_t)i, 0))) {
+                if (k.whileNone && *(int32_t*)(r + k.whileNone) != -1) continue;
                 for (uint32_t o = k.first; o <= k.last; ++o)
-                    if (r[o]) r[o] = 0, ++cleared;
-        rt3::Log("harness: padding %x +%x..+%x cleared (%d bytes)", k.coll, k.first, k.last, cleared);
+                    if (r[o] & k.bits) r[o] &= (uint8_t)~k.bits, ++cleared;
+            }
+        rt3::Log("harness: padding %x +%x..+%x bits %02x cleared (%d bytes)", k.coll, k.first, k.last, k.bits, cleared);
     }
 }
 
@@ -307,6 +320,10 @@ static int __fastcall FrameHook(void* ctx) {
                  g ? *(uint16_t*)(g + 0xd) : 0, g ? g[0xf] : 0, g ? g[0x11] : 0, g_out);
         NormalizeNamedAmounts();
         NormalizePadding();
+        // Paths where the original reads a local it never wrote (counted by the rewrite).
+        rt3::Log("harness: unwritten-local paths: run arrival %d, appended car %d, follower off track %d, bogie off end %d, boat wake %d",
+                 rt3::g_unwrittenReads[0], rt3::g_unwrittenReads[1], rt3::g_unwrittenReads[2], rt3::g_unwrittenReads[3],
+                 rt3::g_unwrittenReads[4]);
         char trace[MAX_PATH];
         sprintf(trace, "%s.trace", g_out);
         rt3::g_writeTrace = fopen(trace, "w");
@@ -399,7 +416,7 @@ static void PostEnter() {
 // Mouse and keys go in as window messages, as from the real devices, and the
 // faked cursor position (GetCursorPos) follows the scripted mouse.
 enum ActionKind { kCall, kMove, kLeftDown, kLeftUp, kRightDown, kRightUp, kKey, kDump, kChar, kSetText, kWaitPlayers, kExplore, kClickId, kShot, kWheel, kKeyDown, kKeyUp, kZoom, kLook, kCities, kCell, kTracks, kAutoEnter, kWaitGame, kCallFn, kPoke, kHex };
-struct Action { int frame; ActionKind kind; uint32_t addr; float x, y; char text[160]; uint32_t objColl; int32_t objIndex; };  // (objColl: x, y are that object's cell)
+struct Action { int frame; ActionKind kind; uint32_t addr; float x, y; char text[512]; uint32_t objColl; int32_t objIndex; };  // (objColl: x, y are that object's cell)
 static Action g_actions[1024];
 static int g_numActions, g_nextAction;
 
@@ -538,7 +555,9 @@ static bool ScreenOfCell(float tx, float ty, float* ox, float* oy) {
 //        h<name> the data pack's id of a file name (NameTable_Hash),
 //        r the previous call's result, a<hex> the address itself, b<n> scratch buffer n (0..3, 1 KB, zeroed
 //        before the call: out parameters), y<hex> scratch buffer 2 (then 3)
-//        holding those bytes (a record to pass in), s<text> a string;
+//        holding those bytes (a record to pass in), w<tok>,<tok>,... the same
+//        holding 32-bit words given as single-word tokens (a message with real
+//        ids: wi62be10.0,f1.5), s<text> a string;
 //        D<hex> is no argument: the stack is filled with that byte first (DirtyStack)
 // A fault in the call is caught and logged as "R <addr> fault".
 static uint8_t g_scratch[4][1024];
@@ -601,21 +620,57 @@ static int CallRaw(uint32_t fn, uint32_t ecxv, uint32_t edxv, const uint32_t* st
     return 1;
 }
 
+// One 32-bit word of a "w" list: the single-word tokens of CallFunction (n x f i
+// o g p a h r).
+static uint32_t CallWord(const char* t) {
+    switch (t[0]) {
+    case 'n': return (uint32_t)strtol(t + 1, nullptr, 10);
+    case 'x': return strtoul(t + 1, nullptr, 16);
+    case 'a': return strtoul(t + 1, nullptr, 16);
+    case 'r': return g_lastCall;
+    case 'f': {
+        float x = (float)atof(t + 1);
+        uint32_t v;
+        memcpy(&v, &x, 4);
+        return v;
+    }
+    case 'o': case 'i': {
+        char* dot = nullptr;
+        const uint32_t g = strtoul(t + 1, &dot, 16);
+        uint32_t id = 0;
+        void* o = CollectionObject(g, dot && *dot == '.' ? atoi(dot + 1) : 0, true, &id);
+        return t[0] == 'o' ? (uint32_t)(uintptr_t)o : id;
+    }
+    case 'g': return *(uint32_t*)strtoul(t + 1, nullptr, 16);
+    case 'p': {
+        char* q = nullptr;
+        uint32_t v = *(uint32_t*)strtoul(t + 1, &q, 16);
+        while (v && q && *q == '.') v = *(uint32_t*)(v + strtoul(q + 1, &q, 16));
+        return v;
+    }
+    case 'h': {
+        uint8_t* pack = *(uint8_t**)0x6d4020;
+        return pack ? (uint32_t)((int32_t(__fastcall*)(uint8_t*, int, const char*))0x53b5c0)(pack, 0, t + 1) : 0;
+    }
+    }
+    return 0;
+}
+
 static void CallFunction(const char* spec) {
-    char buf[160];
+    char buf[512];
     strncpy(buf, spec, sizeof buf - 1);
     buf[sizeof buf - 1] = 0;
-    char* tok[16];
+    char* tok[32];
     int nt = 0;
-    for (char* s = strtok(buf, "/"); s && nt < 16; s = strtok(nullptr, "/")) tok[nt++] = s;
+    for (char* s = strtok(buf, "/"); s && nt < 32; s = strtok(nullptr, "/")) tok[nt++] = s;
     if (nt < 3) return;
     const uint32_t fn = strtoul(tok[0], nullptr, 16);
     const bool fast = tok[1][0] == 'f';
     const char ret = tok[2][0];
-    uint32_t words[16];
+    uint32_t words[32];
     int nw = 0, strings = 0, filled = 0, dirty = -1;
     memset(g_scratch, 0, sizeof g_scratch);
-    for (int i = 3; i < nt && nw < 14; ++i) {
+    for (int i = 3; i < nt && nw < 30; ++i) {  // < 30: a 'd' argument takes two words
         const char* t = tok[i];
         if (t[0] == 'D') {  // not an argument: the stack fill before the call (DirtyStack)
             dirty = (int)strtoul(t + 1, nullptr, 16) & 0xff;
@@ -657,6 +712,21 @@ static void CallFunction(const char* spec) {
             break;
         }
         case 'b': v = (uint32_t)(uintptr_t)g_scratch[atoi(t + 1) & 3]; break;
+        case 'w': {  // w<tok>,<tok>,...: the next of scratch buffers 2, 3 holding those 32-bit words (a message, a record)
+            uint32_t* buf = (uint32_t*)g_scratch[2 + (filled++ & 1)];
+            char sub[64];
+            int k = 0;
+            for (const char* q = t + 1; *q && k < 256;) {
+                const char* e = strchr(q, ',');
+                const size_t n = e ? (size_t)(e - q) : strlen(q);
+                memcpy(sub, q, n < sizeof sub ? n : sizeof sub - 1);
+                sub[n < sizeof sub ? n : sizeof sub - 1] = 0;
+                buf[k++] = CallWord(sub);
+                q += n + (e ? 1 : 0);
+            }
+            v = (uint32_t)(uintptr_t)buf;
+            break;
+        }
         case 'y': {  // y<hex bytes>: the next of scratch buffers 2, 3 holding those bytes (records)
             uint8_t* buf = g_scratch[2 + (filled++ & 1)];
             for (const char* q = t + 1; q[0] && q[1]; q += 2) {

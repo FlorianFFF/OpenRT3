@@ -461,8 +461,7 @@ static inline int32_t Ftol(double v) {
     int32_t r;
     __asm {
         fld v
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov r, eax
     }
     return r;
@@ -1651,18 +1650,14 @@ RT3_NOINLINE double __fastcall Recipe_NetValue(void* o, int, uint8_t* rec) {
     int32_t cellX, cellY;
     __asm {
         mov ecx, o
-        mov eax, 0x455800
-        call eax
+        call Obj_CellX
         fdiv dword ptr ds:[0x5c8568]
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov cellX, eax
         mov ecx, o
-        mov eax, 0x455810
-        call eax
+        call Obj_CellY
         fdiv dword ptr ds:[0x5c8568]
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov cellY, eax
     }
     uint8_t* m = Map();

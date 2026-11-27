@@ -69,6 +69,11 @@ template <typename T, typename U> inline T& As(U& g) {
 
 } // namespace hook
 
+// The original's float-to-integer conversion (_ftol at 0x5a10d0), value in ST0
+// (popped), result in EDX:EAX; ECX is used. For inline asm ("call Rt3_Ftol");
+// src/core/ftol.cpp.
+extern "C" void Rt3_Ftol();
+
 // thiscall methods are reimplemented as __fastcall(this, edx_unused, args...).
 // Keeps a function out of line so the UI difftests can redirect every call to
 // it (tests/test_ui.cpp patches the entry point).

@@ -28,6 +28,11 @@ typedef HMENU__* HMENU;
 
 namespace rt3 {
 
+// Rewritten functions called directly.
+void __fastcall Car_SetPiece(uint8_t* car, int, int32_t piece, int32_t pos);
+int32_t __fastcall Car_Advance(uint8_t* c, int, uint32_t dist, int32_t* moved, int32_t* count, int32_t p5);
+int32_t __fastcall Tracks_AddPieceRotated(Collection* c, int, float cx, float cy, float angle, int32_t kind, int32_t owner, int32_t style, int32_t force);
+
 int32_t __fastcall World_Load(uint8_t* w, int, const char* name, uint32_t flags, int32_t* done);
 
 int32_t __fastcall Hash_Contains(HashMap* m, int, uint32_t key);
@@ -784,8 +789,7 @@ static inline int32_t VersionInt(float v) {
         fld v
         fadd qword ptr ds:[0x5c88a0]
         fmul qword ptr ds:[0x5c85d8]
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov r, eax
     }
     return r;
@@ -838,8 +842,7 @@ static inline int32_t Ftol(double v) {
     int32_t r;
     __asm {
         fld v
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov r, eax
     }
     return r;
@@ -1333,10 +1336,8 @@ static int32_t __cdecl Net_ApplyTrainPosition_Impl(const uint32_t* packet) {
     uint8_t* car = (uint8_t*)Obj_City41(train);
     *(uint32_t*)(car + 0x35a) = packet[2];
 
-    // These two routines deliberately remain original because of stack residue.
-    hook::Orig<void(__fastcall*)(uint8_t*, int, uint32_t, uint32_t)>(0x41c700)(car, 0, packet[3], packet[4]);
-    int32_t result = hook::Orig<int32_t(__fastcall*)(uint8_t*, int, uint32_t, void*, void*, uint32_t)>(0x41ce80)(
-        car, 0, 0, nullptr, nullptr, 0xffffffff);
+    Car_SetPiece(car, 0, (int32_t)packet[3], (int32_t)packet[4]);
+    int32_t result = Car_Advance(car, 0, 0, nullptr, nullptr, -1);
     *(uint32_t*)(train + 0xcc) = packet[1];
     return result;
 }
@@ -1812,7 +1813,7 @@ RT3_REPLACE(0x468c50, Table9_Find);
 
 // 0x468ca0 / 0x468cb0. Forwarders to the map +0x9050.
 RT3_NOINLINE uint32_t __fastcall Obj_Map9050Insert(void* o, int, uint32_t key, int32_t value) {
-    return ((uint32_t(__thiscall*)(void*, uint32_t, int32_t))0x53d960)(F<void*>(o, 0x9050), key, value);
+    return ((uint32_t(__thiscall*)(void*, uint32_t, int32_t))&Hash_Insert)(F<void*>(o, 0x9050), key, value);
 }
 RT3_REPLACE(0x468ca0, Obj_Map9050Insert);
 
@@ -2537,8 +2538,7 @@ RT3_NOINLINE float __fastcall Net_CommonVersion() {
         fld best
         fadd qword ptr ds:[0x5c88a0]
         fmul qword ptr ds:[0x5c85d8]
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov r, eax
     }
     g_6cd96c = r;
@@ -2691,7 +2691,7 @@ RT3_NOINLINE int32_t __fastcall Msg_Queue(void*, int, int32_t key, uint32_t* msg
     if (!hook::As<void*>(g_world)) return 1;
     if (F<uint8_t>((void*)msg[1], 9) == 0x6e) return 0;
     if (!key) return 0;
-    void** h = ((void**(__thiscall*)(void*, int32_t))0x53dae0)(F<void*>(ctx, 0x2580), key);
+    void** h = ((void**(__thiscall*)(void*, int32_t))&Hash_Get)(F<void*>(ctx, 0x2580), key);
     if (F<uint8_t>((void*)msg[1], 9) == 0x67) {
         uint32_t seq = F<uint32_t>((void*)msg[2], 4);
         if (seq > F<uint32_t>(ctx, 0x2584)) F<uint32_t>(ctx, 0x2584) = seq;
@@ -3870,8 +3870,7 @@ RT3_NOINLINE void __fastcall Net_FeedResync(uint8_t* s) {
                 fld sent
                 fdiv total
                 fmul scale
-                mov eax, 0x5a10d0
-                call eax
+                call Rt3_Ftol
                 mov pct, eax
             }
             char num[0x130];
@@ -4501,7 +4500,7 @@ RT3_NOINLINE int32_t __fastcall TrackMsg_ApplyImpl(uint8_t* m, int32_t phase) {
         uint8_t* t = tracks();
         const int32_t style = ExtendStyle(t, m[5]);
         const int32_t owner = (int32_t)(((uint32_t)(uintptr_t)t & 0xffff0000u) | m[4]);
-        F<int32_t>(tracks(), 0x125) = hook::Orig<int32_t(__fastcall*)(Collection*, int, float, float, float, int32_t, int32_t, int32_t, int32_t)>(0x493cf0)(
+        F<int32_t>(tracks(), 0x125) = Tracks_AddPieceRotated(
             (Collection*)t, 0, F<float>(t, 0x11d), F<float>(t, 0x121), 0.0f, 0, owner, style, 0);
     }
     F<int32_t>(tracks(), 0x9c) = 0;

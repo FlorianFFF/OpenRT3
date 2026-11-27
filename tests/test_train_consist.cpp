@@ -6,6 +6,10 @@
 #include <string.h>
 
 namespace rt3 {
+// Rewrites the fakes below also patch (they are called by name now).
+void __fastcall Car_UpdatePose(uint8_t* car, int, float dist);
+void __fastcall Car_SetPiece(uint8_t* car, int, int32_t piece, int32_t pos);
+int32_t __fastcall Car_FollowLeader(uint8_t* c, int, float* pos);
 void __fastcall Train_ReanchorConsist(uint8_t* t);
 void __fastcall Train_DetachCar(uint8_t* t, int, uint32_t id);
 void __fastcall Train_SetState3(uint8_t* t, int, uint8_t* car, uint8_t* target, uint32_t flag);
@@ -160,9 +164,9 @@ void PatchCommon(Redirects& p) {
     p.Add(0x518140, (void*)&rt3::Collection_Get, (void*)&Get);
     p.Add(0x41ad90, (void*)&rt3::Obj_City352, (void*)&Next);
     p.Add(0x41adb0, (void*)&rt3::Obj_Ref388, (void*)&Type);
-    p.Add(0x41c700, nullptr, (void*)&Move);
-    p.Add(0x41b080, nullptr, (void*)&Pose);
-    p.Add(0x41c790, nullptr, (void*)&Follow);
+    p.Add(0x41c700, (void*)&rt3::Car_SetPiece, (void*)&Move);
+    p.Add(0x41b080, (void*)&rt3::Car_UpdatePose, (void*)&Pose);
+    p.Add(0x41c790, (void*)&rt3::Car_FollowLeader, (void*)&Follow);
     p.Add(0x4a9060, (void*)&rt3::Train_ScanCarKinds, (void*)&Scan);
     p.Add(0x4a8f50, (void*)&rt3::Train_RefreshRows, (void*)&Rows);
 }

@@ -338,8 +338,7 @@ static inline int32_t Ftol(double v) {
     int32_t r;
     __asm {
         fld v
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov r, eax
     }
     return r;
@@ -1797,8 +1796,7 @@ RT3_NOINLINE float __fastcall Building_RoundedValue(uint32_t id, int, float a) {
             fld v
             fadd dword ptr ds:[0x5c8db0]
             fdiv dword ptr ds:[0x5c8d00]
-            mov eax, 0x5a10d0
-            call eax
+            call Rt3_Ftol
             mov n, eax
         }
         return (float)(n * 100000);
@@ -1807,8 +1805,7 @@ RT3_NOINLINE float __fastcall Building_RoundedValue(uint32_t id, int, float a) {
         fld v
         fadd dword ptr ds:[0x5d1808]
         fdiv dword ptr ds:[0x5c8db0]
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov n, eax
     }
     return (float)(n * 50000);

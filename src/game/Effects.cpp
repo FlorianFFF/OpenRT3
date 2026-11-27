@@ -185,8 +185,7 @@ static inline int32_t Ftol(double v) {
     int32_t r;
     __asm {
         fld v
-        mov eax, 0x5a10d0
-        call eax
+        call Rt3_Ftol
         mov r, eax
     }
     return r;
@@ -773,7 +772,7 @@ void FreeBuffers6cea54() {
     void*& m = hook::As<void*>(g_6cea58);
     if (m) {
         void* p = m;
-        ((void(__thiscall*)(void*))0x53dcb0)(p);
+        ((void(__thiscall*)(void*))&Pool_Free)(p);
         crt::operator_delete(p);
         m = nullptr;
     }
