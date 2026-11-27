@@ -52,8 +52,8 @@
 0040acb0 Airplanes_LoadTypes 26
 0040aeb0 Airplanes_Construct 26
 0040af00 Vehicles_Remove 16
-0040afa0 Vehicles_Add 12
-0040b010 Vehicles_AddNamed 12
+0040afa0 Vehicles_Add 13
+0040b010 Vehicles_AddNamed 13
 0040b060 Vehicles_DriveAll 25
 0040b0b0 Vehicles_MaybeSpawn 25
 0040b2d0 Vehicles_MaybeSpawnFlight 25
@@ -1001,7 +1001,7 @@
 00456210 Vehicle_AnimateLinks 20
 00456500 Vehicle_SpinWheels 20
 004565b0 Vehicle_BlinkLights 20
-00456630 ModelObj_Save 12
+00456630 ModelObj_Save 13
 00456680 Obj_FollowThis 0
 004566a0 Tooltip_Show1af 0
 004566f0 Tooltip_Clear4566f0 0
@@ -1011,7 +1011,7 @@
 004568a0 Vec3_Length 22
 00456900 NamedObj456900_Construct 20
 00456920 Vehicle_LoadParts 20
-004575d0 Map_RandomEdgeEntry 12
+004575d0 Map_RandomEdgeEntry 13
 004578e0 Aircraft_Fly 20
 00457d60 SceneObj_GetLoweredPos 1
 00457da0 Obj_DownVector 1
@@ -1023,7 +1023,7 @@
 004581d0 Obj_TakeCamera 1
 00458230 Obj_DropCamera 16
 004582a0 Vehicle_Load 16
-00458310 Vehicle_Init 12
+00458310 Vehicle_Init 13
 004584e0 CameraObj_Teardown 16
 00458520 TrainObj_CabKeys 1
 004588e0 Vehicle_DriveUpdate 20
@@ -3422,7 +3422,7 @@
 00538a10 Obj_Getc5c 26
 00538a20 Obj_Setc5c 26
 00538a30 Obj_Incc60 9
-00538a40 Obj_Decc60 17
+00538a40 Obj_Decc60 18
 00538a60 Obj_Idlec60 26
 00538a70 Windows_Shutdown 5
 00538b60 WindowManager_Draw 26
@@ -3789,7 +3789,7 @@
 0054e7d0 Input_Key 0
 0054e7e0 Input_Block 26
 0054e7f0 Input_Unblock 26
-0054e810 Input_ClearKeys 7
+0054e810 Input_ClearKeys 8
 0054e830 Input_UpdateCtrl 26
 0054e880 Input_DetectDoubleClick 26
 0054e9c0 Input_PushEvent 26

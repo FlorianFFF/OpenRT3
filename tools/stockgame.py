@@ -8,8 +8,8 @@ Nothing a run writes may reach the real game folder. Read-only content is
 shared: subfolders of Data are junctions and top-level files hard links
 (copies if linking fails), so the mirror costs no disk space. What the game
 writes is private to the mirror: Data/Configuration and Data/Log (settings
-saved on exit, logs) and Saved Games (autosaves, simcheck's saves) are
-copies, refreshed from the game folder only where the game folder changed;
+saved on exit, logs), HotKeys (saved at shutdown) and Saved Games (autosaves,
+simcheck's saves) are copies, refreshed from the game folder only where the game folder changed;
 maps (where the map editor saves) is a real folder of hard links, so files a
 run adds there stay in the mirror;
 the settings are reset to the game folder's before every run (reset_settings).
@@ -32,7 +32,7 @@ MIRROR = Path(tempfile.gettempdir()) / "rt3_stock"
 SKIP = {"dinput8.dll", "dinput8.dll.bak", "rt3re.ini", "rt3re.log", "difftest.log", "stall.txt",
         "difftest.coverage", "difftest_leaves.log", "difftest_leaves.coverage", "leaves_current.txt"}
 # Folders the game writes to: private copies in the mirror.
-PRIVATE = {"Saved Games", "Data/Configuration", "Data/Log"}
+PRIVATE = {"Saved Games", "Data/Configuration", "Data/Log", "HotKeys"}  # (the game rewrites HotKeys/hotkeys.txt every run)
 # Folders the game reads but can also add to (the map editor saves its maps in
 # maps): real folders in the mirror whose files are hard links, so a file a run
 # creates there stays in the mirror (and the 500 MB of maps cost no space).
