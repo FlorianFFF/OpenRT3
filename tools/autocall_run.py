@@ -11,6 +11,7 @@ out/coverage_runs/auto_<save>_<chunk>.txt for tools/coverage.py. When only the
 rewrite fails, or a call's result, the saved game or the drawing differs, the
 simcheck output goes to <out>/findings.txt.
 """
+import hashlib
 import os
 import subprocess
 import sys
@@ -85,7 +86,10 @@ def main():
         parts = [(lines, ch.stem)]
         while parts:
             part, tag = parts.pop(0)
-            cov = ROOT / "out" / "coverage_runs" / f"auto_{Path(save).stem}_{tag}.txt"
+            # Named by the calls' contents: a later generation's chunk_000 must not
+            # overwrite this one's coverage.
+            digest = hashlib.sha1("\n".join(part).encode()).hexdigest()[:10]
+            cov = ROOT / "out" / "coverage_runs" / f"auto_{Path(save).stem}_{digest}.txt"
             out = simcheck(save, frames, timeout, part, tag, [f"--coverage={cov}"])
             verdict = [l for l in out.splitlines() if "MATCH" in l or "DIFFER" in l or "FAILED" in l]
             print(f"{tag}: {len(part)} calls: " + " | ".join(verdict), flush=True)

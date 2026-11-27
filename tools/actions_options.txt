@@ -1,0 +1,20 @@
+# The options dialog's pages (simcheck mature.gmc 300 --do=@tools/actions_options.txt): the dialog
+# is modal, so it is opened by a call and the next actions run inside it (the harness
+# advances its action list before an action runs); Enter closes it again.
+100 autoenter 0
+110 call 501e50 s v                  # OptionsDialog_Open (page 2)
+120 call 500620 f v n0           # Options_ShowPageCb: page 0
+124 call 500620 f v n1           # Options_ShowPageCb: page 1
+128 call 500620 f v n2           # Options_ShowPageCb: page 2
+132 call 500620 f v n3           # Options_ShowPageCb: page 3
+136 call 500620 f v n4           # Options_ShowPageCb: page 4
+140 call 500620 f v n5           # Options_ShowPageCb: page 5
+144 call 500620 f v n6           # Options_ShowPageCb: page 6
+148 call 500620 f v n7           # Options_ShowPageCb: page 7
+152 call 500620 f v n8           # Options_ShowPageCb: page 8
+156 call 500620 f v n9           # Options_ShowPageCb: page 9
+160 call 500620 f v n10           # Options_ShowPageCb: page 10
+164 call 500620 f v n11           # Options_ShowPageCb: page 11
+168 call 500620 f v n12           # Options_ShowPageCb: page 12
+180 shot
+190 autoenter 1

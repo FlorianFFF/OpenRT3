@@ -28,3 +28,6 @@
 2622 call 469d30 f v g6cd8d8 n0 n0 x5b n4 wi62be10.1 n1 n0   # electrify (NetMsg_Electrify)
 2624 call 469d30 f v g6cd8d8 n0 n0 x5d n16 wg6d40e4+n1+x73657547+x74 n1 n0   # rename the player to its own name 'Guest' (NetMsg_RenamePlayer)
 2626 call 469d30 f v g6cd8d8 n0 n0 x5f n12 wg6d40e4+n1+m6ceb9c.1@15c n1 n0   # its own colour again (NetMsg_PlayerColour)
+2632 call 469d30 f v g6cd8d8 n0 n0 x6 n8 wn0+n0 n1 n0   # engine value request, answered with message 7 (NetMsg_SendEngineValue, NetMsg_TextureTime)
+2634 call 469d30 f v g6cd8d8 n0 n0 x10 n4 wn0 n1 n0   # Net_TouchEntry
+2636 call 469d30 f v g6cd8d8 n0 n0 x57 n8 wn1+m6ceb9c.1@1e1 n1 n0   # player 1's human flag, unchanged (NetMsg_Set1e1)

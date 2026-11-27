@@ -62,8 +62,7 @@ ID_NAMES = {
 # Prefixes of functions that need a running multiplayer session, a window or a
 # device the save run does not have; the two-player checks and the window
 # scripts cover those instead.
-NO_CALL = ("Net", "NetMsg", "Lobby", "Movie", "Window", "Widget", "Dialog", "Tooltip", "Picker",
-           "Hotkey", "Return0", "Return1")
+NO_CALL = ("Net", "NetMsg", "Lobby", "Movie", "Window", "Widget", "Dialog", "Tooltip", "Picker")
 # Names of functions that open windows or message boxes, or touch files, sound or
 # textures: a blind call stalls the game on a modal box or fails on a missing
 # file, so these are left to the window / dialog scripts.
@@ -144,9 +143,33 @@ def arg_for(fn, i, typ, pname, first_obj):
     return None
 
 
-def build(fn, d):
+CANDIDATES = [("coll", 0x6cfcbc), ("coll", 0x6cec20), ("coll", 0x62be10), ("coll", 0x6ceb9c), ("coll", 0x62ba84),
+              ("coll", 0x62b26c), ("glob", 0x6cec78), ("glob", 0x62be68)]
+
+
+def build_all(fn, d):
+    """The calls for a function: one; or, when nothing names its object (Obj_ ...) and it
+    takes only that object and plain values, one per candidate object (the ones that
+    fault are dropped by autocall_run.py)."""
+    spec, why = build(fn, d)
+    if spec or not why.startswith("no object"):
+        return ([spec] if spec else []), why
     file, ret, cc, params = d
-    pre = PREFIX.get(prefix_of(fn), None) or FILE_SUBJECT.get(Path(file).name)
+    simple = all(i == 0 or t.replace("const ", "").strip() in ("int", "int32_t", "uint32_t", "uint8_t", "float", "uint32_t*", "int32_t*",
+                                                            "float*") for i, (t, _) in enumerate(params))
+    if not simple:
+        return [], why
+    out = []
+    for cand in CANDIDATES:
+        s, _ = build(fn, d, cand)
+        if s:
+            out.append(s)
+    return out, None if out else why
+
+
+def build(fn, d, forced=None):
+    file, ret, cc, params = d
+    pre = forced or PREFIX.get(prefix_of(fn), None) or FILE_SUBJECT.get(Path(file).name)
     first_obj = None
     if pre:
         first_obj = f"o{pre[1]:x}.0" if pre[0] == "coll" else f"g{pre[1]:x}"
@@ -199,11 +222,11 @@ def main():
         if not d:
             unbuilt.append(f"{addr:06x} {name}: definition not found")
             continue
-        spec, why = build(name, d)
-        if not spec:
+        specs, why = build_all(name, d)
+        if not specs:
             unbuilt.append(f"{addr:06x} {name}: {why}")
             continue
-        calls.append(f"{spec.format(addr=f'{addr:x}')}   # {name}")
+        calls += [f"{s.format(addr=f'{addr:x}')}   # {name}" for s in specs]
     for old in out.glob("chunk_*.txt"):
         old.unlink()
     for k in range(0, len(calls), chunk):
