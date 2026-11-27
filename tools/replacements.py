@@ -21,20 +21,10 @@ ORIGINAL_ONLY = frozenset({
     0x41c790,
     0x458140, 0x48f2b0, 0x48f7f0, 0x493cf0, 0x493ec0,
     # Callers consume unwritten stack locals; see docs/devin_handoff.md.
-    0x4a9b70, 0x4b0310, 0x4b23d0,
+    0x4a9b70, 0x4b0310,
     # Passes an unwritten stack local (the first company's logo) to
     # Company_Init 0x428420; -1 there draws a random logo.
     0x47d440,
     # Stores an unwritten local (the gear step) as the wake's vertical rate.
     0x486240,
-    # Network handler: copies four never-written stack bytes into each
-    # appended 9-byte table entry (Table9_Append).
-    0x46c8c0,
-    # Network handler: copies four never-written stack bytes into each
-    # appended 9-byte table entry (Table9_Append).
-    0x46c8c0,
-    # Obj_SetNamedAmount: builds the new {name, amount} entry in a stack
-    # buffer it never clears, so the saved name padding is stack residue
-    # (the map editor's city building mixes showed it).
-    0x4206b0,
 })

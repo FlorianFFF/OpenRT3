@@ -59,8 +59,6 @@ char* __fastcall FormatText(char* dst, const char* fmt, const char* a1, const ch
 char* __fastcall Num_Format(char* buf, int32_t style, double v, int32_t width, int32_t unused, int32_t inK, int32_t inM);
 uint8_t* __fastcall Cursor33_Construct(uint8_t* c);
 
-// RT3_REPLACE(0x4b23d0, Trains_Create); -- see above
-
 int32_t __fastcall Company_Get7680(void* c);
 
 void __fastcall Company_Add7680(void* c, int, int32_t d);
@@ -794,9 +792,12 @@ RT3_REPLACE(0x51f510, Engine_SetCursorObject);
 
 // 0x4b23d0. Adds a train to table c for `owner`: a new record copied from a local
 // whose only initialised part is its stop cursor, then Train_Init; returns its id.
-// NOT INSTALLED: every byte neither part writes is copied from uninitialized stack
-// into the (saved) record, so the original's result depends on stack residue. The
-// exe's code stays; here the local starts zeroed.
+// The original never clears the local, so the bytes neither part writes come
+// from the stack. Compared on a bought train (original vs rewrite), those are
+// only +0x1d5..+0x1d7, the padding after the byte +0x1d4, which nothing reads
+// (it is only saved; simcheck clears it in every run, harness NormalizePadding).
+// Train_Init keeps the low bits of +0x1ce from the record: 0 there in the
+// original too. Here the local starts zeroed.
 RT3_NOINLINE uint32_t __fastcall Trains_Create(Collection* c, int, int32_t owner) {
     uint8_t local[0x1d8] = {};
     Cursor33_Construct(local);
@@ -806,6 +807,7 @@ RT3_NOINLINE uint32_t __fastcall Trains_Create(Collection* c, int, int32_t owner
                                                                                    owner);
     return id;
 }
+RT3_REPLACE(0x4b23d0, Trains_Create);
 
 // 0x493ec0. Adds a track piece with corners (x, z cell pairs) to table c for
 // company `owner`: every coordinate must lie on the map (quirk: the sixth value's

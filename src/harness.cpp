@@ -208,6 +208,31 @@ static void NormalizeNamedAmounts() {
     rt3::Log("harness: building mix name padding cleared (%d bytes)", cleared);
 }
 
+// Record bytes no code writes or reads (padding the original fills from the
+// stack when it builds the record in an uncleared local, the rewrite with
+// zeros), cleared before the save in every run alike: {collection global,
+// first byte, last byte}. Found by comparing the records the original and
+// the rewrite build (tools note: "hex" dumps).
+static const struct { uint32_t coll; uint32_t first, last; } kUnreadPadding[] = {
+    { 0x6cfcbc, 0x1d5, 0x1d7 },  // trains: after the byte +0x1d4 (Trains_Create 0x4b23d0, Train_Init)
+};
+
+static void NormalizePadding() {
+    auto count = (int32_t(__fastcall*)(rt3::Collection*))0x517cf0;
+    auto idAt = (uint32_t(__fastcall*)(rt3::Collection*, int, uint32_t, int))0x518380;
+    auto get = (void*(__fastcall*)(rt3::Collection*, int, uint32_t))0x518140;
+    for (const auto& k : kUnreadPadding) {
+        rt3::Collection* c = *(rt3::Collection**)k.coll;
+        if (!c) continue;
+        int32_t cleared = 0;
+        for (int32_t i = 0; i < count(c); ++i)
+            if (uint8_t* r = (uint8_t*)get(c, 0, idAt(c, 0, (uint32_t)i, 0)))
+                for (uint32_t o = k.first; o <= k.last; ++o)
+                    if (r[o]) r[o] = 0, ++cleared;
+        rt3::Log("harness: padding %x +%x..+%x cleared (%d bytes)", k.coll, k.first, k.last, cleared);
+    }
+}
+
 static int __fastcall FrameHook(void* ctx) {
     // Fake clocks from the first frame (startup busy-waits on the real clock).
     if (g_frame == 0) UseFakeClocks();
@@ -281,6 +306,7 @@ static int __fastcall FrameHook(void* ctx) {
         rt3::Log("harness: %d frames done, date %u-%u-%u, saving %s", g_frames,
                  g ? *(uint16_t*)(g + 0xd) : 0, g ? g[0xf] : 0, g ? g[0x11] : 0, g_out);
         NormalizeNamedAmounts();
+        NormalizePadding();
         char trace[MAX_PATH];
         sprintf(trace, "%s.trace", g_out);
         rt3::g_writeTrace = fopen(trace, "w");
@@ -372,7 +398,7 @@ static void PostEnter() {
 //                         ("T <id> <x> <y> <owner>") with its map cell
 // Mouse and keys go in as window messages, as from the real devices, and the
 // faked cursor position (GetCursorPos) follows the scripted mouse.
-enum ActionKind { kCall, kMove, kLeftDown, kLeftUp, kRightDown, kRightUp, kKey, kDump, kChar, kSetText, kWaitPlayers, kExplore, kClickId, kShot, kWheel, kKeyDown, kKeyUp, kZoom, kLook, kCities, kCell, kTracks, kAutoEnter, kWaitGame, kCallFn, kPoke };
+enum ActionKind { kCall, kMove, kLeftDown, kLeftUp, kRightDown, kRightUp, kKey, kDump, kChar, kSetText, kWaitPlayers, kExplore, kClickId, kShot, kWheel, kKeyDown, kKeyUp, kZoom, kLook, kCities, kCell, kTracks, kAutoEnter, kWaitGame, kCallFn, kPoke, kHex };
 struct Action { int frame; ActionKind kind; uint32_t addr; float x, y; char text[160]; uint32_t objColl; int32_t objIndex; };  // (objColl: x, y are that object's cell)
 static Action g_actions[1024];
 static int g_numActions, g_nextAction;
@@ -510,11 +536,13 @@ static bool ScreenOfCell(float tx, float ty, float* ox, float* oy) {
 //        p<hex>.<off>[.<off>..] the dword at +off (hex) of the object global
 //        <hex> points to (each further .<off> follows that pointer again),
 //        h<name> the data pack's id of a file name (NameTable_Hash),
-//        a<hex> the address itself, b<n> scratch buffer n (0..3, 1 KB, zeroed
+//        r the previous call's result, a<hex> the address itself, b<n> scratch buffer n (0..3, 1 KB, zeroed
 //        before the call: out parameters), y<hex> scratch buffer 2 (then 3)
-//        holding those bytes (a record to pass in), s<text> a string
+//        holding those bytes (a record to pass in), s<text> a string;
+//        D<hex> is no argument: the stack is filled with that byte first (DirtyStack)
 // A fault in the call is caught and logged as "R <addr> fault".
 static uint8_t g_scratch[4][1024];
+static uint32_t g_lastCall;  // the previous call's EAX (argument r, hex index r)
 static char g_callStrings[8][64];
 
 static void* CollectionObject(uint32_t global, int32_t index, bool wantId, uint32_t* id) {
@@ -522,7 +550,7 @@ static void* CollectionObject(uint32_t global, int32_t index, bool wantId, uint3
     if (!c) return nullptr;
     const int32_t n = ((int32_t(__fastcall*)(rt3::Collection*))0x517cf0)(c);
     if (n <= 0) return nullptr;
-    index = index % n;
+    index = index < 0 ? n + index % n : index % n;  // (negative: from the end, -1 the newest)
     const uint32_t i = ((uint32_t(__fastcall*)(rt3::Collection*, int, uint32_t, int))0x518380)(c, 0, (uint32_t)index, 0);
     if (wantId) *id = i;
     return ((void*(__fastcall*)(rt3::Collection*, int, uint32_t))0x518140)(c, 0, i);
@@ -530,6 +558,15 @@ static void* CollectionObject(uint32_t global, int32_t index, bool wantId, uint3
 
 // Pushes stack[0..n) (stack[0] nearest), sets ECX / EDX and calls fn; ESP is
 // put back afterwards whatever the callee popped (stdcall or cdecl).
+// Fills the stack below the caller with v: a function's own local array, so
+// nothing is written below ESP. Called right before a scripted call, the
+// callee's uninitialized locals then hold v - two calls with different v
+// show which bytes of what it builds come from the stack ("D<hex>" in a call).
+static __declspec(noinline) void DirtyStack(uint8_t v) {
+    volatile uint8_t buf[0x4000];
+    for (int i = 0; i < (int)sizeof buf; ++i) buf[i] = v;
+}
+
 static int CallRaw(uint32_t fn, uint32_t ecxv, uint32_t edxv, const uint32_t* stack, int n, uint32_t* eaxOut,
                    uint64_t* st0Out, int fret) {
     uint32_t r = 0, saved = 0;
@@ -576,13 +613,18 @@ static void CallFunction(const char* spec) {
     const bool fast = tok[1][0] == 'f';
     const char ret = tok[2][0];
     uint32_t words[16];
-    int nw = 0, strings = 0, filled = 0;
+    int nw = 0, strings = 0, filled = 0, dirty = -1;
     memset(g_scratch, 0, sizeof g_scratch);
     for (int i = 3; i < nt && nw < 14; ++i) {
         const char* t = tok[i];
+        if (t[0] == 'D') {  // not an argument: the stack fill before the call (DirtyStack)
+            dirty = (int)strtoul(t + 1, nullptr, 16) & 0xff;
+            continue;
+        }
         uint32_t v = 0;
         switch (t[0]) {
         case 'n': v = (uint32_t)strtol(t + 1, nullptr, 10); break;
+        case 'r': v = g_lastCall; break;
         case 'x': v = strtoul(t + 1, nullptr, 16); break;
         case 'f': { float x = (float)atof(t + 1); memcpy(&v, &x, 4); break; }
         case 'd': {
@@ -642,10 +684,12 @@ static void CallFunction(const char* spec) {
     }
     uint32_t eax = 0;
     uint64_t st0 = 0;
+    if (dirty >= 0) DirtyStack((uint8_t)dirty);
     if (!CallRaw(fn, ecxv, edxv, stack, ns, &eax, &st0, ret == 'f')) {
         rt3::Log("R %06x fault", fn);
         return;
     }
+    g_lastCall = eax;
     if (ret == 'b') eax &= 0xff;
     if (ret == 'v' || ret == 'f') eax = 0;  // (a float result leaves EAX as it was)
     rt3::Log("R %06x %08x %016llx %08x", fn, eax, ret == 'f' ? st0 : 0ull, rt3::Crc32(&g_scratch[0][0], sizeof g_scratch));
@@ -799,6 +843,29 @@ static void RunActions() {
             CallFunction(a.text);
             continue;
         }
+        if (a.kind == kHex) {  // "hex:<coll>.<i>:<len>": "H <coll> <id> <hex bytes>" of that object
+            char* q = const_cast<char*>(a.text);
+            const uint32_t coll = strtoul(q, &q, 16);
+            const bool byResult = q[0] == '.' && q[1] == 'r';  // .r: the id the previous call returned
+            const int32_t idx = *q == '.' && !byResult ? strtol(q + 1, &q, 10) : 0;
+            if (byResult) q += 2;
+            const int32_t len = *q == ':' ? (int32_t)strtoul(q + 1, nullptr, 16) : 0x40;
+            uint32_t id = 0;
+            const uint8_t* o = nullptr;
+            if (byResult) {
+                id = g_lastCall;
+                if (rt3::Collection* c = *(rt3::Collection**)coll) o = (const uint8_t*)((void*(__fastcall*)(rt3::Collection*, int, uint32_t))0x518140)(c, 0, id);
+            } else {
+                o = (const uint8_t*)CollectionObject(coll, idx, true, &id);
+            }
+            if (o) {
+                static char line[2 * 0x4000 + 64];
+                int n = sprintf(line, "H %x %u ", coll, id);
+                for (int32_t k = 0; k < len && k < 0x4000; ++k) n += sprintf(line + n, "%02x", o[k]);
+                rt3::Log("%s", line);
+            }
+            continue;
+        }
         if (a.kind == kPoke) {  // "poke:<global>[.<off>...]:<hex value>": a dword, addressed like CallFunction's p<..>
             char* q = const_cast<char*>(a.text);
             uint32_t addr = strtoul(q, &q, 16);
@@ -947,6 +1014,13 @@ static void ParseActions(char* list) {
         } else if (!strncmp(p, "cities", 6)) {
             p += 6;
             a.kind = kCities;
+            done = true;
+        } else if (!strncmp(p, "hex:", 4)) {
+            p += 4;
+            a.kind = kHex;
+            int n = 0;
+            while (*p && *p != ',' && n < (int)sizeof a.text - 1) a.text[n++] = *p++;
+            a.text[n] = 0;
             done = true;
         } else if (!strncmp(p, "poke:", 5)) {
             p += 5;
