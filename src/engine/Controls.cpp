@@ -2559,7 +2559,7 @@ void __fastcall Thread_Start(uint8_t* t) {
 }
 RT3_REPLACE(0x563e30, Thread_Start);
 
-void __fastcall Thread_Destruct(uint8_t* t) {
+RT3_NOINLINE void __fastcall Thread_Destruct(uint8_t* t) {
     F<uint32_t>(t, 0) = 0x5d1248;
     if (F<void*>(t, 4)) JoinThread(t, 0xffffffff);
 }

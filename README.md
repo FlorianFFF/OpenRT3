@@ -13,11 +13,13 @@ OpenRT3 is a C++ reimplementation of Railroad Tycoon 3's `RT3.exe`, version 1.06
   values their callers never wrote (leftover stack contents), and a rewrite compiled with a
   different compiler leaves different leftovers. Each is listed with its reason in
   `tools/replacements.py`.
-- **The rewrite plays exactly like the original.** 836 differential tests pass, plus a generic
+- **The rewrite plays exactly like the original.** 857 differential tests pass, plus a generic
   test of 1,203 leaf functions; runs of saved games, of a scenario started from its file and of a
   scripted map editor session produce the same game state, write for write, and the same drawing
   as the original game, and in a scripted two-player LAN game (companies, stations, track, a
   train) the original and the rewrite stay in sync with each other (see *Verifying a rewrite*).
+  Every rewritten function has run side by side with the original in one of these checks
+  (`docs/coverage.md`).
 - **The source is grouped like the original.** The compiler kept each source file's functions
   together, so the code is split by address range into 69 files, one per original object file
   (`src/game/Train.cpp`, `src/engine/Render.cpp`, …). Only `Misc.cpp` and `MouseCursor.cpp` are
@@ -102,7 +104,21 @@ It also compares what is drawn: everything handed to Direct3D, one CRC per frame
 start a scenario from its file (`'..\maps\Britain.gmp'`, with `--do=@tools/actions_scenario.txt`
 to set a game speed), and `--quit` closes the game normally afterwards so its shutdown runs too.
 `--menu` loads nothing: the script drives the menus from the first frame, for example into the map
-editor.
+editor. `--sound` turns the effects and music on (the game's audio session muted), so the sound
+code runs too.
+
+**Scripted calls**: functions no play-through reaches are called inside a run with real objects
+of the loaded save as arguments (`call <addr> <cc> <ret> <args>`: "the 3rd company", "station
+id 5", a field of the engine, a record of given bytes; `poke` switches on an option first). The
+original run calls the original, the rewrite run the rewrite, and simcheck compares their results
+besides the save and the drawing: `tools/actions_calls.txt`, `actions_calls2.txt`,
+`actions_windows.txt` (the company, station, train and building windows) and
+`actions_dialogs.txt` (dialogs, scenario effects and timed events).
+
+**Generated tests**: `tools/gen_test.py` writes a difftest for functions that need their callees
+faked (dialog layout helpers, device code): every function they call is replaced by a recorder
+on both sides, and the recorded calls, globals and buffers are compared over random inputs
+(specs in `tests/gen_specs/`; the result goes at the end of `tests/test_ui.cpp`).
 
 **Multiplayer**: `python tools/mpcheck.py tools/mp_host.txt tools/mp_client.txt 2000 --client=rewrite`
 runs a host and a client on this machine (LAN, 127.0.0.1); their scripts drive the menus with
@@ -121,8 +137,11 @@ actions are listed in `tools/simcheck.py`.
 
 **Coverage**: simcheck records which original functions ran (a one-shot breakpoint on each),
 and `build.bat test` does the same for the difftests when `RT3RE_COVERAGE` is set.
-`tools/coverage.py` merges those into `docs/coverage.md`: which rewritten functions have been
-run side by side with the original, and which have only been checked by reading.
+`tools/coverage.py` merges those (and the leaf test's table) into `docs/coverage.md`: which
+rewritten functions have been run side by side with the original. Every function that has not is
+listed there with the reason from `docs/unchecked_reasons.txt`. The run files it merges are kept
+in `out/coverage_runs/` (`python tools/coverage.py --difftest=out/coverage_runs/difftest.txt
+out/coverage_runs/<run>.txt ...`).
 
 `tools/callcheck.py` compares, per function, what the original's machine code calls with what
 the rewrite calls (a `strcmp` where the original calls `stricmp` shows up there), and

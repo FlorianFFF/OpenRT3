@@ -63,6 +63,8 @@ def parse_actions(text):
         call <addr> <cc> <ret> <args...> [# comment]   calls a game function with real
                                 objects as arguments and logs its result ("R" lines,
                                 compared between the runs; src/harness.cpp CallFunction)
+        poke <g>[.<off>..] <hex>  writes a dword at global g (each .<off> follows the pointer
+                                there first: 6cec74.277 is the app's +0x277)
         autoenter 0|1         whether the harness answers dialogs with Enter (default 1)
         cities                  log every city's id, cell and name (harness "C" lines)
         tracks                  log every track piece's id, cell and owner (harness "T" lines)
@@ -105,6 +107,8 @@ def parse_actions(text):
         elif cmd == "call":  # call <hex addr> <cc> <ret> <args...> [# comment]
             spec = line.split("#")[0].split()[2:]
             out.append(f"{f}:fn:" + "/".join(spec))
+        elif cmd == "poke":  # poke <global>[.<off>...] <hex value>: writes a dword (an option, say)
+            out.append(f"{f}:poke:{t[2]}:{t[3]}")
         elif cmd == "autoenter":
             out.append(f"{f}:ae:{int(t[2])}")
         elif cmd == "objlook":  # objlook <coll hex> <i>: centre the view on that object

@@ -341,7 +341,7 @@ static void PostEnter() {
 //                         ("T <id> <x> <y> <owner>") with its map cell
 // Mouse and keys go in as window messages, as from the real devices, and the
 // faked cursor position (GetCursorPos) follows the scripted mouse.
-enum ActionKind { kCall, kMove, kLeftDown, kLeftUp, kRightDown, kRightUp, kKey, kDump, kChar, kSetText, kWaitPlayers, kExplore, kClickId, kShot, kWheel, kKeyDown, kKeyUp, kZoom, kLook, kCities, kCell, kTracks, kAutoEnter, kWaitGame, kCallFn };
+enum ActionKind { kCall, kMove, kLeftDown, kLeftUp, kRightDown, kRightUp, kKey, kDump, kChar, kSetText, kWaitPlayers, kExplore, kClickId, kShot, kWheel, kKeyDown, kKeyUp, kZoom, kLook, kCities, kCell, kTracks, kAutoEnter, kWaitGame, kCallFn, kPoke };
 struct Action { int frame; ActionKind kind; uint32_t addr; float x, y; char text[160]; uint32_t objColl; int32_t objIndex; };  // (objColl: x, y are that object's cell)
 static Action g_actions[1024];
 static int g_numActions, g_nextAction;
@@ -478,8 +478,10 @@ static bool ScreenOfCell(float tx, float ty, float* ox, float* oy) {
 //        whose pointer is the global <coll> (hex), g<hex> the dword global,
 //        p<hex>.<off>[.<off>..] the dword at +off (hex) of the object global
 //        <hex> points to (each further .<off> follows that pointer again),
+//        h<name> the data pack's id of a file name (NameTable_Hash),
 //        a<hex> the address itself, b<n> scratch buffer n (0..3, 1 KB, zeroed
-//        before the call: out parameters), s<text> a string
+//        before the call: out parameters), y<hex> scratch buffer 2 (then 3)
+//        holding those bytes (a record to pass in), s<text> a string
 // A fault in the call is caught and logged as "R <addr> fault".
 static uint8_t g_scratch[4][1024];
 static char g_callStrings[8][64];
@@ -543,7 +545,7 @@ static void CallFunction(const char* spec) {
     const bool fast = tok[1][0] == 'f';
     const char ret = tok[2][0];
     uint32_t words[16];
-    int nw = 0, strings = 0;
+    int nw = 0, strings = 0, filled = 0;
     memset(g_scratch, 0, sizeof g_scratch);
     for (int i = 3; i < nt && nw < 14; ++i) {
         const char* t = tok[i];
@@ -576,7 +578,21 @@ static void CallFunction(const char* spec) {
             break;
         }
         case 'a': v = strtoul(t + 1, nullptr, 16); break;
+        case 'h': {  // h<name>: the data pack's id of that name (0x53b5c0 on 0x6d4020)
+            uint8_t* pack = *(uint8_t**)0x6d4020;
+            v = pack ? (uint32_t)((int32_t(__fastcall*)(uint8_t*, int, const char*))0x53b5c0)(pack, 0, t + 1) : 0;
+            break;
+        }
         case 'b': v = (uint32_t)(uintptr_t)g_scratch[atoi(t + 1) & 3]; break;
+        case 'y': {  // y<hex bytes>: the next of scratch buffers 2, 3 holding those bytes (records)
+            uint8_t* buf = g_scratch[2 + (filled++ & 1)];
+            for (const char* q = t + 1; q[0] && q[1]; q += 2) {
+                char two[3] = { q[0], q[1], 0 };
+                buf[(q - (t + 1)) / 2] = (uint8_t)strtoul(two, nullptr, 16);
+            }
+            v = (uint32_t)(uintptr_t)buf;
+            break;
+        }
         case 's':
             if (strings < 8) {
                 strncpy(g_callStrings[strings], t + 1, 63);
@@ -752,6 +768,15 @@ static void RunActions() {
             CallFunction(a.text);
             continue;
         }
+        if (a.kind == kPoke) {  // "poke:<global>[.<off>...]:<hex value>": a dword, addressed like CallFunction's p<..>
+            char* q = const_cast<char*>(a.text);
+            uint32_t addr = strtoul(q, &q, 16);
+            while (*q == '.') addr = *(uint32_t*)addr + strtoul(q + 1, &q, 16);
+            const uint32_t v = *q == ':' ? strtoul(q + 1, nullptr, 16) : 0;
+            rt3::Log("harness: frame %ld, poke %08x = %08x", g_frame, addr, v);
+            *(uint32_t*)addr = v;
+            continue;
+        }
         if (a.kind == kAutoEnter) {
             g_autoEnter = (int)a.addr;
             rt3::Log("harness: frame %ld, Enter in dialogs %s", g_frame, g_autoEnter ? "on" : "off");
@@ -891,6 +916,13 @@ static void ParseActions(char* list) {
         } else if (!strncmp(p, "cities", 6)) {
             p += 6;
             a.kind = kCities;
+            done = true;
+        } else if (!strncmp(p, "poke:", 5)) {
+            p += 5;
+            a.kind = kPoke;
+            int n = 0;
+            while (*p && *p != ',' && n < (int)sizeof a.text - 1) a.text[n++] = *p++;
+            a.text[n] = 0;
             done = true;
         } else if (!strncmp(p, "fn:", 3)) {  // a call (CallFunction), its spec up to the next ','
             p += 3;

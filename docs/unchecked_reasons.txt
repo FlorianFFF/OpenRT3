@@ -1,0 +1,8 @@
+# Rewritten functions that cannot be run against the original, with the reason
+# (tools/coverage.py lists them in docs/coverage.md). One per line:
+#     <hex address> <name>: <the concrete reason>
+# A function listed here that a run or test reaches later is reported in
+# docs/coverage.md, so its line can go.
+#
+# (None at the moment: every rewritten function runs in a simcheck run, a
+# two-player check, the leaf test or a difftest.)

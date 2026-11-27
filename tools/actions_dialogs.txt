@@ -1,0 +1,19 @@
+# Dialogs and event code the play-throughs do not reach (simcheck mature.gmc
+# 400 --do=@tools/actions_dialogs.txt). Dialogs are modal: the harness's Enter
+# closes them (OK). "poke" switches on the options some of them need. (The
+# dividend dialog - company detail, Stock, "Change dividend" - is left out:
+# its loop does not pass the harness's modal hook, so nothing closes it.)
+#
+# The city message dialog (option +0x277 of the app 0x6cec74) for a city,
+# and the building info dialog (option +0x26f) for a building.
+110 poke 6cec74.277 1
+112 call 4c7520 f v i62bae0.3                   # Obj_ShowMessageDialog
+130 poke 6cec74.26f 1
+132 call 4f2d80 f v i62b268.2 i62b26c.4         # BuildingInfo_Show (an industry type, a building)
+# Scenario effects ({id, value, kind byte}) on a company, a player and a map
+# cell; then timed events (+9 years, +0xd months) queued from an event record.
+150 call 4315d0 f v o62be18.0 n0 y0500000064000000 p62c120.2129 o62be10.0 o6ceb9c.0 n0      # Effects_Apply
+150 call 4315d0 f v o62be18.0 n0 y02000000e803000001 p62c120.2129 o62be10.1 o6ceb9c.0 n1
+150 call 4315d0 f v o62be18.1 n0 y0a0000000a00000002 n0 o62be10.0 n0 n2
+151 call 430b50 f v o62be18.0 n0 y05000000640000000101000000ffffffff p62c120.2129 o62be10.0 o6ceb9c.0 # Events_AddTimed
+151 call 430b50 f v o62be18.1 n0 y0300000001000000ffffffffff02000000 n0 o62be10.1 n0

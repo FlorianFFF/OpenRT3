@@ -1341,8 +1341,9 @@ RT3_REPLACE(0x545e30, Sound_BuildCapsReport);
 // 0x546390. Creates the HAL device (+0x25df) on the engine window.
 RT3_NOINLINE uint8_t __fastcall Render_CreateDevice(uint8_t* r, int, uint32_t behaviour, void* params) {
     void* d3d = F<void*>(r, 0x25db);
+    void** vt = Vt(d3d);  // (read before the window, as the original does)
     ::HWND__* wnd = Engine_Window(hook::As<void*>(g_engine));
-    int32_t hr = ((int32_t(__stdcall*)(void*, uint32_t, uint32_t, ::HWND__*, uint32_t, void*, void*))Vt(d3d)[0x3c / 4])(
+    int32_t hr = ((int32_t(__stdcall*)(void*, uint32_t, uint32_t, ::HWND__*, uint32_t, void*, void*))vt[0x3c / 4])(
         F<void*>(r, 0x25db), 0, 1, wnd, behaviour, params, r + 0x25df);
     return hr >= 0 ? 1 : 0;
 }

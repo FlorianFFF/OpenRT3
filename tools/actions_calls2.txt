@@ -77,3 +77,7 @@
 126 call 53d130 f v g6d4020 n0 sData\Configuration\engine.cfg # NameTable_AddPath
 127 call 5411c0 f i sData\Configuration\engine.cfg  # Tga_IsPlain
 127 call 5411c0 f i sno such.tga
+# The data pack: a file registered above, opened by its id (a stdio stream
+# from the C runtime's static table, the same every run). (A name the pack lacks
+# brings up the game's fatal error box.)
+128 call 53be10 f i g6d4020 n0 hengine.cfg n1       # NameTable_OpenFile (text)

@@ -76567,3 +76567,187 @@ DIFFTEST(game_MapFogEnd) {
     *(uint8_t**)0x62c120 = savedMap;
     *(uint8_t**)0x6cec74 = savedApp;
 }
+
+namespace rt3 {
+HWND __fastcall Engine_Window(void* e);
+double __fastcall Obj_NamedValue(void* o, int, const char* name);
+int32_t __fastcall Collection_IsValid(Collection* c, int, uint32_t id);
+int32_t __fastcall Window_SendEvent5(uint8_t* w, int, uint32_t type, uint32_t id, uint32_t a, uint32_t b, uint32_t c);
+uint8_t* __fastcall Control_Construct(uint8_t* w, int, const uint8_t* def);
+uint8_t* __fastcall ListBox_Construct(uint8_t* w, int, const uint8_t* def);
+uint8_t* __fastcall Scrollbar_Construct(uint8_t* w, int, const uint8_t* def);
+uint8_t* __fastcall Widget_FindChild(uint8_t* w, int, int32_t id);
+void __fastcall Render_RestoreTarget(uint8_t* r);
+void __fastcall Render_SaveAndShutdown(uint8_t* r);
+void __fastcall String_Assign(char** s, const char* src);
+void __fastcall Textures_ReleaseTargets();
+void __fastcall Thread_Destruct(uint8_t* t);
+void __fastcall Window_AddChild(uint8_t* win, int, uint8_t* w, int32_t afterId);
+void* __fastcall Collection_Get(Collection* c, int, uint32_t id);
+}
+namespace {
+GENFAKEF(GenFakeb508_v26, GC(200, 0, 1, 3), 0)
+GENFAKE(GenFakeb508_v22, GC(201, 3, 1, 3), 12)
+GENFAKE(GenFakeb508_v0, GC(202, 0, 1, 3), 0)
+GENFAKE(GenFakeb508_hook, GC(203, 1, 1, 3), 4)
+GENFAKE(GenFakeb508_vp, GC(204, 0, 1, 0), 0)
+GENFAKE(GenFakeb508_v2, GC(205, 1, 1, 3), 4)
+GENFAKE(GenFakeb508_xCreateDevice, GC(406, 7, 0, 2), 28)
+GENFAKEF(GenFakeb508_0, GC(0, 1, 1, 3), 4)
+GENFAKE(GenFakeb508_1, GC(1, 1, 1, 2), 4)
+GENFAKE(GenFakeb508_2, GC(2, 1, 1, 0), 4)
+GENFAKE(GenFakeb508_3, GC(3, 0, 3, 3), 0)
+GENFAKE(GenFakeb508_4, GC(4, 0, 1, 2), 0)
+GENFAKE(GenFakeb508_5, GC(5, 1, 0, 0), 0)
+GENFAKE(GenFakeb508_6, GC(6, 1, 0, 3), 0)
+GENFAKE(GenFakeb508_7, GC(7, 1, 1, 0), 4)
+GENFAKE(GenFakeb508_8, GC(8, 2, 1, 3), 8)
+GENFAKE(GenFakeb508_9, GC(9, 5, 1, 2), 20)
+GENFAKE(GenFakeb508_10, GC(10, 1, 1, 0), 4)
+GENFAKE(GenFakeb508_11, GC(11, 0, 0, 3), 0)
+GENFAKE(GenFakeb508_12, GC(12, 0, 1, 3), 0)
+GENFAKE(GenFakeb508_13, GC(13, 0, 1, 3), 0)
+GENFAKE(GenFakeb508_14, GC(14, 1, 1, 0), 4)
+GENFAKE(GenFakeb508_15, GC(15, 1, 1, 0), 4)
+GENFAKE(GenFakeb508_16, GC(16, 0, 1, 3), 0)
+GENFAKE(GenFakeb508_17, GC(17, 1, 0, 3), 0)
+GENFAKE(GenFakeb508_18, GC(18, 1, 0, 0), 0)
+
+} // namespace
+namespace rt3 {
+void __fastcall CompanyDetail_AddArrowButtons(uint8_t* win, int, float x, float y, int32_t, int32_t);
+void __fastcall Setup_AddTypeRow(uint8_t* d, int, int32_t idx, float x, float y, float w, float h);
+void __fastcall Setup_AddPortraitPicker(uint8_t* win, int, float x, float y, int32_t, int32_t);
+void __fastcall NameDialog_SetName(uint8_t* d, int, const char* name);
+uint8_t* __fastcall WorkerA_Delete(uint8_t* t, int, uint32_t flags);
+void __fastcall Mouse_Acquire(uint8_t* m);
+void __fastcall Texture_FreePixels(uint8_t* t);
+void __fastcall Display_DestroyRenderer(uint8_t* o);
+uint8_t __fastcall Render_CreateDevice(uint8_t* r, int, uint32_t behaviour, void* params);
+}
+
+// Watched globals of the b508 callbacks (pointer ones get a buffer).
+static const uint32_t kb508Ptr[] = { 0x6d0818, 0x62be10, 0x62b268, 0x62bae0, 0x6cec74, 0x6d4024, 0x6d401c, 0x6d4020 };
+static const uint32_t kb508Int[] = { 0x6226d0 };
+
+DIFFTEST(game_SmallCallbacksb508) {
+    UiTrace t;
+    t.Add(0x41fa30, (void*)&rt3::Obj_NamedValue, (void*)&GenFakeb508_0);
+    t.Add(0x517d40, (void*)&rt3::Collection_IsValid, (void*)&GenFakeb508_1);
+    t.Add(0x518140, (void*)&rt3::Collection_Get, (void*)&GenFakeb508_2);
+    t.Add(0x51d820, (void*)&rt3::String_Assign, (void*)&GenFakeb508_3);
+    t.Add(0x51f0f0, (void*)&rt3::Engine_Window, (void*)&GenFakeb508_4);
+    t.Add(0x53b070, nullptr, (void*)&GenFakeb508_5);
+    t.Add(0x53b080, nullptr, (void*)&GenFakeb508_6);
+    t.Add(0x53f830, (void*)&rt3::Widget_FindChild, (void*)&GenFakeb508_7);
+    t.Add(0x53f9c0, (void*)&rt3::Window_AddChild, (void*)&GenFakeb508_8);
+    t.Add(0x540120, (void*)&rt3::Window_SendEvent5, (void*)&GenFakeb508_9);
+    t.Add(0x540430, (void*)&rt3::Control_Construct, (void*)&GenFakeb508_10);
+    t.Add(0x542c10, (void*)&rt3::Textures_ReleaseTargets, (void*)&GenFakeb508_11);
+    t.Add(0x547610, (void*)&rt3::Render_RestoreTarget, (void*)&GenFakeb508_12);
+    t.Add(0x54be60, (void*)&rt3::Render_SaveAndShutdown, (void*)&GenFakeb508_13);
+    t.Add(0x55a040, (void*)&rt3::Scrollbar_Construct, (void*)&GenFakeb508_14);
+    t.Add(0x55ab50, (void*)&rt3::ListBox_Construct, (void*)&GenFakeb508_15);
+    t.Add(0x563e90, (void*)&rt3::Thread_Destruct, (void*)&GenFakeb508_16);
+    t.Add(0x5a1145, nullptr, (void*)&GenFakeb508_17);
+    t.Add(0x5a125d, nullptr, (void*)&GenFakeb508_18);
+    t.Add(0x5193f0, (void*)&rt3::GetString, (void*)&FakeB399Str);
+    static const GenCase cases[] = {
+        { 0x4c4c70, (const void*)&rt3::CompanyDetail_AddArrowButtons, "Vp-ffii" },
+        { 0x4cbea0, (const void*)&rt3::Setup_AddTypeRow, "Vp-cffff" },
+        { 0x4ecdd0, (const void*)&rt3::Setup_AddPortraitPicker, "Vp-ffii" },
+        { 0x4eccd0, (const void*)&rt3::NameDialog_SetName, "Vp-q" },
+        { 0x4ed7e0, (const void*)&rt3::WorkerA_Delete, "p-c" },
+        { 0x543ae0, (const void*)&rt3::Mouse_Acquire, "Vp-" },
+        { 0x5410f0, (const void*)&rt3::Texture_FreePixels, "Vp-" },
+        { 0x55dd80, (const void*)&rt3::Display_DestroyRenderer, "Vp-" },
+        { 0x546390, (const void*)&rt3::Render_CreateDevice, "VR-iq" }
+    };
+    const int NC = (int)(sizeof cases / sizeof cases[0]);
+    const int NP = (int)(sizeof kb508Ptr / 4), NI = (int)(sizeof kb508Int / 4);
+    uint32_t savedP[sizeof kb508Ptr / 4], savedI[sizeof kb508Int / 4];
+    for (int i = 0; i < NP; ++i) savedP[i] = *(uint32_t*)kb508Ptr[i];
+    for (int i = 0; i < NI; ++i) savedI[i] = *(uint32_t*)kb508Int[i];
+    for (int k = 0; k < 64; ++k) g_genVtbl[k] = (void*)&GenFakeb508_v0;
+    g_genVtbl[22] = (void*)&GenFakeb508_v22, g_genVtbl[26] = (void*)&GenFakeb508_v26, g_genVtbl[32] = (void*)&GenFakeb508_vp;
+    g_genVtbl[2] = (void*)&GenFakeb508_v2; // vtable +8: Collection remove (one argument)
+
+    static const uint32_t kSmall[6] = { 0, 1, 2, 0xffffffff, 0x3c, 0x12 };
+    for (int it = 0; it < 120 * NC; ++it) {
+        const GenCase& c = cases[it % NC];
+        std::string logs[2];
+        for (int s = 0; s < 2; ++s) {
+            g_genBits = (uint32_t)it * 2654435761u + 0xb508;
+            for (int o = 0; o < 4; ++o)
+                for (int k = 0; k < 0x100; ++k) {
+                    const uint32_t r = GenDraw() % 4;
+                    ((uint32_t*)g_genObj[o])[k] = r < 2 ? (uint32_t)(uintptr_t)g_genObj[GenDraw() % 4] : r == 2 ? kSmall[GenDraw() % 6] : GenDraw();
+                }
+            for (int o = 0; o < 4; ++o) {
+                ((void**)g_genObj[o])[0] = g_genVtbl;
+                ((uint32_t*)g_genObj[o])[1] = (uint32_t)(uintptr_t)g_genObj[(o + 1) % 4];
+                ((uint32_t*)g_genObj[o])[2] = (uint32_t)(uintptr_t)g_genObj[(o + 2) % 4];
+                ((int32_t*)g_genObj[o])[3] = (int32_t)(GenDraw() % 3) - 1;
+                memcpy(g_genObj[o] + 0x40, g_genObj[o], 0x10); // 'p' may point 0x40 in: the same header
+            }
+            for (int b = 0; b < 4; ++b) memset(g_genBuf[b], 0, 0x2000);
+            *(int32_t*)(g_genBuf[0] + 0x15dd) = 8, *(uint8_t**)(g_genBuf[0] + 0x165d) = g_genBuf[1];
+            for (int i = 0; i < NP; ++i) {
+                uint8_t* b = g_genBuf[4 + i % 20];
+                memset(b, 0, 0x2000); // the whole hashed range: both sides start alike
+                ((void**)b)[0] = g_genVtbl;
+                *(uint32_t*)kb508Ptr[i] = GenDraw() % 5 ? (uint32_t)(uintptr_t)b : 0;
+            }
+            *(uint8_t**)0x6cec74 = g_genBuf[4 + 4];
+            *(uint8_t**)0x6d4024 = g_genBuf[4 + 5];
+            *(uint8_t**)0x6d401c = g_genBuf[4 + 6];
+            for (int i = 0; i < NI; ++i) *(uint32_t*)kb508Int[i] = kSmall[GenDraw() % 6];
+            g_genListHead = g_genList[0], *(uint8_t**)g_genList[0] = g_genList[1], *(uint8_t**)g_genList[1] = GenDraw() % 2 ? g_genList[2] : nullptr;
+            *(uint8_t**)g_genList[2] = nullptr;
+            memset(g_genBig + 0x114000, 0, 0x2000); // the hashed engine fields: both sides start alike
+
+            *(uint32_t*)(g_genBig + 0x20000 + 0x25db) = (uint32_t)(uintptr_t)g_genObj[GenDraw() % 4];
+            g_genVtbl[0x3c / 4] = (void*)&GenFakeb508_xCreateDevice;
+            strcpy((char*)g_genBuf[2], GenDraw() % 2 ? "Player Name" : "");
+
+            g_genF = (float)(GenDraw() % 100) / 4.0f;
+            const char* sp = c.spec;
+            const int noret = *sp == 'V';
+            if (noret) ++sp;
+            const int fp = *sp == 'F';
+            if (fp) ++sp;
+            auto value = [&](char k) -> uint32_t {
+                if (k == 'R') { static const uint32_t v[] = { (uint32_t)(uintptr_t)(g_genBig + 0x20000) }; return v[GenDraw() % 1]; }
+                if (k == 'm') return (uint32_t)(uintptr_t)g_genBuf[0];
+                if (k == 'q') return (uint32_t)(uintptr_t)g_genBuf[2];
+                if (k == 'r') return (uint32_t)(uintptr_t)g_genBuf[3];
+                if (k == 'c') return GenDraw() % 8;
+                if (k == 'k') return GenDraw() % 2 ? 0x7fff : 3;
+                if (k == 'z') return GenDraw() % 3 ? (uint32_t)(uintptr_t)g_genObj[GenDraw() % 4] : 0;
+                return GenValue(k);
+            };
+            const uint32_t rc = value(sp[0]), rd = value(sp[1]);
+            uint32_t a[8] = {};
+            for (int k = 0; k < 8 && sp[2 + k]; ++k) a[k] = value(sp[2 + k]);
+            logs[s] = t.Run([&] {
+                double f = 0;
+                const uint32_t r = GenCall(s ? c.ours : (const void*)(uintptr_t)c.exe, rc, rd, a, fp, &f);
+                uint64_t fb;
+                memcpy(&fb, &f, 8);
+                if (!noret) Logf("ret %s fp %08x%08x", fp ? "-" : GenName(r), (uint32_t)(fb >> 32), (uint32_t)fb);
+                for (int i = 0; i < NP; ++i) Logf("g %x %s", kb508Ptr[i], GenName(*(uint32_t*)kb508Ptr[i]));
+                for (int i = 0; i < NI; ++i) Logf("g %x %08x", kb508Int[i], *(uint32_t*)kb508Int[i]);
+                for (int o = 0; o < 4; ++o) Logf("obj %d %08x", o, Fnv(g_genObj[o], 0x400));
+                for (int b = 0; b < 24; ++b) Logf("buf %d %08x", b, Fnv(g_genBuf[b], 0x2000));
+                for (int b = 0; b < 3; ++b) Logf("list %d %08x", b, Fnv(g_genList[b], 0x100));
+                Logf("big %08x", Fnv(g_genBig + 0x114000, 0x2000));
+            });
+        }
+        char what[64];
+        sprintf(what, "small callback %x", c.exe);
+        CompareLogs(logs[0], logs[1], what, it);
+    }
+    for (int i = 0; i < NP; ++i) *(uint32_t*)kb508Ptr[i] = savedP[i];
+    for (int i = 0; i < NI; ++i) *(uint32_t*)kb508Int[i] = savedI[i];
+
+}

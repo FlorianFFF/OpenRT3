@@ -77,6 +77,8 @@
 2420 move 0.29 0.655
 2425 click 0.29 0.655  OK
 2440 shot
+2442 move 0.64 0.32   hover over the stations on the buyer's map (its pick: Minimap_PickNearest)
+2446 move 0.645 0.325
 2450 clickid 11002  Buy
 2470 shot
 2480 autoenter 1
