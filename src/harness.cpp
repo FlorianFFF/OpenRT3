@@ -178,6 +178,36 @@ static void SoundUp() {
     rt3::Log("harness: frame %ld, effects and music volume 0.6", g_frame);
 }
 
+// Before the save, in every run alike: the cities' building mixes (+0x37f,
+// {name[0x1e], amount} entries) hold stack leftovers after each name's NUL -
+// the original 0x4206b0 (kept original, ORIGINAL_ONLY) builds a new entry in
+// an uncleared stack buffer and copies only the name. The leftovers come from
+// whatever ran before, so they differ between runs, and the game never reads
+// them; zeroed here so the save compares what the game uses. The names and
+// amounts themselves are left alone (a difference there still shows).
+static void NormalizeNamedAmounts() {
+    rt3::Collection* cities = *(rt3::Collection**)0x62bae0;
+    if (!cities) return;
+    auto count = (int32_t(__fastcall*)(rt3::Collection*))0x517cf0;
+    auto idAt = (uint32_t(__fastcall*)(rt3::Collection*, int, uint32_t, int))0x518380;
+    auto get = (void*(__fastcall*)(rt3::Collection*, int, uint32_t))0x518140;
+    int32_t cleared = 0;
+    for (int32_t i = 0; i < count(cities); ++i) {
+        uint8_t* city = (uint8_t*)get(cities, 0, idAt(cities, 0, (uint32_t)i, 0));
+        rt3::Collection* mix = city ? *(rt3::Collection**)(city + 0x37f) : nullptr;
+        if (!mix) continue;
+        for (int32_t k = 0; k < count(mix); ++k) {
+            uint8_t* e = (uint8_t*)get(mix, 0, idAt(mix, 0, (uint32_t)k, 0));
+            if (!e) continue;
+            int32_t n = 0;
+            while (n < 0x1e && e[n]) ++n;
+            for (int32_t j = n + 1; j < 0x1e; ++j)
+                if (e[j]) e[j] = 0, ++cleared;
+        }
+    }
+    rt3::Log("harness: building mix name padding cleared (%d bytes)", cleared);
+}
+
 static int __fastcall FrameHook(void* ctx) {
     // Fake clocks from the first frame (startup busy-waits on the real clock).
     if (g_frame == 0) UseFakeClocks();
@@ -250,6 +280,7 @@ static int __fastcall FrameHook(void* ctx) {
         uint8_t* g = (uint8_t*)Game();
         rt3::Log("harness: %d frames done, date %u-%u-%u, saving %s", g_frames,
                  g ? *(uint16_t*)(g + 0xd) : 0, g ? g[0xf] : 0, g ? g[0x11] : 0, g_out);
+        NormalizeNamedAmounts();
         char trace[MAX_PATH];
         sprintf(trace, "%s.trace", g_out);
         rt3::g_writeTrace = fopen(trace, "w");

@@ -12,7 +12,7 @@ Runs: `After_00_3000`, `ai_owned_lol_3000`, `britain_3000`, `editor`, `explore1`
 
 | | Functions | Code bytes |
 |---|---|---|
-| Ran in simcheck | 3288 / 4261 (77.2%) | 1044769 / 1372671 (76.1%) |
+| Ran in simcheck | 3335 / 4261 (78.3%) | 1065496 / 1372671 (77.6%) |
 | Ran or difftest | 4261 / 4261 (100.0%) | 1372671 / 1372671 (100.0%) |
 
 ## Per source file
@@ -24,8 +24,8 @@ Runs: `After_00_3000`, `ai_owned_lol_3000`, `britain_3000`, `editor`, `explore1`
 | game/Buildings.cpp | 120/132 | 132/132 | 0 |
 | game/Sites.cpp | 58/65 | 65/65 | 0 |
 | game/Cars.cpp | 48/56 | 56/56 | 0 |
-| game/Cargo.cpp | 40/46 | 46/46 | 0 |
-| game/Cities.cpp | 43/50 | 50/50 | 0 |
+| game/Cargo.cpp | 42/46 | 46/46 | 0 |
+| game/Cities.cpp | 45/50 | 50/50 | 0 |
 | game/Company.cpp | 85/109 | 109/109 | 0 |
 | game/Records.cpp | 31/54 | 54/54 | 0 |
 | game/Events.cpp | 7/10 | 10/10 | 0 |
@@ -33,7 +33,7 @@ Runs: `After_00_3000`, `ai_owned_lol_3000`, `britain_3000`, `editor`, `explore1`
 | game/Camera.cpp | 66/81 | 81/81 | 0 |
 | game/Commands.cpp | 38/64 | 64/64 | 0 |
 | game/SaveGame.cpp | 3/5 | 5/5 | 0 |
-| game/Map.cpp | 90/119 | 119/119 | 0 |
+| game/Map.cpp | 91/119 | 119/119 | 0 |
 | game/SceneObjects.cpp | 134/143 | 143/143 | 0 |
 | game/Hotkeys.cpp | 48/56 | 56/56 | 0 |
 | game/DevMenu.cpp | 15/18 | 18/18 | 0 |
@@ -49,17 +49,17 @@ Runs: `After_00_3000`, `ai_owned_lol_3000`, `britain_3000`, `editor`, `explore1`
 | game/TrackNet.cpp | 78/90 | 90/90 | 0 |
 | game/Train.cpp | 117/128 | 128/128 | 0 |
 | game/Trains.cpp | 38/44 | 44/44 | 0 |
-| game/IndustryWindow.cpp | 21/56 | 56/56 | 0 |
+| game/IndustryWindow.cpp | 22/56 | 56/56 | 0 |
 | game/CompanyWindow.cpp | 22/42 | 42/42 | 0 |
-| game/CompanyList.cpp | 17/37 | 37/37 | 0 |
-| game/EditorDialogs.cpp | 0/52 | 52/52 | 0 |
+| game/CompanyList.cpp | 21/37 | 37/37 | 0 |
+| game/EditorDialogs.cpp | 30/52 | 52/52 | 0 |
 | game/RulesDialog.cpp | 6/79 | 79/79 | 0 |
 | game/GameWindows.cpp | 36/59 | 59/59 | 0 |
 | game/Reports.cpp | 13/22 | 22/22 | 0 |
 | game/MultiplayerDialog.cpp | 43/69 | 69/69 | 0 |
-| game/Newspaper.cpp | 15/37 | 37/37 | 0 |
+| game/Newspaper.cpp | 19/37 | 37/37 | 0 |
 | game/MapEditor.cpp | 10/16 | 16/16 | 0 |
-| game/OptionsDialog.cpp | 13/51 | 51/51 | 0 |
+| game/OptionsDialog.cpp | 16/51 | 51/51 | 0 |
 | game/SetupScreen.cpp | 5/8 | 8/8 | 0 |
 | game/StationWindow.cpp | 44/55 | 55/55 | 0 |
 | game/StockWindow.cpp | 7/13 | 13/13 | 0 |

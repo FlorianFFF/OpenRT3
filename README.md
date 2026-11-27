@@ -104,8 +104,14 @@ It also compares what is drawn: everything handed to Direct3D, one CRC per frame
 start a scenario from its file (`'..\maps\Britain.gmp'`, with `--do=@tools/actions_scenario.txt`
 to set a game speed), and `--quit` closes the game normally afterwards so its shutdown runs too.
 `--menu` loads nothing: the script drives the menus from the first frame, for example into the map
-editor. `--sound` turns the effects and music on (the game's audio session muted), so the sound
-code runs too.
+editor (`simcheck.py editor.gmp 1500 --menu --do=@tools/actions_editor.txt`: a new map, the
+terrain, tree, bulldoze, region and territory tools, and the editor's setup window with several
+of its pages). `--sound` turns the effects and music on (the game's audio session muted), so the
+sound code runs too.
+
+Before saving, the harness clears the bytes after each name in the cities' building mixes: the
+original game (whose function for this is kept original) leaves stack leftovers there, which
+differ between runs and are never read. Everything else in the save is compared as written.
 
 **Scripted calls**: functions no play-through reaches are called inside a run with real objects
 of the loaded save as arguments (`call <addr> <cc> <ret> <args>`: "the 3rd company", "station
