@@ -5,8 +5,8 @@
 # panel) and 9007 (paint territories: Territory 02) are picked and dragged
 # across the middle of the map, with a widget dump of each panel. A
 # territory's magnifier button opens the editor's setup window (modal; its
-# pages listed on the left, Exit at the bottom right): a few pages are shown,
-# then Exit closes it - Enter does not, so the harness's own Enter is off
+# pages listed on the left, Exit at the bottom right): each of its 20 pages is
+# shown, then Exit closes it - Enter does not, so the harness's own Enter is off
 # meanwhile. (The regions' building mixes keep stack leftovers after each
 # name, from the original 0x4206b0; the harness clears that unread padding
 # before saving, in every run alike: src/harness.cpp NormalizeNamedAmounts.)
@@ -51,20 +51,49 @@
 1090 move 0.534 0.744
 1092 click 0.534 0.744  Territory 01's magnifier: the setup window
 1110 shot
-1120 move 0.07 0.075
-1122 click 0.07 0.075  Cities/Regions
-1140 shot
-1150 move 0.07 0.235
-1152 click 0.07 0.235  Building Density
-1170 move 0.07 0.315
-1172 click 0.07 0.315  Industry (Overall)
-1190 move 0.07 0.155
-1192 click 0.07 0.155  Players
-1210 move 0.07 0.035
-1212 click 0.07 0.035  General
-1230 shot
-1240 move 0.913 0.973
-1242 click 0.913 0.973  Exit
-1260 autoenter 1
-1270 shot
-1280 dump
+1120 move 0.07 0.035
+1122 click 0.07 0.035  General
+1140 move 0.07 0.075
+1142 click 0.07 0.075  Cities/Regions
+1160 move 0.07 0.115
+1162 click 0.07 0.115  Territories
+1180 move 0.07 0.154
+1182 click 0.07 0.154  Players
+1200 move 0.07 0.194
+1202 click 0.07 0.194  Player Pool
+1220 move 0.07 0.235
+1222 click 0.07 0.235  Building Density
+1240 move 0.07 0.275
+1242 click 0.07 0.275  Locomotives
+1260 move 0.07 0.315
+1262 click 0.07 0.315  Industry (Overall)
+1280 move 0.07 0.354
+1282 click 0.07 0.354  Special Conditions
+1300 move 0.07 0.394
+1302 click 0.07 0.394  Port/Warehouse Cargos
+1320 move 0.07 0.435
+1322 click 0.07 0.435  Computer A.I.
+1340 move 0.07 0.475
+1342 click 0.07 0.475  Events
+1360 move 0.07 0.515
+1362 click 0.07 0.515  Event Debugging
+1380 move 0.07 0.554
+1382 click 0.07 0.554  Event Validation
+1400 move 0.07 0.594
+1402 click 0.07 0.594  General Validation
+1420 move 0.07 0.635
+1422 click 0.07 0.635  Stats - Cargo
+1440 move 0.07 0.675
+1442 click 0.07 0.675  Stats - Buildings
+1460 move 0.07 0.715
+1462 click 0.07 0.715  Stats - City/Region
+1480 move 0.07 0.754
+1482 click 0.07 0.754  Stats - Trees
+1500 move 0.07 0.796
+1502 click 0.07 0.796  Stats - City Count
+1520 shot
+1540 move 0.913 0.973
+1542 click 0.913 0.973  Exit
+1560 autoenter 1
+1570 shot
+1580 dump

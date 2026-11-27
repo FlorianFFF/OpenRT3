@@ -12,7 +12,7 @@ Runs: `After_00_3000`, `ai_owned_lol_3000`, `britain_3000`, `editor`, `explore1`
 
 | | Functions | Code bytes |
 |---|---|---|
-| Ran in simcheck | 3335 / 4261 (78.3%) | 1065496 / 1372671 (77.6%) |
+| Ran in simcheck | 3389 / 4261 (79.5%) | 1099750 / 1372671 (80.1%) |
 | Ran or difftest | 4261 / 4261 (100.0%) | 1372671 / 1372671 (100.0%) |
 
 ## Per source file
@@ -21,7 +21,7 @@ Runs: `After_00_3000`, `ai_owned_lol_3000`, `britain_3000`, `editor`, `explore1`
 |---|---|---|---|
 | game/AI.cpp | 33/44 | 44/44 | 0 |
 | game/Vehicles.cpp | 22/22 | 22/22 | 0 |
-| game/Buildings.cpp | 120/132 | 132/132 | 0 |
+| game/Buildings.cpp | 121/132 | 132/132 | 0 |
 | game/Sites.cpp | 58/65 | 65/65 | 0 |
 | game/Cars.cpp | 48/56 | 56/56 | 0 |
 | game/Cargo.cpp | 42/46 | 46/46 | 0 |
@@ -44,7 +44,7 @@ Runs: `After_00_3000`, `ai_owned_lol_3000`, `britain_3000`, `editor`, `explore1`
 | game/Stations.cpp | 76/82 | 82/82 | 0 |
 | game/App.cpp | 35/57 | 57/57 | 0 |
 | game/StationTypes.cpp | 22/28 | 28/28 | 0 |
-| game/ScenarioText.cpp | 11/18 | 18/18 | 0 |
+| game/ScenarioText.cpp | 12/18 | 18/18 | 0 |
 | game/Track.cpp | 114/140 | 140/140 | 0 |
 | game/TrackNet.cpp | 78/90 | 90/90 | 0 |
 | game/Train.cpp | 117/128 | 128/128 | 0 |
@@ -52,8 +52,8 @@ Runs: `After_00_3000`, `ai_owned_lol_3000`, `britain_3000`, `editor`, `explore1`
 | game/IndustryWindow.cpp | 22/56 | 56/56 | 0 |
 | game/CompanyWindow.cpp | 22/42 | 42/42 | 0 |
 | game/CompanyList.cpp | 21/37 | 37/37 | 0 |
-| game/EditorDialogs.cpp | 30/52 | 52/52 | 0 |
-| game/RulesDialog.cpp | 6/79 | 79/79 | 0 |
+| game/EditorDialogs.cpp | 50/52 | 52/52 | 0 |
+| game/RulesDialog.cpp | 38/79 | 79/79 | 0 |
 | game/GameWindows.cpp | 36/59 | 59/59 | 0 |
 | game/Reports.cpp | 13/22 | 22/22 | 0 |
 | game/MultiplayerDialog.cpp | 43/69 | 69/69 | 0 |

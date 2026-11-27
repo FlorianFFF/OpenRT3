@@ -104,7 +104,7 @@ It also compares what is drawn: everything handed to Direct3D, one CRC per frame
 start a scenario from its file (`'..\maps\Britain.gmp'`, with `--do=@tools/actions_scenario.txt`
 to set a game speed), and `--quit` closes the game normally afterwards so its shutdown runs too.
 `--menu` loads nothing: the script drives the menus from the first frame, for example into the map
-editor (`simcheck.py editor.gmp 1500 --menu --do=@tools/actions_editor.txt`: a new map, the
+editor (`simcheck.py editor.gmp 2000 --menu --do=@tools/actions_editor.txt`: a new map, the
 terrain, tree, bulldoze, region and territory tools, and the editor's setup window with several
 of its pages). `--sound` turns the effects and music on (the game's audio session muted), so the
 sound code runs too.
