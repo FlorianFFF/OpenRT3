@@ -7,7 +7,7 @@ compares the saves (via the per-write CRC trace) between runs:
 A == B proves the setup is deterministic; A == C proves the rewrite matches.
 
     python tools/simcheck.py [save] [frames] [--do=<frame>:<addr>,...] [--coverage=<file>] [--mode=<n>]
-                             [--quit] [--menu]
+                             [--quit] [--menu] [--sound]
 
 [save] can also be a scenario file ('..\\maps\\Britain.gmp': a new game of it).
 --menu loads nothing: the --do script drives the menus from the first frame
@@ -16,6 +16,8 @@ A == B proves the setup is deterministic; A == C proves the rewrite matches.
 --quit closes the game after saving instead of ending the process, so the
 game's shutdown runs (and counts for --coverage); each run reports whether
 it shut down cleanly.
+--sound turns the effects on (the settings the tests start from have them
+at 0) with the game's audio muted, so the sound code runs and is compared.
 """
 import os
 import re
@@ -50,12 +52,24 @@ def parse_actions(text):
         click / rclick <x> <y>  button down, and up two frames later
         drag <x0> <y0> <x1> <y1> <frames>   left drag in steps of a frame
         key <vk>                a key (virtual key code, hex)
+        hold <vk> <frames>      a key held down for that many frames
+        cell <x> <y>            moves the mouse over map cell (x, y) (found with the camera's ground pick)
+        cellclick <x> <y>       left click on map cell (x, y)
+        celldrag <x0> <y0> <x1> <y1> <frames>   left drag from cell to cell
+        look <x> <y>            centres the view on map cell (x, y) (the game's own camera call)
+        zoom <steps>            zooms the view that many steps (negative: in)
+        autoenter 0|1           whether the harness answers dialogs with Enter (default 1)
+        cities                  log every city's id, cell and name (harness "C" lines)
+        tracks                  log every track piece's id, cell and owner (harness "T" lines)
+        wheel <ticks>         mouse wheel at the mouse position (signed, notches of 120)
         type <text>             characters, one a frame
         settext <id> <text>     sets widget id's text (as the game sets an edit box)
         waitplayers <n>         waits until the network session has n players
+        waitgame                waits until the game world runs (later actions move with it)
         clickid <id>            clicks the visible widget with that id (waits until there is one)
         explore <period> <count>  clicks a harness-chosen visible button every period frames
         dump                    log every window and widget (harness "W" lines)
+        shot                    screenshot of the game window (<out>_<tick>.bmp; tools/shot.py)
     """
     out = []
     short = {"move": "m", "ldown": "ld", "lup": "lu", "rdown": "rd", "rup": "ru"}
@@ -83,6 +97,24 @@ def parse_actions(text):
             out.append(f"{f}:x:{t[2]}:{t[3]}")
         elif cmd == "waitplayers":
             out.append(f"{f}:w:{t[2]}")
+        elif cmd == "autoenter":
+            out.append(f"{f}:ae:{int(t[2])}")
+        elif cmd == "cell":
+            out.append(f"{f}:cm:{t[2]}:{t[3]}")
+        elif cmd == "cellclick":
+            out += [f"{f}:cd:{t[2]}:{t[3]}", f"{f + 2}:cu:{t[2]}:{t[3]}"]
+        elif cmd == "celldrag":
+            x0, y0, x1, y1, n = float(t[2]), float(t[3]), float(t[4]), float(t[5]), int(t[6])
+            out.append(f"{f}:cd:{x0}:{y0}")
+            for i in range(1, n + 1):
+                out.append(f"{f + i}:cm:{x0 + (x1 - x0) * i / n:.2f}:{y0 + (y1 - y0) * i / n:.2f}")
+            out.append(f"{f + n + 1}:cu:{x1}:{y1}")
+        elif cmd in ("look", "zoom"):
+            out.append(f"{f}:{cmd}:" + ":".join(t[2:3] if cmd == "zoom" else t[2:4]))
+        elif cmd == "hold":
+            out += [f"{f}:kd:{t[2]}", f"{f + int(t[3])}:ku:{t[2]}"]
+        elif cmd == "wheel":
+            out.append(f"{f}:wh:{int(t[2])}")
         elif cmd == "clickid":
             out.append(f"{f}:i:{t[2]}")
         elif cmd == "settext":
@@ -127,6 +159,8 @@ def run(tag, enabled, save, days, timeout=None):
         spec += ";do=@simcheck_actions.txt"
     if "--quit" in sys.argv:  # then close the game normally: its shutdown runs too
         spec += ";quit=1"
+    if "--sound" in sys.argv:  # effects on (the game's audio muted), so the sound code runs
+        spec += ";sound=1"
     env = dict(os.environ, RT3RE_HARNESS=spec)
     if "--nocoverage" not in sys.argv:  # coverage: counting stubs / one-shot probes (src/hook/hook.cpp)
         env["RT3RE_COVERAGE"] = "1"
@@ -189,7 +223,7 @@ def main():
     def cached(tag):
         t = GAME / f"simcheck_{tag}{Path(save).suffix}.trace"
         stamp = GAME / f"simcheck_{tag}.key"
-        key = f"{save} {frames} {ACTIONS} {'--nocoverage' in sys.argv} {MODE} {'--quit' in sys.argv} {'--menu' in sys.argv}"
+        key = f"{save} {frames} {ACTIONS} {'--nocoverage' in sys.argv} {MODE} {'--quit' in sys.argv} {'--menu' in sys.argv} {'--sound' in sys.argv}"
         if "--fresh" not in sys.argv and t.exists() and stamp.exists() and stamp.read_text() == key:
             return [l.split()[1:] for l in t.read_text().splitlines() if l]
         r = run(tag, False, save, frames)

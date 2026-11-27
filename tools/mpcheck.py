@@ -6,11 +6,14 @@ Both run in the test mirror (tools/stockgame.py) under the harness
 mouse and keys) and, once the game runs, saves after N frames and exits.
 
     python tools/mpcheck.py <host.txt> <client.txt> [frames] [--host=orig|rewrite] [--client=orig|rewrite]
-                            [--client-delay=<seconds>] [--timeout=<seconds>]
+                            [--client-delay=<seconds>] [--timeout=<seconds>] [--off=Name,...] [--offfile=<file>]
+
+tools/mp_host.txt / mp_client.txt only start a game; tools/mp_host_play.txt /
+mp_client_play.txt also play it (companies, stations, track, a train).
 
 orig keeps every function original, rewrite installs every replacement.
 Coverage (which originals ran) is written next to each save
-(Saved Games/mp_<role>.gmc.coverage, for tools/coverage.py). With
+(mp_<role>.gmc.coverage in the game folder, for tools/coverage.py). With
 the original as host and the rewrite as client, the game's own lockstep
 checks compare the two simulations as they run.
 """
@@ -32,7 +35,10 @@ GAME = stockgame.MIRROR
 def launch(role, side, script, frames, timeout):
     ini = GAME / f"mp_{role}.ini"
     on = side == "rewrite"
-    ini.write_text("[replace]\n" + "".join(f"{n}={1 if on else 0}\n" for n in names()))
+    # --off=Name,...: keep these original on the rewrite side (bisecting a difference)
+    off = {n for a in sys.argv if a.startswith("--off=") for n in a[6:].split(",")}
+    off |= {n for a in sys.argv if a.startswith("--offfile=") for n in Path(a[10:]).read_text().split(",") if n}
+    ini.write_text("[replace]\n" + "".join(f"{n}={1 if on and n not in off else 0}\n" for n in names()))
     acts = GAME / f"mp_{role}_actions.txt"
     acts.write_text(parse_actions(Path(script).read_text()))
     out = f"mp_{role}.gmc"
@@ -81,6 +87,10 @@ def main():
         text = log.read_text(errors="replace") if log.exists() else ""
         save = GAME / "Saved Games" / f"mp_{role}.gmc"
         print(f"{role}: {'saved' if save.exists() else 'no save'}, log {len(text.splitlines())} lines")
+        # What a playing script built (its "tracks" actions), and what it could not reach.
+        for l in text.splitlines():
+            if l.endswith(" track pieces") or "not found" in l or "not in view" in l:
+                print("  " + l)
     # The client's weekly state checks against the host (src/harness.cpp LogSyncChecks).
     log = GAME / "mp_client.log"
     checks = [l for l in log.read_text(errors="replace").splitlines() if l.startswith("S ")] if log.exists() else []

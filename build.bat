@@ -19,7 +19,7 @@ if not exist out\obj mkdir out\obj
 if not exist out\objt mkdir out\objt
 set CFLAGS=/nologo /O2 /MT /W3 /EHsc /std:c++17 /Zi /Isrc /D_CRT_SECURE_NO_WARNINGS /MP /arch:IA32 /fp:precise
 set LIB_SRC=src\developer_menu.cpp src\hook\*.cpp src\core\*.cpp src\engine\*.cpp src\game\*.cpp src\assets\*.cpp
-cl %CFLAGS% /LD src\dllmain.cpp src\harness.cpp src\drawtrace.cpp %LIB_SRC% /Foout\obj\ /Fdout\rt3re.pdb /Fe:out\rt3re.dll /link /MAP:out\rt3re.map user32.lib version.lib || exit /b 1
+cl %CFLAGS% /LD src\dllmain.cpp src\harness.cpp src\drawtrace.cpp %LIB_SRC% /Foout\obj\ /Fdout\rt3re.pdb /Fe:out\rt3re.dll /link /MAP:out\rt3re.map user32.lib gdi32.lib ole32.lib version.lib || exit /b 1
 cl %CFLAGS% /LD tests\*.cpp %LIB_SRC% /Foout\objt\ /Fdout\rt3re_test.pdb /Fe:out\rt3re_test.dll /link /MAP:out\rt3re_test.map user32.lib version.lib || exit /b 1
 cl %CFLAGS% src\launcher\launcher.cpp /Foout\obj\ /Fe:out\rt3re.exe || exit /b 1
 rem Standalone: loads RT3.exe's image at 0x400000 itself (see openrt3.cpp).
@@ -41,6 +41,8 @@ pushd "%STOCK%"
 set RC=%ERRORLEVEL%
 rem The leaf functions' test runs in a process of its own (see tests\difftest.cpp).
 if "%2"=="" (
+    rem (without coverage probes: tools\coverage.py counts the leaf table itself)
+    set RT3RE_COVERAGE=
     "%CD%\rt3re.exe" --test --filter=leaves_all --log=difftest_leaves.log
     if errorlevel 1 set /a RC=RC+1
     findstr /c:"leaf functions tested" /c:"passed," difftest_leaves.log

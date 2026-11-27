@@ -108,8 +108,34 @@ def main():
                 bad += 1
                 print(f"MISMATCH {addr:08x} {name}: original pops {want}, rewrite ({conv}, {len(params)} params) pops {got}"
                       f"  [{path.relative_to(ROOT)}]")
+    bad += bare_ecx_calls(texts)
     print(f"{bad} mismatches")
+    return 1 if bad else 0
+
+
+def bare_ecx_calls(texts):
+    """A naked stub declared without parameters that passes ECX on (a thiscall
+    original, e.g. RT3_KEEP_ECX_EDX) must be called with ECX set: from C++
+    through a __fastcall cast, never as a bare Name() (ECX is then whatever
+    the previous call left)."""
+    stubs = set()
+    for t in texts.values():
+        for m in re.finditer(r"__declspec\(naked\)[^{;]*?\b(\w+)\(\)\s*\{(.*?)\n?\}", t, re.S):
+            if "ecx" in m.group(2).lower() or "KEEP_ECX" in m.group(2):
+                stubs.add(m.group(1))
+    bad = 0
+    for path, t in texts.items():
+        lines = t.splitlines()
+        for n in stubs:
+            for m in re.finditer(r"(?<![\w&>])" + n + r"\(\)", t):
+                l = lines[t.count("\n", 0, m.start())]
+                if "naked" in l or re.match(r"\s*(RT3_NOINLINE\s+)?(static\s+)?\w[\w:\*<>]*[\w:\*<> ]*\s\**" + n + r"\(\);", l):
+                    continue  # its definition or a declaration
+                bad += 1
+                print(f"BARE CALL {n}() without ECX  [{path.relative_to(ROOT)}:{t.count(chr(10), 0, m.start()) + 1}]")
+    return bad
 
 
 if __name__ == "__main__":
-    main()
+    import sys
+    sys.exit(main())

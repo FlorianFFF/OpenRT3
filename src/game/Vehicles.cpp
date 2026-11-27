@@ -334,7 +334,7 @@ RT3_NOINLINE void __fastcall World_YearEnd(uint8_t* w) {
     World_SetTime(w, 0, F<int32_t>(w, 0x15) + 1);
     World_RollStats(w);
     Industries_BuildCargoLists(g_62b268);
-    World_UpdateEraFactor();
+    ((void(__fastcall*)(uint8_t*))&World_UpdateEraFactor)(w);  // (thiscall on w: the stub passes ECX on)
     World_UpdateSpeedScale(w);
     int32_t decades = ((int32_t)F<uint16_t>(w, 0xd) - (int32_t)F<uint16_t>(w, 5)) / 10;
     float rate = F<float>(g_world, (decades < 4 ? decades : 4) * 4 + 0xbe6);

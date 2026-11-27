@@ -444,14 +444,14 @@ static inline double Bits_165(uint64_t u) { return *(double*)&u; }
 
 
 // One view distance band: when the map is larger than `minArea` and the distance is
-// above `top` - roughness, scales it down to area / sqrt(area / div), capped at that.
+// above lim = `top` - roughness, divides it by sqrt(area / div), but not below lim.
 static inline float Band(float v, float area, float rough, uint32_t minArea, uint32_t top, uint32_t div) {
     if (!(area > Fl(minArea))) return v;
     double lim = D(top) - rough;
     if (!(v > lim)) return v;
     float s = (float)crt::sqrt((double)area / D(div));
-    v = (float)((double)area / s);
-    return (float)(v > lim ? lim : (double)v);
+    v = (float)((double)v / s);
+    return (float)(v > lim ? (double)v : lim);
 }
 
 static inline double Fl_205(uint32_t a) { return *(const float*)a; }
@@ -1627,7 +1627,7 @@ RT3_NOINLINE int32_t __fastcall Obj_ArrayAc2(void* o, int, int32_t i) { return F
 RT3_REPLACE(0x484af0, Obj_ArrayAc2);
 
 // 0x484b00. The view distance for detail level +0xb8 (table 0x6219b8), reduced on
-// big maps (more so on smooth ones).
+// big maps (more so on rough ones, whose floor top - roughness is lower).
 RT3_NOINLINE float __fastcall Map_ViewDistance(uint8_t* o) {
     float v = ((const float*)0x6219b8)[F<int32_t>(o, 0xb8)];
     float area = 262144.0f, rough = 1.0f;

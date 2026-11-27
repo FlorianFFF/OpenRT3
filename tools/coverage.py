@@ -41,6 +41,13 @@ def main():
             if a in runs and int(n) > 0:
                 runs[a] += 1
     tested = set()
+    # Every function in the leaf test's table is called and compared there
+    # (tests/test_leaves.cpp); its run needs no coverage probes (which clash
+    # with that test's own exception handling).
+    leaf_table = ROOT / "tests" / "test_leaves_table.cpp"
+    if leaf_table.exists():
+        import re
+        tested |= {int(a, 16) for a in re.findall(r"\{ 0x([0-9a-f]+), \"", leaf_table.read_text())}
     for dt in dts:
         for line in dt.read_text().splitlines():
             a, _, n = line.split()
@@ -78,12 +85,30 @@ def main():
         e = [a for a in fs if runs[a] or a in tested]
         un = bytes_([a for a in fs if a not in e])
         out.append(f"| {f} | {len(r)}/{len(fs)} | {len(e)}/{len(fs)} | {un} |")
-    out += ["", "## Largest unchecked functions", "", "| Address | Function | File | Bytes |", "|---|---|---|---|"]
-    un = sorted((a for a in allf if not runs[a] and a not in tested), key=lambda a: -size.get(a, 0))
-    out += [f"| {a:06x} | {name[a]} | {where[a]} | {size.get(a, 0)} |" for a in un[:60]]
+    # Why a function cannot be run against the original (docs/unchecked_reasons.txt:
+    # "<addr> <name>: <reason>" lines; # comments).
+    reasons = {}
+    rpath = ROOT / "docs" / "unchecked_reasons.txt"
+    if rpath.exists():
+        for line in rpath.read_text(encoding="utf-8").splitlines():
+            if line.strip() and not line.startswith("#"):
+                head, _, why = line.partition(":")
+                reasons[int(head.split()[0], 16)] = why.strip()
+    un = sorted((a for a in allf if not runs[a] and a not in tested), key=lambda a: (where[a], a))
+    unexplained = [a for a in un if a not in reasons]
+    out += ["", "## Unchecked functions", "",
+            f"{len(un)} rewritten functions ({bytes_(un)} bytes) never ran in a check. The reason each",
+            "cannot be run against the original is in `docs/unchecked_reasons.txt`"
+            + (f"; {len(unexplained)} have none yet." if unexplained else "."), "",
+            "| Address | Function | File | Bytes | Reason |", "|---|---|---|---|---|"]
+    out += [f"| {a:06x} | {name[a]} | {where[a]} | {size.get(a, 0)} | {reasons.get(a, '(none yet)')} |" for a in un]
+    stale = sorted(a for a in reasons if a in runs and (runs[a] or a in tested))
+    if stale:  # a reason for a function that now ran: the reason can go
+        out += ["", "Listed in `docs/unchecked_reasons.txt` but checked now: "
+                + ", ".join(f"{a:06x} {name[a]}" for a in stale) + "."]
     (ROOT / "docs" / "coverage.md").write_text("\n".join(out) + "\n")
     print(f"ran {len(ran)}/{len(allf)}, ran or difftest {len(either)}/{len(allf)}, "
-          f"bytes {bytes_(either)}/{bytes_(allf)}")
+          f"bytes {bytes_(either)}/{bytes_(allf)}; unchecked {len(un)}, without a reason {len(unexplained)}")
     return 0
 
 

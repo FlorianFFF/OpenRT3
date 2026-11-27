@@ -1,6 +1,8 @@
 """Finds the replaced function that breaks the simcheck rewrite run (stall or
 mismatch) by switching halves of the replacements off.
-    python tools/bisect_replacements.py [simcheck args...]"""
+    python tools/bisect_replacements.py [simcheck args...]
+    python tools/bisect_replacements.py --mp [mpcheck args...]   (a desync in tools/mpcheck.py;
+                                                                  give the rewrite side, e.g. --client=rewrite)"""
 import subprocess
 import sys
 from pathlib import Path
@@ -13,9 +15,12 @@ import simcheck  # noqa: E402
 def good(off):
     lst = ROOT / "out" / "bisect_off.txt"
     lst.write_text(",".join(off))
-    r = subprocess.run([sys.executable, str(ROOT / "tools" / "simcheck.py"), f"--offfile={lst}", *sys.argv[1:]],
+    mp = "--mp" in sys.argv
+    args = [a for a in sys.argv[1:] if a != "--mp"]
+    tool = "mpcheck.py" if mp else "simcheck.py"
+    r = subprocess.run([sys.executable, str(ROOT / "tools" / tool), f"--offfile={lst}", *args],
                        cwd=ROOT, capture_output=True, text=True)
-    ok = r.returncode == 0 and "MATCH:" in r.stdout  # (save and drawing)
+    ok = r.returncode == 0 and ("IN SYNC" if mp else "MATCH:") in r.stdout  # (simcheck: save and drawing)
     print(f"  {len(off)} off -> {'good' if ok else 'bad'}", flush=True)
     return ok
 

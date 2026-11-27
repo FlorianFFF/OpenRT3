@@ -1490,7 +1490,9 @@ RT3_NOINLINE void __fastcall Company_RemoveEntry(void* c, int, int32_t idx, int3
     int32_t n = F<int32_t>(c, 0x5b);
     if (n > idx + 1) {
         uint8_t* src = e + 12;
-        for (int32_t k = 0; k < (n - idx - 1) * 12; ++k) e[k] = src[k];
+        // (an unsigned byte count, as the original's REP MOVS: it wraps the same)
+        const uint32_t bytes = (uint32_t)(n - idx - 1) * 12;
+        for (uint32_t k = 0; k < bytes; ++k) e[k] = src[k];
     }
     F<int32_t>(c, 0x5b) = n - 1;
 }

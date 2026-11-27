@@ -1,0 +1,16 @@
+# The multiplayer client for tools/mp_host_play.txt: joins the host's LAN
+# game and founds a company of its own once the game runs, then watches;
+# the harness logs its
+# weekly state checks against the host ("S" lines).
+50 move 0.4988 0.4925
+60 click 0.4988 0.4925   Multi Player
+290 move 0.4988 0.3975
+300 click 0.4988 0.3975  LAN
+590 settext 3656 Guest
+600 settext 3655 127.0.0.1
+690 move 0.4938 0.7275
+700 click 0.4938 0.7275  Join
+1000 waitgame
+1100 clickid 2035  company: found one (Enter answers both questions)
+1200 shot
+2500 shot

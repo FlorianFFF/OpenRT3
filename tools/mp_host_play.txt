@@ -1,0 +1,87 @@
+# The multiplayer host as a scripted player (tools/mpcheck.py
+# tools/mp_host_play.txt tools/mp_client_play.txt 3000): hosts a LAN game,
+# founds a company, builds a station in Washington DC, lays track from it,
+# builds a second station on that track, then buys a train and routes it
+# between the two stations. The client's weekly state checks must match the
+# host's all along.
+#
+# Map positions are map cells (the harness "C" lines of "cities" give a
+# city's cell: Washington DC is 509.9 233.6); "look" / "zoom" move the view
+# with the game's own camera calls, "cell" / "cellclick" / "celldrag" find
+# the cell on screen with the camera's ground pick.
+#
+# Things the game needs (found by trying, see the screenshots of "shot"):
+# - In this scenario every new track or station must connect to the
+#   company's track, so the first station comes first and the second one
+#   goes onto the track laid from it.
+# - One track drag lays at most about 6 cells; in multiplayer the pieces
+#   arrive over the next frames and the tool refuses a new drag meanwhile.
+# - The station tool is closed right after each click: its preview marks
+#   the cells around the cursor on this PC only, and a weekly check taken
+#   while it is open differs from the client's (cargo value, 0x46dac0) -
+#   the original game's behaviour, not something to change here.
+# - The train buyer is a dialog: Enter (which the harness presses in
+#   dialogs) would press Buy before there is a route, so it is off there.
+50 move 0.4988 0.4925
+60 click 0.4988 0.4925   Multi Player
+290 move 0.4988 0.3975
+300 click 0.4988 0.3975  LAN
+590 move 0.4938 0.8025
+600 click 0.4938 0.8025  Host
+890 move 0.5041 0.4500
+900 click 0.5041 0.4500  OK (host name dialog)
+1000 waitplayers 2
+1590 move 0.3806 0.8900
+1600 click 0.3806 0.8900 Start
+1890 cities
+1900 clickid 2035  company: none yet, so found one (Enter answers both questions)
+1950 dump
+# The first station, in Washington DC.
+1960 look 510 234
+1965 zoom -3
+1970 cell 510 234
+1980 clickid 2012  station tool
+1990 cell 510 234
+1995 cellclick 510 234  station in Washington DC
+2000 clickid 2012  station tool off
+# Track east from the station.
+2010 look 515 243
+2015 zoom 1
+2020 cell 510 234
+2030 clickid 2011  track tool
+2040 cell 510 234
+2050 celldrag 509.8 233.6 514.9 232.6 30
+2250 key 1b  leave the track tool
+2255 tracks
+# The second station, on the new track.
+2260 look 514 232
+2265 zoom -1
+2270 cell 514.5 232.4
+2280 clickid 2012  station tool
+2290 cell 514.5 232.4
+2295 shot
+2300 cellclick 514.5 232.4  second station
+2305 clickid 2012  station tool off
+# A train between the two (the train buyer: stops 11010, its station
+# picker's rows and OK, then Buy 11002).
+2318 autoenter 0
+2320 clickid 2013  buy a train
+2340 clickid 11010  add a stop
+2350 move 0.33 0.165
+2360 click 0.33 0.165  Washington DC
+2370 move 0.29 0.655
+2375 click 0.29 0.655  OK
+2390 clickid 11010  add a stop
+2400 move 0.33 0.195
+2410 click 0.33 0.195  Washington DC Junction
+2420 move 0.29 0.655
+2425 click 0.29 0.655  OK
+2440 shot
+2450 clickid 11002  Buy
+2470 shot
+2480 autoenter 1
+2490 key 1b  close the train window
+2500 tracks
+2600 shot
+2610 dump
+3500 shot

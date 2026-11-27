@@ -1,5 +1,6 @@
 """Generates tests/test_leaves.cpp: one differential test over every rewritten
-leaf function (the original calls nothing, or only pure C runtime functions).
+leaf function (the original calls nothing, or only pure C runtime functions,
+or only other functions that are leaves in that sense: see pure_functions).
 
 A leaf can only read its arguments, memory and globals, so it is checked
 generically: both versions get the same arguments (pointers to buffers of
@@ -34,6 +35,8 @@ PURE_CRT = {
 RESULT = {
     0x4490a0: "B",  # BrightnessOf: AL (all callers in 0x44a9a0 store AL)
     0x531f90: "V",  # Sound_RegisterEos: EAX untouched on the early paths; both callers ignore it
+    0x533f80: "B",  # Terrain_CellByte: AL (the empty path clears only AL, EAX keeps a pointer's high bytes)
+    0x45b430: "V",  # Obj_SetBlockFlags: EAX is what 0x45a2e0 left; every caller ignores it
 }
 
 # Leaves left out, with the reason.
@@ -42,6 +45,11 @@ SKIP = {
     # unwind target in its own debugger hook data (0x62a35c, _NLG_Notify) when
     # the probed instruction faults; ours uses our runtime's. Not game state.
     0x55cd40: "Cpu_ProbeFeature",
+    # Without a turn (+0xac & 1) or an end velocity the original copies three
+    # uninitialized stack words into the particle's +0x18..+0x20 (Emitter_Start
+    # overwrites them next); stack residue cannot be compared. It runs (and its
+    # drawing is compared) in simcheck.
+    0x555780: "Emitter_LaunchParticle",
 }
 
 INTS = {"int", "int8_t", "int16_t", "int32_t", "uint8_t", "uint16_t", "uint32_t", "bool", "char",
@@ -128,9 +136,22 @@ def exe_code():
 
 
 def indirect_call(code):
-    """Whether the code may contain CALL r/m32 (FF /2): it would call through the
-    random test data. (A byte scan: it can also hit operand bytes.)"""
-    return any(code[i] == 0xFF and (code[i + 1] & 0x38) == 0x10 for i in range(len(code) - 1))
+    """Whether the code may contain CALL or JMP r/m32 (FF /2../5): it would go
+    through the random test data (a virtual call is often a tail JMP [reg+n]).
+    A switch's JMP [index*4 + table] (FF /4, mod 00 with a disp32-only SIB)
+    stays in the function. (A byte scan: it can also hit operand bytes.)"""
+    for i in range(len(code) - 1):
+        if code[i] != 0xFF:
+            continue
+        modrm = code[i + 1]
+        reg = (modrm >> 3) & 7
+        if reg in (2, 3, 5):
+            return True
+        if reg == 4:
+            table = (modrm & 0xC7) == 0x04 and i + 2 < len(code) and (code[i + 2] & 7) == 5
+            if not table:
+                return True
+    return False
 
 
 def calls_out(code, addr, starts):
@@ -145,6 +166,28 @@ def calls_out(code, addr, starts):
     return out
 
 
+def pure_functions(code, callees, size):
+    """The exe functions that are pure in the leaf sense, with what they call:
+    no indirect call (an import, a virtual or a callback - the heap, files,
+    the OS all come that way) and calls only to pure functions, starting from
+    the pure C runtime ones. Such a function, too, can only read its
+    arguments, memory and globals, whatever it calls."""
+    pure = set(PURE_CRT)
+    out = {}
+    for a in callees:
+        c = code(a, size[a])
+        if not indirect_call(c):
+            out[a] = set(callees[a]) | calls_out(c, a, callees)
+    changed = True
+    while changed:
+        changed = False
+        for a, cs in out.items():
+            if a not in pure and cs <= pure:
+                pure.add(a)
+                changed = True
+    return pure
+
+
 def main():
     code = exe_code()
     callees, size = {}, {}
@@ -152,15 +195,13 @@ def main():
         f = line.split("\t")
         callees[int(f[0], 16)] = [int(c, 16) for c in f[3].split(",") if c] if len(f) > 3 and f[3] else []
         size[int(f[0], 16)] = int(f[2])
+    pure = pure_functions(code, callees, size)
     cases = []
     for path in sorted((ROOT / "src").rglob("*.cpp")):
         text = path.read_text(encoding="utf-8")
         for m in REPLACEMENT_RE.finditer(text):
             addr, name = int(m.group(1), 16), m.group(2)
-            if addr in ORIGINAL_ONLY or addr in SKIP or addr not in callees or any(c not in PURE_CRT for c in callees[addr]):
-                continue
-            c = code(addr, size[addr])
-            if indirect_call(c) or calls_out(c, addr, callees) - PURE_CRT:
+            if addr in ORIGINAL_ONLY or addr in SKIP or addr not in callees or addr not in pure:
                 continue
             d = re.search(r"^[ \t]*((?:RT3_NOINLINE\s+|static\s+|inline\s+)*[\w:<>\*\s]+?)\s*\b(__fastcall|__stdcall|__cdecl)?\s*\b"
                           + re.escape(name) + r"\s*\(([^)]*)\)\s*\{", text, re.MULTILINE)

@@ -70,13 +70,20 @@ struct Probe { Entry* e; uint8_t byte; volatile LONG hit; };
 static Probe g_probes[8192];
 static int g_numProbes;
 
+// One thread at a time: two threads unprobing on the same page (multiplayer's
+// network threads run game code too) would otherwise race on its protection -
+// one puts the page back to read-only while the other still writes.
+static volatile LONG g_probeLock;
+
 static void Unprobe(Probe* p) {
+    while (InterlockedCompareExchange(&g_probeLock, 1, 0) != 0) YieldProcessor();
     uint8_t* at = reinterpret_cast<uint8_t*>(p->e->addr);
     DWORD old;
     VirtualProtect(at, 1, PAGE_EXECUTE_READWRITE, &old);
     if (*at == 0xCC) *at = p->byte;  // still ours (not overwritten since)
     VirtualProtect(at, 1, old, &old);
     FlushInstructionCache(GetCurrentProcess(), at, 1);
+    InterlockedExchange(&g_probeLock, 0);
 }
 
 static LONG CALLBACK ProbeHit(EXCEPTION_POINTERS* ep) {

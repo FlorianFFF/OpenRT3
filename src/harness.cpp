@@ -10,6 +10,8 @@
 // exactly like the original (tools/simcheck.py).
 #include <windows.h>
 #include <tlhelp32.h>
+#include <mmdeviceapi.h>
+#include <audiopolicy.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -44,10 +46,17 @@ static int g_mpPort;  // "mpport=<n>": the client's own (device) port, see SetPo
 // (input event 0xcd, its quit question answered by the modal Enter), so its
 // whole shutdown runs; coverage is written again when the DLL unloads.
 static int g_quit;
+// "sound=1": the effects play (volume 0.6 through the game's own setter once a
+// world runs; the settings the tests start from have them at 0), so the sound
+// code runs too. The process's audio session is muted first: nothing is heard.
+static int g_soundOn;
 static char g_coverage[MAX_PATH];
 static volatile LONG g_ticks;  // main-loop frames and modal-loop passes (multiplayer action timing)
 static volatile LONG g_fakeMs = 1000000;
 static volatile LONG g_modalPasses; // modal loop passes since the last main-loop frame
+// Enter pressed in modal loops (dialogs answered with their default); a
+// script that works a dialog itself switches it off ("autoenter 0").
+static int g_autoEnter = 1;
 
 static void*& Game() { return hook::As<void*>(g_world); }
 
@@ -133,9 +142,44 @@ static void LogSyncChecks() {
     rt3::Log("%s", line);
 }
 
+// "sound=1": mutes this process's default audio session (Core Audio), so the
+// effects that now play are not heard.
+static void MuteProcessAudio() {
+    HRESULT init = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+    IMMDeviceEnumerator* en = nullptr;
+    IMMDevice* dev = nullptr;
+    IAudioSessionManager* mgr = nullptr;
+    ISimpleAudioVolume* vol = nullptr;
+    bool muted = false;
+    if (SUCCEEDED(CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr, CLSCTX_ALL, __uuidof(IMMDeviceEnumerator), (void**)&en)) &&
+        SUCCEEDED(en->GetDefaultAudioEndpoint(eRender, eConsole, &dev)) &&
+        SUCCEEDED(dev->Activate(__uuidof(IAudioSessionManager), CLSCTX_ALL, nullptr, (void**)&mgr)) &&
+        SUCCEEDED(mgr->GetSimpleAudioVolume(nullptr, FALSE, &vol)))
+        muted = SUCCEEDED(vol->SetMute(TRUE, nullptr));
+    if (vol) vol->Release();
+    if (mgr) mgr->Release();
+    if (dev) dev->Release();
+    if (en) en->Release();
+    if (SUCCEEDED(init)) CoUninitialize();
+    rt3::Log("harness: audio session %s", muted ? "muted" : "NOT muted (no audio device?)");
+}
+
+// Effects volume 0.6: the engine's setting (+0x1146fa, which the game applies
+// itself) and the sound system's (0x531560, kind 2 = effects).
+static void SoundUp() {
+    uint8_t* e = g_engine;
+    uint8_t* s = g_sound;
+    if (!e || !s) return;
+    *(float*)(e + 0x1146fa) = 0.6f;
+    ((void(__fastcall*)(uint8_t*, int, float, int32_t))0x531560)(s, 0, 0.6f, 2);
+    rt3::Log("harness: frame %ld, effects volume 0.6", g_frame);
+}
+
 static int __fastcall FrameHook(void* ctx) {
     // Fake clocks from the first frame (startup busy-waits on the real clock).
     if (g_frame == 0) UseFakeClocks();
+    if (g_soundOn && g_frame == 0) MuteProcessAudio();
+    if (g_soundOn && g_state == 1 && g_frame == g_loadFrame + 10) SoundUp();
     if (g_frame == 0 && g_menu) {
         // Startup seeded the generators from the real clock: fixed, as for a
         // loaded save (a new map, a new game). Not in multiplayer, where the
@@ -278,9 +322,23 @@ static void PostEnter() {
 //                         (like w:) until there is one, at most 3000 frames
 //   dump                  logs every window and widget (id, type, rectangle as
 //                         fractions of the screen, visible): where to click
+//   shot                  a screenshot of the game window (Screenshot)
+//   kd / ku:<vk>          a key down / up (held in between)
+//   wh:<ticks>            the mouse wheel at the mouse position
+//   waitgame              waits until the game world runs (like w:)
+//   ae:<0|1>              Enter in dialogs (g_autoEnter) off / on
+// The game itself (a world): the in-game camera reads the mouse through
+// DirectInput, so these use the game's own calls, and map cells instead of
+// screen positions:
+//   look:<x>:<y>          centres the view on map cell (x, y) (0x43d0c0)
+//   zoom:<n>              n steps along the zoom ladder, negative in (0x43cc30)
+//   cm / cd / cu:<x>:<y>  mouse move / left down / left up over map cell (x, y),
+//                         found on screen with the camera's ground pick (ScreenOfCell)
+//   cities / tracks       logs every city ("C <id> <x> <y> <name>") / track piece
+//                         ("T <id> <x> <y> <owner>") with its map cell
 // Mouse and keys go in as window messages, as from the real devices, and the
 // faked cursor position (GetCursorPos) follows the scripted mouse.
-enum ActionKind { kCall, kMove, kLeftDown, kLeftUp, kRightDown, kRightUp, kKey, kDump, kChar, kSetText, kWaitPlayers, kExplore, kClickId };
+enum ActionKind { kCall, kMove, kLeftDown, kLeftUp, kRightDown, kRightUp, kKey, kDump, kChar, kSetText, kWaitPlayers, kExplore, kClickId, kShot, kWheel, kKeyDown, kKeyUp, kZoom, kLook, kCities, kCell, kTracks, kAutoEnter, kWaitGame };
 struct Action { int frame; ActionKind kind; uint32_t addr; float x, y; char text[64]; };
 static Action g_actions[1024];
 static int g_numActions, g_nextAction;
@@ -301,6 +359,93 @@ static LPARAM MousePoint(HWND w) {
 // The window manager's windows (first +4, next +0x54; rectangle +5 / +9 /
 // +0xd / +0x11) and their widgets (first +0x74, next +0x8a; id +4, type +6,
 // rectangle +0xb / +0xf / +0x13 / +0x17 within the window).
+// "shot": the game window's client area, to <out>_<tick>.bmp in the game
+// folder (tools/shot.py makes PNGs of them), to look at what a script does;
+// nothing compares them. PrintWindow renders the game window itself, never
+// what covers it on the desktop.
+static void Screenshot(HWND w) {
+    RECT rc, wr;
+    if (!w || !GetClientRect(w, &rc) || !GetWindowRect(w, &wr)) return;
+    POINT o = { 0, 0 };
+    ClientToScreen(w, &o);
+    o.x -= wr.left;  // the client area within the whole window's image
+    o.y -= wr.top;
+    const int cx = rc.right, cy = rc.bottom;
+    HDC screen = GetDC(nullptr), dc = CreateCompatibleDC(screen), whole = CreateCompatibleDC(screen);
+    HBITMAP wbmp = CreateCompatibleBitmap(screen, wr.right - wr.left, wr.bottom - wr.top);
+    HGDIOBJ wold = SelectObject(whole, wbmp);
+    PrintWindow(w, whole, 2 /* PW_RENDERFULLCONTENT */);
+    BITMAPINFO bi = {};
+    bi.bmiHeader.biSize = sizeof bi.bmiHeader;
+    bi.bmiHeader.biWidth = cx;
+    bi.bmiHeader.biHeight = cy;
+    bi.bmiHeader.biPlanes = 1;
+    bi.bmiHeader.biBitCount = 24;
+    void* bits = nullptr;
+    HBITMAP bmp = CreateDIBSection(dc, &bi, DIB_RGB_COLORS, &bits, nullptr, 0);
+    if (bmp) {
+        HGDIOBJ old = SelectObject(dc, bmp);
+        BitBlt(dc, 0, 0, cx, cy, whole, o.x, o.y, SRCCOPY);
+        SelectObject(dc, old);
+        char name[MAX_PATH];
+        sprintf(name, "%s_%05ld.bmp", g_out, g_ticks);
+        if (FILE* f = fopen(name, "wb")) {
+            const DWORD row = (cx * 3 + 3) & ~3u, size = row * cy;
+            BITMAPFILEHEADER fh = { 0x4d42, (DWORD)(sizeof fh + sizeof bi.bmiHeader + size), 0, 0,
+                                    (DWORD)(sizeof fh + sizeof bi.bmiHeader) };
+            fwrite(&fh, sizeof fh, 1, f);
+            fwrite(&bi.bmiHeader, sizeof bi.bmiHeader, 1, f);
+            fwrite(bits, size, 1, f);
+            fclose(f);
+            rt3::Log("harness: frame %ld, screenshot %s", g_frame, name);
+        }
+        DeleteObject(bmp);
+    }
+    SelectObject(whole, wold);
+    DeleteObject(wbmp);
+    DeleteDC(whole);
+    DeleteDC(dc);
+    ReleaseDC(nullptr, screen);
+}
+
+// The window position (fractions) over map cell (tx, ty): the camera's own
+// ground pick (0x43d320, at the terrain height of the cell, 0x448bd0) solved
+// by Newton steps from the centre. False when the cell is not in view.
+static bool ScreenOfCell(float tx, float ty, float* ox, float* oy) {
+    uint8_t* cam = g_62be68;
+    uint8_t* map = g_map;
+    if (!cam || !map) return false;
+    const float h = (float)((double(__fastcall*)(uint8_t*, int, float, float))0x448bd0)(map, 0, tx, ty);
+    auto pick = [&](float sx, float sy, float* cx, float* cy) {
+        return ((int32_t(__fastcall*)(uint8_t*, int, float, float, float, float*, float*))0x43d320)(cam, 0, sx, sy, h, cx, cy) != 0;
+    };
+    float sx = 0.5f, sy = 0.4f;
+    for (int it = 0; it < 40; ++it) {
+        float cx, cy, ax, ay, bx, by;
+        const float d = 0.01f;
+        if (!pick(sx, sy, &cx, &cy) || !pick(sx + d, sy, &ax, &ay) || !pick(sx, sy + d, &bx, &by)) return false;
+        const float ex = tx - cx, ey = ty - cy;
+        if (ex * ex + ey * ey < 0.04f) {
+            *ox = sx;
+            *oy = sy;
+            return sx > 0.0f && sx < 1.0f && sy > 0.0f && sy < 1.0f;
+        }
+        // Jacobian of the cell over the screen position, by differences.
+        const float j11 = (ax - cx) / d, j21 = (ay - cy) / d, j12 = (bx - cx) / d, j22 = (by - cy) / d;
+        const float det = j11 * j22 - j12 * j21;
+        if (det == 0.0f) return false;
+        float dx = (ex * j22 - ey * j12) / det, dy = (ey * j11 - ex * j21) / det;
+        const float m = 0.15f;  // a step at most this far (the pick is far from linear near the horizon)
+        if (dx > m) dx = m; else if (dx < -m) dx = -m;
+        if (dy > m) dy = m; else if (dy < -m) dy = -m;
+        sx += dx;
+        sy += dy;
+        if (sx < 0.01f) sx = 0.01f; else if (sx > 0.99f) sx = 0.99f;
+        if (sy < 0.01f) sy = 0.01f; else if (sy > 0.99f) sy = 0.99f;
+    }
+    return false;
+}
+
 static void DumpWidgets() {
     uint8_t* m = g_windowManager;
     if (!m) return;
@@ -408,6 +553,14 @@ static void RunActions() {
             ++g_nextAction;
             return;
         }
+        if (a.kind == kWaitGame) {  // until a world runs (World_Frame's own test), then the next actions shift
+            uint8_t* g = (uint8_t*)Game();
+            if (!g || !*(int32_t*)g) return;  // again next time
+            rt3::Log("harness: frame %ld, game running", g_frame);
+            g_actionShift += now - a.frame;
+            ++g_nextAction;
+            return;
+        }
         if (a.kind == kWaitPlayers) {
             int n = 0;
             if (void** l = *(void***)0x6d408c)
@@ -430,6 +583,62 @@ static void RunActions() {
             DumpWidgets();
             continue;
         }
+        if (a.kind == kShot) {
+            Screenshot(w);
+            continue;
+        }
+        if (a.kind == kAutoEnter) {
+            g_autoEnter = (int)a.addr;
+            rt3::Log("harness: frame %ld, Enter in dialogs %s", g_frame, g_autoEnter ? "on" : "off");
+            continue;
+        }
+        // The in-game camera reads the mouse through DirectInput, not the
+        // window messages the script posts: these move it with the game's own
+        // calls instead (the view only, the world is untouched).
+        if (a.kind == kZoom || a.kind == kLook) {
+            uint8_t* cam = g_62be68;
+            if (!cam || !Game()) continue;
+            if (a.kind == kZoom) {  // 0x43cc30: steps along the zoom ladder (negative: in)
+                rt3::Log("harness: frame %ld, zoom %d", g_frame, (int32_t)a.addr);
+                ((void(__fastcall*)(uint8_t*, int, int32_t))0x43cc30)(cam, 0, (int32_t)a.addr);
+            } else {  // 0x43d0c0: centres the view on map cell (x, y)
+                rt3::Log("harness: frame %ld, look at %.1f %.1f", g_frame, a.x, a.y);
+                ((void(__fastcall*)(uint8_t*, int, float, float))0x43d0c0)(cam, 0, a.x, a.y);
+            }
+            continue;
+        }
+        if (a.kind == kTracks) {  // "T <id> <cell x> <cell y> <owner>" for every track piece
+            if (rt3::Collection* t = g_tracks) {
+                const int32_t n = ((int32_t(__fastcall*)(rt3::Collection*))0x517cf0)(t);
+                rt3::Log("harness: frame %ld, %d track pieces", g_frame, n);
+                for (int32_t i = 0; i < n && i < 5000; ++i) {
+                    uint32_t id = ((uint32_t(__fastcall*)(rt3::Collection*, int, uint32_t, int))0x518380)(t, 0, i, 0);
+                    uint8_t* c = (uint8_t*)((void*(__fastcall*)(rt3::Collection*, int, uint32_t))0x518140)(t, 0, id);
+                    // The centre of its four corners (+0x14, x y z each, world units; 0x5c8700 per cell).
+                    double x = 0, y = 0;
+                    for (int k = 0; k < 4; ++k) {
+                        x += *(float*)(c + 0x14 + k * 0xc);
+                        y += *(float*)(c + 0x1c + k * 0xc);
+                    }
+                    x /= 4 * *(const float*)0x5c8700;
+                    y /= 4 * *(const float*)0x5c8700;
+                    rt3::Log("T %u %.2f %.2f %d", id, x, y, *(int16_t*)(c + 0x22e));
+                }
+            }
+            continue;
+        }
+        if (a.kind == kCities) {  // "C <id> <cell x> <cell y> <name>" for every city
+            if (rt3::Collection* t = g_cities) {
+                const int32_t n = ((int32_t(__fastcall*)(rt3::Collection*))0x517cf0)(t);
+                for (int32_t i = 0; i < n; ++i) {
+                    uint32_t id = ((uint32_t(__fastcall*)(rt3::Collection*, int, uint32_t, int))0x518380)(t, 0, i, 0);
+                    uint8_t* c = (uint8_t*)((void*(__fastcall*)(rt3::Collection*, int, uint32_t))0x518140)(t, 0, id);
+                    double x = ((double(__fastcall*)(void*))0x455800)(c), y = ((double(__fastcall*)(void*))0x455810)(c);
+                    rt3::Log("C %u %.1f %.1f %s", id, x, y, (const char*)c + 0x356);
+                }
+            }
+            continue;
+        }
         if (a.kind == kCall) {
             rt3::Log("harness: frame %ld, action %06x", g_frame, a.addr);
             ((int32_t(__cdecl*)())a.addr)();
@@ -449,6 +658,18 @@ static void RunActions() {
             PostMessageA(w, WM_CHAR, a.addr, 1);
             continue;
         }
+        if (a.kind == kWheel) {  // (the game takes the wheel at the last mouse position)
+            rt3::Log("harness: frame %ld, wheel %d", g_frame, (int32_t)a.addr);
+            PostMessageA(w, WM_MOUSEWHEEL, (WPARAM)(uint32_t)((int32_t)a.addr * WHEEL_DELTA) << 16, MousePoint(w));
+            continue;
+        }
+        if (a.kind == kKeyDown || a.kind == kKeyUp) {  // a key held over frames (camera keys)
+            rt3::Log("harness: frame %ld, key %02x %s", g_frame, a.addr, a.kind == kKeyDown ? "down" : "up");
+            UINT scan = MapVirtualKeyA(a.addr, 0);
+            if (a.kind == kKeyDown) PostMessageA(w, WM_KEYDOWN, a.addr, 1 | (scan << 16));
+            else PostMessageA(w, WM_KEYUP, a.addr, 1 | (scan << 16) | 0xc0000000);
+            continue;
+        }
         if (a.kind == kKey) {
             rt3::Log("harness: frame %ld, key %02x", g_frame, a.addr);
             UINT scan = MapVirtualKeyA(a.addr, 0);
@@ -456,18 +677,28 @@ static void RunActions() {
             PostMessageA(w, WM_KEYUP, a.addr, 1 | (scan << 16) | 0xc0000000);
             continue;
         }
-        g_mouseX = a.x;
-        g_mouseY = a.y;
+        ActionKind kind = a.kind;
+        float mx = a.x, my = a.y;
+        if (kind == kCell) {  // a mouse action (move / left down / left up) over map cell (x, y)
+            if (!Game() || !ScreenOfCell(a.x, a.y, &mx, &my)) {
+                rt3::Log("harness: frame %ld, cell %.1f %.1f not in view", g_frame, a.x, a.y);
+                continue;
+            }
+            kind = (ActionKind)a.addr;
+            rt3::Log("harness: frame %ld, cell %.1f %.1f at %.4f %.4f", g_frame, a.x, a.y, mx, my);
+        }
+        g_mouseX = mx;
+        g_mouseY = my;
         LPARAM pt = MousePoint(w);
         static const UINT msg[] = { 0, WM_MOUSEMOVE, WM_LBUTTONDOWN, WM_LBUTTONUP, WM_RBUTTONDOWN, WM_RBUTTONUP };
         static WPARAM buttons;  // MK_ bits held
-        if (a.kind == kLeftDown) buttons |= MK_LBUTTON;
-        if (a.kind == kLeftUp) buttons &= ~(WPARAM)MK_LBUTTON;
-        if (a.kind == kRightDown) buttons |= MK_RBUTTON;
-        if (a.kind == kRightUp) buttons &= ~(WPARAM)MK_RBUTTON;
-        rt3::Log("harness: frame %ld, mouse %d at %d,%d", g_frame, (int)a.kind, LOWORD(pt), HIWORD(pt));
-        if (a.kind != kMove) PostMessageA(w, WM_MOUSEMOVE, buttons, pt);
-        PostMessageA(w, msg[a.kind], buttons, pt);
+        if (kind == kLeftDown) buttons |= MK_LBUTTON;
+        if (kind == kLeftUp) buttons &= ~(WPARAM)MK_LBUTTON;
+        if (kind == kRightDown) buttons |= MK_RBUTTON;
+        if (kind == kRightUp) buttons &= ~(WPARAM)MK_RBUTTON;
+        rt3::Log("harness: frame %ld, mouse %d at %d,%d", g_frame, (int)kind, LOWORD(pt), HIWORD(pt));
+        if (kind != kMove) PostMessageA(w, WM_MOUSEMOVE, buttons, pt);
+        PostMessageA(w, msg[kind], buttons, pt);
     }
 }
 
@@ -483,6 +714,47 @@ static void ParseActions(char* list) {
         if (!strncmp(p, "dump", 4)) {
             p += 4;
             a.kind = kDump;
+            done = true;
+        } else if (!strncmp(p, "shot", 4)) {
+            p += 4;
+            a.kind = kShot;
+            done = true;
+        } else if (!strncmp(p, "cities", 6)) {
+            p += 6;
+            a.kind = kCities;
+            done = true;
+        } else if (!strncmp(p, "waitgame", 8)) {
+            p += 8;
+            a.kind = kWaitGame;
+            done = true;
+        } else if (!strncmp(p, "ae:", 3)) {
+            p += 3;
+            a.kind = kAutoEnter;
+            a.addr = strtoul(p, &p, 10);
+            done = true;
+        } else if (!strncmp(p, "tracks", 6)) {
+            p += 6;
+            a.kind = kTracks;
+            done = true;
+        } else if (!strncmp(p, "look:", 5)) {
+            p += 5;
+            a.kind = kLook;
+            a.x = (float)strtod(p, &p);
+            if (*p == ':') ++p;
+            a.y = (float)strtod(p, &p);
+            done = true;
+        } else if (!strncmp(p, "cm:", 3) || !strncmp(p, "cd:", 3) || !strncmp(p, "cu:", 3)) {
+            a.addr = p[1] == 'm' ? kMove : p[1] == 'd' ? kLeftDown : kLeftUp;  // what to do at the cell
+            p += 3;
+            a.kind = kCell;
+            a.x = (float)strtod(p, &p);
+            if (*p == ':') ++p;
+            a.y = (float)strtod(p, &p);
+            done = true;
+        } else if (!strncmp(p, "zoom:", 5)) {
+            p += 5;
+            a.kind = kZoom;
+            a.addr = (uint32_t)strtol(p, &p, 10);
             done = true;
         }
         for (auto& k : kinds) {
@@ -524,6 +796,16 @@ static void ParseActions(char* list) {
                 g_actions[g_numActions++] = a;
                 if (*p == ',') ++p;
                 continue;
+            } else if (!strncmp(p, "wh:", 3)) {
+                p += 3;
+                a.kind = kWheel;
+                a.addr = (uint32_t)strtol(p, &p, 10);
+                g_actions[g_numActions++] = a;
+                if (*p == ',') ++p;
+                continue;
+            } else if (!strncmp(p, "kd:", 3) || !strncmp(p, "ku:", 3)) {
+                a.kind = p[1] == 'd' ? kKeyDown : kKeyUp;
+                p += 3;
             } else if (!strncmp(p, "c:", 2)) {
                 p += 2;
                 a.kind = kChar;
@@ -547,7 +829,7 @@ static void* __fastcall ModalGetEvent(void* input, int, void* out) {
         RunActions();
     }
     InterlockedExchangeAdd(&g_fakeMs, 33); // dialogs wait on the clock before taking input
-    if ((g_state >= 1 || (Driven() && Game())) && (n == 3 || n == 30 || n == 100 || n == 300 || n == 1000 || n == 3000)) {
+    if (g_autoEnter && (g_state >= 1 || (Driven() && Game())) && (n == 3 || n == 30 || n == 100 || n == 300 || n == 1000 || n == 3000)) {
         rt3::Log("harness: modal pass %ld at frame %ld, posting Enter", n, g_frame);
         PostEnter();
     }
@@ -683,6 +965,7 @@ void Install() {
         else if (!strncmp(tok, "menu=", 5)) g_menu = atoi(tok + 5);
         else if (!strncmp(tok, "mpport=", 7)) g_mpPort = atoi(tok + 7);
         else if (!strncmp(tok, "quit=", 5)) g_quit = atoi(tok + 5);
+        else if (!strncmp(tok, "sound=", 6)) g_soundOn = atoi(tok + 6);
         else if (!strncmp(tok, "do=@", 4)) {  // from a file (long scripts)
             if (FILE* f = fopen(tok + 4, "rb")) {
                 static char buf[1 << 20];
