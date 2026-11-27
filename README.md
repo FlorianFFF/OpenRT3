@@ -22,8 +22,8 @@
 
 OpenRT3 is a decompilation project and reimplementation of `RT3.exe` from Railroad Tycoon 3
 (version 1.06, built 2004-09-08), decompiled with Ghidra. This is a *functional* decomp: the
-rewrite behaves exactly like the original, but it is not compiled to byte-identical machine code (see the roadmap). It is built the way
-[OpenRCT2](https://github.com/OpenRCT2/OpenRCT2) and [re3](https://github.com/GTAmodding/re3)
+rewrite behaves exactly like the original, but it is not compiled to byte-identical machine
+code (see the roadmap). It is built the way [OpenRCT2](https://github.com/OpenRCT2/OpenRCT2) and [re3](https://github.com/GTAmodding/re3)
 were built: the rewrite is loaded into the running game and replaces the game's code one
 function at a time, so the game stays playable the whole way through.
 
