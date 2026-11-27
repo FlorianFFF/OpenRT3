@@ -86,7 +86,10 @@
 2500 tracks
 2600 shot
 2610 dump
+3200 dump  (the message lines show the train's arrivals at both stations)
+3400 dump
 3500 shot
+3550 dump
 # Calls whose results must be the same on both PCs (compared by mpcheck)
 3600 call 46a440 f i g6cd8d8 n0 sGuest   # Net_HasPlayer
 3601 call 46a440 f i g6cd8d8 n0 sNobody
