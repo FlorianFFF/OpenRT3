@@ -54,7 +54,9 @@ id 5", a field of the engine, a record of given bytes; `poke` switches on an opt
 original run calls the original, the rewrite run the rewrite, and simcheck compares their results
 besides the save and the drawing: `tools/actions_calls.txt`, `actions_calls2.txt`,
 `actions_windows.txt` (the company, station, train and building windows) and
-`actions_dialogs.txt` (dialogs, scenario effects and timed events).
+`actions_dialogs.txt` (dialogs, scenario effects and timed events), `actions_options.txt` (the
+options dialog's 13 pages: a modal dialog opened by a call, the following actions run inside
+it) and `actions_events.txt` (the scenario editor's rules and condition dialogs).
 `tools/autocall.py` generates such calls for every function no game check has run yet (its
 object from the name prefix or source file, ids of real objects for parameters named like one),
 and `tools/autocall_run.py` runs them in chunks: calls that stop or fault the original are left
@@ -80,6 +82,12 @@ with the camera's own ground pick), log cities and track pieces with their cells
 `tracks`), take screenshots of the game window (`shot`, PNGs with `tools/shot.py`), hold keys,
 wait for the game to start, and switch off its automatic Enter in dialogs it works itself. All
 actions are listed in `tools/simcheck.py`.
+Both players also send messages with `Net_Send` (a `call` with a `w...` word buffer): chat with
+its backslash commands, the requests the host relays to everyone (bulldoze, electrify, rename,
+colours, the stock, bond, share and dividend actions) and a few host messages. Relayed messages
+apply when they arrive, not at a fixed tick, so the scripts only send ones that change nothing a
+weekly check compares (same names and colours, an empty cell, money); the original against
+itself stays in sync with them, and so do both mixed pairings.
 
 **Coverage**: simcheck records which original functions ran (a one-shot breakpoint on each),
 and `build.bat test` does the same for the difftests when `RT3RE_COVERAGE` is set.

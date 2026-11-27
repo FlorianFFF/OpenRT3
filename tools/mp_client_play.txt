@@ -31,3 +31,13 @@
 2632 call 469d30 f v g6cd8d8 n0 n0 x6 n8 wn0+n0 n1 n0   # engine value request, answered with message 7 (NetMsg_SendEngineValue, NetMsg_TextureTime)
 2634 call 469d30 f v g6cd8d8 n0 n0 x10 n4 wn0 n1 n0   # Net_TouchEntry
 2636 call 469d30 f v g6cd8d8 n0 n0 x57 n8 wn1+m6ceb9c.1@1e1 n1 n0   # player 1's human flag, unchanged (NetMsg_Set1e1)
+# The client's financial actions ({player, company, arguments}, relayed by the host):
+2640 call 469d30 f v g6cd8d8 n0 n0 x1d n8 wi6ceb9c.1+i62be10.0 n1 n0   # buy a block of the host's stock (Packet_BuyStock)
+2644 call 469d30 f v g6cd8d8 n0 n0 x1f n8 wi6ceb9c.1+i62be10.0 n1 n0   # and sell it (Packet_SellStock)
+2648 call 469d30 f v g6cd8d8 n0 n0 x23 n20 wi6ceb9c.1+i62be10.1+n100000+n10+f0.05 n1 n0   # issue a bond (CompanyCmd_IssueBond)
+2652 call 469d30 f v g6cd8d8 n0 n0 x25 n12 wi6ceb9c.1+i62be10.1+n0 n1 n0   # repay it (CompanyCmd_RepayBond)
+2656 call 469d30 f v g6cd8d8 n0 n0 x29 n16 wi6ceb9c.1+i62be10.1+n1000+n10 n1 n0   # issue shares (CompanyCmd_IssueShares)
+2660 call 469d30 f v g6cd8d8 n0 n0 x2b n12 wi6ceb9c.1+i62be10.1+n1000 n1 n0   # buy them back (CompanyCmd_BuyBack)
+2664 call 469d30 f v g6cd8d8 n0 n0 x2d n12 wi6ceb9c.1+i62be10.1+n0 n1 n0   # dividend 0 (CompanyCmd_SetDividend)
+2668 call 469d30 f v g6cd8d8 n0 n0 x31 n16 wi6ceb9c.1+i62be10.1+i62b26c.0+f1000 n1 n0   # invest in a building (BuildingPacket_Invest)
+2672 call 469d30 f v g6cd8d8 n0 n0 x2f n16 wi6ceb9c.1+i62be10.1+n0+n0 n1 n0   # buy into territory 0 for nothing (CompanyCmd_BuyTerritory)

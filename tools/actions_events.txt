@@ -1,0 +1,5 @@
+# The scenario editor's rules and condition dialogs on zeroed records (simcheck mature.gmc 300
+# --do=@tools/actions_events.txt): both are modal, the harness's Enter accepts them.
+110 call 4d9dc0 s i n0 b4                  # RulesDialog_Run
+130 call 4d9e40 s i b5                     # ConditionDialog_Run
+150 call 4d9dc0 s i n1 b6                  # RulesDialog_Run (second mode)
