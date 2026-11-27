@@ -21,10 +21,8 @@
 ## 🚂 About
 
 OpenRT3 is a decompilation project and reimplementation of `RT3.exe` from Railroad Tycoon 3
-(version 1.06, built 2004-09-08). The exe was decompiled with Ghidra. Each function was then
-rewritten by hand as readable C++, with named types, fields and globals, and checked against the
-original. This is a *functional* decomp: the rewrite behaves exactly like the original, but it
-is not compiled to byte-identical machine code (see the roadmap). It is built the way
+(version 1.06, built 2004-09-08), decompiled with Ghidra. This is a *functional* decomp: the
+rewrite behaves exactly like the original, but it is not compiled to byte-identical machine code (see the roadmap). It is built the way
 [OpenRCT2](https://github.com/OpenRCT2/OpenRCT2) and [re3](https://github.com/GTAmodding/re3)
 were built: the rewrite is loaded into the running game and replaces the game's code one
 function at a time, so the game stays playable the whole way through.
@@ -70,12 +68,17 @@ Phase 3  Run in our own process (OpenRT3.exe) .................... ✅
 Phase 4  Move the game's global data into our own code ........... 🟡  ← we are here
 Phase 5  Replace the linked-in libraries (CRT, D3DX, GameSpy) .... ⏳
 Phase 6  Free of the original exe: only the game data is needed .. ⏳
+Phase 7  Modernized version (see below) .......................... ⏳
 Later    Matching decomp: byte-identical build with MSVC 7.0 ........ 💭
 ```
 
+**Modernized version.** Once the game no longer depends on the original exe, a second build
+can improve on it while the faithful build stays exactly like the original: modern resolutions
+and widescreen, a current graphics API instead of Direct3D 8, a 64-bit build, bug fixes and
+quality-of-life changes, and easier modding.
+
 💭 = idea, not planned yet. The original exe was built with MSVC 7.0 (build 9466), so a
-byte-matching decomp like [sm64](https://github.com/n64decomp/sm64) would be possible later on
-top of the functional one.
+byte-matching build would be possible later on top of the functional one.
 
 ## 🔧 Building
 
@@ -179,8 +182,6 @@ analyzeHeadless <tmp-proj-dir> RT3H -import RT3.exe -scriptPath reversing_notes/
 - [OpenRCT2](https://github.com/OpenRCT2/OpenRCT2), [re3](https://github.com/GTAmodding/re3) and
   [OpenTTD](https://github.com/OpenTTD/OpenTTD): reimplementations that run on the original
   game data.
-- [n64decomp/sm64](https://github.com/n64decomp/sm64) and [zeldaret/oot](https://github.com/zeldaret/oot):
-  decompilation projects that showed how far a game decomp can go.
 - [RT3Multiplayer](https://github.com/FlorianFFF/RT3Multiplayer): the multiplayer revival this
   project grew out of.
 
