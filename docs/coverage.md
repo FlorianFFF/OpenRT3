@@ -93,3 +93,13 @@ Runs: `After_00_3000`, `ai_owned_lol_3000`, `auto_mature_1ac4471689`, `auto_matu
 
 None: every rewritten function ran against the original in a simcheck run, a
 two-player check, the leaf test or a difftest.
+
+## Not run in a game yet
+
+263 functions ran only in difftests (against the original there), not yet in a
+game check (`docs/simcheck_coverage.txt` lists them with 0 runs):
+
+- 55: network flows two-player checks do not set up yet (internet lobby, map transfer, votes, resync)
+- 82: windows, dialogs and their callbacks in states no script reaches yet
+- 26: files, devices, textures, sound and the registry
+- 100: game logic in situations the saves do not contain

@@ -7,6 +7,7 @@ docs/simcheck_coverage.txt (addr name runs) and docs/coverage.md.
 
     python tools/coverage.py [--difftest=<difftest.coverage>[,<difftest_leaves.coverage>]] <coverage file> [...]
 """
+import re
 import sys
 from pathlib import Path
 
@@ -107,6 +108,26 @@ def main():
                 + (f"; {len(unexplained)} have none yet." if unexplained else "."), "",
                 "| Address | Function | File | Bytes | Reason |", "|---|---|---|---|---|"]
         out += [f"| {a:06x} | {name[a]} | {where[a]} | {size.get(a, 0)} | {reasons.get(a, '(none yet)')} |" for a in un]
+    # Functions only a difftest ran: what a game check still has to reach, by kind.
+    notrun = [a for a in allf if not runs[a] and a in tested]
+    if notrun:
+        kinds = [
+            ("network flows two-player checks do not set up yet (internet lobby, map transfer, votes, resync)",
+             r"^(Net|NetMsg|Lobby|Peer|Msg|MpDialog|MpScenarioList|GameList|Merger|MergerWindow|Session|Slots|WorkerA)_"),
+            ("windows, dialogs and their callbacks in states no script reaches yet",
+             r"(Window|Dialog|Editor|Picker|Tooltip|Widget|List|View|Panel|Screen|EditBox|TreeView|Dropdown|Hover|Draw|Cb)"),
+            ("files, devices, textures, sound and the registry",
+             r"^(Render|Engine|Texture|Sound|File|Stream|StreamB|RegKey|Save|Rle|Image|Font|Shell|Fatal|Movie|Video|Cursor|Heap)"),
+        ]
+        groups = {k: [] for k, _ in kinds}
+        groups["game logic in situations the saves do not contain"] = []
+        for a in notrun:
+            k = next((k for k, rx in kinds if re.search(rx, name[a])), "game logic in situations the saves do not contain")
+            groups[k].append(a)
+        out += ["", "## Not run in a game yet", "",
+                f"{len(notrun)} functions ran only in difftests (against the original there), not yet in a",
+                "game check (`docs/simcheck_coverage.txt` lists them with 0 runs):", ""]
+        out += [f"- {len(v)}: {k}" for k, v in groups.items() if v]
     stale = sorted(a for a in reasons if a in runs and (runs[a] or a in tested))
     if stale:  # a reason for a function that now ran: the reason can go
         out += ["", "Listed in `docs/unchecked_reasons.txt` but checked now: "
