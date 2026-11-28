@@ -121,11 +121,11 @@ def mirror_dir(src, dst, rel=""):
         link_file(p, m)
 
 
-def reset_settings():
+def reset_settings(mirror=MIRROR):
     """Every run starts from the game folder's settings: the game saves its
     settings on exit, and a run's changes must not carry into the next one."""
     for rel in ("Data/Configuration",):
-        src, dst = GAME / rel, MIRROR / rel
+        src, dst = GAME / rel, mirror / rel
         # Files a run created (the options dialog saves new ones) go too, or they
         # carry into the next run.
         for m in dst.iterdir():
@@ -139,13 +139,31 @@ def reset_settings():
                 shutil.copy2(p, m)
 
 
-def build():
-    MIRROR.mkdir(exist_ok=True)
-    mirror_dir(GAME, MIRROR)
-    for m in MIRROR.iterdir():  # a mod that got into the mirror some other way
+def build(mirror=MIRROR, maps=True):
+    mirror.mkdir(exist_ok=True)
+    mirror_dir(GAME, mirror)
+    for m in mirror.iterdir():  # a mod that got into the mirror some other way
         if m.name.lower() in {"dinput8.dll", "dinput8.dll.bak"} and m.is_file():
             m.unlink()
-    return MIRROR
+    if not maps:
+        # No scenarios of its own: a client from here has the host send the
+        # map. Links to the game's maps go (dropping a link keeps the game's
+        # file), and so does a map an earlier run received.
+        maps_dir = mirror / "maps"
+        if is_junction(maps_dir) or maps_dir.resolve() == (GAME / "maps").resolve():
+            raise RuntimeError(f"{maps_dir} is the game's own maps folder")
+        for m in maps_dir.iterdir():
+            if m.is_file():
+                m.unlink()
+    return mirror
+
+
+# A second mirror whose maps folder is empty (tools/mpcheck.py --client-nomaps).
+MIRROR_NOMAPS = Path(tempfile.gettempdir()) / "rt3_stock_nomaps"
+
+
+def build_nomaps():
+    return build(MIRROR_NOMAPS, maps=False)
 
 
 if __name__ == "__main__":

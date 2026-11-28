@@ -7,6 +7,13 @@ mouse and keys) and, once the game runs, saves after N frames and exits.
 
     python tools/mpcheck.py <host.txt> <client.txt> [frames] [--host=orig|rewrite] [--client=orig|rewrite]
                             [--client-delay=<seconds>] [--timeout=<seconds>] [--off=Name,...] [--offfile=<file>] [--quit]
+                            [--client-nomaps]
+
+--client-nomaps runs the client from a second mirror without scenarios, so the
+host sends it the map before the game starts (the map transfer messages).
+The game in that mirror is a program of its own to Windows Firewall: it must
+be allowed to accept connections, as the one in the main mirror is, or the
+client cannot join.
 
 tools/mp_host.txt / mp_client.txt only start a game; tools/mp_host_play.txt /
 mp_client_play.txt also play it (companies, stations, track, a train).
@@ -32,7 +39,14 @@ ROOT = Path(__file__).resolve().parents[1]
 GAME = stockgame.MIRROR
 
 
+def game_of(role):
+    """The folder a role runs in: --client-nomaps puts the client in the mirror
+    without scenarios (tools/stockgame.py), so the host sends it the map."""
+    return stockgame.MIRROR_NOMAPS if role == "client" and "--client-nomaps" in sys.argv else GAME
+
+
 def launch(role, side, script, frames, timeout):
+    GAME = game_of(role)
     ini = GAME / f"mp_{role}.ini"
     on = side == "rewrite"
     # --off=Name,...: keep these original on the rewrite side (bisecting a difference)
@@ -64,6 +78,9 @@ def launch(role, side, script, frames, timeout):
 def main():
     stockgame.build()
     stockgame.reset_settings()
+    if "--client-nomaps" in sys.argv:
+        stockgame.build_nomaps()
+        stockgame.reset_settings(stockgame.MIRROR_NOMAPS)
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
     host_script, client_script = args[0], args[1]
     frames = int(args[2]) if len(args) > 2 else 1000
@@ -85,16 +102,16 @@ def main():
         print("timeout")
     subprocess.run(["taskkill", "/f", "/im", image], capture_output=True)
     for role in ("host", "client"):
-        log = GAME / f"mp_{role}.log"
+        log = game_of(role) / f"mp_{role}.log"
         text = log.read_text(errors="replace") if log.exists() else ""
-        save = GAME / "Saved Games" / f"mp_{role}.gmc"
+        save = game_of(role) / "Saved Games" / f"mp_{role}.gmc"
         print(f"{role}: {'saved' if save.exists() else 'no save'}, log {len(text.splitlines())} lines")
         # What a playing script built (its "tracks" actions), and what it could not reach.
         for l in text.splitlines():
             if l.endswith(" track pieces") or "not found" in l or "not in view" in l:
                 print("  " + l)
     # The client's weekly state checks against the host (src/harness.cpp LogSyncChecks).
-    log = GAME / "mp_client.log"
+    log = game_of("client") / "mp_client.log"
     checks = [l for l in log.read_text(errors="replace").splitlines() if l.startswith("S ")] if log.exists() else []
     bad = [l for l in checks if not l.endswith("mismatch")]
     # Scripted calls ("call" lines in both scripts, src/harness.cpp CallFunction)
@@ -103,9 +120,9 @@ def main():
     # Net_Send (0x469d30) calls are the scripts' messages to the other PC (chat,
     # requests): each side sends its own, and their effect shows in the sync
     # checks, so they are not compared.
-    calls = {r: [l for l in (GAME / f"mp_{r}.log").read_text(errors="replace").splitlines()
+    calls = {r: [l for l in (game_of(r) / f"mp_{r}.log").read_text(errors="replace").splitlines()
                  if l.startswith("R ") and not l.startswith("R 469d30")]
-             if (GAME / f"mp_{r}.log").exists() else [] for r in ("host", "client")}
+             if (game_of(r) / f"mp_{r}.log").exists() else [] for r in ("host", "client")}
     if calls["host"] or calls["client"]:
         same = calls["host"] == calls["client"]
         print(f"scripted calls: {len(calls['host'])} / {len(calls['client'])}, {'the same on both' if same else 'DIFFERENT'}")
