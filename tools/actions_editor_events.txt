@@ -1,0 +1,58 @@
+# The map editor's event editor (simcheck --menu):
+#   python tools/simcheck.py editor.gmp 1000 --menu --do=@tools/actions_editor_events.txt
+# A new map as in tools/actions_editor.txt, then the setup window (the
+# territory panel's magnifier; the harness's own Enter off, since Enter does
+# not close it) on its Events page: New Event 20103 (its name prompt takes
+# Enter), the message kinds and triggers (radio buttons), Add trigger
+# condition 20144 (its dialog's Enter is OK), the condition row selected and
+# Edit Condition 20147, Clear Condition 20146; the Effects tab 20482 with Add
+# Effect 20180, the row selected, Edit Effect 20516 and Remove Effect 20437;
+# then Rename event 20105 (a typed name), Copy event 20104 and Delete event
+# 20106 (its question takes Enter); Exit.
+30 clickid 3009   Extras
+60 clickid 3103   Editor
+90 clickid 3530   New Map
+130 clickid 3540  From Scratch
+140 key 0d
+150 key 0d
+250 clickid 9007  paint territories
+300 autoenter 0
+310 move 0.534 0.744
+312 click 0.534 0.744  Territory 01's magnifier: the setup window
+340 move 0.07 0.475
+342 click 0.07 0.475  Events
+360 clickid 20103   New Event
+400 key 0d
+420 clickid 20111   message kinds
+425 clickid 20112
+430 clickid 20113
+435 clickid 20110
+440 clickid 20122   triggers
+445 clickid 20126
+450 clickid 20129
+455 clickid 20120
+460 clickid 20144   Add trigger condition
+490 key 0d
+500 move 0.60 0.80
+502 click 0.60 0.80
+520 clickid 20147   Edit Condition
+550 key 0d
+570 clickid 20146   Clear Condition
+590 clickid 20482   Effects
+610 clickid 20180   Add Effect
+640 key 0d
+660 move 0.60 0.80
+662 click 0.60 0.80
+680 clickid 20516   Edit Effect
+710 key 0d
+730 clickid 20437   Remove Effect
+750 clickid 20481   Conditions
+770 clickid 20105   Rename event
+790 type ab
+800 key 0d
+820 clickid 20104   Copy event
+850 clickid 20106   Delete event
+870 key 0d
+900 move 0.913 0.973
+902 click 0.913 0.973  Exit
+920 autoenter 1
