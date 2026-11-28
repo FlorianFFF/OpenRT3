@@ -1,0 +1,17 @@
+# The company detail window's finance dialogs (simcheck mature.gmc 400 --do=@tools/actions_company.txt):
+# the stock tab's Issue stock 38104, Buy back stock 38105, Change dividend 38106 and Attempt
+# merger 38107, then the bonds tab's Issue Bonds 38103. 'modal 1' keeps the actions going inside
+# the dialogs; the harness's Enter accepts each one.
+20 clickid 2035
+30 move 0.436 0.819
+32 click 0.436 0.819                 stock tab
+40 modal 1
+50 clickid 38104                     issue stock
+80 clickid 38105                     buy back stock
+110 clickid 38106                    change the dividend
+140 clickid 38107                    attempt a merger
+170 move 0.436 0.775
+172 click 0.436 0.775                bonds tab
+190 clickid 38103                    issue bonds
+220 key 1b
+230 modal 0
