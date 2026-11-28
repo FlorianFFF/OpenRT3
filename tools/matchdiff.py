@@ -95,6 +95,9 @@ class Coff:
         ends = sorted(v for n, v, s, t, c in self.syms if s == secno and v > value)
         end = ends[0] if ends else size
         code = self.d[raw + value:raw + end]
+        # The compiler pads a function's section to 16 bytes (nop / int3): not part of it.
+        while code and code[-1] in (0x90, 0xCC) and len(code) > 1:
+            code = code[:-1]
         rel = set()
         for va, _, _ in relocs:
             if value <= va < end:
@@ -126,8 +129,8 @@ def normalize(code, base, reloc=None, image=False):
                 target = ins.operands[0].imm
                 inside = base <= target < base + len(code)
                 text = f"{ins.mnemonic} " + (f"+{target - base:x}" if inside else "<sym>")
-        elif relocated:
-            text = re.sub(r"0x[0-9a-f]+", "<sym>", text)
+        elif relocated:  # (an object's unrelocated address can be 0: "[0]", "push 0")
+            text = re.sub(r"0x[0-9a-f]+|(?<=\[)\d+(?=\])|(?<=[ ,])\d+$", "<sym>", text)
         else:  # absolute addresses of the game image (ours reads globals by address too)
             text = re.sub(r"0x([0-9a-f]{6,8})", lambda m: "<sym>" if 0x400000 <= int(m.group(1), 16) < 0xe00000 else m.group(0), text)
         out.append((start, ins.bytes.hex(), text))

@@ -29,9 +29,29 @@ numbers will differ; `--cl=<path to cl.exe>` and `--flags=...` select it once it
 - The original duplicates short function tails (one epilogue per return path); VC2019 merges
   them.
 
-## Needed
+## With the original compiler
 
-- Visual C++ .NET 2002 (cl 13.00.9466) with its static C runtime: the compiler and the
-  library the exe was linked with. It is not on this machine.
-- For linking the libraries instead of running them from the exe image: the DirectX 8.1 SDK
-  (D3DX 8) and the GameSpy SDK of that time.
+The toolchains are next to this repository in `reversing_notes/tools/` (or where `RT3_VC7`
+points): Visual C++ .NET 2002 (`msvc700-master`, cl 13.00.9466, the exe's compiler), the
+DirectX 8.1 SDK (`dx81sdk-main`) and IGN's 2011 BSD release of the GameSpy SDK
+(`GameSpy-master`, newer than the code in the exe).
+
+Matched functions are written in `match/` in that compiler's C++ (C++98: no lambdas,
+`constexpr`, `auto`), as real classes with `__thiscall` members (`match/types.h` holds the
+layouts). Each function has a marker comment with its exe address(es) and qualified name
+(`// 0x4010b0 Collection::GetAt`). `python tools/matchbuild.py [--diff]` compiles every file
+with the original compiler (`/O2`, as the exe; `/Gy` so each function is scored alone) and
+scores each marked function against the exe.
+
+The original options are plain `/O2`: the first functions match with nothing else. What
+decides the code is the source's shape, e.g. the order of two stores in each branch of an
+`if` chain picks the registers; the rewrite's version (`src/`) gives the behaviour, the diff
+shows the shape.
+
+A `__thiscall` member is call-compatible with the rewrite's `__fastcall(this, int edx, ...)`
+stand-in (`this` in ECX, arguments on the stack, callee pops), so matched objects can later
+replace the rewrite's functions one by one, their calls to other members bound to the
+rewrite's functions by the linker.
+
+Progress: `match/AI.cpp`, 5 functions (0x401000, 0x401070, 0x4010b0, 0x4010d0 / 0x406bf0),
+all at score 1.0 (identical apart from relocated operands).
