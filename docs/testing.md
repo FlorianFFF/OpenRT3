@@ -96,7 +96,9 @@ its backslash commands, the requests the host relays to everyone (bulldoze, elec
 colours, the stock, bond, share and dividend actions; bankruptcy, merger, dissolving and engine
 replacement for company or train id 0, which is never valid), a takeover vote the host's own
 shares defeat, a scenario check the host answers,
-and a few host messages. Relayed messages
+and a few host messages. `tools/mp_host_load.txt` / `tools/mp_client_load.txt` (`--client-delay=45`)
+start the game from a saved game the host loads in the lobby, with its transfer to the players
+ticked (the client has the same save, so nothing is sent). Relayed messages
 apply when they arrive, not at a fixed tick, so the scripts only send ones that change nothing a
 weekly check compares (same names and colours, an empty cell, money, invalid ids); the original against
 itself stays in sync with them, and so do both mixed pairings.

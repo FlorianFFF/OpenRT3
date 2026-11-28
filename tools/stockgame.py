@@ -155,6 +155,16 @@ def build(mirror=MIRROR, maps=True):
         for m in maps_dir.iterdir():
             if m.is_file():
                 m.unlink()
+        # Nor saved multiplayer games (the mirror's private copies): a host
+        # loading one must send it (tools/mp_host_load.txt). So far the client
+        # then stops at the start of the transfer under the harness (its
+        # clock only moves with frames and modal passes).
+        saves = mirror / "Saved Games"
+        if is_junction(saves) or saves.resolve() == (GAME / "Saved Games").resolve():
+            raise RuntimeError(f"{saves} is the game's own Saved Games folder")
+        for m in saves.glob("*.gmt"):
+            if m.is_file():
+                m.unlink()
     return mirror
 
 

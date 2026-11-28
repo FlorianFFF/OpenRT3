@@ -1,0 +1,11 @@
+# The client for tools/mp_host_load.txt: joins as tools/mp_client.txt does,
+# with actions inside modal loops on while the host's saved game loads.
+50 move 0.4988 0.4925
+60 click 0.4988 0.4925   Multi Player
+290 move 0.4988 0.3975
+300 click 0.4988 0.3975  LAN
+590 settext 3656 Guest
+600 settext 3655 127.0.0.1
+690 move 0.4938 0.7275
+700 click 0.4938 0.7275  Join
+900 modal 1

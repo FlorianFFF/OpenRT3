@@ -1,0 +1,29 @@
+# The multiplayer host loading a saved game (tools/mpcheck.py
+# tools/mp_host_load.txt tools/mp_client_load.txt 1000 --client-delay=45):
+# Multi Player -> LAN -> Host, then in the lobby Load 3698 (the harness's
+# Enter off), the save "Game1" picked from the list and loaded, "Transfer save
+# game to all players" ticked, all before the client joins (a client already
+# in the lobby is not told about the load: hence the delay). Once the client
+# is there, Start; actions run inside modal loops too, so the game's waits
+# for the other player go on.
+50 move 0.4988 0.4925
+60 click 0.4988 0.4925   Multi Player
+290 move 0.4988 0.3975
+300 click 0.4988 0.3975  LAN
+590 move 0.4938 0.8025
+600 click 0.4938 0.8025  Host
+890 move 0.5041 0.4500
+900 click 0.5041 0.4500  OK (host name dialog)
+950 autoenter 0
+960 clickid 3698         Load
+1000 move 0.5 0.323
+1002 click 0.5 0.323     Game1
+1020 move 0.42 0.648
+1022 click 0.42 0.648    Load
+1100 move 0.411 0.281
+1102 click 0.411 0.281   Transfer save game to all players
+1150 autoenter 1
+1200 waitplayers 2
+1300 modal 1
+1590 move 0.3806 0.8900
+1600 click 0.3806 0.8900 Start
