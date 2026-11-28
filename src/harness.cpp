@@ -58,6 +58,10 @@ static volatile LONG g_modalPasses; // modal loop passes since the last main-loo
 // Enter pressed in modal loops (dialogs answered with their default); a
 // script that works a dialog itself switches it off ("autoenter 0").
 static int g_autoEnter = 1;
+// md:1 - a loaded game also runs actions inside modal loops (a dialog opened with a key):
+// their passes count on the action clock and as progress for the watchdog.
+static int g_modalActions;
+static volatile LONG g_modalTicks;
 
 static void*& Game() { return hook::As<void*>(g_world); }
 
@@ -404,6 +408,7 @@ static void PostEnter() {
 //   wh:<ticks>            the mouse wheel at the mouse position
 //   waitgame              waits until the game world runs (like w:)
 //   ae:<0|1>              Enter in dialogs (g_autoEnter) off / on
+//   md:<0|1>              actions inside modal loops in a loaded game (g_modalActions)
 // The game itself (a world): the in-game camera reads the mouse through
 // DirectInput, so these use the game's own calls, and map cells instead of
 // screen positions:
@@ -415,7 +420,7 @@ static void PostEnter() {
 //                         ("T <id> <x> <y> <owner>") with its map cell
 // Mouse and keys go in as window messages, as from the real devices, and the
 // faked cursor position (GetCursorPos) follows the scripted mouse.
-enum ActionKind { kCall, kMove, kLeftDown, kLeftUp, kRightDown, kRightUp, kKey, kDump, kChar, kSetText, kWaitPlayers, kExplore, kClickId, kShot, kWheel, kKeyDown, kKeyUp, kZoom, kLook, kCities, kCell, kTracks, kAutoEnter, kWaitGame, kCallFn, kPoke, kHex };
+enum ActionKind { kCall, kMove, kLeftDown, kLeftUp, kRightDown, kRightUp, kKey, kDump, kChar, kSetText, kWaitPlayers, kExplore, kClickId, kShot, kWheel, kKeyDown, kKeyUp, kZoom, kLook, kCities, kCell, kTracks, kAutoEnter, kWaitGame, kCallFn, kPoke, kHex, kModal };
 struct Action { int frame; ActionKind kind; uint32_t addr; float x, y; char text[512]; uint32_t objColl; int32_t objIndex; };  // (objColl: x, y are that object's cell)
 static Action g_actions[1024];
 static int g_numActions, g_nextAction;
@@ -858,7 +863,7 @@ static bool FindWidget(uint16_t id, float* x, float* y) {
 }
 
 static void RunActions() {
-    const LONG now = (Driven() ? g_ticks : g_frame - g_actionBase) - g_actionShift;  // (the lobby runs in modal loops)
+    const LONG now = (Driven() ? g_ticks : g_frame - g_actionBase + g_modalTicks) - g_actionShift;  // (the lobby runs in modal loops)
     if (g_exploreLeft > 0 && now >= g_exploreNext) {
         if (HWND w = GameWindow()) Explore(w);
         --g_exploreLeft;
@@ -953,6 +958,11 @@ static void RunActions() {
             const uint32_t v = *q == ':' ? strtoul(q + 1, nullptr, 16) : 0;
             rt3::Log("harness: frame %ld, poke %08x = %08x", g_frame, addr, v);
             *(uint32_t*)addr = v;
+            continue;
+        }
+        if (a.kind == kModal) {
+            g_modalActions = (int)a.addr;
+            rt3::Log("harness: frame %ld, actions in modal loops %s", g_frame, g_modalActions ? "on" : "off");
             continue;
         }
         if (a.kind == kAutoEnter) {
@@ -1120,6 +1130,11 @@ static void ParseActions(char* list) {
             p += 8;
             a.kind = kWaitGame;
             done = true;
+        } else if (!strncmp(p, "md:", 3)) {
+            p += 3;
+            a.kind = kModal;
+            a.addr = strtoul(p, &p, 10);
+            done = true;
         } else if (!strncmp(p, "ae:", 3)) {
             p += 3;
             a.kind = kAutoEnter;
@@ -1233,6 +1248,9 @@ static void* __fastcall ModalGetEvent(void* input, int, void* out) {
     if (Driven()) {
         InterlockedIncrement(&g_ticks);
         RunActions();
+    } else if (g_modalActions && g_state == 1) {
+        InterlockedIncrement(&g_modalTicks);
+        RunActions();
     }
     InterlockedExchangeAdd(&g_fakeMs, 33); // dialogs wait on the clock before taking input
     if (g_autoEnter && (g_state >= 1 || (Driven() && Game())) && (n == 3 || n == 30 || n == 100 || n == 300 || n == 1000 || n == 3000)) {
@@ -1270,7 +1288,7 @@ static DWORD WINAPI Watchdog(void*) {
     LONG seen = -1;
     for (;;) {
         Sleep(20000);
-        LONG f = Driven() ? g_ticks : g_frame;
+        LONG f = Driven() ? g_ticks : g_frame + g_modalTicks;
         if ((g_state == 1 || Driven()) && f == seen) {
             uint8_t* engine = g_engine;
             HWND w = engine ? *(HWND*)engine : nullptr;

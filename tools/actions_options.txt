@@ -1,8 +1,10 @@
-# The options dialog's pages (simcheck mature.gmc 300 --do=@tools/actions_options.txt): the dialog
-# is modal, so it is opened by a call and the next actions run inside it (the harness
-# advances its action list before an action runs); Enter closes it again.
+# The options dialog's pages (simcheck mature.gmc 300 --do=@tools/actions_options.txt): F6 opens
+# the modal settings window; with 'modal 1' the harness runs the following actions inside its
+# modal loop (a loaded game otherwise runs none there, and the stall watchdog would close the
+# dialog after real time, which is not deterministic); Escape closes it.
 100 autoenter 0
-110 call 501e50 s v                  # OptionsDialog_Open (page 2)
+102 modal 1
+110 key 75                           F6: the settings window (Hotkey_Options)
 120 call 500620 f v n0           # Options_ShowPageCb: page 0
 124 call 500620 f v n1           # Options_ShowPageCb: page 1
 128 call 500620 f v n2           # Options_ShowPageCb: page 2
@@ -16,5 +18,7 @@
 160 call 500620 f v n10           # Options_ShowPageCb: page 10
 164 call 500620 f v n11           # Options_ShowPageCb: page 11
 168 call 500620 f v n12           # Options_ShowPageCb: page 12
-180 shot
-190 autoenter 1
+176 shot
+185 key 1b                           Escape closes it
+195 autoenter 1
+196 modal 0

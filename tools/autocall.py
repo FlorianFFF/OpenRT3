@@ -157,8 +157,8 @@ def build_all(fn, d):
     file, ret, cc, params = d
     simple = all(i == 0 or t.replace("const ", "").strip() in ("int", "int32_t", "uint32_t", "uint8_t", "float", "uint32_t*", "int32_t*",
                                                             "float*") for i, (t, _) in enumerate(params))
-    if not simple:
-        return [], why
+    if not simple or re.search(r"Destruct|Delete|Free|Release|Remove|Destroy|Clear|Reset|Kill", fn):
+        return [], why  # (a destructor on the wrong object ends the run every time)
     out = []
     for cand in CANDIDATES:
         s, _ = build(fn, d, cand)

@@ -70,6 +70,7 @@ def parse_actions(text):
         poke <g>[.<off>..] <hex>  writes a dword at global g (each .<off> follows the pointer
                                 there first: 6cec74.277 is the app's +0x277)
         autoenter 0|1         whether the harness answers dialogs with Enter (default 1)
+        modal 0|1             whether actions also run inside modal dialogs of a loaded game (default 0)
         cities                  log every city's id, cell and name (harness "C" lines)
         tracks                  log every track piece's id, cell and owner (harness "T" lines)
         wheel <ticks>         mouse wheel at the mouse position (signed, notches of 120)
@@ -117,6 +118,8 @@ def parse_actions(text):
             out.append(f"{f}:poke:{t[2]}:{t[3]}")
         elif cmd == "autoenter":
             out.append(f"{f}:ae:{int(t[2])}")
+        elif cmd == "modal":  # modal 1: actions run inside modal dialogs too (one opened with a key)
+            out.append(f"{f}:md:{int(t[2])}")
         elif cmd == "objlook":  # objlook <coll hex> <i>: centre the view on that object
             out.append(f"{f}:ol:{t[2]}.{t[3]}")
         elif cmd == "objclick":  # objclick <coll hex> <i>: left click on that object's cell

@@ -126,6 +126,11 @@ def reset_settings():
     settings on exit, and a run's changes must not carry into the next one."""
     for rel in ("Data/Configuration",):
         src, dst = GAME / rel, MIRROR / rel
+        # Files a run created (the options dialog saves new ones) go too, or they
+        # carry into the next run.
+        for m in dst.iterdir():
+            if m.is_file() and not (src / m.name).exists():
+                m.unlink()
         for p in src.iterdir():
             if p.is_file():
                 m = dst / p.name
