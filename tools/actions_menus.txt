@@ -1,0 +1,33 @@
+# Main-menu screens (simcheck --menu), then into the map editor so a world
+# exists to save: the high scores list (Done 47001), a new campaign on Normal
+# (its screen: the mouse over each of the five scenario pictures 50002..50006,
+# and the arrow 50018), Escape back to the main menu, the credits (Extras
+# 3009 -> Credits 3105, Escape), and the editor's new map as in
+# tools/actions_editor.txt.
+#   python tools/simcheck.py editor.gmp 200 --menu --do=@tools/actions_menus.txt
+20 clickid 3104   High Scores
+100 clickid 47001   Done
+140 clickid 3101   Single Player
+170 clickid 3200   New Campaign
+200 clickid 3902   Normal
+240 move 0.10 0.75
+255 move 0.27 0.69
+270 move 0.42 0.67
+285 move 0.60 0.71
+300 move 0.79 0.74
+315 move 0.50 0.20
+330 click 0.95 0.675
+360 move 0.10 0.75
+375 move 0.79 0.74
+400 key 1b
+440 key 1b
+470 key 1b
+500 clickid 3009   Extras
+530 clickid 3105   Credits
+650 key 1b
+700 clickid 3009   Extras
+730 clickid 3103   Editor
+760 clickid 3530   New Map
+800 clickid 3540  From Scratch
+810 key 0d
+820 key 0d
