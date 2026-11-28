@@ -1,0 +1,63 @@
+# The map editor's terrain painter 9003 (simcheck --menu):
+#   python tools/simcheck.py editor.gmp 1200 --menu --do=@tools/actions_editor_paint.txt
+# A new map as in tools/actions_editor.txt, then each of the painter's eight
+# modes (the two columns on the left: paint, ocean / land, fills, ...) with a
+# texture picked from the grid, a click and a drag on the map; the second
+# column's sub-modes, the ground noise / texture checkboxes, and the undo
+# button above the panel after each pair.
+30 clickid 3009   Extras
+60 clickid 3103   Editor
+90 clickid 3530   New Map
+130 clickid 3540  From Scratch
+140 key 0d
+150 key 0d
+250 clickid 9003  paint terrain
+260 click 0.70 0.765
+270 click 0.425 0.73
+280 click 0.50 0.30
+290 drag 0.45 0.30 0.55 0.35 10
+310 click 0.465 0.73
+320 click 0.40 0.40
+330 drag 0.35 0.40 0.45 0.45 10
+350 click 0.43 0.678   undo
+370 click 0.425 0.78
+380 click 0.82 0.82
+390 click 0.60 0.30
+400 drag 0.55 0.30 0.65 0.35 10
+420 click 0.465 0.78
+430 click 0.30 0.30
+440 drag 0.30 0.30 0.35 0.40 10
+460 click 0.43 0.678
+480 click 0.425 0.83
+490 click 0.50 0.50
+500 drag 0.45 0.50 0.55 0.55 10
+520 click 0.465 0.83
+530 click 0.70 0.45
+540 drag 0.65 0.45 0.70 0.50 10
+560 click 0.43 0.678
+580 click 0.425 0.88
+590 click 0.40 0.20
+600 drag 0.40 0.20 0.50 0.25 10
+620 click 0.465 0.88
+630 click 0.60 0.20
+640 drag 0.60 0.20 0.65 0.25 10
+660 click 0.43 0.678
+680 click 0.51 0.755
+690 drag 0.30 0.50 0.35 0.55 10
+710 click 0.555 0.755
+720 drag 0.40 0.50 0.45 0.55 10
+740 click 0.51 0.82
+750 drag 0.50 0.55 0.55 0.60 10
+770 click 0.555 0.82
+780 drag 0.60 0.55 0.65 0.60 10
+800 click 0.51 0.88
+810 drag 0.70 0.55 0.75 0.60 10
+830 click 0.555 0.88
+840 drag 0.70 0.35 0.75 0.40 10
+860 click 0.66 0.70   ground noise
+870 click 0.83 0.70   ground texture
+880 click 0.425 0.73
+890 drag 0.30 0.25 0.40 0.30 10
+910 click 0.66 0.70
+920 click 0.83 0.70
+930 click 0.43 0.678

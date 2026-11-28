@@ -42,7 +42,8 @@ terrain, tree, bulldoze, region and territory tools, and the editor's setup wind
 of its pages); `tools/actions_editor_events.txt` works the setup window's event editor (a new
 event, its kinds and triggers, conditions and effects added, edited and removed, the event renamed,
 copied and deleted), `tools/actions_editor_terrain.txt` the terrain height tools, a map-wide
-height change and the ambient sound painter; `tools/actions_menus.txt` first visits the high scores, a new campaign's screen
+height change and the ambient sound painter, `tools/actions_editor_paint.txt` each mode of the
+terrain painter (fills, ocean and land, undo); `tools/actions_menus.txt` first visits the high scores, a new campaign's screen
 and the credits, `tools/actions_menus2.txt` the new and saved scenario screens, the LAN screen and
 the settings. `tools/actions_ledger.txt` opens every page of the ledger (the modal report
 window) with its key command, and a player's detail page from the player list. `tools/actions_commands.txt` runs key
