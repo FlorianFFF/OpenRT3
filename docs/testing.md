@@ -40,7 +40,8 @@ to set a game speed), and `--quit` closes the game normally afterwards so its sh
 editor (`simcheck.py editor.gmp 2000 --menu --do=@tools/actions_editor.txt`: a new map, the
 terrain, tree, bulldoze, region and territory tools, and the editor's setup window with several
 of its pages); `tools/actions_menus.txt` first visits the high scores, a new campaign's screen
-and the credits. `--sound` turns the effects and music on (the game's audio session muted), so the
+and the credits, `tools/actions_menus2.txt` the new and saved scenario screens, the LAN screen and
+the settings. `--sound` turns the effects and music on (the game's audio session muted), so the
 sound code runs too.
 
 Before saving, the harness clears record bytes that the original fills from stack leftovers and
