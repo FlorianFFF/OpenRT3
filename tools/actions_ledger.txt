@@ -1,0 +1,34 @@
+# The ledger window's pages, each opened with its key-table command
+# (Cmd_Ledger<page>, src/game/Commands.cpp), 30 frames apart:
+# 1 overview, 2 company ranking, 3..5 the three reports, 6 stock, 7 player
+# ranking, 9 events, 10 trains, 12 stations, 14 cargo, 15 industries; then
+# Escape. The ledger is modal: the harness's Enter closes each page again
+# after it is drawn. For the player detail (page 8) the player list stays open
+# (automatic Enter off, actions inside modal loops on) and a double click on
+# its row opens the player's page; the mouse goes over the stock holdings, and
+# Escape closes the ledger.
+#   python tools/simcheck.py mature.gmc 500 --do=@tools/actions_ledger.txt
+20 440700
+50 440820
+80 440720
+110 440740
+140 440760
+170 440780
+200 440840
+230 440860
+260 4407a0
+290 4407c0
+320 440800
+350 4407e0
+380 key 1b
+400 autoenter 0
+402 modal 1
+410 440840
+440 move 0.31 0.2125
+442 click 0.31 0.2125
+446 click 0.31 0.2125
+470 move 0.33 0.49
+480 move 0.50 0.37
+490 key 1b
+500 modal 0
+502 autoenter 1
