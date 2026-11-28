@@ -50,3 +50,10 @@
 2696 call 469d30 f v g6cd8d8 n0 n0 x59 n2 sx n1 n0   # is there a scenario 'x'? answered with message 0x5a (NetMsg_CheckScenario, NetMsg_DownloadReply)
 2698 call 469d30 f v g6cd8d8 n0 n0 x50 n0 n0 n1 n0   # NetMsg_Copy9058
 2700 call 469d30 f v g6cd8d8 n0 n0 x6e n4 wn0 n1 n0   # Msg_MarkSeen (no checksum)
+# A takeover vote: player 2 (the client) with its company 2 bids $16 a share for the host's company 1
+# (bytes: player, company, target, price, vote mask). The host files it and asks everyone
+# (Net_SendFiled48, NetMsg_TakeoverVote), collects the answers (Peer_CollectAnswer47) and sends the
+# result (NetMsg_MergerVote, Merger_ResolveVote: the host's own shares carry it, nothing changes).
+# (A proxy fight, request 0x4a, is left out: the original's host can get an answer for a request
+# it already settled and then reads through a null record.)
+2710 call 469d30 f v g6cd8d8 n0 n0 x46 n12 y020000000201100000000000 n1 n0
