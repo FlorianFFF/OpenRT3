@@ -8,11 +8,11 @@ function ran during the difftests (`build.bat test` with
 RT3RE_COVERAGE set), inside a test that compared it, or a caller,
 with the rewrite. Neither = only checked by reading.
 
-Runs: `After_00_3000`, `ai_owned_lol_3000`, `auto_mature_1ac4471689`, `auto_mature_324782730c`, `auto_mature_33066f8075`, `auto_mature_573e805649`, `auto_mature_5cb825c12a`, `auto_mature_788a9692bf`, `auto_mature_7cd9f8942c`, `auto_mature_89c50269a5`, `auto_mature_8ae9162d2b`, `auto_mature_8d636e423e`, `auto_mature_940e85cdbb`, `auto_mature_9f9a15b9d8`, `auto_mature_bd7d4ff39a`, `auto_mature_chunk_000`, `auto_mature_chunk_001`, `auto_mature_chunk_002`, `auto_mature_chunk_003`, `auto_mature_chunk_004`, `auto_mature_chunk_005`, `auto_mature_chunk_006`, `auto_mature_chunk_008`, `auto_mature_f861bd805a`, `britain_3000`, `editor`, `explore1`, `mature_2000`, `mature_actions`, `mature_calls`, `mature_calls2`, `mature_company`, `mature_dialogs`, `mature_events`, `mature_options`, `mature_quit`, `mature_sound`, `mature_tour`, `mature_windows`, `messingbeforeai_3000`, `mp_client`, `mp_client_chat`, `mp_client_explore`, `mp_client_fin`, `mp_client_fin2`, `mp_client_msgs`, `mp_client_msgs2`, `mp_client_play`, `mp_client_quit`, `mp_host`, `mp_host_chat`, `mp_host_explore`, `mp_host_fin`, `mp_host_fin2`, `mp_host_msgs`, `mp_host_msgs2`, `mp_host_play`, `mp_host_quit`, `scenario2_3000`, `track1`, `try_mouse`
+Runs: `After_00_3000`, `ai_owned_lol_3000`, `auto_mature_1ac4471689`, `auto_mature_324782730c`, `auto_mature_33066f8075`, `auto_mature_573e805649`, `auto_mature_5cb825c12a`, `auto_mature_788a9692bf`, `auto_mature_7cd9f8942c`, `auto_mature_89c50269a5`, `auto_mature_8ae9162d2b`, `auto_mature_8d636e423e`, `auto_mature_940e85cdbb`, `auto_mature_9f9a15b9d8`, `auto_mature_bd7d4ff39a`, `auto_mature_chunk_000`, `auto_mature_chunk_001`, `auto_mature_chunk_002`, `auto_mature_chunk_003`, `auto_mature_chunk_004`, `auto_mature_chunk_005`, `auto_mature_chunk_006`, `auto_mature_chunk_008`, `auto_mature_f861bd805a`, `britain_3000`, `editor`, `explore1`, `mature_2000`, `mature_actions`, `mature_calls`, `mature_calls2`, `mature_company`, `mature_dialogs`, `mature_events`, `mature_options`, `mature_quit`, `mature_sound`, `mature_tour`, `mature_windows`, `messingbeforeai_3000`, `mp_client`, `mp_client_chat`, `mp_client_explore`, `mp_client_fin`, `mp_client_fin2`, `mp_client_msgs`, `mp_client_msgs2`, `mp_client_msgs3`, `mp_client_play`, `mp_client_quit`, `mp_host`, `mp_host_chat`, `mp_host_explore`, `mp_host_fin`, `mp_host_fin2`, `mp_host_msgs`, `mp_host_msgs2`, `mp_host_msgs3`, `mp_host_play`, `mp_host_quit`, `scenario2_3000`, `track1`, `try_mouse`
 
 | | Functions | Code bytes |
 |---|---|---|
-| Ran in simcheck | 3914 / 4276 (91.5%) | 1255973 / 1388259 (90.5%) |
+| Ran in simcheck | 3928 / 4276 (91.9%) | 1257211 / 1388259 (90.6%) |
 | Ran or difftest | 4276 / 4276 (100.0%) | 1388259 / 1388259 (100.0%) |
 
 ## Per source file
@@ -39,8 +39,8 @@ Runs: `After_00_3000`, `ai_owned_lol_3000`, `auto_mature_1ac4471689`, `auto_matu
 | game/App.cpp | 56/58 | 58/58 | 0 |
 | game/Hotkeys.cpp | 50/56 | 56/56 | 0 |
 | game/DevMenu.cpp | 16/18 | 18/18 | 0 |
-| game/Network.cpp | 193/252 | 252/252 | 0 |
-| game/Effects.cpp | 36/51 | 51/51 | 0 |
+| game/Network.cpp | 205/252 | 252/252 | 0 |
+| game/Effects.cpp | 37/51 | 51/51 | 0 |
 | game/Players.cpp | 41/43 | 43/43 | 0 |
 | game/Minimap.cpp | 24/27 | 27/27 | 0 |
 | game/Stations.cpp | 84/84 | 84/84 | 0 |
@@ -65,7 +65,7 @@ Runs: `After_00_3000`, `ai_owned_lol_3000`, `auto_mature_1ac4471689`, `auto_matu
 | game/StationWindow.cpp | 49/55 | 55/55 | 0 |
 | game/StockWindow.cpp | 11/13 | 13/13 | 0 |
 | game/TrackTool.cpp | 42/42 | 42/42 | 0 |
-| game/TrainWindow.cpp | 44/50 | 50/50 | 0 |
+| game/TrainWindow.cpp | 45/50 | 50/50 | 0 |
 | game/Tutorial.cpp | 22/28 | 28/28 | 0 |
 | engine/CollectionCore.cpp | 32/34 | 34/34 | 0 |
 | engine/TextDate.cpp | 42/42 | 42/42 | 0 |
