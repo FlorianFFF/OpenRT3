@@ -2,7 +2,8 @@
 # world exists to save: Single Player -> New Scenario (its map picker 3300
 # with the two arrows 3401 / 3402 and Done 3400, a difficulty, the computer
 # players' arrows, Back 3319), Load Scenario (a row of its list, Back), Multi
-# Player -> LAN (its server list, Back 3616; Escape does not leave these two),
+# Player -> LAN (its server list; a click into the server IP edit box, text
+# typed and edited, Enter; Back 3616; Escape does not leave these two),
 # the settings window (Escape), and the editor's new map as in
 # tools/actions_editor.txt.
 #   python tools/simcheck.py editor.gmp 200 --menu --do=@tools/actions_menus2.txt
@@ -23,7 +24,16 @@
 390 clickid 3102   Multi Player
 420 clickid 3612   LAN
 530 click 0.48 0.53
-560 clickid 3616   Back
+540 move 0.4681 0.3210
+542 click 0.4681 0.3210
+550 type 12x
+554 key 08
+556 key 25
+558 key 2e
+560 key 24
+562 key 23
+564 key 0d
+590 clickid 3616   Back
 620 clickid 3613   Back
 650 clickid 3108   Settings
 720 key 1b

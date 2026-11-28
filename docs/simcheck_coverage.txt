@@ -748,7 +748,7 @@
 0043d260 Camera_ConstructView 73
 0043d2a0 Return0_43d2a0 1
 0043d2b0 Return0_43d2b0 1
-0043d2c0 Return0_43d2c0 1
+0043d2c0 Return0_43d2c0 2
 0043d2d0 Return0_43d2d0 1
 0043d2e0 Return0_43d2e0 1
 0043d2f0 Return0_43d2f0 1
@@ -3844,7 +3844,7 @@
 005514f0 Font_DrawText 73
 00551970 Font_Construct 73
 005519f0 Font_DrawTextBox 73
-00551d80 Font_HitTest 0
+00551d80 Font_HitTest 1
 00551e50 Font_GetLine 0
 00551ea0 Font_MoveCaretLines 45
 005520a0 Slider_Construct 73
@@ -4031,12 +4031,12 @@
 0055ba70 EditBox_Construct 31
 0055bae0 EditBox_ScrollStates 73
 0055bc30 EditBox_Draw 74
-0055bd80 EditBox_InsertCursor 3
+0055bd80 EditBox_InsertCursor 4
 0055be40 EditBox_Paste 0
-0055bf60 EditBox_HitTest 0
-0055bfd0 EditBox_RunModal 3
+0055bf60 EditBox_HitTest 1
+0055bfd0 EditBox_RunModal 4
 0055c8b0 EditBox_ActivateKey 3
-0055c910 EditBox_ActivateClick 1
+0055c910 EditBox_ActivateClick 2
 0055c980 EditBox_HandleEvent 74
 0055ccc0 Cpu_HasCpuid 73
 0055cd40 Cpu_ProbeFeature 73

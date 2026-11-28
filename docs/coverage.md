@@ -12,7 +12,7 @@ Runs: `After_00_3000`, `ai_owned_lol_3000`, `auto_mature_1ac4471689`, `auto_matu
 
 | | Functions | Code bytes |
 |---|---|---|
-| Ran in simcheck | 4018 / 4276 (94.0%) | 1298449 / 1388259 (93.5%) |
+| Ran in simcheck | 4020 / 4276 (94.0%) | 1298758 / 1388259 (93.6%) |
 | Ran or difftest | 4276 / 4276 (100.0%) | 1388259 / 1388259 (100.0%) |
 
 ## Per source file
@@ -80,10 +80,10 @@ Runs: `After_00_3000`, `ai_owned_lol_3000`, `auto_mature_1ac4471689`, `auto_matu
 | engine/Render.cpp | 134/138 | 138/138 | 0 |
 | engine/Fx.cpp | 5/5 | 5/5 | 0 |
 | engine/Input.cpp | 36/36 | 36/36 | 0 |
-| engine/Font.cpp | 42/44 | 44/44 | 0 |
+| engine/Font.cpp | 43/44 | 44/44 | 0 |
 | engine/Emitter.cpp | 37/37 | 37/37 | 0 |
 | engine/Music.cpp | 59/59 | 59/59 | 0 |
-| engine/Widgets.cpp | 62/67 | 67/67 | 0 |
+| engine/Widgets.cpp | 63/67 | 67/67 | 0 |
 | engine/SysInfo.cpp | 30/30 | 30/30 | 0 |
 | engine/Controls.cpp | 72/76 | 76/76 | 0 |
 | engine/Utilities.cpp | 56/60 | 60/60 | 0 |
@@ -96,10 +96,10 @@ two-player check, the leaf test or a difftest.
 
 ## Not run in a game yet
 
-258 functions ran only in difftests (against the original there), not yet in a
+256 functions ran only in difftests (against the original there), not yet in a
 game check (`docs/simcheck_coverage.txt` lists them with 0 runs):
 
 - 51: network flows two-player checks do not set up yet (internet lobby, map transfer, votes, resync)
-- 82: windows, dialogs and their callbacks in states no script reaches yet
-- 26: files, devices, textures, sound and the registry
+- 81: windows, dialogs and their callbacks in states no script reaches yet
+- 25: files, devices, textures, sound and the registry
 - 99: game logic in situations the saves do not contain
