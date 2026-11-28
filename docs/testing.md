@@ -42,7 +42,9 @@ terrain, tree, bulldoze, region and territory tools, and the editor's setup wind
 of its pages); `tools/actions_menus.txt` first visits the high scores, a new campaign's screen
 and the credits, `tools/actions_menus2.txt` the new and saved scenario screens, the LAN screen and
 the settings. `tools/actions_ledger.txt` opens every page of the ledger (the modal report
-window) with its key command, and a player's detail page from the player list. `--sound` turns the effects and music on (the game's audio session muted), so the
+window) with its key command, and a player's detail page from the player list. `tools/actions_commands.txt` runs key
+commands no other script does: the cheat and city prompts, screenshots, the consist editor, and a
+quick save with a quick load. `--sound` turns the effects and music on (the game's audio session muted), so the
 sound code runs too.
 
 Before saving, the harness clears record bytes that the original fills from stack leftovers and

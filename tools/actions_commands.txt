@@ -1,0 +1,25 @@
+# Key commands no other script runs (simcheck mature.gmc 600
+# --do=@tools/actions_commands.txt): the cheat prompt and the poster
+# screenshot's message (the harness's Enter closes both), a screenshot, an
+# engine option toggled twice (each time saved to the settings, which the
+# mirror resets), the city search with "bos" typed into its prompt, the
+# consist editor for a new train (Escape), and a quick save followed by a
+# quick load, in both variants.
+20 441340        Cmd_CheatPrompt
+50 482bb0        Cmd_PosterScreenshot (windowed: says why not)
+80 482b20        Hotkey_Screenshot
+100 42a7c0       Cmd_ToggleEngine114206Save
+110 42a7c0
+130 autoenter 0
+132 modal 1
+140 441500       Cities_FindByPrompt
+160 type bos
+170 key 0d
+200 4406c0       Cmd_ConsistEditor
+240 key 1b
+260 modal 0
+262 autoenter 1
+280 4408b0       Cmd_SaveWorld (quick save)
+320 441ac0       Hotkey_QuickLoad
+380 4408d0       Cmd_SaveWorld1
+420 441af0       Hotkey_QuickLoadAlt
