@@ -70,7 +70,7 @@ Phase 4  Move the game's global data into our own code ........... 🟡  ← we 
 Phase 5  Replace the linked-in libraries (CRT, D3DX, GameSpy) .... ⏳
 Phase 6  Free of the original exe: only the game data is needed .. ⏳
 Phase 7  Modernized version (see below) .......................... ⏳
-Later    Matching decomp: byte-identical build with MSVC 7.0 ........ 💭
+Later    Matching decomp: byte-identical build with MSVC 7.0 ........ 🟡  started (docs/matching.md)
 ```
 
 **Modernized version.** Once the game no longer depends on the original exe, a second build
