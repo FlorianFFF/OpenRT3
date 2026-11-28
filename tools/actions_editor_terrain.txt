@@ -1,0 +1,50 @@
+# The map editor's terrain and ambient-sound tools (simcheck --menu):
+#   python tools/simcheck.py editor.gmp 1000 --menu --do=@tools/actions_editor_terrain.txt
+# A new map as in tools/actions_editor.txt, then the terrain height tool 9001:
+# each of its six tools (raise, smooth, to sea level / lower, flatten, ...)
+# with a brush size from the column on the left, dragged across the map; its
+# Other button's list of map-wide height changes (modal; the harness's Enter
+# is off meanwhile) with "Height +10%, mountains most" picked and OK 1010.
+# Then the ambient sound painter 9009: each of its six kinds dragged.
+30 clickid 3009   Extras
+60 clickid 3103   Editor
+90 clickid 3530   New Map
+130 clickid 3540  From Scratch
+140 key 0d
+150 key 0d
+250 clickid 9001  terrain height
+260 click 0.428 0.80
+270 click 0.54 0.77
+280 drag 0.45 0.30 0.55 0.35 10
+300 click 0.54 0.89
+310 drag 0.60 0.30 0.66 0.40 10
+330 click 0.428 0.85
+340 click 0.725 0.77
+350 drag 0.45 0.30 0.66 0.40 10
+370 click 0.725 0.89
+380 drag 0.50 0.25 0.60 0.30 10
+400 click 0.428 0.735
+410 click 0.90 0.77
+420 drag 0.30 0.40 0.35 0.45 10
+440 click 0.90 0.89
+450 drag 0.70 0.40 0.75 0.45 10
+480 autoenter 0
+490 move 0.967 0.673
+492 click 0.967 0.673  Other
+520 move 0.47 0.30
+522 click 0.47 0.30    a row of the list
+540 clickid 1010       OK
+560 autoenter 1
+600 clickid 9009  ambient sound
+610 click 0.54 0.77
+620 drag 0.30 0.20 0.40 0.25 10
+640 click 0.725 0.77
+650 drag 0.45 0.20 0.55 0.25 10
+670 click 0.90 0.77
+680 drag 0.60 0.20 0.70 0.25 10
+700 click 0.54 0.89
+710 drag 0.30 0.45 0.40 0.50 10
+730 click 0.725 0.89
+740 drag 0.45 0.45 0.55 0.50 10
+760 click 0.90 0.89
+770 drag 0.60 0.45 0.70 0.50 10
