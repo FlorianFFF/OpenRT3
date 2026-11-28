@@ -255,7 +255,7 @@ RT3_NOINLINE uint32_t __fastcall Dialog_RunMessage(const char* text, int32_t typ
 
 static inline uint8_t* Map() { return g_map; }
 
-static inline double D(uint32_t a) { return *(const double*)a; }
+static inline double D(uint32_t a) { return *(const double*)rt3::Rdata(a); }
 
 // Formats string id with one argument and exits with it.
 static void FatalFormat(int32_t id, const char* arg) {
@@ -264,7 +264,7 @@ static void FatalFormat(int32_t id, const char* arg) {
     Fatal_Exit(msg);
 }
 
-static inline float Fl(uint32_t a) { return *(const float*)a; }
+static inline float Fl(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 static inline int32_t Ftol(double v) {
     int32_t r;
@@ -333,7 +333,7 @@ inline int32_t Quarter(int32_t v) { return (v + (v < 0 ? 3 : 0)) >> 2; }
 
 static inline uint8_t* World() { return g_world; }
 
-static inline double Fl_205(uint32_t a) { return *(const float*)a; }
+static inline double Fl_205(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 
 
@@ -356,7 +356,7 @@ static bool Station_FarSideOk(uint8_t* farNode, int32_t nb, int32_t company) {
     return true;
 }
 
-static inline double Fl_207(uint32_t a) { return *(const float*)a; }
+static inline double Fl_207(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 static inline float BitsF(uint32_t b) { return *(float*)&b; }
 
@@ -639,7 +639,7 @@ RT3_REPLACE(0x414490, BuildingType_LoadFootprint);
 
 // 0x414bd0. (x, y) lies inside the map grid [0, w-1] x [0, h-1].
 RT3_NOINLINE int32_t __fastcall Map_Contains(void* m, int, float x, float y) {
-    const float zero = *(const float*)0x5c8598;
+    const float zero = *(const float*)rt3::Rdata(0x5c8598);
     if (x < zero) return 0;
     float maxX = (float)(F<int32_t>(m, 0x15d9) - 1);
     if (!(x <= maxX)) return 0;
@@ -1708,9 +1708,9 @@ RT3_REPLACE(0x4176d0, Table_NthNamedWithBit);
 // 0x417790. Rotates (x, y) by `angle` (radians, via the engine's per-degree
 // sin/cos tables), negated: out = -(c*x - s*y, s*x + c*y).
 RT3_NOINLINE void __stdcall RotateNegated(float x, float y, float angle, float* outX, float* outY) {
-    const float zero = *(const float*)0x5c8598;
-    while (angle < zero) angle = (float)(angle + *(const double*)0x5c96b8);
-    int32_t deg = (int32_t)((double)angle * *(const float*)0x5c96b0 / *(const double*)0x5c96a8) % 360;
+    const float zero = *(const float*)rt3::Rdata(0x5c8598);
+    while (angle < zero) angle = (float)(angle + *(const double*)rt3::Rdata(0x5c96b8));
+    int32_t deg = (int32_t)((double)angle * *(const float*)rt3::Rdata(0x5c96b0) / *(const double*)rt3::Rdata(0x5c96a8)) % 360;
     uint8_t* e = g_engine;
     float s = F<float>(e, 0x1136b1 + deg * 4);
     float c = F<float>(e, 0x113c51 + deg * 4);
@@ -1726,7 +1726,7 @@ RT3_NOINLINE void __fastcall Type_RotatedCell(Collection* t, int, uint32_t id, f
     uint8_t* r = (uint8_t*)Collection_Get(t, 0, id);
     uint16_t cx = 0, cy = (uint16_t)id;
     Obj_GetCell(r, 0, &cx, &cy);
-    const double c48 = *(const double*)0x5c96c8, c2 = *(const double*)0x5c85d0;
+    const double c48 = *(const double*)rt3::Rdata(0x5c96c8), c2 = *(const double*)rt3::Rdata(0x5c85d0);
     float y = (float)((double)(int16_t)cy / c48 - (double)F<uint8_t>(r, 0xb9) / c2);
     float x = (float)((double)(int16_t)cx / c48 - (double)F<uint8_t>(r, 0xb8) / c2);
     RotateNegated(x, y, angle, outX, outY);
@@ -1759,7 +1759,7 @@ RT3_REPLACE(0x417910, Obj_AttachmentPoint);
 // x = f3[i]/48 - b8/2, y = 10b[i]/48 - b9/2 (both floats), then RotateNegated.
 RT3_NOINLINE void __fastcall Type_RotatedOffset(Collection* t, int, uint32_t id, int32_t i, float* outX, float* outY, float angle) {
     uint8_t* r = (uint8_t*)Collection_Get(t, 0, id);
-    const double c48 = *(const double*)0x5c96c8, c2 = *(const double*)0x5c85d0;
+    const double c48 = *(const double*)rt3::Rdata(0x5c96c8), c2 = *(const double*)rt3::Rdata(0x5c85d0);
     float y = (float)((double)F<int16_t>(r, 0x10b + i * 2) / c48 - (double)F<uint8_t>(r, 0xb9) / c2);
     float x = (float)((double)F<int16_t>(r, 0xf3 + i * 2) / c48 - (double)F<uint8_t>(r, 0xb8) / c2);
     RotateNegated(x, y, angle, outX, outY);

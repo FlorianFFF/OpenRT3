@@ -296,7 +296,7 @@ RT3_NOINLINE char* __fastcall Num_Format(char* buf, int32_t style, double v, int
 
 static inline uint8_t ConfigByte82() { return g_newGame[0x82]; }
 
-static inline double D(uint32_t va) { return *(const double*)va; }
+static inline double D(uint32_t va) { return *(const double*)rt3::Rdata(va); }
 
 // Owned (+0x276), flagged building whose virtual slot 28 is 0.
 static inline int OwnedIdleBuilding(int32_t* o, uint8_t* b) {
@@ -337,9 +337,9 @@ static inline uint8_t* Map() { return g_map; }
 
 static inline uint8_t* World() { return g_world; }
 
-static inline double D_205(uint32_t a) { return *(const double*)a; }
+static inline double D_205(uint32_t a) { return *(const double*)rt3::Rdata(a); }
 
-static inline double Fl(uint32_t a) { return *(const float*)a; }
+static inline double Fl(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 static inline int32_t Ftol(double v) {
     int32_t r;
@@ -380,7 +380,7 @@ static inline int32_t Shares(uint8_t* c) { return F<int32_t>(c, 0x47); }
 
 static inline double Pick(double a, bool useA, double b) { return useA ? a : b; }
 
-static inline double D_207(uint32_t a) { return *(const double*)a; }
+static inline double D_207(uint32_t a) { return *(const double*)rt3::Rdata(a); }
 
 namespace {
 template <typename Fn> void AbsorbBack(uint32_t global, Fn fn) {
@@ -434,7 +434,7 @@ RT3_NOINLINE float __fastcall Company_QualityFactor(void* c) {
     uint32_t d = g_newGame[0x7d];
     double lo = ((const float*)0x5f3cd8)[d], hi = ((const float*)0x5f3ce8)[d];
     double q = F<float>(c, 0xd31);
-    float r = (float)(lo * (*(const double*)0x5c8770 - q) + hi * q);
+    float r = (float)(lo * (*(const double*)rt3::Rdata(0x5c8770) - q) + hi * q);
     return r;
 }
 RT3_REPLACE(0x424100, Company_QualityFactor);
@@ -1671,9 +1671,9 @@ RT3_NOINLINE void __fastcall Company_Absorb(uint8_t* c, int, uint32_t id, int32_
         }
         News_Add(g_news, 0, title, text, 1, 0);
         cost = (float)(F<double>(o, 0x124f) + F<double>(o, 0x12a7));
-        cost = (float)((double)cost * *(const double*)0x5c9b48);
-        F<double>(c, 0x124f) = F<double>(o, 0x124f) * *(const double*)0x5c9b48 + F<double>(c, 0x124f);
-        F<double>(c, 0x12a7) = F<double>(o, 0x12a7) * *(const double*)0x5c9b48 + F<double>(c, 0x12a7);
+        cost = (float)((double)cost * *(const double*)rt3::Rdata(0x5c9b48));
+        F<double>(c, 0x124f) = F<double>(o, 0x124f) * *(const double*)rt3::Rdata(0x5c9b48) + F<double>(c, 0x124f);
+        F<double>(c, 0x12a7) = F<double>(o, 0x12a7) * *(const double*)rt3::Rdata(0x5c9b48) + F<double>(c, 0x12a7);
     } else {
         {
             const char* fmt = GetString(0x134);
@@ -1700,7 +1700,7 @@ RT3_NOINLINE void __fastcall Company_Absorb(uint8_t* c, int, uint32_t id, int32_
                 total = (float)(b * a) + total;
             }
         }
-        if (n > *(const float*)0x5c85b4 && Game_EffectiveVersion() >= 0x68) {
+        if (n > *(const float*)rt3::Rdata(0x5c85b4) && Game_EffectiveVersion() >= 0x68) {
             int32_t a = F<int32_t>(c, 0x143), b = F<int32_t>(c, 0x147);
             float fa = (float)a;
             n = fa + n;
@@ -1708,10 +1708,10 @@ RT3_NOINLINE void __fastcall Company_Absorb(uint8_t* c, int, uint32_t id, int32_
             total = (float)(b * a) + total;
             rate = (float)((double)rate / n);
             total = (float)((double)total / n);
-            F<int32_t>(c, 0x143) = (int32_t)((double)n + *(const double*)0x5c86b8);
-            F<int32_t>(c, 0x147) = (int32_t)((double)total + *(const float*)0x5c85b4);
-            int32_t r = (int32_t)(((double)rate + *(const double*)0x5c9bc0) * *(const double*)0x5c85d8);
-            F<float>(c, 0x14b) = (float)((double)r / *(const double*)0x5c85d8);
+            F<int32_t>(c, 0x143) = (int32_t)((double)n + *(const double*)rt3::Rdata(0x5c86b8));
+            F<int32_t>(c, 0x147) = (int32_t)((double)total + *(const float*)rt3::Rdata(0x5c85b4));
+            int32_t r = (int32_t)(((double)rate + *(const double*)rt3::Rdata(0x5c9bc0)) * *(const double*)rt3::Rdata(0x5c85d8));
+            F<float>(c, 0x14b) = (float)((double)r / *(const double*)rt3::Rdata(0x5c85d8));
         }
         static const uint16_t kAccounts[] = { 0x11f7, 0x124f, 0x12a7, 0x12ff, 0x1357, 0x13af };
         for (uint16_t a : kAccounts) F<double>(c, a) = F<double>(o, a) + F<double>(c, a);
@@ -2292,7 +2292,7 @@ RT3_NOINLINE double __fastcall Company_TrackLength(void* c) {
         if (F<uint16_t>(nd, 0x22e) != F<int32_t>(c, 0) || F<uint8_t>(nd, 0x216) != 2) continue;
         n += F<uint8_t>(nd, 0x218) == 4 ? 2 : 1;
     }
-    float r = (float)((double)n * *(const double*)0x5c8628);
+    float r = (float)((double)n * *(const double*)rt3::Rdata(0x5c8628));
     return r;
 }
 RT3_REPLACE(0x42a250, Company_TrackLength);
@@ -2482,7 +2482,7 @@ RT3_NOINLINE void Debug_DropModel() {
         uint8_t* world = g_map;
         float x = (float)((double)F<int32_t>(world, 0x2155) / D(0x5c85d0) * D(0x5c8c48) + off);
         float z = (float)(((double)F<int32_t>(world, 0x2159) / D(0x5c85d0) + D(0x5c8d68)) * D(0x5c8c48) + off);
-        float y = (float)(Terrain_HeightAt(scene, 0, x, z) + (double)*(const float*)0x5c878c);
+        float y = (float)(Terrain_HeightAt(scene, 0, x, z) + (double)*(const float*)rt3::Rdata(0x5c878c));
         ++g_5ee268;
         Model_SetFrame(o, 0, 0);
         Obj_MoveTo(o, 0, x, y, z);
@@ -2681,7 +2681,7 @@ RT3_REPLACE(0x42b2d0, Obj_HasKey);
 void __fastcall Obj_AddFloat103(void* o, int, int32_t i, float d) {
     float v = (float)((double)d + F<float>(o, 0x103 + i * 4));
     F<float>(o, 0x103 + i * 4) = v;
-    if (v < *(const float*)0x5c8598) F<float>(o, 0x103 + i * 4) = 0.0f;
+    if (v < *(const float*)rt3::Rdata(0x5c8598)) F<float>(o, 0x103 + i * 4) = 0.0f;
 }
 RT3_REPLACE(0x42b310, Obj_AddFloat103);
 
@@ -2824,13 +2824,13 @@ RT3_REPLACE(0x42bf20, City_CargoOutput);
 // (+0x6a); the waiting count (+0) shrinks by `amount` (taken from dst's count).
 void __fastcall City_TransferCargo(uint8_t* c, int, uint8_t* dst, int32_t i, int32_t amount) {
     float stock = F<float>(c, 0x103 + i * 4);
-    float x = (float)((double)stock * *(const double*)0x5c9c50);
+    float x = (float)((double)stock * *(const double*)rt3::Rdata(0x5c9c50));
     if (c[0xdf + (i >> 3)] & (1 << (i & 7))) {
-        if ((double)stock - x < *(const double*)0x5c9c48 && Game_EffectiveVersion() >= 0x67)
-            x = (float)((double)x * *(const double*)0x5c8758);
+        if ((double)stock - x < *(const double*)rt3::Rdata(0x5c9c48) && Game_EffectiveVersion() >= 0x67)
+            x = (float)((double)x * *(const double*)rt3::Rdata(0x5c8758));
     }
-    float cap = (float)((double)F<uint16_t>(c, 0x6a + i * 2) / *(const double*)0x5c9c40);
-    if (cap > F<float>(c, 0x103 + i * 4)) x = (float)((double)x * *(const double*)0x5c88e8);
+    float cap = (float)((double)F<uint16_t>(c, 0x6a + i * 2) / *(const double*)rt3::Rdata(0x5c9c40));
+    if (cap > F<float>(c, 0x103 + i * 4)) x = (float)((double)x * *(const double*)rt3::Rdata(0x5c88e8));
     F<float>(c, 0x103 + i * 4) = (float)((double)F<float>(c, 0x103 + i * 4) - x);
     F<float>(dst, 0x103 + i * 4) = (float)((double)x + F<float>(dst, 0x103 + i * 4));
     uint16_t n = F<uint16_t>(dst, i * 2);

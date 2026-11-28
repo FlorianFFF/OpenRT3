@@ -365,7 +365,7 @@ RT3_NOINLINE void __fastcall Routes_TryMergeAt(Collection* t, int, uint32_t id);
 // 0x4955b0. 1 if mode == 1, or +0x1e1 != -1 and kind +0x1fd == 3; else 4. (AL only.)
 static uint8_t __fastcall Obj_Mode1Or4_Impl(void* o, int, int32_t mode) {
     if (mode == 1) return 1;
-    if ((double)F<float>(o, 0x1e1) != *(const double*)0x5c9bf0 && F<uint8_t>(o, 0x1fd) == 3) return 1;
+    if ((double)F<float>(o, 0x1e1) != *(const double*)rt3::Rdata(0x5c9bf0) && F<uint8_t>(o, 0x1fd) == 3) return 1;
     return 4;
 }
 
@@ -404,9 +404,9 @@ static void Reassign(uint8_t* prev, uint8_t* cur, int32_t r, int32_t newId, int3
     }
 }
 
-static inline double D(uint32_t a) { return *(const double*)a; }
+static inline double D(uint32_t a) { return *(const double*)rt3::Rdata(a); }
 
-static inline float Fl(uint32_t a) { return *(const float*)a; }
+static inline float Fl(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 static inline double Bits(uint64_t u) { return *(double*)&u; }
 
@@ -453,8 +453,8 @@ inline void Reshape(uint8_t* t, const float* a, const float* b, const float* c, 
 inline double Ground(float x, float z) { return Terrain_HeightAt(g_map, 0, x, z); }
 // The higher of the ground at (x, z) plus 1.5 and `floor` (the ground is read again when it wins).
 inline float GroundOrFloor(float x, float z, double floor) {
-    if (Ground(x, z) + *(const double*)0x5c8578 < floor) return (float)floor;
-    return (float)(Ground(x, z) + *(const double*)0x5c8578);
+    if (Ground(x, z) + *(const double*)rt3::Rdata(0x5c8578) < floor) return (float)floor;
+    return (float)(Ground(x, z) + *(const double*)rt3::Rdata(0x5c8578));
 }
 struct Corners {
     float a[3], b[3], c[3], d[3];
@@ -464,11 +464,11 @@ inline void GetCorners(uint8_t* t, Corners* k) {
 }
 }
 
-static inline double Fl_198(uint32_t a) { return *(const float*)a; }
+static inline double Fl_198(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 
 
-static inline double Fl_205(uint32_t a) { return *(const float*)a; }
+static inline double Fl_205(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 
 
@@ -527,7 +527,7 @@ static void RoutePlain_Link(Collection* routes, uint8_t* nd, int32_t id, bool ch
 }
 
 
-static inline double Fl_207(uint32_t a) { return *(const float*)a; }
+static inline double Fl_207(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 static inline uint8_t* TrackNode(int32_t id) { return (uint8_t*)Collection_Get(g_tracks, 0, (uint32_t)id); }
 
@@ -1024,7 +1024,7 @@ RT3_REPLACE(0x4950f0, Route_ReplaceEnd);
 
 // 0x495170. Midpoint of (x0, y0) and (x1, y1).
 RT3_NOINLINE void __fastcall Midpoint(float* ox, float* oy, float x0, float y0, float x1, float y1) {
-    const double two = *(const double*)0x5c85d0;
+    const double two = *(const double*)rt3::Rdata(0x5c85d0);
     *ox = (float)(((double)x0 + x1) / two);
     *oy = (float)(((double)y0 + y1) / two);
 }
@@ -1033,7 +1033,7 @@ RT3_REPLACE(0x495170, Midpoint);
 // 0x4951a0. Point `pct` percent of the way from (x0, y0) to (x1, y1).
 void __fastcall LerpPercent(int32_t pct, float* ox, float x0, float y0, float x1, float y1, float* oy) {
     float t = (float)pct;
-    const float hundred = *(const float*)0x5c8c28;
+    const float hundred = *(const float*)rt3::Rdata(0x5c8c28);
     *ox = (float)(((double)x1 - x0) * t / hundred + x0);
     *oy = (float)(((double)y1 - y0) * t / hundred + y0);
 }
@@ -1043,7 +1043,7 @@ RT3_REPLACE(0x4951a0, LerpPercent);
 // (tile units scaled by 0x5c8c48); 0 when they coincide.
 RT3_NOINLINE float __stdcall Map_SlopeBetween(float ax0, float ay0, float ax1, float ay1, float bx0, float by0, float bx1,
                                  float by1) {
-    const double half = *(const double*)0x5c85d0, k = *(const double*)0x5c8c48;
+    const double half = *(const double*)rt3::Rdata(0x5c85d0), k = *(const double*)rt3::Rdata(0x5c8c48);
     float p0 = (float)(((double)ax0 + ax1) / half * k);
     float p1 = (float)(((double)ay0 + ay1) / half * k);
     float p2 = (float)(((double)bx0 + bx1) / half * k);
@@ -1051,7 +1051,7 @@ RT3_NOINLINE float __stdcall Map_SlopeBetween(float ax0, float ay0, float ax1, f
     float dist = (float)Distance2D(p0, p1, p2, p3);
     float h1 = (float)Terrain_HeightAt(Map(), 0, p0, p1);
     float h2 = (float)Terrain_HeightAt(Map(), 0, p2, p3);
-    if ((double)dist == *(const double*)0x5c8608) return *(const float*)0x5c8598;
+    if ((double)dist == *(const double*)rt3::Rdata(0x5c8608)) return *(const float*)rt3::Rdata(0x5c8598);
     double a = crt::atan(((double)h2 - h1) / dist);
     return (float)crt::fabs(a);
 }
@@ -1062,15 +1062,15 @@ RT3_REPLACE(0x4951f0, Map_SlopeBetween);
 RT3_NOINLINE double __stdcall AngleOf(float x0, float y0, float x1, float y1) {
     if (x0 == x1) return y0 > y1 ? (float)4.71238898038 : (float)1.5707963267948966;
     float a = (float)crt::atan(((double)y0 - y1) / ((double)x0 - x1));
-    if (x0 > x1) return (double)a + *(const float*)0x5c8760;
-    if (y0 > y1) return (double)a + *(const float*)0x5c8768;
+    if (x0 > x1) return (double)a + *(const float*)rt3::Rdata(0x5c8760);
+    if (y0 > y1) return (double)a + *(const float*)rt3::Rdata(0x5c8768);
     return a;
 }
 RT3_REPLACE(0x4952f0, AngleOf);
 
 // 0x4953c0. a - b (as float) wrapped into [-pi, pi]; *wrapped (optional) = 1 if it was.
 RT3_NOINLINE double __fastcall AngleDelta(int32_t* wrapped, int, float a, float b) {
-    const double pi = *(const double*)0x5c96a8, twoPi = *(const double*)0x5c96b8, negPi = *(const double*)0x5cfe30;
+    const double pi = *(const double*)rt3::Rdata(0x5c96a8), twoPi = *(const double*)rt3::Rdata(0x5c96b8), negPi = *(const double*)rt3::Rdata(0x5cfe30);
     float d = (float)((double)a - b);
     if (wrapped) *wrapped = 0;
     if (d > pi) {
@@ -1089,8 +1089,8 @@ RT3_REPLACE(0x4953c0, AngleDelta);
 RT3_NOINLINE float __fastcall AngleAdd(int32_t* wrapped, int, float a, float b) {
     float s = (float)((double)a + b);
     if (wrapped) *wrapped = 0;
-    const double twoPi = *(const double*)0x5c96b8;
-    if (s < *(const float*)0x5c8598) {
+    const double twoPi = *(const double*)rt3::Rdata(0x5c96b8);
+    if (s < *(const float*)rt3::Rdata(0x5c8598)) {
         s = (float)((double)s + twoPi);
     } else if ((double)s > twoPi) {
         s = (float)((double)s - twoPi);
@@ -1478,7 +1478,7 @@ RT3_NOINLINE void __fastcall Track_SmoothHeights(Collection* tracks, int, uint32
             ++run;
             if (run > 2) {
                 if (run <= 10) {
-                    weight[i] = (float)(*(const double*)0x5c8770 - (double)(run - 2) / *(const double*)0x5c8970);
+                    weight[i] = (float)(*(const double*)rt3::Rdata(0x5c8770) - (double)(run - 2) / *(const double*)rt3::Rdata(0x5c8970));
                 } else {
                     locked[i] = 1;
                     if (i == n1 - 1) locked[i + 1] = 1;
@@ -1520,15 +1520,15 @@ RT3_NOINLINE void __fastcall Track_SmoothHeights(Collection* tracks, int, uint32
                 Corners m;
                 GetCorners(c, &k);
                 GetCorners(o, &m);
-                float t1 = (float)(((double)m.b[1] + m.a[1]) * *(const double*)0x5c8628);
-                float t2 = (float)(((double)m.d[1] + m.c[1]) * *(const double*)0x5c8628);
+                float t1 = (float)(((double)m.b[1] + m.a[1]) * *(const double*)rt3::Rdata(0x5c8628));
+                float t2 = (float)(((double)m.d[1] + m.c[1]) * *(const double*)rt3::Rdata(0x5c8628));
                 float ya = GroundOrFloor(m.a[0], m.a[2], t1);
                 float p0 = GroundOrFloor(m.b[0], m.b[2], ya);
                 float yc = GroundOrFloor(m.c[0], m.c[2], t2);
                 float q0 = GroundOrFloor(m.d[0], m.d[2], yc);
-                float ra = (float)(Ground(k.a[0], k.a[2]) + *(const double*)0x5c8578);
+                float ra = (float)(Ground(k.a[0], k.a[2]) + *(const double*)rt3::Rdata(0x5c8578));
                 float r = GroundOrFloor(k.b[0], k.b[2], ra);
-                float sc = (float)(Ground(k.c[0], k.c[2]) + *(const double*)0x5c8578);
+                float sc = (float)(Ground(k.c[0], k.c[2]) + *(const double*)rt3::Rdata(0x5c8578));
                 float s = GroundOrFloor(k.d[0], k.d[2], sc);
                 bool flip = false;
                 if ((F<int32_t>(o, 0x206) != -1 && F<int32_t>(o, 0x206) == F<int32_t>(c, 0x20a)) ||
@@ -1562,16 +1562,16 @@ RT3_NOINLINE void __fastcall Track_SmoothHeights(Collection* tracks, int, uint32
                 weight[i] = 0.0f;
             } else if (a >= 0x19) {
                 float fa = (float)(a - 0x19);
-                float v = (float)(*(const double*)0x5c8770 - (double)fa / *(const float*)0x5c85f8);
+                float v = (float)(*(const double*)rt3::Rdata(0x5c8770) - (double)fa / *(const float*)rt3::Rdata(0x5c85f8));
                 weight[i + 1] = v;
                 weight[i] = v;
             }
         }
         GetCorners(c, &k);
         double e0 = forward[i] ? (double)k.a[1] + k.b[1] : (double)k.c[1] + k.d[1];
-        avg[i] = (float)(e0 * *(const double*)0x5c8628);
+        avg[i] = (float)(e0 * *(const double*)rt3::Rdata(0x5c8628));
         double e1 = forward[i] ? (double)k.c[1] + k.d[1] : (double)k.a[1] + k.b[1];
-        avg[i + 1] = (float)(e1 * *(const double*)0x5c8628);
+        avg[i + 1] = (float)(e1 * *(const double*)rt3::Rdata(0x5c8628));
     }
     for (int32_t j = 0; j < count; ++j)
         if (locked[j]) weight[j] = 0.0f;
@@ -1594,19 +1594,19 @@ RT3_NOINLINE void __fastcall Track_SmoothHeights(Collection* tracks, int, uint32
             if (s == -2) t = 0.0f;
             else if (s == -1) t = 1.0f;
             else if (s == 0 || s == 16) continue;
-            else t = (float)((double)(float)s / *(const float*)0x5c8948);
+            else t = (float)((double)(float)s / *(const float*)rt3::Rdata(0x5c8948));
             float tdz = (float)((double)t * dz);
             float tdx = (float)((double)t * dx);
             float h1 = (float)Ground((float)((double)tdx + x0), (float)((double)tdz + z0));
             float h2 = (float)Ground((float)((double)tdx + x1), (float)((double)tdz + z1));
-            float h3 = (float)Ground((float)(((double)x0 + k.b[0]) * *(const double*)0x5c8628 + tdx),
-                                     (float)(((double)z0 + k.b[2]) * *(const double*)0x5c8628 + tdz));
+            float h3 = (float)Ground((float)(((double)x0 + k.b[0]) * *(const double*)rt3::Rdata(0x5c8628) + tdx),
+                                     (float)(((double)z0 + k.b[2]) * *(const double*)rt3::Rdata(0x5c8628) + tdz));
             float hi, lo;
             if (h2 > h1) hi = h2 > h3 ? h2 : h3;
             else hi = h1 > h3 ? h1 : h3;
             if (h2 < h1) lo = h2 < h3 ? h2 : h3;
             else lo = h1 < h3 ? h1 : h3;
-            float peak = (float)(((double)hi - lo) * *(const double*)0x5c8758 + hi);
+            float peak = (float)(((double)hi - lo) * *(const double*)rt3::Rdata(0x5c8758) + hi);
             if (s == -2) {
                 startH = peak;
             } else if (s == -1) {
@@ -1620,7 +1620,7 @@ RT3_NOINLINE void __fastcall Track_SmoothHeights(Collection* tracks, int, uint32
                 }
             }
         }
-        if (found && best > *(const float*)0x5c8598) {
+        if (found && best > *(const float*)rt3::Rdata(0x5c8598)) {
             startH = (float)((double)best + startH);
             endH = (float)((double)best + endH);
         }
@@ -1628,7 +1628,7 @@ RT3_NOINLINE void __fastcall Track_SmoothHeights(Collection* tracks, int, uint32
         else h[0][i] = h[0][i] > startH ? h[0][i] : startH;
         h[0][i + 1] = endH;
     }
-    for (int32_t j = 0; j < count; ++j) h[1][j] = locked[j] ? avg[j] : (float)((double)h[0][j] + *(const double*)0x5c8c30);
+    for (int32_t j = 0; j < count; ++j) h[1][j] = locked[j] ? avg[j] : (float)((double)h[0][j] + *(const double*)rt3::Rdata(0x5c8c30));
     int32_t level = 1;
     // Three relaxing passes, floored at the ground plus 1.5.
     for (int32_t pass = 0; pass < 3; ++pass) {
@@ -1640,8 +1640,8 @@ RT3_NOINLINE void __fastcall Track_SmoothHeights(Collection* tracks, int, uint32
                 dst[j] = src[j];
                 continue;
             }
-            float v = (float)(((double)src[j - 1] + src[j + 1]) * *(const double*)0x5c8758 + (double)src[j] * *(const double*)0x5c8628);
-            double floor = (double)h[0][j] + *(const double*)0x5c8578;
+            float v = (float)(((double)src[j - 1] + src[j + 1]) * *(const double*)rt3::Rdata(0x5c8758) + (double)src[j] * *(const double*)rt3::Rdata(0x5c8628));
+            double floor = (double)h[0][j] + *(const double*)rt3::Rdata(0x5c8578);
             dst[j] = (double)v < floor ? (float)floor : v;
         }
     }
@@ -1652,18 +1652,18 @@ RT3_NOINLINE void __fastcall Track_SmoothHeights(Collection* tracks, int, uint32
         float* a = h[level];
         for (int32_t j = 0; j < count; ++j) {
             if (j == 0 || j == n1 || locked[j - 1] || locked[j] || locked[j + 1]) continue;
-            if (!((double)a[j - 1] + *(const float*)0x5c85b4 < a[j])) continue;
-            if (!((double)a[j + 1] + *(const float*)0x5c85b4 < a[j])) continue;
+            if (!((double)a[j - 1] + *(const float*)rt3::Rdata(0x5c85b4) < a[j])) continue;
+            if (!((double)a[j + 1] + *(const float*)rt3::Rdata(0x5c85b4) < a[j])) continue;
             float d = (float)((double)a[j] - a[j + 1]);
             double dd = d;
-            a[j + 1] = (float)(dd * *(const double*)0x5c8628 + a[j + 1]);
-            if (j + 2 >= 0 && j + 2 < count) a[j + 2] = (float)(dd * *(const double*)0x5c8758 + a[j + 2]);
-            if (j + 3 >= 0 && j + 3 < count) a[j + 3] = (float)(dd * *(const double*)0x5c86b8 + a[j + 3]);
+            a[j + 1] = (float)(dd * *(const double*)rt3::Rdata(0x5c8628) + a[j + 1]);
+            if (j + 2 >= 0 && j + 2 < count) a[j + 2] = (float)(dd * *(const double*)rt3::Rdata(0x5c8758) + a[j + 2]);
+            if (j + 3 >= 0 && j + 3 < count) a[j + 3] = (float)(dd * *(const double*)rt3::Rdata(0x5c86b8) + a[j + 3]);
             float d2 = (float)((double)a[j] - a[j - 1]);
             double dd2 = d2;
-            a[j - 1] = (float)(dd2 * *(const double*)0x5c8628 + a[j - 1]);
-            if (j - 2 >= 0 && j - 2 < count) a[j - 2] = (float)(dd2 * *(const double*)0x5c8758 + a[j - 2]);
-            if (j - 3 >= 0 && j - 3 < count) a[j - 3] = (float)(dd2 * *(const double*)0x5c86b8 + a[j - 3]);
+            a[j - 1] = (float)(dd2 * *(const double*)rt3::Rdata(0x5c8628) + a[j - 1]);
+            if (j - 2 >= 0 && j - 2 < count) a[j - 2] = (float)(dd2 * *(const double*)rt3::Rdata(0x5c8758) + a[j - 2]);
+            if (j - 3 >= 0 && j - 3 < count) a[j - 3] = (float)(dd2 * *(const double*)rt3::Rdata(0x5c86b8) + a[j - 3]);
         }
     }
     // Three more passes towards the neighbours' middle, keeping the ground clearance.
@@ -1674,17 +1674,17 @@ RT3_NOINLINE void __fastcall Track_SmoothHeights(Collection* tracks, int, uint32
         float* dst = h[level];
         for (int32_t j = 0; j < count; ++j) {
             if (j == 0 || j == n1 || locked[j]) continue;
-            float mid = (float)((double)(float)((double)src[j + 1] - src[j - 1]) * *(const double*)0x5c8628 + src[j - 1]);
+            float mid = (float)((double)(float)((double)src[j + 1] - src[j - 1]) * *(const double*)rt3::Rdata(0x5c8628) + src[j - 1]);
             if (mid > src[j]) {
-                dst[j] = (float)(((double)mid - src[j]) * *(const double*)0x5c88e8 + dst[j]);
+                dst[j] = (float)(((double)mid - src[j]) * *(const double*)rt3::Rdata(0x5c88e8) + dst[j]);
                 continue;
             }
             float d = (float)((double)src[j] - mid);
-            double t = (double)d * *(const double*)0x5c8c20;
+            double t = (double)d * *(const double*)rt3::Rdata(0x5c8c20);
             float now = (float)((double)dst[j] - t);
             dst[j] = now;
-            float lift = (float)((double)(float)((double)h[0][j] + *(const double*)0x5c8578) - now);
-            if (lift > *(const float*)0x5c8598) {
+            float lift = (float)((double)(float)((double)h[0][j] + *(const double*)rt3::Rdata(0x5c8578)) - now);
+            if (lift > *(const float*)rt3::Rdata(0x5c8598)) {
                 dst[j] = (float)((double)now + lift);
                 if (!locked[j - 1]) dst[j - 1] = (float)((double)lift + dst[j - 1]);
                 if (!locked[j + 1]) dst[j + 1] = (float)((double)lift + dst[j + 1]);
@@ -1700,8 +1700,8 @@ RT3_NOINLINE void __fastcall Track_SmoothHeights(Collection* tracks, int, uint32
         if (locked[i] || locked[i + 1]) continue;
         if (!(weight[i] > 0.0f || weight[i] != weight[i]) && !(weight[i + 1] > 0.0f || weight[i + 1] != weight[i + 1])) continue;
         GetCorners(c, &k);
-        float v0 = (float)((*(const double*)0x5c8770 - weight[i]) * avg[i] + (double)fin[i] * weight[i]);
-        float v1 = (float)((*(const double*)0x5c8770 - weight[i + 1]) * avg[i + 1] + (double)fin[i + 1] * weight[i + 1]);
+        float v0 = (float)((*(const double*)rt3::Rdata(0x5c8770) - weight[i]) * avg[i] + (double)fin[i] * weight[i]);
+        float v1 = (float)((*(const double*)rt3::Rdata(0x5c8770) - weight[i + 1]) * avg[i + 1] + (double)fin[i + 1] * weight[i + 1]);
         float e0 = forward[i] ? v0 : v1;
         float e1 = forward[i] ? v1 : v0;
         k.b[1] = e0;

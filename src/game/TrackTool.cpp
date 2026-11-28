@@ -277,9 +277,9 @@ RT3_NOINLINE void __fastcall Font_DrawTextBox(uint8_t* f, int, const char* text,
 RT3_NOINLINE void __fastcall Glyph_Queue(uint8_t* g, int, float x, float y, uint32_t tint, float sx, float sy, uint32_t color, int32_t, int32_t snap, int32_t clip, float left, float top, float right, float bottom);
 RT3_NOINLINE uint8_t* __fastcall TimerWidget_Construct(uint8_t* w, int, const uint8_t* def);
 
-static inline double D(uint32_t a) { return *(const double*)a; }
+static inline double D(uint32_t a) { return *(const double*)rt3::Rdata(a); }
 
-static inline double Fl(uint32_t a) { return *(const float*)a; }
+static inline double Fl(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 
 static inline int32_t Ftol(double v) {
@@ -766,7 +766,7 @@ RT3_NOINLINE void __fastcall TrackTool_Bulldoze(uint8_t* tool, int, uint32_t, ui
     if (tool[0x7d]) {
         float distance = (float)Distance2D(
             x, y, hook::As<float>(g_622b1c), hook::As<float>(g_622b20));
-        if ((double)distance <= *(const double*)0x5c97c0) return;
+        if ((double)distance <= *(const double*)rt3::Rdata(0x5c97c0)) return;
         // The original copies these with MOV, preserving signaling NaN bits.
         g_622b20 = *(uint32_t*)&y;
         g_622b1c = *(uint32_t*)&x;

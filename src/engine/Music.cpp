@@ -157,7 +157,7 @@ static inline void StreamPause(void* s, int32_t on) { imp::AIL_pause_stream(s, o
 
 RT3_NOINLINE static inline void StreamClose(void* s) { imp::AIL_close_stream(s); }
 
-static inline double Fl(uint32_t a) { return *(const float*)a; }
+static inline double Fl(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 static inline int32_t Ftol(double v) {
     int32_t r;
@@ -309,10 +309,10 @@ void __fastcall Ambience_Tick(uint8_t* a, int, uint32_t flag) {
     F<int32_t>(a, 0x24) = 0;
     hook::As<uint32_t>(g_d93998) = flag;
     int32_t due = F<int32_t>(g_engine, 0x2c) + 10000;
-    if (!(F<float>(a, 0x30) > *(const float*)0x5c970c)) {
+    if (!(F<float>(a, 0x30) > *(const float*)rt3::Rdata(0x5c970c))) {
         F<uint32_t>(a, 0x34) = 0x3f800000;
         g_6257dc = 0x3951b717;
-    } else if (!(F<float>(a, 0x30) < *(const float*)0x5c85b4) && F<float>(a, 0x30) == F<float>(a, 0x30)) {
+    } else if (!(F<float>(a, 0x30) < *(const float*)rt3::Rdata(0x5c85b4)) && F<float>(a, 0x30) == F<float>(a, 0x30)) {
         F<uint32_t>(a, 0x34) = 0xbf800000;
         g_6257dc = 0x39d1b717;
     }
@@ -1142,7 +1142,7 @@ RT3_NOINLINE void __fastcall Music_SetVolume(uint8_t* m, int, float vol) {
         F<float>(m, 0x104) = vol;
         return;
     }
-    if (vol == *(const float*)0x5c8598) {
+    if (vol == *(const float*)rt3::Rdata(0x5c8598)) {
         if (StreamStatus(s) == 4) {
             if ((F<void*>(m, 0) && StreamStatus(F<void*>(m, 0)) == 4) ||
                 (F<void*>(m, 0) && StreamStatus(F<void*>(m, 0)) == 8))
@@ -1153,7 +1153,7 @@ RT3_NOINLINE void __fastcall Music_SetVolume(uint8_t* m, int, float vol) {
             (F<void*>(m, 0) && StreamStatus(F<void*>(m, 0)) == 8))
             StreamPause(F<void*>(m, 0), 0);
     }
-    float v = (float)((double)vol * *(const float*)0x5ddcc8);
+    float v = (float)((double)vol * *(const float*)rt3::Rdata(0x5ddcc8));
     imp::AIL_set_stream_volume_levels(F<void*>(m, 0), v, v);
     F<float>(m, 0x104) = vol;
 }
@@ -1163,7 +1163,7 @@ RT3_REPLACE(0x557d90, Music_SetVolume);
 // given) at the stored volume (+0x104 > 0 only); `onEnd` becomes the end callback.
 RT3_NOINLINE int32_t __fastcall Music_Play(uint8_t* m, int, const char* file, void* digital, void* onEnd) {
     if (!Sound_Is3D(g_sound)) return 0;
-    if (!(*(const float*)0x5c8598 < F<float>(m, 0x104))) return 0;
+    if (!(*(const float*)rt3::Rdata(0x5c8598) < F<float>(m, 0x104))) return 0;
     char* name = (char*)m + 4;
     if (!file) {
         if (!*name) return 0;

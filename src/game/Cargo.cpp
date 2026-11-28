@@ -166,9 +166,9 @@ static int32_t ObjFogEnd(void* o) {
     return Map_FogEnd(cellX, cellY);
 }
 
-static inline double D(uint32_t a) { return *(const double*)a; }
+static inline double D(uint32_t a) { return *(const double*)rt3::Rdata(a); }
 
-static inline float Fl(uint32_t a) { return *(const float*)a; }
+static inline float Fl(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 static inline uint8_t* World() { return g_world; }
 
@@ -190,7 +190,7 @@ static void Street(int32_t x, int32_t y) {
     Map_SetFineBit(g_map, 0, x, y, 1, 3, 1);
 }
 
-static inline double Fl_202(uint32_t a) { return *(const float*)a; }
+static inline double Fl_202(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 namespace {
 int32_t Tooltip_Clear() { return Ui_ShowTooltip(g_windowManager, 0, (const char*)0x5c87a8, 3, 0, -1); }
@@ -374,7 +374,7 @@ RT3_NOINLINE double __fastcall Cargo_DemandWeight(void* c) {
         if (F<uint8_t>(d, 0x10) == type && (F<uint8_t>(d, 0x12) & 2) && F<uint16_t>(d, 8) == 0) ++n;
     }
     float fn = (float)n;
-    return (double)fn / *(const float*)0x5c8554;
+    return (double)fn / *(const float*)rt3::Rdata(0x5c8554);
 }
 RT3_REPLACE(0x41e650, Cargo_DemandWeight);
 
@@ -718,7 +718,7 @@ RT3_REPLACE(0x41f5b0, NamedObj41f590_Destructor);
 // 0x41f5c0. Loads city c from stream s: its world model and a fresh building
 // mix table; an unset size factor +0x31b becomes 1. Returns the bytes read.
 int32_t __fastcall City_Load(uint8_t* c, int, int32_t s) {
-    if (F<float>(c, 0x31b) == *(const float*)0x5c8598) {
+    if (F<float>(c, 0x31b) == *(const float*)rt3::Rdata(0x5c8598)) {
         F<uint32_t>(c, 0x31b) = 0x3f800000;
         F<uint32_t>(c, 0x317) = 0;
     }
@@ -881,7 +881,7 @@ RT3_NOINLINE double __fastcall Obj_NamedValue(void* o, int, const char* name) {
             return F<float>(Collection_Get(t, 0, Collection_IdAt(t, 0, i, 0)), 0x1e);
         }
     }
-    return *(const float*)0x5c8598;
+    return *(const float*)rt3::Rdata(0x5c8598);
 }
 RT3_REPLACE(0x41fa30, Obj_NamedValue);
 
@@ -905,8 +905,8 @@ void __fastcall City_LayStreets(uint8_t* c) {
     if (F<int32_t>(c, 0x23e)) return;
     const int32_t* dxs = (const int32_t*)0x624b28;
     const int32_t* dys = (const int32_t*)0x624b48;
-    int32_t cx = Ftol(Obj_CellX(c) * *(const float*)0x5c8568);
-    int32_t cy = Ftol(Obj_CellY(c) * *(const float*)0x5c8568);
+    int32_t cx = Ftol(Obj_CellX(c) * *(const float*)rt3::Rdata(0x5c8568));
+    int32_t cy = Ftol(Obj_CellY(c) * *(const float*)rt3::Rdata(0x5c8568));
     int32_t pat = (cx + cy) & 3;
     static const int8_t grow[4][7] = { { 1, 0, -1, 0, -1, 0, 1 }, { -1, 0, -1, 0, 1, 0, 1 },
                                        { -1, 0, 1, 0, 1, 0, -1 }, { 1, 0, 1, 0, -1, 0, -1 } };
@@ -944,11 +944,11 @@ void __fastcall City_LayStreets(uint8_t* c) {
     for (int32_t y = y0; y <= y1; ++y) {
         for (int32_t x = x0; x <= x1; ++x) {
             float d = (float)Distance2D((float)x, (float)y, (float)ccx, (float)ccy);
-            if (d > *(const float*)0x5c85f8) continue;
+            if (d > *(const float*)rt3::Rdata(0x5c85f8)) continue;
             uint8_t flag = Terrain_GetFlag(g_map, 0, x, y);
-            if (!(d > *(const float*)0x5c8900) && d == d) Terrain_SetCellCount(g_map, 0, x, y, 0);
-            else if (!(d > *(const float*)0x5c85f8) && d == d) {
-                int32_t n = Ftol(((double)d - *(const float*)0x5c8900) * D(0x5c8970) / D(0x5c8bf0) + D(0x5c86b8));
+            if (!(d > *(const float*)rt3::Rdata(0x5c8900)) && d == d) Terrain_SetCellCount(g_map, 0, x, y, 0);
+            else if (!(d > *(const float*)rt3::Rdata(0x5c85f8)) && d == d) {
+                int32_t n = Ftol(((double)d - *(const float*)rt3::Rdata(0x5c8900)) * D(0x5c8970) / D(0x5c8bf0) + D(0x5c86b8));
                 if (n < (int32_t)Terrain_CellCount(g_map, 0, x, y))
                     Terrain_SetCellCount(g_map, 0, x, y, (uint8_t)n);
             }
@@ -964,7 +964,7 @@ RT3_NOINLINE int32_t Option2bbActive() {
     int32_t mode = F<int32_t>(g_app, 0x2bb);
     if (mode == 0) return 0;
     if (mode == 2) return 1;
-    return F<float>(g_62be68, 0x20) >= *(const float*)0x5c9a9c ? 1 : 0;
+    return F<float>(g_62be68, 0x20) >= *(const float*)rt3::Rdata(0x5c9a9c) ? 1 : 0;
 }
 RT3_REPLACE(0x41fff0, Option2bbActive);
 

@@ -53,6 +53,7 @@ function at a time, so the game stays playable the whole way through.
 | Two-player LAN game | ✅ | original vs. rewrite, kept in sync through companies, stations, track and a train |
 | Side-by-side coverage | ✅ | every rewritten function has run next to the original ([docs/coverage.md](docs/coverage.md)) |
 | Own process (`OpenRT3.exe`) | ✅ | loads the game image itself and runs our code in it |
+| Numeric constants and tables in our own code | 🟡 | read from our own copy of the game's read-only data, made from your RT3.exe at build time; strings and vtables still from the game image ([docs/imagedeps.md](docs/imagedeps.md)) |
 | Game globals in our own code | ⏳ | still at their original addresses in the game image |
 | D3DX 8, GameSpy SDK, C runtime, libjpeg | ⏳ | still run from the game image |
 | Online play through a revived lobby | 🔍 | should work, not tested yet |

@@ -202,9 +202,9 @@ void __fastcall Widget_LoadBase(uint8_t* w, int, const uint8_t* rec);
 RT3_NOINLINE void __fastcall Widget_Destruct(uint8_t* w);
 RT3_NOINLINE uint8_t* __fastcall Widget_Construct(uint8_t* w, int, const uint8_t* def);
 
-static inline double D(uint32_t a) { return *(const double*)a; }
+static inline double D(uint32_t a) { return *(const double*)rt3::Rdata(a); }
 
-static inline double Fl(uint32_t a) { return *(const float*)a; }
+static inline double Fl(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 static inline int32_t Ftol(double v) {
     int32_t r;
@@ -1412,7 +1412,7 @@ RT3_NOINLINE void __fastcall MoneySlider_Setup(int32_t reset) {
     float aggr = Player_Aggressiveness((uint8_t*)Obj_Ref25(hook::As<void*>(g_world)));
     float cash = (float)g_6cec14;
     float v = (float)((double)cash * aggr);
-    int32_t top = (double)v < *(const float*)0x5ce8a0 ? Ftol(v) : 1000000000;
+    int32_t top = (double)v < *(const float*)rt3::Rdata(0x5ce8a0) ? Ftol(v) : 1000000000;
     int32_t money = g_6cec14;
     if (top <= 200000 - money) top = 200000 - money;
     int32_t step;

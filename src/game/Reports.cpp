@@ -200,9 +200,9 @@ RT3_NOINLINE void __fastcall Glyph_Queue(uint8_t* g, int, float x, float y, uint
 RT3_NOINLINE void __fastcall TextLink_Draw(uint8_t* win, uint8_t* font, const char* text, float x, float y, float w, float h, int32_t align, int32_t valign, uint32_t flags, const char* tip, int32_t id, uint32_t color, uint32_t hover);
 RT3_NOINLINE void __fastcall TextLink_DrawPlain(uint8_t* win, uint8_t* font, const char* text, float x, float y, float w, float h, uint32_t color, int32_t align, int32_t valign, uint32_t flags, const char* tip, int32_t id);
 
-static inline double D(uint32_t a) { return *(const double*)a; }
+static inline double D(uint32_t a) { return *(const double*)rt3::Rdata(a); }
 
-static inline double Fl(uint32_t a) { return *(const float*)a; }
+static inline double Fl(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 static inline int32_t Ftol(double v) {
     int32_t r;
@@ -937,8 +937,8 @@ RT3_NOINLINE void __fastcall EventPanel_Draw(uint8_t* p, int, float x, float y, 
     Events_Fire(g_events, 0, 9, text, 0x3e8);
     Font_DrawTextBox(F<uint8_t*>(p, 0xe55), 0, text, x, y, w, h, 0xff000000, 0, 1, 2, 1.0f);
     const char* tip = GetString(0x6ed);
-    float ly = (float)((double)y + h - *(const double*)0x5d0238);
-    float lx = (float)((double)x + w - *(const double*)0x5c9688);
+    float ly = (float)((double)y + h - *(const double*)rt3::Rdata(0x5d0238));
+    float lx = (float)((double)x + w - *(const double*)rt3::Rdata(0x5c9688));
     const char* label = GetString(0x6ec);
     uint32_t lw = 0x3e400000, lh = 0x3d19999a;
     TextLink_Draw(p, F<uint8_t*>(p, 0xe55), label, lx, ly, *(float*)&lw, *(float*)&lh, 3, 4, 3, tip, 0x3fba, 0xff605e18, 0xff908e38);

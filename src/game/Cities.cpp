@@ -227,7 +227,7 @@ RT3_NOINLINE void __stdcall SetGlobal62bae8(uint8_t v);
 RT3_NOINLINE void __fastcall SceneObj_Teardown(uint8_t* o);
 RT3_NOINLINE void __fastcall Loading_Pump(uint8_t* l, int, int32_t step, int32_t force);
 
-static inline double D(uint32_t va) { return *(const double*)va; }
+static inline double D(uint32_t va) { return *(const double*)rt3::Rdata(va); }
 
 static inline uint32_t Obj_Refresh420410(void* o) { return ((uint32_t(__thiscall*)(void*))&Obj_UpdatePortFlags)(o); }
 
@@ -255,7 +255,7 @@ static inline Collection* Stations() { return g_stations; }
 
 static inline uint8_t* StationAt(int32_t i) { return (uint8_t*)Collection_Get(Stations(), 0, Collection_IdAt(Stations(), 0, i, 0)); }
 
-static inline float Fl(uint32_t a) { return *(const float*)a; }
+static inline float Fl(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 static inline bool Unserved(uint8_t* e) {
     return !F<int32_t>(e, 0x23e) && !F<int32_t>(e, 0x276) && !F<int32_t>(e, 0x302) &&
@@ -267,9 +267,9 @@ static inline bool InCellRect(uint8_t* o, int32_t x0, int32_t y0, int32_t x1, in
            Obj_CellY(o) <= (float)y1;
 }
 
-static inline double D_196(uint32_t a) { return *(const double*)a; }
+static inline double D_196(uint32_t a) { return *(const double*)rt3::Rdata(a); }
 
-static inline double Fl_196(uint32_t a) { return *(const float*)a; }
+static inline double Fl_196(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 static inline int32_t Ftol(double v) {
     int32_t r;
@@ -284,9 +284,9 @@ static inline int32_t Ftol(double v) {
 // A city's position in 4x4 blocks.
 static inline float BlockOf(double cell) { return (float)((cell - Fl_196(0x5c878c)) / D_196(0x5c87b8)); }
 
-static inline double D_200(uint32_t a) { return *(const double*)a; }
+static inline double D_200(uint32_t a) { return *(const double*)rt3::Rdata(a); }
 
-static inline double Fl_200(uint32_t a) { return *(const float*)a; }
+static inline double Fl_200(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 // Weighted score of the six stat sums (+0x2b2..+0x2c6) per unit of the first.
 static float Score(float s0, float s1, float s2, float s3, float s4, float s5, float ratio) {
@@ -299,9 +299,9 @@ static float Score(float s0, float s1, float s2, float s3, float s4, float s5, f
     return (float)((double)v / d);
 }
 
-static inline double D_207(uint32_t a) { return *(const double*)a; }
+static inline double D_207(uint32_t a) { return *(const double*)rt3::Rdata(a); }
 
-static inline double Fl_207(uint32_t a) { return *(const float*)a; }
+static inline double Fl_207(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 static inline float BitsF(uint32_t b) { return *(float*)&b; }
 
@@ -435,7 +435,7 @@ RT3_NOINLINE void __fastcall Obj_SumBuildingWeights(void* o) {
                 double v = (F<int32_t>(b, 0x246) ? 1.75 : 1.0) * D(0x5c8d68);
                 F<float>(o, 0x312) = (float)(v + F<float>(o, 0x312));
             } else {
-                F<float>(o, 0x312) = (float)((double)F<float>(o, 0x312) + *(const float*)0x5c8900);
+                F<float>(o, 0x312) = (float)((double)F<float>(o, 0x312) + *(const float*)rt3::Rdata(0x5c8900));
             }
             break;
         case 3:
@@ -483,7 +483,7 @@ RT3_NOINLINE uint32_t __fastcall Obj_SetNamedAmount(void* o, int, const char* na
         c = F<Collection*>(o, 0x37f);
         if (crt::stricmp(name, (const char*)Collection_Get(c, 0, Collection_IdAt(c, 0, i, 0))) == 0) break;
     }
-    const float zero = *(const float*)0x5c8598;
+    const float zero = *(const float*)rt3::Rdata(0x5c8598);
     if (i >= Collection_Count(F<Collection*>(o, 0x37f))) {
         if (amount > zero) {
             uint8_t rec[0x24] = {};
@@ -1179,9 +1179,9 @@ RT3_NOINLINE int32_t __fastcall Owner_PickBuildingToSell(uint8_t* o, int, int32_
                 }
                 float denom = (1.0f > sum) ? 1.0f : sum;
                 score = (float)((double)acc / denom);
-                if (*(const float*)0x5c9b18 > score) score = -3.0f;
+                if (*(const float*)rt3::Rdata(0x5c9b18) > score) score = -3.0f;
                 double r = (double)SimRand(0x12c, 0x3e8);
-                score = (float)((*(const double*)0x5c9b10 - score) * r);
+                score = (float)((*(const double*)rt3::Rdata(0x5c9b10) - score) * r);
                 if (score < 1.0f) score = (float)SimRand(1, 5);
             }
             uint8_t* st2 = ((StateFn)(*(void***)b)[0x80 / 4])(b);
@@ -1497,7 +1497,7 @@ RT3_REPLACE(0x423d70, Company_RemoveEntry);
 // (+0x5f, count +0x5b), accumulated in float; 0 if inactive (+0x3f) or empty.
 RT3_NOINLINE double __fastcall Obj_WeightedAverage(void* o) {
     int32_t n = F<int32_t>(o, 0x5b);
-    if (F<int32_t>(o, 0x3f) == 0 || n == 0) return *(const float*)0x5c8598;
+    if (F<int32_t>(o, 0x3f) == 0 || n == 0) return *(const float*)rt3::Rdata(0x5c8598);
     float sum = 0.0f;
     int32_t total = 0;
     uint8_t* e = (uint8_t*)o + 0x5f;

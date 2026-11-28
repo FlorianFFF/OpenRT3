@@ -146,7 +146,7 @@ RT3_NOINLINE void __fastcall MapEditor_FillPaint(uint8_t* ed, int, float x, floa
 RT3_NOINLINE void __fastcall MapBrush_PaintFlag10(uint8_t* d, int, float x, float y);
 RT3_NOINLINE void __fastcall MapBrush_PaintBit3(uint8_t* b, int, float x, float y);
 
-static inline double D(uint32_t a) { return *(const double*)a; }
+static inline double D(uint32_t a) { return *(const double*)rt3::Rdata(a); }
 
 // One blended channel: ftol(src * alpha + dst * (1 - alpha)).
 static inline uint8_t Blend(uint32_t s, uint32_t d, float alpha, double inv) {
@@ -166,7 +166,7 @@ static inline uint8_t Blend(uint32_t s, uint32_t d, float alpha, double inv) {
     return (uint8_t)r;
 }
 
-static inline float Fl(uint32_t a) { return *(const float*)a; }
+static inline float Fl(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 static inline int32_t Ftol(double v) {
     int32_t r;
@@ -178,12 +178,12 @@ static inline int32_t Ftol(double v) {
     return r;
 }
 
-static inline double Fl_195(uint32_t a) { return *(const float*)a; }
+static inline double Fl_195(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 // Average of two channel bytes (x 0.5 in float, truncated).
 static inline uint8_t Avg(uint8_t a, uint8_t b) { return (uint8_t)Ftol(((double)(float)a + (float)b) * Fl_195(0x5c8d48)); }
 
-static inline double Fl_207(uint32_t a) { return *(const float*)a; }
+static inline double Fl_207(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 static inline float BitsF(uint32_t b) { return *(float*)&b; }
 

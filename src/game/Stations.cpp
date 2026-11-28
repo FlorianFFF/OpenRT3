@@ -326,9 +326,9 @@ static inline Collection* Coll(uint32_t a) { return hook::Global<Collection*>(a)
 
 static inline Collection* Cargos() { return g_cargoTypes; }
 
-static inline double D(uint32_t a) { return *(const double*)a; }
+static inline double D(uint32_t a) { return *(const double*)rt3::Rdata(a); }
 
-static inline float Fl(uint32_t a) { return *(const float*)a; }
+static inline float Fl(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 
 static inline int32_t Ftol(double v) {
@@ -374,15 +374,15 @@ static inline Collection* Stations() { return g_stations; }
 
 static inline uint8_t* Node(uint32_t id) { return (uint8_t*)Collection_Get(g_tracks, 0, id); }
 
-static inline double Fl_196(uint32_t a) { return *(const float*)a; }
+static inline double Fl_196(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 static uint8_t* StationRegion(uint8_t* st) {
     return Obj_Region(F<uint32_t>(st, 4) ? Collection_Get(g_buildings, 0, F<uint32_t>(st, 4)) : nullptr);
 }
 
-static inline double Fl_203(uint32_t a) { return *(const float*)a; }
+static inline double Fl_203(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
-static inline double Fl_205(uint32_t a) { return *(const float*)a; }
+static inline double Fl_205(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 
 static inline uint32_t FBits(float f) { return *(uint32_t*)&f; }
@@ -412,7 +412,7 @@ static inline uint8_t* Station_RegionAt(float fx, float fy) {
     return F<uint8_t*>(m, 0x2129) + idx * 0x1d7;
 }
 
-static inline double Fl_207(uint32_t a) { return *(const float*)a; }
+static inline double Fl_207(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 namespace {
 // The original's frame: its slots are reused with other types (ints, floats,
@@ -1106,10 +1106,10 @@ RT3_NOINLINE uint8_t* __fastcall Obj_BuildingRegion(void* o) {
 }
 RT3_REPLACE(0x47de20, Obj_BuildingRegion);
 
-RT3_NOINLINE int32_t __fastcall Obj_BuildingQuarterX(void* o) { return (int32_t)(Obj_CellX(BuildingOf4(o)) / *(const float*)0x5c8568); }
+RT3_NOINLINE int32_t __fastcall Obj_BuildingQuarterX(void* o) { return (int32_t)(Obj_CellX(BuildingOf4(o)) / *(const float*)rt3::Rdata(0x5c8568)); }
 RT3_REPLACE(0x47de50, Obj_BuildingQuarterX);
 
-RT3_NOINLINE int32_t __fastcall Obj_BuildingQuarterY(void* o) { return (int32_t)(Obj_CellY(BuildingOf4(o)) / *(const float*)0x5c8568); }
+RT3_NOINLINE int32_t __fastcall Obj_BuildingQuarterY(void* o) { return (int32_t)(Obj_CellY(BuildingOf4(o)) / *(const float*)rt3::Rdata(0x5c8568)); }
 RT3_REPLACE(0x47de90, Obj_BuildingQuarterY);
 
 // 0x47ded0 / 0x47df00. Cell position of the building referenced at +4.
@@ -1141,7 +1141,7 @@ void __fastcall Station_UpdateRoutes(uint8_t* o) {
     Obj_Region(b);
     for (int32_t k = 0; k < 0x35; ++k) {
         float* p = &F<float>(o, 0x3e + k * 4);
-        if (*p <= *(const float*)0x5c8598) continue;
+        if (*p <= *(const float*)rt3::Rdata(0x5c8598)) continue;
         if (F<int32_t>(g_world, 0x15) - F<int32_t>(p, 0x1a8) > 0x1d8800) *p = 0.0f;
         else {
             *p = (float)(*p * D(0x5ce900));
@@ -1152,7 +1152,7 @@ void __fastcall Station_UpdateRoutes(uint8_t* o) {
         for (int32_t i = 0; i < F<int32_t>(o, 0x30); ++i) {
             uint8_t* e = F<uint8_t*>(o, t) + i * 5;
             if (!e[4]) continue;
-            F<float>(e, 0) = (float)(F<float>(e, 0) + (double)*(const float*)0x5c9f18);
+            F<float>(e, 0) = (float)(F<float>(e, 0) + (double)*(const float*)rt3::Rdata(0x5c9f18));
             float d = F<float>(F<uint8_t*>(o, t) + i * 5, 0);
             uint8_t* other = (uint8_t*)Collection_Get(g_stations, 0, i);
             int32_t n = F<int32_t>(o, 0x30);
@@ -1697,7 +1697,7 @@ RT3_NOINLINE void __fastcall Station_RecordNearby(uint8_t* s, int, uint8_t* obj)
     float oy = (float)Obj_CellY(obj);
     float ox = (float)Obj_CellX(obj);
     float d = (float)Distance2D(ox, oy, bx, by);
-    if (!(d <= *(const float*)0x5c8738)) return;
+    if (!(d <= *(const float*)rt3::Rdata(0x5c8738))) return;
     int32_t k = Obj_StateB9(obj);
     int32_t cnt = ++F<int32_t>(s, 0x590 + k * 4);
     uint32_t* rec = (uint32_t*)crt::malloc(cnt * 8);
@@ -2172,7 +2172,7 @@ int32_t __fastcall Table_ActiveSiteNear(Collection* t, int, uint32_t bid, uint32
         float by = (float)Obj_CellY(b);
         float bx = (float)Obj_CellX(b);
         float d = (float)Distance2D(bx, by, rx, ry);
-        if (d <= *(const float*)0x5c8738) return 1;
+        if (d <= *(const float*)rt3::Rdata(0x5c8738)) return 1;
     }
     return 0;
 }

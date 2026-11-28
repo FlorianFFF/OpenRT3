@@ -215,7 +215,7 @@ static inline size_t Len(const char* s) { size_t n = 0; while (s[n]) ++n; return
 
 static inline void Copy(char* d, const char* s) { while ((*d++ = *s++) != 0) {} }
 
-static inline double D(uint32_t a) { return *(const double*)a; }
+static inline double D(uint32_t a) { return *(const double*)rt3::Rdata(a); }
 
 
 
@@ -253,7 +253,7 @@ static void FreeField(uint8_t* w, uint32_t off) {
     F<void*>(w, off) = nullptr;
 }
 
-static inline double Fl(uint32_t a) { return *(const float*)a; }
+static inline double Fl(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 // Makes room for `extra` more characters in edit box w's string +0xba
 // (reallocated to the work buffer's length + extra + 10).
@@ -381,8 +381,8 @@ RT3_NOINLINE int32_t __fastcall Widget_HitTest(uint8_t* w, int, float x, float y
     if (fl & 2) return 1;
     if (fl & 0x4000) return 0;
     uint8_t* p = F<uint8_t*>(w, 0x86);
-    const double m = *(const double*)0x5ddd10;
-    if (!(F<float>(w, 0x23) == *(const float*)0x5c8598)) {
+    const double m = *(const double*)rt3::Rdata(0x5ddd10);
+    if (!(F<float>(w, 0x23) == *(const float*)rt3::Rdata(0x5c8598))) {
         if (!(((double)F<float>(p, 5) + F<float>(w, 0x1b)) - m <= x)) return 0;
         if (!(((double)F<float>(w, 0x1f) + F<float>(p, 9)) - m <= y)) return 0;
         if (!((((double)F<float>(p, 5) + F<float>(w, 0x23)) + F<float>(w, 0x1b)) + m >= x)) return 0;
@@ -467,11 +467,11 @@ RT3_REPLACE(0x5584a0, Widget_ClearState);
 // 0x5584d0. Horizontal position of the widget centre as a 0..1 pan value.
 RT3_NOINLINE double __fastcall Widget_Pan_Impl(uint8_t* w) {
     uint8_t* p = F<uint8_t*>(w, 0x86);
-    if (!p) return *(const float*)0x5c8d48;
-    double v = (((double)F<float>(p, 5) + F<float>(w, 0xb)) + F<float>(w, 0x13) * *(const double*)0x5c8628) *
-                   *(const double*)0x5c8680 + *(const double*)0x5c8988;
-    if (v < *(const float*)0x5c8598) return *(const float*)0x5c8598;
-    if (v > *(const float*)0x5c85b4) return *(const float*)0x5c85b4;
+    if (!p) return *(const float*)rt3::Rdata(0x5c8d48);
+    double v = (((double)F<float>(p, 5) + F<float>(w, 0xb)) + F<float>(w, 0x13) * *(const double*)rt3::Rdata(0x5c8628)) *
+                   *(const double*)rt3::Rdata(0x5c8680) + *(const double*)rt3::Rdata(0x5c8988);
+    if (v < *(const float*)rt3::Rdata(0x5c8598)) return *(const float*)rt3::Rdata(0x5c8598);
+    if (v > *(const float*)rt3::Rdata(0x5c85b4)) return *(const float*)rt3::Rdata(0x5c85b4);
     return v;
 }
 

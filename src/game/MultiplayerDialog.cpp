@@ -329,9 +329,9 @@ static inline void SetChildText(uint8_t* dlg, int32_t id, const char* s) {
     Copy(p, s);
 }
 
-static inline double D(uint32_t a) { return *(const double*)a; }
+static inline double D(uint32_t a) { return *(const double*)rt3::Rdata(a); }
 
-static inline double Fl(uint32_t a) { return *(const float*)a; }
+static inline double Fl(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 
 static inline int32_t Ftol(double v) {
@@ -416,16 +416,16 @@ RT3_NOINLINE void __fastcall CompanyWindow_Draw(uint8_t* p, int, float x, float 
     const int32_t page = F<int32_t>(p, 0x78);
     Font_DrawTextBox(F<uint8_t*>(p, 0xe55), 0, GetString(F<int32_t>((void*)0x6220a4, page * 0xd)), x, y, w, 0.05f, 0xff000000, 0, 1, 2, 1.0f);
     uint8_t* glyphs = F<uint8_t*>(p, 0xb31);
-    float top = (float)((double)y - *(const double*)0x5d1178);
-    double left = (double)x + *(const double*)0x5c8590;
+    float top = (float)((double)y - *(const double*)rt3::Rdata(0x5d1178));
+    double left = (double)x + *(const double*)rt3::Rdata(0x5c8590);
     float gx = (float)left;
     Glyph_Queue((uint8_t*)(uintptr_t)Table_Entry(glyphs, 0, 0xc), 0, gx, top, 0x3f800000, 1.0f, 1.0f, 0x2fffffff, 0, 1, 0, 0.0f, 0.0f, 1.0f, 1.0f);
-    double right = (double)x + w - *(const double*)0x5c8590;
-    float rx = (float)(right - *(const double*)0x5d1170);
+    double right = (double)x + w - *(const double*)rt3::Rdata(0x5c8590);
+    float rx = (float)(right - *(const double*)rt3::Rdata(0x5d1170));
     Glyph_Queue((uint8_t*)(uintptr_t)Table_Entry(F<uint8_t*>(p, 0xb31), 0, 0xd), 0, rx, top, 0x3f800000, 1.0f, 1.0f, 0x2fffffff, 0, 1, 0, 0.0f, 0.0f, 1.0f, 1.0f);
     if (((const uint8_t*)0x6220ac)[page * 0xd] && Collection_IsValid(g_companies, 0, F<uint32_t>(p, 0x88))) {
         uint8_t* co = (uint8_t*)Collection_Get(g_companies, 0, F<uint32_t>(p, 0x88));
-        float lx = (float)(left - *(const double*)0x5d1170 - *(const double*)0x5c86b0);
+        float lx = (float)(left - *(const double*)rt3::Rdata(0x5d1170) - *(const double*)rt3::Rdata(0x5c86b0));
         Glyph_Queue((uint8_t*)(uintptr_t)Company_Logo(co), 0, lx, top, 0x3f800000, 0.5f, 0.5f, 0xffffffff, 0, 1, 0, 0.0f, 0.0f, 1.0f, 1.0f);
         char text[0x100];
         const char* fmt = GetString(0x4b2);
@@ -433,9 +433,9 @@ RT3_NOINLINE void __fastcall CompanyWindow_Draw(uint8_t* p, int, float x, float 
         Window_SendEvent5(p, 0, 0x6e, 0x3f13, (uint32_t)(uintptr_t)text, 0, 0);
         Window_SendEvent5(p, 0, 0x7c, 0x3f13, F<uint32_t>(p, 0x88), 0, 0);
     }
-    float rule = (float)((double)y + *(const double*)0x5d10f8);
+    float rule = (float)((double)y + *(const double*)rt3::Rdata(0x5d10f8));
     Ui_Line(0x1f000000, 0, gx, rule, (float)right, rule, 2.0f);
-    float body = (float)((double)rule + *(const double*)0x5c9bc0);
+    float body = (float)((double)rule + *(const double*)rt3::Rdata(0x5c9bc0));
     float bh = (float)((double)h - ((double)body - y));
     int32_t sortKey = F<int32_t>(p, 0x75c);
     switch (page) {
@@ -876,30 +876,30 @@ RT3_NOINLINE void Merger_ResolveVote() {
     Company_LiveIndex(tgt);
     g_6d1104 = Company_FreeShares(tgt);
     float value = Company_SharePrice(tgt, 0, 0, 0);
-    value = (float)(((double)Company_BookValue(tgt) + value) / *(const float*)0x5c878c);
-    if (value < *(const float*)0x5c85b4) value = 1.0f;
+    value = (float)(((double)Company_BookValue(tgt) + value) / *(const float*)rt3::Rdata(0x5c878c));
+    if (value < *(const float*)rt3::Rdata(0x5c85b4)) value = 1.0f;
     float fprice = (float)(int32_t)F<uint16_t>((void*)0x6d10e0, 0);
-    float premium = (float)((double)fprice / value - *(const double*)0x5c8770);
+    float premium = (float)((double)fprice / value - *(const double*)rt3::Rdata(0x5c8770));
     float m = Effects_Multiplier(g_world, 0, 0x3a, F<uint16_t>((void*)0x6d10dc, 0), F<uint32_t>(buyer, 0x3b), 0);
-    double scale = m < *(const double*)0x5c85b8 ? 0.01 : (double)m;
+    double scale = m < *(const double*)rt3::Rdata(0x5c85b8) ? 0.01 : (double)m;
     premium = (float)((double)premium / scale);
-    float appeal = (float)((double)premium * *(const double*)0x5c8680 + *(const double*)0x5c86b8);
-    appeal = (float)((Company_Stat(buyer, 0, 0x21, 0x2329) - *(const double*)0x5c86b8) / *(const double*)0x5c85c8 + appeal);
-    appeal = (float)((double)SimRand(-10, 10) / *(const double*)0x5c85d8 + appeal);
+    float appeal = (float)((double)premium * *(const double*)rt3::Rdata(0x5c8680) + *(const double*)rt3::Rdata(0x5c86b8));
+    appeal = (float)((Company_Stat(buyer, 0, 0x21, 0x2329) - *(const double*)rt3::Rdata(0x5c86b8)) / *(const double*)rt3::Rdata(0x5c85c8) + appeal);
+    appeal = (float)((double)SimRand(-10, 10) / *(const double*)rt3::Rdata(0x5c85d8) + appeal);
     for (int32_t i = 0; i < Table_CountField4(g_players); ++i) {
         uint8_t* pl = (uint8_t*)Table_NthField4(g_players, 0, i);
         int32_t held = F<int32_t>(pl, F<uint16_t>((void*)0x6d10de, 0) * 4 + 0x15d);
         if (!F<int32_t>(pl, 0x1e1) && held > 0) {
-            float will = (float)((double)appeal - *(const double*)0x5c86b8);
-            if (F<int32_t>(pl, 0x1dd) == F<int32_t>(tgt, 0)) will = (float)((double)will - *(const double*)0x5c8c18);
-            will = (float)((double)SimRand(-20, 20) / *(const double*)0x5c85d8 + will);
+            float will = (float)((double)appeal - *(const double*)rt3::Rdata(0x5c86b8));
+            if (F<int32_t>(pl, 0x1dd) == F<int32_t>(tgt, 0)) will = (float)((double)will - *(const double*)rt3::Rdata(0x5c8c18));
+            will = (float)((double)SimRand(-20, 20) / *(const double*)rt3::Rdata(0x5c85d8) + will);
             float roll = (float)SimRand(0, 100);
-            yes[i] = (double)will * *(const float*)0x5c8c28 > roll ? 1 : 0;
+            yes[i] = (double)will * *(const float*)rt3::Rdata(0x5c8c28) > roll ? 1 : 0;
         }
         if (yes[i] && (held = F<int32_t>(pl, F<uint16_t>((void*)0x6d10de, 0) * 4 + 0x15d)) > 0) g_6d110c += held;
     }
-    if (appeal < *(const float*)0x5c8598) appeal = 0.0f;
-    if (appeal > *(const double*)0x5c8770) appeal = 1.0f;
+    if (appeal < *(const float*)rt3::Rdata(0x5c8598)) appeal = 0.0f;
+    if (appeal > *(const double*)rt3::Rdata(0x5c8770)) appeal = 1.0f;
     float free = (float)g_6d1104;
     int32_t extra = (int32_t)((double)free * appeal) / 0x3e8 * 0x3e8;
     g_6d1108 = extra;

@@ -425,9 +425,9 @@ static inline void BindFixed(uint8_t* r, uint32_t slot, uint32_t fvf, uint32_t s
     F<void*>(r, 0x263b) = nullptr;
 }
 
-static inline double D(uint32_t a) { return *(const double*)a; }
+static inline double D(uint32_t a) { return *(const double*)rt3::Rdata(a); }
 
-static inline float Fl(uint32_t a) { return *(const float*)a; }
+static inline float Fl(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 static inline int32_t Release(void* p) { return ((int32_t(__stdcall*)(void*))Vt(p)[2])(p); }
 
@@ -485,9 +485,9 @@ static inline int32_t Ftol(double v) {
     return r;
 }
 
-static inline double Dq(uint32_t a) { return *(const double*)a; }
+static inline double Dq(uint32_t a) { return *(const double*)rt3::Rdata(a); }
 
-static inline double Fq(uint32_t a) { return *(const float*)a; }
+static inline double Fq(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 static inline void StageState(uint8_t* r, uint32_t stage, uint32_t type, uint32_t value) {
     void* dev = F<void*>(r, 0x25df);
@@ -507,13 +507,13 @@ static inline void RenderState(uint8_t* r, uint32_t state, uint32_t value) {
 
 static inline int32_t Clamp255(int32_t v) { return v < 0 ? 0 : v > 0xff ? 0xff : v; }
 
-static inline double Fl_201(uint32_t a) { return *(const float*)a; }
+static inline double Fl_201(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 static inline void LookAt(void* out, const float* eye, const float* at, const float* up) {
     ((void*(__stdcall*)(void*, const float*, const float*, const float*))0x56e2d2)(out, eye, at, up);
 }
 
-static inline double Fl_206(uint32_t a) { return *(const float*)a; }
+static inline double Fl_206(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 static inline void DevRenderState(uint8_t* r, uint32_t state, uint32_t value) {
     void* dev = F<void*>(r, 0x25df);
@@ -561,8 +561,8 @@ RT3_REPLACE(0x544270, Render_SetViewOffset);
 // 0x544290. Off-centre perspective projection (+0x352f; near 8, far 65535) for a
 // w x h viewport, offset +0x25ef/+0x25f3 and scale +0x25eb.
 RT3_NOINLINE void __fastcall Render_SetProjection(uint8_t* r, int, int32_t w, int32_t h) {
-    float inv = (float)((double)*(const float*)0x5c85b4 / ((double)w / h));
-    const double k = *(const float*)0x5c9690, s = F<float>(r, 0x25eb);
+    float inv = (float)((double)*(const float*)rt3::Rdata(0x5c85b4) / ((double)w / h));
+    const double k = *(const float*)rt3::Rdata(0x5c9690), s = F<float>(r, 0x25eb);
     double a = inv * k;
     double b = (double)inv * F<float>(r, 0x25f3);
     float top = (float)((b + a) * s);
@@ -675,7 +675,7 @@ RT3_REPLACE(0x544660, Render_GetViewport);
 int32_t __fastcall Render_ProjectSimple(uint8_t* r, int, float x, float y, float z, float* ox, float* oy) {
     const uint32_t b = 0x33ef;
     double py = (double)x * M(r, b, 0, 1) + (double)y * M(r, b, 1, 1) + (double)z * M(r, b, 2, 1) + M(r, b, 3, 1);
-    double inv = *(const double*)0x5c8770 /
+    double inv = *(const double*)rt3::Rdata(0x5c8770) /
                  ((double)x * M(r, b, 0, 3) + (double)y * M(r, b, 1, 3) + (double)z * M(r, b, 2, 3) + M(r, b, 3, 3));
     double px = (double)x * M(r, b, 0, 0) + (double)y * M(r, b, 1, 0) + (double)z * M(r, b, 2, 0) + M(r, b, 3, 0);
     *ox = (float)(px * inv);
@@ -691,11 +691,11 @@ int32_t __fastcall Render_Project(uint8_t* r, int, float x, float y, float z, fl
     float py = (float)((double)x * M(r, b, 0, 1) + (double)y * M(r, b, 1, 1) + (double)z * M(r, b, 2, 1) + M(r, b, 3, 1));
     float pz = (float)((double)x * M(r, b, 0, 2) + (double)y * M(r, b, 1, 2) + (double)z * M(r, b, 2, 2) + M(r, b, 3, 2));
     double w = (double)x * M(r, b, 0, 3) + (double)y * M(r, b, 1, 3) + (double)z * M(r, b, 2, 3) + M(r, b, 3, 3);
-    if (w < *(const float*)0x5c85b4) return 1;
-    double inv = *(const double*)0x5c8770 / w;
+    if (w < *(const float*)rt3::Rdata(0x5c85b4)) return 1;
+    double inv = *(const double*)rt3::Rdata(0x5c8770) / w;
     double d = (double)pz * inv;
     pz = (float)d;
-    if (d > *(const double*)0x5c8770) return 1;
+    if (d > *(const double*)rt3::Rdata(0x5c8770)) return 1;
     double px = (double)x * M(r, b, 0, 0) + (double)y * M(r, b, 1, 0) + (double)z * M(r, b, 2, 0) + M(r, b, 3, 0);
     *ox = (float)(px * inv);
     *oy = (float)(inv * py);
@@ -710,7 +710,7 @@ void __fastcall Render_TransformWorld(uint8_t* r, int, float* v) {
     double x = v[0], y = v[1], z = v[2];
     float py = (float)(z * M(r, b, 2, 1) + y * M(r, b, 1, 1) + x * M(r, b, 0, 1) + M(r, b, 3, 1));
     float pz = (float)(z * M(r, b, 2, 2) + y * M(r, b, 1, 2) + x * M(r, b, 0, 2) + M(r, b, 3, 2));
-    float inv = (float)(*(const double*)0x5c8770 / (z * M(r, b, 2, 3) + y * M(r, b, 1, 3) + x * M(r, b, 0, 3) + M(r, b, 3, 3)));
+    float inv = (float)(*(const double*)rt3::Rdata(0x5c8770) / (z * M(r, b, 2, 3) + y * M(r, b, 1, 3) + x * M(r, b, 0, 3) + M(r, b, 3, 3)));
     double px = z * M(r, b, 2, 0) + y * M(r, b, 1, 0) + x * M(r, b, 0, 0) + M(r, b, 3, 0);
     v[0] = (float)(px * inv);
     v[1] = (float)((double)inv * py);
@@ -749,12 +749,12 @@ RT3_REPLACE(0x544930, Render_ProjectPoint);
 // 0x544a80. Unprojects screen (sx, sy) at depth 0x5dd990 with the inverse matrix +0x342f.
 void __fastcall Render_Unproject(uint8_t* r, int, float sx, float sy, float* ox, float* oy, float* oz) {
     const uint32_t b = 0x342f;
-    const double k = *(const float*)0x5dd990;
+    const double k = *(const float*)rt3::Rdata(0x5dd990);
     double u = ((double)sx - F<float>(r, 0x2527)) * F<float>(r, 0x2523);
     double v = ((double)sy - F<float>(r, 0x252f)) * F<float>(r, 0x252b);
     float py = (float)(u * M(r, b, 0, 1) + v * M(r, b, 1, 1) + M(r, b, 2, 1) * k + M(r, b, 3, 1));
     float pz = (float)(u * M(r, b, 0, 2) + v * M(r, b, 1, 2) + M(r, b, 2, 2) * k + M(r, b, 3, 2));
-    float inv = (float)(*(const double*)0x5c8770 / (u * M(r, b, 0, 3) + v * M(r, b, 1, 3) + M(r, b, 2, 3) * k + M(r, b, 3, 3)));
+    float inv = (float)(*(const double*)rt3::Rdata(0x5c8770) / (u * M(r, b, 0, 3) + v * M(r, b, 1, 3) + M(r, b, 2, 3) * k + M(r, b, 3, 3)));
     double px = u * M(r, b, 0, 0) + v * M(r, b, 1, 0) + M(r, b, 2, 0) * k + M(r, b, 3, 0);
     *ox = (float)(px * inv);
     *oy = (float)((double)inv * py);
@@ -766,12 +766,12 @@ RT3_REPLACE(0x544a80, Render_Unproject);
 // into `out` (the third argument; the eye is the fourth).
 void __fastcall Render_UnprojectDir(uint8_t* r, int, float sx, float sy, float* out, const float* eye) {
     const uint32_t b = 0x342f;
-    const double k = *(const float*)0x5dd990;
+    const double k = *(const float*)rt3::Rdata(0x5dd990);
     double u = ((double)sx - F<float>(r, 0x2527)) * F<float>(r, 0x2523);
     double v = ((double)sy - F<float>(r, 0x252f)) * F<float>(r, 0x252b);
     float py = (float)(v * M(r, b, 1, 1) + u * M(r, b, 0, 1) + M(r, b, 2, 1) * k + M(r, b, 3, 1));
     float pz = (float)(v * M(r, b, 1, 2) + u * M(r, b, 0, 2) + M(r, b, 2, 2) * k + M(r, b, 3, 2));
-    float inv = (float)(*(const double*)0x5c8770 / (v * M(r, b, 1, 3) + u * M(r, b, 0, 3) + M(r, b, 2, 3) * k + M(r, b, 3, 3)));
+    float inv = (float)(*(const double*)rt3::Rdata(0x5c8770) / (v * M(r, b, 1, 3) + u * M(r, b, 0, 3) + M(r, b, 2, 3) * k + M(r, b, 3, 3)));
     double px = v * M(r, b, 1, 0) + u * M(r, b, 0, 0) + M(r, b, 2, 0) * k + M(r, b, 3, 0);
     out[0] = (float)(px * inv - eye[0]);
     out[1] = (float)((double)inv * py - eye[1]);
@@ -903,19 +903,19 @@ RT3_REPLACE(0x5450c0, Render_GetFogBlock);
 // by 0x5c8758, height at least 0.5).
 void __fastcall Render_SunDir(uint8_t* r, int, float* x, float* y, float* z) {
     *x = -F<float>(r, 0x2517);
-    *z = (float)(-(double)F<float>(r, 0x251f) * *(const double*)0x5c8758);
+    *z = (float)(-(double)F<float>(r, 0x251f) * *(const double*)rt3::Rdata(0x5c8758));
     double h = -(double)F<float>(r, 0x251b);
     *y = (float)h;
-    if (h < *(const double*)0x5c8628) *(uint32_t*)y = 0x3f000000;
+    if (h < *(const double*)rt3::Rdata(0x5c8628)) *(uint32_t*)y = 0x3f000000;
 }
 RT3_REPLACE(0x5450e0, Render_SunDir);
 
 void __fastcall Render_SunDirVec(uint8_t* r, int, float* v) {
     v[0] = -F<float>(r, 0x2517);
-    v[2] = (float)(-(double)F<float>(r, 0x251f) * *(const double*)0x5c8758);
+    v[2] = (float)(-(double)F<float>(r, 0x251f) * *(const double*)rt3::Rdata(0x5c8758));
     double h = -(double)F<float>(r, 0x251b);
     v[1] = (float)h;
-    if (h < *(const double*)0x5c8628) *(uint32_t*)&v[1] = 0x3f000000;
+    if (h < *(const double*)rt3::Rdata(0x5c8628)) *(uint32_t*)&v[1] = 0x3f000000;
 }
 RT3_REPLACE(0x545130, Render_SunDirVec);
 
@@ -1064,7 +1064,7 @@ void __fastcall Render_SetDefaultMaterial(uint8_t* r, int, uint8_t shiny) {
     uint32_t m[17] = {};
     if (shiny && g_engine[0x11422e]) {
         for (int k = 8; k < 12; ++k) m[k] = 0x3e99999a;
-        float p = (float)((double)F<float>(r, 0x25fb) * F<float>(r, 0x24f4) * *(const float*)0x5c8568);
+        float p = (float)((double)F<float>(r, 0x25fb) * F<float>(r, 0x24f4) * *(const float*)rt3::Rdata(0x5c8568));
         m[16] = *(uint32_t*)&p;
     }
     for (int k = 0; k < 4; ++k) m[k] = 0x3f800000;
@@ -1568,8 +1568,8 @@ RT3_NOINLINE void __fastcall Renderer_SetShaderConstants(uint8_t* r) {
         uint8_t* d = dev();
         (*(int32_t(__stdcall**)(void*, uint32_t, const void*, uint32_t))(*(uint8_t**)d + 0x16c))(d, reg, data, 1);
     };
-    double a = (double)F<float>(r, 0x25ff) * F<float>(r, 0x24f8) * *(const float*)0x5c8d60;
-    double b = (double)F<float>(r, 0x25f7) * F<float>(r, 0x24f0) * *(const double*)0x5c8c18;
+    double a = (double)F<float>(r, 0x25ff) * F<float>(r, 0x24f8) * *(const float*)rt3::Rdata(0x5c8d60);
+    double b = (double)F<float>(r, 0x25f7) * F<float>(r, 0x24f0) * *(const double*)rt3::Rdata(0x5c8c18);
     uint32_t c4[4] = { 0x3f000000, 0x3f000000, 0, 0 };
     uint32_t c6[4] = { 0x3f733333, 0x42c80000, 0x3dcccccd, 0 };
     uint32_t c7[4] = { Bits(-F<float>(r, 0x2517)), F<uint32_t>(r, 0x251b), Bits(-F<float>(r, 0x251f)), Bits((float)b) };
@@ -1593,13 +1593,13 @@ RT3_NOINLINE void __fastcall Renderer_SetShaderConstants(uint8_t* r) {
     float fog[4] = { 1.0f, 0.0f, 0.0f, 0.0f };
     if (F<uint8_t*>(r, 0x83c)[0x1f]) {
         fog[1] = 1.0f;
-        fog[0] = (float)(-((double)F<float>(r, 0x25b3) * F<float>(r, 0x2513)) * *(const double*)0x5dda20);
+        fog[0] = (float)(-((double)F<float>(r, 0x25b3) * F<float>(r, 0x2513)) * *(const double*)rt3::Rdata(0x5dda20));
     }
     vs(14, fog, 1);
     int32_t w = Terrain_Rows((uint8_t*)Engine_Get1C(hook::As<void*>(g_engine))) * 0x5c;
     int32_t h = Terrain_Cols((uint8_t*)Engine_Get1C(hook::As<void*>(g_engine))) * 0x5c;
-    double ih = *(const float*)0x5c85b4 / (double)h;
-    float c12[4] = { (float)(*(const float*)0x5c85b4 / (double)w * F<float>(r, 0x36fd)), (float)(ih * F<float>(r, 0x36fd)), 0.0f,
+    double ih = *(const float*)rt3::Rdata(0x5c85b4) / (double)h;
+    float c12[4] = { (float)(*(const float*)rt3::Rdata(0x5c85b4) / (double)w * F<float>(r, 0x36fd)), (float)(ih * F<float>(r, 0x36fd)), 0.0f,
                      0.0f };
     vs(12, c12, 1);
     uint32_t p0[4] = { 0x3f4ccccd, 0x3f59999a, 0x3f4ccccd, 0x3f800000 };
@@ -1775,14 +1775,14 @@ RT3_NOINLINE void __fastcall Renderer_SetupWaterStages(uint8_t* r) {
     if (g_engine[0x11422d]) {
         for (uint32_t k = 0; k < 4; ++k) tss(k, 0xb, k);
         for (uint32_t k = 0; k < 4; ++k) tss(k, 0x18, 0);
-        float sn = (float)(FsinX(*(const double*)0x5c8608) * *(const double*)0x5dda28);
-        float cs = (float)(FcosX(*(const double*)0x5c8608) * *(const double*)0x5dda28);
+        float sn = (float)(FsinX(*(const double*)rt3::Rdata(0x5c8608)) * *(const double*)rt3::Rdata(0x5dda28));
+        float cs = (float)(FcosX(*(const double*)rt3::Rdata(0x5c8608)) * *(const double*)rt3::Rdata(0x5dda28));
         tss(2, 7, Bits(sn));
         tss(2, 8, Bits(cs));
         tss(2, 9, Bits(cs));
         tss(2, 0xa, Bits(-sn));
-        float sn2 = (float)((double)sn * *(const double*)0x5c8c20);
-        float cs2 = (float)((double)cs * *(const double*)0x5c9b60);
+        float sn2 = (float)((double)sn * *(const double*)rt3::Rdata(0x5c8c20));
+        float cs2 = (float)((double)cs * *(const double*)rt3::Rdata(0x5c9b60));
         tss(3, 7, Bits(sn2));
         tss(3, 8, Bits(cs2));
         tss(3, 9, Bits(cs2));
@@ -1799,7 +1799,7 @@ RT3_NOINLINE void __fastcall Renderer_SetupWaterStages(uint8_t* r) {
     }
     uint32_t m[16] = { 0x3edeb852, 0, 0, 0, 0, 0x3f59999a, 0, 0, 0x3f000000, 0, 0x3f800000, 0, 0, 0, 0, 0x3f800000 };
     int32_t th = Texture_Height(*F<uint8_t**>(r, 0x2593));
-    m[9] = Bits((float)(*(const double*)0x5c8628 - (double)F<float>(r, 0x2537) / F<int32_t>(r, 0x25cb) / th));
+    m[9] = Bits((float)(*(const double*)rt3::Rdata(0x5c8628) - (double)F<float>(r, 0x2537) / F<int32_t>(r, 0x25cb) / th));
     tss(0, 0xb, 0x20000);
     tss(0, 0x18, 0x103);
     uint8_t* d = dev();
@@ -1810,7 +1810,7 @@ RT3_REPLACE(0x5478a0, Renderer_SetupWaterStages);
 // 0x547c30. Stores the fog/texture offset (+0x36df..) and uploads it as vertex
 // shader constant 7 ({-a, -b, c, d}, or {0, 0, 1, 1} when all zero).
 void __fastcall Render_SetShaderOffset(uint8_t* r, int, float a, float b, float c, float d) {
-    const float zero = *(const float*)0x5c8598;
+    const float zero = *(const float*)rt3::Rdata(0x5c8598);
     F<float>(r, 0x36df) = a;
     F<float>(r, 0x36e7) = c;
     F<float>(r, 0x36e3) = b;
@@ -1835,7 +1835,7 @@ RT3_REPLACE(0x547c30, Render_SetShaderOffset);
 // 0x547d10. Stage 0 texture transform: scale (c, d) and offset (a, b) via the
 // third row; disabled when all are zero.
 RT3_NOINLINE void __fastcall Render_SetTextureTransform(uint8_t* r, int, float a, float b, float c, float d) {
-    const float zero = *(const float*)0x5c8598;
+    const float zero = *(const float*)rt3::Rdata(0x5c8598);
     if (a == zero && b == zero && c == zero && d == zero) {
         SetTss_100(r, 0, 0x18, 0);
         return;
@@ -1906,7 +1906,7 @@ int32_t __fastcall Render_BlendAlpha(uint8_t* r) {
 }
 RT3_REPLACE(0x548060, Render_BlendAlpha);
 
-RT3_NOINLINE double __fastcall Render_ScaleByUnit(uint8_t*, int, float v) { return (double)v * *(const float*)0x5ce4fc; }
+RT3_NOINLINE double __fastcall Render_ScaleByUnit(uint8_t*, int, float v) { return (double)v * *(const float*)rt3::Rdata(0x5ce4fc); }
 RT3_REPLACE(0x548090, Render_ScaleByUnit);
 
 // 0x5480a0. Distance from q to the line p + t d (t = (q - p) . d).
@@ -2521,9 +2521,9 @@ RT3_NOINLINE int32_t __fastcall Render_InitDevice(uint8_t* r, int, uint8_t fullS
     Render_InitStages(r, 0, (int32_t)caps[0x98 / 4]);
     char num[0x20], num2[0x20];
     int32_t mem = Engine_TotalTextureMem(Eng());
-    Report(r, 0x8f, Num_Format(num, 3, (double)mem * *(const float*)0x5dd08c, 10, 1, 0, 0));
+    Report(r, 0x8f, Num_Format(num, 3, (double)mem * *(const float*)rt3::Rdata(0x5dd08c), 10, 1, 0, 0));
     mem = Engine_TextureMemLimit(Eng());
-    Report(r, 0x90, Num_Format(num, 3, (double)mem * *(const float*)0x5dd08c, 10, 1, 0, 0));
+    Report(r, 0x90, Num_Format(num, 3, (double)mem * *(const float*)rt3::Rdata(0x5dd08c), 10, 1, 0, 0));
     void* dev = F<void*>(r, 0x25df);
     int32_t aa = Engine_Get1146ae(Eng());
     Com(dev, 0xc8, 0xa1u, aa);
@@ -2538,7 +2538,7 @@ RT3_NOINLINE int32_t __fastcall Render_InitDevice(uint8_t* r, int, uint8_t fullS
         memset(caps, 0, sizeof caps);
         Com(F<void*>(r, 0x25df), 0x1c, (void*)caps);
         float psMax = *(float*)&caps[0xd0 / 4];
-        if ((double)psMax >= *(const double*)0x5c8770) {
+        if ((double)psMax >= *(const double*)rt3::Rdata(0x5c8770)) {
             const char* sMinor = Num_Format(num2, 1, (double)minor, 10, 1, 0, 0);
             const char* sMajor = Num_Format(num, 1, (double)major, 10, 1, 0, 0);
             Report(r, 0x93, sMajor, sMinor);
@@ -2619,7 +2619,7 @@ RT3_NOINLINE void __fastcall Renderer_SetFog(uint8_t* r, int, float density, flo
         r[0x2549] = 1;
         RenderState(r, 0x1c, 1);
     }
-    if (density <= *(const float*)0x5c8598) {
+    if (density <= *(const float*)rt3::Rdata(0x5c8598)) {
         if (r[0x2549]) {
             r[0x2549] = 0;
             RenderState(r, 0x1c, 0);
@@ -2642,15 +2642,15 @@ RT3_NOINLINE void __fastcall Renderer_SetFog(uint8_t* r, int, float density, flo
     }
     if (F<uint8_t*>(r, 0x83c)[0x20]) {
         double x = 1.0 / ((double)density * F<float>(r, 0x2513));
-        float start = (float)(*(const double*)0x5ddaf0 * x);
-        double endD = x * *(const float*)0x5ddaec;
+        float start = (float)(*(const double*)rt3::Rdata(0x5ddaf0) * x);
+        double endD = x * *(const float*)rt3::Rdata(0x5ddaec);
         float end = (float)endD;
-        if (endD > *(const float*)0x5ddae8) end = 65535.0f;
-        if (start > end) start = (float)((double)end * *(const double*)0x5c8750);
+        if (endD > *(const float*)rt3::Rdata(0x5ddae8)) end = 65535.0f;
+        if (start > end) start = (float)((double)end * *(const double*)rt3::Rdata(0x5c8750));
         RenderState(r, 0x24, *(uint32_t*)&start);
         RenderState(r, 0x25, *(uint32_t*)&end);
     } else {
-        float d = (float)((double)density * *(const float*)0x5ddae4);
+        float d = (float)((double)density * *(const float*)rt3::Rdata(0x5ddae4));
         RenderState(r, 0x26, *(uint32_t*)&d);
     }
 }

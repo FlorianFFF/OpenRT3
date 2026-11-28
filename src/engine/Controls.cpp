@@ -309,9 +309,9 @@ static inline void JoinThread(uint8_t* t, uint32_t ms) {
     F<void*>(t, 4) = nullptr;
 }
 
-static inline double D(uint32_t a) { return *(const double*)a; }
+static inline double D(uint32_t a) { return *(const double*)rt3::Rdata(a); }
 
-static inline double Fl(uint32_t a) { return *(const float*)a; }
+static inline double Fl(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 
 
@@ -1115,7 +1115,7 @@ RT3_NOINLINE double __fastcall List_RowHeight(uint8_t* w) {
         call Rt3_Ftol
         mov px, eax
     }
-    return ((double)px + *(const double*)0x5d0250) / h;
+    return ((double)px + *(const double*)rt3::Rdata(0x5d0250)) / h;
 }
 RT3_REPLACE(0x55ffb0, List_RowHeight);
 
@@ -1216,7 +1216,7 @@ RT3_NOINLINE void __fastcall List_RowPos(uint8_t* w, int, int32_t row, float* x,
         mov px, eax
     }
     p = F<uint8_t*>(w, 0x86);
-    *y = (float)((((((double)px + *(const double*)0x5d0250) / h + F<float>(w, 0xb2)) * row + F<float>(p, 9)) +
+    *y = (float)((((((double)px + *(const double*)rt3::Rdata(0x5d0250)) / h + F<float>(w, 0xb2)) * row + F<float>(p, 9)) +
                   F<float>(w, 0xaa)) + F<float>(w, 0xf));
 }
 RT3_REPLACE(0x560350, List_RowPos);
@@ -1431,7 +1431,7 @@ RT3_NOINLINE void __fastcall ListView_RefreshVisible(uint8_t* tv) {
         call Rt3_Ftol
         mov rowH, eax
     }
-    float step = (float)(((double)rowH + *(const double*)0x5d0250) / screenH);
+    float step = (float)(((double)rowH + *(const double*)rt3::Rdata(0x5d0250)) / screenH);
     F<uint32_t*>(tv, 0x18e) = (uint32_t*)crt::malloc(F<int32_t>(tv, 0x1de) * 4);
     for (int32_t i = 0; i < F<int32_t>(tv, 0x1de); ++i) {
         float x0 = (float)((double)F<float>(tv, 0xb) + F<float>(tv, 0xa6));
@@ -2370,12 +2370,12 @@ void __fastcall Button_Setup(uint8_t* w) {
         F<float>(w, 0x13) = (float)((double)F<float>(w, 0x13) + k);
         F<float>(w, 0xc0) = (float)((double)F<float>(w, 0xc0) + k);
     };
-    const double small = *(const double*)0x5c9b50;
+    const double small = *(const double*)rt3::Rdata(0x5c9b50);
     int32_t lang = g_language;
     if ((lang == 4 || lang == 1 || lang == 2) && F<int16_t>(w, 4) == 0x4f4c) widen(small);
     lang = g_language;
     if ((lang == 4 || lang == 1 || lang == 2) && F<int16_t>(w, 4) == 0x4f4d) widen(small);
-    if (!(uint8_t)IsEnglish() && F<int16_t>(w, 4) == 0x4ecc) widen(*(const double*)0x5d0aa0);
+    if (!(uint8_t)IsEnglish() && F<int16_t>(w, 4) == 0x4ecc) widen(*(const double*)rt3::Rdata(0x5d0aa0));
     if (g_language == 2 && F<int16_t>(w, 4) == 0x502a) widen(small);
 }
 RT3_REPLACE(0x563550, Button_Setup);

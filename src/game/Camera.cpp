@@ -416,9 +416,9 @@ static inline int32_t SwapModifiers() { return F<int32_t>(g_app, 0x120); }
 
 static inline uint8_t* SoundSys() { return g_sound; }
 
-static inline double D(uint32_t a) { return *(const double*)a; }
+static inline double D(uint32_t a) { return *(const double*)rt3::Rdata(a); }
 
-static inline float Fl(uint32_t a) { return *(const float*)a; }
+static inline float Fl(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 static inline uint32_t Bits(float f) { return *(uint32_t*)&f; }
 
@@ -487,7 +487,7 @@ static inline uint32_t U(float f) { return *(uint32_t*)&f; }
 
 
 
-static inline double Fl_203(uint32_t a) { return *(const float*)a; }
+static inline double Fl_203(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 static inline int32_t Ftol(double v) {
     int32_t r;
@@ -500,14 +500,14 @@ static inline int32_t Ftol(double v) {
 }
 
 
-static inline double Fl_205(uint32_t a) { return *(const float*)a; }
+static inline double Fl_205(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 static inline float BitsF(uint32_t b) { return *(float*)&b; }
 
 static inline double BitsD(uint64_t b) { return *(double*)&b; }
 
 
-static inline double Fl_207(uint32_t a) { return *(const float*)a; }
+static inline double Fl_207(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 
 namespace {
@@ -554,14 +554,14 @@ RT3_NOINLINE void __fastcall World_PrepareNewGame(uint8_t* w) {
                 uint8_t* c = (uint8_t*)Collection_Get(cities, 0, Collection_IdAt(cities, 0, (uint32_t)i, 0));
                 if (F<int32_t>(c, 0x23e)) continue;
                 float spread = w[0x66de] ? 9.9f : 22.0f;
-                if (g_session) spread = (float)((double)spread * *(const double*)0x5c8578);
+                if (g_session) spread = (float)((double)spread * *(const double*)rt3::Rdata(0x5c8578));
                 const float size = F<float>(c, 0x25a);
-                if (size > *(const float*)0x5c9f84) spread = (float)((double)spread * *(const double*)0x5c8988);
-                else if (size > *(const float*)0x5c8904) spread = (float)((double)spread * *(const double*)0x5c8618);
-                else if (size > *(const float*)0x5c87c0) spread = (float)((double)spread * *(const double*)0x5c8da8);
-                else if (size > *(const float*)0x5c9f00) spread = (float)((double)spread * *(const double*)0x5c8640);
-                if (F<float>(c, 0x25a) < *(const float*)0x5c8780) spread = (float)((double)spread * *(const double*)0x5c8660);
-                if (spread < *(const float*)0x5c8900) spread = 3.0f;
+                if (size > *(const float*)rt3::Rdata(0x5c9f84)) spread = (float)((double)spread * *(const double*)rt3::Rdata(0x5c8988));
+                else if (size > *(const float*)rt3::Rdata(0x5c8904)) spread = (float)((double)spread * *(const double*)rt3::Rdata(0x5c8618));
+                else if (size > *(const float*)rt3::Rdata(0x5c87c0)) spread = (float)((double)spread * *(const double*)rt3::Rdata(0x5c8da8));
+                else if (size > *(const float*)rt3::Rdata(0x5c9f00)) spread = (float)((double)spread * *(const double*)rt3::Rdata(0x5c8640));
+                if (F<float>(c, 0x25a) < *(const float*)rt3::Rdata(0x5c8780)) spread = (float)((double)spread * *(const double*)rt3::Rdata(0x5c8660));
+                if (spread < *(const float*)rt3::Rdata(0x5c8900)) spread = 3.0f;
                 int32_t hi, lo;
                 __asm {
                     fld spread
@@ -573,9 +573,9 @@ RT3_NOINLINE void __fastcall World_PrepareNewGame(uint8_t* w) {
                     mov lo, eax
                 }
                 float pct = (float)SimRand(lo, hi);
-                if (pct < *(const float*)0x5c9f80) pct = -50.0f;
-                else if (pct > *(const float*)0x5c8c28) pct = 100.0f;
-                float v = (float)(((double)pct + *(const float*)0x5c8c28) / *(const double*)0x5c85d8 * F<float>(c, 0x25a));
+                if (pct < *(const float*)rt3::Rdata(0x5c9f80)) pct = -50.0f;
+                else if (pct > *(const float*)rt3::Rdata(0x5c8c28)) pct = 100.0f;
+                float v = (float)(((double)pct + *(const float*)rt3::Rdata(0x5c8c28)) / *(const double*)rt3::Rdata(0x5c85d8) * F<float>(c, 0x25a));
                 F<float>(c, 0x25a) = v;
                 F<float>(c, 0x25e) = v;
             }
@@ -1152,7 +1152,7 @@ RT3_REPLACE(0x439a80, Obj_Set65);
 
 // 0x439a90. Position (+4, +0xc) in cells (92 units).
 RT3_NOINLINE void __fastcall Obj_CellPos(void* o, int, float* x, float* y) {
-    const float cell = *(const float*)0x5c8700;
+    const float cell = *(const float*)rt3::Rdata(0x5c8700);
     *x = (float)((double)F<float>(o, 4) / cell);
     *y = (float)((double)F<float>(o, 0xc) / cell);
 }
@@ -1170,7 +1170,7 @@ RT3_REPLACE(0x439ac0, Camera_SaveWithBookmarks);
 
 // 0x439b20. Normalised screen position of a tile point (tile x, tile y, height).
 RT3_NOINLINE int32_t __stdcall Map_TileToScreen(float tx, float ty, float h, float* ox, float* oy) {
-    const float k = *(const float*)0x5c8700;
+    const float k = *(const float*)rt3::Rdata(0x5c8700);
     float wz = (float)((double)ty * k);
     float wx = (float)((double)tx * k);
     return Scene_ProjectNormalised((uint8_t*)Engine_Renderer(hook::As<void*>(g_engine)), 0, wx, h, wz, ox, oy, nullptr);
@@ -1178,7 +1178,7 @@ RT3_NOINLINE int32_t __stdcall Map_TileToScreen(float tx, float ty, float h, flo
 RT3_REPLACE(0x439b20, Map_TileToScreen);
 
 RT3_NOINLINE void __fastcall Obj_Nudge92(void* o) {
-    const double eps = *(const double*)0x5c88a0;
+    const double eps = *(const double*)rt3::Rdata(0x5c88a0);
     F<float>(o, 0x96) = (float)((double)F<float>(o, 0x96) + eps);
     F<float>(o, 0x92) = (float)((double)F<float>(o, 0x92) + eps);
 }
@@ -1200,12 +1200,12 @@ RT3_NOINLINE void __fastcall View_AccumulateMotion(uint8_t* o) {
     double t = crt::fabs((double)F<float>(o, 0x366) - F<float>(o, 0x24));
     t = crt::fabs((double)F<float>(o, 0x35e) - F<float>(o, 0x1c)) + t;
     t = crt::fabs((double)F<float>(o, 0x352) - F<float>(o, 0x4)) + t;
-    float a = (float)((crt::fabs((double)F<float>(o, 0x35a) - F<float>(o, 0xc)) + t) / *(const double*)0x5c8c48);
+    float a = (float)((crt::fabs((double)F<float>(o, 0x35a) - F<float>(o, 0xc)) + t) / *(const double*)rt3::Rdata(0x5c8c48));
     t = crt::fabs((double)F<float>(o, 0x362) - F<float>(o, 0x20));
     float b = (float)(crt::fabs((double)F<float>(o, 0x356) - F<float>(o, 0x8)) + t);
-    const float zero = *(const float*)0x5c8598;
+    const float zero = *(const float*)rt3::Rdata(0x5c8598);
     if (b == zero && a == zero) return;
-    float v = (float)((double)a / *(const double*)0x5c8798);
+    float v = (float)((double)a / *(const double*)rt3::Rdata(0x5c8798));
     F<uint32_t>(o, 0x352) = F<uint32_t>(o, 0x4);
     F<uint32_t>(o, 0x35e) = F<uint32_t>(o, 0x1c);
     F<uint32_t>(o, 0x356) = F<uint32_t>(o, 0x8);
@@ -1214,7 +1214,7 @@ RT3_NOINLINE void __fastcall View_AccumulateMotion(uint8_t* o) {
     F<uint32_t>(o, 0x366) = F<uint32_t>(o, 0x24);
     float s = (float)((double)v + F<float>(o, 0x34e));
     F<float>(o, 0x34e) = s;
-    if ((double)s > *(const double*)0x5c8770) F<uint32_t>(o, 0x34e) = 0x3f800000;
+    if ((double)s > *(const double*)rt3::Rdata(0x5c8770)) F<uint32_t>(o, 0x34e) = 0x3f800000;
 }
 RT3_REPLACE(0x439be0, View_AccumulateMotion);
 
@@ -1794,7 +1794,7 @@ RT3_NOINLINE void __fastcall Camera_StartShake(uint8_t* c, int, float strength) 
             Sound_Play2D(g_sound, 0, g_5f0a2c, 0.001f, 0x3f000000, 1, 0, nullptr);
     }
     F<int32_t>(c, 0x38e) = 1;
-    F<float>(c, 0x392) = (float)(strength < *(const double*)0x5c85b8 ? 0.01 : (double)strength);
+    F<float>(c, 0x392) = (float)(strength < *(const double*)rt3::Rdata(0x5c85b8) ? 0.01 : (double)strength);
     F<uint32_t>(c, 0x3a2) = F<uint32_t>(c, 0xc);
     F<uint32_t>(c, 0x39a) = F<uint32_t>(c, 4);
     F<uint32_t>(c, 0x39e) = F<uint32_t>(c, 8);

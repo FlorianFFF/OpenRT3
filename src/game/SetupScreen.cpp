@@ -117,7 +117,7 @@ RT3_NOINLINE void __fastcall Pack_Release(uint8_t* pack, int, void* obj);
 RT3_NOINLINE int32_t __fastcall Window_SendEvent5(uint8_t* w, int, uint32_t type, uint32_t id, uint32_t a, uint32_t b, uint32_t c);
 
 
-static inline double D(uint32_t a) { return *(const double*)a; }
+static inline double D(uint32_t a) { return *(const double*)rt3::Rdata(a); }
 
 namespace {
 uint32_t Message476(const char* text) {

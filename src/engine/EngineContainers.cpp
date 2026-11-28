@@ -334,9 +334,9 @@ static void Token(FILE* f, char* dst) { crt::fscanf(f, (const char*)0x5c89e4, ds
 
 static void AddImb(char* s) { memcpy(s + strlen(s), (const void*)0x5dd630, 5); }
 
-static inline double D(uint32_t a) { return *(const double*)a; }
+static inline double D(uint32_t a) { return *(const double*)rt3::Rdata(a); }
 
-static inline double Fl(uint32_t a) { return *(const float*)a; }
+static inline double Fl(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 static inline int32_t Ftol(double v) {
     int32_t r;
@@ -1015,7 +1015,7 @@ RT3_NOINLINE void __fastcall Group_Add(uint8_t* g, int, uint8_t* o, float lift) 
     double sum = (double)F<float>(g, 0x3c) + F<float>(g, 0x30);
     sum = sum + F<float>(g, 0x24);
     sum = sum + F<float>(g, 0x18);
-    float y = (float)(sum * *(const double*)0x5c8758 - *(const double*)0x5c8770 + lift);
+    float y = (float)(sum * *(const double*)rt3::Rdata(0x5c8758) - *(const double*)rt3::Rdata(0x5c8770) + lift);
     Obj_MoveTo(o, 0, F<float>(g, 0xc), y, F<float>(g, 0x10));
 }
 RT3_REPLACE(0x5395d0, Group_Add);
@@ -1205,7 +1205,7 @@ RT3_REPLACE(0x539640, Track_BuildGeometry);
 
 // 0x539f90. Linear blend (1 - t) * +0x1f1 + t * +0x1ed (unrounded).
 RT3_NOINLINE double __fastcall Effect_Blend(uint8_t* e, int, float t) {
-    return ((double)*(const float*)0x5c85b4 - t) * F<float>(e, 0x1f1) + (double)t * F<float>(e, 0x1ed);
+    return ((double)*(const float*)rt3::Rdata(0x5c85b4) - t) * F<float>(e, 0x1f1) + (double)t * F<float>(e, 0x1ed);
 }
 RT3_REPLACE(0x539f90, Effect_Blend);
 
@@ -2827,7 +2827,7 @@ RT3_NOINLINE void __fastcall TextureDesc_Load(uint8_t* d) {
     {
         int32_t w = F<int32_t>(d, 0), h = F<int32_t>(d, 4);
         float sx = F<float>(d, 0x10), sy = F<float>(d, 0x14);
-        float k = *(const float*)0x5c8d48;
+        float k = *(const float*)rt3::Rdata(0x5c8d48);
         const int32_t* m = mode;
         __asm {
             fild h
@@ -2856,14 +2856,14 @@ RT3_NOINLINE void __fastcall TextureDesc_Load(uint8_t* d) {
     for (;;) {
         bool lower;
         if (level + 1 < 8 &&
-            (scale > *(const double*)0x5dd6b8 || (double)sz > budget ||
-             (budget < (double)sz * *(const double*)0x5c8698 && scale > *(const double*)0x5c8698) ||
-             (budget < (double)sz * *(const double*)0x5c8820 && scale > *(const double*)0x5c8570)))
+            (scale > *(const double*)rt3::Rdata(0x5dd6b8) || (double)sz > budget ||
+             (budget < (double)sz * *(const double*)rt3::Rdata(0x5c8698) && scale > *(const double*)rt3::Rdata(0x5c8698)) ||
+             (budget < (double)sz * *(const double*)rt3::Rdata(0x5c8820) && scale > *(const double*)rt3::Rdata(0x5c8570))))
             lower = true;
         else
             lower = (F<int32_t>(d, 8) >> level) > F<int32_t>(dev, 0x114243) || (F<int32_t>(d, 0xc) >> level) > F<int32_t>(dev, 0x114247);
         if (!lower) break;
-        scale *= *(const double*)0x5c8628;
+        scale *= *(const double*)rt3::Rdata(0x5c8628);
         shift += 2;
         ++level;
         sz = (float)((double)size / (double)(1 << shift));

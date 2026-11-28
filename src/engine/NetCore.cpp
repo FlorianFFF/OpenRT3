@@ -260,9 +260,9 @@ RT3_NOINLINE void __fastcall Scene_CreateRenderer(uint8_t* s);
 RT3_NOINLINE uint8_t* __fastcall Scene_Construct(uint8_t* s);
 RT3_NOINLINE void __fastcall Scene_DrawOverlay(uint8_t* s, int, int32_t frame);
 
-static inline double D(uint32_t a) { return *(const double*)a; }
+static inline double D(uint32_t a) { return *(const double*)rt3::Rdata(a); }
 
-static inline double Fl(uint32_t a) { return *(const float*)a; }
+static inline double Fl(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 
 

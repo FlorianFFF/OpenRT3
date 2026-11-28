@@ -452,9 +452,9 @@ static inline void Format0(char* dst, uint32_t fmt, const char* a1 = nullptr) {
     FormatText(dst, (const char*)fmt, a1, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
 }
 
-static inline double D(uint32_t a) { return *(const double*)a; }
+static inline double D(uint32_t a) { return *(const double*)rt3::Rdata(a); }
 
-static inline float Fl(uint32_t a) { return *(const float*)a; }
+static inline float Fl(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 
 static inline int32_t Ftol(double v) {
@@ -469,9 +469,9 @@ static inline int32_t Ftol(double v) {
 
 static inline void** Vt(void* o) { return *(void***)o; }
 
-static inline double Fl_188(uint32_t a) { return *(const float*)a; }
+static inline double Fl_188(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
-static inline double Fl_189(uint32_t a) { return *(const float*)a; }
+static inline double Fl_189(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 // Raises the record's minimum year (+0x20, s16) to that of cargo `id`.
 static void RaiseYear(uint8_t* rec, uint32_t id) {
@@ -481,15 +481,15 @@ static void RaiseYear(uint8_t* rec, uint32_t id) {
     F<int16_t>(rec, 0x20) = (int16_t)v;
 }
 
-static inline double Fl_202(uint32_t a) { return *(const float*)a; }
+static inline double Fl_202(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
-static inline double Fl_205(uint32_t a) { return *(const float*)a; }
+static inline double Fl_205(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 static inline float BitsF(uint32_t b) { return *(float*)&b; }
 
 static inline double AtLeastMilli(float v) { return v < D(0x5c8678) ? 0.001 : (double)v; }
 
-static inline double Fl_207(uint32_t a) { return *(const float*)a; }
+static inline double Fl_207(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 namespace {
 union Slot32 {
@@ -1692,8 +1692,8 @@ RT3_REPLACE(0x40fba0, Building_CargoOutput);
 // 0x40fbe0. Whether this object's coarse cell (4 cells) and building bid's
 // region share a key in their key lists (+0xeb count, +0xef 6-byte entries).
 RT3_NOINLINE int32_t __fastcall Obj_SharesRegionKey(void* o, int, uint32_t bid) {
-    int32_t cx = (int32_t)(Obj_CellX(o) / *(const float*)0x5c8568);
-    int32_t cy = (int32_t)(Obj_CellY(o) / *(const float*)0x5c8568);
+    int32_t cx = (int32_t)(Obj_CellX(o) / *(const float*)rt3::Rdata(0x5c8568));
+    int32_t cy = (int32_t)(Obj_CellY(o) / *(const float*)rt3::Rdata(0x5c8568));
     uint8_t* map = g_map;
     uint8_t* cell = F<uint8_t*>(map, 0x2129) + (F<int32_t>(map, 0x2145) * cy + cx) * 0x1d7;
     if (F<int32_t>(cell, 0xeb) <= 0) return 0;

@@ -165,11 +165,11 @@ static inline int32_t Terrain_Tag(Stream s, int32_t tag) { return StreamSkip4(s,
 
 static inline bool Over(float w, float lim) { return w > lim; }
 
-static inline double Fl(uint32_t a) { return *(const float*)a; }
+static inline double Fl(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 static inline double Sqrt87(double v) { double r; __asm { fld v } __asm { fsqrt } __asm { fstp r } return r; }
 
-static inline double D(uint32_t a) { return *(const double*)a; }
+static inline double D(uint32_t a) { return *(const double*)rt3::Rdata(a); }
 
 static inline int32_t Ftol(double v) {
     int32_t r;
@@ -272,7 +272,7 @@ RT3_REPLACE(0x5500b0, Scroll_Visible);
 // 0x5500d0. Advance of glyph ch in the font (style +0xc, table 0x625480, 40 bytes):
 // fixed-width digits when the style says so; 0 for control characters and '|'.
 RT3_NOINLINE double __fastcall Font_GlyphAdvance(uint8_t* f, int, uint8_t ch) {
-    if (ch == 0xf || ch == 0x7c || ch == 0xa || ch == 0xd) return *(const float*)0x5c8598;
+    if (ch == 0xf || ch == 0x7c || ch == 0xa || ch == 0xd) return *(const float*)rt3::Rdata(0x5c8598);
     const uint8_t* style = (const uint8_t*)0x625480 + F<int32_t>(f, 0xc) * 40;
     if (F<int32_t>((void*)style, 0) && ch >= '0' && ch <= '9')
         return ((double)F<float>((void*)style, 4) + F<float>(f, 0x30)) * F<float>(f, 0x14);
@@ -377,7 +377,7 @@ copy:
     }
     if (dots) {
         *(uint32_t*)(out + i) = 0x2e2e2e;
-        *width = (float)(Font_GlyphAdvance(font, 0, (uint8_t)text[i]) * *(const float*)0x5c8900 + *width);
+        *width = (float)(Font_GlyphAdvance(font, 0, (uint8_t)text[i]) * *(const float*)rt3::Rdata(0x5c8900) + *width);
     }
     *next = text + i + 1;
     (void)wrapped;
@@ -1020,7 +1020,7 @@ int32_t __fastcall Font_MoveCaretLines(uint8_t* f, int, int32_t pos, int32_t dir
         float cy = (float)((double)dir * lineH + *(float*)&pos);
         *(float*)&pos = cy;
         if ((double)y + h < cy) return first;
-        if (y > (double)cy + *(const double*)0x5d0770) return first;
+        if (y > (double)cy + *(const double*)rt3::Rdata(0x5d0770)) return first;
         r = Text_HitTest((void**)f, 0, *(float*)&flags, cy, text, x, y, w, h, align, valign, fl, nullptr, -1, nullptr, nullptr);
         if (dir < 0) {
             if (r > first) return first;
@@ -1065,20 +1065,20 @@ RT3_REPLACE(0x552140, Slider_HeightScaled);
 // 0x552160 / 0x5521a0. Absolute slider step along / across the track.
 RT3_NOINLINE double __fastcall Slider_StepA(uint8_t* s) {
     uint8_t* f = F<uint8_t*>(s, 0);
-    double v = s[0x24] ? ((double)F<float>(s, 8) - F<float>(s, 0x10)) * F<float>(f, 0x32) * *(const double*)0x5c8750
+    double v = s[0x24] ? ((double)F<float>(s, 8) - F<float>(s, 0x10)) * F<float>(f, 0x32) * *(const double*)rt3::Rdata(0x5c8750)
                        : ((double)F<float>(s, 4) - F<float>(s, 0xc)) * F<float>(f, 0x2e);
     v *= F<float>(s, 0x1c);
-    if (v < *(const float*)0x5c8598) v = -v;
+    if (v < *(const float*)rt3::Rdata(0x5c8598)) v = -v;
     return v;
 }
 RT3_REPLACE(0x552160, Slider_StepA);
 
 RT3_NOINLINE double __fastcall Slider_StepB(uint8_t* s) {
     uint8_t* f = F<uint8_t*>(s, 0);
-    double v = s[0x24] ? ((double)F<float>(s, 4) - F<float>(s, 0xc)) * F<float>(f, 0x2e) * *(const double*)0x5ddc78
+    double v = s[0x24] ? ((double)F<float>(s, 4) - F<float>(s, 0xc)) * F<float>(f, 0x2e) * *(const double*)rt3::Rdata(0x5ddc78)
                        : ((double)F<float>(s, 8) - F<float>(s, 0x10)) * F<float>(f, 0x32);
     v *= F<float>(s, 0x20);
-    if (v < *(const float*)0x5c8598) v = -v;
+    if (v < *(const float*)rt3::Rdata(0x5c8598)) v = -v;
     return v;
 }
 RT3_REPLACE(0x5521a0, Slider_StepB);
@@ -1552,11 +1552,11 @@ RT3_REPLACE(0x553a30, Flags24_Clear);
 
 // 0x553a40. Stores v clamped to [0, 1] in +0x25.
 RT3_NOINLINE void __fastcall Obj_SetUnit25(uint8_t* o, int, float v) {
-    if (v < *(const float*)0x5c8598) {
+    if (v < *(const float*)rt3::Rdata(0x5c8598)) {
         F<uint32_t>(o, 0x25) = 0;
         return;
     }
-    if ((double)v > *(const double*)0x5c8770) {
+    if ((double)v > *(const double*)rt3::Rdata(0x5c8770)) {
         F<uint32_t>(o, 0x25) = 0x3f800000;
         return;
     }
@@ -1658,7 +1658,7 @@ void __fastcall Particle_EmitQuads(uint8_t* pd, int, float* out, int32_t* count)
     float dx = (float)((double)cam[0] - wx), dy = (float)((double)cam[1] - wy), dz = (float)((double)cam[2] - wz);
     float cx, cy, cz;
     Vec_Cross(&cx, &cy, rx, ry, rz, dx, dy, dz, &cz);
-    double inv = *(const double*)0x5c8770 / Sqrt87((double)cx * cx + (double)cy * cy + (double)cz * cz);
+    double inv = *(const double*)rt3::Rdata(0x5c8770) / Sqrt87((double)cx * cx + (double)cy * cy + (double)cz * cz);
     double k = (double)F<float>(pd, 0xc) * F<float>(pd, 0x25) * inv;
     *count += 6;
     double px = cx * k;

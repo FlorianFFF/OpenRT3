@@ -179,7 +179,7 @@ RT3_NOINLINE int32_t __fastcall EmitterLibrary_Register(uint8_t* lib, int, uint3
 
 static inline uint8_t* Packs() { return g_pack; }
 
-static inline float Fl(uint32_t a) { return *(const float*)a; }
+static inline float Fl(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 static inline int32_t Ftol(double v) {
     int32_t r;
@@ -371,7 +371,7 @@ RT3_NOINLINE static uint8_t* __stdcall Effect_PlaceSceneryImpl(uint32_t kind, fl
     return n;
 }
 
-static inline double Fl_205(uint32_t a) { return *(const float*)a; }
+static inline double Fl_205(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 
 // Unlinks `node` from the singly linked list {head, tail, count}; a node that
@@ -407,7 +407,7 @@ static void Pool_Return(uint8_t* pool, uint32_t* node) {
     }
 }
 
-static inline double Fl_207(uint32_t a) { return *(const float*)a; }
+static inline double Fl_207(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 __declspec(naked) void Effect_PlaceScenery() {
     __asm {

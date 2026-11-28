@@ -388,9 +388,9 @@ static inline int32_t FtolD(double v) {
 static inline int32_t ClampLight(int32_t i) { return i >= 0x90 ? 0x8f : i < 0 ? 0 : i; }
 
 
-static inline double D(uint32_t a) { return *(const double*)a; }
+static inline double D(uint32_t a) { return *(const double*)rt3::Rdata(a); }
 
-static inline double Fl(uint32_t a) { return *(const float*)a; }
+static inline double Fl(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 static inline int32_t Ftol(double v) {
     int32_t r;
@@ -572,14 +572,14 @@ RT3_NOINLINE void __fastcall CloudShadows_Render(uint8_t* v) {
         a = 0x2e;
     else if (a > 0xff)
         a = 0xff;
-    int32_t alpha = (int32_t)((*(const double*)0x5dcfc8 - F<int32_t>(v, 0x368a)) * *(const double*)0x5dcfc0 * a);
+    int32_t alpha = (int32_t)((*(const double*)rt3::Rdata(0x5dcfc8) - F<int32_t>(v, 0x368a)) * *(const double*)rt3::Rdata(0x5dcfc0) * a);
     if (v[0x3692] && alpha < 0x2e)
         alpha = 0x2e;
     else if (alpha < 0)
         alpha = 0;
     else if (alpha > 0xff)
         alpha = 0xff;
-    float scale = (float)((double)F<int32_t>(v, 0x11) * *(const float*)0x5dcfb8);
+    float scale = (float)((double)F<int32_t>(v, 0x11) * *(const float*)rt3::Rdata(0x5dcfb8));
     if (!F<uint8_t*>(v, 0x95)) return;
     Render_PushStages(F<uint8_t*>(v, 0x2d), 0, F<const uint32_t*>(v, 0x3d));
     Render_SetColorOp(F<uint8_t*>(v, 0x2d), 0, 0, 2, 5, 1, 1);
@@ -682,10 +682,10 @@ RT3_NOINLINE void __fastcall Scene_EmitScenery(uint8_t* sc, int, uint8_t* src, u
     int32_t count = 0;
     int32_t detail = (int32_t)Render_Get153c(src);
     int32_t range = (int32_t)Render_Get1540(src);
-    double half = *(const double*)0x5c8628;
+    double half = *(const double*)rt3::Rdata(0x5c8628);
     float near_ = (float)(half * range);
     float fadeLen = (float)(((double)range - near_) * half);
-    double edge = *(const float*)0x5cfcfc;
+    double edge = *(const float*)rt3::Rdata(0x5cfcfc);
     uint8_t** slot = (uint8_t**)(cell + 0x14);
     for (int32_t rowOff = 0, r4 = 0; rowOff < 0x5c0; rowOff += 0x170, r4 += 4) {
         double x = (double)rowOff + cx + edge;
@@ -700,14 +700,14 @@ RT3_NOINLINE void __fastcall Scene_EmitScenery(uint8_t* sc, int, uint8_t* src, u
             double z = (double)colOff + cz + edge;
             float fz = (float)z;
             double ddz = z - F<float>(sc, 0x36a4);
-            double dist = sqrt(ddz * ddz + dx2) * *(const double*)0x5dcfd8;
+            double dist = sqrt(ddz * ddz + dx2) * *(const double*)rt3::Rdata(0x5dcfd8);
             float fd = (float)dist;
             double t = dist - near_;
-            if (t < *(const float*)0x5c8598) t = *(const float*)0x5c8598;
+            if (t < *(const float*)rt3::Rdata(0x5c8598)) t = *(const float*)rt3::Rdata(0x5c8598);
             t = t / fadeLen;
-            if (t > *(const double*)0x5c8770) t = *(const float*)0x5c85b4;
-            else if (t < *(const double*)0x5c8608) t = *(const float*)0x5c8598;
-            int32_t alpha = FtolD((double)F<int32_t>(sc, 0x36b4) - t * *(const double*)0x5ca110);
+            if (t > *(const double*)rt3::Rdata(0x5c8770)) t = *(const float*)rt3::Rdata(0x5c85b4);
+            else if (t < *(const double*)rt3::Rdata(0x5c8608)) t = *(const float*)rt3::Rdata(0x5c8598);
+            int32_t alpha = FtolD((double)F<int32_t>(sc, 0x36b4) - t * *(const double*)rt3::Rdata(0x5ca110));
             if (alpha <= F<int32_t>(sc, 0x22b8b)) continue;
             if (alpha > 0xff) alpha = 0xff;
             int32_t lowDetail = 0;
@@ -716,9 +716,9 @@ RT3_NOINLINE void __fastcall Scene_EmitScenery(uint8_t* sc, int, uint8_t* src, u
             int32_t lod = FtolD(fd);
             if (lod > lim) {
                 uint32_t radius;
-                if (fd < *(const float*)0x5c9ac8) radius = 0x3fcccccd;
-                else if (fd < *(const float*)0x5c8d4c) radius = 0x3fa66666;
-                else if (fd < *(const float*)0x5ca0f0) radius = 0x3f933333;
+                if (fd < *(const float*)rt3::Rdata(0x5c9ac8)) radius = 0x3fcccccd;
+                else if (fd < *(const float*)rt3::Rdata(0x5c8d4c)) radius = 0x3fa66666;
+                else if (fd < *(const float*)rt3::Rdata(0x5ca0f0)) radius = 0x3f933333;
                 else radius = 0x3f88f5c3;
                 if (!Render_ProjectClip(F<uint8_t*>(sc, 0x2d), 0, fx, y0, fz, *(float*)&radius, F<float>(sc, 0x36ac), nullptr)) continue;
                 if (lod > detail) lowDetail = 1;
@@ -1098,11 +1098,11 @@ RT3_NOINLINE void __fastcall Terrain_BuildMesh(uint8_t* sc, int, uint8_t shift, 
                         if (near_ < 1) near_ = 1;
                         double fw = (double)(near_ >> 1);
                         double wgt;
-                        if (fw < *(const float*)0x5c8898) {
-                            wgt = *(const float*)0x5c85b4;
+                        if (fw < *(const float*)rt3::Rdata(0x5c8898)) {
+                            wgt = *(const float*)rt3::Rdata(0x5c85b4);
                         } else {
-                            double e = fw - *(const double*)0x5c8bf0;
-                            wgt = *(const double*)0x5c8770 / (e * e);
+                            double e = fw - *(const double*)rt3::Rdata(0x5c8bf0);
+                            wgt = *(const double*)rt3::Rdata(0x5c8770) / (e * e);
                         }
                         double g = heights[0][(w + 1) * cy + cx];
                         ++F<int32_t>(sc, 0x3694);
@@ -1125,7 +1125,7 @@ RT3_NOINLINE void __fastcall Terrain_BuildMesh(uint8_t* sc, int, uint8_t shift, 
 done:
     if (int32_t n = F<int32_t>(sc, 0x3694)) {
         sum = (float)((double)sum / weights);
-        int32_t c = FtolD((double)n - (double)weights * *(const float*)0x5c9ac8);
+        int32_t c = FtolD((double)n - (double)weights * *(const float*)rt3::Rdata(0x5c9ac8));
         F<int32_t>(sc, 0x3694) = c;
         if (c < 1) F<int32_t>(sc, 0x3694) = 1;
         Render_SetVec2533(F<uint8_t*>(sc, 0x2d), 0, 0, *(uint32_t*)&sum, 0);
@@ -1159,7 +1159,7 @@ RT3_NOINLINE int32_t __fastcall Scene_FogDensity(uint8_t* s) {
     }
     v -= Fx_Intensity(s) >> 2;
     float h = F<float>(s, 0x368e);
-    if ((double)h > *(const double*)0x5dcff0) {
+    if ((double)h > *(const double*)rt3::Rdata(0x5dcff0)) {
         int32_t base = v;
         __asm {
             fld dword ptr ds:[0x5ca164]
@@ -1434,7 +1434,7 @@ RT3_NOINLINE int32_t __fastcall Scene_ProjectNormalised(uint8_t* s, int, float x
     if (Render_Project(F<uint8_t*>(s, 0x2d), 0, x, y, z, ox, oy, oz)) return 0;
     float sx, sy;
     Render_GetViewport(F<uint8_t*>(s, 0x2d), 0, (uint32_t*)&sx, (uint32_t*)&sy, nullptr, nullptr);
-    const double half = *(const double*)0x5c8628;
+    const double half = *(const double*)rt3::Rdata(0x5c8628);
     *ox = (float)((double)*ox / sx * half + half / sx);
     *oy = (float)(half / sy - (double)*oy / sy * half);
     return 1;
@@ -1465,7 +1465,7 @@ RT3_REPLACE(0x527590, Scene_SetPair1);
 
 // 0x5275b0. Camera focus in cells (+0x3734, +0x373c scaled by 1/92); returns the flag byte +0x3746.
 RT3_NOINLINE int32_t __fastcall Scene_FocusCell(uint8_t* s, int, float* x, float* y) {
-    const float k = *(const float*)0x5dcfe8;
+    const float k = *(const float*)rt3::Rdata(0x5dcfe8);
     *x = (float)((double)F<float>(s, 0x3734) * k);
     *y = (float)((double)F<float>(s, 0x373c) * k);
     return s[0x3746];
@@ -1611,8 +1611,8 @@ RT3_REPLACE(0x527ce0, Scene_SetupVisitGrid);
 
 // 0x527de0. Sets the map-tool brush radius: the brush marker's scale (x 5.5) and +0x3728 (x 4).
 RT3_NOINLINE void __fastcall Scene_SetBrushRadius(uint8_t* s, int, float v) {
-    SceneObj_SetScale36(F<uint8_t*>(s, 0x364d), 0, (float)((double)v * *(const double*)0x5dd158));
-    F<float>(s, 0x3728) = (float)((double)v * *(const float*)0x5c8568);
+    SceneObj_SetScale36(F<uint8_t*>(s, 0x364d), 0, (float)((double)v * *(const double*)rt3::Rdata(0x5dd158)));
+    F<float>(s, 0x3728) = (float)((double)v * *(const float*)rt3::Rdata(0x5c8568));
 }
 RT3_REPLACE(0x527de0, Scene_SetBrushRadius);
 
@@ -1664,14 +1664,14 @@ RT3_NOINLINE uint8_t __fastcall Scene_ViewNeedsRebuild(uint8_t* s, int, uint8_t*
     double movedExact = sqrt((ez * ez + ey * ey) + ex * ex);
     float moved = (float)movedExact;
     int32_t changed = 0;
-    if (movedExact > *(const double*)0x5c86b8) {
+    if (movedExact > *(const double*)rt3::Rdata(0x5c86b8)) {
         double h = Terrain_HeightAt((uint8_t*)Engine_Get1C(hook::As<void*>(g_engine)), 0, pos[0], pos[2]);
-        double q = ((double)pos[1] - h) * *(const double*)0x5c8918;
+        double q = ((double)pos[1] - h) * *(const double*)rt3::Rdata(0x5c8918);
         if (moved > q) changed = 1;
         if (q < fabs((double)dist - F<float>(s, 0x36b8))) changed = 1;
     }
-    changed |= fabs((double)pitch - F<float>(s, 0x36bc)) > *(const double*)0x5dd170 ? 1 : 0;
-    int32_t turned = fabs((double)yaw - F<float>(s, 0x36c0)) > *(const double*)0x5dd168 ? 1 : 0;
+    changed |= fabs((double)pitch - F<float>(s, 0x36bc)) > *(const double*)rt3::Rdata(0x5dd170) ? 1 : 0;
+    int32_t turned = fabs((double)yaw - F<float>(s, 0x36c0)) > *(const double*)rt3::Rdata(0x5dd168) ? 1 : 0;
     changed |= (F<uint8_t*>(s, 0x3672) != cam ? 1 : 0) | turned;
     int32_t fog = 0;
     if (Render_TakeFlag36f7(F<uint8_t*>(s, 0x2d), 0, 0) || s[0x3749] || s[0x3748]) fog = Scene_FogDensity(s) >= 8 ? 1 : 0;
@@ -1681,7 +1681,7 @@ RT3_NOINLINE uint8_t __fastcall Scene_ViewNeedsRebuild(uint8_t* s, int, uint8_t*
     if (!changed) {
         int32_t limit;
         {
-            double v = *(const double*)0x5dd160 / (double)F<int32_t>(s, 0x3694);
+            double v = *(const double*)rt3::Rdata(0x5dd160) / (double)F<int32_t>(s, 0x3694);
             __asm {
                 fld v
                 call Rt3_Ftol
@@ -1728,7 +1728,7 @@ RT3_NOINLINE void __fastcall Scene_VisitTerrain(uint8_t* s, int, uint8_t* visito
     float cam[3];
     Obj_GetXYZ1c(F<uint8_t*>(g_engine, 0x28), 0, (uint32_t*)&cam[0], (uint32_t*)&cam[1],
                  (uint32_t*)&cam[2]);
-    double k = *(const float*)0x5dcfe8;
+    double k = *(const float*)rt3::Rdata(0x5dcfe8);
     int32_t camX, camZ;
     double vx = (double)cam[0] * k, vz = (double)cam[2] * k;
     __asm {
@@ -1769,7 +1769,7 @@ RT3_NOINLINE void __fastcall View_PickTerrain(uint8_t* v, int, uint8_t* cam, uin
     float* px = (float*)(v + 0x3734);
     float* py = (float*)(v + 0x3738);
     float* pz = (float*)(v + 0x373c);
-    double one = *(const double*)0x5c8770, half = *(const double*)0x5c8628;
+    double one = *(const double*)rt3::Rdata(0x5c8770), half = *(const double*)rt3::Rdata(0x5c8628);
     float sy = (float)(one - ((double)F<float>(v, 0x3724) + F<float>(v, 0x3724)));
     float sx = (float)((double)F<float>(v, 0x3720) + F<float>(v, 0x3720) - one);
     Render_Unproject(F<uint8_t*>(v, 0x2d), 0, sx, sy, px, py, pz);
@@ -1781,7 +1781,7 @@ RT3_NOINLINE void __fastcall View_PickTerrain(uint8_t* v, int, uint8_t* cam, uin
     float fdz = (float)dz;
     *(uint32_t*)pz = *(uint32_t*)&eye[2];
     double len = sqrt(dz * fdz + dy * dy + dx * dx) * half;
-    float k = (float)((double)*(const float*)0x5c85b4 / len);
+    float k = (float)((double)*(const float*)rt3::Rdata(0x5c85b4) / len);
     float stepX = (float)(k * dx);
     float stepY = (float)(k * dy);
     float stepZ = (float)(k * (double)fdz);
@@ -1790,7 +1790,7 @@ RT3_NOINLINE void __fastcall View_PickTerrain(uint8_t* v, int, uint8_t* cam, uin
     v[0x3746] = 0;
     double h = Terrain_HeightAt(terrain, 0, *px, *pz);
     double st = fabs((double)*py - h) * half;
-    double lo = *(const double*)0x5c85d0;
+    double lo = *(const double*)rt3::Rdata(0x5c85d0);
     if (lo > st) st = lo;
     float step = (float)st;
     int32_t i = 0, limit = 0x80, minStep = 2;
@@ -1804,7 +1804,7 @@ RT3_NOINLINE void __fastcall View_PickTerrain(uint8_t* v, int, uint8_t* cam, uin
             *pz = nz;
             double g = Terrain_HeightAt(terrain, 0, nx, nz);
             float fg = (float)g;
-            if (g + (double)*(const float*)0x5c8568 > (double)*py) {
+            if (g + (double)*(const float*)rt3::Rdata(0x5c8568) > (double)*py) {
                 *py = fg;
                 v[0x3746] = 1;
                 goto done;
@@ -1814,7 +1814,7 @@ RT3_NOINLINE void __fastcall View_PickTerrain(uint8_t* v, int, uint8_t* cam, uin
             step = (float)(m > d ? m : d);
         } while (i < limit);
         if (v[0x3746]) break;
-        double zero = (double)*(const float*)0x5c8598;
+        double zero = (double)*(const float*)rt3::Rdata(0x5c8598);
         if (limit < 0x100 && (double)*px > zero && (double)(Terrain_Rows(terrain) * 0x5c) > (double)*px && (double)*pz > zero &&
             (double)(Terrain_Cols(terrain) * 0x5c) > (double)*pz) {
             minStep *= 10;
@@ -1823,11 +1823,11 @@ RT3_NOINLINE void __fastcall View_PickTerrain(uint8_t* v, int, uint8_t* cam, uin
     }
 done:
     if (v[0x3746]) {
-        double zero = (double)*(const float*)0x5c8598;
+        double zero = (double)*(const float*)rt3::Rdata(0x5c8598);
         bool off = (double)*px < zero || (double)maxX < (double)*px || (double)*pz < zero || (double)maxZ < (double)*pz;
         v[0x3746] = (uint8_t)(v[0x3746] + (off ? 1 : 0));
     }
-    double cell = *(const float*)0x5dcfe8;
+    double cell = *(const float*)rt3::Rdata(0x5dcfe8);
     F<int32_t>(v, 0x3718) = FtolD((double)*px * cell);
     F<int32_t>(v, 0x371c) = FtolD((double)*pz * cell);
 }
@@ -1840,12 +1840,12 @@ RT3_REPLACE(0x528360, View_PickTerrain);
 // turning with the clock (GetTickCount & 0x1fff x 0x5dd178 x 0x5c8768).
 RT3_NOINLINE void __fastcall Marker_Render(uint8_t* s, int, uint8_t* cam, uint8_t* terrain) {
     uint32_t ticks = (imp::GetTickCount)() & 0x1fff;
-    float spin = (float)((double)(int32_t)ticks * *(const float*)0x5dd178 * *(const float*)0x5c8768);
+    float spin = (float)((double)(int32_t)ticks * *(const float*)rt3::Rdata(0x5dd178) * *(const float*)rt3::Rdata(0x5c8768));
     if (!s[0x3745]) return;
     if (!F<int32_t>(s, 0x3730)) View_PickTerrain(s, 0, cam, terrain);
     if (!F<int32_t>(s, 0x3741) || s[0x3746] != 1) return;
     uint8_t* m = F<uint8_t*>(s, 0x364d);
-    Model_SetFrame(m, 0, F<float>(m, 0x36) < *(const float*)0x5c8948 ? 1 : 0);
+    Model_SetFrame(m, 0, F<float>(m, 0x36) < *(const float*)rt3::Rdata(0x5c8948) ? 1 : 0);
     Render_BindVb2647(F<uint8_t*>(s, 0x2d));
     Render_BlendDefault(F<uint8_t*>(s, 0x2d));
     Render_AlphaTestOn(F<uint8_t*>(s, 0x2d), 0, 1);
@@ -3087,7 +3087,7 @@ RT3_NOINLINE void __fastcall Scene_RenderFrame(uint8_t* s, int, uint8_t* cam, ui
                 int32_t x0, y0, x1, y1;
                 Scene_VisibleBounds(s, 0, &x0, &y0, &x1, &y1, ter, 4);
                 float v = (float)((double)F<float>(s, 0x36a0) / F<float>(s, 0x22b67));
-                if (!(v < Fl(0x5c85b4))) v = BitsF(*(const uint32_t*)0x5c85b4);
+                if (!(v < Fl(0x5c85b4))) v = BitsF(*(const uint32_t*)rt3::Rdata(0x5c85b4));
                 g_8f2518 = (float)((double)v * v);
                 g_6d9090 = (float)(Fl(0x5c85b4) - g_8f2518);
                 F<int32_t>(s, 0x22b53) = 0;

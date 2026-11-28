@@ -249,9 +249,9 @@ static inline void Virtual(void* o, uint32_t slot) { ((void(__thiscall*)(void*))
 
 static inline Collection* Coll(uint32_t a) { return hook::Global<Collection*>(a); }
 
-static inline double D(uint32_t a) { return *(const double*)a; }
+static inline double D(uint32_t a) { return *(const double*)rt3::Rdata(a); }
 
-static inline float Fl(uint32_t a) { return *(const float*)a; }
+static inline float Fl(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 static inline Collection* Cargos() { return g_cargoTypes; }
 
@@ -264,9 +264,9 @@ static void FatalFormat(int32_t id, const char* arg) {
 
 static inline uint8_t* World() { return g_world; }
 
-static inline double Fl_193(uint32_t a) { return *(const float*)a; }
+static inline double Fl_193(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
-static inline double Fl_207(uint32_t a) { return *(const float*)a; }
+static inline double Fl_207(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 static inline int32_t Ftol(double v) {
     int32_t r;
@@ -399,7 +399,7 @@ RT3_REPLACE(0x41ab70, Thunk41ab70);
 RT3_NOINLINE float __fastcall Car_TiltValue(uint8_t* c) {
     float a;
     Model_GetAngles(c, 0, (uint32_t*)&a, nullptr, nullptr);
-    return (float)((double)a * *(const double*)0x5c97c0);
+    return (float)((double)a * *(const double*)rt3::Rdata(0x5c97c0));
 }
 RT3_REPLACE(0x41ab80, Car_TiltValue);
 
@@ -472,11 +472,11 @@ RT3_REPLACE(0x41adb0, Obj_Ref388);
 // 0x41add0. The car's rear coupling point: its cell position moved back by
 // half its type length (+0x10d) along its heading.
 void __fastcall Car_RearPoint(uint8_t* c, int, float* x, float* y) {
-    float half = (float)((double)F<float>(Obj_Ref388(c), 0x10d) * *(const double*)0x5c8628);
+    float half = (float)((double)F<float>(Obj_Ref388(c), 0x10d) * *(const double*)rt3::Rdata(0x5c8628));
     *x = (float)Obj_CellX(c);
     *y = (float)Obj_CellY(c);
     float a = SceneObj_Angle2(c);
-    float h = (float)crt::fmod((double)a + *(const double*)0x5c8740, 6.2831854820251465);
+    float h = (float)crt::fmod((double)a + *(const double*)rt3::Rdata(0x5c8740), 6.2831854820251465);
     *x = (float)((double)*x - crt::cos(h) * half);
     *y = (float)((double)*y - crt::sin(h) * half);
 }
@@ -549,7 +549,7 @@ RT3_REPLACE(0x41b960, Obj_CargoType);
 // when option +0x130 is on.
 RT3_NOINLINE void __fastcall Obj_SetAmount39c(void* o, int, float v) {
     F<float>(o, 0x39c) = v;
-    if (!(v <= *(const float*)0x5c8598)) return;
+    if (!(v <= *(const float*)rt3::Rdata(0x5c8598))) return;
     if (!F<int32_t>(g_app, 0x130)) return;
     F<float>(o, 0x39c) = (float)(HashRand(F<int32_t>(o, 0x34a), 1, 8) * 1000);
 }
@@ -654,7 +654,7 @@ RT3_REPLACE(0x41bb40, Car_LoadAt);
 // towards 1 while the train is in state 1 or 2.
 void __fastcall Car_ApplyPriceFactor(uint8_t* car) {
     uint32_t ct = F<uint32_t>(car, 0x38c);
-    if (!ct || !(F<float>(car, 0x398) > *(const float*)0x5c8598)) return;
+    if (!ct || !(F<float>(car, 0x398) > *(const float*)rt3::Rdata(0x5c8598))) return;
     uint8_t* types = hook::As<uint8_t*>(g_cargoTypes);
     int32_t map = F<int32_t>(types, 0x9a + ct * 4);
     float v = map != -1 ? F<float>(g_world, 0x71 + map * 4)
@@ -662,7 +662,7 @@ void __fastcall Car_ApplyPriceFactor(uint8_t* car) {
     int32_t tid = F<int32_t>(car, 0x390);
     uint8_t* train = tid != -1 ? (uint8_t*)Collection_Get(g_trains, 0, tid) : nullptr;
     if (Train_State1Or2(train))
-        F<float>(car, 0x3a0) = (float)(((double)v + *(const double*)0x5c8770) / *(const double*)0x5c85d0 * F<float>(car, 0x3a0));
+        F<float>(car, 0x3a0) = (float)(((double)v + *(const double*)rt3::Rdata(0x5c8770)) / *(const double*)rt3::Rdata(0x5c85d0) * F<float>(car, 0x3a0));
     else
         F<float>(car, 0x3a0) = (float)((double)v * F<float>(car, 0x3a0));
 }
@@ -675,7 +675,7 @@ RT3_NOINLINE double __fastcall Obj_Rate(void* o) {
     if (F<int32_t>(o, 0x38c) != F<uint16_t>(hook::As<uint8_t*>(g_cargoTypes), 0x88)) return f;
     int32_t id = F<int32_t>(o, 0x390);
     volatile uint8_t* t = id != -1 ? (uint8_t*)Collection_Get(g_trains, 0, id) : nullptr;
-    if (t[0x198]) f = (float)(f * *(const double*)0x5c8698); // QUIRK: no train reads address 0x198
+    if (t[0x198]) f = (float)(f * *(const double*)rt3::Rdata(0x5c8698)); // QUIRK: no train reads address 0x198
     return f;
 }
 RT3_REPLACE(0x41bf90, Obj_Rate);
@@ -1082,7 +1082,7 @@ float __fastcall Load_PayOut(uint8_t* o) {
     uint8_t* t = F<int32_t>(o, 0x390) != -1 ? (uint8_t*)Collection_Get(g_trains, 0, F<uint32_t>(o, 0x390)) : nullptr;
     uint8_t* r = Train_FirstCarRegion(t);
     float rev = 0.0f;
-    if (F<float>(o, 0x398) > *(const float*)0x5c8598) {
+    if (F<float>(o, 0x398) > *(const float*)rt3::Rdata(0x5c8598)) {
         uint8_t* cargos = hook::As<uint8_t*>(g_cargoTypes);
         rev = (float)((double)F<float>(o, 0x3a0) * F<float>(o, 0x39c));
         int32_t cargo = F<int32_t>(o, 0x38c);
@@ -1204,7 +1204,7 @@ RT3_NOINLINE void __fastcall Collection_SaveWithRecords(Collection* t, int, Stre
 }
 RT3_REPLACE(0x41d4c0, Collection_SaveWithRecords);
 
-RT3_NOINLINE double One() { return *(const float*)0x5c85b4; }
+RT3_NOINLINE double One() { return *(const float*)rt3::Rdata(0x5c85b4); }
 
  // 1.0f
 RT3_REPLACE(0x41d540, One);

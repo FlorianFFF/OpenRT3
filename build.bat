@@ -17,7 +17,9 @@ cd /d "%~dp0"
 set GAME=..\Railroad Tycoon 3 Full Game
 if not exist out\obj mkdir out\obj
 if not exist out\objt mkdir out\objt
-set CFLAGS=/nologo /O2 /MT /W3 /EHsc /std:c++17 /Zi /Isrc /D_CRT_SECURE_NO_WARNINGS /MP /arch:IA32 /fp:precise
+rem The game's read-only data, copied from RT3.exe for src\core\rdata.cpp (not in the repository).
+python tools\gen_rdata.py || exit /b 1
+set CFLAGS=/nologo /O2 /MT /W3 /EHsc /std:c++17 /Zi /Isrc /Iout\gen /D_CRT_SECURE_NO_WARNINGS /MP /arch:IA32 /fp:precise
 set LIB_SRC=src\developer_menu.cpp src\hook\*.cpp src\core\*.cpp src\engine\*.cpp src\game\*.cpp src\assets\*.cpp
 cl %CFLAGS% /LD src\dllmain.cpp src\harness.cpp src\drawtrace.cpp %LIB_SRC% /Foout\obj\ /Fdout\rt3re.pdb /Fe:out\rt3re.dll /link /MAP:out\rt3re.map user32.lib gdi32.lib ole32.lib version.lib || exit /b 1
 cl %CFLAGS% /LD tests\*.cpp %LIB_SRC% /Foout\objt\ /Fdout\rt3re_test.pdb /Fe:out\rt3re_test.dll /link /MAP:out\rt3re_test.map user32.lib version.lib || exit /b 1

@@ -289,9 +289,9 @@ RT3_NOINLINE uint8_t* __fastcall TimerWidget_Construct(uint8_t* w, int, const ui
 RT3_NOINLINE void __fastcall TextLink_Draw(uint8_t* win, uint8_t* font, const char* text, float x, float y, float w, float h, int32_t align, int32_t valign, uint32_t flags, const char* tip, int32_t id, uint32_t color, uint32_t hover);
 RT3_NOINLINE void __fastcall TextLink_DrawPlain(uint8_t* win, uint8_t* font, const char* text, float x, float y, float w, float h, uint32_t color, int32_t align, int32_t valign, uint32_t flags, const char* tip, int32_t id);
 
-static inline double D(uint32_t a) { return *(const double*)a; }
+static inline double D(uint32_t a) { return *(const double*)rt3::Rdata(a); }
 
-static inline double Fl(uint32_t a) { return *(const float*)a; }
+static inline double Fl(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 
 static inline int32_t Ftol(double v) {
@@ -2139,9 +2139,9 @@ int32_t __fastcall CompanyWindow_HandleEvent(uint8_t* w, int, int32_t* ev) {
             bool allowed = false;
             int32_t y2 = F<uint16_t>(g_world, 0xd) - 2;
             if (F<uint16_t>(SelectedCompany(), 0x157) <= y2 &&
-                !(Company_Stat((uint8_t*)SelectedCompany(), 0, 0x2b, y2) > *(const double*)0x5c8608)) {
+                !(Company_Stat((uint8_t*)SelectedCompany(), 0, 0x2b, y2) > *(const double*)rt3::Rdata(0x5c8608))) {
                 int32_t y1 = F<uint16_t>(g_world, 0xd) - 1;
-                allowed = !(Company_Stat((uint8_t*)SelectedCompany(), 0, 0x2b, y1) > *(const double*)0x5c8608);
+                allowed = !(Company_Stat((uint8_t*)SelectedCompany(), 0, 0x2b, y1) > *(const double*)rt3::Rdata(0x5c8608));
             }
             if (!allowed && !Global6d07b4Set2()) {
                 HandleEventMsg(GetString(0x3c6), 1, kMsgNeg1);
@@ -2247,7 +2247,7 @@ int32_t __fastcall CompanyWindow_HandleEvent(uint8_t* w, int, int32_t* ev) {
                 HandleEventMsg(text, 1, kMsgNeg1);
             } else {
                 // A NaN price counts as too dear.
-                bool afford = Obj_RoundedCost(t, 0, (uint32_t)CompanyViewId()) <= *(const float*)0x5c8598;
+                bool afford = Obj_RoundedCost(t, 0, (uint32_t)CompanyViewId()) <= *(const float*)rt3::Rdata(0x5c8598);
                 if (!afford) {
                     double cash = Company_Stat((uint8_t*)SelectedCompany(), 0, 0xd, 0x2329);
                     afford = Obj_RoundedCost(t, 0, (uint32_t)CompanyViewId()) <= cash;

@@ -372,9 +372,9 @@ RT3_NOINLINE uint8_t* __fastcall ListBox_Construct(uint8_t* w, int, const uint8_
 RT3_NOINLINE uint8_t* __fastcall EditBox_Construct(uint8_t* w, int, const uint8_t* def);
 RT3_NOINLINE uint8_t* __fastcall TimerWidget_Construct(uint8_t* w, int, const uint8_t* def);
 
-static inline double D(uint32_t a) { return *(const double*)a; }
+static inline double D(uint32_t a) { return *(const double*)rt3::Rdata(a); }
 
-static inline float Fl(uint32_t a) { return *(const float*)a; }
+static inline float Fl(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 static inline int32_t Ftol(double v) {
     int32_t r;
@@ -386,7 +386,7 @@ static inline int32_t Ftol(double v) {
     return r;
 }
 
-static inline double Fl_205(uint32_t a) { return *(const float*)a; }
+static inline double Fl_205(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 
 static inline float BitsF(uint32_t b) { return *(float*)&b; }
@@ -447,7 +447,7 @@ static void Campaign_Speak(uint8_t* d, const char* file) {
     d[0x7e] = 1;
 }
 
-static inline double Fl_207(uint32_t a) { return *(const float*)a; }
+static inline double Fl_207(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 static inline uint32_t Bits(float f) { return *(uint32_t*)&f; }
 
@@ -473,8 +473,8 @@ static int32_t TerrainTools_Round(float v) {
 }
 
 namespace {
-inline float BoatF(uint32_t a) { return *(const float*)a; }
-inline double BoatD(uint32_t a) { return *(const double*)a; }
+inline float BoatF(uint32_t a) { return *(const float*)rt3::Rdata(a); }
+inline double BoatD(uint32_t a) { return *(const double*)rt3::Rdata(a); }
 inline uint32_t BoatBits(float f) { return *(uint32_t*)&f; }
 inline uint8_t BoatVk(char c) { return (uint8_t)imp::VkKeyScanA(c); }
 inline bool BoatKey(char c) { return Engine_KeyState(g_engine, 0, BoatVk(c)) != 0; }
@@ -550,8 +550,8 @@ template <typename Fn> void IndDeal(uint8_t* w, uint32_t id, float amount, uint3
 }
 
 namespace {
-inline double RowD(uint32_t a) { return *(const double*)a; }
-inline float RowF(uint32_t a) { return *(const float*)a; }
+inline double RowD(uint32_t a) { return *(const double*)rt3::Rdata(a); }
+inline float RowF(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 inline uint8_t* RowGlyph(int32_t k) { return (uint8_t*)(uintptr_t)Table_Entry(F<uint8_t*>(g_world, 0x46a84), 0, k); }
 inline void RowIcon(uint8_t* g, float x, float y) {
     Glyph_Queue(g, 0, x, y, 0x3f800000, 1.0f, 1.0f, 0xffffffff, 0, 1, 0, 0.0f, 0.0f, 1.0f, 1.0f);
@@ -1270,7 +1270,7 @@ int32_t __fastcall IndustryWindow_HandleEvent(uint8_t* w, int, uint32_t* ev) {
             IndMsg(text, 1);
             return 0;
         }
-        double cash = Company_Stat((uint8_t*)Obj_Company21(hook::As<void*>(g_world)), 0, 0xd, 0x2329) + *(const double*)0x5d0298;
+        double cash = Company_Stat((uint8_t*)Obj_Company21(hook::As<void*>(g_world)), 0, 0xd, 0x2329) + *(const double*)rt3::Rdata(0x5d0298);
         bool sandbox = g_newGame[0x82] != 0;
         if (!(price < cash || price == cash)) {
             if (!sandbox) {
@@ -1312,7 +1312,7 @@ int32_t __fastcall IndustryWindow_HandleEvent(uint8_t* w, int, uint32_t* ev) {
     }
     case 0xbd1a: {
         if (!ind || !Obj_Company21(hook::As<void*>(g_world))) return 0;
-        float half = (float)((double)F<float>(ind, 0x27a) * *(const double*)0x5c8628);
+        float half = (float)((double)F<float>(ind, 0x27a) * *(const double*)rt3::Rdata(0x5c8628));
         const char* name = IndName(ind);
         const char* value = Num_FormatSimple(num1, 9, half, 0xb);
         char msg[0x1f8];
@@ -1331,7 +1331,7 @@ int32_t __fastcall IndustryWindow_HandleEvent(uint8_t* w, int, uint32_t* ev) {
         uint32_t player = (uint32_t)Obj_Get25(hook::As<void*>(g_world));
         uint32_t company = (uint32_t)Obj_Get21(hook::As<void*>(g_world));
         cost = (float)((double)Effects_Multiplier(g_world, 0, 0x3c, company, player, 0) * cost);
-        double cash = Company_Stat((uint8_t*)Obj_Company21(hook::As<void*>(g_world)), 0, 0xd, 0x2329) + *(const double*)0x5d0298;
+        double cash = Company_Stat((uint8_t*)Obj_Company21(hook::As<void*>(g_world)), 0, 0xd, 0x2329) + *(const double*)rt3::Rdata(0x5d0298);
         bool sandbox = g_newGame[0x82] != 0;
         if (!(cost < cash || cost == cash)) {
             if (!sandbox) {
@@ -2055,7 +2055,7 @@ void __fastcall TrainOrders_CargoTooltip(int32_t id, int, int32_t, int32_t) {
         if (st && rec) {
             float stock = 0.0f, quota = 0.0f;
             Obj_CargoStockAndQuota(st, 0, (int32_t)cargo, &stock, &quota);
-            int32_t demand = Ftol((double)quota / *(const double*)0x5c87f8);
+            int32_t demand = Ftol((double)quota / *(const double*)rt3::Rdata(0x5c87f8));
             char sd[0x1a0], ss[0x190];
             Num_FormatSimple(sd, 9, (double)demand, 0xb);
             crt::sprintf(ss, (const char*)0x5d05ec, (double)stock);
@@ -2064,7 +2064,7 @@ void __fastcall TrainOrders_CargoTooltip(int32_t id, int, int32_t, int32_t) {
             else FormatText(text, GetString(0xba5), LocalizeName((const char*)rec + 4), name, ss, sd, 0, 0, 0, 0);
             uint8_t* next = (uint8_t*)OrderEdit_NextActiveSite();
             if (next && !rec[0x46]) {
-                int32_t there = Ftol((double)City_CargoQuota(Obj_BuildingRegion(next), 0, (int32_t)cargo) / *(const double*)0x5c87f8);
+                int32_t there = Ftol((double)City_CargoQuota(Obj_BuildingRegion(next), 0, (int32_t)cargo) / *(const double*)rt3::Rdata(0x5c87f8));
                 int32_t diff = there - demand;
                 const char* sign = diff < 0 ? (const char*)0x5ca2b4 : diff > 0 ? (const char*)0x5ca2b8 : (const char*)0x5c87a8;
                 char sa[0x1a0], sv[0x1a0], line[0x1e0];
@@ -2792,7 +2792,7 @@ RT3_REPLACE(0x4bc1d0, ChangeHeight_Destruct);
 // 0x4bc210. Selects water level preset idx (+0x78; table 0x621e24) for the renderer.
 RT3_NOINLINE void __fastcall Obj_SetWaterPreset(uint8_t* o, int, int32_t idx) {
     F<int32_t>(o, 0x78) = idx;
-    float v = (float)((double)((const int32_t*)0x621e24)[idx] + *(const double*)0x5c8628);
+    float v = (float)((double)((const int32_t*)0x621e24)[idx] + *(const double*)rt3::Rdata(0x5c8628));
     Scene_SetBrushRadius((uint8_t*)Engine_Renderer(hook::As<void*>(g_engine)), 0, v);
 }
 RT3_REPLACE(0x4bc210, Obj_SetWaterPreset);
@@ -2891,14 +2891,14 @@ int32_t __fastcall TerrainTools_HandleEvent(uint8_t* w, int, uint32_t* ev) {
     }
     float dz = F<float>(ev, 0x28) - F<float>(w, 0x88);
     F<uint32_t>(w, 0x88) = ev[10];
-    dz = (float)(dz * *(const double*)0x5d06a0);
+    dz = (float)(dz * *(const double*)rt3::Rdata(0x5d06a0));
     float mult = (g_input[0xa8c] & 3) ? 3.0f : 1.0f;
     int32_t r = ((const int32_t*)0x621e24)[F<int32_t>(w, 0x78)];
     int32_t tool = F<int32_t>(g_gameWindow, 0x8c);
     switch (tool) {
     case 0xe:
-        if (!(dz == *(const float*)0x5c8598)) {
-            float amount = (float)((double)mult * dz * *(const double*)0x5c8880);
+        if (!(dz == *(const float*)rt3::Rdata(0x5c8598))) {
+            float amount = (float)((double)mult * dz * *(const double*)rt3::Rdata(0x5c8880));
             int32_t y = TerrainTools_Round(F<float>(w, 0x84));
             Map_RaiseAround(g_map, 0, TerrainTools_Round(F<float>(w, 0x80)), y, ((const int32_t*)0x621e24)[F<int32_t>(w, 0x78)], amount, 0);
         }

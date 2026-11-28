@@ -158,9 +158,9 @@ RT3_NOINLINE void __fastcall Scene_Shutdown(uint8_t* s);
 // COM vtable call helpers (D3D8 interfaces, stdcall with `this` first).
 static inline void** Vt(void* p) { return *(void***)p; }
 
-static inline double D(uint32_t a) { return *(const double*)a; }
+static inline double D(uint32_t a) { return *(const double*)rt3::Rdata(a); }
 
-static inline float Fl(uint32_t a) { return *(const float*)a; }
+static inline float Fl(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 static inline int32_t Ftol(double v) {
     int32_t r;
@@ -1125,8 +1125,8 @@ void __fastcall Engine_UpdateFrameTime(void* e) {
     F_engine<DWORD>(e, 0x114286) = Ticks();
     int32_t c = ++g_6d403c;
     if (F_engine<int32_t>((uint8_t*)hook::As<void*>(g_engine), 0x114206) == 0) return;
-    const float limit = *(const float*)0x5c85b0;
-    double sum = *(const float*)0x5c8598;
+    const float limit = *(const float*)rt3::Rdata(0x5c85b0);
+    double sum = *(const float*)rt3::Rdata(0x5c8598);
     int32_t frames = 0;
     c += 0x1fe;
     for (int32_t done = 0; done < 0x100; done += 8, c -= 8) {

@@ -219,7 +219,7 @@ RT3_NOINLINE int32_t __fastcall BuildingDialog_Retrack(uint8_t* dlg);
 RT3_NOINLINE void __fastcall TrackTool_Suspend(uint8_t* w);
 RT3_NOINLINE void __fastcall TrackTool_Resume(uint8_t* t);
 
-static inline double Fl(uint32_t a) { return *(const float*)a; }
+static inline double Fl(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 static inline int32_t Ftol(double v) {
     int32_t r;

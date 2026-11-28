@@ -371,7 +371,7 @@ static uint8_t* EndNode(uint8_t* t, int end) {
 static void CameraBegin(uint8_t* o, uint32_t counter) {
     uint8_t* cam = g_62be68;
     if (!F<int32_t>(o, 0xa0) && !F<int32_t>(o, 0xa4))
-        F<int32_t>(o, 0xb0) = F<float>(cam, 0x66) < *(const float*)0x5c88e0 ? 1 : 0;
+        F<int32_t>(o, 0xb0) = F<float>(cam, 0x66) < *(const float*)rt3::Rdata(0x5c88e0) ? 1 : 0;
     F<float>(o, 0xb8) = (float)Obj_Float18(hook::As<void*>(g_62be68));
     F<int32_t>(o, counter)++;
 }
@@ -395,7 +395,7 @@ static inline void GetCorners(uint8_t* o, Corners& k) {
 
 // Wraps an angle into [0, 2 pi) (0x5c96b8) in float steps.
 static inline float WrapAngle(float a) {
-    const double twoPi = *(const double*)0x5c96b8, zero = *(const double*)0x5c8608;
+    const double twoPi = *(const double*)rt3::Rdata(0x5c96b8), zero = *(const double*)rt3::Rdata(0x5c8608);
     while ((double)a >= twoPi) a = (float)((double)a - twoPi);
     while ((double)a < zero) a = (float)((double)a + twoPi);
     return a;
@@ -404,11 +404,11 @@ static inline float WrapAngle(float a) {
 
 static inline Collection* Routes() { return g_routes; }
 
-static inline float Fl(uint32_t a) { return *(const float*)a; }
+static inline float Fl(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
-static inline double D(uint32_t a) { return *(const double*)a; }
+static inline double D(uint32_t a) { return *(const double*)rt3::Rdata(a); }
 
-static inline double Fl_204(uint32_t a) { return *(const float*)a; }
+static inline double Fl_204(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 static inline int32_t Ftol(double v) {
     int32_t r;
@@ -420,7 +420,7 @@ static inline int32_t Ftol(double v) {
     return r;
 }
 
-static inline double Fl_205(uint32_t a) { return *(const float*)a; }
+static inline double Fl_205(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 static inline float BitsF(uint32_t b) { return *(float*)&b; }
 
@@ -482,7 +482,7 @@ static void Track_SettleGroup(uint8_t* t) {
 
 static inline bool Track_IsRunKind(uint32_t k) { return k == 2 || k == 1 || k == 3 || k == 0xc || k == 0xd; }
 
-static inline double Fl_207(uint32_t a) { return *(const float*)a; }
+static inline double Fl_207(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 // The state neighbour n shows towards t: its own, or for an open piece the
 // side t is on (4 from +0x206, 1 from +0x20a, by +0x201 bit 1 from +0x20e).
@@ -521,7 +521,7 @@ static void ReshapeVecs(uint8_t* p, const TrackVec& a, const TrackVec& b, const 
 // 0x48a020. Height of the object's middle (+0x1ed/+0x1f1) above the terrain at (+0xc, +0x10).
 RT3_NOINLINE float __fastcall Obj_MidAboveGround(uint8_t* o) {
     float h = (float)Terrain_HeightAt(Map(), 0, F<float>(o, 0xc), F<float>(o, 0x10));
-    return (float)(((double)F<float>(o, 0x1f1) + F<float>(o, 0x1ed)) / *(const double*)0x5c85d0 - h);
+    return (float)(((double)F<float>(o, 0x1f1) + F<float>(o, 0x1ed)) / *(const double*)rt3::Rdata(0x5c85d0) - h);
 }
 RT3_REPLACE(0x48a020, Obj_MidAboveGround);
 
@@ -652,11 +652,11 @@ RT3_REPLACE(0x48a420, Track_Link2);
 RT3_NOINLINE void __fastcall Vehicle_PointAlong(uint8_t* o, int, float t, float* x, float* z) {
     Corners k;
     GetCorners(o, k);
-    const float two = *(const float*)0x5c878c;
-    const double K = *(const double*)0x5c8c48;
+    const float two = *(const float*)rt3::Rdata(0x5c878c);
+    const double K = *(const double*)rt3::Rdata(0x5c8c48);
     float m0 = (float)(((double)k.b[0] + k.a[0]) / two);
     float m1 = (float)(((double)k.d[0] + k.c[0]) / two);
-    double tt = (double)t / *(const double*)0x5c97e0;
+    double tt = (double)t / *(const double*)rt3::Rdata(0x5c97e0);
     if (m1 > m0) *x = (float)((((double)m1 - m0) * tt + m0) / K);
     else *x = (float)(((double)m0 - ((double)m0 - m1) * tt) / K);
     float n0 = (float)(((double)k.b[2] + k.a[2]) / two);
@@ -679,7 +679,7 @@ RT3_REPLACE(0x48a580, Obj_Flag59);
 
 // 0x48a590. Wear +0x22a grows by 0x5c8d48 for kind 4, else by 0x5c85b4.
 RT3_NOINLINE void __fastcall Track_AddWear(uint8_t* t) {
-    float inc = t[0x218] == 4 ? *(const float*)0x5c8d48 : *(const float*)0x5c85b4;
+    float inc = t[0x218] == 4 ? *(const float*)rt3::Rdata(0x5c8d48) : *(const float*)rt3::Rdata(0x5c85b4);
     F<float>(t, 0x22a) = (float)((double)F<float>(t, 0x22a) + inc);
 }
 RT3_REPLACE(0x48a590, Track_AddWear);
@@ -756,7 +756,7 @@ RT3_NOINLINE float __fastcall Vehicle_Tilt(uint8_t* o, int, int32_t absolute) {
     Corners k;
     GetCorners(o, k);
     float v = (float)((double)k.a[1] - k.c[1]);
-    v = (float)((double)v * *(const double*)0x5cfd88);
+    v = (float)((double)v * *(const double*)rt3::Rdata(0x5cfd88));
     if (!absolute) return v;
     return (float)crt::fabs(v);
 }
@@ -779,7 +779,7 @@ RT3_REPLACE(0x48a7f0, Track_ColorSlope);
 RT3_NOINLINE int32_t __fastcall Effect_PointOnSide(uint8_t* e, int, int32_t forward, float x, float y) {
     float a[3], b[3], c[3], d[3];
     Effect_GetVectors(e, 0, (uint32_t*)a, (uint32_t*)b, (uint32_t*)c, (uint32_t*)d);
-    const float k = *(const float*)0x5c878c;
+    const float k = *(const float*)rt3::Rdata(0x5c878c);
     float m1x = (float)(((double)b[0] + a[0]) / k), m1z = (float)(((double)b[2] + a[2]) / k);
     float m2x = (float)(((double)d[0] + c[0]) / k), m2z = (float)(((double)d[2] + c[2]) / k);
     float ax, az, bx, bz;
@@ -787,9 +787,9 @@ RT3_NOINLINE int32_t __fastcall Effect_PointOnSide(uint8_t* e, int, int32_t forw
     else { bx = m1x; bz = m1z; ax = m2x; az = m2z; }
     float dx = (float)((double)bx - ax);
     float dz = (float)((double)bz - az);
-    const double zero = *(const double*)0x5c8608;
+    const double zero = *(const double*)rt3::Rdata(0x5c8608);
     if ((double)dx == zero) {
-        if ((double)dz > *(const float*)0x5c8598) return x > ax ? 1 : 0;
+        if ((double)dz > *(const float*)rt3::Rdata(0x5c8598)) return x > ax ? 1 : 0;
         return x < ax ? 1 : 0;
     }
     float slope = (float)((double)dz / dx);
@@ -829,7 +829,7 @@ RT3_NOINLINE uint32_t __fastcall Obj_CenterRegionType(void* o) {
 RT3_REPLACE(0x48aa70, Obj_CenterRegionType);
 
 float __fastcall Obj_Mid1ed(uint8_t* o) {
-    return (float)(((double)F<float>(o, 0x1f1) + F<float>(o, 0x1ed)) / *(const double*)0x5c85d0);
+    return (float)(((double)F<float>(o, 0x1f1) + F<float>(o, 0x1ed)) / *(const double*)rt3::Rdata(0x5c85d0));
 }
 RT3_REPLACE(0x48aab0, Obj_Mid1ed);
 
@@ -1138,7 +1138,7 @@ RT3_REPLACE(0x48b8d0, Track_Refresh);
 RT3_NOINLINE void __fastcall Vehicle_FrontMid(uint8_t* o, int, float* x, float* z) {
     Corners k;
     GetCorners(o, k);
-    const float two = *(const float*)0x5c878c, tile = *(const float*)0x5c8700;
+    const float two = *(const float*)rt3::Rdata(0x5c878c), tile = *(const float*)rt3::Rdata(0x5c8700);
     *x = (float)(((double)k.b[0] + k.a[0]) / two / tile);
     *z = (float)(((double)k.b[2] + k.a[2]) / two / tile);
 }
@@ -1147,7 +1147,7 @@ RT3_REPLACE(0x48b900, Vehicle_FrontMid);
 RT3_NOINLINE void __fastcall Vehicle_RearMid(uint8_t* o, int, float* x, float* z) {
     Corners k;
     GetCorners(o, k);
-    const float two = *(const float*)0x5c878c, tile = *(const float*)0x5c8700;
+    const float two = *(const float*)rt3::Rdata(0x5c878c), tile = *(const float*)rt3::Rdata(0x5c8700);
     *x = (float)(((double)k.d[0] + k.c[0]) / two / tile);
     *z = (float)(((double)k.d[2] + k.c[2]) / two / tile);
 }
@@ -1157,7 +1157,7 @@ RT3_REPLACE(0x48b950, Vehicle_RearMid);
 double __fastcall Vehicle_Length(uint8_t* o) {
     Corners k;
     GetCorners(o, k);
-    const float two = *(const float*)0x5c878c, tile = *(const float*)0x5c8700;
+    const float two = *(const float*)rt3::Rdata(0x5c878c), tile = *(const float*)rt3::Rdata(0x5c8700);
     float p0 = (float)(((double)k.b[0] + k.a[0]) / two / tile);
     float p1 = (float)(((double)k.b[2] + k.a[2]) / two / tile);
     float p2 = (float)(((double)k.d[0] + k.c[0]) / two / tile);
@@ -1171,9 +1171,9 @@ float __fastcall Vehicle_Heading(uint8_t* o, int, int32_t forward) {
     Corners k;
     Effect_GetVectors(o, 0, (uint32_t*)k.a, nullptr, nullptr, (uint32_t*)k.d);
     float dx = (float)((double)k.a[0] - k.d[0]);
-    if (dx == *(const float*)0x5c8598) *(uint32_t*)&dx = 0xb8d1b717;
+    if (dx == *(const float*)rt3::Rdata(0x5c8598)) *(uint32_t*)&dx = 0xb8d1b717;
     float a = (float)crt::atan(((double)k.a[2] - k.d[2]) / dx);
-    const double pi = *(const double*)0x5c96a8;
+    const double pi = *(const double*)rt3::Rdata(0x5c96a8);
     if (k.d[0] < k.a[0]) a = (float)((double)a + pi);
     if (!forward) a = (float)((double)a + pi);
     return WrapAngle(a);
@@ -1185,10 +1185,10 @@ RT3_NOINLINE float __fastcall Vehicle_ScreenHeading(uint8_t* o, int, int32_t for
     Corners k;
     Effect_GetVectors(o, 0, (uint32_t*)k.a, nullptr, nullptr, (uint32_t*)k.d);
     float dx = (float)((double)k.a[0] - k.d[0]);
-    if (dx == *(const float*)0x5c8598) *(uint32_t*)&dx = 0xb8d1b717;
-    float a = (float)(crt::atan(((double)k.a[2] - k.d[2]) / dx) + *(const double*)0x5c96f0);
-    a = (float)(*(const double*)0x5cfda0 - a);
-    const double pi = *(const double*)0x5c96a8;
+    if (dx == *(const float*)rt3::Rdata(0x5c8598)) *(uint32_t*)&dx = 0xb8d1b717;
+    float a = (float)(crt::atan(((double)k.a[2] - k.d[2]) / dx) + *(const double*)rt3::Rdata(0x5c96f0));
+    a = (float)(*(const double*)rt3::Rdata(0x5cfda0) - a);
+    const double pi = *(const double*)rt3::Rdata(0x5c96a8);
     if (k.d[0] < k.a[0]) a = (float)((double)a + pi);
     if (!forward) a = (float)((double)a + pi);
     return WrapAngle(a);
@@ -1199,7 +1199,7 @@ RT3_REPLACE(0x48bb40, Vehicle_ScreenHeading);
 float __fastcall Vehicle_Pitch(uint8_t* o, int, int32_t forward) {
     Corners k;
     GetCorners(o, k);
-    const double half = *(const double*)0x5c85d0;
+    const double half = *(const double*)rt3::Rdata(0x5c85d0);
     float fx = (float)(((double)k.b[0] + k.a[0]) / half);
     float fz = (float)(((double)k.b[2] + k.a[2]) / half);
     float fy = (float)(((double)k.b[1] + k.a[1]) / half);
@@ -1207,7 +1207,7 @@ float __fastcall Vehicle_Pitch(uint8_t* o, int, int32_t forward) {
     float rz = (float)(((double)k.d[2] + k.c[2]) / half);
     float ry = (float)(((double)k.d[1] + k.c[1]) / half);
     float dist = (float)Distance2D(fx, fz, rx, rz);
-    if ((double)dist == *(const double*)0x5c8608) return *(const float*)0x5c8598;
+    if ((double)dist == *(const double*)rt3::Rdata(0x5c8608)) return *(const float*)rt3::Rdata(0x5c8598);
     if (forward) return (float)crt::atan(((double)ry - fy) / dist);
     return (float)crt::atan(((double)fy - ry) / dist);
 }
@@ -1235,7 +1235,7 @@ RT3_NOINLINE void __fastcall Track_MarkCells(uint8_t* t) {
     int32_t layer = (F<int32_t>(t, 0x226) == 1 || F<int32_t>(t, 0x226) == 3) ? 0 : 1;
     float a[3], b[3], c[3], d[3];
     Effect_GetVectors(t, 0, (uint32_t*)a, (uint32_t*)b, (uint32_t*)c, (uint32_t*)d);
-    const float cell = *(const float*)0x5c8700;
+    const float cell = *(const float*)rt3::Rdata(0x5c8700);
     float* pts[4] = { a, b, c, d };
     for (float* v : pts) {
         v[0] = (float)((double)v[0] / cell);
@@ -1278,7 +1278,7 @@ RT3_NOINLINE void __fastcall Track_UnmarkCells(uint8_t* t, int, int32_t remark) 
     int32_t minX = 99999, maxX = 0, minY = 99999, maxY = 0;
     float a[3], b[3], c[3], d[3];
     Effect_GetVectors(t, 0, (uint32_t*)a, (uint32_t*)b, (uint32_t*)c, (uint32_t*)d);
-    const float cell = *(const float*)0x5c8700;
+    const float cell = *(const float*)rt3::Rdata(0x5c8700);
     float* pts[4] = { a, b, c, d };
     for (float* v : pts) {
         v[0] = (float)((double)v[0] / cell);
@@ -1356,7 +1356,7 @@ RT3_REPLACE(0x48cad0, Node_NextTowards);
 int32_t __fastcall Track_FindOverlap(uint8_t* t, int, int32_t* hit) {
     float a[3], b[3], c[3], d[3];
     Effect_GetVectors(t, 0, (uint32_t*)a, (uint32_t*)b, (uint32_t*)c, (uint32_t*)d);
-    const double cell = *(const float*)0x5c8700, four = *(const float*)0x5c8568;
+    const double cell = *(const float*)rt3::Rdata(0x5c8700), four = *(const float*)rt3::Rdata(0x5c8568);
     auto probe = [&](float x, float y, uint32_t other) {
         Collection* nodes = g_tracks;
         int32_t id = Grid_NearestObject(nodes, 0, x, y, F<int32_t>(t, 0x202), F<int32_t>(t, other), 1);
@@ -1724,9 +1724,9 @@ RT3_REPLACE(0x48e3c0, Node_SameComponent);
 RT3_NOINLINE void __fastcall Tile_UpdateBlocked(uint8_t* o) {
     uint8_t fl = o[0x24c];
     if (fl & 1) return;
-    float cx = (float)(((double)F<float>(o, 0x2c) + F<float>(o, 0x14)) / *(const float*)0x5cfcfc);
+    float cx = (float)(((double)F<float>(o, 0x2c) + F<float>(o, 0x14)) / *(const float*)rt3::Rdata(0x5cfcfc));
     o[0x24c] = (uint8_t)((fl & 0xfd) | 1);
-    float cy = (float)(((double)F<float>(o, 0x34) + F<float>(o, 0x1c)) / *(const float*)0x5cfcfc);
+    float cy = (float)(((double)F<float>(o, 0x34) + F<float>(o, 0x1c)) / *(const float*)rt3::Rdata(0x5cfcfc));
     for (int32_t i = 0; i < 3; ++i) {
         uint32_t id = i == 0 ? F<uint32_t>(o, 0x202) : F<uint32_t>(o, 0x206);
         if (id == 0xffffffff) continue;
@@ -1742,7 +1742,7 @@ RT3_NOINLINE void __fastcall Tile_UpdateBlocked(uint8_t* o) {
         float ry = (float)Obj_CellY(r);
         float rx = (float)Obj_CellX(r);
         float d = (float)DistanceSq2D(cx, cy, rx, ry);
-        if (d < *(const float*)0x5cfdd4) {
+        if (d < *(const float*)rt3::Rdata(0x5cfdd4)) {
             o[0x24c] |= 2;
             return;
         }
@@ -2908,8 +2908,8 @@ RT3_NOINLINE int32_t __fastcall Grid_NearestObject(Collection* c, int, float x, 
         if ((int32_t)n[0] == skip1 || (int32_t)n[0] == skip2) continue;
         float tx, ty;
         Obj_CenterCell(t, 0, &tx, &ty);
-        tx = (float)((double)tx * *(const float*)0x5c8568);
-        ty = (float)((double)ty * *(const float*)0x5c8568);
+        tx = (float)((double)tx * *(const float*)rt3::Rdata(0x5c8568));
+        ty = (float)((double)ty * *(const float*)rt3::Rdata(0x5c8568));
         if ((int32_t)tx != ix || (int32_t)ty != iy) continue;
         float d = (float)DistanceSq2D(tx, ty, x, y);
         if (d < bestD) {
@@ -3119,7 +3119,7 @@ int32_t __fastcall Node_TurnsLeft(Collection* nodes, int, uint32_t id) {
     float toNode = (float)AngleOf(bx, by, nx, ny);
     float toA = (float)AngleOf(bx, by, ax, ay);
     float d = (float)AngleDelta(nullptr, 0, toNode, toA);
-    return (double)d < *(const double*)0x5c8608 ? 1 : 0;
+    return (double)d < *(const double*)rt3::Rdata(0x5c8608) ? 1 : 0;
 }
 RT3_REPLACE(0x492ec0, Node_TurnsLeft);
 
@@ -3165,7 +3165,7 @@ RT3_REPLACE(0x493150, Tracks_UpdateColor);
 
 // 0x493190. Decays every track piece's wear +0x22a by 0.97.
 void __fastcall Table_DecayWear(Collection* t) {
-    const float k = *(const float*)0x5cfe14;
+    const float k = *(const float*)rt3::Rdata(0x5cfe14);
     for (int32_t i = 0; i < Collection_Count(t); ++i) {
         uint8_t* r = (uint8_t*)Collection_Get(t, 0, Collection_IdAt(t, 0, i, 0));
         F<float>(r, 0x22a) = (float)((double)F<float>(r, 0x22a) * k);
@@ -3200,7 +3200,7 @@ RT3_REPLACE(0x493300, Camera_BeginA4);
 void __fastcall Camera_BeginAc(uint8_t* o) {
     uint8_t* cam = g_62be68;
     if (!F<int32_t>(o, 0xa8) && !F<int32_t>(o, 0xac))
-        F<int32_t>(o, 0xb4) = F<float>(cam, 0x66) < *(const float*)0x5c88e0 ? 1 : 0;
+        F<int32_t>(o, 0xb4) = F<float>(cam, 0x66) < *(const float*)rt3::Rdata(0x5c88e0) ? 1 : 0;
     F<float>(o, 0xb8) = (float)Obj_Float18(hook::As<void*>(g_62be68));
     F<int32_t>(o, 0xac)++;
 }
@@ -3210,7 +3210,7 @@ RT3_REPLACE(0x493360, Camera_BeginAc);
 // 2000) for the active camera actions and stores the camera value +0x18.
 RT3_NOINLINE void __fastcall Camera_UpdateZoomFlags(uint8_t* o) {
     float cam66 = F<float>(g_62be68, 0x66);
-    const float h = *(const float*)0x5c88e0;
+    const float h = *(const float*)rt3::Rdata(0x5c88e0);
     if (F<int32_t>(o, 0xa0) || F<int32_t>(o, 0xa4)) {
         float k = F<int32_t>(o, 0xb0) ? 1.05f : 0.95f;
         F<int32_t>(o, 0xb0) = (double)k * h > cam66 ? 1 : 0;

@@ -161,11 +161,11 @@ static uint8_t* FindNamedEntry(uint8_t* o) {
     return e;
 }
 
-static inline double D(uint32_t a) { return *(const double*)a; }
+static inline double D(uint32_t a) { return *(const double*)rt3::Rdata(a); }
 
 static inline double Bits(uint64_t u) { return *(double*)&u; }
 
-static inline double Fl(uint32_t a) { return *(const float*)a; }
+static inline double Fl(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 static inline float BitsF(uint32_t b) { return *(float*)&b; }
 
@@ -429,7 +429,7 @@ RT3_REPLACE(0x476900, Player_CompanyAgePenalty);
 // 0x476950. AI player aggressiveness: (+0x28d + company age penalty + 100)
 // / 10, at least 0.5, capped at 15; humans get 10.
 float __fastcall Player_Aggressiveness(uint8_t* p) {
-    if (!F<int32_t>(p, 0x1e1)) return *(const float*)0x5c85f8;
+    if (!F<int32_t>(p, 0x1e1)) return *(const float*)rt3::Rdata(0x5c85f8);
     int32_t pen = 0;
     if (uint32_t id = F<uint32_t>(p, 0x1dd)) {
         uint8_t* c = (uint8_t*)Collection_Get(g_companies, 0, id);
@@ -438,10 +438,10 @@ float __fastcall Player_Aggressiveness(uint8_t* p) {
         if (d >= 10) d = 10;
         pen = (d - 10) * 7;
     }
-    float v = (float)((double)(F<int32_t>(p, 0x28d) + pen + 100) / *(const double*)0x5c85d8 * *(const double*)0x5c85f0);
-    double dv = (double)v > *(const double*)0x5c8628 ? (double)v : 0.5;
+    float v = (float)((double)(F<int32_t>(p, 0x28d) + pen + 100) / *(const double*)rt3::Rdata(0x5c85d8) * *(const double*)rt3::Rdata(0x5c85f0));
+    double dv = (double)v > *(const double*)rt3::Rdata(0x5c8628) ? (double)v : 0.5;
     float f = (float)dv;
-    if ((double)f < *(const double*)0x5c8798) return f;
+    if ((double)f < *(const double*)rt3::Rdata(0x5c8798)) return f;
     return 15.0f;
 }
 RT3_REPLACE(0x476950, Player_Aggressiveness);
@@ -762,7 +762,7 @@ RT3_NOINLINE float __fastcall Obj_MapY(uint8_t* o, int, float y) {
     float lo = (float)F<int32_t>(o, 0xc7);
     float span = (float)(F<int32_t>(o, 0xcf) - F<int32_t>(o, 0xc7));
     double v = ((double)y - lo) / span;
-    v = (*(const double*)0x5c8770 - v) * F<float>(o, 0x17);
+    v = (*(const double*)rt3::Rdata(0x5c8770) - v) * F<float>(o, 0x17);
     double off = (double)F<float>(F<uint8_t*>(o, 0x86), 9) + F<float>(o, 0xf);
     return (float)(v + off);
 }

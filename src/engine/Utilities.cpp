@@ -204,9 +204,9 @@ static inline void FreeItems(PtrList* l) {
     PtrList_Clear(l);
 }
 
-static inline double D(uint32_t a) { return *(const double*)a; }
+static inline double D(uint32_t a) { return *(const double*)rt3::Rdata(a); }
 
-static inline float Fl(uint32_t a) { return *(const float*)a; }
+static inline float Fl(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 
 static inline int32_t Ftol(double v) {
@@ -219,14 +219,14 @@ static inline int32_t Ftol(double v) {
     return r;
 }
 
-static inline double Fl_190(uint32_t a) { return *(const float*)a; }
+static inline double Fl_190(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 // Colour `col` with its RGB scaled by `fade` / 2 (clamped to 0..1); alpha kept.
 static uint32_t Shade(uint32_t col, float fade) {
     float rf = (float)(int32_t)((col >> 16) & 0xff), gf = (float)(int32_t)((col >> 8) & 0xff);
     double bf = (double)(int32_t)(col & 0xff);
-    double k = (double)fade * *(const double*)0x5c8628;
-    if (k > *(const double*)0x5c8770) k = Fl_190(0x5c85b4);
+    double k = (double)fade * *(const double*)rt3::Rdata(0x5c8628);
+    if (k > *(const double*)rt3::Rdata(0x5c8770)) k = Fl_190(0x5c85b4);
     else if (k < Fl_190(0x5c8598)) k = Fl_190(0x5c8598);
     uint32_t c = (uint32_t)Ftol((double)rf * k);
     c = (c << 8) | (uint32_t)Ftol((double)gf * k);
@@ -234,7 +234,7 @@ static uint32_t Shade(uint32_t col, float fade) {
     return c | (col & 0xff000000);
 }
 
-static inline double Fl_191(uint32_t a) { return *(const float*)a; }
+static inline double Fl_191(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 namespace {
 
@@ -464,7 +464,7 @@ inline int32_t QuadFtol(double v) {
 inline bool Wet(uint8_t b) { return G<int32_t>(0x625c60 + (b & 7) * 4) != 0; }
 }
 
-static inline double Fl_205(uint32_t a) { return *(const float*)a; }
+static inline double Fl_205(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 static inline float BitsF(uint32_t b) { return *(float*)&b; }
 
@@ -714,9 +714,9 @@ RT3_NOINLINE void __stdcall Sprite_ToTriangles(const uint8_t* s, float* out, int
     }
     float rf = (float)(int32_t)((col >> 16) & 0xff), gf = (float)(int32_t)((col >> 8) & 0xff);
     double bf = (double)(int32_t)(col & 0xff);
-    double k = (double)F<float>((void*)s, 0x29) * *(const double*)0x5c8628;
-    if (k > *(const double*)0x5c8770) k = *(const float*)0x5c85b4;
-    else if (k < *(const float*)0x5c8598) k = *(const float*)0x5c8598;
+    double k = (double)F<float>((void*)s, 0x29) * *(const double*)rt3::Rdata(0x5c8628);
+    if (k > *(const double*)rt3::Rdata(0x5c8770)) k = *(const float*)rt3::Rdata(0x5c85b4);
+    else if (k < *(const float*)rt3::Rdata(0x5c8598)) k = *(const float*)rt3::Rdata(0x5c8598);
     uint32_t nr = (uint32_t)Ftol((double)rf * k);
     uint32_t ng = (uint32_t)Ftol((double)gf * k);
     uint32_t nb = (uint32_t)Ftol(k * bf);
@@ -843,7 +843,7 @@ RT3_NOINLINE void __fastcall UiList_Draw(uint8_t* v, int, PtrList* items, int32_
         case 3:
             if (const char* text = F<const char*>(it, 0x3d)) {
                 if (!(F<uint32_t>(it, 0x35) & 2)) {
-                    const double d = *(const double*)0x5caae0;
+                    const double d = *(const double*)rt3::Rdata(0x5caae0);
                     Render_DrawFontText(F<uint8_t*>(v, 0x2d), 0, text, (float)((double)F<float>(it, 1) + d), (float)((double)F<float>(it, 5) + d),
                                         (float)((double)F<float>(it, 9) + d), (float)((double)F<float>(it, 0xd) + d), F<uint32_t>(it, 0x1d) & 0xff000000,
                                         F<void**>(it, 0x39), F<uint32_t>(it, 0x35));
@@ -1284,7 +1284,7 @@ void __fastcall Emitter_Start(uint8_t* e, int, int32_t count, const uint32_t* fr
     F<int32_t>(e, 0x4c) = count;
     F<int32_t>(e, 0x48) = count;
     F<float>(e, 0x68) = (float)((double)life * count + *(const float*)&start);
-    double k = (int8_t)fl < 0 ? *(const float*)0x5cb490 : *(const float*)0x5ddb0c;
+    double k = (int8_t)fl < 0 ? *(const float*)rt3::Rdata(0x5cb490) : *(const float*)rt3::Rdata(0x5ddb0c);
     F<float>(e, 0x50) = (float)(k / count);
     if (!(fl & 0x40000000)) {
         F<uint32_t>(e, 0x18) = g_625bc4;
@@ -1784,7 +1784,7 @@ RT3_REPLACE(0x567520, ModelSet_FreeThunk);
 // 0x567530. Of the angles a and a + pi, the one closer (around the circle) to the
 // reference angle idx (0x625be0).
 RT3_NOINLINE float __fastcall Angle_PickFacing(uint8_t idx, float a) {
-    const double pi = *(const float*)0x5c8760, twoPi = *(const float*)0x5c8768;
+    const double pi = *(const float*)rt3::Rdata(0x5c8760), twoPi = *(const float*)rt3::Rdata(0x5c8768);
     float ref = ((const float*)0x625be0)[idx];
     double d1 = (double)ref - a;
     if (d1 < 0) d1 = -d1;
@@ -1866,15 +1866,15 @@ RT3_NOINLINE void __fastcall QuadGrid_Weld(uint8_t* t, int, int32_t x0, int32_t 
                     }
                 if (!a) break;
                 uint8_t* grid = (uint8_t*)Engine_Get1C(*(void**)0x6d4024);
-                double mx = ((double)F<float>(b, 0) + F<float>(a, 0)) * *(const double*)0x5c8628;
+                double mx = ((double)F<float>(b, 0) + F<float>(a, 0)) * *(const double*)rt3::Rdata(0x5c8628);
                 float fx = (float)mx;
-                double mz = ((double)F<float>(a, 8) + F<float>(b, 8)) * *(const double*)0x5c8628;
+                double mz = ((double)F<float>(a, 8) + F<float>(b, 8)) * *(const double*)rt3::Rdata(0x5c8628);
                 float fz = (float)mz;
                 F<float>(b, 0) = (float)mx;
                 F<float>(a, 0) = (float)mx;
                 F<float>(b, 8) = (float)mz;
                 F<float>(a, 8) = (float)mz;
-                double h = Terrain_HeightAt(grid, 0, fx, fz) + *(const double*)0x5c8d68;
+                double h = Terrain_HeightAt(grid, 0, fx, fz) + *(const double*)rt3::Rdata(0x5c8d68);
                 F<float>(b, 4) = (float)h;
                 F<float>(a, 4) = (float)h;
                 if (!budget) break;
@@ -1898,13 +1898,13 @@ RT3_NOINLINE void __fastcall Quad_ToVertices(uint8_t* out, uint8_t* q, float lif
     uint32_t now = imp::GetTickCount();
     uint32_t step = ((now + F<int32_t>(q, 0x3a)) / 88) & 0xff;
     int32_t cell = 0xff - (int32_t)step;
-    const double k = *(const double*)0x5d08a0;
+    const double k = *(const double*)rt3::Rdata(0x5d08a0);
     float fu = (float)((double)(cell & 7) * k);
     double fv = (double)((cell >> 3) & 7) * k;
     uint32_t tint = G<uint32_t>(0xd97bbc);
     int32_t red = (tint >> 16) & 0xff, green = (tint >> 8) & 0xff, blue = tint & 0xff;
-    double u1 = fu + *(const double*)0x5de408;
-    double u2 = fu + *(const double*)0x5de400;
+    double u1 = fu + *(const double*)rt3::Rdata(0x5de408);
+    double u2 = fu + *(const double*)rt3::Rdata(0x5de400);
     double v2 = fv + k;
     uint32_t col[4];
     for (int32_t i = 0; i < 4; ++i) {
@@ -2088,7 +2088,7 @@ RT3_NOINLINE void __fastcall Water_BuildQuads(uint8_t* g) {
                 bool mixed = false;
                 for (int k = 0; k < 8; ++k) {
                     if (*(uint32_t*)&ang[k] == 0x42000000) continue;
-                    if (best == *(const float*)0x5c8c40) {
+                    if (best == *(const float*)rt3::Rdata(0x5c8c40)) {
                         best = ang[k];
                         used = 1;
                         continue;
@@ -2096,22 +2096,22 @@ RT3_NOINLINE void __fastcall Water_BuildQuads(uint8_t* g) {
                     ++used;
                     mixed = true;
                     double a = ang[k], b = best;
-                    if (fabs((double)ang[k] - best) > *(const double*)0x5cb4a0) {
-                        if (best < ang[k]) b = (double)best + *(const float*)0x5c8768;
-                        else a = (double)ang[k] + *(const float*)0x5c8768;
+                    if (fabs((double)ang[k] - best) > *(const double*)rt3::Rdata(0x5cb4a0)) {
+                        if (best < ang[k]) b = (double)best + *(const float*)rt3::Rdata(0x5c8768);
+                        else a = (double)ang[k] + *(const float*)rt3::Rdata(0x5c8768);
                     }
-                    float avg = (float)((b + a) * *(const double*)0x5c8628);
+                    float avg = (float)((b + a) * *(const double*)rt3::Rdata(0x5c8628));
                     best = Wrap2Pi(avg);
                 }
-                if (best == *(const float*)0x5c8c40) *(uint32_t*)&best = 0x3fc90fdb;
+                if (best == *(const float*)rt3::Rdata(0x5c8c40)) *(uint32_t*)&best = 0x3fc90fdb;
                 if (!mixed) {
-                    best = (float)((double)best - *(const float*)0x5c8764);
-                    if (best < *(const float*)0x5c8598) best = (float)((double)best + *(const float*)0x5c8768);
+                    best = (float)((double)best - *(const float*)rt3::Rdata(0x5c8764));
+                    if (best < *(const float*)rt3::Rdata(0x5c8598)) best = (float)((double)best + *(const float*)rt3::Rdata(0x5c8768));
                 }
                 uint16_t word = *(uint16_t*)cp;
-                best = (float)((double)Angle_PickFacing((uint8_t)((word & 0xff) >> 3 & 7), best) + *(const float*)0x5c8760);
-                if (fcnt > *(const float*)0x5c8900 && fcnt < *(const float*)0x5c8554) {
-                    double k = *(const double*)0x5c8770 / fcnt;
+                best = (float)((double)Angle_PickFacing((uint8_t)((word & 0xff) >> 3 & 7), best) + *(const float*)rt3::Rdata(0x5c8760));
+                if (fcnt > *(const float*)rt3::Rdata(0x5c8900) && fcnt < *(const float*)rt3::Rdata(0x5c8554)) {
+                    double k = *(const double*)rt3::Rdata(0x5c8770) / fcnt;
                     baseX = (float)((double)baseX * k);
                     baseZ = (float)(k * baseZ);
                 } else {
@@ -2132,32 +2132,32 @@ RT3_NOINLINE void __fastcall Water_BuildQuads(uint8_t* g) {
                             if (depth >= dd) depth = dd;
                         }
                     }
-                    double v = depth < 6 ? *(const double*)0x5c8770 - (double)depth * *(const float*)0x5de448 : (double)*(const float*)0x5c8598;
-                    q[0x39] = (uint8_t)QuadFtol(v * *(const double*)0x5ca110);
+                    double v = depth < 6 ? *(const double*)rt3::Rdata(0x5c8770) - (double)depth * *(const float*)rt3::Rdata(0x5de448) : (double)*(const float*)rt3::Rdata(0x5c8598);
+                    q[0x39] = (uint8_t)QuadFtol(v * *(const double*)rt3::Rdata(0x5ca110));
                     if (!q[0x39]) q[0x39] = 1;
                 } else {
                     q[0x39] = k7 == 3 ? 0x73 : 0xff;
                 }
                 uint8_t alpha = q[0x39];
                 q[0x38] = q[0x37] = q[0x36] = q[0x35] = alpha;
-                float scale = (float)((double)(0xff - alpha) * *(const double*)0x5dd8f8 + level);
-                double rv = (double)HashRand(x * 7 + y * 0x3d, -0x100, 0x100) * *(const double*)0x5d1160;
-                if (used > 2) rv = *(const float*)0x5c8598;
-                if (shore && scale > *(const double*)0x5c8770) scale = 1.0f;
+                float scale = (float)((double)(0xff - alpha) * *(const double*)rt3::Rdata(0x5dd8f8) + level);
+                double rv = (double)HashRand(x * 7 + y * 0x3d, -0x100, 0x100) * *(const double*)rt3::Rdata(0x5d1160);
+                if (used > 2) rv = *(const float*)rt3::Rdata(0x5c8598);
+                if (shore && scale > *(const double*)rt3::Rdata(0x5c8770)) scale = 1.0f;
                 uint16_t cw = *(uint16_t*)cp;
-                double e = *(const float*)0x5c8598;
+                double e = *(const float*)rt3::Rdata(0x5c8598);
                 float sxs = 1.0f, szs = 1.0f, off = 0.0f;
                 bool foamX = (cw >> 11 & 1) != 0;
                 if (cp[2] & 0x20) {
                     if (foamX) {
                         *(uint32_t*)&off = 0xc2133333;
                         sxs = 1.5f;
-                        e = SinCos32(best) + *(const float*)0x5c8700;
+                        e = SinCos32(best) + *(const float*)rt3::Rdata(0x5c8700);
                     }
                     if (cw & 0x400) {
                         szs = 1.5f;
-                        off = (float)((double)*(const float*)0x5cb24c - SinCos32(best));
-                        e = *(const float*)0x5de43c;
+                        off = (float)((double)*(const float*)rt3::Rdata(0x5cb24c) - SinCos32(best));
+                        e = *(const float*)rt3::Rdata(0x5de43c);
                     }
                 } else {
                     if (foamX) {
@@ -2166,26 +2166,26 @@ RT3_NOINLINE void __fastcall Water_BuildQuads(uint8_t* g) {
                     }
                     if (cw & 0x400) {
                         szs = 0.5f;
-                        e = *(const float*)0x5dda44;
+                        e = *(const float*)rt3::Rdata(0x5dda44);
                     }
                 }
-                float e1 = (float)(e + *(const float*)0x5de438);
+                float e1 = (float)(e + *(const float*)rt3::Rdata(0x5de438));
                 double hs = scale;
-                double ax = (double)sxs * hs * *(const double*)0x5de430;
+                double ax = (double)sxs * hs * *(const double*)rt3::Rdata(0x5de430);
                 float p1 = (float)(ax + rv);
                 float p2 = (float)(rv - ax);
-                float o = (float)((double)off - *(const float*)0x5de438);
-                double az = (double)szs * hs * *(const double*)0x5de430;
+                float o = (float)((double)off - *(const float*)rt3::Rdata(0x5de438));
+                double az = (double)szs * hs * *(const double*)rt3::Rdata(0x5de430);
                 float p3 = (float)(rv - az);
                 float p4 = (float)(az + rv);
                 if (foamX) {
-                    best = (float)((double)*(const float*)(0x625be0 + ((cw >> 3) & 7) * 4) + *(const float*)0x5c8760);
+                    best = (float)((double)*(const float*)(0x625be0 + ((cw >> 3) & 7) * 4) + *(const float*)rt3::Rdata(0x5c8760));
                     q[0x32] = 2;
                     q[0x31] = 2;
                 }
                 uint16_t cw2 = *(uint16_t*)cp;
                 if (cw2 & 0x400) {
-                    best = (float)((double)*(const float*)(0x625be0 + ((cw2 >> 3) & 7) * 4) + *(const float*)0x5c8760);
+                    best = (float)((double)*(const float*)(0x625be0 + ((cw2 >> 3) & 7) * 4) + *(const float*)rt3::Rdata(0x5c8760));
                     q[0x34] = 2;
                     q[0x33] = 2;
                 }
@@ -2203,21 +2203,21 @@ RT3_NOINLINE void __fastcall Water_BuildQuads(uint8_t* g) {
             qf[0xb] = (float)((double)baseZ + d.d3z);
             uint8_t* map = F<uint8_t*>(g, 0x24);
             if (Wet(cell[0])) {
-                float h1 = (float)(Terrain_HeightAt(map, 0, (float)(((double)qf[3] + qf[0]) * *(const double*)0x5c8628),
-                                                    (float)(((double)qf[5] + qf[2]) * *(const double*)0x5c8628)) +
-                                   *(const float*)0x5c8554);
-                float h2 = (float)(Terrain_HeightAt(F<uint8_t*>(g, 0x24), 0, (float)(((double)qf[6] + qf[9]) * *(const double*)0x5c8628),
-                                                    (float)(((double)qf[0xb] + qf[8]) * *(const double*)0x5c8628)) +
-                                   *(const float*)0x5c8554);
+                float h1 = (float)(Terrain_HeightAt(map, 0, (float)(((double)qf[3] + qf[0]) * *(const double*)rt3::Rdata(0x5c8628)),
+                                                    (float)(((double)qf[5] + qf[2]) * *(const double*)rt3::Rdata(0x5c8628))) +
+                                   *(const float*)rt3::Rdata(0x5c8554));
+                float h2 = (float)(Terrain_HeightAt(F<uint8_t*>(g, 0x24), 0, (float)(((double)qf[6] + qf[9]) * *(const double*)rt3::Rdata(0x5c8628)),
+                                                    (float)(((double)qf[0xb] + qf[8]) * *(const double*)rt3::Rdata(0x5c8628))) +
+                                   *(const float*)rt3::Rdata(0x5c8554));
                 qf[1] = h1;
                 qf[7] = h2;
                 qf[4] = h1;
                 qf[0xa] = h2;
             } else {
-                qf[1] = (float)(Terrain_HeightAt(map, 0, qf[0], qf[2]) + *(const float*)0x5c878c);
-                qf[4] = (float)(Terrain_HeightAt(F<uint8_t*>(g, 0x24), 0, qf[3], qf[5]) + *(const float*)0x5c878c);
-                qf[7] = (float)(Terrain_HeightAt(F<uint8_t*>(g, 0x24), 0, qf[6], qf[8]) + *(const float*)0x5c878c);
-                qf[0xa] = (float)(Terrain_HeightAt(F<uint8_t*>(g, 0x24), 0, qf[9], qf[0xb]) + *(const float*)0x5c878c);
+                qf[1] = (float)(Terrain_HeightAt(map, 0, qf[0], qf[2]) + *(const float*)rt3::Rdata(0x5c878c));
+                qf[4] = (float)(Terrain_HeightAt(F<uint8_t*>(g, 0x24), 0, qf[3], qf[5]) + *(const float*)rt3::Rdata(0x5c878c));
+                qf[7] = (float)(Terrain_HeightAt(F<uint8_t*>(g, 0x24), 0, qf[6], qf[8]) + *(const float*)rt3::Rdata(0x5c878c));
+                qf[0xa] = (float)(Terrain_HeightAt(F<uint8_t*>(g, 0x24), 0, qf[9], qf[0xb]) + *(const float*)rt3::Rdata(0x5c878c));
             }
             q[0x30] = 0;
             uint16_t k = *(uint16_t*)cell & 7;
@@ -2241,7 +2241,7 @@ RT3_NOINLINE void __fastcall Water_BuildQuads(uint8_t* g) {
         PtrList_Rewind(F<PtrList*>(g, 0x1c));
         float** fill = quads;
         for (void* p = PtrList_Next(F<PtrList*>(g, 0x1c)); p; p = PtrList_Next(F<PtrList*>(g, 0x1c))) *fill++ = (float*)p;
-        const double quarter = *(const float*)0x5c9704;
+        const double quarter = *(const float*)rt3::Rdata(0x5c9704);
         for (int32_t i = 0; i < n; ++i) {
             for (int32_t j = i + 1; j < n; ++j) {
                 float* P = quads[i];
@@ -2259,7 +2259,7 @@ RT3_NOINLINE void __fastcall Water_BuildQuads(uint8_t* g) {
                 if (qf != 2) {
                     double dx = (double)P[0] - Q[3], dz = (double)P[2] - Q[5];
                     double dist = sqrt(dz * dz + dx * dx);
-                    if (dist < *(const float*)0x5cfcfc && dist > *(const float*)0x5dda44) {
+                    if (dist < *(const float*)rt3::Rdata(0x5cfcfc) && dist > *(const float*)rt3::Rdata(0x5dda44)) {
                         float mx = (float)((((double)P[3] + Q[0]) + ((double)Q[3] + P[0])) * quarter);
                         float mz = (float)((((double)P[5] + Q[2]) + ((double)P[2] + Q[5])) * quarter);
                         Q[3] = mx;
@@ -2284,7 +2284,7 @@ RT3_NOINLINE void __fastcall Water_BuildQuads(uint8_t* g) {
                 {
                     double dx = (double)P[3] - Q[0], dz = (double)P[5] - Q[2];
                     double dist = sqrt(dz * dz + dx * dx);
-                    if (dist < *(const float*)0x5cfcfc && dist > *(const float*)0x5dda44) {
+                    if (dist < *(const float*)rt3::Rdata(0x5cfcfc) && dist > *(const float*)rt3::Rdata(0x5dda44)) {
                         float mx = (float)((((double)Q[3] + P[0]) + ((double)P[3] + Q[0])) * quarter);
                         float mz = (float)((((double)P[2] + Q[5]) + ((double)Q[2] + P[5])) * quarter);
                         Q[0] = mx;

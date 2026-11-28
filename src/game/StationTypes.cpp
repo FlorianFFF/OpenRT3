@@ -136,7 +136,7 @@ inline uint8_t* NewExhaust(const char* path, uint32_t color, int32_t perPoint, c
 }
 }
 
-static inline double D(uint32_t a) { return *(const double*)a; }
+static inline double D(uint32_t a) { return *(const double*)rt3::Rdata(a); }
 
 static inline uint8_t* Map() { return g_map; }
 
@@ -162,7 +162,7 @@ RT3_NOINLINE void Tank_SpawnDemo() {
     Engine_Get1C(hook::As<void*>(g_engine));
     float p[3];
     Obj_GetXYZ4(F<uint8_t*>(g_engine, 0x28), 0, (uint32_t*)&p[2], (uint32_t*)&p[0], (uint32_t*)&p[1]);
-    p[0] = (float)((double)p[0] + *(const float*)0x5c8c40);
+    p[0] = (float)((double)p[0] + *(const float*)rt3::Rdata(0x5c8c40));
     uint8_t* m = (uint8_t*)crt::operator_new(0x434);
     if (!m) {
         g_6cfc8c = nullptr;

@@ -288,9 +288,9 @@ static bool SelectedTrainValid() {
     return s && F<int32_t>(s, 0x90) > 0 && Collection_IsValid(g_trains, 0, F<uint32_t>(s, 0x90));
 }
 
-static inline double D(uint32_t a) { return *(const double*)a; }
+static inline double D(uint32_t a) { return *(const double*)rt3::Rdata(a); }
 
-static inline double Fl(uint32_t a) { return *(const float*)a; }
+static inline double Fl(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 
 static inline int32_t Ftol(double v) {

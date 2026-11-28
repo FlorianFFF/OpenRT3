@@ -428,9 +428,9 @@ static inline int32_t VersionInt(float v) {
     return r;
 }
 
-static inline double D(uint32_t a) { return *(const double*)a; }
+static inline double D(uint32_t a) { return *(const double*)rt3::Rdata(a); }
 
-static inline float Fl(uint32_t a) { return *(const float*)a; }
+static inline float Fl(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 static inline double Bits_165(uint64_t u) { return *(double*)&u; }
 
@@ -446,10 +446,10 @@ static inline float Band(float v, float area, float rough, uint32_t minArea, uin
     return (float)(v > lim ? (double)v : lim);
 }
 
-static inline double Fl_205(uint32_t a) { return *(const float*)a; }
+static inline double Fl_205(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 
-static inline double Fl_207(uint32_t a) { return *(const float*)a; }
+static inline double Fl_207(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 // A centred (-1, -1) message box of `type` showing `text` with the default
 // options (0x1e) and `timeout`.
@@ -641,13 +641,13 @@ RT3_REPLACE(0x4821d0, Lighting_Rebuild);
 // 0x4825d0. Minutes of the scene clock since 5:15 (wrapping past midnight); 0 without a renderer.
 RT3_NOINLINE float SceneClock_MinutesSinceDawn() {
     void* e = hook::As<void*>(g_engine);
-    if (!e || !Engine_Renderer(e)) return *(const float*)0x5c8598;
+    if (!e || !Engine_Renderer(e)) return *(const float*)rt3::Rdata(0x5c8598);
     int32_t h, m, s;
     Clock_SplitD((uint8_t*)Engine_Renderer(hook::As<void*>(g_engine)), 0, &h, &m, &s);
-    double v = (double)m / *(const double*)0x5c88a8 + (double)s / *(const double*)0x5c9f30;
+    double v = (double)m / *(const double*)rt3::Rdata(0x5c88a8) + (double)s / *(const double*)rt3::Rdata(0x5c9f30);
     float f = (float)(v + (double)h);
-    if ((double)f < *(const double*)0x5cecf0) f = (float)((double)f + *(const float*)0x5c8968);
-    return (float)(((double)f - *(const double*)0x5cecf0) * *(const double*)0x5c88a8);
+    if ((double)f < *(const double*)rt3::Rdata(0x5cecf0)) f = (float)((double)f + *(const float*)rt3::Rdata(0x5c8968));
+    return (float)(((double)f - *(const double*)rt3::Rdata(0x5cecf0)) * *(const double*)rt3::Rdata(0x5c88a8));
 }
 RT3_REPLACE(0x4825d0, SceneClock_MinutesSinceDawn);
 
@@ -655,7 +655,7 @@ RT3_REPLACE(0x4825d0, SceneClock_MinutesSinceDawn);
 // before 4:20 and after 20:51, ramps through dawn (to 6:51) and dusk (from 18:25).
 RT3_NOINLINE float __cdecl Sky_NightFactor() {
     void* eng = hook::As<void*>(g_engine);
-    if (!eng || !Engine_Renderer(eng)) return *(const float*)0x5c8598;
+    if (!eng || !Engine_Renderer(eng)) return *(const float*)rt3::Rdata(0x5c8598);
     int32_t h, m, s;
     Clock_SplitD((uint8_t*)Engine_Renderer(hook::As<void*>(g_engine)), 0, &h, &m, &s);
     float t;
@@ -680,8 +680,8 @@ RT3_NOINLINE float __cdecl Sky_NightFactor() {
         else if (t < D(0x5ced00)) r = (float)((t - D(0x5ced10)) / D(0x5cecf8) * D(0x5c8680) + D(0x5c88c8));
         else return 1.0f;
     }
-    if (*(const float*)0x5c8598 > r) return 0.0f;
-    if (*(const float*)0x5c85b4 < r) return 1.0f;
+    if (*(const float*)rt3::Rdata(0x5c8598) > r) return 0.0f;
+    if (*(const float*)rt3::Rdata(0x5c85b4) < r) return 1.0f;
     return r;
 }
 RT3_REPLACE(0x482690, Sky_NightFactor);
@@ -886,7 +886,7 @@ RT3_NOINLINE float __fastcall Game_VersionNumber() {
         uint32_t v = File_Version((const char*)0x5cec18);
         float lo = (float)(int32_t)(v & 0xffff);
         float hi = (float)(int32_t)(v >> 16);
-        g_6cec5c = (float)((double)lo / *(const float*)0x5c8c28 + hi);
+        g_6cec5c = (float)((double)lo / *(const float*)rt3::Rdata(0x5c8c28) + hi);
     }
     return g_6cec5c;
 }

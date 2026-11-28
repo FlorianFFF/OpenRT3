@@ -66,9 +66,9 @@ int32_t __fastcall Fx_Intensity(uint8_t* o);
 RT3_NOINLINE void __fastcall Fireworks_Update(uint8_t* s, int, uint8_t* sounds);
 void __fastcall Rain_Update(uint8_t* s, int, uint8_t* w);
 
-static inline double D(uint32_t a) { return *(const double*)a; }
+static inline double D(uint32_t a) { return *(const double*)rt3::Rdata(a); }
 
-static inline double Fl(uint32_t a) { return *(const float*)a; }
+static inline double Fl(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 static inline void DevRenderState(uint8_t* r, uint32_t state, uint32_t value) {
     void* dev = F<void*>(r, 0x25df);
@@ -268,7 +268,7 @@ RT3_REPLACE(0x54c420, Render_Benchmark);
 void __fastcall Fx_UpdateIntensity(uint8_t* o) {
     int32_t base = F<int32_t>(o, 0x15);
     F<int32_t>(o, 0x19) = base;
-    if (!(F<float>(o, 0x36a0) > *(const float*)0x5c88e0)) return;
+    if (!(F<float>(o, 0x36a0) > *(const float*)rt3::Rdata(0x5c88e0))) return;
     float f = F<float>(o, 0x36a0);
     int32_t v;
     __asm {
@@ -509,7 +509,7 @@ RT3_NOINLINE void __fastcall Fireworks_Update(uint8_t* s, int, uint8_t* sounds) 
         int32_t quadEnd = F<int32_t>(s, 0x71);
         int32_t fadeBase = (int32_t)r[5] - 0xff;
         int32_t fade = 0x2e0;
-        const float w = *(const float*)0x5ddb0c;
+        const float w = *(const float*)rt3::Rdata(0x5ddb0c);
         for (int32_t i = 0x3e; i >= F<int32_t>(r, 0xa); --i, fade -= 0x10) {
             const float* e0 = (const float*)(r + 0x1a + i * 0xc);
             const float* e1 = e0 + 3;

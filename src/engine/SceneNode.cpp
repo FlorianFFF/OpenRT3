@@ -223,7 +223,7 @@ static void SceneObj_LayVertices(uint8_t* o, bool onceAtLeast) {
     float* dst = F<float*>(mesh, 0);
     const uint8_t* group = (const uint8_t*)(src + hook::As<uint32_t>(g_cc3b60) * 3);
     uint32_t& left = hook::As<uint32_t>(g_cc3b60);
-    if (F<float>(o, 0x69) > *(const float*)0x5c8598) {
+    if (F<float>(o, 0x69) > *(const float*)rt3::Rdata(0x5c8598)) {
         if (onceAtLeast || left) do {
             --left;
             float x = src[0], y = src[1], z = src[2];
@@ -264,12 +264,12 @@ static void SceneObj_LayVertices(uint8_t* o, bool onceAtLeast) {
 // The texture name from the main pack's cache (all mips, flag 0x7f).
 static uint8_t* Texture_Acquire(const char* name) { return TextureCache_Get(g_pack, 0, name, 0, 0, 0x7f); }
 
-static inline double D(uint32_t a) { return *(const double*)a; }
+static inline double D(uint32_t a) { return *(const double*)rt3::Rdata(a); }
 
-static inline float Fl(uint32_t a) { return *(const float*)a; }
+static inline float Fl(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 static inline int32_t Cell16(float v) {
-    double d = (double)v * *(const float*)0x5dcfe8;
+    double d = (double)v * *(const float*)rt3::Rdata(0x5dcfe8);
     int32_t r;
     __asm {
         fld d
@@ -279,7 +279,7 @@ static inline int32_t Cell16(float v) {
     return r >> 4;
 }
 
-static inline double Fl_205(uint32_t a) { return *(const float*)a; }
+static inline double Fl_205(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 
 static inline int32_t Ftol(double v) {
@@ -292,7 +292,7 @@ static inline int32_t Ftol(double v) {
     return r;
 }
 
-static inline double Fl_207(uint32_t a) { return *(const float*)a; }
+static inline double Fl_207(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 void __fastcall Obj_GetVec1c(uint8_t* o, int, uint32_t* out) {
     out[0] = F<uint32_t>(o, 0x1c);
@@ -464,7 +464,7 @@ RT3_REPLACE(0x52d160, Camera_SetMode);
 // 0x52d180. Sets the eye position (+4..+0xc), flagging a change when it moved
 // more than 1472 units from the snapshot (+0x38..+0x40) on any axis.
 RT3_NOINLINE void __fastcall Camera_SetEye(uint8_t* c, int, uint32_t x, uint32_t y, uint32_t z) {
-    const double lim = *(const double*)0x5dd1c0;
+    const double lim = *(const double*)rt3::Rdata(0x5dd1c0);
     auto moved = [&](uint32_t snap, uint32_t cur) {
         double d = (double)F<float>(c, snap) - F<float>(c, cur);
         return (d < 0 ? -d : d) > lim;
@@ -495,7 +495,7 @@ RT3_NOINLINE void __fastcall Camera_Angles(uint8_t* c, int, float* yaw, float* p
     double dx = (double)F<float>(c, 0x1c) - F<float>(c, 4);
     double dy = (double)F<float>(c, 0x20) - F<float>(c, 8);
     double dz = (double)F<float>(c, 0x24) - F<float>(c, 0xc);
-    const double q = *(const double*)0x5c8748;
+    const double q = *(const double*)rt3::Rdata(0x5c8748);
     if (dist) {
         double s = dz * dz + dy * dy;
         *dist = (float)Fsqrt(s + dx * dx);
@@ -636,7 +636,7 @@ RT3_NOINLINE void __fastcall Camera_KeepAboveGround(uint8_t* c) {
     auto limit = (int32_t(__thiscall*)(void*))(*(void***)c)[0xc / 4];
     if (!((double)limit(c) <= F<float>(c, 0x20))) return;
     double s = Fsin(F<float>(c, 0x14));
-    if (s < *(const double*)0x5c85b8) s = 0.01;
+    if (s < *(const double*)rt3::Rdata(0x5c85b8)) s = 0.01;
     double dist = F<float>(c, 0x18);
     double g = (double)limit(c);
     F<float>(c, 0x18) = (float)(dist - ((double)F<float>(c, 0x20) - g) / s);
@@ -1073,7 +1073,7 @@ RT3_NOINLINE void __fastcall SceneObj_Rotate(uint8_t* o, int, float da, float db
     F<float>(o, 0x4f) = b;
     float c = (float)((double)dc + F<float>(o, 0x53));
     F<float>(o, 0x53) = c;
-    const float twoPi = *(const float*)0x5c8768;
+    const float twoPi = *(const float*)rt3::Rdata(0x5c8768);
     if (a > twoPi) F<float>(o, 0x4b) = (float)(a - twoPi);
     if (b > twoPi) F<float>(o, 0x4f) = (float)((double)b - twoPi);
     if (c > twoPi) F<float>(o, 0x53) = (float)((double)c - twoPi);
@@ -1102,7 +1102,7 @@ RT3_REPLACE(0x52e990, SceneObj_ApplyQuat);
 // 0x52e9f0. Rotates the object's quaternion (+0x1ce) by `angle` about the
 // axis (ax, ay, az) (D3DX), switching it to quaternion mode (flags 0x82).
 RT3_NOINLINE void __fastcall SceneObj_RotateAxis(uint8_t* o, int, float ax, float ay, float az, float angle) {
-    double h = (double)angle * *(const double*)0x5c8628;
+    double h = (double)angle * *(const double*)rt3::Rdata(0x5c8628);
     o[0x20] |= 0x82;
     double s = Fsin(h);
     float q[4] = { (float)((double)ax * s), (float)((double)ay * s), (float)((double)az * s), (float)Fcos(h) };
@@ -1129,8 +1129,8 @@ void __fastcall SceneObj_SetUvTransform(uint8_t* o, int, float u, float v, float
     F<float>(o, 0x2e) = su;
     F<float>(o, 0x2a) = v;
     F<float>(o, 0x32) = sv;
-    bool identity = (double)su == *(const double*)0x5c8770 && (double)sv == *(const double*)0x5c8770 &&
-                    (double)u == *(const double*)0x5c8608 && (double)v == *(const double*)0x5c8608;
+    bool identity = (double)su == *(const double*)rt3::Rdata(0x5c8770) && (double)sv == *(const double*)rt3::Rdata(0x5c8770) &&
+                    (double)u == *(const double*)rt3::Rdata(0x5c8608) && (double)v == *(const double*)rt3::Rdata(0x5c8608);
     o[0x25] = identity ? 0 : 1;
 }
 RT3_REPLACE(0x52eab0, SceneObj_SetUvTransform);
@@ -1537,7 +1537,7 @@ void __fastcall Mesh_FaceCamera(uint8_t* o, int, uint8_t* cam, int32_t key, int3
     float r[16];
     Camera_Angles(cam, 0, &yaw, &pitch, nullptr);
     auto mul = (void*(__stdcall*)(float*, const float*, const float*))0x56d3cd;
-    ((void*(__stdcall*)(float*, float))0x56dda8)(r, (float)(-(double)pitch * *(const double*)0x5c8628));
+    ((void*(__stdcall*)(float*, float))0x56dda8)(r, (float)(-(double)pitch * *(const double*)rt3::Rdata(0x5c8628)));
     mul(m, m, r);
     ((void*(__stdcall*)(float*, float))0x56de44)(r, yaw);
     mul(m, m, r);
@@ -1646,7 +1646,7 @@ RT3_REPLACE(0x52fdc0, Obj_MoveBy);
 RT3_NOINLINE void __fastcall SceneObj_ScaleRotation(uint8_t* o, int, float f) {
     float angle, axis[3];
     ((void*(__stdcall*)(const void*, float*, float*))0x56e556)(o + 0x1ce, axis, &angle);
-    const float k = *(const float*)0x5c9b08;
+    const float k = *(const float*)rt3::Rdata(0x5c9b08);
     float ax = (float)((double)axis[0] * k);
     axis[0] = ax;
     axis[1] = (float)((double)axis[1] * k);

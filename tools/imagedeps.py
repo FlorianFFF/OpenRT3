@@ -31,7 +31,16 @@ CALL_RES = [
 ]
 DATA_RE = re.compile(r"\b(?:D|Fl|F_?\w*|Fl_\d+|D\w*|BoatF|BoatD|RowD)\s*\(\s*(0x(?:5|6)[0-9a-fA-F]{5})\s*\)|"
                      r"\(\s*const\s+[\w\s\*]+\*\s*\)\s*(0x(?:5|6)[0-9a-fA-F]{5})")
-GLOBAL_RE = re.compile(r"#define\s+(g_\w+)\s+\(::hook::Global<[^>]*>\((0x[0-9a-fA-F]+)\)\)")
+RDATA_RE = re.compile(r"\bRdata\s*\(\s*(0x[0-9a-fA-F]{6})\s*\)")
+ACC_DEF_RE = re.compile(r"\b(\w+)\s*\((?:uint32_t|uintptr_t|unsigned) \w+\)\s*\{\s*return \*\s*\(const [\w ]+\*\)\s*rt3::Rdata\(")
+RDATA_START, RDATA_END = 0x5c8000, 0x5ecadc  # the exe's .rdata section
+
+
+def in_rdata(a):
+    return RDATA_START <= a < RDATA_END
+
+
+GLOBAL_RE =re.compile(r"#define\s+(g_\w+)\s+\(::hook::Global<[^>]*>\((0x[0-9a-fA-F]+)\)\)")
 
 
 def band(a):
@@ -42,7 +51,7 @@ def main():
     have = set()
     for p in (ROOT / "src").rglob("*.cpp"):
         have |= {int(m.group(1), 16) for m in REPLACEMENT_RE.finditer(p.read_text(encoding="utf-8", errors="replace"))}
-    calls_own, calls_lib, data = Counter(), Counter(), Counter()
+    calls_own, calls_lib, data, own = Counter(), Counter(), Counter(), Counter()
     where_lib = defaultdict(set)
     for p in sorted((ROOT / "src").rglob("*.cpp")):
         if p.name in ("harness.cpp", "drawtrace.cpp") or "launcher" in p.parts:
@@ -61,9 +70,16 @@ def main():
                 else:
                     calls_lib[a] += 1
                     where_lib[a].add(p.name)
+        # Accessors of this file that read through rt3::Rdata (the rewrite's own
+        # copy of .rdata, src/core/rdata.cpp): their .rdata reads are not image reads.
+        own_acc = set(ACC_DEF_RE.findall(text))
+        for m in RDATA_RE.finditer(text):
+            a = int(m.group(1), 16)
+            (own if in_rdata(a) else data)[a] += 1
         for m in DATA_RE.finditer(text):
             a = int(m.group(1) or m.group(2), 16)
-            data[a] += 1
+            name = re.match(r"\w+", m.group(0)).group(0) if m.group(1) else None
+            (own if name in own_acc and in_rdata(a) else data)[a] += 1
     globs = GLOBAL_RE.findall((ROOT / "src" / "core" / "globals.h").read_text(encoding="utf-8"))
     libband = Counter()
     for a, n in calls_lib.items():
@@ -74,6 +90,7 @@ def main():
              f"| Calls of rewritten functions by exe address (can become direct calls) | {sum(calls_own.values())} | {len(calls_own)} |",
              f"| Calls of code the rewrite does not have | {sum(calls_lib.values())} | {len(calls_lib)} |",
              f"| Reads of constants, tables and strings in the image | {sum(data.values())} | {len(data)} |",
+             f"| Reads of .rdata constants from the rewrite's own copy (src/core/rdata.cpp) | {sum(own.values())} | {len(own)} |",
              f"| Game globals at their exe addresses (src/core/globals.h) | | {len(globs)} |", "",
              "Calls of code the rewrite does not have, by part of the exe:", "",
              "| Part | Places | Distinct |", "|---|---|---|"]

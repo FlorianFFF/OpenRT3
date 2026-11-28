@@ -280,9 +280,9 @@ static void FreeField(uint8_t* w, uint32_t off) {
     F<void*>(w, off) = nullptr;
 }
 
-static inline double D(uint32_t a) { return *(const double*)a; }
+static inline double D(uint32_t a) { return *(const double*)rt3::Rdata(a); }
 
-static inline double Fl(uint32_t a) { return *(const float*)a; }
+static inline double Fl(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 static inline uint32_t Bits(float f) { return *(uint32_t*)&f; }
 
@@ -318,7 +318,7 @@ RT3_REPLACE(0x540120, Window_SendEvent5);
 // 0x540170. Sizes the control from its image (+0x92, entry +0xa2) when unset and
 // loads its caption string (+0xd2) into +0xce.
 void __fastcall Control_Refresh(uint8_t* c) {
-    const float zero = *(const float*)0x5c8598;
+    const float zero = *(const float*)rt3::Rdata(0x5c8598);
     if ((F<float>(c, 0x13) == zero || F<float>(c, 0x17) == zero) && F<uint8_t*>(c, 0x92)) {
         F<float>(c, 0x13) = (float)Slider_StepA((uint8_t*)Table_Entry(F<uint8_t*>(c, 0x92), 0, F<int16_t>(c, 0xa2)));
         F<float>(c, 0x17) = (float)Slider_StepB((uint8_t*)Table_Entry(F<uint8_t*>(c, 0x92), 0, F<int16_t>(c, 0xa2)));
@@ -1155,7 +1155,7 @@ RT3_NOINLINE void __fastcall Texture_MakeBumpMaps(uint8_t* o) {
     if (!g_engine[0x11422d] || o[0x95]) return;
     o[0x95] = 1;
     float scale = 1.0f;
-    const double k = *(const float*)0x5ca210, zero = *(const float*)0x5c8598, k3 = *(const float*)0x5ca0ec;
+    const double k = *(const float*)rt3::Rdata(0x5ca210), zero = *(const float*)rt3::Rdata(0x5c8598), k3 = *(const float*)rt3::Rdata(0x5ca0ec);
     for (int32_t s = 0; s < o[4]; ++s) {
         uint8_t* img = F<uint8_t*>(o, 0xa0 + s * 4);
         if (!o[0x98 + s] || F<int32_t>(img, 0x14) == 2 || img[0x21]) continue;
@@ -1183,7 +1183,7 @@ RT3_NOINLINE void __fastcall Texture_MakeBumpMaps(uint8_t* o) {
                 double du = (double)(int32_t)(src[curRow + right] & 0xff) - c;
                 float a = (float)(k * du - dv * zero);
                 double b = k * dv - du * zero;
-                double inv = 1.0 / (sqrt((double)a * a + b * b + *(const float*)0x5dd8f0) * scale);
+                double inv = 1.0 / (sqrt((double)a * a + b * b + *(const float*)rt3::Rdata(0x5dd8f0)) * scale);
                 double qu = (double)a * inv * k3, qv = inv * b * k3;
                 int32_t u, v;
                 __asm {
@@ -1204,7 +1204,7 @@ RT3_NOINLINE void __fastcall Texture_MakeBumpMaps(uint8_t* o) {
         F<uint16_t*>(img, 0x22) = out;
         F<uint16_t*>(img, 0x2a) = out;
         if (F<int32_t>(img, 0x10) == 0x20) F<int32_t>(img, 4) >>= 1;
-        scale = (float)((double)scale * *(const double*)0x5c85a8 + scale);
+        scale = (float)((double)scale * *(const double*)rt3::Rdata(0x5c85a8) + scale);
     }
 }
 RT3_REPLACE(0x542550, Texture_MakeBumpMaps);
@@ -1525,21 +1525,21 @@ RT3_NOINLINE void __fastcall Textures_Manage(int32_t now, int32_t statsOnly) {
             m += fabs((double)F<float>(cam, 0x20) - g_ccbb40);
             m += fabs((double)F<float>(cam, 0x1c) - g_ccbb3c);
             float mf = (float)m;
-            if (m > *(const float*)0x5c86a0)
+            if (m > *(const float*)rt3::Rdata(0x5c86a0))
                 need = 0x9fb;
-            else if (mf > *(const float*)0x5ca06c)
+            else if (mf > *(const float*)rt3::Rdata(0x5ca06c))
                 need = 0x613;
-            else if (mf > *(const float*)0x5c9ac4)
+            else if (mf > *(const float*)rt3::Rdata(0x5c9ac4))
                 need = 0x41f;
-            else if (mf > *(const float*)0x5ca128)
+            else if (mf > *(const float*)rt3::Rdata(0x5ca128))
                 need = 0x325;
-            else if (mf > *(const float*)0x5c8990)
+            else if (mf > *(const float*)rt3::Rdata(0x5c8990))
                 need = 0x2c1;
-            else if (mf > *(const float*)0x5c9aa8)
+            else if (mf > *(const float*)rt3::Rdata(0x5c9aa8))
                 need = 0x28f;
-            else if (mf > *(const float*)0x5c85f8)
+            else if (mf > *(const float*)rt3::Rdata(0x5c85f8))
                 need = 0x25d;
-            else if (mf > *(const double*)0x5c8628)
+            else if (mf > *(const double*)rt3::Rdata(0x5c8628))
                 need = 0x172;
         }
         hook::As<uint32_t>(g_ccbb3c) = F<uint32_t>(cam, 0x1c);
@@ -1557,10 +1557,10 @@ RT3_NOINLINE void __fastcall Textures_Manage(int32_t now, int32_t statsOnly) {
     int32_t resident;
     Textures_MemoryTotals(nullptr, &resident, nullptr);
     resident += Obj_Sub2543(Engine());
-    int32_t room = (int32_t)((double)total * *(const float*)0x5cadc0);
+    int32_t room = (int32_t)((double)total * *(const float*)rt3::Rdata(0x5cadc0));
     int32_t freeMem = total - resident;
     if (g_ccbb34)
-        g_ccbb28 = (int32_t)((double)(total / g_ccbb34) * *(const double*)0x5c87d8);
+        g_ccbb28 = (int32_t)((double)(total / g_ccbb34) * *(const double*)rt3::Rdata(0x5c87d8));
     if (statsOnly) return;
     for (uint8_t* t = list; t; t = *(uint8_t**)t) {
         if (!t[5] || F<int32_t>(t, 0xd4) >= frame - 1000) continue;
@@ -1571,8 +1571,8 @@ RT3_NOINLINE void __fastcall Textures_Manage(int32_t now, int32_t statsOnly) {
         Texture_FreePixels(t);
     }
     if (!g_ccbb34) return;
-    auto cost = [](uint8_t* t) { return (int32_t)(((double)t[5] * *(const double*)0x5dd8f8 + *(const double*)0x5ca250) * F<int32_t>(t, 0xd0)); };
-    if ((double)room * *(const double*)0x5c85a8 < (double)freeMem) {
+    auto cost = [](uint8_t* t) { return (int32_t)(((double)t[5] * *(const double*)rt3::Rdata(0x5dd8f8) + *(const double*)rt3::Rdata(0x5ca250)) * F<int32_t>(t, 0xd0)); };
+    if ((double)room * *(const double*)rt3::Rdata(0x5c85a8) < (double)freeMem) {
         for (uint8_t* t = g_ccbb2c; t; t = *(uint8_t**)t) {
             if (!F<uint32_t>(t, 7) || t[6] || !t[5]) continue;
             if (cost(t) >= g_ccbb28) continue;
@@ -1795,12 +1795,12 @@ void __fastcall Mouse_Poll(uint8_t* m) {
         Mouse_Acquire(m);
         return;
     }
-    const float k = *(const float*)0x5dd984;
+    const float k = *(const float*)rt3::Rdata(0x5dd984);
     float dx = (float)((double)st.x * k);
     float dy = (float)((double)st.y * k);
     float dz = (float)((double)st.z * k);
     int32_t right = st.b[2] != 0;
-    int32_t big = fabs((double)dz) > *(const double*)0x5c8988 ? 1 : 0;
+    int32_t big = fabs((double)dz) > *(const double*)rt3::Rdata(0x5c8988) ? 1 : 0;
     if (right != g_ccbb5c || big != g_ccbb60) {
         dy = 0.0f;
         dx = 0.0f;
@@ -1814,13 +1814,13 @@ void __fastcall Mouse_Poll(uint8_t* m) {
     F<float>(m, 0x11) = (float)((double)dx + F<float>(m, 0x11));
     F<float>(m, 0x15) = (float)((double)dy + F<float>(m, 0x15));
     F<float>(m, 0x19) = (float)((double)dz + F<float>(m, 0x19));
-    if (sx < *(const float*)0x5c8598)
+    if (sx < *(const float*)rt3::Rdata(0x5c8598))
         F<float>(m, 9) = 0.0f;
-    else if (sx > *(const float*)0x5c85b4)
+    else if (sx > *(const float*)rt3::Rdata(0x5c85b4))
         F<float>(m, 9) = 1.0f;
-    if (sy < *(const float*)0x5c8598)
+    if (sy < *(const float*)rt3::Rdata(0x5c8598))
         F<float>(m, 0xd) = 0.0f;
-    else if (sy > *(const float*)0x5c85b4)
+    else if (sy > *(const float*)rt3::Rdata(0x5c85b4))
         F<float>(m, 0xd) = 1.0f;
     uint32_t f = 0;
     if (st.b[0]) f = 1;

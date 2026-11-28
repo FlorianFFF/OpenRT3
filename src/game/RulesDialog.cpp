@@ -231,9 +231,9 @@ RT3_NOINLINE void __fastcall Ui_Line(uint32_t color, int32_t glow, float x1, flo
 RT3_NOINLINE void __fastcall Font_DrawTextBox(uint8_t* f, int, const char* text, float x, float y, float w, float h, uint32_t color, int32_t align, int32_t valign, uint32_t flags, float scale);
 RT3_NOINLINE int32_t __fastcall Widget_IsVisible(uint8_t* w);
 
-static inline double D(uint32_t a) { return *(const double*)a; }
+static inline double D(uint32_t a) { return *(const double*)rt3::Rdata(a); }
 
-static inline double Fl(uint32_t a) { return *(const float*)a; }
+static inline double Fl(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 
 

@@ -166,7 +166,7 @@ static inline int32_t CellOf(float v) {
 static inline uint8_t* Snd() { return g_sound; }
 
 static inline int32_t Cell16(float v) {
-    double d = (double)v * *(const float*)0x5dcfe8;
+    double d = (double)v * *(const float*)rt3::Rdata(0x5dcfe8);
     int32_t r;
     __asm {
         fld d
@@ -186,7 +186,7 @@ static inline int32_t Ftol(double v) {
     return r;
 }
 
-static inline double Fl(uint32_t a) { return *(const float*)a; }
+static inline double Fl(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 // pow(base, 1.0) through the CRT's x87 helper (as the original computes it).
 static inline double PowOne(double base) {
@@ -201,7 +201,7 @@ static inline double PowOne(double base) {
     return r;
 }
 
-static inline double D(uint32_t a) { return *(const double*)a; }
+static inline double D(uint32_t a) { return *(const double*)rt3::Rdata(a); }
 
 // Copies a float through the x87 (FLD / FSTP), which quiets signalling NaNs as the
 // original's copies do.
@@ -496,9 +496,9 @@ RT3_REPLACE(0x5545d0, Channel_MoveTo);
 uint8_t* __fastcall Channel_Setup(uint8_t* ch, int, const char* name, uint8_t* grid, float x, float y, float z, int32_t a6,
                                   int32_t a7, float vol) {
     Channel_Init(ch);
-    if (vol > *(const float*)0x5c8598) {
+    if (vol > *(const float*)rt3::Rdata(0x5c8598)) {
         F<float>(ch, 0x120) = vol;
-        F<float>(ch, 0x124) = (float)((double)vol * *(const float*)0x5ddb68);
+        F<float>(ch, 0x124) = (float)((double)vol * *(const float*)rt3::Rdata(0x5ddb68));
     }
     F<int32_t>(ch, 0x138) = a7;
     F<uint8_t*>(ch, 4) = grid;
@@ -532,7 +532,7 @@ RT3_REPLACE(0x5548e0, View_SetParams);
 // 0x554920. Frame time +0xb4: 0.05 s while dt is at most 0x5d0058, else dt when the
 // frame budget (+0xb8) holds at least one frame of dt (x87 with the exe's _ftol).
 void __fastcall Timer_SetFrameTime(uint8_t* t, int, float dt) {
-    if (!(*(const float*)0x5d0058 < dt) && !(dt != dt)) {
+    if (!(*(const float*)rt3::Rdata(0x5d0058) < dt) && !(dt != dt)) {
         F<uint32_t>(t, 0xb4) = 0x3d4ccccd;
         return;
     }
@@ -615,7 +615,7 @@ RT3_NOINLINE int32_t __fastcall Emitter_SpawnParticle(uint8_t* e) {
     uint8_t* pool = F<uint8_t*>(g_models, 0x14);
     uint32_t** freeList = F<uint32_t**>(pool, 0);
     double ratio = (double)(int32_t)((uint32_t*)freeList)[2] / F<int32_t>(pool, 0xc);
-    if (!(ratio > *(const float*)0x5ddcb0) && !(ratio != ratio) && !(F<uint32_t>(e, 0xac) & 0x8000)) return 0;
+    if (!(ratio > *(const float*)rt3::Rdata(0x5ddcb0)) && !(ratio != ratio) && !(F<uint32_t>(e, 0xac) & 0x8000)) return 0;
     uint32_t* node;
     if (F<int32_t>(pool, 0xc)) {
         uint32_t* l = (uint32_t*)F<void*>(pool, 0);
@@ -875,15 +875,15 @@ RT3_NOINLINE uint32_t __fastcall Particle_Color(uint8_t* e, int, uint8_t* p, int
     if (mode == 1) {
         uint32_t& seed = g_lcg;
         seed = seed * 0x19660d + 0x3c6ef35f;
-        double t = (double)(int32_t)(seed & 0x7fff) * *(const float*)0x5ddcb8;
-        double u = (double)*(const float*)0x5c85b4 - t;
+        double t = (double)(int32_t)(seed & 0x7fff) * *(const float*)rt3::Rdata(0x5ddcb8);
+        double u = (double)*(const float*)rt3::Rdata(0x5c85b4) - t;
         r = Ftol((double)(int32_t)((ca >> 16) & 0xff) * u + (double)(int32_t)((cb >> 16) & 0xff) * t);
         g = Ftol((double)(int32_t)((ca >> 8) & 0xff) * u + (double)(int32_t)((cb >> 8) & 0xff) * t);
         b = Ftol((double)(int32_t)(ca & 0xff) * u + (double)(int32_t)(cb & 0xff) * t);
         F<uint32_t>(p, 0x74) = (((uint32_t)r << 8 | (uint32_t)g) << 8 | (uint32_t)b) & 0xffffff;
     } else if (F<uint32_t>(e, 0xac) & 0x8000000) {
-        double u = (double)*(const float*)0x5c85b4 - (double)F<int32_t>(p, 0x48) / F<int32_t>(p, 0x4c);
-        double v = (double)*(const float*)0x5c85b4 - u;
+        double u = (double)*(const float*)rt3::Rdata(0x5c85b4) - (double)F<int32_t>(p, 0x48) / F<int32_t>(p, 0x4c);
+        double v = (double)*(const float*)rt3::Rdata(0x5c85b4) - u;
         r = Ftol((double)(int32_t)((cb >> 16) & 0xff) * u + (double)(int32_t)((ca >> 16) & 0xff) * v);
         g = Ftol((double)(int32_t)((cb >> 8) & 0xff) * u + (double)(int32_t)((ca >> 8) & 0xff) * v);
         b = Ftol((double)(int32_t)(cb & 0xff) * u + (double)(int32_t)(ca & 0xff) * v);

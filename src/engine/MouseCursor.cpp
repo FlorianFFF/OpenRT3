@@ -152,9 +152,9 @@ uint8_t* __fastcall TreeView_Load(uint8_t* w, int, int32_t);
 uint8_t* __fastcall TimerWidget_Load(uint8_t* w, int, int32_t);
 uint8_t* __fastcall Button_Load(uint8_t* w, int, int32_t);
 
-static inline double D(uint32_t a) { return *(const double*)a; }
+static inline double D(uint32_t a) { return *(const double*)rt3::Rdata(a); }
 
-static inline double Fl(uint32_t a) { return *(const float*)a; }
+static inline double Fl(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 
 
@@ -760,7 +760,7 @@ RT3_REPLACE(0x53f860, Window_DeleteChild);
 // 0x53f8d0. Sets the rectangle (+5/+9/+0xd/+0x11; 0x5c9b08 = keep); a size change
 // is passed to every child (vtbl +8 with +0x64, +0x68, w, h).
 RT3_NOINLINE void __fastcall Widget_SetRect(uint8_t* w, int, float x, float y, float wd, float ht) {
-    const float keep = *(const float*)0x5c9b08;
+    const float keep = *(const float*)rt3::Rdata(0x5c9b08);
     if (x == keep) x = F<float>(w, 5);
     if (y == keep) y = F<float>(w, 9);
     if (wd == keep) wd = F<float>(w, 0xd);

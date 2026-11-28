@@ -375,9 +375,9 @@ static inline uint8_t** GridSlot(uint8_t* t, int32_t x, int32_t y) {
     return F<uint8_t**>(t, 0x1685) + ((F<int32_t>(t, 0x15d9) >> 4) * (y >> 4) + (x >> 4));
 }
 
-static inline double D(uint32_t a) { return *(const double*)a; }
+static inline double D(uint32_t a) { return *(const double*)rt3::Rdata(a); }
 
-static inline float Fl(uint32_t a) { return *(const float*)a; }
+static inline float Fl(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 // Calls the optional hook 0x6d4014 (ECX as the original left it).
 static inline void InitHook(void* ecx) {
@@ -1123,7 +1123,7 @@ RT3_NOINLINE double __stdcall Plane_HeightAt(float x0, float y0, float z0, float
     double nz = a * e2 - b * e1;
     double dd = -((double)nx * x0 + (double)ny * y0 + nz * z0);
     double u = dd + (double)nx * qx + nz * qz;
-    return -(u * ((double)*(const float*)0x5c85b4 / ny));
+    return -(u * ((double)*(const float*)rt3::Rdata(0x5c85b4) / ny));
 }
 RT3_REPLACE(0x533a30, Plane_HeightAt);
 
@@ -1380,7 +1380,7 @@ RT3_NOINLINE double __fastcall Terrain_HeightAt(uint8_t* r, int, float x, float 
     double zv;
     if (iz < 0) {
         iz = 0;
-        zv = *(const float*)0x5c8598;
+        zv = *(const float*)rt3::Rdata(0x5c8598);
     } else if (iz + 1 >= F<int32_t>(r, 0x15d5)) {
         iz = F<int32_t>(r, 0x15d5) - 2;
         zv = (double)(iz * 0x5c);
@@ -1711,7 +1711,7 @@ RT3_NOINLINE void __fastcall Terrain_BuildTiles(uint8_t* t, int, int32_t w, int3
                     uint32_t* d = pix + F<int32_t>(t, 0x157c) * row;
                     int32_t srow = (int32_t)((double)fullH / sh * row);
                     const uint32_t* s = base + srow * sw;
-                    if (xs < 1.0) xs = *(const float*)0x5c8598;
+                    if (xs < 1.0) xs = *(const float*)rt3::Rdata(0x5c8598);
                     int32_t step = (int32_t)(xs);
                     int32_t skip = sw / fullW;
                     if (skip < 1) skip = 1;
@@ -2188,27 +2188,27 @@ RT3_NOINLINE void __fastcall Terrain_ShadeVertex(uint8_t* t, int, int32_t x, int
             double Y = (double)ez * cx - (double)cz * ex;
             double Z = (double)cy * ex - (double)ey * cx;
             double len = sqrt(Z * Z + Y * Y + X * X);
-            sum += len * *(const double*)0x5dd2e8;
+            sum += len * *(const double*)rt3::Rdata(0x5dd2e8);
         }
     if (!n) return;
-    double v = (sum + *(const float*)0x5c85b4) * *(const float*)0x5c9aa8 / n;
-    if (v < *(const float*)0x5c8598) v = *(const float*)0x5c8598;
+    double v = (sum + *(const float*)rt3::Rdata(0x5c85b4)) * *(const float*)rt3::Rdata(0x5c9aa8) / n;
+    if (v < *(const float*)rt3::Rdata(0x5c8598)) v = *(const float*)rt3::Rdata(0x5c8598);
     int32_t stride = F<int32_t>(t, 0x15dd);
     const uint8_t* map = F<const uint8_t*>(t, 0x1655);
     const uint8_t* p = map + stride * y + x;
     uint8_t b = *p;
     if (!b) {
-        v += *(const float*)0x5c8554;
+        v += *(const float*)rt3::Rdata(0x5c8554);
         if (x > 0 && y > 0 && x < w - 2 && y < F<int32_t>(t, 0x15d5) - 2) {
             const uint8_t* q = map + yp1 * stride + x;
             const uint8_t* r = map + ym1 * stride + x;
             if (b != p[1] || b != q[1] || b != q[0] || b != q[-1] || b != p[-1] || b != r[-1] || b != r[0] || b != r[1])
-                v = v + ((double)*(const float*)0x5dd2e4 - v);
+                v = v + ((double)*(const float*)rt3::Rdata(0x5dd2e4) - v);
         }
     }
     const uint8_t* det = F<const uint8_t*>(t, 0x162d) + ((w >> F<int32_t>(t, 0x15e1)) + 1) * y;
     v = (v + det[x]) * F<float>(t, 0x14e0);
-    if (v > *(const float*)0x5dd2e0) v = *(const float*)0x5dd2e0;
+    if (v > *(const float*)rt3::Rdata(0x5dd2e0)) v = *(const float*)rt3::Rdata(0x5dd2e0);
     int32_t r;
     __asm {
         fld v
@@ -2239,7 +2239,7 @@ RT3_NOINLINE void __fastcall Terrain_RefreshWaterFlow(uint8_t* t, int, int32_t x
         if (hook::Global<void(__cdecl*)()>(0x6d4014)) hook::Global<void(__cdecl*)()>(0x6d4014)();
     };
     auto kindAt = [&](int32_t x, int32_t y) { return (uint16_t)(*(uint16_t*)(F<uint8_t*>(t, 0x165d) + (F<int32_t>(t, 0x15dd) * y + x) * 3) & 7); };
-    const double k125 = *(const float*)0x5ca128, minLen = *(const double*)0x5c8678;
+    const double k125 = *(const float*)rt3::Rdata(0x5ca128), minLen = *(const double*)rt3::Rdata(0x5c8678);
     for (int32_t y = y0; y < y1; ++y) {
         progress();
         for (int32_t x = x0; x < x1; ++x) {
@@ -2279,7 +2279,7 @@ RT3_NOINLINE void __fastcall Terrain_RefreshWaterFlow(uint8_t* t, int, int32_t x
                 if (cnt <= 1 || cnt >= 5) continue;
                 double len = sqrt((double)(sz * sz + sx * sx));
                 if (!(len > minLen)) continue;
-                double inv = *(const double*)0x5c8770 / len;
+                double inv = *(const double*)rt3::Rdata(0x5c8770) / len;
                 float px = (float)x, py = (float)y;
                 float a = (float)((double)sx * inv);
                 float fsz = (float)sz;
@@ -2306,7 +2306,7 @@ RT3_NOINLINE void __fastcall Terrain_RefreshWaterFlow(uint8_t* t, int, int32_t x
                 int32_t vz = *pz, vx = *px;
                 double len = sqrt((double)(vz * vz + vx * vx));
                 if (!(len > minLen)) continue;
-                double inv = (double)*(const float*)0x5c85b4 / len;
+                double inv = (double)*(const float*)rt3::Rdata(0x5c85b4) / len;
                 *px = (int8_t)FlowFtol((double)vx * inv * k125);
                 F<uint8_t*>(t, 0x1665)[F<int32_t>(t, 0x15dd) * y + x] = (uint8_t)FlowFtol((double)vz * inv * k125);
             }
@@ -2320,7 +2320,7 @@ RT3_NOINLINE void __fastcall Terrain_RefreshWaterFlow(uint8_t* t, int, int32_t x
             if (k != 1 && k != 3) continue;
             uint8_t* dxp = F<uint8_t*>(t, 0x1661) + rowl * y + x;
             if (!*dxp || !F<uint8_t*>(t, 0x1665)[rowl * y + x]) continue;
-            double sumX = *(const float*)0x5c8598, cnt = *(const float*)0x5c8598, sumZ = 0.0;
+            double sumX = *(const float*)rt3::Rdata(0x5c8598), cnt = *(const float*)rt3::Rdata(0x5c8598), sumZ = 0.0;
             for (int32_t yy = y - 3; yy <= y + 3; ++yy) {
                 const int8_t* zr = (const int8_t*)F<uint8_t*>(t, 0x1665) + rowl * yy;
                 const int8_t* xr = (const int8_t*)F<uint8_t*>(t, 0x1661) + rowl * yy;
@@ -2329,21 +2329,21 @@ RT3_NOINLINE void __fastcall Terrain_RefreshWaterFlow(uint8_t* t, int, int32_t x
                     if (!vx || !vz || y == yy || x == xx) continue;
                     sumX += vx;
                     sumZ += vz;
-                    cnt += *(const float*)0x5c85b4;
+                    cnt += *(const float*)rt3::Rdata(0x5c85b4);
                 }
             }
             float fz = (float)sumZ;
-            if (!(cnt > *(const float*)0x5c8598) || !(cnt < *(const float*)0x5c8554)) {
+            if (!(cnt > *(const float*)rt3::Rdata(0x5c8598)) || !(cnt < *(const float*)rt3::Rdata(0x5c8554))) {
                 *dxp = 0;
                 F<uint8_t*>(t, 0x1665)[F<int32_t>(t, 0x15dd) * y + x] = 0;
                 continue;
             }
-            float invCnt = (float)((double)*(const float*)0x5c85b4 / cnt);
+            float invCnt = (float)((double)*(const float*)rt3::Rdata(0x5c85b4) / cnt);
             double mx = sumX * invCnt;
             double mz = (double)fz * invCnt;
             float fmz = (float)mz;
             double len = sqrt(mz * fmz + mx * mx);
-            float invLen = (float)((double)*(const float*)0x5c85b4 / len);
+            float invLen = (float)((double)*(const float*)rt3::Rdata(0x5c85b4) / len);
             *dxp = (uint8_t)FlowFtol((double)invLen * mx * k125);
             F<uint8_t*>(t, 0x1665)[F<int32_t>(t, 0x15dd) * y + x] = (uint8_t)FlowFtol((double)fmz * invLen * k125);
         }
@@ -2420,10 +2420,10 @@ RT3_NOINLINE void __stdcall Camera_DetailFactor(int32_t x, int32_t z, float* out
     double dx = (double)x - cx;
     double dz = (double)z - cz;
     double d = Fsqrt(dz * dz + dx * dx + (double)cy * cy);
-    const float lo = *(const float*)0x5c85b4;
+    const float lo = *(const float*)rt3::Rdata(0x5c85b4);
     if ((double)lo > d) d = lo;
-    double q = (double)*(const float*)0x5c87c0 / d;
-    *out = (float)((Fsqrt(q) + q) * *(const double*)0x5dd2f0);
+    double q = (double)*(const float*)rt3::Rdata(0x5c87c0) / d;
+    *out = (float)((Fsqrt(q) + q) * *(const double*)rt3::Rdata(0x5dd2f0));
 }
 RT3_REPLACE(0x537170, Camera_DetailFactor);
 
@@ -2588,12 +2588,12 @@ RT3_NOINLINE void __fastcall Terrain_InitMaps(uint8_t* t, int, char init, int32_
     int32_t qx = F<int32_t>(t, 0x15d9) / 4, qy = F<int32_t>(t, 0x15d5) / 4;
     float qyf = (float)qy;
     if (qx + 1 > 0) {
-        double step = (double)*(const float*)0x5c85b4 / (double)qx;
+        double step = (double)*(const float*)rt3::Rdata(0x5c85b4) / (double)qx;
         for (int32_t k = 0; k < qx + 1; ++k) F<float*>(t, 0x15e9)[k] = (float)((double)k * step);
     }
     TerrainProgress();
     if (qy + 1 > 0) {
-        double step = (double)*(const float*)0x5c85b4 / (double)qyf;
+        double step = (double)*(const float*)rt3::Rdata(0x5c85b4) / (double)qyf;
         for (int32_t k = 0; k < qy + 1; ++k) F<float*>(t, 0x15ed)[k] = (float)((double)k * step);
     }
     for (int32_t k = 0; k < m2; ++k) F<float*>(t, 0x15e5)[k] = (float)(k * 0x5c);

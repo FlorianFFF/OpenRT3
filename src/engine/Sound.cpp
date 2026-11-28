@@ -219,7 +219,7 @@ static void DestroySnd(uint8_t*& p, void(__fastcall* dtor)(uint8_t*)) {
 static inline bool SoundUp(uint8_t* snd) { return F<int32_t>(snd, 4) == 1 && !g_ccb9f4; }
 
 static inline int32_t Cell16(float v) {
-    double d = (double)v * *(const float*)0x5dcfe8;
+    double d = (double)v * *(const float*)rt3::Rdata(0x5dcfe8);
     int32_t r;
     __asm {
         fld d
@@ -229,9 +229,9 @@ static inline int32_t Cell16(float v) {
     return r >> 4;
 }
 
-static inline double D(uint32_t a) { return *(const double*)a; }
+static inline double D(uint32_t a) { return *(const double*)rt3::Rdata(a); }
 
-static inline double Fl(uint32_t a) { return *(const float*)a; }
+static inline double Fl(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 static inline int32_t Ftol(double v) {
     int32_t r;
@@ -968,8 +968,8 @@ RT3_NOINLINE void __fastcall Sound_Shutdown(uint8_t* snd, int, int32_t immediate
     }
     if (!immediate) {
         float mv = F<float>(Music(), 0x104), sv = F<float>(Snd3D(), 0x58);
-        float ms = (float)((double)mv * *(const float*)0x5d12c8), ss = (float)((double)sv * *(const float*)0x5d0058);
-        const float zero = *(const float*)0x5c8598;
+        float ms = (float)((double)mv * *(const float*)rt3::Rdata(0x5d12c8)), ss = (float)((double)sv * *(const float*)rt3::Rdata(0x5d0058));
+        const float zero = *(const float*)rt3::Rdata(0x5c8598);
         while (zero < mv || zero < sv) {
             mv = mv > ms ? (float)((double)mv - ms) : 0.0f;
             sv = sv > ss ? (float)((double)sv - ss) : 0.0f;
@@ -1012,7 +1012,7 @@ RT3_NOINLINE int32_t __fastcall Sound_Restart(uint8_t* snd, int, const char* nam
     if (SoundUp(snd)) Sound_SetListenerDir(g_ccb9fc, 0, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f);
     if (SoundUp(snd)) Sound_SetListenerPos(g_ccb9fc, 0, 0.0f, 0.0f, 0.0f);
     uint8_t* e = g_engine;
-    float mv = (float)((double)F<float>(e, 0x1146fe) * *(const double*)0x5c9c80);
+    float mv = (float)((double)F<float>(e, 0x1146fe) * *(const double*)rt3::Rdata(0x5c9c80));
     if (SoundUp(snd)) Music_SetVolume(g_music, 0, mv);
     float sv = F<float>(g_engine, 0x1146fa);
     if (SoundUp(snd)) {
@@ -1026,10 +1026,10 @@ RT3_REPLACE(0x531c00, Sound_Restart);
 // 0x531d30. Starts a music file at the configured music volume (engine +0x1146fe).
 int32_t __fastcall Sound_PlayMusic(uint8_t* s, int, const char* file, void* onEnd) {
     if (F<int32_t>(s, 4) != 1 || g_ccb9f4) return 0;
-    float vol = (float)((double)F<float>(g_engine, 0x1146fe) * *(const double*)0x5c9c80);
+    float vol = (float)((double)F<float>(g_engine, 0x1146fe) * *(const double*)rt3::Rdata(0x5c9c80));
     Music_SetVolume(g_music, 0, vol);
     uint8_t* m = g_music;
-    if (!(F<float>(m, 0x104) > *(const float*)0x5c8598)) return 0;
+    if (!(F<float>(m, 0x104) > *(const float*)rt3::Rdata(0x5c8598))) return 0;
     if (Music_IsPlaying(m) == 1) Music_Stop(g_music, 0, 0);
     return Music_Play(g_music, 0, file,
                       F<void*>(g_ccb9f8, 0x2c), onEnd);
@@ -1039,7 +1039,7 @@ RT3_REPLACE(0x531d30, Sound_PlayMusic);
 // 0x531dc0. Whether the 3D listener is idle (both speeds zero); 1 for 2D sounds.
 RT3_NOINLINE uint32_t __fastcall Sound_ListenerIdle(uint8_t* s) {
     if (!Is3D(s)) return 1;
-    const float zero = *(const float*)0x5c8598;
+    const float zero = *(const float*)rt3::Rdata(0x5c8598);
     if (!(F<float>(g_ccb9f8, 0x20) == zero)) return 0;
     return F<float>(g_ccb9fc, 0x58) == zero ? 1 : 0;
 }
@@ -1048,7 +1048,7 @@ RT3_REPLACE(0x531dc0, Sound_ListenerIdle);
 // 0x531e10. Plays a 2D sound when the 2D volume (+0x20) is up; else 0.
 RT3_NOINLINE uint32_t __fastcall Sound_Play2D(uint8_t* snd, int, const char* name, float vol, uint32_t pan, int32_t mode,
                                  int32_t paused, void* data) {
-    if (!SoundUp(snd) || !(F<float>(Snd2D(), 0x20) > *(const float*)0x5c8598)) return 0;
+    if (!SoundUp(snd) || !(F<float>(Snd2D(), 0x20) > *(const float*)rt3::Rdata(0x5c8598))) return 0;
     return Sound2D_Play(Snd2D(), 0, name, vol, pan, mode, paused, data);
 }
 RT3_REPLACE(0x531e10, Sound_Play2D);
@@ -1056,7 +1056,7 @@ RT3_REPLACE(0x531e10, Sound_Play2D);
 // 0x531e50. Plays a named 3D sound when the effects volume (+0x58) is up; else 0.
 RT3_NOINLINE uint32_t __fastcall Sound_Play3D(uint8_t* snd, int, const char* name, float x, float y, float z, float vol,
                                  int32_t mode, int32_t paused, int32_t prio, float maxDist) {
-    if (!SoundUp(snd) || !(F<float>(Snd3D(), 0x58) > *(const float*)0x5c8598) || !name[0]) return 0;
+    if (!SoundUp(snd) || !(F<float>(Snd3D(), 0x58) > *(const float*)rt3::Rdata(0x5c8598)) || !name[0]) return 0;
     return Sound3D_Play(Snd3D(), 0, name, x, y, z, vol, mode, paused, prio, maxDist);
 }
 RT3_REPLACE(0x531e50, Sound_Play3D);

@@ -99,9 +99,9 @@ static void EditBox_PostDone(uint8_t* w) {
     Input_PushEvent(g_input, 0, ev);
 }
 
-static inline double D(uint32_t a) { return *(const double*)a; }
+static inline double D(uint32_t a) { return *(const double*)rt3::Rdata(a); }
 
-static inline double Fl(uint32_t a) { return *(const float*)a; }
+static inline double Fl(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 // 0x55c8b0. Activates edit box w from the keyboard: edits it modally when
 // editable (+0xa2) with the caret at `caret`, then posts event 0xca.

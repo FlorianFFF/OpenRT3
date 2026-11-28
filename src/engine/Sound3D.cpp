@@ -234,7 +234,7 @@ static void Register(HashMap* h, uint32_t* res) {
 // (block +2 middle, +6 spread), from terrain point (x, z) + the grid offset.
 static void StorePoint(uint8_t* g, uint8_t* t, uint8_t* blk, uint8_t* cell, int32_t k, float px, float pz) {
     double h = Terrain_HeightAt(t, 0, (float)((double)px + F<float>(g, 8)), (float)((double)pz + F<float>(g, 0xc)));
-    if (fabs((double)F<float>(blk, 6)) > *(const double*)0x5c88a0) {
+    if (fabs((double)F<float>(blk, 6)) > *(const double*)rt3::Rdata(0x5c88a0)) {
         double v = (h - F<float>(blk, 2)) / F<float>(blk, 6);
         int32_t r;
         __asm {
@@ -265,7 +265,7 @@ static void Sample_Drop(uint8_t* s, uint8_t* e, uint32_t h) {
     }
 }
 
-static inline double Fl(uint32_t a) { return *(const float*)a; }
+static inline double Fl(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 static inline int32_t Ftol(double v) {
     int32_t r;
@@ -628,7 +628,7 @@ RT3_REPLACE(0x5695d0, Sound_SpeakerType);
 
 // 0x5695e0. Squared distance of a point to the listener (0 when any coordinate is 0).
 RT3_NOINLINE double __stdcall Sound_ListenerDistSq(float x, float y, float z) {
-    const float zero = *(const float*)0x5c8598;
+    const float zero = *(const float*)rt3::Rdata(0x5c8598);
     if (zero == x || zero == y || zero == z) return zero;
     Sound_TransformPoint(g_sound, 0, &x, &y, &z);
     return (double)x * x + (double)y * y + (double)z * z;
@@ -801,7 +801,7 @@ RT3_REPLACE(0x569a80, Sound_StopAll);
 // 0x569ae0. Sets the effects volume (+0x58, clamped to 0..1) and updates all samples.
 void __fastcall Sound_SetEffectsVolume(uint8_t* s, int, float vol) {
     int32_t ctx[4] = { 2 };
-    const float zero = *(const float*)0x5c8598, one = *(const float*)0x5c85b4;
+    const float zero = *(const float*)rt3::Rdata(0x5c8598), one = *(const float*)rt3::Rdata(0x5c85b4);
     float v;
     if (zero > vol) v = zero;
     else if (one < vol) v = one;
@@ -1187,11 +1187,11 @@ uint32_t __fastcall Sound3D_Play(uint8_t* s, int, const char* name, float x, flo
     F<float>(res, 0x10) = x;
     F<float>(res, 0x18) = z;
     float px = x, py = y, pz = z;
-    const float zero = *(const float*)0x5c8598;
+    const float zero = *(const float*)rt3::Rdata(0x5c8598);
     if (zero != x || zero != y || zero != z) Sound_TransformPoint(Snd(), 0, &px, &py, &pz);
-    float d = maxDist > zero ? maxDist : *(const float*)0x5cf0e8;
+    float d = maxDist > zero ? maxDist : *(const float*)rt3::Rdata(0x5cf0e8);
     F<float>(res, 0x30) = d;
-    F<float>(res, 0x34) = (float)((double)d * *(const float*)0x5c8948);
+    F<float>(res, 0x34) = (float)((double)d * *(const float*)rt3::Rdata(0x5c8948));
     F<float>(res, 0x28) = vol;
     F<int32_t>(res, 8) = mode;
     F<int32_t>(res, 0xc) = paused;
@@ -1280,7 +1280,7 @@ RT3_REPLACE(0x56a880, Sound2D_StopAll);
 
 // 0x56a8e0. Sets the 2D effects volume (+0x20, clamped to 0..1) and updates the samples.
 void __fastcall Sound2D_SetVolume(uint8_t* s, int, float vol) {
-    const float zero = *(const float*)0x5c8598, one = *(const float*)0x5c85b4;
+    const float zero = *(const float*)rt3::Rdata(0x5c8598), one = *(const float*)rt3::Rdata(0x5c85b4);
     float v;
     if (zero > vol) v = zero;
     else if (one < vol) v = one;
@@ -1611,9 +1611,9 @@ RT3_NOINLINE void __fastcall Block_HeightRange(uint8_t* o, int, int32_t row, int
             if (lo > v) lo = v;
             if (hi < v) hi = v;
         }
-    float mid = (float)(((double)lo + hi) * *(const double*)0x5c8628);
+    float mid = (float)(((double)lo + hi) * *(const double*)rt3::Rdata(0x5c8628));
     F<float>(out, 2) = mid;
-    F<float>(out, 6) = (float)(((double)hi - lo) * *(const float*)0x5de4dc);
+    F<float>(out, 6) = (float)(((double)hi - lo) * *(const float*)rt3::Rdata(0x5de4dc));
 }
 RT3_REPLACE(0x56b2c0, Block_HeightRange);
 

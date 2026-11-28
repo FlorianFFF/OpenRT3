@@ -408,7 +408,7 @@ static inline bool InCellRect(uint8_t* o, int32_t x0, int32_t y0, int32_t x1, in
            Obj_CellY(o) <= (float)y1;
 }
 
-static inline double D(uint32_t a) { return *(const double*)a; }
+static inline double D(uint32_t a) { return *(const double*)rt3::Rdata(a); }
 
 static inline int32_t Ftol(double v) {
     int32_t r;

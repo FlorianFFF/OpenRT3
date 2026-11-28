@@ -225,9 +225,9 @@ RT3_NOINLINE uint8_t* __fastcall Scrollbar_Construct(uint8_t* w, int, const uint
 RT3_NOINLINE int32_t __fastcall Widget_TextLines(uint8_t* w);
 RT3_NOINLINE uint8_t* __fastcall EditBox_Construct(uint8_t* w, int, const uint8_t* def);
 
-static inline double D(uint32_t a) { return *(const double*)a; }
+static inline double D(uint32_t a) { return *(const double*)rt3::Rdata(a); }
 
-static inline double Fl(uint32_t a) { return *(const float*)a; }
+static inline double Fl(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 
 static inline int32_t Ftol(double v) {
@@ -1282,7 +1282,7 @@ RT3_REPLACE(0x4f5c30, Editor_UndoPaint);
 // (+0x8c / +0x90) and passes the level (+0.5) to the renderer.
 RT3_NOINLINE void __fastcall Map_SetWaterPreset(uint8_t* o, int, int32_t idx) {
     F<int32_t>(o, 0x98) = idx;
-    const double half = *(const double*)0x5c85b8;
+    const double half = *(const double*)rt3::Rdata(0x5c85b8);
     float v;
     if (F<int32_t>(o, 0x8c) == 1) {
         v = (float)((double)*(const float*)0x6227b4 + half);

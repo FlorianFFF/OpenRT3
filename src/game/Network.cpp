@@ -834,9 +834,9 @@ static void __cdecl Player_OnLeft_Impl(uint8_t* p) {
     Ui_PlaySound(0x2f, 0, 0x3f000000);
 }
 
-static inline double D(uint32_t a) { return *(const double*)a; }
+static inline double D(uint32_t a) { return *(const double*)rt3::Rdata(a); }
 
-static inline double Fl(uint32_t a) { return *(const float*)a; }
+static inline double Fl(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 static inline int32_t Ftol(double v) {
     int32_t r;
@@ -1415,7 +1415,7 @@ RT3_NOINLINE void __fastcall Load_Deliver(uint32_t* load) {
     Collection* types = g_cargoTypes;
     if (types) {
         uint8_t* ct = (uint8_t*)Collection_Get(types, 0, F<uint32_t>(types, 0x8e + F<uint8_t>(load, 0x10) * 4));
-        const double k = *(const double*)0x5c8c20;
+        const double k = *(const double*)rt3::Rdata(0x5c8c20);
         F<float>(ct, 0x5a) = (float)((double)F<float>(ct, 0x5a) - k);
         if (F<uint8_t>(load, 0x12) & 1) F<float>(ct, 0x66) = (float)((double)F<float>(ct, 0x66) + k);
         else F<float>(ct, 0x62) = (float)((double)F<float>(ct, 0x62) + k);
@@ -2529,10 +2529,10 @@ RT3_NOINLINE float __fastcall Net_CommonVersion() {
     float best = 99999.0f;
     for (uint8_t* n = *(uint8_t**)Net_LockQueue(); n; n = *(uint8_t**)n) {
         float v = F<float>(n, 0x268c);
-        if (v < best && !(*(const float*)0x5c8598 == v)) best = v;
+        if (v < best && !(*(const float*)rt3::Rdata(0x5c8598) == v)) best = v;
     }
     Net_UnlockQueue();
-    if (best == *(const float*)0x5c8598 || *(uint32_t*)&best == 0x47c34f80) best = Game_VersionNumber();
+    if (best == *(const float*)rt3::Rdata(0x5c8598) || *(uint32_t*)&best == 0x47c34f80) best = Game_VersionNumber();
     int32_t r;
     __asm {
         fld best
@@ -3864,7 +3864,7 @@ RT3_NOINLINE void __fastcall Net_FeedResync(uint8_t* s) {
             const char* who = F<int32_t>(rec, 4) ? Net_PlayerNameById(F<int32_t>(rec, 4)) : (const char*)0x5ca2bc;
             float sent = (float)F<int32_t>(rec, 0x54);
             float total = (float)F<int32_t>(rec, 0x50);
-            double scale = *(const float*)0x5c8c28;
+            double scale = *(const float*)rt3::Rdata(0x5c8c28);
             int32_t pct;
             __asm {
                 fld sent
@@ -4381,7 +4381,7 @@ RT3_REPLACE(0x46edb0, NetTrain_Create);
 RT3_NOINLINE int32_t __fastcall Trains_AnyActive() {
     if (hook::As<void*>(g_session)) {
         float cv = Net_CommonVersion();
-        if (cv < *(const float*)0x5c9800 || cv != cv) return 0;
+        if (cv < *(const float*)rt3::Rdata(0x5c9800) || cv != cv) return 0;
     }
     Collection* c = g_trains;
     if (!c) return 0;

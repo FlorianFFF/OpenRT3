@@ -140,9 +140,9 @@ static inline void* Engine_103() { return hook::As<void*>(g_engine); }
 
 static inline uint32_t Bits(float f) { return *(uint32_t*)&f; }
 
-static inline double D(uint32_t a) { return *(const double*)a; }
+static inline double D(uint32_t a) { return *(const double*)rt3::Rdata(a); }
 
-static inline double Fl(uint32_t a) { return *(const float*)a; }
+static inline double Fl(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 static inline uint32_t FBits(float f) { return *(uint32_t*)&f; }
 
@@ -331,8 +331,8 @@ RT3_NOINLINE void __fastcall Input_DetectDoubleClick(uint8_t* in, int, const uin
     const int32_t* metric = (const int32_t*)(F<uint8_t*>(e, 0x34) + F<int32_t>(e, 0x11421e) * 0x15);
     double dx = fabs((double)*(const float*)&ev[9] - F<float>(in, 0x104 + b * 0xc)) * metric[0];
     double dy = fabs((double)*(const float*)&ev[10] - F<float>(in, 0x108 + b * 0xc)) * metric[1];
-    double dist = sqrt(dy * dy + dx * dx + *(const double*)0x5c85b8);
-    if (dist < *(const float*)0x5c8554 && F<int32_t>(in, 0x10c + b * 0xc) && F<int32_t>(in, 0x10c + b * 0xc) < ClockMs() + F<int32_t>(in, 0xaa0)) {
+    double dist = sqrt(dy * dy + dx * dx + *(const double*)rt3::Rdata(0x5c85b8));
+    if (dist < *(const float*)rt3::Rdata(0x5c8554) && F<int32_t>(in, 0x10c + b * 0xc) && F<int32_t>(in, 0x10c + b * 0xc) < ClockMs() + F<int32_t>(in, 0xaa0)) {
         uint32_t dbl[12];
         memcpy(dbl, ev, sizeof dbl);
         static const uint32_t kinds[] = { 0x1e, 0x22, 0x20 };
@@ -452,9 +452,9 @@ RT3_NOINLINE void __fastcall Input_OnMouse(uint8_t* in, int, float x, float y, f
             type = 9;
             break;
         case 7:
-            if (wheel == *(const float*)0x5c8598) continue;
+            if (wheel == *(const float*)rt3::Rdata(0x5c8598)) continue;
             type = 5;
-            ticks = Ftol((double)wheel * *(const double*)0x5c9b10 * *(const double*)0x5ddb70);
+            ticks = Ftol((double)wheel * *(const double*)rt3::Rdata(0x5c9b10) * *(const double*)rt3::Rdata(0x5ddb70));
             break;
         }
         uint32_t ev[12] = {};
@@ -498,13 +498,13 @@ RT3_NOINLINE int32_t __fastcall Input_OnMouseMessage(uint8_t* in, int, uint32_t,
     const int32_t* metric = e ? (const int32_t*)(F<uint8_t*>(e, 0x34) + F<int32_t>(e, 0x11421e) * 0x15) : nullptr;
     float fx = (float)((double)x / (e ? metric[0] : 1));
     float fy = (float)((double)y / (e ? metric[1] : 1));
-    if (fx < *(const float*)0x5c8598)
+    if (fx < *(const float*)rt3::Rdata(0x5c8598))
         fx = 0.0f;
-    else if (fx > *(const float*)0x5c85b4)
+    else if (fx > *(const float*)rt3::Rdata(0x5c85b4))
         fx = 1.0f;
-    if (fy < *(const float*)0x5c8598)
+    if (fy < *(const float*)rt3::Rdata(0x5c8598))
         fy = 0.0f;
-    else if (fy > *(const float*)0x5c85b4)
+    else if (fy > *(const float*)rt3::Rdata(0x5c85b4))
         fy = 1.0f;
     F<float>(in, 0xa94) = fx;
     F<float>(in, 0xa98) = fy;
@@ -537,7 +537,7 @@ RT3_NOINLINE int32_t __fastcall Input_OnMouseMessage(uint8_t* in, int, uint32_t,
         int32_t ticks = (int16_t)(wparam >> 16) / 120;
         ev[0] = 5;
         ev[2] = (uint32_t)ticks;
-        F<float>(in, 0xa9c) = (float)((double)ticks * *(const double*)0x5c9c80 + F<float>(in, 0xa9c));
+        F<float>(in, 0xa9c) = (float)((double)ticks * *(const double*)rt3::Rdata(0x5c9c80) + F<float>(in, 0xa9c));
         break;
     }
     default:
@@ -631,11 +631,11 @@ RT3_REPLACE(0x54f5b0, Input_PostEvent);
 // 0x5ddb78 once it is negative (or above 0x5c85b8 when 0x625464 is unset).
 RT3_NOINLINE float __fastcall Fade_Step_Impl() {
     float& g = hook::As<float>(g_d93850);
-    double d = (double)g - *(const double*)0x5ddb80;
+    double d = (double)g - *(const double*)rt3::Rdata(0x5ddb80);
     g = (float)d;
-    if (!(d >= *(const float*)0x5c8598)) return *(const float*)0x5ddb78;
-    if ((double)g <= *(const double*)0x5c85b8) return g;
-    if (*(const float*)0x625464 == *(const float*)0x5c9b08) return *(const float*)0x5ddb78;
+    if (!(d >= *(const float*)rt3::Rdata(0x5c8598))) return *(const float*)rt3::Rdata(0x5ddb78);
+    if ((double)g <= *(const double*)rt3::Rdata(0x5c85b8)) return g;
+    if (*(const float*)0x625464 == *(const float*)rt3::Rdata(0x5c9b08)) return *(const float*)rt3::Rdata(0x5ddb78);
     return g;
 }
 

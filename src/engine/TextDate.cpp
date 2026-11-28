@@ -103,9 +103,9 @@ int32_t __fastcall PowerOfTwo(int32_t v, int32_t roundUp);
 RT3_NOINLINE void __fastcall StripExtension(char* s);
 RT3_NOINLINE uint32_t __stdcall HeatColor(float t);
 
-static inline double D(uint32_t a) { return *(const double*)a; }
+static inline double D(uint32_t a) { return *(const double*)rt3::Rdata(a); }
 
-static inline float Fl(uint32_t a) { return *(const float*)a; }
+static inline float Fl(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 static inline int32_t Ftol(double v) {
     int32_t r;

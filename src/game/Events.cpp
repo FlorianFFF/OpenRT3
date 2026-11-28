@@ -141,9 +141,9 @@ static void WriteName(Stream st, uint32_t table, int32_t idx, uint32_t off) {
     StreamWrite(st, buf, 0x64, 0);
 }
 
-static inline double D(uint32_t a) { return *(const double*)a; }
+static inline double D(uint32_t a) { return *(const double*)rt3::Rdata(a); }
 
-static inline double Fl(uint32_t a) { return *(const float*)a; }
+static inline double Fl(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 static inline int32_t Ftol(double v) {
     int32_t r;
@@ -480,7 +480,7 @@ RT3_REPLACE(0x430d70, EventRules_Save);
 // 0xb66 / 0xb67 / 0xb68. Returns 1 when there is nothing to report.
 RT3_NOINLINE int32_t __fastcall Scenario_CheckSetup(uint32_t* s, int, char* out) {
     char msg[0x3e8], line[0x1f4];
-    msg[0] = *(const char*)0x5c87a8;
+    msg[0] = *(const char*)rt3::Rdata(0x5c87a8);
     if (!s[0]) strcat(msg, GetString(0xd6));
     if (!s[1] && !s[2] && !s[3] && !s[4] && strlen((const char*)s + 0xe0) <= 1) {
         if (strlen(msg)) memcpy(msg + strlen(msg), (const void*)0x5c9ce4, 3);
@@ -681,7 +681,7 @@ RT3_NOINLINE void __fastcall Effects_Dispatch(uint8_t* fx, int, const int32_t* r
             } else if (company) {
                 if (F<int32_t>(company, 0) != Obj_Get21(hook::As<void*>(g_world))) F<int32_t>(g_world, 0x4a73) = 1;
             }
-            g_world[0x4b47] = *(const char*)0x5c87a8;
+            g_world[0x4b47] = *(const char*)rt3::Rdata(0x5c87a8);
             F<int32_t>(g_world, 0x4d) = 0;
             w = g_world;
             F<int32_t>(w, 0x4c88) = F<int32_t>(w, 0x15);
@@ -697,7 +697,7 @@ RT3_NOINLINE void __fastcall Effects_Dispatch(uint8_t* fx, int, const int32_t* r
             F<int32_t>(w, 0x4c88) = F<int32_t>(w, 0x15);
             w = g_world;
         }
-        w[0x4b47] = *(const char*)0x5c87a8;
+        w[0x4b47] = *(const char*)rt3::Rdata(0x5c87a8);
         return;
     }
     case 1:

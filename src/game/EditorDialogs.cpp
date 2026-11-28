@@ -244,9 +244,9 @@ RT3_NOINLINE uint8_t* __fastcall Scrollbar_Construct(uint8_t* w, int, const uint
 RT3_NOINLINE uint8_t* __fastcall ListBox_Construct(uint8_t* w, int, const uint8_t* def);
 RT3_NOINLINE uint8_t* __fastcall Button_Construct(uint8_t* w, int, const uint8_t* def);
 
-static inline double D(uint32_t a) { return *(const double*)a; }
+static inline double D(uint32_t a) { return *(const double*)rt3::Rdata(a); }
 
-static inline double Fl(uint32_t a) { return *(const float*)a; }
+static inline double Fl(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 
 static inline int32_t Ftol(double v) {
@@ -507,17 +507,17 @@ RT3_NOINLINE void __fastcall EditorDialog_ShowEconomy(uint8_t* w) {
     g_6cff9c = 1;
     for (uint32_t id = 0x5bcd; id <= 0x5bd7; id += 2) Window_SendEvent5(w, 0, 0x84, id, 0x4ca980, 0, 0);
     Window_SendEvent5(w, 0, 0x7a, 0x5be1, 0x4caaf0, 0, 0);
-    const double half = *(const double*)0x5c86b8;
+    const double half = *(const double*)rt3::Rdata(0x5c86b8);
     auto fw = [](int32_t off) { return F<float>(g_world, off); };
-    Window_SendEvent5(w, 0, 0x66, 0x5bcd, (uint32_t)Ftol((double)fw(0xbe2) * *(const double*)0x5c85d8 + half), 0, 0);
+    Window_SendEvent5(w, 0, 0x66, 0x5bcd, (uint32_t)Ftol((double)fw(0xbe2) * *(const double*)rt3::Rdata(0x5c85d8) + half), 0, 0);
     for (int32_t k = 1; k <= 5; ++k)
-        Window_SendEvent5(w, 0, 0x66, 0x5bcd + k * 2, (uint32_t)(Ftol((double)fw(0xbe2 + k * 4) * *(const double*)0x5c87f8 + half) + 0x32), 0, 0);
-    const float scale = *(const float*)0x5c8c28;
+        Window_SendEvent5(w, 0, 0x66, 0x5bcd + k * 2, (uint32_t)(Ftol((double)fw(0xbe2 + k * 4) * *(const double*)rt3::Rdata(0x5c87f8) + half) + 0x32), 0, 0);
+    const float scale = *(const float*)rt3::Rdata(0x5c8c28);
     char buf[0x130];
     crt::sprintf(buf, (const char*)0x5d0b18, Ftol((double)fw(0xbe2) * scale + half));
     Window_SendEvent5(w, 0, 0x6f, 0x5bce, (uint32_t)(uintptr_t)buf, 0, 0);
     for (int32_t k = 1; k <= 5; ++k) {
-        crt::sprintf(buf, (const char*)0x5d0b30, (double)fw(0xbe2 + k * 4) * scale + *(const double*)0x5c85b8);
+        crt::sprintf(buf, (const char*)0x5d0b30, (double)fw(0xbe2 + k * 4) * scale + *(const double*)rt3::Rdata(0x5c85b8));
         Window_SendEvent5(w, 0, 0x6f, 0x5bce + k * 2, (uint32_t)(uintptr_t)buf, 0, 0);
     }
     g_6cff9c = 0;
@@ -964,8 +964,8 @@ RT3_NOINLINE void __fastcall CityEditor_Fill(uint8_t* w, int, int32_t id, int32_
     uint8_t* c = (uint8_t*)Collection_Get(g_cities, 0, (uint32_t)cur);
     Window_SendEvent5(w, 0, 0x7a, 0x5088, 0x4cc340, 0, 0);
     Window_SendEvent5(w, 0, 0x84, 0x5086, 0x4cc930, 0, 0);
-    float size = *(const float*)0x5c8904 < F<float>(c, 0x25a) ? 400.0f : F<float>(c, 0x25a);
-    Window_SendEvent5(w, 0, 0x66, 0x5086, (uint32_t)Ftol((double)size + *(const double*)0x5c86b8), 0, 0);
+    float size = *(const float*)rt3::Rdata(0x5c8904) < F<float>(c, 0x25a) ? 400.0f : F<float>(c, 0x25a);
+    Window_SendEvent5(w, 0, 0x66, 0x5086, (uint32_t)Ftol((double)size + *(const double*)rt3::Rdata(0x5c86b8)), 0, 0);
     char buf[0x200], num[0x60];
     crt::sprintf(buf, (const char*)0x5d0b18, Ftol(F<float>(c, 0x25a)));
     Window_SendEvent5(w, 0, 0x6f, 0x5087, (uint32_t)(uintptr_t)buf, 0, 0);
@@ -1975,7 +1975,7 @@ RT3_REPLACE(0x4d0040, EditorDialog_OnRegionTypesEvent);
 
 // 0x4d03d0. Ratio +0x76 / +0x7a, with the divisor floored at 0.001.
 RT3_NOINLINE float __fastcall Obj_Ratio76(uint8_t* o) {
-    if ((double)F<float>(o, 0x7a) < *(const double*)0x5c8678) return (float)((double)F<float>(o, 0x76) / 0.001);
+    if ((double)F<float>(o, 0x7a) < *(const double*)rt3::Rdata(0x5c8678)) return (float)((double)F<float>(o, 0x76) / 0.001);
     return (float)((double)F<float>(o, 0x76) / (double)F<float>(o, 0x7a));
 }
 RT3_REPLACE(0x4d03d0, Obj_Ratio76);
@@ -2087,9 +2087,9 @@ RT3_REPLACE(0x4d0420, EngineStats_Draw);
 // the remaining height h. Without problems it says so (0x43d). QUIRK: the
 // last loop reads each city's map cell and drops the result.
 void __fastcall ScenarioCheck_Draw(void*, int, float x, float y0, float w0, float h, int32_t) {
-    float y = (float)((double)y0 + *(const double*)0x5d01d8);
+    float y = (float)((double)y0 + *(const double*)rt3::Rdata(0x5d01d8));
     int32_t start = F<int32_t>(g_world, 0x66ca);
-    float w = (float)((double)w0 - *(const double*)0x5d0110);
+    float w = (float)((double)w0 - *(const double*)rt3::Rdata(0x5d0110));
     int32_t any = 0;
     uint8_t* font = nullptr;
     auto draw = [&](const char* text, uint32_t hb) {
@@ -2109,7 +2109,7 @@ void __fastcall ScenarioCheck_Draw(void*, int, float x, float y0, float w0, floa
         const char* fmt = GetString(0x42f);
         FormatText(msg, fmt, kind, (const char*)c + 0x356, yr, nullptr, nullptr, nullptr, nullptr, nullptr);
         draw(msg, 0x3ca3d70a);
-        y = y + *(const float*)0x5cb5c4;
+        y = y + *(const float*)rt3::Rdata(0x5cb5c4);
     }
     uint8_t* world = g_world;
     int32_t open = 0;
@@ -2125,17 +2125,17 @@ void __fastcall ScenarioCheck_Draw(void*, int, float x, float y0, float w0, floa
         FormatText(msg, fmt, so, sa, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
         any = 1;
         draw(msg, 0x3da3d70a);
-        y = y + *(const float*)0x5d0c10;
+        y = y + *(const float*)rt3::Rdata(0x5d0c10);
         world = g_world;
     }
     if (strlen((const char*)world + 0x4f30) < 2) {
         draw(GetString(0x432), 0x3da3d70a);
-        y = (float)((double)y + *(const double*)0x5d0c08);
+        y = (float)((double)y + *(const double*)rt3::Rdata(0x5d0c08));
         world = g_world;
     }
     if (strlen((const char*)world + 0x672e) < 2) {
         draw(GetString(0x433), 0x3da3d70a);
-        y = (float)((double)y + *(const double*)0x5d0c08);
+        y = (float)((double)y + *(const double*)rt3::Rdata(0x5d0c08));
     }
     int32_t total = Collection_Count(g_6ada84);
     static int32_t other[200], two[200], all[200];
@@ -2158,13 +2158,13 @@ void __fastcall ScenarioCheck_Draw(void*, int, float x, float y0, float w0, floa
             else ++other[k];
         }
     }
-    if ((double)total * *(const double*)0x5c8640 < (double)used) {
+    if ((double)total * *(const double*)rt3::Rdata(0x5c8640) < (double)used) {
         const char* st = Num_Format(num1, 1, (double)total, 0xa, 1, 0, 0);
         const char* su = Num_Format(num2, 1, (double)used, 0xa, 1, 0, 0);
         const char* fmt = GetString(0x434);
         FormatText(msg, fmt, su, st, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
         draw(msg, 0x3d75c28f);
-        y = y + *(const float*)0x5d0c00;
+        y = y + *(const float*)rt3::Rdata(0x5d0c00);
         any = 1;
     }
     bool fewAll = false, fewTwo = false, fewOther = false;
@@ -2177,7 +2177,7 @@ void __fastcall ScenarioCheck_Draw(void*, int, float x, float y0, float w0, floa
             const char* fmt = GetString(0x435);
             FormatText(msg, fmt, sy, sn, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
             draw(msg, 0x3d75c28f);
-            y = y + *(const float*)0x5d0c00;
+            y = y + *(const float*)rt3::Rdata(0x5d0c00);
             fewAll = true, any = 1;
         }
         if (!fewTwo && two[k] < (yr > 0x785 ? 1 : 0)) {
@@ -2185,7 +2185,7 @@ void __fastcall ScenarioCheck_Draw(void*, int, float x, float y0, float w0, floa
             const char* fmt = GetString(0x436);
             FormatText(msg, fmt, sy, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
             draw(msg, 0x3d75c28f);
-            y = y + *(const float*)0x5d0c00;
+            y = y + *(const float*)rt3::Rdata(0x5d0c00);
             fewTwo = true, any = 1;
         }
         if (!fewOther && other[k] < (yr > 0x785 ? 1 : 0)) {
@@ -2193,7 +2193,7 @@ void __fastcall ScenarioCheck_Draw(void*, int, float x, float y0, float w0, floa
             const char* fmt = GetString(0x437);
             FormatText(msg, fmt, sy, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
             draw(msg, 0x3d75c28f);
-            y = y + *(const float*)0x5d0c00;
+            y = y + *(const float*)rt3::Rdata(0x5d0c00);
             fewOther = true, any = 1;
         }
     }
@@ -2208,16 +2208,16 @@ void __fastcall ScenarioCheck_Draw(void*, int, float x, float y0, float w0, floa
         if (Table_CountListing(g_cities, 0, id)) continue;
         if (!header) {
             draw(GetString(0x438), 0x3d4ccccc);
-            y = (float)((double)y + *(const double*)0x5d0bf8);
+            y = (float)((double)y + *(const double*)rt3::Rdata(0x5d0bf8));
             header = true;
         }
         const char* fmt = LocalizeName((const char*)b + 0x4f);
         FormatText(msg, fmt, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
         draw(msg, 0x3d75c28f);
-        y = y + *(const float*)0x5cb5c4;
+        y = y + *(const float*)rt3::Rdata(0x5cb5c4);
         any = 1;
     }
-    if (header) y = y + *(const float*)0x5cb5c4;
+    if (header) y = y + *(const float*)rt3::Rdata(0x5cb5c4);
     for (int32_t i = 0; i < Collection_Count(g_cargoTypes); ++i) {
         Collection* cargos = g_cargoTypes;
         uint8_t* cg = (uint8_t*)Collection_Get(cargos, 0, Collection_IdAt(cargos, 0, (uint32_t)i, 0));
@@ -2238,7 +2238,7 @@ void __fastcall ScenarioCheck_Draw(void*, int, float x, float y0, float w0, floa
         const char* fmt = GetString(0x439);
         FormatText(msg, fmt, nm, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
         draw(msg, 0x3d75c28f);
-        y = y + *(const float*)0x5d0c00;
+        y = y + *(const float*)rt3::Rdata(0x5d0c00);
         any = 1;
     }
     char* report = (char*)0x6cffd8;
@@ -2254,7 +2254,7 @@ void __fastcall ScenarioCheck_Draw(void*, int, float x, float y0, float w0, floa
                 char name[0x60];
                 float amount;
                 Obj_Entry37f(c, 0, k, name, (int32_t*)&amount);
-                if (amount <= *(const float*)0x5c8598) continue;
+                if (amount <= *(const float*)rt3::Rdata(0x5c8598)) continue;
                 uint8_t* type = (uint8_t*)Table_GetByName(g_62b268, 0, name);
                 if (!type) continue;
                 int32_t seed = GetSeed();
@@ -2281,15 +2281,15 @@ void __fastcall ScenarioCheck_Draw(void*, int, float x, float y0, float w0, floa
         }
     }
     if (report[0]) {
-        y = (float)((double)y + *(const double*)0x5d0bf0);
+        y = (float)((double)y + *(const double*)rt3::Rdata(0x5d0bf0));
         any = 1;
         float room = (float)((double)h - ((double)y - y0));
         float th = (float)Font_TextHeight(g_6cff90, 0, report, w, nullptr);
         if (room < th) th = room;
-        float bh = (float)((double)th + *(const double*)0x5caae0);
+        float bh = (float)((double)th + *(const double*)rt3::Rdata(0x5caae0));
         Font_DrawTextBox(g_6cff90, 0, report, x, y, w, bh, 0xffffffff, 0, 0, 0, 1.0f);
         y = bh + y;
-        y = (float)((double)y + *(const double*)0x5d0be8);
+        y = (float)((double)y + *(const double*)rt3::Rdata(0x5d0be8));
     }
     for (int32_t i = 0; i < Collection_Count(g_cities); ++i) {
         Collection* cs = g_cities;

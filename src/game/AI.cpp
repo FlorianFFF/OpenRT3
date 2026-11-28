@@ -316,9 +316,9 @@ RT3_NOINLINE char* __fastcall Num_FormatSimple2(char* buf, int32_t style, double
 
 static inline uint8_t* Map() { return g_map; }
 
-static inline double D(uint32_t a) { return *(const double*)a; }
+static inline double D(uint32_t a) { return *(const double*)rt3::Rdata(a); }
 
-static inline float Fl(uint32_t a) { return *(const float*)a; }
+static inline float Fl(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 
 static inline Collection* Engines() { return g_6ada84; }
@@ -342,11 +342,11 @@ static inline int32_t Ftol(double v) {
     return r;
 }
 
-static inline double Fl_193(uint32_t a) { return *(const float*)a; }
+static inline double Fl_193(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
-static inline double Fl_202(uint32_t a) { return *(const float*)a; }
+static inline double Fl_202(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
-static inline double Fl_203(uint32_t a) { return *(const float*)a; }
+static inline double Fl_203(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 
 
@@ -359,7 +359,7 @@ static void SplitHours(float t, int32_t* h, float* m, float* s) {
     *s = (float)(((double)*m - mf) * Fl_203(0x5c8990));
 }
 
-static inline double Fl_205(uint32_t a) { return *(const float*)a; }
+static inline double Fl_205(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 static inline float BitsF(uint32_t b) { return *(float*)&b; }
 
@@ -383,7 +383,7 @@ static inline int32_t& BondAmount(uint8_t* c, int32_t i) { return F<int32_t>(c, 
 
 static inline float BondRate(uint8_t* c, int32_t i) { return F<float>(c, 0x67 + i * 0xc); }
 
-static inline double Fl_207(uint32_t a) { return *(const float*)a; }
+static inline double Fl_207(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 // Whether piece p of company id is plain unmarked track (states 1 / 2,
 // no piece kind, +0x24c bit 2 clear).
@@ -434,7 +434,7 @@ struct PlanFrame {
 // 0x401000. Size class of +0x30e: <= 5 -> 0, <= 13 -> 1, else 2 (written to both outputs).
 RT3_NOINLINE void __fastcall Obj_SizeClass(void* o, int, int32_t* a, int32_t* b) {
     float v = F<float>(o, 0x30e);
-    int32_t c = v <= *(const float*)0x5c8554 ? 0 : v <= *(const float*)0x5c8550 ? 1 : 2;
+    int32_t c = v <= *(const float*)rt3::Rdata(0x5c8554) ? 0 : v <= *(const float*)rt3::Rdata(0x5c8550) ? 1 : 2;
     *b = c;
     *a = c;
 }
@@ -443,10 +443,10 @@ RT3_REPLACE(0x401000, Obj_SizeClass);
 // 0x401070. Rating by +0x296: 9.4 / 8.4 / 7.4 / 6.4 from 85 / 70 / 50.
 RT3_NOINLINE float __fastcall Obj_Rating296(void* o) {
     int32_t v = F<int32_t>(o, 0x296);
-    if (v >= 0x55) return *(const float*)0x5c8564;
-    if (v >= 0x46) return *(const float*)0x5c8560;
-    if (v >= 0x32) return *(const float*)0x5c855c;
-    return *(const float*)0x5c8558;
+    if (v >= 0x55) return *(const float*)rt3::Rdata(0x5c8564);
+    if (v >= 0x46) return *(const float*)rt3::Rdata(0x5c8560);
+    if (v >= 0x32) return *(const float*)rt3::Rdata(0x5c855c);
+    return *(const float*)rt3::Rdata(0x5c8558);
 }
 RT3_REPLACE(0x401070, Obj_Rating296);
 
@@ -492,19 +492,19 @@ RT3_REPLACE(0x4010f0, City_ServiceValue);
 // ((4x - (-4)y) & 3 picks the signs of +-1.4375): with `alongX` the offset
 // goes to *outX and the direction (0 or 4) to *dir, else to *outY (dir 2 / 6).
 RT3_NOINLINE void __fastcall Obj_PlatformOffset(void* o, int, int32_t alongX, float* outX, float* outY, int32_t* dir) {
-    int32_t cx = (int32_t)(Obj_CellX(o) * *(const float*)0x5c8568);
-    int32_t cy = (int32_t)(Obj_CellY(o) * *(const float*)0x5c859c);
+    int32_t cx = (int32_t)(Obj_CellX(o) * *(const float*)rt3::Rdata(0x5c8568));
+    int32_t cy = (int32_t)(Obj_CellY(o) * *(const float*)rt3::Rdata(0x5c859c));
     int32_t m = (cx - cy) & 3;
     float a = 1.4375f, b = 1.4375f;
     if (m == 1) b = -1.4375f;
     else if (m == 2) a = b = -1.4375f;
     else if (m == 3) a = -1.4375f;
     if (alongX) {
-        *dir = b < *(const float*)0x5c8598 ? 0 : 4;
+        *dir = b < *(const float*)rt3::Rdata(0x5c8598) ? 0 : 4;
         *outX = a;
         *outY = 0.0f;
     } else {
-        *dir = a < *(const float*)0x5c8598 ? 6 : 2;
+        *dir = a < *(const float*)rt3::Rdata(0x5c8598) ? 6 : 2;
         *outX = 0.0f;
         *outY = b;
     }
@@ -983,8 +983,8 @@ RT3_REPLACE(0x401c50, Company_YearFinance);
 RT3_NOINLINE float __stdcall Map_SlopeAngle(float ax, float ay, float bx, float by) {
     float ha = (float)Terrain_HeightAtTile(Map(), 0, ax, ay);
     float hb = (float)Terrain_HeightAtTile(Map(), 0, bx, by);
-    float d = (float)(Distance2D(ax, ay, bx, by) * *(const float*)0x5c8700);
-    if (d == *(const float*)0x5c8598) *(uint32_t*)&d = 0x3c23d70a;
+    float d = (float)(Distance2D(ax, ay, bx, by) * *(const float*)rt3::Rdata(0x5c8700));
+    if (d == *(const float*)rt3::Rdata(0x5c8598)) *(uint32_t*)&d = 0x3c23d70a;
     return (float)crt::atan(((double)ha - hb) / d);
 }
 RT3_REPLACE(0x402c00, Map_SlopeAngle);
@@ -2398,7 +2398,7 @@ RT3_NOINLINE int32_t __fastcall Company_BestSite(int32_t* c) {
         if (!e[0] || !e[1] || !F<int32_t>(e, 0xa) || Obj_BuildingValue(s) != c[0]) continue;
         float v = F<float>(F<uint8_t**>(s, 0x5bd)[c[0]], 0x16);
         if (Obj_BuildingValue(s) == c[0] && !F<int32_t>(s, 0x5c1) && !F<int32_t>(s, 0x5c5))
-            v = (float)((double)v + *(const float*)0x5c86a0);
+            v = (float)((double)v + *(const float*)rt3::Rdata(0x5c86a0));
         if (bestId == -1 || v > bestVal) {
             bestId = F<int32_t>(s, 0);
             bestVal = v;

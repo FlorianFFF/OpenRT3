@@ -189,7 +189,7 @@ RT3_NOINLINE double __fastcall Player_Wealth(uint8_t* p, int, int32_t kind);
 RT3_NOINLINE int32_t __fastcall Stations_CargoLinked(Collection* sts, int, int32_t a, int32_t b, int32_t aIsRegion, int32_t bIsRegion, int32_t value);
 RT3_NOINLINE void __fastcall Tracks_Delete(Collection* pieces, int, uint32_t id, int32_t refund);
 
-static inline double D(uint32_t va) { return *(const double*)va; }
+static inline double D(uint32_t va) { return *(const double*)rt3::Rdata(va); }
 
 // 0x42c880 is Obj_FirstActiveInChain (objects4.cpp).
 static inline void* Chain_FirstActive(void* o) { return Obj_FirstActiveInChain(o); }
@@ -206,9 +206,9 @@ static inline int32_t AnyKind(uint8_t* r, uint8_t mask, int anyCond) {
     return 0;
 }
 
-static inline double D_125(uint32_t a) { return *(const double*)a; }
+static inline double D_125(uint32_t a) { return *(const double*)rt3::Rdata(a); }
 
-static inline float Fl(uint32_t a) { return *(const float*)a; }
+static inline float Fl(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 static inline Collection* Cargos() { return g_cargoTypes; }
 
@@ -228,7 +228,7 @@ static int32_t CargoQuota(uint8_t* o, int32_t i) {
     return r;
 }
 
-static inline double D_153(uint32_t a) { return *(const double*)a; }
+static inline double D_153(uint32_t a) { return *(const double*)rt3::Rdata(a); }
 
 static inline uint8_t* Map() { return g_map; }
 
@@ -255,9 +255,9 @@ static void CopyList(const uint8_t* src, uint8_t** head, uint32_t size, uint32_t
 
 static inline void Rd(Stream st, void* p, uint32_t n) { StreamRead(st, p, n, 0, 1); }
 
-static inline double D_202(uint32_t a) { return *(const double*)a; }
+static inline double D_202(uint32_t a) { return *(const double*)rt3::Rdata(a); }
 
-static inline double Fl_202(uint32_t a) { return *(const float*)a; }
+static inline double Fl_202(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 static inline int32_t Ftol(double v) {
     int32_t r;
@@ -269,9 +269,9 @@ static inline int32_t Ftol(double v) {
     return r;
 }
 
-static inline double D_205(uint32_t a) { return *(const double*)a; }
+static inline double D_205(uint32_t a) { return *(const double*)rt3::Rdata(a); }
 
-static inline double Fl_207(uint32_t a) { return *(const float*)a; }
+static inline double Fl_207(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 // 0x42c080. Lowers the u16 stock this[id] towards other[id] minus the
 // consumption (cargo weight +0x52 x stock, scaled) x f, never below its current value.

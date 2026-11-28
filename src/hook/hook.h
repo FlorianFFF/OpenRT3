@@ -74,6 +74,19 @@ template <typename T, typename U> inline T& As(U& g) {
 // src/core/ftol.cpp.
 extern "C" void Rt3_Ftol();
 
+// The game's read-only data (.rdata: constants, tables, strings) as the
+// rewrite's own copy (src/core/rdata.cpp, generated from RT3.exe at build
+// time): Rdata(a) is where the value at exe address a is, in the copy when a
+// lies in .rdata, else a itself. Reads only: pointers the game keeps or
+// compares (vtables, string pointers) stay exe addresses.
+extern "C" const unsigned char g_rt3Rdata[];
+namespace rt3 {
+constexpr uint32_t kRdataStart = 0x5c8000u, kRdataSize = 0x24adcu;
+inline const void* Rdata(uint32_t a) {
+    return a - kRdataStart < kRdataSize ? (const void*)(g_rt3Rdata + (a - kRdataStart)) : (const void*)(uintptr_t)a;
+}
+}  // namespace rt3
+
 // thiscall methods are reimplemented as __fastcall(this, edx_unused, args...).
 // Keeps a function out of line so the UI difftests can redirect every call to
 // it (tests/test_ui.cpp patches the entry point).

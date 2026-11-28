@@ -505,9 +505,9 @@ static inline void MarkWater(uint8_t* t, int32_t x, int32_t y, uint32_t keep2, u
     ((void(__thiscall*)(void*))(*(void***)cam)[0])(cam);
 }
 
-static inline double D(uint32_t a) { return *(const double*)a; }
+static inline double D(uint32_t a) { return *(const double*)rt3::Rdata(a); }
 
-static inline float Fl(uint32_t a) { return *(const float*)a; }
+static inline float Fl(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 static inline Collection* Cargos() { return g_cargoTypes; }
 
@@ -579,7 +579,7 @@ static void MarkBlocks(uint8_t* m, float x, float y, float r, uint8_t v, int32_t
 static inline float Bits(uint32_t u) { return *(float*)&u; }
 
 
-static inline double Fl_194(uint32_t a) { return *(const float*)a; }
+static inline double Fl_194(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 static inline int32_t Ftol(double v) {
     int32_t r;
@@ -591,9 +591,9 @@ static inline int32_t Ftol(double v) {
     return r;
 }
 
-static inline double Fl_195(uint32_t a) { return *(const float*)a; }
+static inline double Fl_195(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
-static inline double Fl_205(uint32_t a) { return *(const float*)a; }
+static inline double Fl_205(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 static inline float BitsF(uint32_t b) { return *(float*)&b; }
 
@@ -602,7 +602,7 @@ static inline uint32_t FBits(float f) { return *(uint32_t*)&f; }
 static inline double BitsD(uint64_t b) { return *(double*)&b; }
 
 
-static inline double Fl_207(uint32_t a) { return *(const float*)a; }
+static inline double Fl_207(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 // Checkerboard base colour: a, plus b on odd cells.
 static inline uint32_t Overview_Check(int32_t x, int32_t y, uint32_t odd, uint32_t base) { return (((x + y) & 1) ? odd : 0) + base; }
@@ -975,11 +975,11 @@ RT3_NOINLINE void __fastcall World_CreateTables(uint8_t* m, int, int32_t sx, int
     make(0x9c, Routes_Construct, 0x6cfcb4);
     make(0x8c, Collection5c9cec_Construct, 0x62be18);
     pump();
-    double a = (double)sx * *(const double*)0x5c8628 + *(const double*)0x5c85f0;
-    double x = *(const double*)0x5ca9f0 < a ? 146.0 : a;
+    double a = (double)sx * *(const double*)rt3::Rdata(0x5c8628) + *(const double*)rt3::Rdata(0x5c85f0);
+    double x = *(const double*)rt3::Rdata(0x5ca9f0) < a ? 146.0 : a;
     int32_t cx = (int32_t)x;
-    double b = (double)sy * *(const double*)0x5c8628 + *(const double*)0x5c85f0;
-    double y = *(const double*)0x5ca9e8 < b ? 128.0 : b;
+    double b = (double)sy * *(const double*)rt3::Rdata(0x5c8628) + *(const double*)rt3::Rdata(0x5c85f0);
+    double y = *(const double*)rt3::Rdata(0x5ca9e8) < b ? 128.0 : b;
     uint8_t* cam = (uint8_t*)crt::operator_new(0x3ba);
     if (cam) {
         float fz = (float)((int32_t)y * 0x5c), fx = (float)(cx * 0x5c);
@@ -1023,7 +1023,7 @@ RT3_REPLACE(0x448af0, Map_CellFlag);
 
 // 0x448bd0. Terrain height at tile coordinates (x 0x5c8700 world units).
 RT3_NOINLINE double __fastcall Terrain_HeightAtTile(uint8_t* r, int, float x, float z) {
-    const float k = *(const float*)0x5c8700;
+    const float k = *(const float*)rt3::Rdata(0x5c8700);
     float wz = (float)((double)z * k);
     float wx = (float)((double)x * k);
     return Terrain_HeightAt(r, 0, wx, wz);
@@ -1142,16 +1142,16 @@ RT3_NOINLINE float __stdcall DarknessOf(uint8_t b) {
     int32_t d = 0xff - b;
     if (d <= 0x5a) return 0.0f;
     float f = (float)(d - 0x5a);
-    return (float)((double)f / *(const float*)0x5ca9f8);
+    return (float)((double)f / *(const float*)rt3::Rdata(0x5ca9f8));
 }
 RT3_REPLACE(0x449050, DarknessOf);
 
 // 0x4490a0. Brightness byte of a darkness fraction: 0xff for <= 0, 0 for >= 1,
 // else 165 - 165 f (AL only on the first two paths).
 RT3_NOINLINE int32_t __stdcall BrightnessOf(float f) {
-    if (!(f > *(const float*)0x5c8598)) return 0xff;
-    if (!((double)f < *(const double*)0x5c8770)) return 0;
-    const float k = *(const float*)0x5ca9f8;
+    if (!(f > *(const float*)rt3::Rdata(0x5c8598))) return 0xff;
+    if (!((double)f < *(const double*)rt3::Rdata(0x5c8770))) return 0;
+    const float k = *(const float*)rt3::Rdata(0x5ca9f8);
     int32_t v = (int32_t)((double)k - (double)f * k);
     return v < 0 ? 0 : v;
 }
@@ -1163,7 +1163,7 @@ RT3_REPLACE(0x4490f0, Map_PointCount);
 // 0x449110. Terrain roughness (cached in +0x21c1): mean absolute height step
 // along the rows of the height grid +0x1605, divided by 15.
 float __fastcall Grid_Roughness(uint8_t* g) {
-    if (!(F<float>(g, 0x21c1) == *(const float*)0x5c8598)) return F<float>(g, 0x21c1);
+    if (!(F<float>(g, 0x21c1) == *(const float*)rt3::Rdata(0x5c8598))) return F<float>(g, 0x21c1);
     float sum = 0.0f;
     for (int32_t y = 0; y < F<int32_t>(g, 0x15d5); ++y) {
         float prev = 0.0f;
@@ -1177,7 +1177,7 @@ float __fastcall Grid_Roughness(uint8_t* g) {
     int32_t n = F<int32_t>(g, 0x15d9) * F<int32_t>(g, 0x15d5);
     if (n < 1) n = 1;
     float fn = (float)n;
-    float avg = (float)((double)sum / fn / *(const double*)0x5c8798);
+    float avg = (float)((double)sum / fn / *(const double*)rt3::Rdata(0x5c8798));
     F<float>(g, 0x21c1) = avg;
     return avg;
 }
@@ -1554,7 +1554,7 @@ RT3_NOINLINE float __fastcall Grid_Darkness(uint8_t* g, int, int32_t x, int32_t 
     int32_t d = 0xff - grid[(F<int32_t>(g, 0x15d9) + 1) * y + x];
     if (d <= 0x5a) return 0.0f;
     float f = (float)(d - 0x5a);
-    return (float)((double)f / *(const float*)0x5ca9f8);
+    return (float)((double)f / *(const float*)rt3::Rdata(0x5ca9f8));
 }
 RT3_REPLACE(0x44a930, Grid_Darkness);
 
@@ -3827,7 +3827,7 @@ RT3_REPLACE(0x452e10, Buildings_UpdateFor);
 // 0x452ea0. Tracks whether the value at (*0x62be68)+0x20 exceeds 0x5ca1c0
 // (+0x21a1); while +0x219d is set, each change adjusts two engine counters.
 RT3_NOINLINE void __fastcall Obj_UpdateThreshold(uint8_t* o) {
-    int32_t on = F<float>(g_62be68, 0x20) > *(const float*)0x5ca1c0 ? 1 : 0;
+    int32_t on = F<float>(g_62be68, 0x20) > *(const float*)rt3::Rdata(0x5ca1c0) ? 1 : 0;
     if (on == F<int32_t>(o, 0x21a1)) return;
     F<int32_t>(o, 0x21a1) = on;
     if (!F<int32_t>(o, 0x219d)) return;

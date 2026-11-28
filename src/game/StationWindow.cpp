@@ -329,9 +329,9 @@ RT3_NOINLINE uint8_t* __fastcall Scrollbar_Construct(uint8_t* w, int, const uint
 RT3_NOINLINE uint8_t* __fastcall EditBox_Construct(uint8_t* w, int, const uint8_t* def);
 RT3_NOINLINE uint8_t* __fastcall TimerWidget_Construct(uint8_t* w, int, const uint8_t* def);
 
-static inline double D(uint32_t a) { return *(const double*)a; }
+static inline double D(uint32_t a) { return *(const double*)rt3::Rdata(a); }
 
-static inline double Fl(uint32_t a) { return *(const float*)a; }
+static inline double Fl(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 
 static inline int32_t Ftol(double v) {
@@ -463,7 +463,7 @@ uint8_t* __fastcall SetupScreen_Construct(uint8_t* s) {
         for (int32_t id = 0xf6f; id <= 0xf71; ++id) Window_SendEvent5(s, 0, 0x78, (uint32_t)id, 0xa, 0, 0);
         Window_SendEvent5(s, 0, 0x78, 0xe88, 1, 0, 0);
         uint8_t* b = Widget_FindChild(s, 0, 0xe88);
-        float y = F<float>(b, 0xbc) - *(const float*)0x5d16d0;
+        float y = F<float>(b, 0xbc) - *(const float*)rt3::Rdata(0x5d16d0);
         F<uint32_t>(b, 0xc4) = 0x3d6eeeef;
         F<float>(b, 0xbc) = y;
         if (g_language == 2) Window_SendEvent5(s, 0, 0x78, 0xddf, 0xb, 0, 0);
@@ -1786,12 +1786,12 @@ RT3_REPLACE(0x508040, BuildingDialog_FindSpot);
 // 0x5084a0. Rounded value for building `id` (0x62b268, +0x78c set; v1.03+ only):
 // above 0x5c8d10 in steps of 100000, else of 50000.
 RT3_NOINLINE float __fastcall Building_RoundedValue(uint32_t id, int, float a) {
-    if (Game_EffectiveVersion() < 0x67) return *(const float*)0x5c8598;
+    if (Game_EffectiveVersion() < 0x67) return *(const float*)rt3::Rdata(0x5c8598);
     uint8_t* b = (uint8_t*)Collection_Get(g_62b268, 0, id);
-    if (!F<int32_t>(b, 0x78c)) return *(const float*)0x5c8598;
-    float v = (float)((double)a * *(const double*)0x5d08a0);
+    if (!F<int32_t>(b, 0x78c)) return *(const float*)rt3::Rdata(0x5c8598);
+    float v = (float)((double)a * *(const double*)rt3::Rdata(0x5d08a0));
     int32_t n;
-    if (a > *(const float*)0x5c8d10) {
+    if (a > *(const float*)rt3::Rdata(0x5c8d10)) {
         __asm {
             fld v
             fadd dword ptr ds:[0x5c8db0]

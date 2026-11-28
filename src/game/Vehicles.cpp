@@ -240,7 +240,7 @@ static void SaveWithRecords(Collection* t, Stream s, int32_t recordSize, uint32_
 
 static inline uint8_t* SoundSys() { return g_sound; }
 
-static inline double D(uint32_t a) { return *(const double*)a; }
+static inline double D(uint32_t a) { return *(const double*)rt3::Rdata(a); }
 
 // Formats string id with one argument and exits with it.
 static void FatalFormat(int32_t id, const char* arg) {
@@ -251,7 +251,7 @@ static void FatalFormat(int32_t id, const char* arg) {
 
 static inline uint8_t* Snd() { return g_sound; }
 
-static inline double Fl(uint32_t a) { return *(const float*)a; }
+static inline double Fl(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 static inline int32_t Ftol(double v) {
     int32_t r;
@@ -327,7 +327,7 @@ RT3_NOINLINE void __fastcall World_YearEnd(uint8_t* w) {
         } else {
             int32_t d = F<int32_t>(world, 0x15) - F<int32_t>(world, 0x4c88);
             if (d < 0) d = -d;
-            if (!((double)d < *(const double*)0x5c89b0)) F<int32_t>(w, 0x4d) = 1;
+            if (!((double)d < *(const double*)rt3::Rdata(0x5c89b0))) F<int32_t>(w, 0x4d) = 1;
         }
     }
     World_SetTime(w, 0, F<int32_t>(w, 0x15) + 1);
@@ -338,9 +338,9 @@ RT3_NOINLINE void __fastcall World_YearEnd(uint8_t* w) {
     int32_t decades = ((int32_t)F<uint16_t>(w, 0xd) - (int32_t)F<uint16_t>(w, 5)) / 10;
     float rate = F<float>(g_world, (decades < 4 ? decades : 4) * 4 + 0xbe6);
     if (decades >= 0x96) rate = 0.0f;
-    else if (decades >= 0x64) rate = (float)((double)rate * *(const double*)0x5c88e8);
-    else if (decades >= 0x46) rate = (float)((double)rate * *(const double*)0x5c8750);
-    F<float>(w, 0xbde) = (float)(((double)rate + *(const double*)0x5c8770) * F<float>(w, 0xbde));
+    else if (decades >= 0x64) rate = (float)((double)rate * *(const double*)rt3::Rdata(0x5c88e8));
+    else if (decades >= 0x46) rate = (float)((double)rate * *(const double*)rt3::Rdata(0x5c8750));
+    F<float>(w, 0xbde) = (float)(((double)rate + *(const double*)rt3::Rdata(0x5c8770)) * F<float>(w, 0xbde));
     for (int32_t i = 0; i < Table_CountField3f(g_companies); ++i)
         Company_YearEnd((uint8_t*)Table_NthField3f(g_companies, 0, i));
     for (int32_t i = 0; i < Table_CountField4(g_players); ++i)
@@ -653,11 +653,11 @@ RT3_NOINLINE void __fastcall Vehicles_MaybeSpawn(Collection* t, int, float chanc
     uint16_t year = F<uint16_t>(w, 0xd);
     int32_t cap = year > 0x7bc ? 6 : year > 0x79e ? 4 : (year > 0x78a) + 1;
     uint8_t* map = g_map;
-    if (F<int32_t>(map, 0x2159) * F<int32_t>(map, 0x2155) > 0x31704) cap = (int32_t)((double)cap * *(const double*)0x5c8578);
+    if (F<int32_t>(map, 0x2159) * F<int32_t>(map, 0x2155) > 0x31704) cap = (int32_t)((double)cap * *(const double*)rt3::Rdata(0x5c8578));
     if (F<int32_t>(w, 0x4c9a) > cap) return;
     int32_t y = year;
     if (F<int32_t>((uint8_t*)t, 0x8c) > y) return;
-    float r = (float)Rand(0, (int32_t)(*(const double*)0x5c8a18 / (double)cap));
+    float r = (float)Rand(0, (int32_t)(*(const double*)rt3::Rdata(0x5c8a18) / (double)cap));
     if (r > chance) return;
     int32_t best = -1, bestScore = -1;
     for (int32_t k = 0; k < F<int32_t>((uint8_t*)t, 0x88); ++k) {
@@ -698,8 +698,8 @@ RT3_NOINLINE uint32_t __fastcall Vehicles_MaybeSpawnFlight(Collection* t, int, f
     float heading = SceneObj_Angle2(lead);
     float x, y, z;
     SceneObj_GetPos(lead, 0, (uint32_t*)&x, (uint32_t*)&y, (uint32_t*)&z);
-    const float spread = *(const float*)0x5c8a28;
-    const double step = *(const double*)0x5c8a20;
+    const float spread = *(const float*)rt3::Rdata(0x5c8a28);
+    const double step = *(const double*)rt3::Rdata(0x5c8a20);
     float ha = (float)((double)heading - spread);
     float hb = (float)((double)heading + spread);
     float c[2], s[2];
@@ -708,7 +708,7 @@ RT3_NOINLINE uint32_t __fastcall Vehicles_MaybeSpawnFlight(Collection* t, int, f
     s[0] = (float)(crt::cos(ha) * step);
     s[1] = (float)(crt::cos(hb) * step);
     int32_t n = Rand(3, 6) - 1;
-    const float jitter = *(const float*)0x5c8554;
+    const float jitter = *(const float*)rt3::Rdata(0x5c8554);
     for (int32_t k = 0; k < n; ++k) {
         int32_t side = k & 1;
         float row = (float)((k >> 1) + 1);

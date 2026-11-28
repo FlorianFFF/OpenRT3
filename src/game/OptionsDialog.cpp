@@ -302,9 +302,9 @@ RT3_NOINLINE uint8_t* __fastcall TreeView_Construct(uint8_t* w, int, const uint8
 RT3_NOINLINE void __fastcall ListBox_Select(uint8_t* l, int, int32_t node, int32_t sound);
 RT3_NOINLINE uint8_t* __fastcall Button_Construct(uint8_t* w, int, const uint8_t* def);
 
-static inline double D(uint32_t a) { return *(const double*)a; }
+static inline double D(uint32_t a) { return *(const double*)rt3::Rdata(a); }
 
-static inline double Fl(uint32_t a) { return *(const float*)a; }
+static inline double Fl(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 
 
@@ -887,7 +887,7 @@ RT3_NOINLINE void __fastcall OptionsDialog_ShowSound(uint8_t* w) {
         Window_SendEvent5(w, 0, 0x88, 0x754f, (uint32_t)(uintptr_t)GetString(((const int32_t*)0x6229e4)[i]), (uint32_t)i, 0);
     Window_SendEvent5(w, 0, 0x68, 0x754f, (uint32_t)Sound_GetSpeakers(g_sound), 0, 0);
     for (uint32_t id = 0x7549; id < 0x754f; id += 2) Window_SendEvent5(w, 0, 0x73, id, 0xb, 0, 0);
-    const float ten = *(const float*)0x5c85f8;
+    const float ten = *(const float*)rt3::Rdata(0x5c85f8);
     Window_SendEvent5(w, 0, 0x6a, 0x7549, (uint32_t)Ftol((double)F<float>(g_engine, 0x1146fa) * ten), 0, 0);
     Window_SendEvent5(w, 0, 0x6a, 0x754b, (uint32_t)Ftol((double)F<float>(g_engine, 0x1146fe) * ten), 0, 0);
     Window_SendEvent5(w, 0, 0x6a, 0x754d, (uint32_t)Ftol((double)F<float>(g_engine, 0x114702) * ten), 0, 0);
@@ -910,7 +910,7 @@ RT3_NOINLINE void __fastcall OptionsDialog_ShowEngine(uint8_t* w) {
     for (int32_t i = 0; i < 3; ++i)
         Window_SendEvent5(w, 0, 0x88, 0x7574, (uint32_t)(uintptr_t)GetString(((const int32_t*)0x622928)[i]), (uint32_t)i, 0);
     Window_SendEvent5(w, 0, 0x66, 0x7574, F<uint32_t>(g_engine, 0x1146b3), 0, 0);
-    bool eq = (double)F<float>(g_engine, 0x1146af) == *(const double*)0x5c8628;
+    bool eq = (double)F<float>(g_engine, 0x1146af) == *(const double*)rt3::Rdata(0x5c8628);
     Window_SendEvent5(w, 0, 0x74, 0x7575, eq ? 1 : 0, 0, 0);
     Window_SendEvent5(w, 0, 0x74, 0x7576, g_engine[0x1146a8], 0, 0);
     Window_SendEvent5(w, 0, 0x74, 0x7577, g_engine[0x1146e3], 0, 0);
@@ -1166,7 +1166,7 @@ RT3_NOINLINE void __fastcall OptionsDialog_ShowDisplay(uint8_t* w) {
     if (g_engine[0x114226]) {
         Window_SendEvent5(w, 0, 0x73, 0x7558, 0x1f, 0, 0);
         float g = F<float>(g_engine, 0x1146b9);
-        int32_t v = Ftol(((double)g - *(const float*)0x5c8d48) * *(const float*)0x5c8784);
+        int32_t v = Ftol(((double)g - *(const float*)rt3::Rdata(0x5c8d48)) * *(const float*)rt3::Rdata(0x5c8784));
         Window_SendEvent5(w, 0, 0x66, 0x7558, (uint32_t)v, 0, 0);
     } else {
         Window_SendEvent5(w, 0, 0x87, 0x7558, 3, 0, 0);

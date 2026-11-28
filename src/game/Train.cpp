@@ -465,12 +465,12 @@ static inline void* FirstCar(uint8_t* t) {
 // 0x4a8ec0. Smooths the displayed speeds +0x18e (and +0x18a in state 0)
 // towards the target +0xcc (snapping when below 0.001).
 static void Smooth(uint8_t* t, uint32_t off) {
-    if ((double)F<float>(t, off) < *(const double*)0x5c8678) {
+    if ((double)F<float>(t, off) < *(const double*)rt3::Rdata(0x5c8678)) {
         F<uint32_t>(t, off) = F<uint32_t>(t, 0xcc);
         return;
     }
-    F<float>(t, off) = (float)((double)F<float>(t, 0xcc) * *(const double*)0x5c86b8 +
-                               (double)F<float>(t, off) * *(const double*)0x5c8888);
+    F<float>(t, off) = (float)((double)F<float>(t, 0xcc) * *(const double*)rt3::Rdata(0x5c86b8) +
+                               (double)F<float>(t, off) * *(const double*)rt3::Rdata(0x5c8888));
 }
 
 // 0x4aadd0 / 0x4aae40. Leaves / enters the station site +0xa4 (its train counter +0x58c).
@@ -480,9 +480,9 @@ static uint8_t* StationSite(uint8_t* t) {
     return (uint8_t*)Collection_Get(g_stations, 0, F<uint32_t>(t, 0xa4));
 }
 
-static inline double D(uint32_t a) { return *(const double*)a; }
+static inline double D(uint32_t a) { return *(const double*)rt3::Rdata(a); }
 
-static inline float Fl(uint32_t a) { return *(const float*)a; }
+static inline float Fl(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 static inline uint8_t* World() { return g_world; }
 
@@ -546,7 +546,7 @@ static inline uint32_t EngineRegion(uint8_t* t) {
     return Map_GridByte(hook::As<void*>(g_map), 0, (float)Obj_CellX(e), y);
 }
 
-static inline double Fl_195(uint32_t a) { return *(const float*)a; }
+static inline double Fl_195(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 // Bend at a track node between headings h and the neighbour's: |delta|, beyond the
 // threshold folded back (v1.03+) or reduced.
@@ -622,10 +622,10 @@ uint32_t TrainRegion(uint8_t* t) {
 // Wears meter *m down by `by` (more, x 0x5c88e8, below 0x5c8628 when
 // `harsh`), not below 0.
 void TrainWear(float* m, float by, bool harsh) {
-    if (harsh && *m < *(const double*)0x5c8628) by = (float)((double)by * *(const double*)0x5c88e8);
+    if (harsh && *m < *(const double*)rt3::Rdata(0x5c8628)) by = (float)((double)by * *(const double*)rt3::Rdata(0x5c88e8));
     float v = (float)((double)*m - by);
     *m = v;
-    if (v < *(const float*)0x5c8598) *m = 0.0f;
+    if (v < *(const float*)rt3::Rdata(0x5c8598)) *m = 0.0f;
 }
 }
 
@@ -636,7 +636,7 @@ static void TookSwitch(uint8_t* t, uint32_t node, bool side, int32_t* switched) 
     *switched = 1;
 }
 
-static inline double Fl_205(uint32_t a) { return *(const float*)a; }
+static inline double Fl_205(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 static inline int32_t Ftol_205(double v) {
     int32_t r;
@@ -661,7 +661,7 @@ static void Train_ApplyGhost(uint8_t* train, uint32_t alpha) {
     }
 }
 
-static inline double Fl_207(uint32_t a) { return *(const float*)a; }
+static inline double Fl_207(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 static inline int32_t Ftol_207(double v) {
     int32_t r;
@@ -1052,13 +1052,13 @@ RT3_REPLACE(0x4a6e70, Train_AddRevenue);
 // 0x4a6f20. Speed factor of a gradient/curve value: positive: (1 + v/(pi/2)*24.5)^2;
 // otherwise 1 + 12v, at least 0.2.
 RT3_NOINLINE double __stdcall SpeedFactor(float v) {
-    if (v > *(const float*)0x5c8598) {
-        float r = (float)((double)v / *(const float*)0x5c8764 * *(const double*)0x5d0050 + *(const double*)0x5c8770);
+    if (v > *(const float*)rt3::Rdata(0x5c8598)) {
+        float r = (float)((double)v / *(const float*)rt3::Rdata(0x5c8764) * *(const double*)rt3::Rdata(0x5d0050) + *(const double*)rt3::Rdata(0x5c8770));
         r = (float)((double)r * r);
         return r;
     }
-    float r = (float)((double)v * *(const float*)0x5c8788 + *(const double*)0x5c8770);
-    if (r < *(const double*)0x5c8c20) return (float)0.2;
+    float r = (float)((double)v * *(const float*)rt3::Rdata(0x5c8788) + *(const double*)rt3::Rdata(0x5c8770));
+    if (r < *(const double*)rt3::Rdata(0x5c8c20)) return (float)0.2;
     return (float)(double)r;
 }
 RT3_REPLACE(0x4a6f20, SpeedFactor);
@@ -1099,8 +1099,8 @@ RT3_NOINLINE void __fastcall Train_Whistle(uint8_t* o, int, int32_t n) {
     int32_t delay = 0;
     for (; n; --n, delay += 0x7d) {
         int32_t level = 10 - F<int32_t>(g_app, 0x31d);
-        float vol = (float)((double)level / *(const double*)0x5c85f0 * FromBits(e[0]));
-        if (vol <= *(const float*)0x5c8598) continue;
+        float vol = (float)((double)level / *(const double*)rt3::Rdata(0x5c85f0) * FromBits(e[0]));
+        if (vol <= *(const float*)rt3::Rdata(0x5c8598)) continue;
         uint32_t key = Sound_Play2D(Snd(), 0, (const char*)e[1], vol, 0x3f000000, 0, 1, nullptr);
         if (!key) continue;
         uint8_t* p = (uint8_t*)Sound_LookupSample(Snd(), 0, key, 0);
@@ -1114,7 +1114,7 @@ RT3_REPLACE(0x4a7070, Train_Whistle);
 
 // 0x4a7170. Sets the speed target +0xcc (clearing +0x1d8) unless v is at most 0x5d0058.
 RT3_NOINLINE void __fastcall Train_SetTarget(uint8_t* t, int, float v) {
-    if (*(const float*)0x5d0058 >= v) {
+    if (*(const float*)rt3::Rdata(0x5d0058) >= v) {
         t[0x1d8] = 1;
         return;
     }
@@ -1188,7 +1188,7 @@ RT3_REPLACE(0x4a7350, Nop4a7350);
 // 0x4a7360. State 1 with speed +0xf0 at most 0.01 (stopped).
 RT3_NOINLINE int32_t __fastcall Train_IsStopped(uint8_t* t) {
     if (F<int32_t>(t, 0xe8) != 1) return 0;
-    return (double)F<float>(t, 0xf0) <= *(const double*)0x5c85b8 ? 1 : 0;
+    return (double)F<float>(t, 0xf0) <= *(const double*)rt3::Rdata(0x5c85b8) ? 1 : 0;
 }
 RT3_REPLACE(0x4a7360, Train_IsStopped);
 
@@ -1390,7 +1390,7 @@ RT3_NOINLINE int32_t __stdcall Obj_FarFromSiteBuilding(uint8_t* obj, void* site)
     float dy = (float)((double)p2[1] - p1[1]);
     float dx = (float)((double)p2[0] - p1[0]);
     float d = (float)((double)dx * dx + (double)dy * dy + (double)dz * dz);
-    return d >= *(const float*)0x5d005c ? 1 : 0;
+    return d >= *(const float*)rt3::Rdata(0x5d005c) ? 1 : 0;
 }
 RT3_REPLACE(0x4a7970, Obj_FarFromSiteBuilding);
 
@@ -3091,7 +3091,7 @@ RT3_NOINLINE int32_t __fastcall Train_LoadConsist(uint8_t* train, int, uint8_t* 
         uint8_t* type = ((uint8_t*)Obj_Ref388((void*)(car)));
         if (F_train_loading<int32_t>(type, 0x41) == 1) {
             cargos[count++] = F_train_loading<uint32_t>(car, 0x38c);
-            if (F_train_loading<float>(car, 0x398) < *(const float*)0x5c85b4) Load(car, station, destination);
+            if (F_train_loading<float>(car, 0x398) < *(const float*)rt3::Rdata(0x5c85b4)) Load(car, station, destination);
         }
         car = ((uint8_t*)Obj_City352((void*)(car)));
     }
@@ -3200,7 +3200,7 @@ RT3_NOINLINE int32_t __fastcall Train_LoadConsist(uint8_t* train, int, uint8_t* 
         Load(car, station, destination);
     }
     int32_t result = count >= minimum ? 1 : 0;
-    if (!(F_train_loading<float>(train, 0xf0) < *(const float*)0x5d0088)) F_train_loading<uint32_t>(train, 0xf0) = 0;
+    if (!(F_train_loading<float>(train, 0xf0) < *(const float*)rt3::Rdata(0x5d0088))) F_train_loading<uint32_t>(train, 0xf0) = 0;
     return result;
 }
 RT3_REPLACE(0x4ac6d0, Train_LoadConsist);
@@ -4077,7 +4077,7 @@ RT3_NOINLINE void __fastcall Train_RandomMishap(uint8_t* t) {
     int32_t n = Collection_Count(g_trains);
     uint32_t k = n > 0x2bc ? 0x5c8988 : n > 0x1f4 ? 0x5c9c50 : n > 0xfa ? 0x5c88c8 : n > 0x50 ? 0x5c8628 : n > 0x28 ? 0x5c8680 : n > 0x14 ? 0x5c85a0 : 0;
     if (k) base = (int32_t)((double)base * *(const double*)k);
-    int32_t chance = (int32_t)((double)base * *(const double*)0x5c8680);
+    int32_t chance = (int32_t)((double)base * *(const double*)rt3::Rdata(0x5c8680));
     if ((int32_t)F<uint16_t>(g_world, 0xd) <= F<int32_t>(t, 0xd4) + 3) chance = -1;
     if (F<int32_t>(g_world, 0x4aff) || IsMultiplayer()) {
         Train_BreakDown(t, 0, 0);
@@ -4104,17 +4104,17 @@ RT3_NOINLINE void __fastcall Train_TickWear(uint8_t* t) {
         harsh = true;
     uint8_t* tp = (uint8_t*)Obj_Ref388(F<int32_t>(t, 0x41) == -1 ? nullptr : Collection_Get(g_62ba84, 0, F<uint32_t>(t, 0x41)));
     uint8_t* eng = (uint8_t*)Collection_Get(g_6ada84, 0, F<uint32_t>(tp, 0x126));
-    const float zero = *(const float*)0x5c8598;
+    const float zero = *(const float*)rt3::Rdata(0x5c8598);
     if (!F<int32_t>(eng, 0x10) && F<float>(t, 0xe0) > zero) {
         uint32_t player = F<uint32_t>((uint8_t*)Collection_Get(g_companies, 0, F<uint32_t>(t, 0x51)), 0x3b);
         uint32_t grid = Obj_CityGridByte(t);
-        float by = (float)((double)Effects_Multiplier(g_world, 0, 100, F<uint32_t>(t, 0x51), player, grid) * *(const float*)0x5d00b4);
+        float by = (float)((double)Effects_Multiplier(g_world, 0, 100, F<uint32_t>(t, 0x51), player, grid) * *(const float*)rt3::Rdata(0x5d00b4));
         TrainWear(&F<float>(t, 0xe0), by, harsh);
     }
     if (F<float>(t, 0xdc) > zero) {
         uint32_t region = TrainRegion(t);
         uint32_t player = F<uint32_t>((uint8_t*)Collection_Get(g_companies, 0, F<uint32_t>(t, 0x51)), 0x3b);
-        float by = (float)((double)Effects_Multiplier(g_world, 0, 0x62, F<uint32_t>(t, 0x51), player, region) * *(const float*)0x5d00b0);
+        float by = (float)((double)Effects_Multiplier(g_world, 0, 0x62, F<uint32_t>(t, 0x51), player, region) * *(const float*)rt3::Rdata(0x5d00b0));
         TrainWear(&F<float>(t, 0xdc), by, harsh);
     }
     if (F<float>(t, 0xe4) > zero) {
@@ -4125,8 +4125,8 @@ RT3_NOINLINE void __fastcall Train_TickWear(uint8_t* t) {
         uint32_t region = TrainRegion(t);
         uint32_t player = F<uint32_t>((uint8_t*)Collection_Get(g_companies, 0, F<uint32_t>(t, 0x51)), 0x3b);
         float mult = Effects_Multiplier(g_world, 0, 0x63, F<uint32_t>(t, 0x51), player, region);
-        float by = (float)((double)tilt * *(const double*)0x5d00a8 * mult);
-        by = (float)((double)by * *(const double*)0x5c87f0);
+        float by = (float)((double)tilt * *(const double*)rt3::Rdata(0x5d00a8) * mult);
+        by = (float)((double)by * *(const double*)rt3::Rdata(0x5c87f0));
         TrainWear(&F<float>(t, 0xe4), by, harsh);
     }
     if (++t[0x1c5] < 0x28) return;
@@ -4142,20 +4142,20 @@ RT3_NOINLINE void __fastcall Train_TickWear(uint8_t* t) {
                     Company_OwnerFlag1e1(Collection_Get(g_companies, 0, owner)))
                     chance = 0.0f;
                 else
-                    chance = (float)((double)chance * *(const double*)0x5c8628);
+                    chance = (float)((double)chance * *(const double*)rt3::Rdata(0x5c8628));
             }
         }
     }
-    chance = (float)((double)chance * *(const float*)0x5c8d4c);
+    chance = (float)((double)chance * *(const float*)rt3::Rdata(0x5c8d4c));
     uint8_t* w = g_world;
     int32_t year = F<uint16_t>(w, 0xd);
     if (year <= F<int32_t>(t, 0xd4) || (year == F<int32_t>(t, 0xd4) + 1 && w[0xf] <= 6)) chance = 0.0f;
     int32_t st = F<int32_t>(t, 0xe8);
     if (st == 0x12 || st == 0x11 || st == 0xb || st == 0xc || st == 0xd) chance = 0.0f;
-    chance = (float)((double)chance * *(const double*)0x5c85a0);
+    chance = (float)((double)chance * *(const double*)rt3::Rdata(0x5c85a0));
     if (!(chance > zero)) return;
     float r = (float)SimRand(0, 30000);
-    if (!((double)chance * *(const float*)0x5c8950 >= r)) return;
+    if (!((double)chance * *(const float*)rt3::Rdata(0x5c8950) >= r)) return;
     Train_RandomMishap(t);
 }
 RT3_REPLACE(0x4afa10, Train_TickWear);

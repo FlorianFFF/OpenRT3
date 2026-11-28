@@ -222,11 +222,11 @@ RT3_NOINLINE uint8_t* __fastcall TreeView_Construct(uint8_t* w, int, const uint8
 RT3_NOINLINE void __fastcall TextLink_Draw(uint8_t* win, uint8_t* font, const char* text, float x, float y, float w, float h, int32_t align, int32_t valign, uint32_t flags, const char* tip, int32_t id, uint32_t color, uint32_t hover);
 RT3_NOINLINE uint8_t* __fastcall Button_Construct(uint8_t* w, int, const uint8_t* def);
 
-static inline float Kf(uint32_t a) { return *(const float*)a; }
+static inline float Kf(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
-static inline double D(uint32_t a) { return *(const double*)a; }
+static inline double D(uint32_t a) { return *(const double*)rt3::Rdata(a); }
 
-static inline double Fl(uint32_t a) { return *(const float*)a; }
+static inline double Fl(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 
 
@@ -619,11 +619,11 @@ RT3_REPLACE(0x4c75e0, CreditsScreen_HandleEvent);
 // (0x6cfe9c); posts event 0xcc once the logo has scrolled off the top.
 RT3_NOINLINE void __fastcall Credits_Draw(uint8_t* o, int, float x, float w) {
     float y = (float)(ClockMs() - F<int32_t>(o, 0x174));
-    if (y < *(const float*)0x5c8598) {
+    if (y < *(const float*)rt3::Rdata(0x5c8598)) {
         F<int32_t>(o, 0x174) = ClockMs();
         y = 0.0f;
     }
-    y = (float)(*(const float*)0x5d0990 - (double)y / *(const float*)0x5d0994);
+    y = (float)(*(const float*)rt3::Rdata(0x5d0990) - (double)y / *(const float*)rt3::Rdata(0x5d0994));
     const char* line = (const char*)o + 0x184;
     for (int32_t i = 0; i < F<int32_t>(o, 0x3ed6c); ++i, line += 0x404) {
         int32_t kind = *(const int32_t*)(line + 0x400);
@@ -632,7 +632,7 @@ RT3_NOINLINE void __fastcall Credits_Draw(uint8_t* o, int, float x, float w) {
             font = g_6cfe90;
             Font_DrawTextBox(font, 0, line, x, y, w, 1.0f, 0xffffff00, 0, 1, 0, 1.0f);
         } else if (kind == 2) {  // the line gap stays added for the lines below
-            y = (float)(Scroll_Total(g_6cfe94) * *(const double*)0x5c8880 + y);
+            y = (float)(Scroll_Total(g_6cfe94) * *(const double*)rt3::Rdata(0x5c8880) + y);
             font = g_6cfe94;
             Font_DrawTextBox(font, 0, line, x, y, w, 1.0f, 0xffffffff, 0, 1, 1, 1.0f);
         } else {
@@ -642,13 +642,13 @@ RT3_NOINLINE void __fastcall Credits_Draw(uint8_t* o, int, float x, float w) {
         }
         y = (float)(Font_TextHeight(font, 0, line, w, nullptr) + y);
     }
-    float ly = (float)((double)y + *(const float*)0x5d098c);
-    float lx = (float)((double)x + *(const float*)0x5d0988);
+    float ly = (float)((double)y + *(const float*)rt3::Rdata(0x5d098c));
+    float lx = (float)((double)x + *(const float*)rt3::Rdata(0x5d0988));
     uint8_t* logo = (uint8_t*)(uintptr_t)Table_Entry(g_6cfe9c, 0, 0);
     Glyph_Queue(logo, 0, lx, ly, 0x3f800000, 1.0f, 1.0f, 0xffffffff, 0, 1, 0, 0.0f, 0.0f, 1.0f, 1.0f);
     uint8_t* logo2 = (uint8_t*)(uintptr_t)Table_Entry(g_6cfe9c, 0, 0);
-    float end = (float)(Slider_StepB(logo2) + y + *(const float*)0x5d0984);
-    if (end < *(const float*)0x5c8598) Game_PostInputEvent(0xcc, 0, 2, 0, 0);
+    float end = (float)(Slider_StepB(logo2) + y + *(const float*)rt3::Rdata(0x5d0984));
+    if (end < *(const float*)rt3::Rdata(0x5c8598)) Game_PostInputEvent(0xcc, 0, 2, 0, 0);
 }
 RT3_REPLACE(0x4c78a0, Credits_Draw);
 
@@ -667,7 +667,7 @@ RT3_NOINLINE void __fastcall Ticker_PickNext(uint8_t* t) {
         prev = r;
         F<int32_t>(t, 0x7c + r * 8) = 5;
     }
-    float room = (float)((double)*(const float*)0x5d0998 -
+    float room = (float)((double)*(const float*)rt3::Rdata(0x5d0998) -
                          Slider_StepB((uint8_t*)Table_Entry(F<uint8_t*>(t, 0x17c), 0, 0)));
     double w = Slider_StepB((uint8_t*)Table_Entry(F<uint8_t*>(t, 0x180), 0, 0));
     if (w > room || F<int32_t>(t, 0x178) == 1) F<int32_t>(t, 0x180) = 0;
@@ -718,14 +718,14 @@ RT3_NOINLINE void __fastcall Ticker_Draw(uint8_t* t, int, float x, float y, floa
     if (!F<int32_t>(t, 0x180)) a1 = (float)(el < 8000 ? el : 8000);
     if (a1 < Kf(0x5c88e0)) a1 = (float)((double)a1 / Kf(0x5c88e0));
     else if (a1 < Kf(0x5c9b0c)) a1 = 1.0f;
-    else if (a1 <= Kf(0x5ca1c4)) a1 = (float)(*(const double*)0x5c8770 - ((double)a1 - Kf(0x5c9b0c)) / Kf(0x5c88e0));
+    else if (a1 <= Kf(0x5ca1c4)) a1 = (float)(*(const double*)rt3::Rdata(0x5c8770) - ((double)a1 - Kf(0x5c9b0c)) / Kf(0x5c88e0));
     else a1 = 0.0f;
     float a2 = fel;
     if (F<int32_t>(t, 0x180)) {
         if (a2 < Kf(0x5c88e0)) a2 = 0.0f;
         else if (!(a2 < Kf(0x5ca1c8)) && a2 < Kf(0x5ca1c4)) a2 = 1.0f;
         else if (a2 < Kf(0x5ca1c8)) a2 = (float)(((double)a2 - Kf(0x5c88e0)) / Kf(0x5c88e0));
-        else a2 = (float)(*(const double*)0x5c8770 - ((double)a2 - Kf(0x5ca1c4)) / Kf(0x5c88e0));
+        else a2 = (float)(*(const double*)rt3::Rdata(0x5c8770) - ((double)a2 - Kf(0x5ca1c4)) / Kf(0x5c88e0));
     }
     float alpha = F<int32_t>(t, 0x178) == 2 && F<int32_t>(t, 0x180) ? a2 : a1;
     float x1 = (float)(((double)Kf(0x5d09b4) - Slider_StepA((uint8_t*)Table_Entry(F<uint8_t*>(t, 0x17c), 0, 0))) / Kf(0x5c878c) + x);

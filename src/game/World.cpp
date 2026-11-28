@@ -414,16 +414,16 @@ static int32_t FindNamed(Collection* t, const char* name, uint32_t valueOffset) 
 
 // 0x434130. Era factor +0x4ca2: 0.33 + 0.67 (1 - (year - 1850) / 150), clamped to [0.33, 1].
 static void __fastcall World_UpdateEraFactor_Impl(uint8_t* w) {
-    double t = (double)(F<uint16_t>(w, 0xd) - 0x73a) / *(const double*)0x5c9680;
-    float f = (float)((*(const double*)0x5c8770 - t) * *(const double*)0x5c9ef8 + *(const double*)0x5c8d80);
+    double t = (double)(F<uint16_t>(w, 0xd) - 0x73a) / *(const double*)rt3::Rdata(0x5c9680);
+    float f = (float)((*(const double*)rt3::Rdata(0x5c8770) - t) * *(const double*)rt3::Rdata(0x5c9ef8) + *(const double*)rt3::Rdata(0x5c8d80));
     F<float>(w, 0x4ca2) = f;
-    double d = (double)f < *(const double*)0x5c8d80 ? 0.33 : (double)f;
+    double d = (double)f < *(const double*)rt3::Rdata(0x5c8d80) ? 0.33 : (double)f;
     float f2 = (float)d;
     F<float>(w, 0x4ca2) = f2;
-    if ((double)f2 > *(const double*)0x5c8770) F<float>(w, 0x4ca2) = 1.0f;
+    if ((double)f2 > *(const double*)rt3::Rdata(0x5c8770)) F<float>(w, 0x4ca2) = 1.0f;
 }
 
-static inline double D(uint32_t a) { return *(const double*)a; }
+static inline double D(uint32_t a) { return *(const double*)rt3::Rdata(a); }
 
 static inline uint8_t* World() { return g_world; }
 
@@ -436,9 +436,9 @@ static inline void FirstCargoName(char* dst, int32_t pos) {
     strcpy(dst, (const char*)Collection_Get(c, 0, Collection_IdAt(c, 0, pos, 0)) + 4);
 }
 
-static inline float Fl(uint32_t a) { return *(const float*)a; }
+static inline float Fl(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
-static inline double Fl_204(uint32_t a) { return *(const float*)a; }
+static inline double Fl_204(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 static inline int32_t Ftol(double v) {
     int32_t r;
@@ -465,7 +465,7 @@ static int32_t Industries_Count(const char* name) {
                                (int32_t)Table_FindByName2(g_62b268, 0, name, 0));
 }
 
-static inline double Fl_207(uint32_t a) { return *(const float*)a; }
+static inline double Fl_207(uint32_t a) { return *(const float*)rt3::Rdata(a); }
 
 static inline int32_t View_Mode() { return F<int32_t>(g_gameWindow, 0x8c); }
 
@@ -1004,7 +1004,7 @@ RT3_REPLACE(0x433730, Nop433730);
 
 // 0x433740. +0x29 rounded down to 1/100 (after adding 0.001).
 double __fastcall Obj_Rounded29(void* o) {
-    const double eps = *(const double*)0x5c8678, hundred = *(const double*)0x5c85d8;
+    const double eps = *(const double*)rt3::Rdata(0x5c8678), hundred = *(const double*)rt3::Rdata(0x5c85d8);
     int32_t c = Ftol(((double)F<float>(o, 0x29) + eps) * hundred);  // (the exe's _ftol: beyond 32 bits, the low word)
     float r = (float)((double)c / hundred);
     return r;
@@ -1159,7 +1159,7 @@ RT3_NOINLINE void __fastcall Economy_UpdateEraFactors(uint8_t* o) {
         int32_t span = tab[i * 2 + 2] - y0;
         if (span < 1) span = 1;
         float t = (float)((double)(float)(year - y0) / (float)span);
-        if (t < *(const float*)0x5c8598 || (double)t > D(0x5c8770)) t = 0.0f;
+        if (t < *(const float*)rt3::Rdata(0x5c8598) || (double)t > D(0x5c8770)) t = 0.0f;
         double prev = (double)tab[i * 2 + 1];
         float next = (float)tab[i * 2 + 3];
         v = (D(0x5c8770) - t) * prev + (double)next * t;
@@ -1268,7 +1268,7 @@ RT3_REPLACE(0x434060, World_IsHostOrLocal);
 // 0x434080. +0x4cbe if above the threshold 0x5c8a20, else 50.
 RT3_NOINLINE float __fastcall World_Value4cbe(void* w) {
     float f = F<float>(w, 0x4cbe);
-    if ((double)f > *(const double*)0x5c8a20) return f;
+    if ((double)f > *(const double*)rt3::Rdata(0x5c8a20)) return f;
     return 50.0f;
 }
 RT3_REPLACE(0x434080, World_Value4cbe);
@@ -1808,7 +1808,7 @@ RT3_REPLACE(0x435610, Global6d0818Is25);
 // Then rebuilds each template's recipe table (count -0x3b0, 0xbc-byte entries at
 // -0x3ac) and the industries' port/warehouse lists.
 RT3_NOINLINE void __fastcall Templates_Normalize(uint8_t* self) {
-    const float lim = *(const float*)0x5c85b4;
+    const float lim = *(const float*)rt3::Rdata(0x5c85b4);
     uint8_t* t = self + 0x13d4;
     for (int32_t k = 12; k; --k, t += 0x4e1) {
         if (F<float>(t, 0) < lim) F<uint32_t>(t, 0) = 0x40800000;
