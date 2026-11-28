@@ -9,11 +9,13 @@ mouse and keys) and, once the game runs, saves after N frames and exits.
                             [--client-delay=<seconds>] [--timeout=<seconds>] [--off=Name,...] [--offfile=<file>] [--quit]
                             [--client-nomaps]
 
---client-nomaps runs the client from a second mirror without scenarios, so the
-host sends it the map before the game starts (the map transfer messages).
-The game in that mirror is a program of its own to Windows Firewall: it must
-be allowed to accept connections, as the one in the main mirror is, or the
-client cannot join.
+--client-nomaps runs the client from a second mirror without scenarios. The
+game does not send a missing scenario: the client joins and is then refused
+("you do not have the required map"), so no game starts. (The transfer
+messages belong to a host loading a saved game with "Transfer save game to
+all players"; scripting that flow is still open.) The game in that mirror is
+a program of its own to Windows Firewall: it must be allowed to accept
+connections, as the one in the main mirror is, or the client cannot join.
 
 tools/mp_host.txt / mp_client.txt only start a game; tools/mp_host_play.txt /
 mp_client_play.txt also play it (companies, stations, track, a train).

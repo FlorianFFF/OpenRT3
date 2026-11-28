@@ -146,8 +146,8 @@ def build(mirror=MIRROR, maps=True):
         if m.name.lower() in {"dinput8.dll", "dinput8.dll.bak"} and m.is_file():
             m.unlink()
     if not maps:
-        # No scenarios of its own: a client from here has the host send the
-        # map. Links to the game's maps go (dropping a link keeps the game's
+        # No scenarios of its own (a client from here is refused by the host:
+        # the game does not send scenarios). Links to the game's maps go (dropping a link keeps the game's
         # file), and so does a map an earlier run received.
         maps_dir = mirror / "maps"
         if is_junction(maps_dir) or maps_dir.resolve() == (GAME / "maps").resolve():
